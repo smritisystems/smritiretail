@@ -258,147 +258,174 @@ export async function seedDefaultUsers() {
        WHERE username IN ('super', 'manager', 'cashier') AND (company_id IS NULL OR branch_id IS NULL)`
     );
 
-    const checkSuper = await client.query("SELECT COUNT(*) FROM users WHERE username = 'super'");
-    const superCount = parseInt(checkSuper.rows[0].count, 10);
-    if (superCount === 0) {
-      console.log("[SMRITI DB] Seeding default users into PostgreSQL...");
-      const { hashPassword } = await import("../lib/helpers.js");
-      
-      const defaultUsers = [
-        {
-          id: "usr-super",
-          username: "super",
-          email: "super@smritibooks.com",
-          mobile: "9999999999",
-          password: "whynothing",
-          role: "SYSADMIN",
-          fullName: "SYSTEM ADMINISTRATOR",
-          displayName: "Super",
-          employeeId: "EMP-001",
-          employeeCode: "EMP-001",
-          gender: "Male",
-          dateOfBirth: "1980-01-01",
-          address: "System Root",
-          city: "Mumbai",
-          state: "Maharashtra",
-          pinCode: "400001",
-          status: "Active",
-          dateOfJoining: "2026-07-10",
-          reportingManager: "",
-          employmentType: "Permanent",
-          allowedBranches: JSON.stringify(["HQ Store"]),
-          preferences: JSON.stringify({ theme: "dark", language: "English", timeZone: "Asia/Kolkata" }),
-          notificationSettings: JSON.stringify({
-            salaryCredit: true,
-            commissionEarned: true,
-            targetAchievement: true,
-            travelClaimApproval: true,
-            leaveApproval: true,
-            attendanceAlerts: true,
-            holidayWeeklyOff: true,
-            birthdayAnniversary: true,
-            policyAnnouncements: true
-          })
-        },
-        {
-          id: "usr-manager",
-          username: "manager",
-          email: "manager@smritibooks.com",
-          mobile: "9876543210",
-          password: "Password@123",
-          role: "MANAGER",
-          fullName: "STORE MANAGER",
-          displayName: "Manager",
-          employeeId: "EMP-002",
-          employeeCode: "EMP-002",
-          gender: "Male",
-          dateOfBirth: "1985-05-15",
-          address: "HQ Store Area",
-          city: "Mumbai",
-          state: "Maharashtra",
-          pinCode: "400001",
-          status: "Active",
-          dateOfJoining: "2026-07-10",
-          reportingManager: "",
-          employmentType: "Permanent",
-          allowedBranches: JSON.stringify(["HQ Store"]),
-          preferences: JSON.stringify({ theme: "dark", language: "English", timeZone: "Asia/Kolkata" }),
-          notificationSettings: JSON.stringify({
-            salaryCredit: true,
-            commissionEarned: true,
-            targetAchievement: true,
-            travelClaimApproval: true,
-            leaveApproval: true,
-            attendanceAlerts: true,
-            holidayWeeklyOff: true,
-            birthdayAnniversary: true,
-            policyAnnouncements: true
-          })
-        },
-        {
-          id: "usr-cashier",
-          username: "cashier",
-          email: "cashier@smritibooks.com",
-          mobile: "9876543211",
-          password: "cashier123",
-          role: "CASHIER",
-          fullName: "CASHIER OPERATOR",
-          displayName: "Cashier",
-          employeeId: "EMP-003",
-          employeeCode: "EMP-003",
-          gender: "Female",
-          dateOfBirth: "1992-08-20",
-          address: "Billing Counter 1",
-          city: "Mumbai",
-          state: "Maharashtra",
-          pinCode: "400001",
-          status: "Active",
-          dateOfJoining: "2026-07-10",
-          reportingManager: "",
-          employmentType: "Permanent",
-          allowedBranches: JSON.stringify(["HQ Store"]),
-          preferences: JSON.stringify({ theme: "dark", language: "English", timeZone: "Asia/Kolkata" }),
-          notificationSettings: JSON.stringify({
-            salaryCredit: true,
-            commissionEarned: true,
-            targetAchievement: true,
-            travelClaimApproval: true,
-            leaveApproval: true,
-            attendanceAlerts: true,
-            holidayWeeklyOff: true,
-            birthdayAnniversary: true,
-            policyAnnouncements: true
-          })
-        }
-      ];
+    const existingUsersRes = await client.query(
+      "SELECT username FROM users WHERE username IN ('super', 'manager', 'cashier')"
+    );
+    const existingUsernames = new Set(existingUsersRes.rows.map((row) => row.username));
 
-      for (const u of defaultUsers) {
-        const hashedPassword = hashPassword(u.password);
-        await client.query(
-          `INSERT INTO users (
-            id, uuid, username, email, mobile, hashed_password, role, is_active, is_deleted,
-            full_name, display_name, employee_id, employee_code, gender, date_of_birth,
-            address, city, state, country, pin_code, status, date_of_joining, reporting_manager,
-            employment_type, allowed_branches, preferences_json, notification_settings_json,
-            company_id, branch_id,
-            created_at, modified_at
-          ) VALUES (
-            $1, uuid_generate_v4()::varchar, $2, $3, $4, $5, $6, true, false,
-            $7, $8, $9, $10, $11, $12,
-            $13, $14, $15, $16, $17, $18, $19, $20,
-            $21, $22, $23, $24,
-            $25, $26,
-            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-          ) ON CONFLICT DO NOTHING`,
-          [
-            u.id, u.username, u.email, u.mobile, hashedPassword, u.role,
-            u.fullName, u.displayName, u.employeeId, u.employeeCode, u.gender, u.dateOfBirth,
-            u.address, u.city, u.state, "India", u.pinCode, u.status, u.dateOfJoining, u.reportingManager,
-            u.employmentType, u.allowedBranches, u.preferences, u.notificationSettings,
-            "comp-default", "br-default"
-          ]
-        );
+    const { hashPassword } = await import("../lib/helpers.js");
+    const defaultUsers = [
+      {
+        id: "usr-super",
+        username: "super",
+        email: "super@smritibooks.com",
+        mobile: "9999999999",
+        password: "whynothing",
+        role: "SYSADMIN",
+        fullName: "SYSTEM ADMINISTRATOR",
+        displayName: "Super",
+        employeeId: "EMP-001",
+        employeeCode: "EMP-001",
+        gender: "Male",
+        dateOfBirth: "1980-01-01",
+        address: "System Root",
+        city: "Mumbai",
+        state: "Maharashtra",
+        pinCode: "400001",
+        status: "Active",
+        dateOfJoining: "2026-07-10",
+        reportingManager: "",
+        employmentType: "Permanent",
+        allowedBranches: JSON.stringify(["HQ Store"]),
+        preferences: JSON.stringify({ theme: "dark", language: "English", timeZone: "Asia/Kolkata" }),
+        notificationSettings: JSON.stringify({
+          salaryCredit: true,
+          commissionEarned: true,
+          targetAchievement: true,
+          travelClaimApproval: true,
+          leaveApproval: true,
+          attendanceAlerts: true,
+          holidayWeeklyOff: true,
+          birthdayAnniversary: true,
+          policyAnnouncements: true
+        })
+      },
+      {
+        id: "usr-manager",
+        username: "manager",
+        email: "manager@smritibooks.com",
+        mobile: "9876543210",
+        password: "Password@123",
+        role: "MANAGER",
+        fullName: "STORE MANAGER",
+        displayName: "Manager",
+        employeeId: "EMP-002",
+        employeeCode: "EMP-002",
+        gender: "Male",
+        dateOfBirth: "1985-05-15",
+        address: "HQ Store Area",
+        city: "Mumbai",
+        state: "Maharashtra",
+        pinCode: "400001",
+        status: "Active",
+        dateOfJoining: "2026-07-10",
+        reportingManager: "",
+        employmentType: "Permanent",
+        allowedBranches: JSON.stringify(["HQ Store"]),
+        preferences: JSON.stringify({ theme: "dark", language: "English", timeZone: "Asia/Kolkata" }),
+        notificationSettings: JSON.stringify({
+          salaryCredit: true,
+          commissionEarned: true,
+          targetAchievement: true,
+          travelClaimApproval: true,
+          leaveApproval: true,
+          attendanceAlerts: true,
+          holidayWeeklyOff: true,
+          birthdayAnniversary: true,
+          policyAnnouncements: true
+        })
+      },
+      {
+        id: "usr-cashier",
+        username: "cashier",
+        email: "cashier@smritibooks.com",
+        mobile: "9876543211",
+        password: "cashier123",
+        role: "CASHIER",
+        fullName: "CASHIER OPERATOR",
+        displayName: "Cashier",
+        employeeId: "EMP-003",
+        employeeCode: "EMP-003",
+        gender: "Female",
+        dateOfBirth: "1992-08-20",
+        address: "Billing Counter 1",
+        city: "Mumbai",
+        state: "Maharashtra",
+        pinCode: "400001",
+        status: "Active",
+        dateOfJoining: "2026-07-10",
+        reportingManager: "",
+        employmentType: "Permanent",
+        allowedBranches: JSON.stringify(["HQ Store"]),
+        preferences: JSON.stringify({ theme: "dark", language: "English", timeZone: "Asia/Kolkata" }),
+        notificationSettings: JSON.stringify({
+          salaryCredit: true,
+          commissionEarned: true,
+          targetAchievement: true,
+          travelClaimApproval: true,
+          leaveApproval: true,
+          attendanceAlerts: true,
+          holidayWeeklyOff: true,
+          birthdayAnniversary: true,
+          policyAnnouncements: true
+        })
       }
+    ];
+
+    const missingUsers = defaultUsers.filter((u) => !existingUsernames.has(u.username));
+    if (missingUsers.length > 0) {
+      console.log("[SMRITI DB] Seeding default users into PostgreSQL...");
+    }
+
+    const insertedUsers: string[] = [];
+    for (const u of defaultUsers) {
+      if (existingUsernames.has(u.username)) {
+        insertedUsers.push(u.username);
+        continue;
+      }
+
+      const hashedPassword = hashPassword(u.password);
+      await client.query(
+        `INSERT INTO users (
+          id, uuid, username, email, mobile, hashed_password, role, is_active, is_deleted,
+          full_name, display_name, employee_id, employee_code, gender, date_of_birth,
+          address, city, state, country, pin_code, status, date_of_joining, reporting_manager,
+          employment_type, allowed_branches, preferences_json, notification_settings_json,
+          company_id, branch_id,
+          created_at, modified_at
+        ) VALUES (
+          $1, uuid_generate_v4()::varchar, $2, $3, $4, $5, $6, true, false,
+          $7, $8, $9, $10, $11, $12,
+          $13, $14, $15, $16, $17, $18, $19, $20,
+          $21, $22, $23, $24,
+          $25, $26,
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        ) ON CONFLICT DO NOTHING`,
+        [
+          u.id, u.username, u.email, u.mobile, hashedPassword, u.role,
+          u.fullName, u.displayName, u.employeeId, u.employeeCode, u.gender, u.dateOfBirth,
+          u.address, u.city, u.state, "India", u.pinCode, u.status, u.dateOfJoining, u.reportingManager,
+          u.employmentType, u.allowedBranches, u.preferences, u.notificationSettings,
+          "comp-default", "br-default"
+        ]
+      );
+      insertedUsers.push(u.username);
+    }
+
+    const countRes = await client.query(
+      "SELECT COUNT(*) FROM users WHERE username IN ('super', 'manager', 'cashier')"
+    );
+    const seededCount = parseInt(countRes.rows[0].count, 10);
+    if (seededCount !== 3) {
+      const missing = defaultUsers
+        .map((u) => u.username)
+        .filter((username) => !insertedUsers.includes(username));
+      console.warn(
+        `[SMRITI DB] Default user seed validation failed: expected 3 default users, found ${seededCount}. Missing: ${missing.join(", ")}`
+      );
+    } else if (missingUsers.length === 0) {
+      console.log("[SMRITI DB] Default users already exist in PostgreSQL. Seed skipped.");
+    } else {
       console.log("[SMRITI DB] Default users seeded successfully in PostgreSQL.");
     }
   } catch (error) {

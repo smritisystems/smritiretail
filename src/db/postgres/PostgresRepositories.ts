@@ -475,6 +475,8 @@ export class PostgresSalesInvoiceRepository implements ISalesInvoiceRepository {
         customerId: row.customer_id,
         taxTotal: parseFloat(row.tax_total) || 0,
         grandTotal: parseFloat(row.grand_total) || 0,
+        isInterstate: row.is_interstate || false,
+        eWayBillNo: row.eway_bill_no || undefined,
         status: row.status,
         items: itemsRes.rows.map(i => ({
           productId: i.product_id,
@@ -503,6 +505,8 @@ export class PostgresSalesInvoiceRepository implements ISalesInvoiceRepository {
       customerId: row.customer_id,
       taxTotal: parseFloat(row.tax_total) || 0,
       grandTotal: parseFloat(row.grand_total) || 0,
+      isInterstate: row.is_interstate || false,
+      eWayBillNo: row.eway_bill_no || undefined,
       status: row.status,
       items: itemsRes.rows.map(i => ({
         productId: i.product_id,
@@ -519,8 +523,8 @@ export class PostgresSalesInvoiceRepository implements ISalesInvoiceRepository {
 
   async create(invoice: SalesInvoice): Promise<SalesInvoice> {
     await pool.query(
-      "INSERT INTO sales_invoices (id, invoice_no, date, customer_id, tax_total, grand_total, status) VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6)",
-      [invoice.id, invoice.invoiceNo, invoice.customerId, invoice.taxTotal, invoice.grandTotal, invoice.status]
+      "INSERT INTO sales_invoices (id, invoice_no, date, customer_id, tax_total, grand_total, is_interstate, eway_bill_no, status) VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8)",
+      [invoice.id, invoice.invoiceNo, invoice.customerId, invoice.taxTotal, invoice.grandTotal, invoice.isInterstate || false, invoice.eWayBillNo || null, invoice.status]
     );
     for (const item of invoice.items) {
       await pool.query(

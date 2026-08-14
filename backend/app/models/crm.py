@@ -4,21 +4,18 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.7.0
+Version      : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-08-13
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 from datetime import datetime
-
-from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, Numeric, String
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date
 from sqlalchemy.orm import relationship
-
+from sqlalchemy.dialects.postgresql import ARRAY
 from ..db.base import BaseEntity
-
 
 class CustomerGroup(BaseEntity):
     __tablename__ = "customer_groups"
@@ -54,6 +51,7 @@ class Customer(BaseEntity):
     __tablename__ = "customers"
 
     customer_group_id = Column(String(50), ForeignKey("customer_groups.id", ondelete="RESTRICT"), index=True)
+    code = Column(String(50), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     mobile = Column(String(20), index=True)
     email = Column(String(255))

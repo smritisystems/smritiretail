@@ -25,31 +25,26 @@ Classification: Internal
 """
 
 import uuid
-from datetime import UTC, datetime
+from typing import Optional, List
 from decimal import Decimal
-
-from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 
-from ..api.deps import TenantContext
-from ..models.inventory import Product, StockMovement
 from ..models.purchase import (
-    PurchaseJurisdictionConfig,
-    PurchaseOrder,
-    PurchaseOrderItem,
-    PurchaseReceipt,
-    PurchaseReceiptItem,
-    PurchaseReorderConfig,
     Supplier,
+    PurchaseOrder, PurchaseOrderItem,
+    PurchaseReceipt, PurchaseReceiptItem,
+    PurchaseReorderConfig, PurchaseJurisdictionConfig,
 )
+from ..models.inventory import Product, StockMovement
+from ..api.deps import TenantContext
 from ..schemas.purchase import (
-    PurchaseOrderAmendRequest,
-    PurchaseOrderCreate,
+    SupplierCreate, SupplierUpdate,
+    PurchaseOrderCreate, PurchaseOrderAmendRequest,
     PurchaseReceiptCreate,
-    SupplierCreate,
-    SupplierUpdate,
 )
 
 
@@ -94,8 +89,8 @@ class PurchaseService:
         if not supplier:
             raise HTTPException(
                 status_code=404,
-                detail="Supplier not found. "
-                       "Please verify the supplier ID and try again.",
+                detail=f"Supplier not found. "
+                       f"Please verify the supplier ID and try again.",
             )
         return supplier
 
@@ -357,11 +352,11 @@ class PurchaseService:
         # Apply stock increments, update supplier outstanding, and record stock movements
         for product, qty in product_stock_updates:
             product.stock += int(qty)
-            product.modified_at = datetime.now(UTC)
+            product.modified_at = datetime.now(timezone.utc)
             self.db.add(product)
 
             # Record StockMovement
-            movement_id = f"SM-{int(datetime.now(UTC).timestamp())}-{uuid.uuid4().hex[:6]}"
+            movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
             db_movement = StockMovement(
                 id=movement_id,
                 uuid=str(uuid.uuid4()),
@@ -383,7 +378,7 @@ class PurchaseService:
 
         supplier = await self._get_supplier(req.supplier_id)
         supplier.outstanding = (supplier.outstanding + grand_total).quantize(Decimal("0.01"))
-        supplier.modified_at = datetime.now(UTC)
+        supplier.modified_at = datetime.now(timezone.utc)
 
         try:
             await self.db.commit()
@@ -433,7 +428,7 @@ class PurchaseService:
     # Reorder Suggestion logic
     # ──────────────────────────────────────────────────────────────
 
-    async def list_reorder_suggestions(self, supplier_id: str | None = None) -> list[dict]:
+    async def list_reorder_suggestions(self, supplier_id: Optional[str] = None) -> list[dict]:
         """
         Generate inventory reorder suggestions per product.
         """
@@ -536,7 +531,7 @@ class PurchaseService:
         return suggestions
 
     async def convert_reorder_suggestions_to_draft(
-        self, supplier_id: str, selected_product_ids: list[str]
+        self, supplier_id: str, selected_product_ids: List[str]
     ) -> PurchaseOrder:
         """
         Convert selected low-stock reorder suggestions into a draft purchase order.
@@ -603,7 +598,7 @@ class PurchaseService:
             ))
 
         order_id = f"po-{_uid()}"
-        order_no = f"PO-{int(datetime.now(UTC).timestamp() * 1000)}"
+        order_no = f"PO-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
         order = PurchaseOrder(
             id=order_id,
             order_no=order_no,
@@ -666,7 +661,7 @@ class PurchaseService:
         cfg = res.scalars().first()
         if cfg:
             cfg.company_state = state
-            cfg.modified_at = datetime.now(UTC)
+            cfg.modified_at = datetime.now(timezone.utc)
         else:
             cfg = PurchaseJurisdictionConfig(
                 id=f"jur-{_uid()}",
@@ -695,7 +690,7 @@ class PurchaseService:
             if val is not None:
                 setattr(supplier, attr, val)
 
-        supplier.modified_at = datetime.now(UTC)
+        supplier.modified_at = datetime.now(timezone.utc)
         self.db.add(supplier)
         await self.db.commit()
         await self.db.refresh(supplier)
@@ -708,15 +703,15 @@ class PurchaseService:
         """
         supplier = await self._get_supplier(supplier_id)
         supplier.is_deleted = True
-        supplier.deleted_at = datetime.now(UTC)
-        supplier.modified_at = datetime.now(UTC)
+        supplier.deleted_at = datetime.now(timezone.utc)
+        supplier.modified_at = datetime.now(timezone.utc)
         self.db.add(supplier)
         await self.db.commit()
         return {"success": True, "message": f"Supplier '{supplier.name}' has been removed successfully."}
 
     # ── Purchase Order CANCEL / AMEND ────────────────────────────────
 
-    async def cancel_purchase_order(self, order_id: str, reason: str | None = None) -> dict:
+    async def cancel_purchase_order(self, order_id: str, reason: Optional[str] = None) -> dict:
         """
         Cancel a purchase order: set status=CANCELLED and soft-delete.
         Only CONFIRMED orders can be cancelled (RECEIVED = stock already taken).
@@ -737,8 +732,8 @@ class PurchaseService:
 
         order.status = "CANCELLED"
         order.is_deleted = True
-        order.deleted_at = datetime.now(UTC)
-        order.modified_at = datetime.now(UTC)
+        order.deleted_at = datetime.now(timezone.utc)
+        order.modified_at = datetime.now(timezone.utc)
         if reason:
             order.notes = f"{order.notes or ''} | Cancelled: {reason}".strip(" |")
         self.db.add(order)
@@ -768,8 +763,8 @@ class PurchaseService:
         # Cancel original
         original.status = "CANCELLED"
         original.is_deleted = True
-        original.deleted_at = datetime.now(UTC)
-        original.modified_at = datetime.now(UTC)
+        original.deleted_at = datetime.now(timezone.utc)
+        original.modified_at = datetime.now(timezone.utc)
         original.notes = (
             f"{original.notes or ''} | Amended & Superseded. "
             f"Reason: {req.reason or 'No reason given'}"
@@ -869,7 +864,7 @@ class PurchaseService:
                 detail=f"Only DRAFT orders can be submitted. Current status: {order.status}.",
             )
         order.status = "CONFIRMED"
-        order.modified_at = datetime.now(UTC)
+        order.modified_at = datetime.now(timezone.utc)
         self.db.add(order)
         await self.db.commit()
         return {

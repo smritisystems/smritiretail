@@ -29,13 +29,14 @@ import {
   X, Printer, RotateCcw, LayoutTemplate, Scale, Settings2, Plus, 
   Trash2, FileText, CheckCircle2, ChevronRight, Sliders, Play,
   Grid, Contrast, Eye, Layers, QrCode, Share2, Copy, Check, Smartphone,
-  ShieldCheck, Download, Lock, Image, Upload
+  ShieldCheck, Download, Lock, Image, Upload, Landmark
 } from "lucide-react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { usePrintEngine } from "../print_engine/print_store.tsx";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
+import { getAvailableBankAccounts, DEFAULT_SBI_BANK_ACCOUNT } from "../services/bankStore.ts";
 
 // Mock datasets corresponding to various tabs
 const MOCK_TAB_DATA: Record<string, any> = {
@@ -470,6 +471,10 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
   const [watermarkRotation, setWatermarkRotation] = useState<number>(-25); // aesthetic diagonal slant
   const [watermarkLayout, setWatermarkLayout] = useState<"center" | "tile">("center");
 
+  // Bank Account Selection State
+  const availableBanks = getAvailableBankAccounts();
+  const [selectedBankId, setSelectedBankId] = useState<string>(availableBanks[0]?.id || DEFAULT_SBI_BANK_ACCOUNT.id);
+
   // Load correct dataset initially when open or activeTab changes, supporting share-link loads
   useEffect(() => {
     if (isOpen) {
@@ -491,6 +496,13 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
           console.error("Failed to decode shared document data:", e);
         }
       }
+
+      // Attach default SBI bank details to invoice data if not specified
+      if (!initData.bankDetails) {
+        const defaultBank = availableBanks.find(b => b.id === selectedBankId) || DEFAULT_SBI_BANK_ACCOUNT;
+        initData.bankDetails = defaultBank;
+      }
+
       setDocumentData(initData);
       
       // Determine initial template ID
@@ -1246,6 +1258,47 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                         </div>
                       </div>
                     </div>
+
+                    {/* Section 4.4: Dynamic Bank Selection (A4 Tax Invoices) */}
+                    {selectedTemplateId === "standard-a4" && (
+                      <div className="space-y-2 border-t border-theme-divider pt-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1.5 text-theme-muted">
+                            <Landmark size={14} className="text-emerald-500" />
+                            <span className="text-[10px] uppercase tracking-wider font-bold font-mono">Bank Account Details</span>
+                          </div>
+                          <span className="text-[8px] font-mono uppercase bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">
+                            Print Time
+                          </span>
+                        </div>
+                        <select
+                          value={selectedBankId}
+                          onChange={(e) => {
+                            const newBankId = e.target.value;
+                            setSelectedBankId(newBankId);
+                            const chosenBank = availableBanks.find(b => b.id === newBankId) || DEFAULT_SBI_BANK_ACCOUNT;
+                            setDocumentData((prev: any) => ({
+                              ...prev,
+                              bankDetails: chosenBank
+                            }));
+                          }}
+                          className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-emerald-500 font-medium cursor-pointer"
+                        >
+                          {availableBanks.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.bankName} {b.branch ? `- ${b.branch}` : ""} {b.isDefault ? "(DEFAULT)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="p-2 bg-theme-surface-1 border border-theme-divider rounded-lg text-[9.5px] font-mono text-theme-muted space-y-0.5 leading-tight">
+                          <div className="font-bold text-theme-primary truncate">
+                            {availableBanks.find(b => b.id === selectedBankId)?.bankName || DEFAULT_SBI_BANK_ACCOUNT.bankName}
+                          </div>
+                          <div>A/c No: <span className="font-bold text-theme-body">{availableBanks.find(b => b.id === selectedBankId)?.accountNo || DEFAULT_SBI_BANK_ACCOUNT.accountNo}</span></div>
+                          <div>IFSC: <span className="font-bold text-theme-body">{availableBanks.find(b => b.id === selectedBankId)?.ifsc || DEFAULT_SBI_BANK_ACCOUNT.ifsc}</span></div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Section 4.5: Document Watermark Settings */}
                     <div className="space-y-3.5 border-t border-theme-divider pt-5">

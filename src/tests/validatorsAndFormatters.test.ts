@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { isValidGSTIN, isValidPIN, isValidMobile } from "../utils/validators";
+import { isValidGSTIN, isValidPIN, isValidMobile, isValidEmail } from "../utils/validators";
 import { formatDate, formatDateTime, formatCurrency } from "../utils/formatters";
 
 describe("Validators and Formatters Tests", () => {
@@ -48,6 +48,15 @@ describe("Validators and Formatters Tests", () => {
       expect(isValidMobile("1234567890")).toBe(false); // Starts with 1
       expect(isValidMobile("98765")).toBe(false);      // Short
       expect(isValidMobile("98765432101")).toBe(false); // Long
+    });
+
+    it("should validate email addresses correctly", () => {
+      expect(isValidEmail("user@example.com")).toBe(true);
+      expect(isValidEmail("USER@EXAMPLE.COM")).toBe(true);
+      expect(isValidEmail("user.name+tag@example.co.in")).toBe(true);
+      expect(isValidEmail("invalid-email")).toBe(false);
+      expect(isValidEmail("user@.com")).toBe(false);
+      expect(isValidEmail("user@example")).toBe(false);
     });
   });
 

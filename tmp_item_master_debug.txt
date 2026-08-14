@@ -1,0 +1,242 @@
+1128:                           </div>
+1129:                         </div>
+1130:                       </>
+1131:                     )}
+1132: 
+1133:                     {/* SMRITI Dynamic Attributes Mapping Form */}
+1134:                     <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
+1135:                       <div className="flex justify-between items-center">
+1136:                         <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400">
+1137:                           {activeGroup ? `Dynamic schema: ${activeGroup.name}` : "General Core Specifications"}
+1138:                         </span>
+1139:                         <button
+1140:                           type="button"
+1141:                           onClick={handleSuggestCodes}
+1142:                           className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center space-x-1 cursor-pointer"
+1143:                         >
+1144:                           <Sliders size={11} />
+1145:                           <span>Code Construction Autopilot</span>
+1146:                         </button>
+1147:                       </div>
+1148: 
+1149:                       {/* Render dynamic attributes inputs from group */}
+1150:                       {activeGroupAttrs.length > 0 ? (
+1151:                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+1152:                           {activeGroupAttrs.map(attr => (
+1153:                             <div key={attr.id}>
+1154:                               <label className="text-[9px] font-mono text-theme-muted block mb-1 uppercase">
+1155:                                 {attr.label} {attr.isMandatory && <span className="text-rose-400 font-bold">*</span>}
+1156:                               </label>
+1157:                               {attr.dataType === "select" ? (
+1158:                                 <select
+1159:                                   value={dynamicAttributes[attr.name] || ""}
+1160:                                   onChange={(e) => setDynamicAttributes(prev => ({ ...prev, [attr.name]: e.target.value }))}
+1161:                                   className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500"
+1162:                                 >
+1163:                                   <option value="">-- Pick option --</option>
+1164:                                   {attr.validValues.map(v => (
+1165:                                     <option key={v} value={v}>{v}</option>
+1166:                                   ))}
+1167:                                 </select>
+1168:                               ) : (
+1169:                                 <input
+1170:                                   type={attr.dataType === "number" ? "number" : "text"}
+1171:                                   value={dynamicAttributes[attr.name] || ""}
+1172:                                   onChange={(e) => setDynamicAttributes(prev => ({ ...prev, [attr.name]: e.target.value }))}
+1173:                                   placeholder={`Enter ${attr.label}`}
+1174:                                   className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+1175:                                 />
+1176:                               )}
+1177:                             </div>
+1178:                           ))}
+1179:                         </div>
+1180:                       ) : (
+1181:                         <div className="text-[11px] text-theme-muted py-1 border-b border-theme-divider/20">
+1182:                           No category-specific attributes found. Create attribute groups to map Apparel, Footwear, Saree, Sourcing, or Pharmacy attributes automatically.
+1183:                         </div>
+1184:                       )}
+1185: 
+1186:                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+1187:                         <div>
+1188:                           <label className="text-[9px] font-mono text-theme-muted block mb-1">Style Reference Code</label>
+1189:                           <input
+1190:                             type="text"
+1191:                             value={formStyleCode}
+1192:                             onChange={(e) => setFormStyleCode(e.target.value)}
+1193:                             placeholder="Style Code"
+1194:                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono uppercase"
+1195:                           />
+1196:                         </div>
+1197:                         <div>
+1198:                           <label className="text-[9px] font-mono text-theme-muted block mb-1">SKU Unique Code *</label>
+1199:                           <input
+1200:                             type="text"
+1201:                             required
+1202:                             disabled={isEditing}
+1203:                             value={formCode}
+1204:                             onChange={(e) => setFormCode(e.target.value)}
+1205:                             placeholder="SKU Code (e.g. TSH-COT-L)"
+1206:                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono disabled:opacity-50"
+1207:                           />
+1208:                         </div>
+1209:                       </div>
+1210: 
+1211:                       <div>
+1212:                         <label className="text-[9px] font-mono text-theme-muted block mb-1">Barcode / POS Identifier *</label>
+1213:                         <div className="relative">
+1214:                           <span className="absolute left-3 top-2.5 text-theme-muted"><Barcode size={12} /></span>
+1215:                           <input
+1216:                             type="text"
+1217:                             required
+1218:                             value={formBarcode}
+1219:                             onChange={(e) => setFormBarcode(e.target.value)}
+1220:                             placeholder="e.g. SMR-B301"
+1221:                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg pl-8 pr-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+1222:                           />
+1223:                         </div>
+1224:                       </div>
+1225:                     </div>
+1226: 
+1227:                     {/* SMRITI Financials / Taxation / Multi-price Engine */}
+1228:                     <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
+1229:                       <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 block">Financial & Cost Configuration</span>
+1230:                       
+1231:                       <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+1232:                         <div>
+1233:                           <label className="text-[9px] font-mono text-theme-muted block mb-1">Buy Cost Price (₹) *</label>
+1234:                           <input
+1235:                             type="number"
+1236:                             min="0"
+1237:                             required
+1238:                             value={formCostPrice || ""}
+1239:                             onChange={(e) => {
+1240:                               const val = parseFloat(e.target.value) || 0;
+1241:                               setFormCostPrice(val);
+1242:                               if (!formPrice) setFormPrice(Math.round(val * 1.5));
+1243:                               if (!formMrp) setFormMrp(Math.round(val * 1.8));
+1244:                             }}
+1245:                             placeholder="Buy Cost Price"
+1246:                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+1247:                           />
+1248:                         </div>
+1249:                         <div>
+1250:                           <label className="text-[9px] font-mono text-theme-muted block mb-1">Standard Price (₹) *</label>
+1251:                           <input
+1252:                             type="number"
+1253:                             min="0"
+1254:                             required
+1255:                             value={formPrice || ""}
+1256:                             onChange={(e) => {
+1257:                               const val = parseFloat(e.target.value) || 0;
+1258:                               setFormPrice(val);
+1259:                               if (!formMrp || formMrp < val) setFormMrp(Math.round(val * 1.25));
+1260:                             }}
+1261:                             placeholder="Selling Price"
+1262:                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+1263:                           />
+1264:                         </div>
+1265:                         <div>
+1266:                           <label className="text-[9px] font-mono text-theme-muted block mb-1">Maximum Retail Price (MRP)</label>
+1267:                           <input
+1268:                             type="number"
+1269:                             min="0"
+1270:                             value={formMrp || ""}
+1271:                             onChange={(e) => setFormMrp(parseFloat(e.target.value) || 0)}
+1272:                             placeholder="MRP (₹)"
+1273:                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+1274:                           />
+1275:                         </div>
+1276:                         <div>
+1277:                           <label className="text-[9px] font-mono text-theme-muted block mb-1">GST Tax Category %</label>
+1278:                           <select
+1279:                             value={formGst}
+1280:                             onChange={(e) => setFormGst(parseInt(e.target.value) || 18)}
+1281:                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+1282:                           >
+1283:                             <option value="0">0% GST (Exempt/Essential)</option>
+1284:                             <option value="5">5% GST (Apparel & Footwear ≤₹2,500)</option>
+1285:                             <option value="18">18% GST (Standard/Apparel &amp; Footwear &gt;₹2,500)</option>
+1286:                             <option value="40">40% GST (Luxury & Sin Goods)</option>
+1287:                           </select>
+1288:                         </div>
+1289:                         <div>
+1290:                           <label className="text-[9px] font-mono text-theme-muted block mb-1">Initial Stock On Hand</label>
+1291:                           <input
+1292:                             type="number"
+1293:                             min="0"
+1294:                             value={formStock}
+1295:                             onChange={(e) => setFormStock(Math.max(0, parseInt(e.target.value) || 0))}
+1296:                             placeholder="Opening Stock"
+1297:                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+1298:                           />
+1299:                         </div>
+1300:                       </div>
+1301:                     </div>
+1302: 
+1303:                     {/* SMRITI Product Image (SPIF) */}
+1304:                     <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-3">
+1305:                       <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 block">SMRITI Product Image Framework (SPIF)</span>
+1306:                       <div className="flex items-center space-x-4">
+1307:                         {formImage ? (
+1308:                           <div className="relative group w-16 h-16 rounded-xl overflow-hidden border border-theme-divider bg-theme-surface-3">
+1309:                             <img src={formImage.startsWith("data:") ? formImage : `/api/v1${formImage}`} alt="Product Preview" className="w-full h-full object-cover" />
+1310:                             <button
+1311:                               type="button"
+1312:                               onClick={() => setFormImage("")}
+1313:                               className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex items-center justify-center text-rose-400 font-bold transition-opacity text-[10px]"
+1314:                             >
+1315:                               Remove
+1316:                             </button>
+1317:                           </div>
+1318:                         ) : (
+1319:                           <label className="flex flex-col items-center justify-center w-16 h-16 rounded-xl border border-dashed border-theme-divider hover:border-blue-500 bg-theme-surface-3 cursor-pointer transition-colors text-theme-muted hover:text-theme-body">
+1320:                             <span className="material-symbols-outlined text-sm">add_a_photo</span>
+1321:                             <span className="text-[9px] font-mono mt-1">Upload</span>
+1322:                             <input
+1323:                               type="file"
+1324:                               accept="image/*"
+1325:                               className="hidden"
+1326:                               onChange={(e) => {
+1327:                                 const file = e.target.files?.[0];
+1328:                                 if (file) {
+1329:                                   const reader = new FileReader();
+1330:                                   reader.onloadend = () => {
+1331:                                     setFormImage(reader.result as string);
+1332:                                   };
+1333:                                   reader.readAsDataURL(file);
+1334:                                 }
+1335:                               }}
+1336:                             />
+1337:                           </label>
+1338:                         )}
+1339:                         <div className="flex-1 text-[10px] text-theme-muted font-mono leading-relaxed">
+1340:                           Supported formats: JPG, PNG, WEBP.
+1341:                           <br />
+1342:                           Images are automatically optimized and converted to high-performance WebP.
+1343:                         </div>
+1344:                       </div>
+1345:                     </div>
+1346: 
+1347:                     {/* Form Buttons */}
+1348:                     <div className="flex justify-end space-x-3 pt-3 border-t border-theme-divider/50">
+1349:                       <button
+1350:                         type="button"
+1351:                         onClick={() => {
+1352:                           setIsCreating(false);
+1353:                           setIsEditing(false);
+1354:                           setSelectedProduct(null);
+1355:                         }}
+1356:                         className="px-4 py-2 rounded-lg bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-muted hover:text-theme-body text-xs font-semibold transition-colors cursor-pointer"
+1357:                       >
+1358:                         Cancel Draft
+1359:                       </button>
+1360:                       <button
+1361:                         type="submit"
+1362:                         disabled={loading}
+1363:                         className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg text-xs shadow-lg transition-colors cursor-pointer"
+1364:                       >
+1365:                         {loading ? "Writing SKU..." : isEditing ? "Save Adjustments" : "Commit to SMRITI Database"}
+1366:                       </button>
+1367:                     </div>
+1368:                   </form>
+1369:                 </div>

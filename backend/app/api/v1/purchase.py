@@ -24,27 +24,19 @@ Founders
 Classification: Internal
 """
 
-
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import TenantContext, get_db, get_tenant_context, require_role
+from ...api.deps import get_db, get_tenant_context, require_role, TenantContext
 from ...models.auth import UserRole
 from ...schemas.purchase import (
-    PurchaseConfigJurisdictionRequest,
-    PurchaseJurisdictionConfigCreate,
-    PurchaseOrderAmendRequest,
-    PurchaseOrderCancelRequest,
-    PurchaseOrderCreate,
-    PurchaseOrderItemResponse,
-    PurchaseOrderResponse,
-    PurchaseReceiptCreate,
-    PurchaseReceiptItemResponse,
-    PurchaseReceiptResponse,
-    PurchaseReorderConvertRequest,
-    SupplierCreate,
-    SupplierResponse,
-    SupplierUpdate,
+    SupplierCreate, SupplierUpdate, SupplierResponse,
+    PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderItemResponse,
+    PurchaseOrderCancelRequest, PurchaseOrderAmendRequest,
+    PurchaseReceiptCreate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
+    PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
+    PurchaseConfigJurisdictionRequest, PurchaseReorderConvertRequest,
 )
 from ...services.purchase import PurchaseService
 
@@ -70,7 +62,7 @@ async def create_supplier(
 
 @router.get(
     "/suppliers/",
-    response_model=list[SupplierResponse],
+    response_model=List[SupplierResponse],
 )
 async def list_suppliers(
     tenant: TenantContext = Depends(get_tenant_context),
@@ -100,7 +92,7 @@ async def get_supplier(
 # Contract URLs: when mounted at /api/v1/purchase, /orders/ resolves to /api/v1/purchase/orders/
 # Legacy /purchase-orders/ routes remain for backward compatibility (deprecated at v3.20.0).
 
-@router.get("/orders/", response_model=list[PurchaseOrderResponse], summary="List Purchase Orders (Contract URL)")
+@router.get("/orders/", response_model=List[PurchaseOrderResponse], summary="List Purchase Orders (Contract URL)")
 async def list_purchase_orders_contract(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -185,7 +177,7 @@ async def create_purchase_receipt(
 
 @router.get(
     "/purchase-receipts/",
-    response_model=list[PurchaseReceiptResponse],
+    response_model=List[PurchaseReceiptResponse],
 )
 async def list_purchase_receipts(
     tenant: TenantContext = Depends(get_tenant_context),
@@ -298,10 +290,10 @@ async def amend_purchase_order(
 
 @router.get(
     "/reorder-suggestions",
-    response_model=list[dict],
+    response_model=List[dict],
 )
 async def list_reorder_suggestions(
-    supplier_id: str | None = Query(None),
+    supplier_id: Optional[str] = Query(None),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
 ):

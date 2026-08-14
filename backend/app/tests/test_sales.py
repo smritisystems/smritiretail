@@ -13,26 +13,25 @@ Classification: Internal
 """
 
 import uuid
-from decimal import Decimal
-
 import pytest
-from httpx import ASGITransport, AsyncClient
+from decimal import Decimal
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy import delete
 from sqlalchemy.future import select
 
-from app.api.deps import TenantContext, get_db, get_tenant_context
-from app.core.security import create_access_token, hash_password
 from app.main import app
-from app.models.auth import RefreshTokenBlacklist, User, UserRole
-from app.models.crm import Customer, CustomerGroup
+from app.models.auth import User, RefreshTokenBlacklist, UserRole
+from app.models.tenant import Company, Branch
 from app.models.inventory import Product, StockMovement
 from app.models.sales import (
-    SalesInvoice,
-    SalesInvoiceItem,
-    SalesQuotation,
-    SalesQuotationItem,
+    SalesInvoice, SalesInvoiceItem,
+    SalesQuotation, SalesQuotationItem,
+    SalesOrder, SalesOrderItem,
+    SalesReturn, SalesReturnItem,
 )
-from app.models.tenant import Branch, Company
+from app.models.crm import Customer, CustomerGroup
+from app.api.deps import get_db, get_tenant_context, TenantContext
+from app.core.security import hash_password, create_access_token
 
 pytestmark = pytest.mark.asyncio
 
@@ -787,8 +786,8 @@ async def test_sales_return_increments_stock(db_session):
 # ---------------------------------------------------------------------------
 
 async def _make_manager(db_session, suffix, company_id, branch_id):
-    from app.core.security import hash_password
     from app.models.auth import User, UserRole
+    from app.core.security import hash_password
     user = User(
         id=f"usr-mgr-{suffix}", username=f"mgr_{suffix}",
         hashed_password=hash_password("Mgr@12345"),
@@ -803,9 +802,8 @@ async def _make_manager(db_session, suffix, company_id, branch_id):
 
 async def test_update_sales_invoice_status(db_session):
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from decimal import Decimal
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -827,9 +825,7 @@ async def test_update_sales_invoice_status(db_session):
 async def test_update_sales_invoice_replaces_items(db_session):
     import uuid
     from decimal import Decimal
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -855,10 +851,8 @@ async def test_update_sales_invoice_replaces_items(db_session):
 
 async def test_cancel_sales_invoice(db_session):
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
     from sqlalchemy.future import select
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     from app.models.sales import SalesInvoice
     s = uuid.uuid4().hex[:6]
@@ -883,9 +877,7 @@ async def test_cancel_sales_invoice(db_session):
 
 async def test_cancel_nonexistent_invoice_returns_404(db_session):
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -898,9 +890,7 @@ async def test_cancel_nonexistent_invoice_returns_404(db_session):
 
 async def test_update_and_delete_quotation(db_session):
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -929,9 +919,7 @@ async def test_update_and_delete_quotation(db_session):
 
 async def test_update_and_delete_sales_order(db_session):
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -960,9 +948,7 @@ async def test_update_and_delete_sales_order(db_session):
 
 async def test_update_and_delete_sales_return(db_session):
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -994,9 +980,7 @@ async def test_update_and_delete_sales_return(db_session):
 
 async def test_cashier_cannot_delete_invoice(db_session):
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -1056,7 +1040,6 @@ async def test_list_returns_contract_url(db_session):
 async def test_workflow_approve_sales_invoice(db_session):
     """POST /workflow/SalesInvoice/{id}/approve promotes Draft -> Confirmed."""
     import uuid as _u
-
     from app.models.sales import SalesInvoice
     s = _u.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, f"wf{s}")
@@ -1083,7 +1066,6 @@ async def test_workflow_approve_sales_invoice(db_session):
 async def test_workflow_cancel_sales_invoice(db_session):
     """POST /workflow/SalesInvoice/{id}/cancel cancels a Draft invoice."""
     import uuid as _u
-
     from app.models.sales import SalesInvoice
     s = _u.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, f"wfc{s}")
@@ -1109,6 +1091,7 @@ async def test_workflow_cancel_sales_invoice(db_session):
 async def test_convert_quotation_to_invoice(db_session):
     """POST /sales/quotations/convert/{id} creates a Draft invoice from a quotation."""
     import uuid as _u
+    from app.models.sales import SalesQuotation, SalesQuotationItem
     from decimal import Decimal
     s = _u.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, f"cq{s}")

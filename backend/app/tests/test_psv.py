@@ -1,23 +1,21 @@
 """
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
 Version      : 3.22.0
 Created      : 2026-07-16
 Modified     : 2026-07-16
 """
 
 import uuid
-
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient, ASGITransport
 
-from app.api.deps import get_db
-from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
+from app.models.tenant import Company, Branch
 from app.models.psv import PSVParty, PSVPartySkuTracking
-from app.models.tenant import Branch, Company
+from app.core.security import create_access_token, hash_password
+from app.api.deps import get_db
 from app.tests.conftest import clear_db
 
 

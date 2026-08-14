@@ -15,7 +15,6 @@ import base64
 import os
 import uuid
 from io import BytesIO
-
 from PIL import Image, ImageOps
 
 UPLOAD_DIR = os.path.join(os.getcwd(), "static", "uploads")

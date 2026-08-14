@@ -13,8 +13,7 @@
  */
 """
 
-from sqlalchemy import Column, ForeignKey, String
-
+from sqlalchemy import Column, String, ForeignKey
 from ..db.base import BaseEntity
 
 

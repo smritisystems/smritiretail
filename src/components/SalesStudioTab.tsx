@@ -10,7 +10,7 @@
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Printer, MessageCircle, Mail, AlignJustify, 
   FileText, Plus, Search, Grid, Trash2, Edit3, 
   RefreshCw, User, Calendar, DollarSign, Percent, 
@@ -295,6 +295,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [invoiceStatus, setInvoiceStatus] = useState<"Draft" | "Submitted">("Draft");
   const [invoiceIsInterstate, setInvoiceIsInterstate] = useState<boolean>(false);
   const [invoiceEWayBill, setInvoiceEWayBill] = useState<string>("");
+  const [selectedEWayBill, setSelectedEWayBill] = useState<string>("");
 
   // Editor states (for creating Sales Returns)
   const [isCreatingReturn, setIsCreatingReturn] = useState<boolean>(false);
@@ -496,7 +497,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   useEffect(() => {
     if (selectedInvoice) {
+      setSelectedEWayBill(selectedInvoice.eWayBillNo || (selectedInvoice as any).ewayBillNo || (selectedInvoice as any).eway_bill_no || "");
       recordAuditAction("TRANSACTION_VIEW", "sales_invoices", selectedInvoice.id, `Viewed sales invoice details: ${selectedInvoice.invoiceNo}`);
+    } else {
+      setSelectedEWayBill("");
     }
   }, [selectedInvoice]);
 
@@ -528,47 +532,43 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     );
   }
 
-  // ACAS Invoice action handlers — hoisted to component scope so JSX can reference them directly
-  const handlePrintInvoice = useCallback((e: any) => {
-    onNotification("Print Action", `Sales Invoice ${e.detail.invoiceNo} sent to standard print spooler.`, "success");
-  }, [onNotification]);
-
-  const handleWhatsAppInvoice = useCallback((e: any) => {
-    onNotification("WhatsApp Shared", `Sales Invoice ${e.detail.invoiceNo} successfully dispatched.`, "success");
-  }, [onNotification]);
-
-  const handleApproveInvoice = useCallback(async (e: any) => {
-    const inv = e.detail;
-    try {
-      // Migrated: invoice approve → apiFetchV1 (FastAPI workflow)
-      await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/approve`, { method: "POST" });
-      onNotification("Invoice Approved", `Sales Invoice ${inv.invoiceNo} is now approved and written to financial ledgers.`, "success");
-      fetchSalesInvoices();
-      if (selectedInvoice && selectedInvoice.id === inv.id) {
-        setSelectedInvoice({ ...selectedInvoice, status: "Approved" });
-      }
-    } catch (err: any) {
-      onNotification("Network Error", err.message || "Workflow transaction failed.", "error");
-    }
-  }, [onNotification, selectedInvoice]);
-
-  const handleCancelInvoice = useCallback(async (e: any) => {
-    const inv = e.detail;
-    try {
-      // Migrated: invoice cancel → apiFetchV1 (FastAPI workflow)
-      await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/cancel`, { method: "POST" });
-      onNotification("Invoice Cancelled", `Sales Invoice ${inv.invoiceNo} is now marked as Cancelled.`, "success");
-      fetchSalesInvoices();
-      if (selectedInvoice && selectedInvoice.id === inv.id) {
-        setSelectedInvoice({ ...selectedInvoice, status: "Cancelled" });
-      }
-    } catch (err: any) {
-      onNotification("Network Error", err.message || "Workflow transaction failed.", "error");
-    }
-  }, [onNotification, selectedInvoice]);
-
   // ACAS Global Event Listeners
   useEffect(() => {
+    const handlePrintInvoice = (e: any) => {
+      onNotification("Print Action", `Sales Invoice ${e.detail.invoiceNo} sent to standard print spooler.`, "success");
+    };
+    const handleWhatsAppInvoice = (e: any) => {
+      onNotification("WhatsApp Shared", `Sales Invoice ${e.detail.invoiceNo} successfully dispatched.`, "success");
+    };
+    const handleApproveInvoice = async (e: any) => {
+      const inv = e.detail;
+      try {
+      // Migrated: invoice approve → apiFetchV1 (FastAPI workflow)
+        await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/approve`, { method: "POST" });
+        onNotification("Invoice Approved", `Sales Invoice ${inv.invoiceNo} is now approved and written to financial ledgers.`, "success");
+        fetchSalesInvoices();
+        if (selectedInvoice && selectedInvoice.id === inv.id) {
+          setSelectedInvoice({ ...selectedInvoice, status: "Approved" });
+        }
+      } catch (err: any) {
+        onNotification("Network Error", err.message || "Workflow transaction failed.", "error");
+      }
+    };
+    const handleCancelInvoice = async (e: any) => {
+      const inv = e.detail;
+      try {
+      // Migrated: invoice cancel → apiFetchV1 (FastAPI workflow)
+        await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/cancel`, { method: "POST" });
+        onNotification("Invoice Cancelled", `Sales Invoice ${inv.invoiceNo} is now marked as Cancelled.`, "success");
+        fetchSalesInvoices();
+        if (selectedInvoice && selectedInvoice.id === inv.id) {
+          setSelectedInvoice({ ...selectedInvoice, status: "Cancelled" });
+        }
+      } catch (err: any) {
+        onNotification("Network Error", err.message || "Workflow transaction failed.", "error");
+      }
+    };
+
     window.addEventListener("SMRITI_PRINT_SALES_INVOICE", handlePrintInvoice);
     window.addEventListener("SMRITI_WHATSAPP_SALES_INVOICE", handleWhatsAppInvoice);
     window.addEventListener("SMRITI_APPROVE_SALES_INVOICE", handleApproveInvoice);
@@ -580,8 +580,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       window.removeEventListener("SMRITI_APPROVE_SALES_INVOICE", handleApproveInvoice);
       window.removeEventListener("SMRITI_CANCEL_SALES_INVOICE", handleCancelInvoice);
     };
-  }, [handlePrintInvoice, handleWhatsAppInvoice, handleApproveInvoice, handleCancelInvoice]);
-
+  }, [selectedInvoice]);
 
   // Listener for row-level Quick Edit Customer
   useEffect(() => {
@@ -1598,14 +1597,23 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">eWay Bill Number</label>
-                    <input
-                      type="text"
-                      value={invoiceEWayBill}
-                      onChange={(e) => setInvoiceEWayBill(e.target.value)}
-                      placeholder="e.g. 123456789012"
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                    />
+                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">E-Way Bill No.</label>
+                    <div className="flex items-center space-x-1.5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={23}
+                        value={invoiceEWayBill}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (/^\d*$/.test(val) && val.length <= 23) {
+                            setInvoiceEWayBill(val);
+                          }
+                        }}
+                        placeholder="Up to 23-digit numeric"
+                        className="w-[200px] bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono font-bold text-theme-body focus:outline-none focus:border-blue-500 tracking-wider"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -3722,8 +3730,44 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     <div className="mt-1 font-mono">{selectedInvoice.isInterstate ? "Yes" : "No"}</div>
                   </div>
                   <div className="bg-theme-surface-2 p-3 rounded-xl border border-theme-divider">
-                    <div className="font-semibold text-theme-body">E-Way Bill</div>
-                    <div className="mt-1 font-mono">{selectedInvoice.eWayBillNo || "Not provided"}</div>
+                    <div className="font-semibold text-theme-body flex justify-between items-center text-[10px]">
+                      <span>E-Way Bill No.</span>
+                      <span className="text-[9px] text-theme-muted font-mono">Editable</span>
+                    </div>
+                    <div className="mt-1 flex items-center space-x-1">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={23}
+                        value={selectedEWayBill}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (/^\d*$/.test(val) && val.length <= 23) {
+                            setSelectedEWayBill(val);
+                            if (selectedInvoice) {
+                              const updated = { ...selectedInvoice, eWayBillNo: val || undefined };
+                              setSelectedInvoice(updated);
+                              setSalesInvoices(prev => prev.map(inv => inv.id === selectedInvoice.id ? updated : inv));
+                            }
+                          }
+                        }}
+                        onBlur={async () => {
+                          if (selectedInvoice) {
+                            try {
+                              await apiFetchV1(`/sales/invoices/${selectedInvoice.id}`, {
+                                method: "PATCH",
+                                body: JSON.stringify({ eway_bill_no: selectedEWayBill || null })
+                              });
+                              onNotification("Saved", "E-Way Bill Number updated in database.", "success");
+                            } catch (err) {
+                              // Local state updated
+                            }
+                          }
+                        }}
+                        placeholder="Up to 23-digit number"
+                        className="w-full font-mono text-xs bg-theme-surface-1 border border-theme-divider rounded px-2 py-1 text-theme-body focus:outline-none focus:border-indigo-500 font-bold tracking-wider"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3766,7 +3810,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="space-y-2">
                 {(selectedInvoice.status === "Submitted" || selectedInvoice.status === "Draft") && (
                   <button
-                    onClick={() => handleApproveInvoice({ detail: selectedInvoice })}
+                    onClick={() => window.dispatchEvent(new CustomEvent("SMRITI_APPROVE_SALES_INVOICE", { detail: selectedInvoice }))}
                     disabled={isReadOnly}
                     className={`w-full py-3 ${isReadOnly ? "bg-theme-surface-3 text-theme-muted cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-500 text-white"} font-bold text-xs rounded-xl shadow-lg flex items-center justify-center space-x-2.5 transition-all`}
                   >
@@ -3776,7 +3820,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 )}
                 {selectedInvoice.status === "Approved" && (
                   <button
-                    onClick={() => handleCancelInvoice({ detail: selectedInvoice })}
+                    onClick={() => window.dispatchEvent(new CustomEvent("SMRITI_CANCEL_SALES_INVOICE", { detail: selectedInvoice }))}
                     disabled={isReadOnly}
                     className={`w-full py-3 ${isReadOnly ? "bg-theme-surface-3 text-theme-muted cursor-not-allowed" : "bg-rose-600 hover:bg-rose-500 text-white"} font-bold text-xs rounded-xl shadow-lg flex items-center justify-center space-x-2.5 transition-all`}
                   >
@@ -3786,13 +3830,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => handlePrintInvoice({ detail: selectedInvoice })}
+                    onClick={() => window.dispatchEvent(new CustomEvent("SMRITI_PRINT_SALES_INVOICE", { detail: selectedInvoice }))}
                     className="w-full py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-xs font-semibold transition-colors"
                   >
                     Print
                   </button>
                   <button
-                    onClick={() => handleWhatsAppInvoice({ detail: selectedInvoice })}
+                    onClick={() => window.dispatchEvent(new CustomEvent("SMRITI_WHATSAPP_SALES_INVOICE", { detail: selectedInvoice }))}
                     className="w-full py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-xs font-semibold transition-colors"
                   >
                     WhatsApp

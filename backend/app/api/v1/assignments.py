@@ -14,15 +14,15 @@ License      : Proprietary Commercial Software
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_current_user, get_db, require_role
-from ...models.auth import User, UserRole
+from ...api.deps import get_db, get_current_user, require_role
+from ...models.auth import UserRole, User
 from ...schemas.user_assignment import (
     UserAssignmentListResponse,
-    UserBranchAssignmentCreate,
-    UserBranchAssignmentResponse,
     UserCompanyAssignmentCreate,
-    UserCompanyAssignmentResponse,
+    UserBranchAssignmentCreate,
     UserStoreAssignmentCreate,
+    UserCompanyAssignmentResponse,
+    UserBranchAssignmentResponse,
     UserStoreAssignmentResponse,
 )
 from ...services.user_assignment import UserAssignmentService

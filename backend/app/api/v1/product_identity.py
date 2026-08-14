@@ -1,36 +1,17 @@
 """
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
-Created      : 2026-07-18
-Modified     : 2026-07-18
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-"""
-
-"""
 Product Identity Engine API router.
 """
 
-
+from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import TenantContext, get_current_user, get_db, get_tenant_context, require_role
-from ...models.auth import User, UserRole
+from ...api.deps import get_db, get_current_user, get_tenant_context, require_role, TenantContext
+from ...models.auth import UserRole, User
 from ...schemas.product_identity import (
-    BarcodeProviderCreate,
-    BarcodeProviderResponse,
-    BarcodeProviderUpdate,
-    IdentityRuleCreate,
-    IdentityRuleResponse,
-    IdentityRuleUpdate,
-    ProductIdentityCreate,
-    ProductIdentityResponse,
-    ProductIdentityUpdate,
+    BarcodeProviderCreate, BarcodeProviderResponse, BarcodeProviderUpdate,
+    IdentityRuleCreate, IdentityRuleResponse, IdentityRuleUpdate,
+    ProductIdentityCreate, ProductIdentityResponse, ProductIdentityUpdate,
 )
 from ...services.product_identity import ProductIdentityService
 
@@ -39,7 +20,7 @@ router = APIRouter()
 
 @router.get(
     "/providers",
-    response_model=list[BarcodeProviderResponse],
+    response_model=List[BarcodeProviderResponse],
 )
 async def list_providers(
     db: AsyncSession = Depends(get_db),
@@ -64,7 +45,7 @@ async def create_provider(
 ):
     service = ProductIdentityService(db, tenant_ctx)
     provider = await service.create_provider(req)
-    return BarcodeProviderResponse.model_validate(provider)
+    return provider
 
 
 @router.put(
@@ -85,7 +66,7 @@ async def update_provider(
 
 @router.get(
     "/rules",
-    response_model=list[IdentityRuleResponse],
+    response_model=List[IdentityRuleResponse],
 )
 async def list_rules(
     db: AsyncSession = Depends(get_db),
@@ -110,7 +91,7 @@ async def create_rule(
 ):
     service = ProductIdentityService(db, tenant_ctx)
     rule = await service.create_rule(req)
-    return IdentityRuleResponse.model_validate(rule)
+    return rule
 
 
 @router.put(
@@ -131,7 +112,7 @@ async def update_rule(
 
 @router.get(
     "/identities",
-    response_model=list[ProductIdentityResponse],
+    response_model=List[ProductIdentityResponse],
 )
 async def list_identities(
     db: AsyncSession = Depends(get_db),
@@ -156,7 +137,7 @@ async def create_identity(
 ):
     service = ProductIdentityService(db, tenant_ctx)
     identity = await service.create_identity(req)
-    return ProductIdentityResponse.model_validate(identity)
+    return identity
 
 
 @router.get(

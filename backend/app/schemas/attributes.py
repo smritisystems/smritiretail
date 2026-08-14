@@ -11,55 +11,54 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class AttributeDefinitionCreate(BaseModel):
     name: str
     label: str
     dataType: str = Field(..., alias="dataType")
-    isVariantDimension: bool | None = Field(False, alias="isVariantDimension")
-    isMandatory: bool | None = Field(False, alias="isMandatory")
-    validValues: list[str] | None = Field(None, alias="validValues")
-    groupId: str | None = Field(None, alias="groupId")
+    isVariantDimension: Optional[bool] = Field(False, alias="isVariantDimension")
+    isMandatory: Optional[bool] = Field(False, alias="isMandatory")
+    validValues: Optional[List[str]] = Field(None, alias="validValues")
+    groupId: Optional[str] = Field(None, alias="groupId")
     
     # Extended config fields
-    isSearchable: bool | None = Field(True, alias="isSearchable")
-    isFilterable: bool | None = Field(True, alias="isFilterable")
-    isPrintable: bool | None = Field(True, alias="isPrintable")
-    isBarcodeEnabled: bool | None = Field(True, alias="isBarcodeEnabled")
-    displayOrder: int | None = Field(0, alias="displayOrder")
-    defaultValue: str | None = Field(None, alias="defaultValue")
-    tooltip: str | None = Field(None, alias="tooltip")
-    validationRules: str | None = Field(None, alias="validationRules")
-    isEnabled: bool | None = Field(True, alias="isEnabled")
-    multiLangLabels: dict[str, str] | None = Field(None, alias="multiLangLabels")
+    isSearchable: Optional[bool] = Field(True, alias="isSearchable")
+    isFilterable: Optional[bool] = Field(True, alias="isFilterable")
+    isPrintable: Optional[bool] = Field(True, alias="isPrintable")
+    isBarcodeEnabled: Optional[bool] = Field(True, alias="isBarcodeEnabled")
+    displayOrder: Optional[int] = Field(0, alias="displayOrder")
+    defaultValue: Optional[str] = Field(None, alias="defaultValue")
+    tooltip: Optional[str] = Field(None, alias="tooltip")
+    validationRules: Optional[str] = Field(None, alias="validationRules")
+    isEnabled: Optional[bool] = Field(True, alias="isEnabled")
+    multiLangLabels: Optional[Dict[str, str]] = Field(None, alias="multiLangLabels")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class AttributeDefinitionUpdate(BaseModel):
-    name: str | None = None
-    label: str | None = None
-    dataType: str | None = Field(None, alias="dataType")
-    isVariantDimension: bool | None = Field(None, alias="isVariantDimension")
-    isMandatory: bool | None = Field(None, alias="isMandatory")
-    validValues: list[str] | None = Field(None, alias="validValues")
-    groupId: str | None = Field(None, alias="groupId")
+    name: Optional[str] = None
+    label: Optional[str] = None
+    dataType: Optional[str] = Field(None, alias="dataType")
+    isVariantDimension: Optional[bool] = Field(None, alias="isVariantDimension")
+    isMandatory: Optional[bool] = Field(None, alias="isMandatory")
+    validValues: Optional[List[str]] = Field(None, alias="validValues")
+    groupId: Optional[str] = Field(None, alias="groupId")
     
     # Extended config fields
-    isSearchable: bool | None = Field(None, alias="isSearchable")
-    isFilterable: bool | None = Field(None, alias="isFilterable")
-    isPrintable: bool | None = Field(None, alias="isPrintable")
-    isBarcodeEnabled: bool | None = Field(None, alias="isBarcodeEnabled")
-    displayOrder: int | None = Field(None, alias="displayOrder")
-    defaultValue: str | None = Field(None, alias="defaultValue")
-    tooltip: str | None = Field(None, alias="tooltip")
-    validationRules: str | None = Field(None, alias="validationRules")
-    isEnabled: bool | None = Field(None, alias="isEnabled")
-    multiLangLabels: dict[str, str] | None = Field(None, alias="multiLangLabels")
+    isSearchable: Optional[bool] = Field(None, alias="isSearchable")
+    isFilterable: Optional[bool] = Field(None, alias="isFilterable")
+    isPrintable: Optional[bool] = Field(None, alias="isPrintable")
+    isBarcodeEnabled: Optional[bool] = Field(None, alias="isBarcodeEnabled")
+    displayOrder: Optional[int] = Field(None, alias="displayOrder")
+    defaultValue: Optional[str] = Field(None, alias="defaultValue")
+    tooltip: Optional[str] = Field(None, alias="tooltip")
+    validationRules: Optional[str] = Field(None, alias="validationRules")
+    isEnabled: Optional[bool] = Field(None, alias="isEnabled")
+    multiLangLabels: Optional[Dict[str, str]] = Field(None, alias="multiLangLabels")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -71,8 +70,8 @@ class AttributeDefinitionResponse(BaseModel):
     dataType: str = Field(..., serialization_alias="dataType")
     isVariantDimension: bool = Field(..., serialization_alias="isVariantDimension")
     isMandatory: bool = Field(..., serialization_alias="isMandatory")
-    validValues: list[str] = Field(..., serialization_alias="validValues")
-    groupId: str | None = Field(None, serialization_alias="groupId")
+    validValues: List[str] = Field(..., serialization_alias="validValues")
+    groupId: Optional[str] = Field(None, serialization_alias="groupId")
     
     # Extended config fields
     isSearchable: bool = Field(..., serialization_alias="isSearchable")
@@ -80,11 +79,11 @@ class AttributeDefinitionResponse(BaseModel):
     isPrintable: bool = Field(..., serialization_alias="isPrintable")
     isBarcodeEnabled: bool = Field(..., serialization_alias="isBarcodeEnabled")
     displayOrder: int = Field(..., serialization_alias="displayOrder")
-    defaultValue: str | None = Field(None, serialization_alias="defaultValue")
-    tooltip: str | None = Field(None, serialization_alias="tooltip")
-    validationRules: str | None = Field(None, serialization_alias="validationRules")
+    defaultValue: Optional[str] = Field(None, serialization_alias="defaultValue")
+    tooltip: Optional[str] = Field(None, serialization_alias="tooltip")
+    validationRules: Optional[str] = Field(None, serialization_alias="validationRules")
     isEnabled: bool = Field(..., serialization_alias="isEnabled")
-    multiLangLabels: dict[str, str] = Field(..., serialization_alias="multiLangLabels")
+    multiLangLabels: Dict[str, str] = Field(..., serialization_alias="multiLangLabels")
 
     model_config = {
         "from_attributes": True,
@@ -95,18 +94,18 @@ class AttributeDefinitionResponse(BaseModel):
 
 class AttributeGroupCreate(BaseModel):
     name: str
-    attributeIds: list[str] = Field(..., alias="attributeIds")
-    gridColumnAttributeId: str | None = Field(None, alias="gridColumnAttributeId")
-    gridRowAttributeId: str | None = Field(None, alias="gridRowAttributeId")
+    attributeIds: List[str] = Field(..., alias="attributeIds")
+    gridColumnAttributeId: Optional[str] = Field(None, alias="gridColumnAttributeId")
+    gridRowAttributeId: Optional[str] = Field(None, alias="gridRowAttributeId")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class AttributeGroupUpdate(BaseModel):
-    name: str | None = None
-    attributeIds: list[str] | None = Field(None, alias="attributeIds")
-    gridColumnAttributeId: str | None = Field(None, alias="gridColumnAttributeId")
-    gridRowAttributeId: str | None = Field(None, alias="gridRowAttributeId")
+    name: Optional[str] = None
+    attributeIds: Optional[List[str]] = Field(None, alias="attributeIds")
+    gridColumnAttributeId: Optional[str] = Field(None, alias="gridColumnAttributeId")
+    gridRowAttributeId: Optional[str] = Field(None, alias="gridRowAttributeId")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -114,9 +113,9 @@ class AttributeGroupUpdate(BaseModel):
 class AttributeGroupResponse(BaseModel):
     id: str
     name: str
-    attributeIds: list[str] = Field(..., serialization_alias="attributeIds")
-    gridColumnAttributeId: str | None = Field(None, serialization_alias="gridColumnAttributeId")
-    gridRowAttributeId: str | None = Field(None, serialization_alias="gridRowAttributeId")
+    attributeIds: List[str] = Field(..., serialization_alias="attributeIds")
+    gridColumnAttributeId: Optional[str] = Field(None, serialization_alias="gridColumnAttributeId")
+    gridRowAttributeId: Optional[str] = Field(None, serialization_alias="gridRowAttributeId")
 
     model_config = {
         "from_attributes": True,
@@ -127,31 +126,31 @@ class AttributeGroupResponse(BaseModel):
 class VariantTemplateCreate(BaseModel):
     styleCode: str = Field(..., alias="styleCode")
     name: str
-    brand: str | None = "SMRITI"
-    category: str | None = "General"
-    hsnCode: str | None = "61091000"
-    basePrice: float | None = Field(0.0, alias="basePrice")
-    baseMrp: float | None = Field(0.0, alias="baseMrp")
-    gstPercentage: float | None = Field(18.0, alias="gstPercentage")
+    brand: Optional[str] = "SMRITI"
+    category: Optional[str] = "General"
+    hsnCode: Optional[str] = "61091000"
+    basePrice: Optional[float] = Field(0.0, alias="basePrice")
+    baseMrp: Optional[float] = Field(0.0, alias="baseMrp")
+    gstPercentage: Optional[float] = Field(18.0, alias="gstPercentage")
     attributeGroupId: str = Field(..., alias="attributeGroupId")
-    pricingMode: str | None = Field("Fixed", alias="pricingMode")
-    trackingMode: str | None = Field("Standard", alias="trackingMode")
+    pricingMode: Optional[str] = Field("Fixed", alias="pricingMode")
+    trackingMode: Optional[str] = Field("Standard", alias="trackingMode")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class VariantTemplateUpdate(BaseModel):
-    styleCode: str | None = Field(None, alias="styleCode")
-    name: str | None = None
-    brand: str | None = None
-    category: str | None = None
-    hsnCode: str | None = None
-    basePrice: float | None = Field(None, alias="basePrice")
-    baseMrp: float | None = Field(None, alias="baseMrp")
-    gstPercentage: float | None = Field(None, alias="gstPercentage")
-    attributeGroupId: str | None = Field(None, alias="attributeGroupId")
-    pricingMode: str | None = Field(None, alias="pricingMode")
-    trackingMode: str | None = Field(None, alias="trackingMode")
+    styleCode: Optional[str] = Field(None, alias="styleCode")
+    name: Optional[str] = None
+    brand: Optional[str] = None
+    category: Optional[str] = None
+    hsnCode: Optional[str] = None
+    basePrice: Optional[float] = Field(None, alias="basePrice")
+    baseMrp: Optional[float] = Field(None, alias="baseMrp")
+    gstPercentage: Optional[float] = Field(None, alias="gstPercentage")
+    attributeGroupId: Optional[str] = Field(None, alias="attributeGroupId")
+    pricingMode: Optional[str] = Field(None, alias="pricingMode")
+    trackingMode: Optional[str] = Field(None, alias="trackingMode")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -177,7 +176,7 @@ class VariantTemplateResponse(BaseModel):
 
 
 class GenerateVariantsRequest(BaseModel):
-    variants: list[dict[str, Any]]
+    variants: List[Dict[str, Any]]
 
 
 class CategoryMappingCreate(BaseModel):
@@ -199,4 +198,4 @@ class CategoryMappingResponse(BaseModel):
 
 class ImportValidateRequest(BaseModel):
     groupId: str = Field(..., alias="groupId")
-    rows: list[dict[str, Any]]
+    rows: List[Dict[str, Any]]

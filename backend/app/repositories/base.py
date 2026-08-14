@@ -11,7 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Generic, TypeVar
 
 from sqlalchemy import func
@@ -69,7 +69,9 @@ class BaseRepository(Generic[ModelType]):
         for field, value in obj_in.items():
             setattr(db_obj, field, value)
         if hasattr(db_obj, "modified_at"):
-            db_obj.modified_at = datetime.utcnow()
+            db_obj.modified_at = datetime.now(timezone.utc)
+        if hasattr(db_obj, "version") and isinstance(db_obj.version, int):
+            db_obj.version = db_obj.version + 1
         self.db.add(db_obj)
         await self.db.commit()
         await self.db.refresh(db_obj)
@@ -78,8 +80,12 @@ class BaseRepository(Generic[ModelType]):
     async def soft_delete(self, db_obj: ModelType, deleted_by: str | None = None) -> ModelType:
         if hasattr(db_obj, "is_deleted"):
             db_obj.is_deleted = True
-            db_obj.deleted_at = datetime.utcnow()
+            db_obj.deleted_at = datetime.now(timezone.utc)
             db_obj.deleted_by = deleted_by
+        if hasattr(db_obj, "modified_at"):
+            db_obj.modified_at = datetime.now(timezone.utc)
+        if hasattr(db_obj, "version") and isinstance(db_obj.version, int):
+            db_obj.version = db_obj.version + 1
         self.db.add(db_obj)
         await self.db.commit()
         await self.db.refresh(db_obj)

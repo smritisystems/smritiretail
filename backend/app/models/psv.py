@@ -23,7 +23,7 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import relationship
@@ -42,8 +42,8 @@ class PSVParty(Base):
     weeks_of_cover = Column(Numeric(5, 2), default=0.00)
     capital_locked = Column(Numeric(15, 2), default=0.00)
     status = Column(String(20), default="Healthy")
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     sku_tracking = relationship("PSVPartySkuTracking", back_populates="party", lazy="selectin")
 

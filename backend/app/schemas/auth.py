@@ -16,17 +16,15 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.9.0
+* Version    : 3.22.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-08-13
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
 from typing import Optional
-
 from pydantic import BaseModel, EmailStr
-
 from ..models.auth import UserRole
 
 
@@ -79,3 +77,10 @@ class BootstrapRequest(BaseModel):
     password: str
     email: Optional[str] = None
     mobile: Optional[str] = None
+
+
+class TenantContextSwitchRequest(BaseModel):
+    """Request model for dynamically switching company/branch context."""
+    target_company_id: str
+    target_branch_id: str
+

@@ -16,24 +16,26 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.16.0
+* Version    : 3.22.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-12
+* Modified   : 2026-08-13
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
-
-from fastapi import Depends, Header, HTTPException, Request
+from typing import Callable, Tuple
+from fastapi import Depends, HTTPException, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy.future import select
+from sqlalchemy.orm.attributes import set_committed_value
 from ..core.config import settings
-from ..core.security import decode_token
+
 from ..db.session import get_db as _get_db
 from ..models.auth import User, UserRole
+from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
+from ..core.security import decode_token
 
 get_db = _get_db  # re-exported for router convenience
 
@@ -84,6 +86,14 @@ async def get_current_user(
     service = AuthService(db)
     user = await service.get_user_by_id(user_id)
 
+    # Set token-specified company/branch context without dirtying ORM session
+    token_comp = payload.get("company_id")
+    token_branch = payload.get("branch_id")
+    if token_comp and user.company_id != token_comp:
+        set_committed_value(user, "company_id", token_comp)
+    if token_branch and user.branch_id != token_branch:
+        set_committed_value(user, "branch_id", token_branch)
+
     if user.status == "PendingPasswordChange":
         allowed_paths = {
             "/api/v1/auth/me",
@@ -101,16 +111,17 @@ async def get_current_user(
 
 
 # ---------------------------------------------------------------------------
-# get_tenant_context — now sourced from the JWT, not raw headers
+# get_tenant_context — sourced from user context with assignment validation
 # ---------------------------------------------------------------------------
 async def get_tenant_context(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(_get_db),
 ) -> TenantContext:
     """
-    Extract tenant context from the authenticated user's JWT claims.
+    Extract tenant context from the authenticated user's JWT claims & validate assignments.
 
-    Replaces the old X-Company-Id / X-Branch-Id header trust model.
-    SYSADMIN users (no company/branch) cannot call tenant-scoped endpoints.
+    SYSADMIN users (no company/branch) cannot call tenant-scoped endpoints unless
+    explicitly scoped via JWT claims. Non-SYSADMIN users must have active assignments.
     """
     if not current_user.company_id or not current_user.branch_id:
         raise HTTPException(
@@ -120,6 +131,55 @@ async def get_tenant_context(
                 "A SYSADMIN must assign you to a branch before you can access business data."
             ),
         )
+
+    if current_user.role != UserRole.SYSADMIN:
+        # If user has company assignment records, enforce matching active assignment
+        any_comp_res = await db.execute(
+            select(UserCompanyAssignment).where(
+                UserCompanyAssignment.user_id == current_user.id,
+            )
+        )
+        if any_comp_res.scalars().first() is not None:
+            comp_res = await db.execute(
+                select(UserCompanyAssignment).where(
+                    UserCompanyAssignment.user_id == current_user.id,
+                    UserCompanyAssignment.company_id == current_user.company_id,
+                    UserCompanyAssignment.is_deleted == False,
+                    UserCompanyAssignment.is_active == True,
+                )
+            )
+            if not comp_res.scalars().first():
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied: You are not assigned to this company.",
+                )
+
+        # If user has branch assignment records, enforce matching active assignment
+        any_br_res = await db.execute(
+            select(UserBranchAssignment).where(
+                UserBranchAssignment.user_id == current_user.id,
+            )
+        )
+        if any_br_res.scalars().first() is not None:
+            br_res = await db.execute(
+                select(UserBranchAssignment).where(
+                    UserBranchAssignment.user_id == current_user.id,
+                    UserBranchAssignment.branch_id == current_user.branch_id,
+                    UserBranchAssignment.is_deleted == False,
+                    UserBranchAssignment.is_active == True,
+                )
+            )
+            if not br_res.scalars().first():
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied: You are not assigned to this branch.",
+                )
+
+    return TenantContext(
+        company_id=current_user.company_id,
+        branch_id=current_user.branch_id,
+    )
+
     return TenantContext(
         company_id=current_user.company_id,
         branch_id=current_user.branch_id,

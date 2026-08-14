@@ -14,7 +14,6 @@ Classification: Internal
 
 import json
 import uuid
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -24,7 +23,6 @@ from app.main import app
 from app.models.auth import User, UserRole
 from app.models.tenant import Branch, Company
 from app.tests.conftest import clear_db
-
 
 @pytest.fixture(autouse=True)
 async def override_db_and_tenant(db_session):

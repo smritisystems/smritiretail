@@ -13,23 +13,19 @@ License      : Proprietary Commercial Software
 
 import json
 import socket
-from datetime import UTC, datetime
-
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Dict, Any
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_current_user, get_db, require_role
+from ...api.deps import get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.barcode import BarcodeLayout, PrintHistory
 from ...models.system import SystemConfig
 from ...schemas.barcode import (
-    BarcodeLayoutCreate,
-    BarcodeLayoutResponse,
-    BarcodeLayoutUpdate,
-    PrinterSettingsRequest,
-    PrintHistoryResponse,
-    PrintRequest,
+    BarcodeLayoutCreate, BarcodeLayoutUpdate, BarcodeLayoutResponse, PrintRequest,
+    PrintHistoryResponse, PrinterSettingsRequest
 )
 
 router = APIRouter()
@@ -62,7 +58,7 @@ def serialize_layout(l: BarcodeLayout) -> BarcodeLayoutResponse:
 
 @router.get(
     "/layouts",
-    response_model=list[BarcodeLayoutResponse],
+    response_model=List[BarcodeLayoutResponse],
 )
 async def list_layouts(
     db: AsyncSession = Depends(get_db),
@@ -99,7 +95,7 @@ async def create_layout(
         for d in defaults:
             d.is_default = False
 
-    new_id = f"lay-{int(datetime.now(UTC).timestamp())}"
+    new_id = f"lay-{int(datetime.now(timezone.utc).timestamp())}"
     elements_data = {
         "elements": req.elements or [],
         "prn_template": req.prnTemplate
@@ -175,7 +171,7 @@ async def update_layout(
         layout.elements_json = json.dumps(elements_data)
 
     layout.updated_by = current_user.username
-    layout.modified_at = datetime.now(UTC)
+    layout.modified_at = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(layout)
@@ -201,7 +197,7 @@ async def delete_layout(
 
     layout.is_deleted = True
     layout.is_active = False
-    layout.deleted_at = datetime.now(UTC)
+    layout.deleted_at = datetime.now(timezone.utc)
     layout.deleted_by = current_user.username
     await db.commit()
     return {"success": True}
@@ -270,7 +266,7 @@ async def print_labels(
 
         # Build raw ZPL thermal stream
         if prn_template:
-            mfg_date = datetime.now(UTC).strftime("%m/%y")
+            mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
             mrp_val = item.get("mrp", item.get("price", 0.0))
             try:
                 mrp_str = f"{int(float(mrp_val))}"
@@ -285,7 +281,7 @@ async def print_labels(
             raw_stream = prn_template
             
             # Pre-calculate common dates and formatting defaults
-            mfg_date = datetime.now(UTC).strftime("%m/%y")
+            mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
             mrp_val = item.get("mrp", item.get("price", 0.0))
             try:
                 mrp_str = f"{int(float(mrp_val))}"
@@ -318,7 +314,7 @@ async def print_labels(
                         raw_stream = raw_stream.replace(f"{{{k}}}", str(v))
                         raw_stream = raw_stream.replace(f"{{{k.lower()}}}", str(v))
         elif layout.id == "lay-premium-zpl":
-            mfg_date = datetime.now(UTC).strftime("%m/%y")
+            mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
             mrp_val = item.get("mrp", item.get("price", 0.0))
             try:
                 mrp_str = f"{int(float(mrp_val))}"
@@ -457,7 +453,7 @@ async def print_labels(
 
         # Build print history entity
         import uuid
-        history_id = f"prn-log-{int(datetime.now(UTC).timestamp())}-{uuid.uuid4().hex[:4]}"
+        history_id = f"prn-log-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:4]}"
         history = PrintHistory(
             id=history_id,
             user=current_user.username,
@@ -549,7 +545,7 @@ async def print_labels(
 
 @router.get(
     "/print-history",
-    response_model=list[PrintHistoryResponse],
+    response_model=List[PrintHistoryResponse],
 )
 async def list_print_history(
     db: AsyncSession = Depends(get_db),
@@ -630,7 +626,7 @@ async def save_printer_settings(
         obj.value = val_json
     else:
         obj = SystemConfig(
-            id=f"cfg-{int(datetime.now(UTC).timestamp())}",
+            id=f"cfg-{int(datetime.now(timezone.utc).timestamp())}",
             key="printer_connection",
             value=val_json,
             category="Printing"

@@ -11,33 +11,32 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class TermsClauseCreate(BaseModel):
     title: str
     category: str
     content: str
-    code: str | None = None
-    isActive: bool | None = Field(True, alias="isActive")
-    status: str | None = "Approved"
-    language: str | None = "English"
+    code: Optional[str] = None
+    isActive: Optional[bool] = Field(True, alias="isActive")
+    status: Optional[str] = "Approved"
+    language: Optional[str] = "English"
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class TermsClauseUpdate(BaseModel):
-    title: str | None = None
-    category: str | None = None
-    content: str | None = None
-    code: str | None = None
-    isActive: bool | None = Field(None, alias="isActive")
-    status: str | None = None
-    language: str | None = None
-    submitForApproval: bool | None = Field(None, alias="submitForApproval")
-    comments: str | None = None
+    title: Optional[str] = None
+    category: Optional[str] = None
+    content: Optional[str] = None
+    code: Optional[str] = None
+    isActive: Optional[bool] = Field(None, alias="isActive")
+    status: Optional[str] = None
+    language: Optional[str] = None
+    submitForApproval: Optional[bool] = Field(None, alias="submitForApproval")
+    comments: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -47,11 +46,11 @@ class TermsClauseResponse(BaseModel):
     title: str
     category: str
     content: str
-    code: str | None = None
+    code: Optional[str] = None
     isActive: bool = Field(..., serialization_alias="isActive")
     version: int
     lastUpdated: str = Field(..., serialization_alias="lastUpdated")
-    updatedBy: str | None = Field(None, serialization_alias="updatedBy")
+    updatedBy: Optional[str] = Field(None, serialization_alias="updatedBy")
     status: str
     language: str
 
@@ -64,18 +63,18 @@ class TermsClauseResponse(BaseModel):
 class TermsDefaultCreate(BaseModel):
     level: str
     refId: str = Field(..., alias="refId")
-    clauseIds: list[str] = Field(..., alias="clauseIds")
-    isActive: bool | None = Field(True, alias="isActive")
+    clauseIds: List[str] = Field(..., alias="clauseIds")
+    isActive: Optional[bool] = Field(True, alias="isActive")
 
 
 class TermsDefaultResponse(BaseModel):
     id: str
     level: str
     refId: str = Field(..., serialization_alias="refId")
-    clauseIds: list[str] = Field(..., serialization_alias="clauseIds")
+    clauseIds: List[str] = Field(..., serialization_alias="clauseIds")
     isActive: bool = Field(..., serialization_alias="isActive")
     lastUpdated: str = Field(..., serialization_alias="lastUpdated")
-    updatedBy: str | None = Field(None, serialization_alias="updatedBy")
+    updatedBy: Optional[str] = Field(None, serialization_alias="updatedBy")
 
     model_config = {
         "from_attributes": True,
@@ -86,7 +85,7 @@ class TermsDefaultResponse(BaseModel):
 class TermsSnapshotCreate(BaseModel):
     documentType: str = Field(..., alias="documentType")
     documentNo: str = Field(..., alias="documentNo")
-    clauses: list[dict[str, Any]]
+    clauses: List[Dict[str, Any]]
 
 
 class TermsSnapshotResponse(BaseModel):
@@ -94,7 +93,7 @@ class TermsSnapshotResponse(BaseModel):
     documentType: str = Field(..., serialization_alias="documentType")
     documentNo: str = Field(..., serialization_alias="documentNo")
     snapshotAt: str = Field(..., serialization_alias="snapshotAt")
-    clausesSnapshot: list[dict[str, Any]] = Field(..., serialization_alias="clausesSnapshot")
+    clausesSnapshot: List[Dict[str, Any]] = Field(..., serialization_alias="clausesSnapshot")
 
     model_config = {
         "from_attributes": True,
@@ -103,20 +102,21 @@ class TermsSnapshotResponse(BaseModel):
 
 
 class TermsResolveRequest(BaseModel):
-    companyCode: str | None = Field("SMRITI_IND", alias="companyCode")
-    branchCode: str | None = Field(None, alias="branchCode")
-    documentType: str | None = Field(None, alias="documentType")
-    partyId: str | None = Field(None, alias="partyId")
-    variables: dict[str, str] | None = None
+    companyCode: Optional[str] = Field("SMRITI_IND", alias="companyCode")
+    branchCode: Optional[str] = Field(None, alias="branchCode")
+    documentType: Optional[str] = Field(None, alias="documentType")
+    partyId: Optional[str] = Field(None, alias="partyId")
+    variables: Optional[Dict[str, str]] = None
 
 
 class ResolvedLevel(BaseModel):
     level: str
-    refId: str | None = Field(None, serialization_alias="refId")
+    refId: Optional[str] = Field(None, serialization_alias="refId")
     active: bool
     count: int
 
     model_config = {
+        "from_attributes": True,
         "populate_by_name": True
     }
 
@@ -126,7 +126,7 @@ class resolvedLevelResponse(BaseModel):
     branchApplied: bool
     documentApplied: bool
     partyApplied: bool
-    levels: list[ResolvedLevel]
+    levels: List[ResolvedLevel]
 
 
 class ResolvedClause(BaseModel):
@@ -141,15 +141,17 @@ class ResolvedClause(BaseModel):
     status: str
 
     model_config = {
+        "from_attributes": True,
         "populate_by_name": True
     }
 
 
 class TermsResolveResponse(BaseModel):
     inheritanceTrace: resolvedLevelResponse = Field(..., serialization_alias="inheritanceTrace")
-    resolvedList: list[ResolvedClause] = Field(..., serialization_alias="resolvedList")
+    resolvedList: List[ResolvedClause] = Field(..., serialization_alias="resolvedList")
 
     model_config = {
+        "from_attributes": True,
         "populate_by_name": True
     }
 
@@ -159,13 +161,13 @@ class ApprovalWorkflowLogResponse(BaseModel):
     clauseId: str = Field(..., serialization_alias="clauseId")
     title: str
     version: int
-    submittedBy: str | None = Field(None, serialization_alias="submittedBy")
+    submittedBy: Optional[str] = Field(None, serialization_alias="submittedBy")
     submittedAt: str = Field(..., serialization_alias="submittedAt")
     status: str
-    approvedBy: str | None = Field(None, serialization_alias="approvedBy")
+    approvedBy: Optional[str] = Field(None, serialization_alias="approvedBy")
     approvedAt: str = Field(..., serialization_alias="approvedAt")
-    proposedChanges: dict[str, Any] | None = Field(None, serialization_alias="proposedChanges")
-    comments: str | None = None
+    proposedChanges: Optional[Dict[str, Any]] = Field(None, serialization_alias="proposedChanges")
+    comments: Optional[str] = None
 
     model_config = {
         "from_attributes": True,

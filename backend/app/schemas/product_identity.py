@@ -16,9 +16,8 @@ License      : Proprietary Commercial Software
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
-
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel, Field, ConfigDict
 
 
 def _to_snake_case(name: str) -> str:

@@ -50,9 +50,10 @@ from app.models.terms import TermsClause, TermsDefault, TermsSnapshot, ApprovalW
 from app.models.attributes import AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
 from app.models.barcode import BarcodeLayout, PrintTemplate, PrintProfile
 from app.models.exchange import DataExchangeTask, DataExchangeFieldMapping
+from app.models.product_identity import BarcodeProvider, IdentityRule, ProductIdentity
 from app.models.role import Role
 from app.models.master_lookup import MasterType, MasterValue
-
+from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
 config = context.config
 
 if config.config_file_name is not None:
@@ -75,6 +76,9 @@ def include_object(object, name, type_, reflected, compare_to):
             "sales_invoice_items",
             "companies",
             "branches",
+            "user_company_assignments",
+            "user_branch_assignments",
+            "user_store_assignments",
             "users",
             "refresh_token_blacklist",
             "purchase_orders",
@@ -107,6 +111,9 @@ def include_object(object, name, type_, reflected, compare_to):
             "roles",
             "stores",
             "warehouses",
+            "barcode_providers",
+            "identity_rules",
+            "product_identities",
             "master_types",
             "master_values",
             "sales_quotations",

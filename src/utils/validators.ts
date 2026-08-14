@@ -45,7 +45,7 @@ export function isValidMobile(mobile: string): boolean {
 }
 
 /**
- * Validates standard email address format.
+ * Validates basic email address format.
  */
 export function isValidEmail(email: string): boolean {
   if (!email) return false;

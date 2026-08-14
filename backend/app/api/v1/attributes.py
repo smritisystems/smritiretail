@@ -13,29 +13,23 @@ License      : Proprietary Commercial Software
 
 import json
 import random
-from datetime import UTC, datetime
-from typing import Any
-
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from typing import List, Dict, Any
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_current_user, get_db, require_role
-from ...models.attributes import AttributeDefinition, AttributeGroup, VariantTemplate
+from ...api.deps import get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
+from ...models.attributes import (
+    AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
+)
 from ...models.inventory import Product
 from ...schemas.attributes import (
-    AttributeDefinitionCreate,
-    AttributeDefinitionResponse,
-    AttributeDefinitionUpdate,
-    AttributeGroupCreate,
-    AttributeGroupResponse,
-    AttributeGroupUpdate,
-    CategoryMappingCreate,
-    CategoryMappingResponse,
-    VariantTemplateCreate,
-    VariantTemplateResponse,
-    VariantTemplateUpdate,
+    AttributeDefinitionCreate, AttributeDefinitionUpdate, AttributeDefinitionResponse,
+    AttributeGroupCreate, AttributeGroupUpdate, AttributeGroupResponse,
+    VariantTemplateCreate, VariantTemplateUpdate, VariantTemplateResponse,
+    CategoryMappingCreate, CategoryMappingResponse
 )
 from ...services.attributes import AttributesService
 
@@ -46,7 +40,7 @@ router = APIRouter()
 
 @router.get(
     "/definitions",
-    response_model=list[AttributeDefinitionResponse],
+    response_model=List[AttributeDefinitionResponse],
 )
 async def list_definitions(
     db: AsyncSession = Depends(get_db),
@@ -180,7 +174,7 @@ async def delete_definition(
 
 @router.get(
     "/groups",
-    response_model=list[AttributeGroupResponse],
+    response_model=List[AttributeGroupResponse],
 )
 async def list_groups(
     db: AsyncSession = Depends(get_db),
@@ -274,7 +268,7 @@ async def delete_group(
 
 @router.get(
     "/templates",
-    response_model=list[VariantTemplateResponse],
+    response_model=List[VariantTemplateResponse],
 )
 async def list_templates(
     db: AsyncSession = Depends(get_db),
@@ -392,7 +386,7 @@ async def delete_template(
 )
 async def generate_variants(
     id: str,
-    body: dict[str, Any] = Body(...),
+    body: Dict[str, Any] = Body(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -447,7 +441,7 @@ async def generate_variants(
         else:
             # Create new product item
             new_prod = Product(
-                id=f"p-var-{int(datetime.now(UTC).timestamp())}-{index}",
+                id=f"p-var-{int(datetime.now(timezone.utc).timestamp())}-{index}",
                 code=constructed_code,
                 sku=v.get("sku") or constructed_code,
                 name=template.name,
@@ -492,7 +486,7 @@ async def generate_variants(
 
 @router.get(
     "/category-mappings",
-    response_model=list[CategoryMappingResponse],
+    response_model=List[CategoryMappingResponse],
 )
 async def list_category_mappings(
     db: AsyncSession = Depends(get_db),
@@ -569,7 +563,7 @@ async def import_headers(
 )
 async def import_validate(
     groupId: str = Body(..., embed=True),
-    rows: list[dict[str, Any]] = Body(..., embed=True),
+    rows: List[Dict[str, Any]] = Body(..., embed=True),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -636,7 +630,7 @@ async def import_validate(
 )
 async def import_commit(
     groupId: str = Body(..., embed=True),
-    rows: list[dict[str, Any]] = Body(..., embed=True),
+    rows: List[Dict[str, Any]] = Body(..., embed=True),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -668,7 +662,7 @@ async def import_commit(
         template = res.scalars().first()
         if not template:
             template = VariantTemplate(
-                id=f"vt-{int(datetime.now(UTC).timestamp())}-{index}",
+                id=f"vt-{int(datetime.now(timezone.utc).timestamp())}-{index}",
                 style_code=style_code,
                 name=row.get("BaseName"),
                 brand=row.get("Brand") or "SMRITI",
@@ -709,7 +703,7 @@ async def import_commit(
             created_products.append(existing)
         else:
             new_prod = Product(
-                id=f"p-import-{int(datetime.now(UTC).timestamp())}-{index}",
+                id=f"p-import-{int(datetime.now(timezone.utc).timestamp())}-{index}",
                 code=constructed_code,
                 sku=constructed_code,
                 name=template.name,

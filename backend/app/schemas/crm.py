@@ -11,12 +11,10 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from datetime import date, datetime
-from decimal import Decimal
 from typing import List, Optional
-
+from datetime import datetime, date
+from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # Base schema for CustomerGroup
 class CustomerGroupBase(BaseModel):

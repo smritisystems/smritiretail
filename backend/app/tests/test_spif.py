@@ -12,8 +12,8 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import os
 import uuid
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -23,8 +23,8 @@ from app.main import app
 from app.models.auth import User, UserRole
 from app.models.inventory import Product
 from app.models.tenant import Branch, Company
-from app.services.spif import SpifService
 from app.tests.conftest import clear_db
+from app.services.spif import SpifService
 
 # Dummy 1x1 black pixel PNG in base64 format
 TINY_BASE64_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="

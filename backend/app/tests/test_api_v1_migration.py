@@ -11,20 +11,19 @@ License      : Proprietary Commercial Software
 """
 
 import uuid
-
 import pytest
-from httpx import ASGITransport, AsyncClient
 from jose import jwt
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy.future import select
 
-from app.api.deps import get_db
-from app.core.config import settings
-from app.core.security import create_access_token, hash_password
 from app.main import app
+from app.core.config import settings
 from app.models.auth import User, UserRole
 from app.models.numbering import DocumentSeries
 from app.models.system import SystemConfig
-from app.models.tenant import Branch, Company
+from app.models.tenant import Company, Branch
+from app.core.security import create_access_token, hash_password
+from app.api.deps import get_db
 from app.tests.conftest import clear_db
 
 
@@ -219,7 +218,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
         db_session.add(admin)
         await db_session.commit()
 
-        token_payload = {
+        headers = {"Authorization": f"Bearer {create_access_token({
             "sub": admin.id,
             "username": admin.username,
             "role": admin.role.value,
@@ -227,8 +226,8 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
             "branch_id": admin.branch_id,
             "jti": str(uuid.uuid4()),
             "type": "access",
+        })}"
         }
-        headers = {"Authorization": f"Bearer {create_access_token(token_payload)}"}
 
         res_setup = await client.post(
             "/api/v1/company/setup",

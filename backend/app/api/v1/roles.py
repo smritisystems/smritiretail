@@ -12,23 +12,23 @@ License      : Proprietary Commercial Software
 """
 
 import json
-from datetime import UTC, datetime
-
+from typing import List
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_current_user, get_db, require_role
+from ...api.deps import get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.role import Role
-from ...schemas.role import RoleCreate, RoleResponse, RoleUpdate
+from ...schemas.role import RoleCreate, RoleUpdate, RoleResponse
 
 router = APIRouter()
 
 
 @router.get(
     "/",
-    response_model=list[RoleResponse],
+    response_model=List[RoleResponse],
 )
 async def list_roles(
     db: AsyncSession = Depends(get_db),
@@ -74,7 +74,7 @@ async def create_role(
     if existing:
         raise HTTPException(status_code=400, detail=f"Access role '{req.name}' already registered.")
 
-    new_id = f"rol-{int(datetime.now(UTC).timestamp())}"
+    new_id = f"rol-{int(datetime.now(timezone.utc).timestamp())}"
     role = Role(
         id=new_id,
         name=req.name,
@@ -121,7 +121,7 @@ async def update_role(
     if req.description is not None: role.description = req.description
     if req.permissions is not None: role.permissions_json = json.dumps(req.permissions)
     role.updated_by = current_user.username
-    role.modified_at = datetime.now(UTC)
+    role.modified_at = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(role)
@@ -156,7 +156,7 @@ async def delete_role(
 
     role.is_deleted = True
     role.is_active = False
-    role.deleted_at = datetime.now(UTC)
+    role.deleted_at = datetime.now(timezone.utc)
     role.deleted_by = current_user.username
     await db.commit()
     return {"success": True}

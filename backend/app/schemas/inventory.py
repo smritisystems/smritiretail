@@ -11,12 +11,10 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
-
 from pydantic import BaseModel, ConfigDict, Field
-
 
 class ProductBase(BaseModel):
     code: str = Field(..., max_length=50)

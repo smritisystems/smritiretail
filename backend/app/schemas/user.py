@@ -11,10 +11,8 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any, Dict, List, Optional
-
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
-
 from ..models.auth import UserRole
 
 

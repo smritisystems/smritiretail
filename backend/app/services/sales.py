@@ -13,40 +13,35 @@ Classification: Internal
 """
 
 import uuid
-from datetime import UTC, datetime
+from typing import List, Optional
 from decimal import Decimal
-
-from fastapi import HTTPException
-from sqlalchemy import delete
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import delete
 from sqlalchemy.orm import selectinload
-
-from ..api.deps import TenantContext
-from ..models.inventory import Product, StockMovement
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 from ..models.sales import (
-    SalesInvoice,
-    SalesInvoiceItem,
-    SalesOrder,
-    SalesOrderItem,
-    SalesQuotation,
-    SalesQuotationItem,
-    SalesReturn,
-    SalesReturnItem,
+    SalesInvoice, SalesInvoiceItem,
+    SalesQuotation, SalesQuotationItem,
+    SalesOrder, SalesOrderItem,
+    SalesReturn, SalesReturnItem,
 )
+from ..models.inventory import Product, StockMovement
 from ..schemas.sales import (
     SalesInvoiceCreate,
     SalesInvoiceUpdate,
-    SalesOrderCreate,
-    SalesOrderUpdate,
     SalesQuotationCreate,
     SalesQuotationUpdate,
+    SalesOrderCreate,
+    SalesOrderUpdate,
     SalesReturnCreate,
     SalesReturnUpdate,
 )
 from .crm import CrmService
 from .inventory import InventoryService
+from ..api.deps import TenantContext
 
 
 def _uid() -> str:
@@ -148,7 +143,7 @@ class SalesService:
                 self.db.add(product)
 
                 # Record StockMovement
-                movement_id = f"SM-{int(datetime.now(UTC).timestamp())}-{uuid.uuid4().hex[:6]}"
+                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
                 db_movement = StockMovement(
                     id=movement_id,
                     uuid=str(uuid.uuid4()),
@@ -247,7 +242,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    async def list_sales_quotations(self) -> list[SalesQuotation]:
+    async def list_sales_quotations(self) -> List[SalesQuotation]:
         res = await self.db.execute(
             select(SalesQuotation)
             .options(selectinload(SalesQuotation.items))
@@ -259,7 +254,7 @@ class SalesService:
         )
         return res.scalars().all()
 
-    async def get_sales_quotation(self, q_id: str) -> tuple[SalesQuotation, list[SalesQuotationItem]]:
+    async def get_sales_quotation(self, q_id: str) -> tuple[SalesQuotation, List[SalesQuotationItem]]:
         res = await self.db.execute(
             select(SalesQuotation)
             .options(selectinload(SalesQuotation.items))
@@ -342,7 +337,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    async def list_sales_orders(self) -> list[SalesOrder]:
+    async def list_sales_orders(self) -> List[SalesOrder]:
         res = await self.db.execute(
             select(SalesOrder)
             .options(selectinload(SalesOrder.items))
@@ -354,7 +349,7 @@ class SalesService:
         )
         return res.scalars().all()
 
-    async def get_sales_order(self, so_id: str) -> tuple[SalesOrder, list[SalesOrderItem]]:
+    async def get_sales_order(self, so_id: str) -> tuple[SalesOrder, List[SalesOrderItem]]:
         res = await self.db.execute(
             select(SalesOrder)
             .options(selectinload(SalesOrder.items))
@@ -454,11 +449,11 @@ class SalesService:
         for product, qty in product_stock_updates:
             if product.tracking_mode != "No-stock":
                 product.stock += int(qty)
-                product.modified_at = datetime.now(UTC)
+                product.modified_at = datetime.now(timezone.utc)
                 self.db.add(product)
 
                 # Record StockMovement
-                movement_id = f"SM-{int(datetime.now(UTC).timestamp())}-{uuid.uuid4().hex[:6]}"
+                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
                 db_movement = StockMovement(
                     id=movement_id,
                     uuid=str(uuid.uuid4()),
@@ -493,7 +488,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    async def list_sales_returns(self) -> list[SalesReturn]:
+    async def list_sales_returns(self) -> List[SalesReturn]:
         res = await self.db.execute(
             select(SalesReturn)
             .options(selectinload(SalesReturn.items))
@@ -505,7 +500,7 @@ class SalesService:
         )
         return res.scalars().all()
 
-    async def get_sales_return(self, sr_id: str) -> tuple[SalesReturn, list[SalesReturnItem]]:
+    async def get_sales_return(self, sr_id: str) -> tuple[SalesReturn, List[SalesReturnItem]]:
         res = await self.db.execute(
             select(SalesReturn)
             .options(selectinload(SalesReturn.items))
@@ -582,7 +577,7 @@ class SalesService:
             if update_in.tax_total   is not None: invoice.tax_total   = update_in.tax_total
             if update_in.grand_total is not None: invoice.grand_total = update_in.grand_total
 
-        invoice.modified_at = datetime.now(UTC)
+        invoice.modified_at = datetime.now(timezone.utc)
         self.db.add(invoice)
         await self.db.commit()
 
@@ -615,7 +610,7 @@ class SalesService:
 
         invoice.status      = "Cancelled"
         invoice.is_deleted  = True
-        invoice.modified_at = datetime.now(UTC)
+        invoice.modified_at = datetime.now(timezone.utc)
         self.db.add(invoice)
         await self.db.commit()
         await self.db.refresh(invoice)
@@ -670,7 +665,7 @@ class SalesService:
             if update_in.tax_total   is not None: q.tax_total   = update_in.tax_total
             if update_in.grand_total is not None: q.grand_total = update_in.grand_total
 
-        q.modified_at = datetime.now(UTC)
+        q.modified_at = datetime.now(timezone.utc)
         self.db.add(q)
         await self.db.commit()
 
@@ -696,7 +691,7 @@ class SalesService:
         if not q:
             raise HTTPException(status_code=404, detail="Sales quotation not found")
         q.is_deleted  = True
-        q.modified_at = datetime.now(UTC)
+        q.modified_at = datetime.now(timezone.utc)
         self.db.add(q)
         await self.db.commit()
 
@@ -749,7 +744,7 @@ class SalesService:
             if update_in.tax_total   is not None: so.tax_total   = update_in.tax_total
             if update_in.grand_total is not None: so.grand_total = update_in.grand_total
 
-        so.modified_at = datetime.now(UTC)
+        so.modified_at = datetime.now(timezone.utc)
         self.db.add(so)
         await self.db.commit()
 
@@ -775,7 +770,7 @@ class SalesService:
         if not so:
             raise HTTPException(status_code=404, detail="Sales order not found")
         so.is_deleted  = True
-        so.modified_at = datetime.now(UTC)
+        so.modified_at = datetime.now(timezone.utc)
         self.db.add(so)
         await self.db.commit()
 
@@ -829,7 +824,7 @@ class SalesService:
             if update_in.tax_total   is not None: sr.tax_total   = update_in.tax_total
             if update_in.grand_total is not None: sr.grand_total = update_in.grand_total
 
-        sr.modified_at = datetime.now(UTC)
+        sr.modified_at = datetime.now(timezone.utc)
         self.db.add(sr)
         await self.db.commit()
 
@@ -855,7 +850,7 @@ class SalesService:
         if not sr:
             raise HTTPException(status_code=404, detail="Sales return not found")
         sr.is_deleted  = True
-        sr.modified_at = datetime.now(UTC)
+        sr.modified_at = datetime.now(timezone.utc)
         self.db.add(sr)
         await self.db.commit()
 
@@ -884,7 +879,7 @@ class SalesService:
                 detail=f"Cannot approve an invoice with status '{invoice.status}'.",
             )
         invoice.status      = "Confirmed"
-        invoice.modified_at = datetime.now(UTC)
+        invoice.modified_at = datetime.now(timezone.utc)
         self.db.add(invoice)
         await self.db.commit()
         await self.db.refresh(invoice)
@@ -953,7 +948,7 @@ class SalesService:
 
         # Mark quotation converted
         quotation.status      = "Converted"
-        quotation.modified_at = datetime.now(UTC)
+        quotation.modified_at = datetime.now(timezone.utc)
         self.db.add(quotation)
 
         await self.db.commit()

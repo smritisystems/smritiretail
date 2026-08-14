@@ -1,34 +1,20 @@
 """
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
-Created      : 2026-07-18
-Modified     : 2026-07-18
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-"""
-
-"""
 Product Identity Engine services.
 """
 
 import uuid
-from datetime import UTC, datetime
-
-from fastapi import HTTPException
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
 
 from ..api.deps import TenantContext
 from ..models.product_identity import BarcodeProvider, IdentityRule, ProductIdentity
-from ..repositories.product import ProductRepository
 from ..repositories.product_identity import (
     BarcodeProviderRepository,
     IdentityRuleRepository,
     ProductIdentityRepository,
 )
+from ..repositories.product import ProductRepository
 
 
 class ProductIdentityService:
@@ -126,7 +112,7 @@ class ProductIdentityService:
             state=data.state or "Available",
             identity_metadata=data.identityMetadata or {},
             rule_id=data.ruleId,
-            assigned_at=datetime.now(UTC),
+            assigned_at=datetime.now(timezone.utc),
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
             created_by="system",

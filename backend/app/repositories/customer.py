@@ -11,22 +11,20 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
-from ..api.deps import TenantContext
 from ..models.crm import Customer, CustomerGroup
 from .base import BaseRepository
-
+from ..api.deps import TenantContext
 
 class CustomerRepository(BaseRepository[Customer]):
-    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext | None = None):
+    def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(Customer, db, tenant_ctx)
 
     async def search(
-        self, q: str | None = None, skip: int = 0, limit: int = 50
-    ) -> list[Customer]:
+        self, q: Optional[str] = None, skip: int = 0, limit: int = 50
+    ) -> List[Customer]:
         """
         Search customers by name or mobile under tenant context.
         """
@@ -42,5 +40,5 @@ class CustomerRepository(BaseRepository[Customer]):
         return list(result.scalars().all())
 
 class CustomerGroupRepository(BaseRepository[CustomerGroup]):
-    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext | None = None):
+    def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(CustomerGroup, db, tenant_ctx)

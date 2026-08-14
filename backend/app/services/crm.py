@@ -11,15 +11,14 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
+from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
-from ..api.deps import TenantContext
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 from ..models.crm import Customer, CustomerGroup
-from ..schemas.crm import CustomerCreate, CustomerGroupCreate
-
+from ..schemas.crm import CustomerCreate, CustomerUpdate, CustomerGroupCreate
+from ..api.deps import TenantContext
 
 class CrmService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):

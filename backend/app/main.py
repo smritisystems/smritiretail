@@ -25,6 +25,7 @@ License      : Proprietary Commercial Software
 
 import datetime
 import time
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -35,9 +36,9 @@ from app.compliance.api import router as compliance_router
 
 from .api.v1 import (
     ai,
-    assignments,
     attributes,
     auth,
+    assignments,
     barcode,
     changelog,
     crm,

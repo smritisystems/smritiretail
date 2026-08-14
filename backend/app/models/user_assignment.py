@@ -6,20 +6,21 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.22.0
 Created      : 2026-07-17
-Modified     : 2026-07-17
+Modified     : 2026-08-13
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from sqlalchemy import Boolean, Column, ForeignKey, Index, String, text
+import uuid as uuid_pkg
+from sqlalchemy import Column, String, ForeignKey, UniqueConstraint, Index, Boolean, text
 from sqlalchemy.orm import relationship
-
 from ..db.base import BaseEntity
 
 
 class UserCompanyAssignment(BaseEntity):
     __tablename__ = "user_company_assignments"
 
+    id = Column(String(50), primary_key=True, default=lambda: f"uca-{uuid_pkg.uuid4().hex[:12]}")
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     is_default = Column(Boolean, default=False, nullable=False)
@@ -49,6 +50,7 @@ class UserCompanyAssignment(BaseEntity):
 class UserBranchAssignment(BaseEntity):
     __tablename__ = "user_branch_assignments"
 
+    id = Column(String(50), primary_key=True, default=lambda: f"uba-{uuid_pkg.uuid4().hex[:12]}")
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True)
     user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -81,6 +83,7 @@ class UserBranchAssignment(BaseEntity):
 class UserStoreAssignment(BaseEntity):
     __tablename__ = "user_store_assignments"
 
+    id = Column(String(50), primary_key=True, default=lambda: f"usa-{uuid_pkg.uuid4().hex[:12]}")
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True)
     user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

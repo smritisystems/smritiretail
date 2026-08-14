@@ -12,9 +12,8 @@ License      : Proprietary Commercial Software
 """
 
 import uuid as _uuid
-from datetime import UTC, datetime
-
-from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
 from ..db.base import Base
@@ -55,7 +54,7 @@ class WorkflowEvent(Base):
     notes            = Column(Text, nullable=True)
     created_at       = Column(
         DateTime(timezone=True), nullable=False,
-        default=lambda: datetime.now(UTC)
+        default=lambda: datetime.now(timezone.utc)
     )
 
     # Relationships

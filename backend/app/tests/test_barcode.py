@@ -13,7 +13,6 @@ Classification: Internal
 """
 
 import uuid
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -21,7 +20,7 @@ from app.api.deps import TenantContext, get_db, get_tenant_context
 from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
-from app.models.barcode import BarcodeLayout
+from app.models.barcode import BarcodeLayout, PrintHistory
 from app.models.tenant import Branch, Company
 from app.tests.conftest import clear_db
 

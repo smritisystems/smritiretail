@@ -11,27 +11,28 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 
 from ..models.auth import User, UserRole
+from ..models.tenant import Company, Branch
 from ..models.inventory import Store
-from ..models.tenant import Branch, Company
 from ..models.user_assignment import (
-    UserBranchAssignment,
     UserCompanyAssignment,
+    UserBranchAssignment,
     UserStoreAssignment,
 )
 from ..repositories.user_assignment import (
-    UserBranchAssignmentRepository,
     UserCompanyAssignmentRepository,
+    UserBranchAssignmentRepository,
     UserStoreAssignmentRepository,
 )
 from ..schemas.user_assignment import (
-    UserBranchAssignmentCreate,
     UserCompanyAssignmentCreate,
+    UserBranchAssignmentCreate,
     UserStoreAssignmentCreate,
 )
 

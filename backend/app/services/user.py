@@ -11,33 +11,24 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import uuid
 import json
 import random
-import uuid
-from datetime import UTC, datetime
-
-from fastapi import HTTPException
-from sqlalchemy import func, or_
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 
-from ..core.security import hash_password, validate_password_strength, verify_password
 from ..models.auth import User, UserRole
-from ..models.tenant import Branch, Company
+from ..models.tenant import Company, Branch
 from ..schemas.user import (
-    NotificationSettings,
-    PasswordChange,
-    PaymentDetails,
-    PerformanceMetrics,
-    SalaryStructure,
-    StaffUserCreate,
-    StaffUserResponse,
-    StaffUserUpdate,
-    UserCreate,
-    UserPreferencesSchema,
-    UserUpdate,
+    UserCreate, UserUpdate, PasswordChange, StaffUserCreate, StaffUserUpdate,
+    StaffUserResponse, SalaryStructure, PaymentDetails, PerformanceMetrics,
+    UserPreferencesSchema, NotificationSettings
 )
+from ..core.security import hash_password, verify_password, validate_password_strength
 
 
 def to_staff_response(user: User) -> StaffUserResponse:
@@ -238,7 +229,7 @@ class UserService:
                     detail=f"A {effective_role.value} user must have both a company and branch assigned.",
                 )
 
-        user.modified_at = datetime.now(UTC)
+        user.modified_at = datetime.now(timezone.utc)
         try:
             await self.db.commit()
         except IntegrityError:
@@ -264,7 +255,7 @@ class UserService:
         user.is_active  = False
         user.is_deleted = True
         user.status = "Inactive"
-        user.modified_at = datetime.now(UTC)
+        user.modified_at = datetime.now(timezone.utc)
         await self.db.commit()
 
     # ------------------------------------------------------------------
@@ -285,7 +276,7 @@ class UserService:
             )
         validate_password_strength(req.new_password)
         user.hashed_password = hash_password(req.new_password)
-        user.modified_at = datetime.now(UTC)
+        user.modified_at = datetime.now(timezone.utc)
         user.status = "Active"
         await self.db.commit()
 
@@ -448,7 +439,7 @@ class UserService:
         if req.preferences is not None: user.preferences_json = req.preferences.json()
         if req.notificationSettings is not None: user.notification_settings_json = req.notificationSettings.json()
 
-        user.modified_at = datetime.now(UTC)
+        user.modified_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(user)
         return to_staff_response(user)
@@ -463,7 +454,7 @@ class UserService:
                 pass
         current.update(preferences)
         user.preferences_json = json.dumps(current)
-        user.modified_at = datetime.now(UTC)
+        user.modified_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(user)
         return to_staff_response(user)
@@ -478,7 +469,7 @@ class UserService:
                 pass
         current.update(notifications)
         user.notification_settings_json = json.dumps(current)
-        user.modified_at = datetime.now(UTC)
+        user.modified_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(user)
         return to_staff_response(user)
@@ -486,7 +477,7 @@ class UserService:
     async def update_photo(self, user_id: str, photo: str) -> StaffUserResponse:
         user = await self.get_user(user_id)
         user.photo = photo
-        user.modified_at = datetime.now(UTC)
+        user.modified_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(user)
         return to_staff_response(user)
@@ -542,5 +533,5 @@ class UserService:
         user.is_active = False
         user.is_deleted = True
         user.status = "Inactive"
-        user.modified_at = datetime.now(UTC)
+        user.modified_at = datetime.now(timezone.utc)
         await self.db.commit()

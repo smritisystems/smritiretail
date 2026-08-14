@@ -12,23 +12,22 @@ License      : Proprietary Commercial Software
 """
 
 import asyncio
+import pytest
+from httpx import AsyncClient, ASGITransport
+from decimal import Decimal
 import uuid
 from contextvars import ContextVar
-from decimal import Decimal
-
-import pytest
-from fastapi import HTTPException
-from httpx import ASGITransport, AsyncClient
 from sqlalchemy.future import select
-
-from app.api.deps import TenantContext, get_current_user, get_db, get_tenant_context
+from fastapi import HTTPException
 from app.main import app
-from app.models.auth import User, UserRole
-from app.models.crm import Customer, CustomerGroup
+from app.models.tenant import Company, Branch
 from app.models.inventory import Product
-from app.models.tenant import Branch, Company
-from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
+from app.models.crm import Customer, CustomerGroup
+from app.models.sales import SalesInvoice
+from app.models.auth import User, UserRole
+from app.api.deps import TenantContext, get_db, get_current_user, get_tenant_context
 from app.services.sales import SalesService
+from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
 from app.tests.conftest import clear_db
 
 pytestmark = pytest.mark.asyncio
@@ -221,6 +220,7 @@ async def test_service_layer_isolation(db_session):
     )
     cust_b = Customer(
         id=f"cust-b-{suffix_b}",
+        code=f"CUSTB_{suffix_b}",
         name=f"Customer B {suffix_b}",
         customer_group_id=group_b.id,
         company_id=comp_b.id,
@@ -294,8 +294,7 @@ async def test_concurrent_duplicate_barcode_returns_400_not_500(db_session, db_e
     connection without touching the app's (potentially dirty) connection pool.
     Auth + tenant overrides remain active.
     """
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from sqlalchemy.ext.asyncio import async_sessionmaker as make_factory
+    from sqlalchemy.ext.asyncio import async_sessionmaker as make_factory, AsyncSession
 
     suffix = uuid.uuid4().hex[:6]
     company = Company(id=f"comp-race-{suffix}", name=f"Race Company {suffix}", is_active=True)

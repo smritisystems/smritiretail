@@ -12,29 +12,19 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+from typing import List, Optional
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from ...api.deps import TenantContext, get_db, get_tenant_context, require_role
+from ...api.deps import get_db, get_tenant_context, TenantContext, require_role
 from ...models.auth import UserRole
-from ...repositories.sales import SalesInvoiceRepository
 from ...schemas.sales import (
-    SalesInvoiceCreate,
-    SalesInvoiceResponse,
-    SalesInvoiceUpdate,
-    SalesOrderCreate,
-    SalesOrderItemResponse,
-    SalesOrderResponse,
-    SalesOrderUpdate,
-    SalesQuotationCreate,
-    SalesQuotationItemResponse,
-    SalesQuotationResponse,
-    SalesQuotationUpdate,
-    SalesReturnCreate,
-    SalesReturnItemResponse,
-    SalesReturnResponse,
-    SalesReturnUpdate,
+    SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
+    SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
+    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse,
+    SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
 )
+from ...repositories.sales import SalesInvoiceRepository
 from ...services.sales import SalesService
 
 router = APIRouter()
@@ -61,7 +51,7 @@ async def create_sales_invoice_contract(
     return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in)
 
 
-@router.get("/invoices", response_model=list[SalesInvoiceResponse], summary="List Sales Invoices (Contract URL)")
+@router.get("/invoices", response_model=List[SalesInvoiceResponse], summary="List Sales Invoices (Contract URL)")
 async def list_sales_invoices_contract(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -76,6 +66,12 @@ async def list_sales_invoices_contract(
 # ─────────────────────────── Sales Quotation ───────────────────────────
 
 @router.post(
+    "/quotations",
+    response_model=SalesQuotationResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
     "/quotations/",
     response_model=SalesQuotationResponse,
     status_code=201,
@@ -89,7 +85,8 @@ async def create_sales_quotation(
     return await SalesService(db, tenant_ctx).create_sales_quotation(q_in)
 
 
-@router.get("/quotations/", response_model=list[SalesQuotationResponse])
+@router.get("/quotations", response_model=List[SalesQuotationResponse])
+@router.get("/quotations/", response_model=List[SalesQuotationResponse])
 async def list_sales_quotations(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -143,6 +140,12 @@ async def delete_sales_quotation(
 # ─────────────────────────── Sales Order ───────────────────────────
 
 @router.post(
+    "/orders",
+    response_model=SalesOrderResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
     "/orders/",
     response_model=SalesOrderResponse,
     status_code=201,
@@ -156,7 +159,8 @@ async def create_sales_order(
     return await SalesService(db, tenant_ctx).create_sales_order(so_in)
 
 
-@router.get("/orders/", response_model=list[SalesOrderResponse])
+@router.get("/orders", response_model=List[SalesOrderResponse])
+@router.get("/orders/", response_model=List[SalesOrderResponse])
 async def list_sales_orders(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -210,6 +214,12 @@ async def delete_sales_order(
 # ─────────────────────────── Sales Return ───────────────────────────
 
 @router.post(
+    "/returns",
+    response_model=SalesReturnResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
     "/returns/",
     response_model=SalesReturnResponse,
     status_code=201,
@@ -223,7 +233,8 @@ async def create_sales_return(
     return await SalesService(db, tenant_ctx).create_sales_return(sr_in)
 
 
-@router.get("/returns/", response_model=list[SalesReturnResponse])
+@router.get("/returns", response_model=List[SalesReturnResponse])
+@router.get("/returns/", response_model=List[SalesReturnResponse])
 async def list_sales_returns(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -276,11 +287,10 @@ async def delete_sales_return(
 
 # ─────────────────────────── Sales Invoice UPDATE / CANCEL ───────────────────────────
 
-@router.put(
-    "/{invoice_id}",
-    response_model=SalesInvoiceResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
-)
+@router.put("/{invoice_id}", response_model=SalesInvoiceResponse)
+@router.patch("/{invoice_id}", response_model=SalesInvoiceResponse)
+@router.put("/invoices/{invoice_id}", response_model=SalesInvoiceResponse)
+@router.patch("/invoices/{invoice_id}", response_model=SalesInvoiceResponse)
 async def update_sales_invoice(
     invoice_id: str,
     update_in: SalesInvoiceUpdate,
@@ -291,7 +301,6 @@ async def update_sales_invoice(
     Partial-update a sales invoice.
     If 'items' is included, old line items are replaced and totals re-computed server-side.
     Stock is NOT adjusted on update; use Sales Returns for stock reversal.
-    MANAGER / SYSADMIN only.
     """
     return await SalesService(db, tenant_ctx).update_sales_invoice(invoice_id, update_in)
 
@@ -313,21 +322,6 @@ async def cancel_sales_invoice(
     """
     invoice = await SalesService(db, tenant_ctx).cancel_sales_invoice(invoice_id)
     return {"success": True, "message": f"Invoice {invoice.invoice_no} cancelled successfully."}
-
-
-# ─────────────────────────── Sales Invoice GET by ID (catch-all: MUST be last) ───────────────────────────
-
-@router.get("/{invoice_id}", response_model=SalesInvoiceResponse)
-async def get_sales_invoice(
-    invoice_id: str,
-    db: AsyncSession = Depends(get_db),
-    tenant_ctx: TenantContext = Depends(get_tenant_context),
-):
-    repo = SalesInvoiceRepository(db, tenant_ctx)
-    invoice = await repo.get(invoice_id)
-    if not invoice:
-        raise HTTPException(status_code=404, detail="Sales invoice not found")
-    return invoice
 
 
 # ─────────────────────────── Phase 4B: Convert Quotation ─────────────────────

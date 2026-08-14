@@ -11,8 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from sqlalchemy import Column, ForeignKey, Integer, String, Text
-
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Text
 from ..db.base import BaseEntity
 
 

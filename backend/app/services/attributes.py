@@ -11,15 +11,18 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import json
 import uuid
-from datetime import UTC, datetime
-
-from fastapi import HTTPException
+import json
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import delete
+from fastapi import HTTPException
 
-from ..models.attributes import AttributeDefinition, AttributeGroup, CategoryAttributeGroupMapping, VariantTemplate
+from ..models.attributes import (
+    AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
+)
+from ..models.inventory import Product
 
 
 class AttributesService:
@@ -90,7 +93,7 @@ class AttributesService:
         if data.multiLangLabels is not None: defn.multi_lang_labels = data.multiLangLabels
         
         defn.updated_by = updater
-        defn.modified_at = datetime.now(UTC)
+        defn.modified_at = datetime.now(timezone.utc)
 
 
         await self.db.commit()
@@ -103,7 +106,7 @@ class AttributesService:
             raise HTTPException(status_code=404, detail="Attribute definition not found")
         defn.is_deleted = True
         defn.is_active = False
-        defn.deleted_at = datetime.now(UTC)
+        defn.deleted_at = datetime.now(timezone.utc)
         defn.deleted_by = operator
         await self.db.commit()
 
@@ -138,7 +141,7 @@ class AttributesService:
         if data.gridColumnAttributeId is not None: group.grid_column_attribute_id = data.gridColumnAttributeId
         if data.gridRowAttributeId is not None: group.grid_row_attribute_id = data.gridRowAttributeId
         group.updated_by = updater
-        group.modified_at = datetime.now(UTC)
+        group.modified_at = datetime.now(timezone.utc)
 
         await self.db.commit()
         await self.db.refresh(group)
@@ -150,7 +153,7 @@ class AttributesService:
             raise HTTPException(status_code=404, detail="Attribute group not found")
         group.is_deleted = True
         group.is_active = False
-        group.deleted_at = datetime.now(UTC)
+        group.deleted_at = datetime.now(timezone.utc)
         group.deleted_by = operator
         await self.db.commit()
 
@@ -208,7 +211,7 @@ class AttributesService:
         if data.pricingMode is not None: template.pricing_mode = data.pricingMode
         if data.trackingMode is not None: template.tracking_mode = data.trackingMode
         template.updated_by = updater
-        template.modified_at = datetime.now(UTC)
+        template.modified_at = datetime.now(timezone.utc)
 
         await self.db.commit()
         await self.db.refresh(template)
@@ -220,7 +223,7 @@ class AttributesService:
             raise HTTPException(status_code=404, detail="Variant template not found")
         template.is_deleted = True
         template.is_active = False
-        template.deleted_at = datetime.now(UTC)
+        template.deleted_at = datetime.now(timezone.utc)
         template.deleted_by = operator
         await self.db.commit()
 
@@ -240,7 +243,7 @@ class AttributesService:
         if existing:
             existing.attribute_group_id = attribute_group_id
             existing.updated_by = creator
-            existing.modified_at = datetime.now(UTC)
+            existing.modified_at = datetime.now(timezone.utc)
             await self.db.commit()
             await self.db.refresh(existing)
             return existing
@@ -374,7 +377,7 @@ class AttributesService:
                 defn.is_deleted = False
                 defn.is_active = True
                 defn.updated_by = operator
-                defn.modified_at = datetime.now(UTC)
+                defn.modified_at = datetime.now(timezone.utc)
                 await self.db.commit()
                 await self.db.refresh(defn)
                 
@@ -411,7 +414,7 @@ class AttributesService:
             group.grid_column_attribute_id = grid_col_id
             group.grid_row_attribute_id = grid_row_id
             group.updated_by = operator
-            group.modified_at = datetime.now(UTC)
+            group.modified_at = datetime.now(timezone.utc)
             await self.db.commit()
             await self.db.refresh(group)
             
@@ -438,7 +441,7 @@ class AttributesService:
         else:
             mapping.attribute_group_id = group.id
             mapping.updated_by = operator
-            mapping.modified_at = datetime.now(UTC)
+            mapping.modified_at = datetime.now(timezone.utc)
             await self.db.commit()
             await self.db.refresh(mapping)
             

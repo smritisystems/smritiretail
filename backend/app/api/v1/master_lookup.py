@@ -12,24 +12,21 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from datetime import UTC, datetime
-from typing import Any, cast
+from typing import List, Any, cast
 from uuid import UUID
-
+from datetime import datetime, timezone
 import jsonschema  # type: ignore
 from fastapi import APIRouter, Depends, HTTPException
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_current_user, get_db, require_role
+from ...api.deps import get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.master_lookup import MasterType, MasterValue
 from ...schemas.master_lookup import (
-    MasterTypeCreate,
-    MasterTypeResponse,
-    MasterValueCreate,
-    MasterValueResponse,
-    MasterValueUpdate,
+    MasterTypeCreate, MasterTypeResponse,
+    MasterValueCreate, MasterValueUpdate, MasterValueResponse
 )
 
 router = APIRouter()
@@ -47,12 +44,12 @@ def get_validator(master_type_id: str, schema: dict, version: int):
 
 @router.get(
     "/lookup-types",
-    response_model=list[MasterTypeResponse],
+    response_model=List[MasterTypeResponse],
 )
 async def list_lookup_types(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[MasterType]:
+) -> List[MasterType]:
     """
     List all master lookup types.
     """
@@ -125,14 +122,14 @@ async def create_lookup_type(
 
 @router.get(
     "/lookup/{type_code}/values",
-    response_model=list[MasterValueResponse],
+    response_model=List[MasterValueResponse],
 )
 async def list_lookup_values(
     type_code: str,
     activeOnly: bool = False,  # noqa: N803
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[MasterValue]:
+) -> List[MasterValue]:
     """
     List all master values for a given master lookup type.
     """
@@ -277,20 +274,20 @@ async def update_lookup_value(
                 status_code=400,
                 detail=f"Validation failed: {err.message}"
             ) from err
-        item.data = data
+        setattr(item, "data", data)
 
     if payload.code is not None:
-        item.code = payload.code
+        setattr(item, "code", payload.code)
     if payload.name is not None:
-        item.name = payload.name
+        setattr(item, "name", payload.name)
     if payload.parent_value_id is not None:
-        item.parent_value_id = payload.parent_value_id
+        setattr(item, "parent_value_id", payload.parent_value_id)
     if payload.active is not None:
-        item.active = payload.active
+        setattr(item, "active", payload.active)
     if payload.sort_order is not None:
-        item.sort_order = payload.sort_order
+        setattr(item, "sort_order", payload.sort_order)
 
-    item.updated_at = datetime.now(UTC)
+    setattr(item, "updated_at", datetime.now(timezone.utc))
     await db.commit()
     await db.refresh(item)
     return item
@@ -331,8 +328,8 @@ async def delete_lookup_value(
             detail="Master value not found or matched."
         )
 
-    item.is_deleted = True
-    item.deleted_at = datetime.now(UTC)
-    item.deleted_by = current_user.username
+    setattr(item, "is_deleted", True)
+    setattr(item, "deleted_at", datetime.now(timezone.utc))
+    setattr(item, "deleted_by", current_user.username)
     await db.commit()
     return {"success": True, "deletedId": str(id)}

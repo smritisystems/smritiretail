@@ -12,40 +12,37 @@ License      : Proprietary Commercial Software
 """
 
 import re
+import uuid
 import secrets
-from datetime import UTC, datetime, timedelta
-from typing import Any
-
-from fastapi import APIRouter, Body, Depends, HTTPException
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from ...api.deps import get_current_user, get_db, require_role
+from ...api.deps import get_db, get_current_user, require_role
+from ...core.security import hash_password
 from ...models.auth import User, UserRole
-from ...models.inventory import Store
 from ...models.psv import PSVParty, PSVPartySkuTracking
-from ...models.system import SystemConfig, TallyConfig
-from ...models.tenant import Branch, Company
-from ...schemas.numbering import DocumentSeriesCreate
+from ...models.system import TallyConfig, SystemConfig
+from ...models.tenant import Company, Branch
+from ...models.inventory import Store
 from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
-    CompanySetupRequest,
-    StoreConfig,
-    SystemConfigCreate,
-    SystemConfigResponse,
-    SystemConfigUpdate,
-    TallyConfigCreate,
-    TallyConfigResponse,
+    TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
+    SystemConfigCreate, SystemConfigUpdate, SystemConfigResponse,
+    CompanySetupRequest, StoreConfig
 )
-from ...schemas.user import UserCreate
+from ...schemas.numbering import DocumentSeriesCreate
 from ...services.numbering import NumberingService
+from ...schemas.user import UserCreate
 from ...services.user import UserService
 
 router = APIRouter()
 
-DEFAULT_LAYOUT_PREFERENCES: dict[str, Any] = {
+DEFAULT_LAYOUT_PREFERENCES: Dict[str, Any] = {
     "position": "left",
     "collapsed": False,
     "iconOnly": False,
@@ -67,10 +64,10 @@ LICENSE_TYPE_KEY = "license_type"
 LICENSE_MODE_KEY = "license_mode"
 LICENSE_EXPIRES_KEY = "license_expires_at"
 
-layout_preferences: dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
+layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
 
 
-async def get_system_config(db: AsyncSession, key: str) -> SystemConfig | None:
+async def get_system_config(db: AsyncSession, key: str) -> Optional[SystemConfig]:
     q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted == False)
     res = await db.execute(q)
     return res.scalars().first()
@@ -87,7 +84,7 @@ async def set_system_config(
     if existing:
         existing.value = value
         existing.updated_by = current_user.username
-        existing.modified_at = datetime.now(UTC)
+        existing.modified_at = datetime.now(timezone.utc)
         if commit:
             await db.commit()
         else:
@@ -95,7 +92,7 @@ async def set_system_config(
         await db.refresh(existing)
         return existing
 
-    new_id = f"sys-{int(datetime.now(UTC).timestamp())}"
+    new_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}"
     config = SystemConfig(
         id=new_id,
         key=key,
@@ -117,7 +114,7 @@ async def set_system_config(
 
 @router.get(
     "/tally",
-    response_model=list[TallyConfigResponse],
+    response_model=List[TallyConfigResponse],
 )
 async def get_tally_config(
     db: AsyncSession = Depends(get_db),
@@ -165,12 +162,12 @@ async def save_tally_config(
         existing.sync_interval_mins = req.syncIntervalMins
         existing.is_active = req.isActive if req.isActive is not None else True
         existing.updated_by = current_user.username
-        existing.modified_at = datetime.now(UTC)
+        existing.modified_at = datetime.now(timezone.utc)
         await db.commit()
         await db.refresh(existing)
         config = existing
     else:
-        new_id = f"tal-{int(datetime.now(UTC).timestamp())}"
+        new_id = f"tal-{int(datetime.now(timezone.utc).timestamp())}"
         config = TallyConfig(
             id=new_id,
             endpoint=req.endpoint,
@@ -223,7 +220,7 @@ async def sync_tally(
 
 @router.get(
     "/configs",
-    response_model=list[SystemConfigResponse],
+    response_model=List[SystemConfigResponse],
 )
 async def list_system_configs(
     db: AsyncSession = Depends(get_db),
@@ -256,7 +253,7 @@ async def create_system_config(
     if existing:
         raise HTTPException(status_code=400, detail=f"Configuration parameter '{req.key}' already registered.")
 
-    new_id = f"sys-{int(datetime.now(UTC).timestamp())}"
+    new_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}"
     config = SystemConfig(
         id=new_id,
         key=req.key,
@@ -293,7 +290,7 @@ async def update_system_config(
 
     config.value = req.value
     config.updated_by = current_user.username
-    config.modified_at = datetime.now(UTC)
+    config.modified_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(config)
     return config
@@ -319,7 +316,7 @@ async def health_check(
 
     return {
         "status": "Healthy" if db_healthy else "Degraded",
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "services": {
             "database": "Connected" if db_healthy else "Disconnected",
             "server": "Active"
@@ -329,7 +326,7 @@ async def health_check(
 
 @router.get(
     "/psv/parties",
-    response_model=list[PSVPartyResponse],
+    response_model=List[PSVPartyResponse],
     summary="List PSV Partner Parties",
     description="Returns Partner SKU Verification (PSV) partner party inventory and SKU tracking data.",
 )
@@ -409,7 +406,7 @@ async def create_audit_log(
         "record_id":  payload.recordId,
         "reason":     payload.reason,
         "user_id":    user.id,
-        "timestamp":  datetime.now(UTC).isoformat(),
+        "timestamp":  datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -439,7 +436,7 @@ async def get_layout_preferences():
     "/layout/preferences",
 )
 async def save_layout_preferences(
-    payload: dict[str, Any] = Body(...),
+    payload: Dict[str, Any] = Body(...),
 ):
     """
     Store UI layout preferences for the current backend instance.
@@ -552,10 +549,10 @@ async def company_setup(
     license_type = (payload.license.type or "Trial").title()
     license_mode = (payload.license.mode or "Offline").title()
     license_expires_at = payload.license.expiresAt or (
-        (datetime.now(UTC) + timedelta(days=30)).isoformat()
+        (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
     )
 
-    timestamp_ms = int(datetime.now(UTC).timestamp() * 1000)
+    timestamp_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     company_id = f"comp-{timestamp_ms}"
     created_branches = []
     created_stores = []

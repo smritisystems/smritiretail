@@ -14,9 +14,9 @@
 """
 
 from datetime import datetime
-from typing import Literal
+from typing import Optional, Literal
+from pydantic import BaseModel, Field, EmailStr
 
-from pydantic import BaseModel, Field
 
 DeliveryChannel = Literal["EMAIL", "WHATSAPP", "SMS"]
 DeliveryFormat  = Literal["PDF", "Excel", "CSV"]
@@ -27,7 +27,7 @@ class ReportScheduleCreate(BaseModel):
     report_id        : str             = Field(..., description="Report catalog ID, e.g. RPT-SAL-001")
     report_name      : str             = Field(..., description="Human-readable report name")
     frequency        : Frequency       = Field(..., description="DAILY | WEEKLY | MONTHLY")
-    execution_time   : str | None   = Field(default="08:00", description="HH:MM execution time")
+    execution_time   : Optional[str]   = Field(default="08:00", description="HH:MM execution time")
     delivery_channel : DeliveryChannel = Field(..., description="EMAIL | WHATSAPP | SMS")
     delivery_target  : str             = Field(..., description="Email address or phone number")
     delivery_format  : DeliveryFormat  = Field(default="PDF", description="PDF | Excel | CSV")
@@ -40,15 +40,15 @@ class ReportScheduleResponse(BaseModel):
     report_id        : str
     report_name      : str
     frequency        : str
-    execution_time   : str | None
-    cron_expression  : str | None
+    execution_time   : Optional[str]
+    cron_expression  : Optional[str]
     delivery_channel : str
     delivery_target  : str
     delivery_format  : str
     is_active        : bool
-    company_id       : str | None
-    branch_id        : str | None
-    created_at       : datetime | None
-    created_by_id    : str | None
+    company_id       : Optional[str]
+    branch_id        : Optional[str]
+    created_at       : Optional[datetime]
+    created_by_id    : Optional[str]
 
     model_config = {"from_attributes": True}

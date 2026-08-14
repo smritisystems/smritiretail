@@ -16,11 +16,11 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import TenantContext, get_db, get_tenant_context, require_role
+from ...api.deps import get_db, get_tenant_context, require_role, TenantContext
 from ...models.auth import UserRole
 from ...schemas.supplier_payment import SupplierPaymentCreate, SupplierPaymentResponse
 from ...services.supplier_payment import SupplierPaymentService
@@ -51,9 +51,9 @@ async def record_payment(
     return await SupplierPaymentService(db, tenant).record_payment(req)
 
 
-@router.get("/supplier-payments/", response_model=list[SupplierPaymentResponse])
+@router.get("/supplier-payments/", response_model=List[SupplierPaymentResponse])
 async def list_payments(
-    supplier_id: str | None = Query(default=None, description="Filter by supplier"),
+    supplier_id: Optional[str] = Query(default=None, description="Filter by supplier"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
 ):

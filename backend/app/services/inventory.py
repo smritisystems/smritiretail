@@ -11,16 +11,14 @@ Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-
-from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
-from ..api.deps import TenantContext
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 from ..models.inventory import Product, StockMovement
 from ..schemas.inventory import ProductCreate
-
+from ..api.deps import TenantContext
 
 class InventoryService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
@@ -34,8 +32,8 @@ class InventoryService:
         movement_type: str, 
         reference_doc_type: str, 
         reference_doc_id: str, 
-        remarks: str | None = None,
-        unit_cost: float | None = None,
+        remarks: Optional[str] = None,
+        unit_cost: Optional[float] = None,
         source_module: str = "inventory"
     ):
         """

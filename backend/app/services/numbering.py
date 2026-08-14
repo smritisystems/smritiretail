@@ -12,11 +12,10 @@ License      : Proprietary Commercial Software
 """
 
 import uuid
-from datetime import UTC, datetime
-
-from fastapi import HTTPException
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from fastapi import HTTPException
 
 from ..models.numbering import DocumentSeries, NumberingAuditLog
 
@@ -101,7 +100,7 @@ class NumberingService:
         if data.mode is not None: series.mode = data.mode
         if data.description is not None: series.description = data.description
         series.updated_by = updater
-        series.modified_at = datetime.now(UTC)
+        series.modified_at = datetime.now(timezone.utc)
 
         new_val_str = f"currentNumber: {series.current_number}, resetRule: {series.reset_rule}"
 
@@ -129,7 +128,7 @@ class NumberingService:
 
         series.is_active = False
         series.is_deleted = True
-        series.deleted_at = datetime.now(UTC)
+        series.deleted_at = datetime.now(timezone.utc)
         series.deleted_by = operator
 
         log = NumberingAuditLog(
@@ -163,7 +162,7 @@ class NumberingService:
             raise HTTPException(status_code=404, detail="Document series configuration not found.")
 
         # Determine current date/keys for resets
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         current_year = now.year
         current_month = str(now.month).zfill(2)
         current_day = str(now.day).zfill(2)

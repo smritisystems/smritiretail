@@ -13,9 +13,7 @@ License      : Proprietary Commercial Software
 
 import uuid
 from decimal import Decimal
-
 import pytest
-
 from app.models.inventory import Product
 from app.repositories.product import ProductRepository
 

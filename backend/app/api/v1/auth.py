@@ -16,31 +16,28 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.9.0
+* Version    : 3.22.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-08-13
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
+from typing import List
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_current_user, get_db
-from ...models.auth import User, UserRole
-from ...models.tenant import Branch, Company
-from ...schemas.auth import (
-    AccessTokenResponse,
-    BootstrapRequest,
-    LoginRequest,
-    RefreshRequest,
-    TokenResponse,
-    UserResponse,
-)
-from ...schemas.masters_tier2 import BranchResponse, CompanyResponse
+from ...api.deps import get_db, get_current_user
 from ...services.auth import AuthService
+from ...schemas.auth import (
+    LoginRequest, TokenResponse, AccessTokenResponse,
+    RefreshRequest, BootstrapRequest, UserResponse, TenantContextSwitchRequest,
+)
+from ...schemas.masters_tier2 import CompanyResponse, BranchResponse
+from ...models.auth import User, UserRole
+from ...models.tenant import Company, Branch
 
 router = APIRouter()
 
@@ -141,6 +138,22 @@ async def logout(
     return {"message": "You have been logged out successfully."}
 
 
+@router.post("/switch-context", response_model=TokenResponse)
+async def switch_context(
+    req: TenantContextSwitchRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Dynamically switch active company/branch context for multi-company users.
+
+    Validates that the user has active assignments to the target company and branch,
+    and returns updated JWT tokens scoped to the new tenant context.
+    """
+    service = AuthService(db)
+    return await service.switch_context(current_user, req)
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_me(
     current_user: User = Depends(get_current_user),
@@ -149,3 +162,4 @@ async def get_me(
     Return the current authenticated user's profile.
     """
     return current_user
+

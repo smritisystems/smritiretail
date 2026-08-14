@@ -606,6 +606,9 @@ export interface SalesInvoiceItemLine {
   name: string;
   quantity: number;
   price: number;
+  mrp?: number;
+  disc?: number;
+  discount?: number;
   hsnCode: string;
   gstRate: number; // e.g. 18 for 18% GST
   taxAmount: number;

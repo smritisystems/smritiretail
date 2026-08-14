@@ -12,12 +12,10 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from datetime import date as datetime_date
-from datetime import datetime
-from decimal import Decimal
 from typing import List, Optional
-
-from pydantic import BaseModel, ConfigDict, Field
+from datetime import datetime, date as datetime_date
+from decimal import Decimal
+from pydantic import BaseModel, ConfigDict, Field, AliasChoices
 
 # ─────────────────────────── Sales Invoice ───────────────────────────
 
@@ -49,7 +47,7 @@ class SalesInvoiceBase(BaseModel):
     tax_total: Decimal = Decimal("0.00")
     grand_total: Decimal = Decimal("0.00")
     is_interstate: bool = False
-    eway_bill_no: Optional[str] = Field(None, max_length=50)
+    eway_bill_no: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("eway_bill_no", "eWayBillNo", "ewayBillNo"))
     status: str = "Draft"
 
 class SalesInvoiceCreate(SalesInvoiceBase):
@@ -63,7 +61,7 @@ class SalesInvoiceUpdate(BaseModel):
     tax_total: Optional[Decimal] = None
     grand_total: Optional[Decimal] = None
     is_interstate: Optional[bool] = None
-    eway_bill_no: Optional[str] = None
+    eway_bill_no: Optional[str] = Field(None, validation_alias=AliasChoices("eway_bill_no", "eWayBillNo", "ewayBillNo"))
     status: Optional[str] = None
     items: Optional[List[SalesInvoiceItemCreate]] = None
 

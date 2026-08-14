@@ -12,11 +12,9 @@ License      : Proprietary Commercial Software
 """
 
 import uuid as uuid_pkg
-from datetime import UTC, datetime
-
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, declared_attr
-
 
 class Base(DeclarativeBase):
     @declared_attr
@@ -31,8 +29,8 @@ class BaseEntity(Base):
     uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
     branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     created_by = Column(String(100), nullable=True)
     updated_by = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True)

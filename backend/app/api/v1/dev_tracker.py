@@ -23,17 +23,15 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-from typing import Any
-
 from fastapi import APIRouter, HTTPException
-
-from ...dev_tracker.reports import write_reports
+from typing import Dict, Any
 from ...dev_tracker.scanner import scan_codebase
+from ...dev_tracker.reports import write_reports
 
 router = APIRouter()
 
 # In-memory scan results caching
-cached_results: dict[str, Any] = {}
+cached_results: Dict[str, Any] = {}
 
 @router.get("/dev-tracker", tags=["Development Intelligence"])
 async def get_dev_tracker_status():

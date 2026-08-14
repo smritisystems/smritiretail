@@ -20,14 +20,15 @@ Supported docTypes and their state machines:
   SalesQuotation: Draft → Approved (approve) | Draft → Cancelled (cancel)
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.api.deps import TenantContext, get_current_user, get_db, get_tenant_context
+from app.api.deps import get_db, get_tenant_context, TenantContext, get_current_user, require_role
 from app.models.auth import User, UserRole
 from app.models.workflow import WorkflowEvent
 from app.services.purchase import PurchaseService
@@ -50,11 +51,11 @@ async def _log_event(
     doc_type:     str,
     doc_id:       str,
     action:       str,
-    from_status:  str | None,
+    from_status:  Optional[str],
     to_status:    str,
     user:         User,
     tenant_ctx:   TenantContext,
-    notes:        str | None = None,
+    notes:        Optional[str] = None,
 ) -> None:
     """Append one immutable WorkflowEvent row to the audit trail."""
     event = WorkflowEvent(
@@ -68,7 +69,7 @@ async def _log_event(
         company_id        = tenant_ctx.company_id,
         branch_id         = tenant_ctx.branch_id,
         notes             = notes,
-        created_at        = datetime.now(UTC),
+        created_at        = datetime.now(timezone.utc),
     )
     db.add(event)
     # Note: caller is responsible for db.commit() — do not commit here
@@ -82,12 +83,12 @@ class WorkflowEventResponse(BaseModel):
     doc_type:          str
     doc_id:            str
     action:            str
-    from_status:       str | None
+    from_status:       Optional[str]
     to_status:         str
-    performed_by_id:   str | None
-    performed_by_name: str | None
+    performed_by_id:   Optional[str]
+    performed_by_name: Optional[str]
     created_at:        datetime
-    notes:             str | None = None
+    notes:             Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -171,6 +172,7 @@ async def workflow_action(
             return {"success": True, "invoice_id": inv.id, "status": inv.status}
 
     if doc_type == "SalesQuotation":
+        from sqlalchemy.orm import selectinload
         from app.models.sales import SalesQuotation
         if action == "approve":
             res = await db.execute(
@@ -189,7 +191,7 @@ async def workflow_action(
                 raise HTTPException(status_code=400, detail=f"Cannot approve quotation with status '{q.status}'.")
             prev_status   = q.status
             q.status      = "Approved"
-            q.modified_at = datetime.now(UTC)
+            q.modified_at = datetime.now(timezone.utc)
             db.add(q)
             await _log_event(db, doc_type, doc_id, action,
                              from_status=prev_status, to_status="Approved",
@@ -211,7 +213,7 @@ async def workflow_action(
                 raise HTTPException(status_code=404, detail="Quotation not found")
             prev_status   = q.status
             q.status      = "Cancelled"
-            q.modified_at = datetime.now(UTC)
+            q.modified_at = datetime.now(timezone.utc)
             db.add(q)
             await _log_event(db, doc_type, doc_id, action,
                              from_status=prev_status, to_status="Cancelled",
@@ -224,7 +226,7 @@ async def workflow_action(
 
 @router.get(
     "/{doc_type}/{doc_id}/events",
-    response_model=list[WorkflowEventResponse],
+    response_model=List[WorkflowEventResponse],
     summary="Workflow Event History",
     description="Returns the chronological audit trail for a document's state transitions.",
 )

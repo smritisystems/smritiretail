@@ -13,9 +13,9 @@
 
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app } from '../../server.js';
-import { users, sessions } from '../state/store.js';
-import { hashPassword } from '../lib/helpers.js';
+import { app } from '../server.ts';
+import { users, sessions } from '../state/store.ts';
+import { hashPassword } from '../lib/helpers.ts';
 
 describe('Authentication Integration Tests', () => {
   beforeAll(() => {
@@ -113,14 +113,14 @@ describe('Authentication Integration Tests', () => {
     Object.keys(sessions).forEach(k => delete sessions[k]);
     
     // Reset status and failedAttempts for both test users
-    const testUser = users.find(u => u.username === 'testuser');
+    const testUser = users.find((u: any) => u.username === 'testuser');
     if (testUser) {
       testUser.status = 'Active';
       testUser.failedAttempts = 0;
       testUser.lockedUntil = undefined;
     }
 
-    const lockUser = users.find(u => u.username === 'lockuser');
+    const lockUser = users.find((u: any) => u.username === 'lockuser');
     if (lockUser) {
       lockUser.status = 'Active';
       lockUser.failedAttempts = 0;
@@ -167,7 +167,7 @@ describe('Authentication Integration Tests', () => {
     expect(res5.body.error).toContain('locked');
 
     // Confirm that the user status is set to Locked
-    const lockUser = users.find(u => u.username === 'lockuser');
+    const lockUser = users.find((u: any) => u.username === 'lockuser');
     expect(lockUser?.status).toBe('Locked');
   });
 

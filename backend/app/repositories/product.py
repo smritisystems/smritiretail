@@ -11,21 +11,19 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-
-from sqlalchemy import String, cast
+from typing import List, Optional
+from sqlalchemy import cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
-from ..api.deps import TenantContext
 from ..models.inventory import Product
 from .base import BaseRepository
-
+from ..api.deps import TenantContext
 
 class ProductRepository(BaseRepository[Product]):
-    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext | None = None):
+    def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(Product, db, tenant_ctx)
 
-    async def get_by_barcode(self, barcode: str) -> Product | None:
+    async def get_by_barcode(self, barcode: str) -> Optional[Product]:
         """
         Fetch product details matching barcode.
         """
@@ -35,9 +33,9 @@ class ProductRepository(BaseRepository[Product]):
         return result.scalars().first()
 
     async def search(
-        self, q: str | None = None, category: str | None = None,
+        self, q: Optional[str] = None, category: Optional[str] = None,
         skip: int = 0, limit: int = 50
-    ) -> list[Product]:
+    ) -> List[Product]:
         """
         Search products with optional query on name/code/barcode/attributes and category match.
         """

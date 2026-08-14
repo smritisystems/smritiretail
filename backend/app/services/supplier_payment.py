@@ -16,17 +16,16 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-from datetime import UTC, datetime
 from decimal import Decimal
-
-from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 
-from ..api.deps import TenantContext
-from ..models.purchase import Supplier
 from ..models.supplier_payment import SupplierPayment
+from ..models.purchase import Supplier
+from ..api.deps import TenantContext
 from ..schemas.supplier_payment import SupplierPaymentCreate
 
 
@@ -89,7 +88,7 @@ class SupplierPaymentService:
 
         # Atomically decrement outstanding
         supplier.outstanding = (outstanding - req.amount).quantize(Decimal("0.01"))
-        supplier.modified_at = datetime.now(UTC)
+        supplier.modified_at = datetime.now(timezone.utc)
 
         try:
             await self.db.commit()

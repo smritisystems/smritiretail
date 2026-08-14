@@ -16,8 +16,8 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-from sqlalchemy import Column, Date, ForeignKey, Numeric, String, Text
-
+from datetime import datetime
+from sqlalchemy import Column, String, Numeric, ForeignKey, Date, Text
 from ..db.base import BaseEntity
 
 

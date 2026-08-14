@@ -12,35 +12,29 @@ License      : Proprietary Commercial Software
 """
 
 import json
-from datetime import UTC, datetime
-from typing import Any
-
-from fastapi import APIRouter, Body, Depends, HTTPException
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
 from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_current_user, get_db, require_role
+from ...api.deps import get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
-from ...models.exchange import DataExchangeFieldMapping, DataExchangeTask
+from ...models.exchange import DataExchangeTask, DataExchangeFieldMapping
 from ...models.inventory import Product
 from ...schemas.exchange import (
-    DataExchangeTaskCreate,
-    DataExchangeTaskResponse,
-    DataExchangeTaskUpdate,
-    ExecuteTaskRequest,
-    FieldMappingCreate,
-    FieldMappingResponse,
-    FieldMappingUpdate,
+    DataExchangeTaskCreate, DataExchangeTaskUpdate, DataExchangeTaskResponse,
+    FieldMappingCreate, FieldMappingUpdate, FieldMappingResponse, ExecuteTaskRequest
 )
 
 
 class ExchangeValidateRequest(BaseModel):
     partnerId: str
-    fileName: str | None = None
-    format: str | None = None
-    rows: list[dict[str, Any]]
-    checksum: str | None = None
+    fileName: Optional[str] = None
+    format: Optional[str] = None
+    rows: List[Dict[str, Any]]
+    checksum: Optional[str] = None
 
 
 class ExchangeCommitRequest(ExchangeValidateRequest):
@@ -53,7 +47,7 @@ router = APIRouter()
 
 @router.get(
     "/mappings",
-    response_model=list[FieldMappingResponse],
+    response_model=List[FieldMappingResponse],
 )
 async def list_mappings(
     db: AsyncSession = Depends(get_db),
@@ -91,7 +85,7 @@ async def create_mapping(
     """
     Register a new data exchange schema field mapping rules dictionary.
     """
-    new_id = f"map-{int(datetime.now(UTC).timestamp())}"
+    new_id = f"map-{int(datetime.now(timezone.utc).timestamp())}"
     mapping = DataExchangeFieldMapping(
         id=new_id,
         name=req.name,
@@ -134,7 +128,7 @@ async def update_mapping(
     if req.entityType is not None: mapping.entity_type = req.entityType
     if req.mappingRules is not None: mapping.mapping_rules_json = json.dumps(req.mappingRules)
     mapping.updated_by = current_user.username
-    mapping.modified_at = datetime.now(UTC)
+    mapping.modified_at = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(mapping)
@@ -165,7 +159,7 @@ async def delete_mapping(
 
     mapping.is_deleted = True
     mapping.is_active = False
-    mapping.deleted_at = datetime.now(UTC)
+    mapping.deleted_at = datetime.now(timezone.utc)
     mapping.deleted_by = current_user.username
     await db.commit()
     return {"success": True}
@@ -202,13 +196,13 @@ async def list_partners(
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def save_partner(
-    payload: dict[str, Any] = Body(...),
+    payload: Dict[str, Any] = Body(...),
     current_user: User = Depends(get_current_user),
 ):
     """
     Save a partner profile and return the created partner stub.
     """
-    return {"success": True, "partner": {**payload, "id": payload.get("id") or f"PRT-{int(datetime.now(UTC).timestamp())}"}}
+    return {"success": True, "partner": {**payload, "id": payload.get("id") or f"PRT-{int(datetime.now(timezone.utc).timestamp())}"}}
 
 
 @router.put(
@@ -217,7 +211,7 @@ async def save_partner(
 )
 async def update_partner(
     partner_id: str,
-    payload: dict[str, Any] = Body(...),
+    payload: Dict[str, Any] = Body(...),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -277,7 +271,7 @@ async def validate_exchange_payload(
             validated_rows.append({**row})
 
     return {
-        "checksum": payload.checksum or f"sha256-sim-{int(datetime.now(UTC).timestamp())}",
+        "checksum": payload.checksum or f"sha256-sim-{int(datetime.now(timezone.utc).timestamp())}",
         "rowCount": len(rows),
         "successCount": len(rows) - len(errors),
         "errorCount": len(errors),
@@ -327,7 +321,7 @@ async def approve_exchange_log(
 
 @router.get(
     "/tasks",
-    response_model=list[DataExchangeTaskResponse],
+    response_model=List[DataExchangeTaskResponse],
 )
 async def list_tasks(
     db: AsyncSession = Depends(get_db),
@@ -370,7 +364,7 @@ async def create_task(
     """
     Register a new data exchange scheduled task.
     """
-    new_id = f"task-{int(datetime.now(UTC).timestamp())}"
+    new_id = f"task-{int(datetime.now(timezone.utc).timestamp())}"
     task = DataExchangeTask(
         id=new_id,
         name=req.name,
@@ -423,7 +417,7 @@ async def update_task(
     if req.fileType is not None: task.file_type = req.fileType
     if req.mappingId is not None: task.mapping_id = req.mappingId
     task.updated_by = current_user.username
-    task.modified_at = datetime.now(UTC)
+    task.modified_at = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(task)
@@ -459,7 +453,7 @@ async def delete_task(
 
     task.is_deleted = True
     task.is_active = False
-    task.deleted_at = datetime.now(UTC)
+    task.deleted_at = datetime.now(timezone.utc)
     task.deleted_by = current_user.username
     await db.commit()
     return {"success": True}
@@ -484,7 +478,7 @@ async def execute_task(
         raise HTTPException(status_code=404, detail="Data exchange task not found.")
 
     task.status   = "Running"
-    task.last_run = datetime.now(UTC).replace(tzinfo=None)   # tz-naive: column is TIMESTAMP WITHOUT TZ
+    task.last_run = datetime.now(timezone.utc).replace(tzinfo=None)   # tz-naive: column is TIMESTAMP WITHOUT TZ
     await db.commit()
 
     # Process payload if Import, otherwise export mock data

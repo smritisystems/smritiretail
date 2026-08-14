@@ -13,7 +13,6 @@ License      : Proprietary Commercial Software
 
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
 
 # Load env variables from root or local .env

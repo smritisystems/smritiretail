@@ -24,24 +24,22 @@ Founders
 """
 
 import uuid
-from decimal import Decimal
-
 import pytest
-from httpx import ASGITransport, AsyncClient
+from decimal import Decimal
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy import delete
 from sqlalchemy.future import select
 
-from app.api.deps import TenantContext, get_db, get_tenant_context
-from app.core.security import create_access_token, hash_password
 from app.main import app
-from app.models.auth import RefreshTokenBlacklist, User, UserRole
+from app.models.auth import User, RefreshTokenBlacklist, UserRole
+from app.models.tenant import Company, Branch
 from app.models.inventory import Product, StockMovement
 from app.models.purchase import (
-    PurchaseOrder,
-    PurchaseOrderItem,
-    Supplier,
+    Supplier, PurchaseOrder, PurchaseOrderItem,
+    PurchaseReceipt, PurchaseReceiptItem,
 )
-from app.models.tenant import Branch, Company
+from app.api.deps import get_db, get_tenant_context, TenantContext
+from app.core.security import hash_password, create_access_token
 
 pytestmark = pytest.mark.asyncio
 
@@ -471,6 +469,7 @@ async def test_grn_links_to_po(db_session):
 
 async def _make_po(db_session, suffix, company_id, branch_id, product, supplier):
     """Helper: create a CONFIRMED purchase order with one item."""
+    from app.models.purchase import PurchaseOrder, PurchaseOrderItem
     from decimal import Decimal
     po = PurchaseOrder(
         id=f"po-{suffix}", order_no=f"PO-{suffix}",
@@ -493,9 +492,8 @@ async def _make_po(db_session, suffix, company_id, branch_id, product, supplier)
 
 
 async def _make_supplier(db_session, suffix, company_id, branch_id):
-    from decimal import Decimal
-
     from app.models.purchase import Supplier
+    from decimal import Decimal
     sup = Supplier(
         id=f"sup-p3-{suffix}", name=f"Phase3 Supplier {suffix}",
         code=f"P3S-{suffix}", company_id=company_id, branch_id=branch_id,
@@ -511,11 +509,10 @@ async def _make_supplier(db_session, suffix, company_id, branch_id):
 async def test_cancel_purchase_order(db_session):
     """MANAGER can cancel a Confirmed PO. status=CANCELLED, is_deleted=True."""
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
     from sqlalchemy.future import select
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
+    from app.models.purchase import PurchaseOrder
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
     mgr = await _make_manager(db_session, s, comp.id, br.id)
@@ -544,9 +541,7 @@ async def test_cancel_purchase_order(db_session):
 async def test_cancel_nonexistent_po_returns_404(db_session):
     """Cancelling a non-existent PO returns 404."""
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -565,9 +560,7 @@ async def test_cancel_nonexistent_po_returns_404(db_session):
 async def test_cancel_already_cancelled_po_returns_400(db_session):
     """Cancelling an already-cancelled PO returns 400."""
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -603,11 +596,10 @@ async def test_amend_purchase_order(db_session):
     """
     import uuid
     from decimal import Decimal
-
-    from httpx import ASGITransport, AsyncClient
     from sqlalchemy.future import select
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
+    from app.models.purchase import PurchaseOrder
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
     mgr = await _make_manager(db_session, s, comp.id, br.id)
@@ -656,9 +648,7 @@ async def test_amend_purchase_order(db_session):
 async def test_amend_non_confirmed_po_returns_400(db_session):
     """Amending a non-Confirmed (e.g., CANCELLED) PO returns 400."""
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -694,9 +684,7 @@ async def test_amend_non_confirmed_po_returns_400(db_session):
 async def test_update_supplier(db_session):
     """MANAGER can update a supplier's name and contact details."""
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -723,9 +711,7 @@ async def test_delete_supplier_soft_deletes(db_session):
     Subsequent GET /suppliers/{id} returns 404.
     """
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -750,9 +736,7 @@ async def test_delete_supplier_soft_deletes(db_session):
 async def test_delete_nonexistent_supplier_returns_404(db_session):
     """Deleting a non-existent supplier returns 404."""
     import uuid
-
-    from httpx import ASGITransport, AsyncClient
-
+    from httpx import AsyncClient, ASGITransport
     from app.main import app
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -813,6 +797,7 @@ async def test_health_flags_endpoint(db_session):
 async def test_submit_purchase_order(db_session):
     """POST /purchase/orders/{id}/submit promotes DRAFT -> CONFIRMED (via DB-seeded DRAFT PO)."""
     import uuid as _u
+    from app.models.purchase import PurchaseOrder, PurchaseOrderItem
     from decimal import Decimal
     s = _u.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -897,6 +882,7 @@ async def test_purchase_settings_returns_state(db_session):
 async def test_workflow_submit_purchase_order(db_session):
     """POST /workflow/PurchaseOrder/{id}/submit via Core Workflow API."""
     import uuid as _u
+    from app.models.purchase import PurchaseOrder
     from decimal import Decimal
     s = _u.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)

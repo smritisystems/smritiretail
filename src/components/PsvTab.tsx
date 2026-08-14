@@ -38,6 +38,12 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   const isReadOnly = currentUser?.role === "Report User";
   const [selectedPartyId, setSelectedPartyId] = useState<string>(psvParties[0]?.id || "");
 
+  useEffect(() => {
+    if (!selectedPartyId && psvParties.length > 0) {
+      setSelectedPartyId(psvParties[0].id);
+    }
+  }, [psvParties, selectedPartyId]);
+
   const activeParty = psvParties.find(p => p.id === selectedPartyId);
 
   // Formatting INR Currencies

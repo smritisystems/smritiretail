@@ -11,24 +11,23 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+from typing import Optional
 from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # --- Company Schemas ---
 class CompanyBase(BaseModel):
     name: str = Field(..., max_length=255)
-    gst_number: str | None = Field(None, max_length=15)
+    gst_number: Optional[str] = Field(None, max_length=15)
     is_active: bool = True
 
 class CompanyCreate(CompanyBase):
     id: str = Field(..., max_length=50)
 
 class CompanyUpdate(BaseModel):
-    name: str | None = Field(None, max_length=255)
-    gst_number: str | None = Field(None, max_length=15)
-    is_active: bool | None = None
+    name: Optional[str] = Field(None, max_length=255)
+    gst_number: Optional[str] = Field(None, max_length=15)
+    is_active: Optional[bool] = None
 
 class CompanyResponse(CompanyBase):
     id: str
@@ -50,9 +49,9 @@ class BranchCreate(BranchBase):
     company_id: str = Field(..., max_length=50)
 
 class BranchUpdate(BaseModel):
-    name: str | None = Field(None, max_length=255)
-    code: str | None = Field(None, max_length=50)
-    is_active: bool | None = None
+    name: Optional[str] = Field(None, max_length=255)
+    code: Optional[str] = Field(None, max_length=50)
+    is_active: Optional[bool] = None
 
 class BranchResponse(BranchBase):
     id: str

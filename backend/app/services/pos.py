@@ -17,23 +17,21 @@ Founders
 """
 
 import uuid
-from datetime import UTC, datetime
 from decimal import Decimal
-
-from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 
-from ..api.deps import TenantContext
-from ..models.inventory import Product, StockMovement
 from ..models.pos import CashRegister, Shift
 from ..models.sales import SalesInvoice, SalesInvoiceItem
+from ..models.inventory import Product, StockMovement
+from ..api.deps import TenantContext
+from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
-    CashRegisterCreate,
+    CashRegisterCreate, ShiftOpen, ShiftClose,
     POSCheckoutRequest,
-    ShiftClose,
-    ShiftOpen,
 )
 
 
@@ -77,15 +75,8 @@ class POSService:
         return res.scalars().all()
 
     async def get_register(self, register_id: str) -> CashRegister:
-        res = await self.db.execute(
-            select(CashRegister).where(
-                CashRegister.id == register_id,
-                CashRegister.company_id == self.tenant.company_id,
-                CashRegister.branch_id  == self.tenant.branch_id,
-                CashRegister.is_deleted == False,
-            )
-        )
-        reg = res.scalars().first()
+        repo = CashRegisterRepository(self.db, self.tenant)
+        reg = await repo.get(register_id)
         if not reg:
             raise HTTPException(status_code=404, detail="Cash register not found.")
         return reg
@@ -148,11 +139,11 @@ class POSService:
 
     async def archive_register(self, register_id: str) -> CashRegister:
         """Soft-delete a CashRegister (archive). Sets is_deleted=True, is_active=False."""
-        from datetime import datetime
+        from datetime import datetime, timezone
         reg = await self.get_register(register_id)
         reg.is_deleted = True
         reg.is_active = False
-        reg.deleted_at = datetime.now(UTC)
+        reg.deleted_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(reg)
         return reg
@@ -167,13 +158,8 @@ class POSService:
 
     async def list_shifts(self) -> list:
         """List all shifts for this tenant (supports App.tsx shifts state)."""
-        res = await self.db.execute(
-            select(Shift).where(
-                Shift.company_id == self.tenant.company_id,
-                Shift.is_deleted == False,
-            ).order_by(Shift.opened_at.desc()).limit(100)
-        )
-        return res.scalars().all()
+        shift_repo = ShiftRepository(self.db, self.tenant)
+        return await shift_repo.get_all_recent(limit=100)
 
     # ──────────────────────────────────────────────────────────────
     # Shift — open
@@ -191,14 +177,8 @@ class POSService:
         await self.get_register(req.register_id)
 
         # Check no existing OPEN shift on this register
-        existing = await self.db.execute(
-            select(Shift).where(
-                Shift.register_id == req.register_id,
-                Shift.status      == "OPEN",
-                Shift.is_deleted  == False,
-            )
-        )
-        if existing.scalars().first():
+        shift_repo = ShiftRepository(self.db, self.tenant)
+        if await shift_repo.get_active_shift(req.register_id):
             raise HTTPException(
                 status_code=400,
                 detail="This register already has an open shift. "
@@ -216,7 +196,7 @@ class POSService:
             register_id=req.register_id,
             cashier_id=cashier_id,
             status="OPEN",
-            opened_at=datetime.now(UTC),
+            opened_at=datetime.now(timezone.utc),
             opening_balance=req.opening_balance,
             cash_sales_total=Decimal("0.00"),
             card_sales_total=Decimal("0.00"),
@@ -296,7 +276,7 @@ class POSService:
         variance = (req.closing_balance - expected).quantize(Decimal("0.01"))
 
         shift.status           = "CLOSED"
-        shift.closed_at        = datetime.now(UTC)
+        shift.closed_at        = datetime.now(timezone.utc)
         shift.cash_sales_total = cash_total.quantize(Decimal("0.01"))
         shift.card_sales_total = card_total.quantize(Decimal("0.01"))
         shift.upi_sales_total  = upi_total.quantize(Decimal("0.01"))
@@ -306,7 +286,7 @@ class POSService:
         shift.expected_cash    = expected
         shift.variance         = variance
         shift.closing_notes    = req.closing_notes
-        shift.modified_at      = datetime.now(UTC)
+        shift.modified_at      = datetime.now(timezone.utc)
 
         await self.db.commit()
         await self.db.refresh(shift)
@@ -328,31 +308,16 @@ class POSService:
         return res.scalars().all()
 
     async def get_shift(self, shift_id: str) -> Shift:
-        res = await self.db.execute(
-            select(Shift).where(
-                Shift.id == shift_id,
-                Shift.company_id == self.tenant.company_id,
-                Shift.branch_id  == self.tenant.branch_id,
-                Shift.is_deleted == False,
-            )
-        )
-        shift = res.scalars().first()
+        shift_repo = ShiftRepository(self.db, self.tenant)
+        shift = await shift_repo.get(shift_id)
         if not shift:
             raise HTTPException(status_code=404, detail="Shift not found.")
         return shift
 
     async def get_active_shift(self, register_id: str) -> Shift:
         """Get the currently open shift for a register."""
-        res = await self.db.execute(
-            select(Shift).where(
-                Shift.register_id == register_id,
-                Shift.status      == "OPEN",
-                Shift.company_id  == self.tenant.company_id,
-                Shift.branch_id   == self.tenant.branch_id,
-                Shift.is_deleted  == False,
-            )
-        )
-        shift = res.scalars().first()
+        repo = ShiftRepository(self.db, self.tenant)
+        shift = await repo.get_active_shift(register_id)
         if not shift:
             raise HTTPException(
                 status_code=404,
@@ -444,7 +409,7 @@ class POSService:
                 product.stock -= int(qty)
                 self.db.add(product)
                 movement_id = (
-                    f"SM-{int(datetime.now(UTC).timestamp())}-"
+                    f"SM-{int(datetime.now(timezone.utc).timestamp())}-"
                     f"{uuid.uuid4().hex[:6]}"
                 )
                 movements.append(StockMovement(

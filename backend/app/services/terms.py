@@ -11,16 +11,15 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import uuid
 import json
 import re
-import uuid
-from datetime import UTC, datetime
-
-from fastapi import HTTPException
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from fastapi import HTTPException
 
-from ..models.terms import ApprovalWorkflowLog, TermsClause, TermsDefault, TermsSnapshot
+from ..models.terms import TermsClause, TermsDefault, TermsSnapshot, ApprovalWorkflowLog
 
 
 def resolve_terms_text(content: str, variables: dict) -> str:
@@ -79,7 +78,7 @@ class TermsService:
                 clause_id=clause.id,
                 title=clause.title,
                 submitted_by=creator,
-                submitted_at=datetime.now(UTC),
+                submitted_at=datetime.now(timezone.utc),
                 status="Pending",
                 comments="Submitted clause draft into security validation matrix."
             )
@@ -107,7 +106,7 @@ class TermsService:
                 clause_id=clause_id,
                 title=data.title or clause.title,
                 submitted_by=updater,
-                submitted_at=datetime.now(UTC),
+                submitted_at=datetime.now(timezone.utc),
                 status="Pending",
                 proposed_changes=json.dumps(prop_changes),
                 comments=data.comments or "Revision request for compliance standard verification."
@@ -125,7 +124,7 @@ class TermsService:
         clause.status = "Approved"
         clause.version = updated_version
         clause.updated_by = updater
-        clause.modified_at = datetime.now(UTC)
+        clause.modified_at = datetime.now(timezone.utc)
 
         await self.db.commit()
         await self.db.refresh(clause)
@@ -147,7 +146,7 @@ class TermsService:
         if log:
             log.status = "Approved"
             log.approved_by = approver
-            log.approved_at = datetime.now(UTC)
+            log.approved_at = datetime.now(timezone.utc)
             log.comments = comments or "Corporate audit validation verified."
 
             if log.proposed_changes:
@@ -161,10 +160,10 @@ class TermsService:
 
         clause.status = "Approved"
         clause.approved_by = approver
-        clause.approved_at = datetime.now(UTC)
+        clause.approved_at = datetime.now(timezone.utc)
         clause.version = (clause.version or 1) + 1
         clause.updated_by = approver
-        clause.modified_at = datetime.now(UTC)
+        clause.modified_at = datetime.now(timezone.utc)
 
         await self.db.commit()
         await self.db.refresh(clause)
@@ -185,7 +184,7 @@ class TermsService:
         if log:
             log.status = "Rejected"
             log.approved_by = rejector
-            log.approved_at = datetime.now(UTC)
+            log.approved_at = datetime.now(timezone.utc)
             log.comments = comments or "Rejected. Content breaches standard legal terminology requirements."
 
         clause.status = "Draft"
@@ -199,7 +198,7 @@ class TermsService:
             raise HTTPException(status_code=404, detail="Clause not found")
         clause.is_deleted = True
         clause.is_active = False
-        clause.deleted_at = datetime.now(UTC)
+        clause.deleted_at = datetime.now(timezone.utc)
         clause.deleted_by = operator
         await self.db.commit()
 
@@ -223,7 +222,7 @@ class TermsService:
             existing.clause_ids = cids_str
             existing.is_active = data.isActive if data.isActive is not None else True
             existing.updated_by = creator
-            existing.modified_at = datetime.now(UTC)
+            existing.modified_at = datetime.now(timezone.utc)
             await self.db.commit()
             await self.db.refresh(existing)
             return existing
@@ -276,7 +275,7 @@ class TermsService:
 
         if existing:
             existing.clauses_snapshot = clauses_str
-            existing.snapshot_at = datetime.now(UTC)
+            existing.snapshot_at = datetime.now(timezone.utc)
             await self.db.commit()
             await self.db.refresh(existing)
             return existing
@@ -286,7 +285,7 @@ class TermsService:
             id=new_id,
             document_type=doc_type,
             document_no=doc_no,
-            snapshot_at=datetime.now(UTC),
+            snapshot_at=datetime.now(timezone.utc),
             clauses_snapshot=clauses_str
         )
         self.db.add(snap)

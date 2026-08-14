@@ -16,42 +16,37 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.9.0
+* Version    : 3.22.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-08-13
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
 import uuid
-from datetime import UTC, datetime, timedelta
-
-from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
-from ..core.config import settings
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
+from ..models.auth import User, RefreshTokenBlacklist, UserRole
+from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
+from ..schemas.auth import LoginRequest, BootstrapRequest, TenantContextSwitchRequest
 from ..core.security import (
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    hash_password,
-    validate_password_strength,
-    verify_password,
+    hash_password, verify_password, validate_password_strength,
+    create_access_token, create_refresh_token, decode_token,
 )
-from ..models.auth import RefreshTokenBlacklist, User, UserRole
-from ..schemas.auth import BootstrapRequest, LoginRequest
+from ..core.config import settings
 
 
-def _build_token_payload(user: User) -> dict:
+def _build_token_payload(user: User, company_id: str = None, branch_id: str = None) -> dict:
     """Build the common JWT payload for a given user."""
     return {
         "sub":        user.id,
         "username":   user.username,
         "role":       user.role.value,
-        "company_id": user.company_id,
-        "branch_id":  user.branch_id,
+        "company_id": company_id if company_id is not None else user.company_id,
+        "branch_id":  branch_id if branch_id is not None else user.branch_id,
         "jti":        str(uuid.uuid4()),   # unique ID per token — used for blacklisting
     }
 
@@ -139,6 +134,35 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        # Fallback to default company/branch assignments if unassigned
+        if user.role != UserRole.SYSADMIN:
+            if not user.company_id:
+                default_comp_res = await self.db.execute(
+                    select(UserCompanyAssignment).where(
+                        UserCompanyAssignment.user_id == user.id,
+                        UserCompanyAssignment.is_default == True,
+                        UserCompanyAssignment.is_deleted == False,
+                        UserCompanyAssignment.is_active == True,
+                    )
+                )
+                default_comp = default_comp_res.scalars().first()
+                if default_comp:
+                    user.company_id = default_comp.company_id
+
+            if not user.branch_id and user.company_id:
+                default_br_res = await self.db.execute(
+                    select(UserBranchAssignment).where(
+                        UserBranchAssignment.user_id == user.id,
+                        UserBranchAssignment.company_id == user.company_id,
+                        UserBranchAssignment.is_default == True,
+                        UserBranchAssignment.is_deleted == False,
+                        UserBranchAssignment.is_active == True,
+                    )
+                )
+                default_br = default_br_res.scalars().first()
+                if default_br:
+                    user.branch_id = default_br.branch_id
+
         if user.role != UserRole.SYSADMIN and (not user.company_id or not user.branch_id):
             raise HTTPException(
                 status_code=403,
@@ -156,6 +180,56 @@ class AuthService:
             "role":          user.role,
             "company_id":    user.company_id,
             "branch_id":     user.branch_id,
+            "password_reset_required": user.status == "PendingPasswordChange",
+            "user":          user,
+        }
+
+    # ------------------------------------------------------------------
+    # Switch Context (Multi-Company/Branch)
+    # ------------------------------------------------------------------
+    async def switch_context(self, user: User, req: TenantContextSwitchRequest) -> dict:
+        """Dynamically switch active company/branch context and return updated tokens."""
+        if user.role != UserRole.SYSADMIN:
+            # Verify company assignment
+            comp_res = await self.db.execute(
+                select(UserCompanyAssignment).where(
+                    UserCompanyAssignment.user_id == user.id,
+                    UserCompanyAssignment.company_id == req.target_company_id,
+                    UserCompanyAssignment.is_deleted == False,
+                    UserCompanyAssignment.is_active == True,
+                )
+            )
+            if not comp_res.scalars().first():
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied: You are not assigned to the specified target company.",
+                )
+
+            # Verify branch assignment
+            br_res = await self.db.execute(
+                select(UserBranchAssignment).where(
+                    UserBranchAssignment.user_id == user.id,
+                    UserBranchAssignment.branch_id == req.target_branch_id,
+                    UserBranchAssignment.is_deleted == False,
+                    UserBranchAssignment.is_active == True,
+                )
+            )
+            if not br_res.scalars().first():
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied: You are not assigned to the specified target branch.",
+                )
+
+        payload = _build_token_payload(user, company_id=req.target_company_id, branch_id=req.target_branch_id)
+        user.company_id = req.target_company_id
+        user.branch_id = req.target_branch_id
+        return {
+            "access_token":  create_access_token(payload),
+            "refresh_token": create_refresh_token(payload),
+            "token_type":    "bearer",
+            "role":          user.role,
+            "company_id":    req.target_company_id,
+            "branch_id":     req.target_branch_id,
             "password_reset_required": user.status == "PendingPasswordChange",
             "user":          user,
         }
@@ -213,9 +287,9 @@ class AuthService:
         jti = payload.get("jti") or str(uuid.uuid4())
         exp = payload.get("exp")
         expires_at = (
-            datetime.fromtimestamp(exp, tz=UTC)
+            datetime.fromtimestamp(exp, tz=timezone.utc)
             if exp
-            else datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+            else datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         )
 
         entry = RefreshTokenBlacklist(

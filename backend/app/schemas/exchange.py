@@ -11,27 +11,26 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class DataExchangeTaskCreate(BaseModel):
     name: str
     direction: str
     entityType: str = Field(..., alias="entityType")
-    fileType: str | None = Field("CSV", alias="fileType")
-    mappingId: str | None = Field(None, alias="mappingId")
+    fileType: Optional[str] = Field("CSV", alias="fileType")
+    mappingId: Optional[str] = Field(None, alias="mappingId")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class DataExchangeTaskUpdate(BaseModel):
-    name: str | None = None
-    direction: str | None = None
-    entityType: str | None = Field(None, alias="entityType")
-    fileType: str | None = Field(None, alias="fileType")
-    mappingId: str | None = Field(None, alias="mappingId")
+    name: Optional[str] = None
+    direction: Optional[str] = None
+    entityType: Optional[str] = Field(None, alias="entityType")
+    fileType: Optional[str] = Field(None, alias="fileType")
+    mappingId: Optional[str] = Field(None, alias="mappingId")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -42,10 +41,10 @@ class DataExchangeTaskResponse(BaseModel):
     direction: str
     entityType: str = Field(..., serialization_alias="entityType")
     fileType: str = Field(..., serialization_alias="fileType")
-    mappingId: str | None = Field(None, serialization_alias="mappingId")
+    mappingId: Optional[str] = Field(None, serialization_alias="mappingId")
     status: str
-    lastRun: str | None = Field(None, serialization_alias="lastRun")
-    lastLog: str | None = Field(None, serialization_alias="lastLog")
+    lastRun: Optional[str] = Field(None, serialization_alias="lastRun")
+    lastLog: Optional[str] = Field(None, serialization_alias="lastLog")
 
     model_config = {
         "from_attributes": True,
@@ -56,15 +55,15 @@ class DataExchangeTaskResponse(BaseModel):
 class FieldMappingCreate(BaseModel):
     name: str
     entityType: str = Field(..., alias="entityType")
-    mappingRules: dict[str, str] = Field(..., alias="mappingRules")
+    mappingRules: Dict[str, str] = Field(..., alias="mappingRules")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class FieldMappingUpdate(BaseModel):
-    name: str | None = None
-    entityType: str | None = Field(None, alias="entityType")
-    mappingRules: dict[str, str] | None = Field(None, alias="mappingRules")
+    name: Optional[str] = None
+    entityType: Optional[str] = Field(None, alias="entityType")
+    mappingRules: Optional[Dict[str, str]] = Field(None, alias="mappingRules")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -73,7 +72,7 @@ class FieldMappingResponse(BaseModel):
     id: str
     name: str
     entityType: str = Field(..., serialization_alias="entityType")
-    mappingRules: dict[str, str] = Field(..., serialization_alias="mappingRules")
+    mappingRules: Dict[str, str] = Field(..., serialization_alias="mappingRules")
 
     model_config = {
         "from_attributes": True,
@@ -82,4 +81,4 @@ class FieldMappingResponse(BaseModel):
 
 
 class ExecuteTaskRequest(BaseModel):
-    payload: list[dict[str, Any]] | None = None
+    payload: Optional[List[Dict[str, Any]]] = None

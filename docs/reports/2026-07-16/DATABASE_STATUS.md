@@ -1,18 +1,13 @@
-# Database Schema & Entities Registry
+# Database Entities Registry
 
-*Generated: 2026-07-16T05:14:12.816Z*
+*Generated: 16-Jul-26*
 
-### Table Schema Completeness
-
-| Table Entity | Mapped | Status |
+| Module | Database Setup | Checked Status |
 | :--- | :---: | :--- |
-| items | Yes | ✅ Schema Registered & Migrated |
-| purchase_orders | Yes | ✅ Schema Registered & Migrated |
-| goods_receipt_notes | Yes | ✅ Schema Registered & Migrated |
-| sales_invoices | Yes | ✅ Schema Registered & Migrated |
-| customers | Yes | ✅ Schema Registered & Migrated |
-| pos_transactions | Yes | ✅ Schema Registered & Migrated |
-| audit_logs | Yes | ✅ Schema Registered & Migrated |
-| staff_members | Yes | ✅ Schema Registered & Migrated |
-| pos_profiles | Yes | ✅ Schema Registered & Migrated |
-| document_series | Yes | ✅ Schema Registered & Migrated |
+| Executive Hub | ✅ | Schema tables fully validated |
+| Item Master | ❌ | Missing or incomplete DB tables mapping |
+| Purchase Studio | ❌ | Missing or incomplete DB tables mapping |
+| Sales Studio | ❌ | Missing or incomplete DB tables mapping |
+| Billing Desk | ❌ | Missing or incomplete DB tables mapping |
+| CRM & Loyalty | ❌ | Missing or incomplete DB tables mapping |
+| About SMRITI | ✅ | Schema tables fully validated |

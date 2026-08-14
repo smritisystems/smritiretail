@@ -23,16 +23,14 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-import binascii
-import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
-
-from fastapi import HTTPException
 from jose import JWTError, jwt
+from fastapi import HTTPException
 from passlib.context import CryptContext
 from passlib.exc import MissingBackendError
-
+import hashlib
+import binascii
 from .config import settings
 
 pwd_context = CryptContext(
