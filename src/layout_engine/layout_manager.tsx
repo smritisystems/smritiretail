@@ -89,27 +89,22 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-theme-base text-theme-primary font-sans antialiased select-none">
       {/* 1. FIXED APPLICATION HEADER (Satisfies Application Header requirement) */}
       {!focusMode && (
-        <header className="bg-theme-surface-1 border-b border-theme-divider px-6 h-[72px] flex-shrink-0 flex items-center justify-between z-30 shadow-md">
+        <header className="bg-theme-surface-1 border-b border-theme-divider px-4 h-12 flex-shrink-0 flex items-center justify-between z-30 shadow-xs">
           {/* Brand Logo & Info */}
-          <div className="flex items-center space-x-3.5">
-            <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center font-bold text-lg font-display text-theme-body border border-theme-divider shadow-lg animate-pulse">
+          <div className="flex items-center space-x-3">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-sm font-display text-white border border-blue-500 shadow-xs">
               S
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="font-display font-bold text-base tracking-wide text-theme-body">
-                  SMRITI Retail OS
-                </h1>
-                <span className="text-[9px] bg-theme-surface-3 text-theme-muted border border-theme-divider rounded px-1.5 py-0.2 font-mono font-bold">
-                  LANE 01
-                </span>
-                <span className="text-[9px] bg-indigo-950 text-indigo-400 border border-indigo-900 rounded px-1.5 py-0.2 font-mono font-bold">
-                  SRLE v1.0
-                </span>
-              </div>
-              <p className="text-[10px] text-theme-muted">
-                Enterprise Experience & Operational Intelligence Desk
-              </p>
+            <div className="flex items-center space-x-2">
+              <h1 className="font-display font-bold text-sm tracking-tight text-theme-body">
+                SMRITI Retail OS
+              </h1>
+              <span className="text-[9px] bg-theme-surface-2 text-theme-muted border border-theme-divider rounded px-1.5 py-0.5 font-mono font-semibold">
+                LANE 01
+              </span>
+              <span className="text-[9px] bg-theme-surface-2 text-theme-muted border border-theme-divider rounded px-1.5 py-0.5 font-mono font-semibold">
+                SRLE v1.0
+              </span>
             </div>
           </div>
 
@@ -151,7 +146,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
             <div className="relative">
               <button
                 onClick={() => setShowLayoutConfig(!showLayoutConfig)}
-                className="px-3 py-1.5 rounded-lg bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-xs font-bold font-display text-blue-400 flex items-center space-x-2 cursor-pointer transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-xs font-bold font-display text-blue-700 flex items-center space-x-2 cursor-pointer transition-colors"
               >
                 <Layout size={13} />
                 <span>Dock Position ({preferences.position})</span>
@@ -173,10 +168,10 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
                           <button
                             key={`dropdown-pos-${pos}`}
                             onClick={() => handlePositionChange(pos)}
-                            className={`py-2 text-[10px] font-mono font-bold uppercase rounded-lg border transition-colors ${
+                            className={`py-2 text-[10px] font-mono font-bold uppercase rounded-lg border transition-colors cursor-pointer ${
                               preferences.position === pos
                                 ? "bg-blue-600 border-blue-500 text-white"
-                                : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-white"
+                                : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover"
                             }`}
                           >
                             {pos} Dock
@@ -184,13 +179,13 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
                         ),
                       )}
                     </div>
-                    <div className="h-px bg-[#2a3a5c]/50 my-1" />
+                    <div className="h-px bg-theme-divider my-1" />
                     <button
                       onClick={() => {
                         toggleSidebar();
                         setShowLayoutConfig(false);
                       }}
-                      className="w-full text-left py-1 text-xs font-medium text-theme-muted hover:text-theme-body flex items-center space-x-1.5"
+                      className="w-full text-left py-1 text-xs font-medium text-theme-muted hover:text-theme-body flex items-center space-x-1.5 cursor-pointer"
                     >
                       <ArrowLeftRight size={12} />
                       <span>Expand/Collapse Sidebar</span>
@@ -217,7 +212,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
                 </div>
                 <button
                   onClick={onLogout}
-                  className="w-8 h-8 rounded-full bg-theme-surface-3 hover:bg-rose-950/40 border border-theme-divider flex items-center justify-center text-theme-muted hover:text-rose-400 hover:border-rose-500/30 transition-all cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-theme-surface-3 hover:bg-rose-50 border border-theme-divider flex items-center justify-center text-theme-muted hover:text-rose-600 hover:border-rose-200 transition-all cursor-pointer"
                   title="Logout Session"
                 >
                   <span className="material-symbols-outlined text-[16px] block">logout</span>

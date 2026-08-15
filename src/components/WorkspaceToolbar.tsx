@@ -202,8 +202,8 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
             <button
               onClick={toggleFocusMode}
               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                focusMode 
-                  ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" 
+                focusMode
+                  ? "bg-blue-50 text-blue-700 border border-blue-200"
                   : "text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover"
               }`}
               title={focusMode ? "Exit Focus Mode" : "Focus Mode (F11)"}

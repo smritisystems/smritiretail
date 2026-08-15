@@ -365,7 +365,7 @@ export const WorkspaceTaskbar: React.FC = () => {
           <div className="flex-1 flex items-center min-w-0 px-2 relative">
             <button
               onClick={() => scrollItems("left")}
-              className="absolute left-0 z-10 p-1 rounded bg-theme-surface-2/80 hover:bg-theme-surface-3 text-theme-muted hover:text-white shrink-0 border border-theme-divider shadow-md"
+              className="absolute left-0 z-10 p-1 rounded bg-theme-surface-1 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body shrink-0 border border-theme-divider shadow-xs cursor-pointer"
             >
               <ChevronLeft size={13} />
             </button>
@@ -395,18 +395,18 @@ export const WorkspaceTaskbar: React.FC = () => {
                       onClick={() => handleLeftClickItem(win)}
                       className={`flex items-center space-x-2 h-9 px-3 rounded-lg text-xs font-bold cursor-pointer transition-all border shrink-0 select-none relative group ${
                         isActive
-                          ? "bg-theme-surface-2 text-white border-indigo-500 shadow-lg ring-1 ring-indigo-500/20"
+                          ? "bg-white text-blue-700 border-blue-500 shadow-xs ring-1 ring-blue-500/20"
                           : isMinimized
-                          ? "bg-theme-surface-1 border-theme-divider/40 text-theme-muted opacity-50 hover:opacity-80"
-                          : "bg-theme-surface-2/60 hover:bg-theme-surface-2 border-theme-divider text-theme-body"
+                          ? "bg-theme-surface-1 border-theme-divider text-theme-muted opacity-50 hover:opacity-80"
+                          : "bg-theme-surface-2 hover:bg-theme-surface-hover border-theme-divider text-theme-body"
                       }`}
                     >
                       {/* Active status underline dot indicator */}
                       <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full transition-all ${
-                        isActive ? "bg-indigo-400" : isMinimized ? "bg-theme-muted/50" : "bg-indigo-500/40"
+                        isActive ? "bg-blue-600" : isMinimized ? "bg-theme-muted/50" : "bg-blue-400/40"
                       }`} />
 
-                      <span className="material-symbols-outlined text-[15px] text-indigo-400 shrink-0">
+                      <span className="material-symbols-outlined text-[15px] text-blue-600 shrink-0">
                         {activeTab.icon}
                       </span>
                       <span className="max-w-[100px] md:max-w-[140px] truncate pr-1">
@@ -424,7 +424,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                           e.stopPropagation();
                           closeWindow(win.id);
                         }}
-                        className="p-0.5 rounded hover:bg-rose-500/10 text-theme-muted hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                        className="p-0.5 rounded hover:bg-rose-500/10 text-theme-muted hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100 shrink-0 cursor-pointer"
                         title="Close Workspace"
                       >
                         <X size={11} />
@@ -443,7 +443,7 @@ export const WorkspaceTaskbar: React.FC = () => {
 
             <button
               onClick={() => scrollItems("right")}
-              className="absolute right-0 z-10 p-1 rounded bg-theme-surface-2/80 hover:bg-theme-surface-3 text-theme-muted hover:text-white shrink-0 border border-theme-divider shadow-md"
+              className="absolute right-0 z-10 p-1 rounded bg-theme-surface-1 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body shrink-0 border border-theme-divider shadow-xs cursor-pointer"
             >
               <ChevronRight size={13} />
             </button>

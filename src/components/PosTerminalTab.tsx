@@ -408,7 +408,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                     </div>
 
                     <div className="mt-4 flex items-center justify-between border-t border-theme-divider pt-2">
-                      <span className="text-emerald-400 font-bold text-sm">â‚¹{prod.price}</span>
+                      <span className="text-emerald-400 font-bold text-sm">₹{prod.price}</span>
                       <span className={`text-[10px] font-bold uppercase ${prod.stock < 10 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}>
                         {prod.stock} units
                       </span>
@@ -430,7 +430,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                       className="text-xs bg-theme-surface-3 border border-amber-500 border-opacity-40 text-amber-500 hover:bg-[#2563EB] hover:text-theme-body hover:border-[#2563EB] px-3 py-1.5 rounded transition-all flex items-center space-x-1"
                     >
                       <span className="material-symbols-outlined text-sm">folder_open</span>
-                      <span>Recall {b.id} (â‚¹{b.total})</span>
+                      <span>Recall {b.id} (₹{b.total})</span>
                     </button>
                   ))}
                 </div>
@@ -467,7 +467,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                       <div key={item.product.id} className="flex justify-between items-center bg-theme-surface-3 p-3 rounded-lg border border-theme-divider">
                         <div className="flex-1 min-w-0 pr-3">
                           <h5 className="font-semibold text-theme-body text-xs truncate">{item.product.name}</h5>
-                          <p className="text-[10px] text-theme-muted font-mono">â‚¹{item.product.price} / unit</p>
+                          <p className="text-[10px] text-theme-muted font-mono">₹{item.product.price} / unit</p>
                         </div>
                         <div className="flex items-center space-x-3 shrink-0">
                           <div className="flex items-center bg-theme-surface-1 rounded border border-theme-divider">
@@ -486,7 +486,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                             </button>
                           </div>
                           <span className="text-emerald-400 font-bold text-xs w-16 text-right">
-                            â‚¹{item.product.price * item.quantity}
+                            ₹{item.product.price * item.quantity}
                           </span>
                         </div>
                       </div>
@@ -511,7 +511,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                 />
                 <datalist id="smriti-customer-datalist">
                   {getCustomers().map(c => (
-                    <option key={c.id} value={c.name}>{c.mobile ? `${c.name} â€” ${c.mobile}` : c.name}</option>
+                    <option key={c.id} value={c.name}>{c.mobile ? `${c.name} - ${c.mobile}` : c.name}</option>
                   ))}
                 </datalist>
               </div>
@@ -529,15 +529,15 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                   <div className="bg-theme-surface-3 p-4 rounded-lg border border-theme-divider space-y-1.5">
                     <div className="flex justify-between text-xs text-theme-muted">
                       <span>Subtotal (Excl. Tax):</span>
-                      <span>â‚¹{(totalCartValue - totalTax).toFixed(2)}</span>
+                      <span>₹{(totalCartValue - totalTax).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-theme-muted">
                       <span>GST (avg {effectiveRate}% on items):</span>
-                      <span>â‚¹{totalTax.toFixed(2)}</span>
+                      <span>₹{totalTax.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-base font-bold text-theme-body border-t border-theme-divider pt-1.5 mt-1.5">
                       <span>Grand Total:</span>
-                      <span className="text-emerald-400">â‚¹{totalCartValue}</span>
+                      <span className="text-emerald-400">₹{totalCartValue}</span>
                     </div>
                   </div>
                 );
@@ -554,12 +554,12 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                     type="number"
                     value={cashTendered}
                     onChange={(e) => setCashTendered(e.target.value)}
-                    placeholder="â‚¹ Received"
+                    placeholder="₹ Received"
                     className="bg-theme-surface-1 border border-theme-divider text-theme-body text-xs rounded px-2.5 py-1 w-24 text-right focus:outline-none"
                   />
                   {changeDue > 0 && (
                     <div className="text-xs text-[#22c55e] font-mono font-bold">
-                      Change: â‚¹{Math.round(changeDue)}
+                      Change: ₹{Math.round(changeDue)}
                     </div>
                   )}
                 </div>
@@ -622,15 +622,15 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
             <div className="bg-theme-surface-3 p-4 rounded border border-theme-divider space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-theme-muted">Opening Float Cash:</span>
-                <span className="font-bold text-theme-body">â‚¹{activeShift.openingBalance}</span>
+                <span className="font-bold text-theme-body">₹{activeShift.openingBalance}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-theme-muted">Sales Registered (Value):</span>
-                <span className="font-bold text-[#22c55e]">+â‚¹{activeShift.salesValue}</span>
+                <span className="font-bold text-[#22c55e]">+₹{activeShift.salesValue}</span>
               </div>
               <div className="flex justify-between border-t border-theme-divider pt-2 mt-2">
                 <span className="text-theme-body font-semibold">Expected Closing Drawer Value:</span>
-                <span className="font-bold text-theme-body">â‚¹{activeShift.openingBalance + activeShift.salesValue}</span>
+                <span className="font-bold text-theme-body">₹{activeShift.openingBalance + activeShift.salesValue}</span>
               </div>
             </div>
 
@@ -641,7 +641,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                 value={closingBalance}
                 onChange={(e) => setClosingBalance(e.target.value)}
                 className="bg-theme-surface-3 border border-theme-divider text-theme-body text-sm rounded px-3 py-2 w-full focus:outline-none"
-                placeholder="â‚¹ Amount in drawer"
+                placeholder="₹ Amount in drawer"
               />
             </div>
 

@@ -132,7 +132,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
         )}
 
         {/* Workspace content */}
-        <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-[#1A2B5C]">
+        <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-theme-base">
           <WorkspaceToolbar currentTabId={activeTab} />
           <div className="p-6 flex-1">
             {children}
@@ -147,7 +147,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
     return (
       <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
         {/* Workspace content (first) */}
-        <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-[#1A2B5C]">
+        <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-theme-base">
           <WorkspaceToolbar currentTabId={activeTab} />
           <div className="p-6 flex-1">
             {children}
@@ -195,7 +195,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
         )}
         
         {/* Workspace Content */}
-        <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-[#1A2B5C]">
+        <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-theme-base">
           <WorkspaceToolbar currentTabId={activeTab} />
           <div className="p-6 flex-1">
             {children}
@@ -210,7 +210,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Workspace Content */}
-        <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-[#1A2B5C]">
+        <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-theme-base">
           <WorkspaceToolbar currentTabId={activeTab} />
           <div className="p-6 flex-1">
             {children}

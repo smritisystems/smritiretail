@@ -19,32 +19,99 @@
 	--font-display: "Space Grotesk", sans-serif;
 	--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
+	/* Surfaces */
 	--color-theme-base: var(--c-theme-base);
 	--color-theme-surface-1: var(--c-theme-surface-1);
 	--color-theme-surface-2: var(--c-theme-surface-2);
 	--color-theme-surface-3: var(--c-theme-surface-3);
 	--color-theme-surface-4: var(--c-theme-surface-4);
 	--color-theme-surface-hover: var(--c-theme-surface-hover);
-	--color-theme-divider: var(--c-theme-divider);
-	--color-theme-muted: var(--c-theme-muted);
-	--color-theme-primary: var(--c-theme-primary);
+	--color-theme-surface-selected: var(--c-theme-surface-selected);
+	--color-theme-surface-disabled: var(--c-theme-surface-disabled);
+
+	/* Text */
 	--color-theme-body: var(--c-theme-body);
+	--color-theme-text-primary: var(--c-theme-text-primary);
+	--color-theme-text-secondary: var(--c-theme-text-secondary);
+	--color-theme-muted: var(--c-theme-muted);
+	--color-theme-placeholder: var(--c-theme-placeholder);
+	--color-theme-disabled: var(--c-theme-disabled);
+
+	/* Action */
+	--color-theme-primary: var(--c-theme-primary);
+	--color-theme-primary-hover: var(--c-theme-primary-hover);
+	--color-theme-primary-active: var(--c-theme-primary-active);
+	--color-theme-primary-disabled: var(--c-theme-primary-disabled);
+	--color-theme-focus: var(--c-theme-focus);
+
+	/* Borders */
+	--color-theme-border: var(--c-theme-border);
+	--color-theme-border-strong: var(--c-theme-border-strong);
+	--color-theme-divider: var(--c-theme-divider);
+
+	/* Semantic Status */
+	--color-theme-success: var(--c-theme-success);
+	--color-theme-success-bg: var(--c-theme-success-bg);
+	--color-theme-warning: var(--c-theme-warning);
+	--color-theme-warning-bg: var(--c-theme-warning-bg);
+	--color-theme-error: var(--c-theme-error);
+	--color-theme-error-bg: var(--c-theme-error-bg);
+	--color-theme-info: var(--c-theme-info);
+	--color-theme-info-bg: var(--c-theme-info-bg);
+
+	/* Selection */
+	--color-theme-selection: var(--c-theme-selection);
+	--color-theme-selection-hover: var(--c-theme-selection-hover);
+	--color-theme-selection-text: var(--c-theme-selection-text);
 }
 
 @layer base {
 	:root {
-		/* SMRITI SAP Fiori Horizon Light Enterprise Palette */
-		--c-theme-base: #f8f9fa;
-		--c-theme-surface-1: #ffffff;
-		--c-theme-surface-2: #f8f9fa;
-		--c-theme-surface-3: #ffffff;
-		--c-theme-surface-4: #f1f5f9;
-		--c-theme-surface-hover: #eef2f6;
-		--c-theme-divider: #d9d9d9;
-		--c-theme-subtle-divider: #e5e7eb;
-		--c-theme-muted: #6a6d70;
-		--c-theme-primary: #0070f2; /* Fiori Action Blue */
-		--c-theme-body: #32363a;    /* Fiori Primary Text */
+		/* SMRITI Enterprise Light Design Tokens — Fiori Horizon Inspired */
+		/* Surfaces */
+		--c-theme-base: #F5F6F7;
+		--c-theme-surface-1: #FFFFFF;
+		--c-theme-surface-2: #FAFBFD;
+		--c-theme-surface-3: #F0F4F8;
+		--c-theme-surface-4: #E4E9F0;
+		--c-theme-surface-hover: #EAEFF5;
+		--c-theme-surface-selected: #E8F2FE;
+		--c-theme-surface-disabled: #F2F4F7;
+
+		/* Text */
+		--c-theme-body: #1D2D3E;
+		--c-theme-text-primary: #1D2D3E;
+		--c-theme-text-secondary: #556B82;
+		--c-theme-muted: #556B82;
+		--c-theme-placeholder: #8C9BAE;
+		--c-theme-disabled: #9EB0C3;
+
+		/* Action */
+		--c-theme-primary: #0070F2;
+		--c-theme-primary-hover: #0056B3;
+		--c-theme-primary-active: #003E80;
+		--c-theme-primary-disabled: #A6C8FF;
+		--c-theme-focus: #0070F2;
+
+		/* Borders & Dividers */
+		--c-theme-border: #D1D9E2;
+		--c-theme-border-strong: #B0BEC5;
+		--c-theme-divider: #E2E8F0;
+
+		/* Semantic Status */
+		--c-theme-success: #107C41;
+		--c-theme-success-bg: #F2FDF5;
+		--c-theme-warning: #E9730C;
+		--c-theme-warning-bg: #FFF9F2;
+		--c-theme-error: #BB0000;
+		--c-theme-error-bg: #FFF2F2;
+		--c-theme-info: #0070F2;
+		--c-theme-info-bg: #F0F7FF;
+
+		/* Selection */
+		--c-theme-selection: #E8F2FE;
+		--c-theme-selection-hover: #D8E8FD;
+		--c-theme-selection-text: #0070F2;
 	}
 
 	html, body, #root {
@@ -63,14 +130,19 @@
 		background-color: var(--c-theme-base);
 		color: var(--c-theme-body);
 	}
+
+	*:focus-visible {
+		outline: 2px solid var(--c-theme-focus);
+		outline-offset: 2px;
+	}
 }
 
 /* Fiori Horizon Light Enterprise Utilities */
 .fiori-shell-header {
-	background-color: #32363a;
-	color: #ffffff;
+	background-color: #ffffff;
+	color: #32363a;
 	height: 48px;
-	border-bottom: 1px solid #1c1f23;
+	border-bottom: 1px solid var(--c-theme-divider);
 }
 
 .fiori-filter-bar {

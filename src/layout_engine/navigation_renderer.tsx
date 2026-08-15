@@ -162,7 +162,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
         )}
 
         {/* Navigation Content Area */}
-        <SmritiScrollArea className="flex-1" fadeColorClass="from-[#16213e]">
+        <SmritiScrollArea className="flex-1" fadeColorClass="from-theme-surface-1">
           <div className="p-3 space-y-4">
           
           {/* Favorites Section (if not collapsed and favorites exist) */}
@@ -181,19 +181,19 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                       onClick={() => handleItemClick(w.id)}
                       onContextMenu={(e) => handleContextMenu(e, w.id, w.label, w.icon)}
                       className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between group transition-all cursor-pointer ${
-                        activeTab === w.id 
-                          ? "bg-[#2563EB]/20 border border-[#2563EB]/40 text-blue-400 font-medium" 
-                          : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body border border-transparent"
+                        activeTab === w.id
+                          ? "bg-blue-50 border border-blue-200 text-blue-700 font-semibold shadow-xs"
+                          : "text-theme-muted hover:bg-theme-surface-2 hover:text-theme-body border border-transparent"
                       }`}
                     >
                       <div className="flex items-center space-x-2.5">
-                        {renderIcon(w.icon, `text-lg ${activeTab === w.id ? "text-blue-400" : "text-theme-muted"}`)}
+                        {renderIcon(w.icon, `text-lg ${activeTab === w.id ? "text-blue-600" : "text-theme-muted"}`)}
                         <span className="text-xs font-display">{w.label}</span>
                       </div>
                       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={(e) => { e.stopPropagation(); handlePopOut(w.id, w.label, w.icon); }}
-                          className="p-1 rounded text-theme-muted hover:text-blue-400 hover:bg-theme-surface-2 transition-all"
+                          className="p-1 rounded text-theme-muted hover:text-blue-600 hover:bg-theme-surface-2 transition-all"
                           title="Pop-out Workspace"
                         >
                           <ExternalLink size={11} />
@@ -232,7 +232,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                       {isGroupCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                     </button>
                   ) : (
-                    <div className="h-px bg-[#2a3a5c]/50 my-2" />
+                    <div className="h-px bg-theme-divider my-2" />
                   )}
 
                   {/* Category Menu Items */}
@@ -247,13 +247,13 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                             onContextMenu={(e) => handleContextMenu(e, w.id, w.label, w.icon)}
                             title={isCollapsed ? w.label : undefined}
                             className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between group transition-all border cursor-pointer ${
-                              isSel 
-                                ? "bg-blue-600 border-blue-500 text-white font-semibold shadow-lg shadow-blue-950/20" 
-                                : "text-theme-muted hover:bg-theme-surface-3 hover:text-white border-transparent"
+                              isSel
+                                ? "bg-blue-600 border-blue-500 text-white font-semibold shadow-xs"
+                                : "text-theme-body hover:bg-theme-surface-2 hover:text-blue-600 border-transparent"
                             }`}
                           >
                             <div className="flex items-center space-x-2.5">
-                              {renderIcon(w.icon, `text-lg ${isSel ? "text-white" : "text-theme-muted group-hover:text-white"}`)}
+                              {renderIcon(w.icon, `text-lg ${isSel ? "text-white" : "text-theme-muted group-hover:text-blue-600"}`)}
                               {!isCollapsed && <span className="text-xs font-display">{w.label}</span>}
                             </div>
                             
@@ -409,8 +409,8 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                   onClick={() => setActiveDropdownGroup(isOpen ? null : cat)}
                   className={`px-3 py-1.5 text-xs font-display font-medium rounded-lg flex items-center space-x-1 cursor-pointer transition-colors ${
                     isOpen || catWorkspaces.some(w => w.id === activeTab)
-                      ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" 
-                      : "text-theme-muted hover:text-white hover:bg-theme-surface-3"
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : "text-theme-muted hover:text-theme-body hover:bg-theme-surface-2"
                   }`}
                 >
                   <span>{cat}</span>
@@ -424,8 +424,8 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                       className="fixed inset-0 z-30" 
                       onClick={() => setActiveDropdownGroup(null)} 
                     />
-                    <div className="absolute left-0 mt-2 w-56 rounded-xl bg-theme-surface-2 border border-theme-divider shadow-2xl p-2 space-y-1 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
-                      <div className="px-2.5 py-1 text-[9px] font-mono text-theme-muted font-bold uppercase tracking-wider border-b border-theme-divider/40 mb-1">
+                    <div className="absolute left-0 mt-2 w-56 rounded-xl bg-theme-surface-1 border border-theme-divider shadow-xl p-2 space-y-1 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-2.5 py-1 text-[9px] font-mono text-theme-muted font-bold uppercase tracking-wider border-b border-theme-divider mb-1">
                         {cat} Modules
                       </div>
                       {catWorkspaces.map(w => (
@@ -433,10 +433,10 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                           key={w.id}
                           onClick={() => handleItemClick(w.id)}
                           onContextMenu={(e) => handleContextMenu(e, w.id, w.label, w.icon)}
-                          className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition-all ${
-                            activeTab === w.id 
-                              ? "bg-blue-600 text-white font-medium shadow-md shadow-blue-950/20" 
-                              : "text-theme-muted hover:bg-theme-surface-3 hover:text-white"
+                          className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition-all cursor-pointer ${
+                            activeTab === w.id
+                              ? "bg-blue-600 text-white font-medium shadow-xs"
+                              : "text-theme-body hover:bg-theme-surface-hover hover:text-blue-600"
                           }`}
                         >
                           <div className="flex items-center space-x-2">
@@ -461,7 +461,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
               placeholder="Search workspaces..."
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg pl-8 pr-2 py-1 text-xs focus:outline-none focus:border-blue-500 placeholder-[#8892a4]"
+              className="bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg pl-8 pr-2 py-1 text-xs focus:outline-none focus:border-blue-500 placeholder:text-theme-muted"
             />
           </div>
         </div>
@@ -479,10 +479,10 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                   key={`top-fav-${w.id}`}
                   onClick={() => handleItemClick(w.id)}
                   onContextMenu={(e) => handleContextMenu(e, w.id, w.label, w.icon)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center space-x-1 transition-all ${
-                    activeTab === w.id 
-                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold" 
-                      : "text-theme-muted hover:text-white hover:bg-theme-surface-3"
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center space-x-1 transition-all cursor-pointer ${
+                    activeTab === w.id
+                      ? "bg-amber-50 text-amber-800 border border-amber-200 font-bold"
+                      : "text-theme-muted hover:text-theme-body hover:bg-theme-surface-2"
                   }`}
                 >
                   {renderIcon(w.icon, "text-xs")}
@@ -498,10 +498,10 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
               <button
                 key={pos}
                 onClick={() => setLayout(pos)}
-                className={`px-2 py-1 text-[9px] font-mono font-bold uppercase rounded border transition-colors ${
+                className={`px-2 py-1 text-[9px] font-mono font-bold uppercase rounded border transition-colors cursor-pointer ${
                   preferences.position === pos 
                     ? "bg-blue-600 border-blue-500 text-white" 
-                    : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-white"
+                    : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-body"
                 }`}
               >
                 {pos}
@@ -531,11 +531,11 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
             <button
               key={item.id}
               onClick={() => handleItemClick(item.id)}
-              className={`flex-1 py-1 flex flex-col items-center justify-center space-y-1 transition-all ${
-                isSel ? "text-blue-400 font-bold" : "text-theme-muted hover:text-theme-body"
+              className={`flex-1 py-1 flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
+                isSel ? "text-blue-600 font-bold" : "text-theme-muted hover:text-theme-body"
               }`}
             >
-              {renderIcon(item.icon, `text-xl ${isSel ? "text-blue-400 scale-110" : ""}`)}
+              {renderIcon(item.icon, `text-xl ${isSel ? "text-blue-600 scale-110" : ""}`)}
               <span className="text-[10px] font-display truncate">{item.label}</span>
             </button>
           );
