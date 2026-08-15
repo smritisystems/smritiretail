@@ -1,18 +1,18 @@
 """
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
-Created      : 2026-07-11
-Modified     : 2026-07-13
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-"""
+ * Project      : SMRITI Retail OS
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 3.21.0
+ * Created      : 2026-07-11
+ * Modified     : 2026-08-15
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ """
 
 from datetime import datetime
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
 
@@ -40,9 +40,19 @@ class Product(BaseEntity):
     tracking_mode = Column(String(30), default="Standard")
     variant_template_id = Column(String(50))
     weight_grams = Column(Numeric(10, 2), default=0.00)
-    attributes = Column(JSONB, server_default="'{}'::jsonb", default=dict)
+    attributes = Column(JSONB, server_default=text("'{}'"), default=dict)
     primary_image_url = Column(String(512))
     gallery_images = Column(ARRAY(String), server_default="{}")
+    
+    # Extended Enterprise Item Master Attributes
+    reserved_stock = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    category_code = Column(String(50))
+    cbm_m3 = Column(Numeric(10, 4))
+    document_number = Column(String(80))
+    size_scale_id = Column(String(50))
+    sourcing_mode_override = Column(String(30))
+    tenant_id = Column(String(50))
+    workflow_status = Column(String(30), default="Approved")
 
     __table_args__ = (
         Index("idx_products_attributes", "attributes", postgresql_using="gin"),
@@ -88,4 +98,3 @@ class Warehouse(BaseEntity):
     name = Column(String(200), nullable=False)
     is_transit = Column(Boolean, default=False)
     address = Column(Text)
-

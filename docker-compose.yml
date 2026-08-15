@@ -17,13 +17,13 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-smriti_retail_db}
+      POSTGRES_DB: ${POSTGRES_DB:-smritisys}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - smriti_db_volume:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d smriti_retail_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smritisys"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,7 +38,7 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smriti_retail_db}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smritisys}"
       DATABASE_PROVIDER: "postgres"
       SYNC_PROVIDER: "postgres"
       CACHE_PROVIDER: "memory"
@@ -47,6 +47,8 @@ services:
       PYTHON_CORE_HOST: "python-core:8000"
     volumes:
       - ./.git:/usr/src/app/.git
+      - ./dist:/usr/src/app/dist
+      - ./public:/usr/src/app/public
     depends_on:
       db:
         condition: service_healthy
@@ -68,13 +70,13 @@ services:
     ports:
       - "${BACKEND_API_PORT:-8000}:8000"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smriti_retail_db}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smritisys}"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       JWT_SECRET_KEY: "${JWT_SECRET_KEY:-9a12c418-5a48-43d9-90b5-555a6d71b87a}"
       SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:-sgip_vault_master_secret_key_12345}"
       # When true, the container will skip running Alembic migrations on startup.
       # Recommended long-term: run migrations as a one-off job from CI or an init container.
-      SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"
+      SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-true}"
     volumes:
       - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:

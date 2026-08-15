@@ -53,7 +53,7 @@ PORT=3000
 BACKEND_API_PORT=8000
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
-POSTGRES_DB=smriti_retail_db
+POSTGRES_DB=smritisys
 DATABASE_PROVIDER=postgres
 EOT
         echo -e "  ✓ Created default .env file."

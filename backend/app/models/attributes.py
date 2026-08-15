@@ -1,17 +1,17 @@
 """
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
-Created      : 2026-07-12
-Modified     : 2026-07-13
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-"""
+ * Project      : SMRITI Retail OS
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 3.16.0
+ * Created      : 2026-07-12
+ * Modified     : 2026-08-15
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ """
 
-from sqlalchemy import Column, String, Boolean, Text, Integer
+from sqlalchemy import Column, String, Boolean, Text, Integer, text
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
 
@@ -40,7 +40,7 @@ class AttributeDefinition(BaseEntity):
     tooltip              = Column(String(500), nullable=True)
     validation_rules     = Column(Text, nullable=True)
     is_enabled           = Column(Boolean, default=True)
-    multi_lang_labels    = Column(JSONB, server_default="'{}'::jsonb", default=dict)
+    multi_lang_labels    = Column(JSONB, server_default=text("'{}'"), default=dict)
 
 
 

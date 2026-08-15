@@ -20,15 +20,15 @@ from pydantic import BaseModel, ConfigDict, Field, AliasChoices
 # ─────────────────────────── Sales Invoice ───────────────────────────
 
 class SalesInvoiceItemBase(BaseModel):
-    product_id: str = Field(..., max_length=50)
+    product_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("product_id", "productId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")
     price: Decimal = Field(..., ge=0)
-    hsn_code: Optional[str] = Field(None, max_length=15)
-    gst_rate: Decimal = Decimal("18.00")
-    tax_amount: Decimal = Decimal("0.00")
-    total_amount: Decimal = Field(..., ge=0)
+    hsn_code: Optional[str] = Field(None, max_length=15, validation_alias=AliasChoices("hsn_code", "hsnCode"))
+    gst_rate: Decimal = Field(Decimal("18.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
+    tax_amount: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_amount", "taxAmount"))
+    total_amount: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("total_amount", "totalAmount"))
 
 class SalesInvoiceItemCreate(SalesInvoiceItemBase):
     pass
@@ -41,17 +41,17 @@ class SalesInvoiceItemResponse(SalesInvoiceItemBase):
 
 
 class SalesInvoiceBase(BaseModel):
-    invoice_no: str = Field(..., max_length=100)
+    invoice_no: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("invoice_no", "invoiceNo"))
     date: datetime_date = Field(default_factory=datetime_date.today)
-    customer_id: str = Field(..., max_length=50)
-    tax_total: Decimal = Decimal("0.00")
-    grand_total: Decimal = Decimal("0.00")
-    is_interstate: bool = False
+    customer_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("customer_id", "customerId"))
+    tax_total: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_total", "taxTotal"))
+    grand_total: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("grand_total", "grandTotal"))
+    is_interstate: bool = Field(False, validation_alias=AliasChoices("is_interstate", "isInterstate"))
     eway_bill_no: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("eway_bill_no", "eWayBillNo", "ewayBillNo"))
     status: str = "Draft"
 
 class SalesInvoiceCreate(SalesInvoiceBase):
-    id: str = Field(..., max_length=50)
+    id: Optional[str] = Field(None, max_length=50)
     items: List[SalesInvoiceItemCreate] = []
 
 class SalesInvoiceUpdate(BaseModel):

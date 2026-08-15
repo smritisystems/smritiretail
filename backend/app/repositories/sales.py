@@ -19,9 +19,28 @@ from ..models.sales import SalesInvoice
 from .base import BaseRepository
 from ..api.deps import TenantContext
 
+from sqlalchemy.orm import selectinload
+
 class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
     def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(SalesInvoice, db, tenant_ctx)
+
+    async def get(self, id: str) -> Optional[SalesInvoice]:
+        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(SalesInvoice.id == id)
+        if hasattr(self.model, "is_deleted"):
+            stmt = stmt.filter(self.model.is_deleted == False)
+        stmt = self._apply_tenant_filter(stmt)
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[SalesInvoice]:
+        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items))
+        if hasattr(self.model, "is_deleted"):
+            stmt = stmt.filter(self.model.is_deleted == False)
+        stmt = self._apply_tenant_filter(stmt)
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
     async def search(
         self, invoice_no: Optional[str] = None, customer_id: Optional[str] = None,
@@ -31,7 +50,7 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
         """
         Search sales invoices by invoice number, customer, status, and date range under tenant context.
         """
-        stmt = select(SalesInvoice).filter(SalesInvoice.is_deleted == False)
+        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(SalesInvoice.is_deleted == False)
         stmt = self._apply_tenant_filter(stmt)
         if invoice_no:
             stmt = stmt.filter(SalesInvoice.invoice_no.ilike(f"%{invoice_no}%"))

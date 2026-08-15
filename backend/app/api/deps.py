@@ -114,16 +114,21 @@ async def get_current_user(
 # get_tenant_context — sourced from user context with assignment validation
 # ---------------------------------------------------------------------------
 async def get_tenant_context(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(_get_db),
 ) -> TenantContext:
     """
     Extract tenant context from the authenticated user's JWT claims & validate assignments.
-
-    SYSADMIN users (no company/branch) cannot call tenant-scoped endpoints unless
-    explicitly scoped via JWT claims. Non-SYSADMIN users must have active assignments.
+    Enforces header tampering checks against X-Company-Code and X-Branch-Code headers.
     """
-    if not current_user.company_id or not current_user.branch_id:
+    header_company = request.headers.get("x-company-code") or request.headers.get("X-Company-Code")
+    header_branch = request.headers.get("x-branch-code") or request.headers.get("X-Branch-Code")
+
+    target_company = header_company if header_company else current_user.company_id
+    target_branch = header_branch if header_branch else current_user.branch_id
+
+    if not target_company or not target_branch:
         raise HTTPException(
             status_code=403,
             detail=(
@@ -133,6 +138,13 @@ async def get_tenant_context(
         )
 
     if current_user.role != UserRole.SYSADMIN:
+        # Header Tampering Security Check
+        if header_company and header_company != current_user.company_id:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Header Tampering Forbidden: Access to company '{header_company}' is denied.",
+            )
+
         # If user has company assignment records, enforce matching active assignment
         any_comp_res = await db.execute(
             select(UserCompanyAssignment).where(
@@ -143,7 +155,7 @@ async def get_tenant_context(
             comp_res = await db.execute(
                 select(UserCompanyAssignment).where(
                     UserCompanyAssignment.user_id == current_user.id,
-                    UserCompanyAssignment.company_id == current_user.company_id,
+                    UserCompanyAssignment.company_id == target_company,
                     UserCompanyAssignment.is_deleted == False,
                     UserCompanyAssignment.is_active == True,
                 )
@@ -164,7 +176,7 @@ async def get_tenant_context(
             br_res = await db.execute(
                 select(UserBranchAssignment).where(
                     UserBranchAssignment.user_id == current_user.id,
-                    UserBranchAssignment.branch_id == current_user.branch_id,
+                    UserBranchAssignment.branch_id == target_branch,
                     UserBranchAssignment.is_deleted == False,
                     UserBranchAssignment.is_active == True,
                 )
@@ -176,8 +188,8 @@ async def get_tenant_context(
                 )
 
     return TenantContext(
-        company_id=current_user.company_id,
-        branch_id=current_user.branch_id,
+        company_id=target_company,
+        branch_id=target_branch,
     )
 
     return TenantContext(
