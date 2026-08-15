@@ -29,11 +29,11 @@ services:
       retries: 5
       start_period: 10s
 
-  app:
+  smriti-web:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: smriti-api
+    container_name: smriti-web
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
@@ -44,7 +44,7 @@ services:
       CACHE_PROVIDER: "memory"
       STORAGE_PROVIDER: "filesystem"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
-      PYTHON_CORE_HOST: "python-core:8000"
+      PYTHON_CORE_HOST: "smriti-api:8000"
     volumes:
       - ./.git:/usr/src/app/.git
       - ./dist:/usr/src/app/dist
@@ -52,7 +52,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      python-core:
+      smriti-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
@@ -61,11 +61,11 @@ services:
       retries: 3
       start_period: 20s
 
-  python-core:
+  smriti-api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: smriti-python-core
+    container_name: smriti-api
     restart: unless-stopped
     ports:
       - "${BACKEND_API_PORT:-8000}:8000"
