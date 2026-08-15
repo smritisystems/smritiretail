@@ -520,7 +520,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         <div className="space-y-6">
           {/* Top Asset & Catalog Analytics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
+            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-sm flex items-center justify-between">
               <div>
                 <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">ACTIVE SKU CATALOG</span>
                 <span className="text-2xl font-bold font-display text-theme-body mt-1 block">
@@ -530,27 +530,27 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   Spread over <span className="text-theme-body font-medium">{distinctCategories} categories</span>
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-indigo-950 flex items-center justify-center text-indigo-400 border border-indigo-900">
+              <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-700 border border-indigo-200">
                 <Layers size={22} />
               </div>
             </div>
 
-            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
+            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-sm flex items-center justify-between">
               <div>
                 <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">TOTAL STOCK UNITS</span>
-                <span className="text-2xl font-bold font-display text-emerald-400 mt-1 block">
+                <span className="text-2xl font-bold font-display text-emerald-600 mt-1 block">
                   {onHandStock.toLocaleString("en-IN")} <span className="text-xs font-normal text-theme-muted">Units</span>
                 </span>
                 <span className="text-[11px] text-theme-muted mt-1 block">
                   Average stock per SKU: <span className="text-theme-body font-medium">{totalSkus > 0 ? Math.round(onHandStock / totalSkus) : 0} pcs</span>
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-emerald-950 flex items-center justify-center text-emerald-400 border border-emerald-900">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 border border-emerald-200">
                 <Package size={22} />
               </div>
             </div>
 
-            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
+            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-sm flex items-center justify-between">
               <div>
                 <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">NET ASSET VALUATION</span>
                 <span className="text-2xl font-bold font-display text-theme-body mt-1 block">
@@ -560,22 +560,22 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   Calculated at selling rate
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-sky-950 flex items-center justify-center text-sky-400 border border-sky-900">
+              <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center text-sky-700 border border-sky-200">
                 <DollarSign size={22} />
               </div>
             </div>
 
-            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
+            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-sm flex items-center justify-between">
               <div>
                 <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">EXTENSIBILITY METRIC</span>
-                <span className="text-2xl font-bold font-display text-violet-400 mt-1 block">
+                <span className="text-2xl font-bold font-display text-violet-700 mt-1 block">
                   {definitions.length} <span className="text-xs font-normal text-theme-muted">Attrs</span>
                 </span>
                 <span className="text-[11px] text-theme-muted mt-1 block">
                   Data-driven product schema
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-violet-950 flex items-center justify-center text-violet-400 border border-violet-900">
+              <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center text-violet-700 border border-violet-200">
                 <CheckCircle2 size={22} />
               </div>
             </div>
@@ -1304,7 +1304,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                                 </button>
                                 <button
                                   onClick={() => handleDeleteItem(p.id, p.code)}
-                                  className="p-1 rounded hover:bg-rose-950 text-rose-400"
+                                  className="p-1 rounded bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600"
                                   title="Purge Master SKU"
                                 >
                                   <Trash2 size={14} />
@@ -1319,7 +1319,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                                       role: currentUser?.role || "Store Manager"
                                     });
                                   }}
-                                  className="p-1 rounded hover:bg-theme-surface-3 text-indigo-400 hover:text-indigo-200 transition"
+                                  className="p-1 rounded hover:bg-theme-surface-3 text-indigo-600 hover:text-indigo-800 transition"
                                   title="More Operations (ACAS)"
                                 >
                                   <span className="material-symbols-outlined text-[16px] block">more_vert</span>
@@ -1342,7 +1342,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-900 rounded px-1.5 py-0.2 font-mono font-bold uppercase">SMRITI SKU MASTER</span>
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1.5 py-0.2 font-mono font-bold uppercase">SMRITI SKU MASTER</span>
                       </div>
                       <h4 className="font-display font-bold text-base text-theme-body mt-1.5">{selectedProduct.name}</h4>
                       <p className="text-[11px] text-theme-muted mt-0.5">Barcode ID: <span className="text-theme-body font-mono font-medium">{selectedProduct.barcode}</span></p>
@@ -1447,7 +1447,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                     <button
                       onClick={() => handleDeleteItem(selectedProduct.id, selectedProduct.code)}
                       disabled={isReadOnly}
-                      className={`px-3.5 rounded-lg bg-rose-950/40 hover:bg-rose-950/80 text-rose-400 border border-rose-900 flex items-center justify-center transition-colors ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                      className={`px-3.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center transition-colors ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                       title="Purge SKU"
                     >
                       <Trash2 size={14} />
