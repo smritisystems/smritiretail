@@ -50,6 +50,12 @@ class MetadataRegistryService {
       const existingJson = JSON.stringify(existing);
       const payloadJson = JSON.stringify(payload);
       if (existingJson !== payloadJson) {
+        // Allow updating auto-registered workspace entries with richer module metadata
+        if (existing.owner === "System Auto-Registered") {
+          this.modules.set(payload.id, payload);
+          this.emitChange();
+          return;
+        }
         throw new Error(`Module '${metadata.id}' is already registered with different metadata.`);
       }
       return;

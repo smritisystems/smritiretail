@@ -46,7 +46,11 @@ export const useLayoutModuleRegistration = () => {
         dependencies: ["Core System"],
       };
       
-      MetadataRegistry.registerModule(moduleMeta);
+      try {
+        MetadataRegistry.registerModule(moduleMeta);
+      } catch {
+        // Safe fallback if already registered with richer metadata
+      }
     });
   }, [registeredWorkspaces]);
 };
@@ -64,13 +68,17 @@ export interface SmritiBaseModuleProps {
 export const SmritiBaseModule: React.FC<SmritiBaseModuleProps> = ({ children, metadata }) => {
   useEffect(() => {
     if (metadata) {
-      MetadataRegistry.registerModule({
-        version: "v1.0",
-        owner: "SMRITI Core",
-        description: `${metadata.name} module`,
-        dependencies: ["Core System"],
-        ...metadata,
-      });
+      try {
+        MetadataRegistry.registerModule({
+          version: "v1.0",
+          owner: "SMRITI Core",
+          description: `${metadata.name} module`,
+          dependencies: ["Core System"],
+          ...metadata,
+        });
+      } catch {
+        // Safe fallback if already registered
+      }
     }
   }, [metadata]);
   

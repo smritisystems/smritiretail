@@ -13,11 +13,12 @@
 
 import React, { createContext, useContext, useEffect } from "react";
 
-type Theme = "light";
+type Theme = "light" | "dark";
 
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -25,18 +26,32 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const [theme, setThemeState] = React.useState<Theme>(() => {
+    const saved = localStorage.getItem("smriti-theme");
+    return (saved === "dark" || saved === "light") ? saved : "light";
+  });
+
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove("dark");
-    localStorage.setItem("smriti-theme", "light");
-  }, []);
+    root.setAttribute("data-theme", theme);
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+    localStorage.setItem("smriti-theme", theme);
+  }, [theme]);
 
   const toggleTheme = () => {
-    // Light mode locked - no-op per SMRITI Fiori Horizon Light Enterprise Policy
+    setThemeState((prev) => (prev === "light" ? "dark" : "light"));
+  };
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
   };
 
   return (
-    <ThemeContext.Provider value={{ theme: "light", toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

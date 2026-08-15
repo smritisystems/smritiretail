@@ -85,6 +85,7 @@ import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
+import { X } from "lucide-react";
 
 interface AppNotification {
   id: string;
@@ -577,6 +578,54 @@ const AppContent: React.FC = () => {
         </AnimatePresence>
       </div>
 
+      {/* Standalone External Popout Window View (No Shell Header, No Dock Bar) */}
+      {(() => {
+        const standaloneTab = new URLSearchParams(window.location.search).get("standalone_tab");
+        if (!standaloneTab) return null;
+
+        const tabMeta = registeredWorkspaces.find((w) => w.id === standaloneTab);
+        const title = tabMeta ? tabMeta.label : standaloneTab;
+        const icon = tabMeta ? tabMeta.icon : "description";
+
+        return (
+          <div className="fixed inset-0 z-[10000] flex flex-col overflow-hidden bg-theme-base text-theme-body font-sans select-none">
+            {/* Minimal Standalone Titlebar */}
+            <div className="h-10 px-4 bg-theme-surface-1 border-b border-theme-divider flex items-center justify-between shrink-0 shadow-xs">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <span className="material-symbols-outlined text-indigo-500 text-lg shrink-0">{icon}</span>
+                <span className="text-xs font-bold text-theme-text-primary tracking-wide truncate">{title}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-mono border border-indigo-500/20 shrink-0">
+                  Standalone Window
+                </span>
+              </div>
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  onClick={() => {
+                    window.location.href = window.location.origin + window.location.pathname;
+                  }}
+                  className="px-2.5 py-1 rounded text-[11px] font-bold bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-divider transition-all cursor-pointer"
+                  title="Return to Main Application Workspace Shell"
+                >
+                  Dock Back
+                </button>
+                <button
+                  onClick={() => window.close()}
+                  className="p-1.5 rounded hover:bg-rose-500/10 text-theme-muted hover:text-rose-400 transition-colors cursor-pointer"
+                  title="Close Standalone Window"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Full-screen Standalone Module Content without Header or Browser Bar */}
+            <div className="flex-1 overflow-auto p-2 relative">
+              {renderTabSafe(standaloneTab)}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* SMRITI Layout Manager Shell */}
       <LayoutManager 
         activeTab={activeTab} 
@@ -623,6 +672,9 @@ const AppContent: React.FC = () => {
           activeTabId={activeTab}
         />
       )}
+
+      {/* SMRITI Workspace Taskbar - Only rendered when user is logged in */}
+      <WorkspaceTaskbar />
     </div>
   );
 };
@@ -641,7 +693,6 @@ const App: React.FC = () => {
                   <GlobalSearch />
                   <DrillDownSidePanel />
                   <ShortcutPalette />
-                  <WorkspaceTaskbar />
                 </ContextProvider>
               </ShortcutProvider>
             </WorkspaceProvider>
