@@ -653,7 +653,6 @@ const AppContent: React.FC = () => {
           </motion.div>
         </AnimatePresence>
       </LayoutManager>
-      <QuickActionsMenu />
 
       {/* Floating Workspace Windows Host */}
       <FloatingWindowHost renderTab={(id) => renderTabSafe(id)} />
