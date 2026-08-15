@@ -38,7 +38,7 @@ export const SmritiScrollArea: React.FC<SmritiScrollAreaProps> = ({
   className = "",
   style,
   maxHeight,
-  fadeColorClass = "from-[#16213e]" // Default SMRITI Surface color
+  fadeColorClass = "from-theme-surface-1" // Default SMRITI Surface color
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);

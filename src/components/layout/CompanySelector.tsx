@@ -108,7 +108,7 @@ export const CompanySelector: React.FC = () => {
       >
         <Building2 className="w-4 h-4 text-emerald-300 shrink-0" />
         <span className="max-w-[150px] truncate font-display">{currentObj.company_name}</span>
-        <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-blue-950 text-emerald-300 rounded border border-blue-400">
+        <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-blue-700 text-white rounded border border-blue-500">
           {currentObj.company_code}
         </span>
         <ChevronDown className="w-3.5 h-3.5 text-blue-200 shrink-0" />
@@ -129,14 +129,14 @@ export const CompanySelector: React.FC = () => {
                 key={comp.company_id}
                 onClick={() => handleSelectCompany(comp)}
                 className={`w-full text-left px-3.5 py-2.5 text-xs flex items-center justify-between hover:bg-theme-surface-hover transition-colors cursor-pointer ${
-                  comp.company_id === selectedCompanyId ? 'text-emerald-400 font-bold bg-emerald-950/20' : 'text-theme-body'
+                  comp.company_id === selectedCompanyId ? 'text-blue-700 font-bold bg-blue-50 border-l-2 border-blue-600' : 'text-theme-body'
                 }`}
               >
                 <div>
                   <div className="font-semibold">{comp.company_name}</div>
                   <div className="text-[10px] font-mono text-theme-muted mt-0.5">Database: {comp.database_name}</div>
                 </div>
-                {comp.company_id === selectedCompanyId && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                {comp.company_id === selectedCompanyId && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
               </button>
             ))}
           </div>

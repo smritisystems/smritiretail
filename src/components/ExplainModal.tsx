@@ -39,8 +39,8 @@ export const ExplainModal: React.FC<ExplainModalProps> = ({ formula, onClose }) 
       <div className="absolute inset-0 overflow-hidden">
         {/* Background backdrop */}
         <div 
-          className="absolute inset-0 bg-[#0c1224] bg-opacity-75 transition-opacity cursor-pointer" 
-          onClick={onClose} 
+          className="absolute inset-0 bg-black/40 backdrop-blur-xs transition-opacity cursor-pointer"
+          onClick={onClose}
         />
 
         <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">

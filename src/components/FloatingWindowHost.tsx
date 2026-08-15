@@ -72,7 +72,7 @@ export const FloatingWindowHost: React.FC<FloatingWindowHostProps> = ({ renderTa
   const [showMergeMenu, setShowMergeMenu] = useState<string | null>(null);
 
   // Drag snapping preview coordinate state
-  const mainHeaderHeight = focusMode ? 0 : 72;
+  const mainHeaderHeight = focusMode ? 0 : 48;
   const snapPreviewStyles = {
     none: "hidden",
     left: `absolute left-0 w-1/2 bg-blue-500/10 border-r-2 border-dashed border-blue-500 z-50 transition-all duration-150`,
@@ -285,9 +285,9 @@ export const FloatingWindowHost: React.FC<FloatingWindowHostProps> = ({ renderTa
               height: `${win.height}px`,
               zIndex: win.zIndex,
             }}
-            className={`pointer-events-auto flex flex-col rounded-xl overflow-hidden shadow-2xl border transition-all duration-100 ease-out bg-theme-surface-1 select-text ${
-              isActive 
-                ? "border-blue-500 ring-1 ring-blue-500/20 shadow-blue-950/30" 
+            className={`pointer-events-auto flex flex-col rounded-xl overflow-hidden shadow-xl border transition-all duration-100 ease-out bg-theme-surface-1 select-text ${
+              isActive
+                ? "border-blue-500 ring-1 ring-blue-500/30 shadow-blue-500/10"
                 : "border-theme-divider hover:border-theme-muted"
             }`}
           >
@@ -295,7 +295,7 @@ export const FloatingWindowHost: React.FC<FloatingWindowHostProps> = ({ renderTa
             <div 
               onMouseDown={(e) => startDrag(e, win)}
               onDoubleClick={() => win.isMaximized ? restoreWindow(win.id) : maximizeWindow(win.id)}
-              className={`flex-shrink-0 h-11 flex items-center justify-between border-b border-theme-divider px-3 cursor-move select-none ${
+              className={`flex-shrink-0 h-10 flex items-center justify-between border-b border-theme-divider px-3 cursor-move select-none ${
                 isActive ? "bg-theme-surface-2" : "bg-theme-surface-1"
               }`}
             >
@@ -310,10 +310,10 @@ export const FloatingWindowHost: React.FC<FloatingWindowHostProps> = ({ renderTa
                         e.stopPropagation();
                         selectWindowTab(win.id, idx);
                       }}
-                      className={`flex items-center space-x-1.5 px-3 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors border ${
+                      className={`flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium cursor-pointer transition-colors border ${
                         isTabActive
-                          ? "bg-theme-surface-3 text-theme-body border-blue-500/30"
-                          : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover border-transparent"
+                          ? "bg-blue-50 text-blue-700 border-blue-200 font-semibold shadow-xs"
+                          : "text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover border-transparent"
                       }`}
                     >
                       <span className="material-symbols-outlined text-[14px] text-blue-500">
