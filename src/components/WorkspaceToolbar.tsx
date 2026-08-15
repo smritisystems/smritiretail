@@ -62,6 +62,7 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
     adjustGlobalZoom, 
     resetGlobalZoom, 
     popOutTab,
+    popOutExternalWindow,
     closeWindow,
     updateWindowZoom,
     resetWindowZoom,
@@ -215,6 +216,14 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
               onClick={handlePopOut}
               className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer"
               title="Pop-out Page to Floating Workspace (Ctrl+Shift+P)"
+            >
+              <ExternalLink size={14} />
+            </button>
+
+            <button
+              onClick={() => popOutExternalWindow(currentTabId, title, icon)}
+              className="p-1.5 rounded-lg text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10 transition-all cursor-pointer"
+              title="Pop Out to Standalone External Window (No Header / Toolbar)"
             >
               <ExternalLink size={14} />
             </button>

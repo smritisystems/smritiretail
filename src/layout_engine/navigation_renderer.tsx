@@ -58,7 +58,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     addToRecentlyUsed
   } = useLayoutEngine();
 
-  const { popOutTab } = useWorkspace();
+  const { popOutTab, popOutExternalWindow } = useWorkspace();
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -147,7 +147,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                 placeholder="Quick Workspace Search..."
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 placeholder-[#8892a4]"
+                className="w-full bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-theme-primary placeholder-theme-placeholder"
               />
               {searchTerm && (
                 <button 
@@ -688,11 +688,14 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
           </button>
 
           <button
-            onClick={() => handleOpenNewTab(contextMenu.tabId)}
-            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-theme-muted hover:text-white hover:bg-theme-surface-3 transition-colors"
+            onClick={() => {
+              popOutExternalWindow(contextMenu.tabId, contextMenu.label, contextMenu.icon);
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-amber-400 hover:bg-theme-surface-3 transition-colors cursor-pointer"
           >
             <ExternalLink size={12} className="text-amber-400" />
-            <span>Open in New Browser Tab</span>
+            <span>Pop Out Standalone Window (No Header / Toolbar)</span>
           </button>
         </div>
       )}

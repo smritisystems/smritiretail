@@ -52,6 +52,7 @@ export const FloatingWindowHost: React.FC<FloatingWindowHostProps> = ({ renderTa
     activeWindowId,
     dragSnapPreview,
     closeWindow,
+    popOutExternalWindow,
     minimizeWindow,
     maximizeWindow,
     restoreWindow,
@@ -397,6 +398,22 @@ export const FloatingWindowHost: React.FC<FloatingWindowHostProps> = ({ renderTa
                 )}
 
                 <div className="w-px h-3 bg-theme-divider mx-1"></div>
+
+                {/* Pop out to Standalone Window Outside Browser */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const activeTab = win.tabs[win.activeTabIndex];
+                    if (activeTab) {
+                      popOutExternalWindow(activeTab.tabId, activeTab.title, activeTab.icon);
+                      closeWindow(win.id);
+                    }
+                  }}
+                  className="p-1 rounded text-amber-400/80 hover:text-amber-400 hover:bg-amber-500/10 transition-all cursor-pointer"
+                  title="Pop out Standalone Window (Outside Browser Shell)"
+                >
+                  <ExternalLink size={11} />
+                </button>
 
                 {/* Minimize window */}
                 <button

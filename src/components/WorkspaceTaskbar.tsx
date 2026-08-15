@@ -51,6 +51,7 @@ export const WorkspaceTaskbar: React.FC = () => {
     restoreWindow,
     setActiveWindowId,
     popOutTab,
+    popOutExternalWindow,
     selectWindowTab,
     focusMode,
     toggleFocusMode
@@ -59,6 +60,9 @@ export const WorkspaceTaskbar: React.FC = () => {
   const { registeredWorkspaces, addToRecentlyUsed } = useLayoutEngine();
 
   // Taskbar general preferences
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem("smriti_taskbar_collapsed") === "true";
+  });
   const [autoHide, setAutoHide] = useState<boolean>(() => {
     return localStorage.getItem("smriti_taskbar_autohide") === "true";
   });
@@ -115,6 +119,11 @@ export const WorkspaceTaskbar: React.FC = () => {
   useEffect(() => {
     localStorage.setItem("smriti_taskbar_autohide", String(autoHide));
   }, [autoHide]);
+
+  // Persist isCollapsed
+  useEffect(() => {
+    localStorage.setItem("smriti_taskbar_collapsed", String(isCollapsed));
+  }, [isCollapsed]);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -230,15 +239,31 @@ export const WorkspaceTaskbar: React.FC = () => {
     w.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const isHidden = isCollapsed || (autoHide && !isHovered && !isWorkspaceManagerOpen && !contextMenuWinId);
+
   return (
     <>
+      {/* Floating Peek Trigger Tab when Taskbar is Hidden or Collapsed */}
+      {isCollapsed && (
+        <button
+          onClick={() => setIsCollapsed(false)}
+          className="fixed bottom-2 right-4 z-[9991] px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg flex items-center space-x-1.5 border border-blue-400 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-200"
+          title="Click to show Workspace Taskbar"
+        >
+          <ChevronUp size={14} />
+          <span>Taskbar ({floatingWindows.length})</span>
+        </button>
+      )}
+
       {/* Taskbar Frame */}
       <div
         ref={taskbarRef}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={`fixed bottom-0 left-0 right-0 z-[9990] transition-all duration-300 font-sans border-t border-theme-divider/70 bg-theme-surface-1 shadow-[0_-4px_24px_rgba(0,0,0,0.7)] ${
-          autoHide && !isHovered && floatingWindows.length > 0 && !isWorkspaceManagerOpen && !contextMenuWinId
+          isCollapsed
+            ? "translate-y-full opacity-0 pointer-events-none h-13"
+            : autoHide && !isHovered && !isWorkspaceManagerOpen && !contextMenuWinId
             ? "translate-y-[calc(100%-4px)] h-12 opacity-40 hover:opacity-100 hover:translate-y-0"
             : "translate-y-0 h-13"
         }`}
@@ -454,7 +479,7 @@ export const WorkspaceTaskbar: React.FC = () => {
             {/* AutoHide toggle indicator */}
             <button
               onClick={() => setAutoHide(!autoHide)}
-              className={`p-1.5 rounded-lg border text-xs transition-all ${
+              className={`p-1.5 rounded-lg border text-xs transition-all cursor-pointer ${
                 autoHide 
                   ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400" 
                   : "bg-transparent border-transparent text-theme-muted hover:text-theme-body"
@@ -462,6 +487,15 @@ export const WorkspaceTaskbar: React.FC = () => {
               title={autoHide ? "Disable Auto-Hide Taskbar" : "Enable Auto-Hide Taskbar"}
             >
               {autoHide ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+
+            {/* Collapse / Hide Taskbar button */}
+            <button
+              onClick={() => setIsCollapsed(true)}
+              className="p-1.5 rounded-lg border border-transparent text-theme-muted hover:text-theme-body hover:bg-theme-surface-2 transition-all cursor-pointer"
+              title="Hide Workspace Taskbar"
+            >
+              <ChevronDown size={14} />
             </button>
 
             {/* Performance Indicators (CPU/Memory Simulation for power-users) */}
@@ -577,6 +611,17 @@ export const WorkspaceTaskbar: React.FC = () => {
                     >
                       <Layers size={12} className="text-indigo-400 shrink-0" />
                       <span>Duplicate Workspace</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        popOutExternalWindow(activeTab.tabId, activeTab.title, activeTab.icon);
+                        setContextMenuWinId(null);
+                      }}
+                      className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-left text-xs text-amber-400 hover:bg-theme-surface-2 transition-all font-medium cursor-pointer"
+                    >
+                      <ExternalLink size={12} className="text-amber-400 shrink-0" />
+                      <span>Pop Out Standalone Window</span>
                     </button>
 
                     <div className="h-px bg-theme-divider my-1.5" />

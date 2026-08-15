@@ -65,6 +65,7 @@ interface WorkspaceContextType {
   resetGlobalZoom: () => void;
   
   popOutTab: (tabId: string, title: string, icon: string) => void;
+  popOutExternalWindow: (tabId: string, title: string, icon?: string) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
   maximizeWindow: (id: string) => void;
@@ -179,6 +180,22 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     setFloatingWindows((prev) => [...prev, newWindow]);
     setActiveWindowId(id);
+  };
+
+  const popOutExternalWindow = (tabId: string, title: string, icon?: string) => {
+    const url = `${window.location.origin}${window.location.pathname}?standalone_tab=${encodeURIComponent(tabId)}`;
+    const windowName = `smriti_popout_${tabId}_${Date.now()}`;
+    const windowFeatures = "popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=1280,height=800,left=100,top=100";
+    try {
+      const popupWindow = window.open(url, windowName, windowFeatures);
+      if (popupWindow) {
+        popupWindow.focus();
+      } else {
+        popOutTab(tabId, title, icon || "description");
+      }
+    } catch {
+      popOutTab(tabId, title, icon || "description");
+    }
   };
 
   const closeWindow = (id: string) => {
@@ -543,6 +560,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         adjustGlobalZoom,
         resetGlobalZoom,
         popOutTab,
+        popOutExternalWindow,
         closeWindow,
         minimizeWindow,
         maximizeWindow,

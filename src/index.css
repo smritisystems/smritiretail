@@ -66,7 +66,7 @@
 }
 
 @layer base {
-	:root {
+	:root, [data-theme="light"] {
 		/* SMRITI Enterprise Light Design Tokens — Fiori Horizon Inspired */
 		/* Surfaces */
 		--c-theme-base: #F5F6F7;
@@ -112,6 +112,54 @@
 		--c-theme-selection: #E8F2FE;
 		--c-theme-selection-hover: #D8E8FD;
 		--c-theme-selection-text: #0070F2;
+	}
+
+	[data-theme="dark"], .dark {
+		/* SMRITI Enterprise Dark Design Tokens — Fiori Horizon Inspired */
+		/* Surfaces */
+		--c-theme-base: #121721;
+		--c-theme-surface-1: #1A2232;
+		--c-theme-surface-2: #212B3E;
+		--c-theme-surface-3: #28344A;
+		--c-theme-surface-4: #2F3E58;
+		--c-theme-surface-hover: #354663;
+		--c-theme-surface-selected: #1C355E;
+		--c-theme-surface-disabled: #1E2736;
+
+		/* Text */
+		--c-theme-body: #E2E8F0;
+		--c-theme-text-primary: #F8FAFC;
+		--c-theme-text-secondary: #94A3B8;
+		--c-theme-muted: #94A3B8;
+		--c-theme-placeholder: #64748B;
+		--c-theme-disabled: #475569;
+
+		/* Action */
+		--c-theme-primary: #0070F2;
+		--c-theme-primary-hover: #2563EB;
+		--c-theme-primary-active: #1D4ED8;
+		--c-theme-primary-disabled: #1E3A8A;
+		--c-theme-focus: #3B82F6;
+
+		/* Borders & Dividers */
+		--c-theme-border: #2D3A52;
+		--c-theme-border-strong: #40506E;
+		--c-theme-divider: #263347;
+
+		/* Semantic Status */
+		--c-theme-success: #10B981;
+		--c-theme-success-bg: #064E3B;
+		--c-theme-warning: #F59E0B;
+		--c-theme-warning-bg: #78350F;
+		--c-theme-error: #EF4444;
+		--c-theme-error-bg: #7F1D1D;
+		--c-theme-info: #3B82F6;
+		--c-theme-info-bg: #1E3A8A;
+
+		/* Selection */
+		--c-theme-selection: #1C355E;
+		--c-theme-selection-hover: #234377;
+		--c-theme-selection-text: #60A5FA;
 	}
 
 	html, body, #root {
