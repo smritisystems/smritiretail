@@ -23,10 +23,11 @@ BASE_URL = "http://localhost:8000/api/v1"
 
 @pytest.fixture
 def auth_headers_company_a():
-    token = create_access_token({"sub": "usr-super", "company_id": "TATTLY", "branch_id": "MAIN"})
+    token = create_access_token({"sub": "usr-super", "company_id": "COMP-001", "branch_id": "MAIN"})
     return {
         "Authorization": f"Bearer {token}",
-        "X-Company-Code": "TATTLY",
+        "X-Company-Code": "001",
+        "X-Company-ID": "COMP-001",
         "X-Branch-Code": "MAIN",
         "Content-Type": "application/json"
     }

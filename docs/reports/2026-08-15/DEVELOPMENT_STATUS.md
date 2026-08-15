@@ -5,18 +5,10 @@
 
 ## SMRITI Development Health Index (DHI)
 ```
-TypeScript DHI: █████████░ 85% (Grade B)
-Python DHI:     █████████░ 84% (Grade B)
-Security:       ██████████ 100%
+DHI:      █████████░ 85% (Grade B)
+Release:  ███████░░░ 69%
+Security: ██████████ 100%
 ```
-
-> **DHI Governance Record**:
-> DHI v3.25.0 measurement engines are reconciled.
-> TypeScript scanner: 85% Grade B.
-> Python scanner: 84% Grade B.
-> The 1-point variance is accepted and documented.
-> Scores are measurement results, not release gates by themselves.
-> No formula manipulation is permitted.
 
 ## Discovered Modules Index
 

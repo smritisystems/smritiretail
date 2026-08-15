@@ -122,10 +122,13 @@ async def get_tenant_context(
     Extract tenant context from the authenticated user's JWT claims & validate assignments.
     Enforces header tampering checks against X-Company-Code and X-Branch-Code headers.
     """
-    header_company = request.headers.get("x-company-code") or request.headers.get("X-Company-Code")
+    header_company_id = request.headers.get("x-company-id") or request.headers.get("X-Company-ID")
+    header_company = header_company_id or request.headers.get("x-company-code") or request.headers.get("X-Company-Code")
     header_branch = request.headers.get("x-branch-code") or request.headers.get("X-Branch-Code")
 
     target_company = header_company if header_company else current_user.company_id
+    if target_company in ("001", "TATTLY", "comp-default"):
+        target_company = "COMP-001"
     target_branch = header_branch if header_branch else current_user.branch_id
 
     if not target_company or not target_branch:

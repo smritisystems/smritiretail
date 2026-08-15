@@ -41,14 +41,46 @@ try {
   assert.ok(parsed.fileContentsMap.has("package.json"), "Parser must capture package.json");
   console.log(`[TEST] Parser checks passed. Scanned ${parsed.filesList.length} files.`);
 
-  // Test 2: Metrics Calculation
-  console.log("[TEST] Calculating development health metrics...");
+  // Test 2: Metrics Calculation & Architecture Remediation Verification
+  console.log("[TEST] Calculating development health metrics & validating architecture discovery...");
   const results = computeMetrics(parsed);
   assert.ok(results.timestamp, "Scan results must contain a timestamp");
   assert.ok(results.releaseScores, "Scan results must contain release scores");
   assert.ok(results.releaseScores.dhi >= 0 && results.releaseScores.dhi <= 100, "DHI must be a percentage value");
   assert.ok(results.modules.length > 5, "Scan must discover registered modules");
-  console.log(`[TEST] Metrics DHI calculated: ${results.releaseScores.dhi}% (Grade ${results.releaseScores.grade}).`);
+
+  // Remediation Verification Assertion 1: Excluded generated/archive folders
+  const hasExcludedFolder = parsed.filesList.some(f =>
+    f.startsWith("backups/") || f.startsWith("coverage/") || f.startsWith("exports/") || f.startsWith("scratch/") || f.startsWith(".venv/")
+  );
+  assert.strictEqual(hasExcludedFolder, false, "Excluded directories (backups, coverage, .venv, etc.) must NOT be scanned");
+
+  // Remediation Verification Assertion 2: FastAPI Route Detection
+  const hasFastAPIRoutes = parsed.routesInServer.some(r => r.includes("/api/v1/"));
+  assert.ok(hasFastAPIRoutes, "Parser must detect FastAPI routes (/api/v1/...) in backend/app/api/");
+
+  // Remediation Verification Assertion 3: PAL apiFetchV1 Detection
+  const hasApiFetchV1Calls = parsed.fetchedRoutesInFrontend.length > 0;
+  assert.ok(hasApiFetchV1Calls, "Parser must detect frontend API calls (apiFetchV1, apiFetch)");
+
+  // Remediation Verification Assertion 4: SQLAlchemy Model Schema Detection
+  const hasSQLAlchemyTables = parsed.tablesInDb.includes("companies") || parsed.tablesInDb.includes("users") || parsed.tablesInDb.includes("sales_invoices");
+  assert.ok(hasSQLAlchemyTables, "Parser must detect SQLAlchemy ORM models from backend/app/models/");
+
+  // Remediation Verification Assertion 5: Pytest & Vitest Test File Discovery
+  const hasPytestFiles = parsed.testFiles.some(t => t.startsWith("backend/tests/"));
+  assert.ok(hasPytestFiles, "Parser must discover backend Pytest files in backend/tests/");
+
+  // Remediation Verification Assertion 6: Module Mapping Accuracy (CrmStudioTab & StockLedgerTab)
+  const crmModule = results.modules.find(m => m.id === "crm");
+  assert.ok(crmModule, "CRM module must be discovered");
+  assert.strictEqual(crmModule?.uiDesigned, true, "CRM module UI must be recognized as designed (CrmStudioTab.tsx)");
+
+  const stockModule = results.modules.find(m => m.id === "stock-ledger");
+  assert.ok(stockModule, "Stock Ledger module must be discovered");
+  assert.strictEqual(stockModule?.uiDesigned, true, "Stock Ledger UI must be recognized as designed (StockLedgerTab.tsx)");
+
+  console.log(`[TEST] Metrics DHI calculated: ${results.releaseScores.dhi}% (Grade ${results.releaseScores.grade}). All architecture discovery assertions passed!`);
 
   // Test 3: Report Generation and File Writes
   console.log("[TEST] Executing reports generation and filesystem writing...");
