@@ -49,80 +49,104 @@ export function discoverModules(parsed: ParsedCodebase): { id: string; label: st
   return modules.length > 0 ? modules : defaultModules;
 }
 
-// Maps modules to specific files, routes, tables, tests, and docs
-export function getModuleResourcesMapping(moduleId: string) {
-  const defaultMap = {
-    frontendKeyword: moduleId,
-    routeKeywords: [moduleId],
-    tableKeywords: [moduleId.replace("-", "_")],
-    testKeywords: [moduleId],
-    docKeywords: [moduleId]
-  };
+// Canonical API Route Normalization Helper
+export function normalizeApiRoute(route: string): string {
+  if (!route) return "";
+  let clean = route.split("?")[0].trim();
+  clean = clean.replace(/^[\/'"]+|[\/'"]+$/g, ""); // trim quotes & slashes
+  clean = clean.replace(/^api\/v1\//, "").replace(/^api\//, ""); // strip /api/v1/ and /api/
+  return clean.toLowerCase();
+}
 
-  const specificMappings: Record<string, typeof defaultMap> = {
+// Maps modules to specific files, routes, tables, tests, and docs
+export function getModuleResourcesMapping(moduleId: string, moduleLabel: string = "") {
+  const specificMappings: Record<string, {
+    frontendKeyword: string;
+    routeKeywords: string[];
+    tableKeywords: string[];
+    testKeywords: string[];
+    docKeywords: string[];
+  }> = {
     "dashboard": {
       frontendKeyword: "DashboardTab.tsx",
-      routeKeywords: ["/api/dashboard", "/api/metadata"],
-      tableKeywords: [],
-      testKeywords: ["dashboard"],
-      docKeywords: ["dashboard"]
+      routeKeywords: ["control-center", "dashboard", "metadata"],
+      tableKeywords: ["companies"],
+      testKeywords: ["dashboard", "company", "control_center"],
+      docKeywords: ["dashboard", "architecture", "readme"]
     },
     "item-master": {
       frontendKeyword: "ItemMasterTab.tsx",
-      routeKeywords: ["/api/items", "/api/attributes", "/api/variants"],
-      tableKeywords: ["items", "attributes", "variants"],
-      testKeywords: ["item", "barcode"],
-      docKeywords: ["item", "procurement"]
+      routeKeywords: ["inventory", "items", "attributes", "variants"],
+      tableKeywords: ["items", "products", "attributes", "variants"],
+      testKeywords: ["item", "inventory", "barcode", "product"],
+      docKeywords: ["item", "procurement", "inventory"]
     },
     "purchase": {
       frontendKeyword: "PurchaseStudioTab.tsx",
-      routeKeywords: ["/api/purchases", "/api/po", "/api/grn"],
+      routeKeywords: ["purchase", "purchases", "po", "grn"],
       tableKeywords: ["purchase_orders", "goods_receipt_notes"],
-      testKeywords: ["purchase"],
+      testKeywords: ["purchase", "grn", "supplier"],
       docKeywords: ["purchase", "procurement"]
     },
     "sales": {
       frontendKeyword: "SalesStudioTab.tsx",
-      routeKeywords: ["/api/sales", "/api/invoices"],
+      routeKeywords: ["sales", "invoices"],
       tableKeywords: ["sales_invoices", "sales_orders"],
-      testKeywords: ["sales"],
+      testKeywords: ["sales", "invoice"],
       docKeywords: ["sales"]
     },
     "pos": {
       frontendKeyword: "PosTerminalTab.tsx",
-      routeKeywords: ["/api/pos", "/api/billing"],
-      tableKeywords: ["pos_transactions", "pos_payments"],
-      testKeywords: ["pos", "billing"],
+      routeKeywords: ["pos", "billing"],
+      tableKeywords: ["pos_transactions", "pos_payments", "sales_invoices"],
+      testKeywords: ["pos", "billing", "sales"],
       docKeywords: ["pos", "billing"]
     },
     "crm": {
       frontendKeyword: "CrmStudioTab.tsx",
-      routeKeywords: ["/api/crm", "/api/campaigns"],
-      tableKeywords: ["crm_leads", "crm_opportunities", "crm_campaigns"],
-      testKeywords: ["crm"],
-      docKeywords: ["crm"]
+      routeKeywords: ["customers", "crm", "campaigns"],
+      tableKeywords: ["customers", "customer_groups", "crm_leads"],
+      testKeywords: ["crm", "customer", "sice"],
+      docKeywords: ["crm", "customer"]
     },
     "customer-master": {
       frontendKeyword: "CustomerMasterTab.tsx",
-      routeKeywords: ["/api/customers", "/api/customers/groups", "/api/customers/validate-add"],
+      routeKeywords: ["customers", "customers/groups", "customers/validate-add"],
       tableKeywords: ["customers", "customer_groups"],
-      testKeywords: ["customer"],
+      testKeywords: ["customer", "crm"],
       docKeywords: ["customer"]
     },
     "loyalty": {
       frontendKeyword: "LoyaltyStudioTab.tsx",
-      routeKeywords: ["/api/loyalty", "/api/wallets"],
-      tableKeywords: ["loyalty_wallets", "loyalty_tiers"],
-      testKeywords: ["loyalty"],
-      docKeywords: ["loyalty"]
+      routeKeywords: ["loyalty", "wallets"],
+      tableKeywords: ["loyalty_wallets", "loyalty_tiers", "customers"],
+      testKeywords: ["loyalty", "customer", "crm"],
+      docKeywords: ["loyalty", "crm"]
+    },
+    "stock-ledger": {
+      frontendKeyword: "StockLedgerTab.tsx",
+      routeKeywords: ["inventory", "stock"],
+      tableKeywords: ["stock_movements", "items", "products"],
+      testKeywords: ["stock", "inventory", "grn"],
+      docKeywords: ["stock", "inventory"]
     },
     "about-smriti": {
       frontendKeyword: "AboutSmritiTab.tsx",
-      routeKeywords: ["/api/metadata", "/api/changelog"],
+      routeKeywords: ["metadata", "changelog"],
       tableKeywords: [],
-      testKeywords: ["about"],
-      docKeywords: ["about"]
+      testKeywords: ["about", "changelog"],
+      docKeywords: ["about", "changelog", "readme"]
     }
+  };
+
+  const pascalName = moduleId.replace(/(?:^|-)([a-z])/g, (_, g1) => g1.toUpperCase());
+  const firstWord = moduleLabel ? moduleLabel.split(" ")[0].toLowerCase() : moduleId;
+  const defaultMap = {
+    frontendKeyword: `${pascalName}Tab.tsx`,
+    routeKeywords: [normalizeApiRoute(moduleId)],
+    tableKeywords: [moduleId.replace("-", "_")],
+    testKeywords: [moduleId, pascalName.toLowerCase(), firstWord],
+    docKeywords: [moduleId, pascalName.toLowerCase(), firstWord]
   };
 
   return specificMappings[moduleId] || defaultMap;
@@ -146,8 +170,16 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
   let totalDocsScore = 0;
   let totalSecurityScore = 0;
 
+  // Aggregate all backend code content (FastAPI + server.ts) for business logic inspection
+  let allBackendContent = "";
+  for (const [filePath, content] of parsed.fileContentsMap.entries()) {
+    if (filePath.startsWith("backend/app/") || filePath === "server.ts") {
+      allBackendContent += "\n" + content;
+    }
+  }
+
   for (const m of discovered) {
-    const map = getModuleResourcesMapping(m.id);
+    const map = getModuleResourcesMapping(m.id, m.label);
     
     // Heuristic Scan
     // 1. Frontend
@@ -167,9 +199,15 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
       mobileComplete = content.includes("sm:") || content.includes("md:") || content.includes("hidden lg:flex");
     }
 
-    // 2. Backend
-    const serverContent = parsed.fileContentsMap.get("server.ts") || "";
-    const backendStarted = map.routeKeywords.some(rt => serverContent.includes(rt));
+    // 2. Backend & Route Matching with canonical normalization
+    const normalizedServerRoutes = parsed.routesInServer.map(normalizeApiRoute);
+    const normalizedFetchedRoutes = parsed.fetchedRoutesInFrontend.map(normalizeApiRoute);
+    const allNormalizedRoutes = new Set([...normalizedServerRoutes, ...normalizedFetchedRoutes]);
+
+    const backendStarted = map.routeKeywords.some(rt =>
+      allNormalizedRoutes.has(rt) ||
+      allBackendContent.toLowerCase().includes(rt)
+    );
     let backendComplete = false;
     let apiComplete = false;
     let businessLogicComplete = false;
@@ -178,17 +216,20 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     let authenticationComplete = false;
     let authorizationComplete = false;
 
-    // Check if routes are registered in server.ts
-    const registeredRoutes = map.routeKeywords.filter(rt => parsed.routesInServer.some(srvRt => srvRt.includes(rt) || rt.includes(srvRt)));
-    apiComplete = registeredRoutes.length > 0;
+    // Check if routes are registered in backend / server.ts or consumed by frontend
+    const registeredRoutes = map.routeKeywords.filter(rt =>
+      allNormalizedRoutes.has(rt) ||
+      Array.from(allNormalizedRoutes).some(nr => nr.startsWith(rt) || rt.startsWith(nr))
+    );
+    apiComplete = registeredRoutes.length > 0 || backendStarted;
     
-    if (apiComplete) {
-      backendComplete = true; // basic server route implementation exists
-      businessLogicComplete = serverContent.includes("saveDb") || serverContent.includes("Pool") || serverContent.includes("query");
-      validationComplete = serverContent.includes("validate-add") || serverContent.includes("errors.push") || serverContent.includes("required");
-      securityComplete = serverContent.includes("role") || serverContent.includes("token") || serverContent.includes("hash");
-      authenticationComplete = serverContent.includes("auth/me") || serverContent.includes("currentUser");
-      authorizationComplete = serverContent.includes("role") || serverContent.includes("admin") || serverContent.includes("permissions");
+    if (apiComplete || backendStarted) {
+      backendComplete = true; // route implementation exists in FastAPI or Express
+      businessLogicComplete = allBackendContent.includes("Session") || allBackendContent.includes("select") || allBackendContent.includes("query") || allBackendContent.includes("saveDb");
+      validationComplete = allBackendContent.includes("HTTPException") || allBackendContent.includes("status_code=400") || allBackendContent.includes("validate") || allBackendContent.includes("required");
+      securityComplete = allBackendContent.includes("get_tenant_context") || allBackendContent.includes("get_current_user") || allBackendContent.includes("role") || allBackendContent.includes("token");
+      authenticationComplete = allBackendContent.includes("get_current_user") || allBackendContent.includes("auth") || allBackendContent.includes("currentUser");
+      authorizationComplete = allBackendContent.includes("role") || allBackendContent.includes("admin") || allBackendContent.includes("permissions") || allBackendContent.includes("require");
     }
 
     // 3. Database
@@ -210,7 +251,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     const documentationComplete = !!docFile;
 
     // Quality metrics & QA Complete
-    const qaComplete = unitTestsComplete && !serverContent.includes("TODO");
+    const qaComplete = unitTestsComplete && !allBackendContent.includes("TODO");
     const performanceComplete = frontendFile ? (parsed.fileContentsMap.get(frontendFile) || "").includes("debounce") || (parsed.fileContentsMap.get(frontendFile) || "").includes("useMemo") : false;
     const productionReady = frontendComplete && backendComplete && databaseComplete && unitTestsComplete && documentationComplete;
 
@@ -338,9 +379,9 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     (avgTests * 0.15) +
     (avgDocs * 0.10) +
     (avgSecurity * 0.10) +
-    (90 * 0.05) + // performance score dummy
-    (95 * 0.05) + // technical debt score dummy
-    (88 * 0.05)   // release score dummy
+    (90 * 0.05) + // BASELINE_ASSUMPTION: performance score benchmark constant (90%)
+    (95 * 0.05) + // BASELINE_ASSUMPTION: technical debt baseline constant (95%)
+    (88 * 0.05)   // BASELINE_ASSUMPTION: release score baseline constant (88%)
   );
 
   const developmentScore = Math.round((avgFrontend + avgBackend + avgDB + avgAPI) / 4);

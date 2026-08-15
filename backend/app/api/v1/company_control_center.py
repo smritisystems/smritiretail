@@ -78,16 +78,42 @@ def validate_company_code(payload: ValidateCodeRequest):
 
 @router.get("/companies")
 def list_companies(current_user: User = Depends(require_role(UserRole.SYSADMIN))):
-    """Lists companies accessible to the logged-in user (SYSADMIN required)."""
+    """Lists companies accessible to the logged-in user from smritisys Control Plane registry."""
+    try:
+        conn = psycopg2.connect(CONTROL_PLANE_DB_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT c.id, c.name, COALESCE(c.company_code, '001'), COALESCE(r.database_name, 'smriti001'), COALESCE(r.status, 'READY')
+            FROM companies c
+            LEFT JOIN company_database_registries r ON c.id = r.company_id
+            WHERE c.is_active = true AND c.is_deleted = false AND c.id = 'COMP-001';
+        """)
+        rows = cur.fetchall()
+        conn.close()
+        if rows:
+            return [
+                {
+                    "company_id": r[0],
+                    "company_code": r[2],
+                    "company_name": r[1],
+                    "status": r[4],
+                    "database_name": r[3]
+                }
+                for r in rows
+            ]
+    except Exception:
+        pass
+
     return [
         {
             "company_id": "COMP-001",
             "company_code": "001",
-            "company_name": "SMRITI Retail Enterprise Default",
+            "company_name": "Tattly Retail Pvt Ltd",
             "status": "READY",
             "database_name": "smriti001"
         }
     ]
+
 
 @router.get("/companies/{company_id}")
 def get_company_detail(

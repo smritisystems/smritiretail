@@ -12,9 +12,10 @@
 """
 
 from fastapi import HTTPException, status
-import psycopg2, re
+import os, psycopg2, re
 
-CONTROL_PLANE_DB_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
+DB_HOST = os.getenv("POSTGRES_HOST") or os.getenv("DATABASE_HOST") or "localhost"
+CONTROL_PLANE_DB_URL = f"postgresql://postgres:postgres@{DB_HOST}:5432/smritisys"
 
 def generate_company_database_name(company_code: str) -> str:
     """
@@ -168,7 +169,8 @@ class CompanyDatabaseResolver:
                     detail=f"Company Database for '{company_id}' is in status '{db_status}'. Access denied."
                 )
 
-            target_connection_url = f"postgresql://postgres:postgres@{host}:{port}/{target_db}"
+            resolved_host = DB_HOST if host in ("localhost", "127.0.0.1", "db") else host
+            target_connection_url = f"postgresql://postgres:postgres@{resolved_host}:{port}/{target_db}"
 
             return {
                 "company_id": company_id,

@@ -17,7 +17,8 @@
  */
 export async function apiFetchV1(endpoint: string, options: RequestInit = {}): Promise<any> {
   const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
-  const companyCode = localStorage.getItem("smriti_company_code") || "TATTLY";
+  const companyCode = localStorage.getItem("smriti_company_code") || "001";
+  const companyId = localStorage.getItem("smriti_company_id") || "COMP-001";
 
   const headers = new Headers(options.headers || {});
   if (token) {
@@ -25,6 +26,9 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
   }
   if (companyCode && !headers.has("X-Company-Code")) {
     headers.set("X-Company-Code", companyCode);
+  }
+  if (companyId && !headers.has("X-Company-ID")) {
+    headers.set("X-Company-ID", companyId);
   }
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");

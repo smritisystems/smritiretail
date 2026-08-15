@@ -27,7 +27,13 @@ import fs from "fs";
 import path from "path";
 
 // Helper to recursively list all files matching extensions
-export function getFilesRecursively(dir: string, extensions: string[] = [".ts", ".tsx", ".js", ".jsx", ".css", ".sql", ".md", ".json"]): string[] {
+const EXCLUDED_DIRS = new Set([
+  "node_modules", "dist", "build", ".git", ".gemini", ".agents",
+  "backups", "coverage", "exports", "scratch", ".venv", "venv"
+]);
+
+// Helper to recursively list all files matching extensions
+export function getFilesRecursively(dir: string, extensions: string[] = [".ts", ".tsx", ".js", ".jsx", ".css", ".sql", ".md", ".json", ".py"]): string[] {
   let results: string[] = [];
   if (!fs.existsSync(dir)) return results;
 
@@ -36,7 +42,7 @@ export function getFilesRecursively(dir: string, extensions: string[] = [".ts", 
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
     if (stat && stat.isDirectory()) {
-      if (file !== "node_modules" && file !== "dist" && file !== ".git" && file !== ".gemini" && file !== ".agents") {
+      if (!EXCLUDED_DIRS.has(file)) {
         results = results.concat(getFilesRecursively(filePath, extensions));
       }
     } else {
@@ -88,8 +94,16 @@ export function parseCodebase(): ParsedCodebase {
   for (const filePath of allFiles) {
     const relPath = path.relative(rootDir, filePath).replace(/\\/g, "/");
     
-    // Categorize test and doc files
-    if (relPath.startsWith("src/tests/") || relPath.endsWith(".test.ts") || relPath.endsWith(".test.tsx")) {
+    // Categorize test and doc files (both TS Vitest and Python Pytest)
+    if (
+      relPath.startsWith("src/tests/") ||
+      relPath.startsWith("backend/tests/") ||
+      relPath.includes("/tests/") ||
+      relPath.endsWith(".test.ts") ||
+      relPath.endsWith(".test.tsx") ||
+      relPath.endsWith("_test.py") ||
+      path.basename(relPath).startsWith("test_")
+    ) {
       testFiles.push(relPath);
     }
     if (relPath.startsWith("docs/") && relPath.endsWith(".md")) {
@@ -128,32 +142,61 @@ export function parseCodebase(): ParsedCodebase {
         }
       }
 
-      // 4. Parse server.ts routes
-      if (relPath === "server.ts") {
-        const routeRegex = /app\.(get|post|put|delete)\(\s*["'](\/api\/.*?)["']/g;
+      // 4. Parse backend API routes (FastAPI + legacy server.ts)
+      if (relPath.startsWith("backend/app/api/") || relPath === "server.ts") {
+        // FastAPI @router or @app route decorator parser
+        const fastapiRouteRegex = /@(router|app)\.(get|post|put|delete|patch)\(\s*["'](\/.*?)["']/g;
         let match;
-        while ((match = routeRegex.exec(content)) !== null) {
+        while ((match = fastapiRouteRegex.exec(content)) !== null) {
+          const routePath = match[3];
+          const fullRoute = routePath.startsWith("/api/") ? routePath : `/api/v1${routePath.startsWith("/") ? "" : "/"}${routePath}`;
+          if (!routesInServer.includes(fullRoute)) {
+            routesInServer.push(fullRoute);
+          }
+          if (!routesInServer.includes(routePath)) {
+            routesInServer.push(routePath);
+          }
+        }
+
+        // Express app.get/post/put/delete parser
+        const expressRouteRegex = /app\.(get|post|put|delete)\(\s*["'](\/api\/.*?)["']/g;
+        while ((match = expressRouteRegex.exec(content)) !== null) {
           if (!routesInServer.includes(match[2])) {
             routesInServer.push(match[2]);
           }
         }
       }
 
-      // 5. Parse frontend fetched routes
+      // 5. Parse frontend fetched routes (apiFetchV1, apiFetch, and fetch)
       if (relPath.startsWith("src/") && (relPath.endsWith(".tsx") || relPath.endsWith(".ts")) && relPath !== "server.ts") {
-        const fetchRegex = /fetch\(\s*["'](\/api\/.*?)["']/g;
+        const apiFetchRegex = /(?:apiFetchV1|apiFetch|fetch)\(\s*["'](\/.*?)["']/g;
         let match;
-        while ((match = fetchRegex.exec(content)) !== null) {
-          if (!fetchedRoutesInFrontend.includes(match[1])) {
-            fetchedRoutesInFrontend.push(match[1]);
+        while ((match = apiFetchRegex.exec(content)) !== null) {
+          const fetchPath = match[1];
+          const fullFetch = fetchPath.startsWith("/api/") ? fetchPath : `/api/v1${fetchPath.startsWith("/") ? "" : "/"}${fetchPath}`;
+          if (!fetchedRoutesInFrontend.includes(fullFetch)) {
+            fetchedRoutesInFrontend.push(fullFetch);
+          }
+          if (!fetchedRoutesInFrontend.includes(fetchPath)) {
+            fetchedRoutesInFrontend.push(fetchPath);
           }
         }
       }
 
-      // 6. Parse Database tables from schema.sql
-      if (relPath === "src/db/schema.sql" || relPath === "server.ts") {
-        const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
+      // 6. Parse Database tables (SQLAlchemy models in backend/app/models + legacy schema.sql)
+      if (relPath.startsWith("backend/app/models/") || relPath === "src/db/schema.sql" || relPath === "server.ts") {
+        // SQLAlchemy __tablename__ = "table_name"
+        const sqlalchemyTableRegex = /__tablename__\s*=\s*["'](\w+)["']/g;
         let match;
+        while ((match = sqlalchemyTableRegex.exec(content)) !== null) {
+          const tableName = match[1].toLowerCase();
+          if (!tablesInDb.includes(tableName)) {
+            tablesInDb.push(tableName);
+          }
+        }
+
+        // CREATE TABLE regex fallback
+        const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
         while ((match = tableRegex.exec(content)) !== null) {
           const tableName = match[1].toLowerCase();
           if (!tablesInDb.includes(tableName)) {
