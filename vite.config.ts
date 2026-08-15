@@ -65,10 +65,37 @@ export default defineConfig({
             if (id.includes("recharts") || id.includes("d3")) {
               return "vendor-charts";
             }
-            return "vendor";
+            if (id.includes("lucide-react")) {
+              return "vendor-icons";
+            }
+            if (id.includes("motion")) {
+              return "vendor-motion";
+            }
+            if (id.includes("xlsx") || id.includes("jspdf") || id.includes("html2canvas")) {
+              return "vendor-documents";
+            }
+            return "vendor-core";
           }
-          if (id.includes("PurchaseStudioTab") || id.includes("PrintPreviewModal")) {
-            return "smriti-heavy-modules";
+          if (id.includes("SalesStudioTab")) {
+            return "smriti-sales-studio";
+          }
+          if (id.includes("PurchaseStudioTab")) {
+            return "smriti-purchase-studio";
+          }
+          if (id.includes("ReportDesignerTab")) {
+            return "smriti-report-designer";
+          }
+          if (id.includes("TermsEngineTab")) {
+            return "smriti-terms-engine";
+          }
+          if (id.includes("BarcodeStudioTab")) {
+            return "smriti-barcode-studio";
+          }
+          if (id.includes("PrintPreviewModal")) {
+            return "smriti-print-preview";
+          }
+          if (id.includes("DashboardTab")) {
+            return "smriti-dashboard";
           }
         }
       }

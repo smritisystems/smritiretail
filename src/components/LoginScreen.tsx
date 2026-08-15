@@ -140,6 +140,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 </div>
                 <input
                   type="text"
+                  id="login-username"
+                  aria-label="Operator ID / Username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   disabled={loading}
@@ -150,7 +152,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             </div>
 
             <div>
-              <label className="block text-[10px] font-mono font-bold text-theme-muted uppercase tracking-wider mb-1.5">
+              <label htmlFor="login-password" className="block text-[10px] font-mono font-bold text-theme-muted uppercase tracking-wider mb-1.5">
                 Security Password
               </label>
               <div className="relative">
@@ -159,10 +161,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 </div>
                 <input
                   type="password"
+                  id="login-password"
+                  aria-label="Security Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
-                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-10 pr-4 py-2.5 text-xs text-theme-body placeholder-theme-muted/50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all font-semibold font-mono"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-10 pr-4 py-2.5 text-xs text-theme-body placeholder-theme-muted/50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all font-semibold"
                   placeholder="••••••••"
                 />
               </div>

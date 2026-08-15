@@ -92,30 +92,37 @@ class ReportsService:
         )
         invoices = res.scalars().all()
 
-        total_gross = Decimal("0.00")
-        total_discount = Decimal("0.00")
-        total_net = Decimal("0.00")
-        modes: Dict[str, Decimal] = {}
+        total_sales = Decimal("0.00")
+        cash_sales = Decimal("0.00")
+        card_sales = Decimal("0.00")
+        upi_sales = Decimal("0.00")
+        credit_sales = Decimal("0.00")
 
         for inv in invoices:
-            gross = Decimal(str(inv.total_amount or "0"))
-            disc  = Decimal(str(inv.discount_amount or "0"))
-            net   = Decimal(str(inv.net_amount or "0"))
+            net = Decimal(str(inv.net_amount or inv.total_amount or "0"))
+            total_sales += net
 
-            total_gross    += gross
-            total_discount += disc
-            total_net      += net
-
-            pm = inv.payment_mode or "UNSPECIFIED"
-            modes[pm] = modes.get(pm, Decimal("0.00")) + net
+            pm = (inv.payment_mode or "").upper()
+            if "CASH" in pm:
+                cash_sales += net
+            elif "CARD" in pm:
+                card_sales += net
+            elif "UPI" in pm:
+                upi_sales += net
+            elif "CREDIT" in pm:
+                credit_sales += net
+            else:
+                cash_sales += net
 
         return DailySalesSummary(
-            report_date=report_date.isoformat(),
-            invoice_count=len(invoices),
-            total_gross=total_gross,
-            total_discount=total_discount,
-            total_net=total_net,
-            by_payment_mode={k: float(v) for k, v in modes.items()},
+            report_date=report_date,
+            total_invoices=len(invoices),
+            total_sales=total_sales,
+            cash_sales=cash_sales,
+            card_sales=card_sales,
+            upi_sales=upi_sales,
+            credit_sales=credit_sales,
+            shift_breakdown=[],
         )
 
     async def supplier_ledger(self, supplier_id: str) -> SupplierLedger:
