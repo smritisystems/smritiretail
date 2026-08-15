@@ -34,9 +34,10 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
     headers.set("Content-Type", "application/json");
   }
 
-  // Sanitize endpoint string — remove any embedded docker hostname prefixes (e.g. python-core:8000)
+  // Sanitize endpoint string — remove any embedded docker hostname prefixes (e.g. python-core:8000, smriti-api:8000)
   let cleanEndpoint = endpoint
     .replace(/https?:\/\/python-core:8000/gi, "")
+    .replace(/https?:\/\/smriti-api:8000/gi, "")
     .replace(/https?:\/\/localhost:8000/gi, "")
     .replace(/https?:\/\/127\.0\.0\.1:8000/gi, "");
 

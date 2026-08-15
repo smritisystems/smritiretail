@@ -86,6 +86,7 @@ class CustomerGroupResponse(CustomerGroupBase):
 # Base schema for Customer
 class CustomerBase(BaseModel):
     customer_group_id: str = Field(..., max_length=50)
+    code: Optional[str] = Field(None, max_length=50)
     name: str = Field(..., max_length=255)
     mobile: Optional[str] = Field(None, max_length=20)
     email: Optional[str] = Field(None, max_length=255)
