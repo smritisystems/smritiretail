@@ -27,7 +27,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-const pythonCoreTarget = process.env.PYTHON_CORE_HOST
+const pythonCoreTarget = process.env.PYTHON_CORE_HOST && !process.env.PYTHON_CORE_HOST.includes("python-core")
   ? `http://${process.env.PYTHON_CORE_HOST}`
   : "http://127.0.0.1:8000";
 

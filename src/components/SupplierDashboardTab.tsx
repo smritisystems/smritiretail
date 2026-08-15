@@ -28,6 +28,8 @@ import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { DrillableLink } from "./drilldown/DrillableLink.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
+import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { CreateSupplierModal } from "./CreateSupplierModal.tsx";
 
 interface SupplierDashboardTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -38,6 +40,28 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
   const [activeSubTab, setActiveSubTab] = useState<
     "dashboard" | "directory" | "performance"
   >("dashboard");
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const fetchSuppliers = async () => {
+    setLoadingSuppliers(true);
+    try {
+      const data = await apiFetchV1("/purchase/suppliers/");
+      setSuppliers(data || []);
+    } catch (e) {
+      console.warn("Failed to fetch suppliers", e);
+      setSuppliers([]);
+    } finally {
+      setLoadingSuppliers(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSuppliers();
+  }, []);
+
   useEffect(() => {
     recordAuditAction("VIEW", "suppliers", activeSubTab, `Switched supplier dashboard view to: ${activeSubTab}`);
   }, [activeSubTab]);
@@ -62,22 +86,31 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
             chain performance, and procurement tracking.
           </p>
         </div>
-        <div className="flex items-center gap-3 mt-4 md:mt-0 bg-theme-surface-3 px-4 py-2 rounded-lg border border-theme-divider">
-          <div className="text-right">
-            <div className="text-[10px] font-mono text-theme-muted uppercase font-bold">
-              Total Payables
+        <div className="flex items-center gap-3 mt-4 md:mt-0">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow"
+          >
+            <span className="material-symbols-outlined text-base">add_business</span>
+            + Create Supplier
+          </button>
+          <div className="flex items-center gap-3 bg-theme-surface-3 px-4 py-2 rounded-lg border border-theme-divider">
+            <div className="text-right">
+              <div className="text-[10px] font-mono text-theme-muted uppercase font-bold">
+                Total Payables
+              </div>
+              <div className="text-sm font-bold text-rose-400 font-mono">
+                ₹0.00
+              </div>
             </div>
-            <div className="text-sm font-bold text-rose-400 font-mono">
-              ₹4,25,800
-            </div>
-          </div>
-          <div className="w-px h-8 bg-theme-divider mx-2"></div>
-          <div className="text-right">
-            <div className="text-[10px] font-mono text-theme-muted uppercase font-bold">
-              Active Vendors
-            </div>
-            <div className="text-sm font-bold text-emerald-400 font-mono">
-              24
+            <div className="w-px h-8 bg-theme-divider mx-2"></div>
+            <div className="text-right">
+              <div className="text-[10px] font-mono text-theme-muted uppercase font-bold">
+                Active Vendors
+              </div>
+              <div className="text-sm font-bold text-emerald-400 font-mono">
+                {suppliers.length}
+              </div>
             </div>
           </div>
         </div>
@@ -125,10 +158,10 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
                     </span>
                   </div>
                   <div className="text-2xl font-bold text-theme-primary font-mono">
-                    12
+                    0
                   </div>
                   <div className="text-[10px] text-theme-muted mt-1 font-mono">
-                    Valued at ₹1,85,000
+                    Valued at ₹0.00
                   </div>
                 </div>
                 <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 shadow-lg">
@@ -141,13 +174,10 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
                     </span>
                   </div>
                   <div className="text-2xl font-bold text-theme-primary font-mono">
-                    5
+                    0
                   </div>
-                  <div className="text-[10px] text-amber-400 mt-1 flex items-center gap-1 font-mono">
-                    <span className="material-symbols-outlined text-[10px]">
-                      warning
-                    </span>
-                    2 Overdue
+                  <div className="text-[10px] text-theme-muted mt-1 flex items-center gap-1 font-mono">
+                    0 Overdue
                   </div>
                 </div>
                 <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 shadow-lg">
@@ -160,10 +190,10 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
                     </span>
                   </div>
                   <div className="text-2xl font-bold text-theme-primary font-mono">
-                    ₹4,25,800
+                    ₹0.00
                   </div>
                   <div className="text-[10px] text-theme-muted mt-1 font-mono">
-                    Across 8 Vendors
+                    Across {suppliers.length} Vendors
                   </div>
                 </div>
                 <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 shadow-lg">
@@ -176,13 +206,10 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
                     </span>
                   </div>
                   <div className="text-2xl font-bold text-theme-primary font-mono">
-                    4.2 Days
+                    0.0 Days
                   </div>
-                  <div className="text-[10px] text-emerald-400 mt-1 flex items-center gap-1 font-mono">
-                    <span className="material-symbols-outlined text-[10px]">
-                      arrow_downward
-                    </span>
-                    Improved by 0.5 days
+                  <div className="text-[10px] text-theme-muted mt-1 flex items-center gap-1 font-mono">
+                    On-time fulfilment
                   </div>
                 </div>
               </div>
@@ -195,80 +222,10 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
                     <h3 className="text-sm font-bold text-theme-primary font-display uppercase tracking-wider">
                       Recent POs
                     </h3>
-                    <button className="text-xs text-blue-400 hover:text-blue-300 font-semibold">
-                      View All
-                    </button>
                   </div>
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                        <th className="px-4 py-3 font-semibold">PO Number</th>
-                        <th className="px-4 py-3 font-semibold">Vendor</th>
-                        <th className="px-4 py-3 font-semibold">Status</th>
-                        <th className="px-4 py-3 font-semibold text-right">
-                          Value
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-xs divide-y divide-theme-divider">
-                      {[
-                        {
-                          po: "PO-2026-0012",
-                          vendor: "TechCorp Distributors",
-                          status: "In Transit",
-                          value: "₹45,000",
-                        },
-                        {
-                          po: "PO-2026-0011",
-                          vendor: "Global Supplies",
-                          status: "Delivered",
-                          value: "₹1,20,500",
-                        },
-                        {
-                          po: "PO-2026-0010",
-                          vendor: "Metro Wholesale",
-                          status: "Pending",
-                          value: "₹15,200",
-                        },
-                        {
-                          po: "PO-2026-0009",
-                          vendor: "TechCorp Distributors",
-                          status: "Delivered",
-                          value: "₹8,400",
-                        },
-                      ].map((item, i) => (
-                        <tr
-                          key={i}
-                          className="hover:bg-theme-surface-hover transition-colors"
-                        >
-                          <td className="px-4 py-3 font-mono text-blue-400">
-                            {item.po}
-                          </td>
-                          <td className="px-4 py-3 font-medium text-theme-body">
-                            <DrillableLink context={{ entityType: "supplier", entityId: item.vendor, title: item.vendor }}>
-                              {item.vendor}
-                            </DrillableLink>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                item.status === "Delivered"
-                                  ? "bg-emerald-900/50 text-emerald-400 border border-emerald-500/30"
-                                  : item.status === "Pending"
-                                    ? "bg-amber-900/50 text-amber-400 border border-amber-500/30"
-                                    : "bg-blue-900/50 text-blue-400 border border-blue-500/30"
-                              }`}
-                            >
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono font-medium">
-                            {item.value}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="p-8 text-center text-xs font-mono text-theme-muted">
+                    No recent purchase orders recorded.
+                  </div>
                 </div>
 
                 {/* Aging Summary */}
@@ -286,13 +243,13 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
                             0 - 30 Days
                           </span>
                           <span className="font-mono font-bold text-emerald-400">
-                            ₹1,50,000
+                            ₹0.00
                           </span>
                         </div>
                         <div className="w-full bg-theme-surface-3 rounded-full h-2">
                           <div
                             className="bg-emerald-500 h-2 rounded-full"
-                            style={{ width: "60%" }}
+                            style={{ width: "0%" }}
                           ></div>
                         </div>
                       </div>
@@ -302,13 +259,13 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
                             31 - 60 Days
                           </span>
                           <span className="font-mono font-bold text-amber-400">
-                            ₹2,10,800
+                            ₹0.00
                           </span>
                         </div>
                         <div className="w-full bg-theme-surface-3 rounded-full h-2">
                           <div
                             className="bg-amber-500 h-2 rounded-full"
-                            style={{ width: "85%" }}
+                            style={{ width: "0%" }}
                           ></div>
                         </div>
                       </div>
@@ -318,13 +275,13 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
                             61 - 90 Days
                           </span>
                           <span className="font-mono font-bold text-orange-400">
-                            ₹45,000
+                            ₹0.00
                           </span>
                         </div>
                         <div className="w-full bg-theme-surface-3 rounded-full h-2">
                           <div
                             className="bg-orange-500 h-2 rounded-full"
-                            style={{ width: "20%" }}
+                            style={{ width: "0%" }}
                           ></div>
                         </div>
                       </div>
@@ -355,105 +312,95 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({ curr
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-theme-primary font-display uppercase tracking-wider">
-                  Vendor List
+                  Vendor Directory ({suppliers.length})
                 </h3>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Search vendors..."
+                    placeholder="Search vendors by name or code..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-blue-500 w-64"
                   />
-                  <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                  >
                     + New Vendor
                   </button>
                 </div>
               </div>
-              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                      <th className="px-4 py-3 font-semibold">Vendor ID</th>
-                      <th className="px-4 py-3 font-semibold">Supplier Name</th>
-                      <th className="px-4 py-3 font-semibold">Group</th>
-                      <th className="px-4 py-3 font-semibold">
-                        Contact Person
-                      </th>
-                      <th className="px-4 py-3 font-semibold text-right">
-                        Outstanding
-                      </th>
-                      <th className="px-4 py-3 font-semibold text-center">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-xs divide-y divide-theme-divider">
-                    {[
-                      {
-                        id: "SUP-001",
-                        name: "TechCorp Distributors",
-                        group: "Electronics",
-                        contact: "Rajesh Kumar",
-                        balance: "₹1,20,000",
-                      },
-                      {
-                        id: "SUP-002",
-                        name: "Global Supplies Ltd.",
-                        group: "General",
-                        contact: "Anita Singh",
-                        balance: "₹0",
-                      },
-                      {
-                        id: "SUP-003",
-                        name: "Metro Wholesale",
-                        group: "FMCG",
-                        contact: "Vikram Mehta",
-                        balance: "₹45,500",
-                      },
-                      {
-                        id: "SUP-004",
-                        name: "Prime Packaging",
-                        group: "Packaging",
-                        contact: "Sunil Verma",
-                        balance: "₹2,60,300",
-                      },
-                    ].map((v) => (
-                      <tr
-                        key={v.id}
-                        className="hover:bg-theme-surface-hover transition-colors cursor-pointer group"
-                      >
-                        <td className="px-4 py-3 font-mono text-blue-400">
-                          {v.id}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-theme-body group-hover:text-blue-400">
-                          <DrillableLink context={{ entityType: "supplier", entityId: v.id, title: v.name }}>
-                            {v.name}
-                          </DrillableLink>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-theme-surface-4 text-theme-muted border border-theme-divider">
-                            {v.group}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-theme-muted">
-                          {v.contact}
-                        </td>
-                        <td
-                          className={`px-4 py-3 text-right font-mono font-medium ${v.balance === "₹0" ? "text-theme-muted" : "text-rose-400"}`}
-                        >
-                          {v.balance}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <button className="text-blue-400 hover:text-blue-300 p-1">
-                            <span className="material-symbols-outlined text-[16px]">
-                              visibility
-                            </span>
-                          </button>
-                        </td>
+
+              {suppliers.length === 0 ? (
+                <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-12 text-center space-y-4 shadow-lg">
+                  <div className="w-14 h-14 bg-blue-500/10 text-blue-400 rounded-full flex items-center justify-center mx-auto border border-blue-500/20">
+                    <span className="material-symbols-outlined text-2xl">storefront</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-theme-primary">No Supplier Masters Found</h4>
+                    <p className="text-xs text-theme-muted mt-1 max-w-md mx-auto">
+                      There are no registered supplier masters in the system. Click "+ Create Supplier" below to create your first vendor record.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors inline-flex items-center gap-1.5 shadow"
+                  >
+                    <span className="material-symbols-outlined text-base">add_business</span>
+                    + Create Supplier Master
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
+                        <th className="px-4 py-3 font-semibold">Vendor ID</th>
+                        <th className="px-4 py-3 font-semibold">Supplier Name</th>
+                        <th className="px-4 py-3 font-semibold">GSTIN</th>
+                        <th className="px-4 py-3 font-semibold">Contact / Phone</th>
+                        <th className="px-4 py-3 font-semibold">Location</th>
+                        <th className="px-4 py-3 font-semibold text-right">Outstanding</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="text-xs divide-y divide-theme-divider">
+                      {suppliers
+                        .filter(s => 
+                          !searchQuery || 
+                          s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (s.code && s.code.toLowerCase().includes(searchQuery.toLowerCase()))
+                        )
+                        .map((s) => (
+                          <tr
+                            key={s.id}
+                            className="hover:bg-theme-surface-hover transition-colors cursor-pointer group"
+                          >
+                            <td className="px-4 py-3 font-mono text-blue-400 font-bold">
+                              {s.code || s.id}
+                            </td>
+                            <td className="px-4 py-3 font-medium text-theme-body group-hover:text-blue-400">
+                              <DrillableLink context={{ entityType: "supplier", entityId: s.id, title: s.name }}>
+                                {s.name}
+                              </DrillableLink>
+                            </td>
+                            <td className="px-4 py-3 font-mono text-theme-muted">
+                              {s.gst_number || "N/A"}
+                            </td>
+                            <td className="px-4 py-3 text-theme-muted font-mono">
+                              {s.mobile || s.email || "N/A"}
+                            </td>
+                            <td className="px-4 py-3 text-theme-muted">
+                              {s.city ? `${s.city}, ${s.state || ''}` : 'N/A'}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono font-medium text-theme-muted">
+                              ₹0.00
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

@@ -111,4 +111,13 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-16 | foundation | POS Profiles CRUD API v3.22.0 — 6 FastAPI endpoints, DB migration, all ARCH-DEBT markers cleared | [POS_Profiles_CRUD_API_v3.22.0.md](foundation/POS_Profiles_CRUD_API_v3.22.0.md) |
 | 2026-08-13 | foundation | Multi-Company Assignment & Tenant Isolation v3.22.0 — User/Company/Branch assignments, context switch endpoint, tenant isolation test suite | [Foundation_Multi_Company_Assignment_And_Tenant_Isolation_v3.22.0.md](foundation/Foundation_Multi_Company_Assignment_And_Tenant_Isolation_v3.22.0.md) |
 | 2026-08-13 | foundation | Tax Invoice E-Way Bill AcroForm Field v3.16.0 — Layout-aware AcroForm text field generator, DOM bounding rect mapping, 13-digit field capacity | [Tax_Invoice_EWay_Bill_AcroForm_v3.16.0.md](foundation/Tax_Invoice_EWay_Bill_AcroForm_v3.16.0.md) |
+| 2026-08-14 | sales | Sales & Invoice Frontend-to-Backend Wiring & Contract Certification v3.22.0 | [Sales_Invoice_Frontend_Backend_Wiring_v3.22.0.md](sales/Sales_Invoice_Frontend_Backend_Wiring_v3.22.0.md) |
+| 2026-08-14 | user_guide | User Training Blueprint — 7-Day Business Transaction Lifecycle v3.16.0 | [User_Training_Blueprint_Walkthrough_v3.16.0.md](user_guide/User_Training_Blueprint_Walkthrough_v3.16.0.md) |
+| 2026-08-14 | user_guide | SMRITI Training Academy Phase 1 Foundation Walkthrough v1.0 | [SMRITI_Training_Academy_Phase1_Walkthrough_v1.0.md](user_guide/SMRITI_Training_Academy_Phase1_Walkthrough_v1.0.md) |
+| 2026-08-14 | user_guide | SMRITI Training Academy Phase 2 Guided Simulators Walkthrough v1.0 | [SMRITI_Training_Academy_Phase2_Walkthrough_v1.0.md](user_guide/SMRITI_Training_Academy_Phase2_Walkthrough_v1.0.md) |
+| 2026-08-14 | user_guide | SMRITI Training Academy Phases 3–5 Full Completion Walkthrough v1.0 | [SMRITI_Training_Academy_Phases3_5_Walkthrough_v1.0.md](user_guide/SMRITI_Training_Academy_Phases3_5_Walkthrough_v1.0.md) |
+| 2026-08-14 | sales | SMRITI Statutory A4 Tax Invoice Print & PDF Engine Integration v4.7.0 | [SMRITI_Statutory_A4_Tax_Invoice_Print_Engine_v4.7.0.md](sales/SMRITI_Statutory_A4_Tax_Invoice_Print_Engine_v4.7.0.md) |
+| 2026-08-15 | foundation | Commercial Growth, Customer 360, Fulfillment & Cost Profitability Architecture v1.0 | [Commercial_Growth_Customer360_Fulfillment_And_Cost_Profitability_v1.0.md](foundation/Commercial_Growth_Customer360_Fulfillment_And_Cost_Profitability_v1.0.md) |
+| 2026-08-15 | reports | SMRITI Reporting Platform & Data Integrity Engine v1.0 — Excel Grid, Flexi Studio, Chart Visualizer & Dashboard Manager | [Reporting_Platform_And_Data_Integrity_v1.0.md](reports/Reporting_Platform_And_Data_Integrity_v1.0.md) |
+
 

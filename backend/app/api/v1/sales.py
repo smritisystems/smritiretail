@@ -14,7 +14,7 @@ Classification: Internal
 
 from typing import List, Optional
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db, get_tenant_context, TenantContext, require_role
 from ...models.auth import UserRole
@@ -44,23 +44,85 @@ router = APIRouter()
 )
 async def create_sales_invoice_contract(
     invoice_in: SalesInvoiceCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Create a sales invoice — canonical contract URL."""
-    return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in)
+    """Create a sales invoice — canonical contract URL with Idempotency-Key support."""
+    idempotency_key = request.headers.get("idempotency-key") or request.headers.get("Idempotency-Key")
+    return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in, idempotency_key=idempotency_key)
 
 
 @router.get("/invoices", response_model=List[SalesInvoiceResponse], summary="List Sales Invoices (Contract URL)")
 async def list_sales_invoices_contract(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    limit: int = Query(1000, ge=1, le=5000),
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List sales invoices — canonical contract URL."""
     repo = SalesInvoiceRepository(db, tenant_ctx)
     return await repo.get_all(skip=skip, limit=limit)
+
+
+@router.get(
+    "/invoices/{invoice_id}",
+    response_model=SalesInvoiceResponse,
+    summary="Get Sales Invoice Detail",
+)
+async def get_sales_invoice_contract(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get single sales invoice detail by ID under active tenant context."""
+    repo = SalesInvoiceRepository(db, tenant_ctx)
+    inv = await repo.get(invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Sales invoice not found")
+    return inv
+
+
+@router.get(
+    "/invoices/{invoice_id}/html",
+    response_class=Response,
+    summary="Render Sales Invoice HTML Print Preview",
+)
+async def get_sales_invoice_html_contract(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Render authoritative GST Tax Invoice HTML for print preview directly from Smritibus_<CompanyCode> under tenant context."""
+    from ...services.invoice_pdf_service import InvoicePdfService
+    html_content = await InvoicePdfService.generate_invoice_html(
+        session=db,
+        invoice_id=invoice_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id
+    )
+    return Response(content=html_content, media_type="text/html")
+
+
+@router.get(
+    "/invoices/{invoice_id}/pdf",
+    response_class=Response,
+    summary="Stream Sales Invoice PDF Document",
+)
+async def get_sales_invoice_pdf_contract(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Stream rendered Tax Invoice document from single authoritative backend template under tenant context."""
+    from ...services.invoice_pdf_service import InvoicePdfService
+    html_content = await InvoicePdfService.generate_invoice_html(
+        session=db,
+        invoice_id=invoice_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id
+    )
+    return Response(content=html_content, media_type="text/html")
 
 
 # ─────────────────────────── Sales Quotation ───────────────────────────

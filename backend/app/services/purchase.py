@@ -380,6 +380,21 @@ class PurchaseService:
         supplier.outstanding = (supplier.outstanding + grand_total).quantize(Decimal("0.01"))
         supplier.modified_at = datetime.now(timezone.utc)
 
+        # Record Transactional Outbox event atomically within same DB transaction
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PSV_QUEUE",
+            payload={
+                "action": "PURCHASE_RECEIPT_COMPLETED",
+                "receipt_no": receipt.receipt_no,
+                "supplier_id": receipt.supplier_id,
+                "grand_total": str(receipt.grand_total),
+                "company_code": self.tenant.company_id
+            },
+            causation_id=receipt.receipt_no
+        )
+
         try:
             await self.db.commit()
         except IntegrityError:

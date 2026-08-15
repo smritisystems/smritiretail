@@ -109,7 +109,7 @@ class Settings(BaseSettings):
     
     # Priority defaults
     PORT: int = 8000
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti_retail_db"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys"
     JWT_SECRET_KEY: str  # Remove default â€” raise error if missing
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60       # 1 hour â€” suitable for retail POS sessions
@@ -135,6 +135,12 @@ class Settings(BaseSettings):
     USE_FASTAPI_SALES: bool = False
     USE_FASTAPI_PURCHASE: bool = False
     USE_FASTAPI_POS: bool = False
+
+    # Multi-Database Platform Architecture v1.1 Configuration
+    USE_MULTI_DB_ROUTER: bool = False
+    CONTROL_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiSys"
+    PSV_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiPSV"
+    ECOM_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiEcom"
 
     model_config = {
         "env_file": ".env",

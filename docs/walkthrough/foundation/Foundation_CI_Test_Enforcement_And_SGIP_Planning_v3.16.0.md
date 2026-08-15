@@ -18,7 +18,7 @@
 Enforce Python backend test suite runs in the GitHub Actions CI workflow, fix backend pytest configuration warnings, resolve database naming mismatches between CI and app defaults, and explicitly mark the SMRITI Government Integration Platform (SGIP) documents as planning-only (Phase 0).
 
 ## 2. Scope
-* **CI Workflow Configuration**: `.github/workflows/ci.yml` (Change Postgres DB service to `smriti_retail_db` and add migration + pytest run steps).
+* **CI Workflow Configuration**: `.github/workflows/ci.yml` (Change Postgres DB service to `smritisys` and add migration + pytest run steps).
 * **Pytest Testpaths**: `backend/pyproject.toml` (Set testpaths to `app/tests`).
 * **Safe Database Cleaning**: `backend/app/tests/conftest.py` (Add `clear_db` FK-safe helper), and update test modules (`test_auth.py`, `test_pos.py`, `test_user_management.py`) to utilize it.
 * **SGIP Planning Status**: Append Phase 0 constitution-only status warnings to `SGIP_PRODUCT_CONSTITUTION_v1.0.md` and `SGIP_IMPLEMENTATION_PLAN_v1.0.md`.
@@ -42,7 +42,7 @@ Enforce Python backend test suite runs in the GitHub Actions CI workflow, fix ba
 * **Planning Only Isolation**: Explicitly added Phase 0 warning banners to all SGIP architecture and constitution plans, ensuring that subsequent coding agents or human reviewers do not mistake the SGIP framework as a built capability.
 
 ## 6. Design Rationale
-* Renaming the CI service database from `smriti_retail` to `smriti_retail_db` matches the configuration file defaults used throughout the python backend.
+* Renaming the CI service database from `smriti_retail` to `smritisys` matches the configuration file defaults used throughout the python backend.
 * Pointing pytest `testpaths` to `["app/tests"]` solves compilation warnings and enables bare pytest execution.
 
 ## 7. Implementation Summary

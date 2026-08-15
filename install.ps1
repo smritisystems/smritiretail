@@ -49,7 +49,7 @@ if (-not (Test-Path ".env")) {
         Write-Host "  [OK] Created .env file from .env.example template." -ForegroundColor Green
     } else {
         Write-Host "  [FAIL] .env.example template not found. Creating a default .env file..." -ForegroundColor Red
-        $envContent = "PORT=3000`r`nBACKEND_API_PORT=8000`r`nPOSTGRES_USER=postgres`r`nPOSTGRES_PASSWORD=postgres`r`nPOSTGRES_DB=smriti_retail_db`r`nDATABASE_PROVIDER=postgres"
+        $envContent = "PORT=3000`r`nBACKEND_API_PORT=8000`r`nPOSTGRES_USER=postgres`r`nPOSTGRES_PASSWORD=postgres`r`nPOSTGRES_DB=smritisys`r`nDATABASE_PROVIDER=postgres"
         Set-Content -Path ".env" -Value $envContent
         Write-Host "  [OK] Created default .env file." -ForegroundColor Green
     }

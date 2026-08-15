@@ -462,6 +462,21 @@ class POSService:
         for m in movements:
             self.db.add(m)
 
+        # Record Transactional Outbox event atomically within same DB transaction
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PSV_QUEUE",
+            payload={
+                "action": "POS_SALE_COMPLETED",
+                "invoice_no": req.invoice_no,
+                "grand_total": str(grand_total),
+                "company_code": self.tenant.company_id,
+                "item_count": len(db_items)
+            },
+            causation_id=req.invoice_no
+        )
+
         try:
             await self.db.commit()
         except IntegrityError:

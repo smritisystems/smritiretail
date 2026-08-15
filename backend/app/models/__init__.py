@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.21.0
 Created      : 2026-07-11
-Modified     : 2026-07-15
+Modified     : 2026-08-15
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -28,3 +28,39 @@ from .user_assignment import UserCompanyAssignment, UserBranchAssignment, UserSt
 from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment
 from .report_schedule import ReportSchedule
+
+# CRM, Loyalty Program & Universal Incentive Commission Engine (SICE)
+from .loyalty import LoyaltyTier, LoyaltyRule, LoyaltyMember, LoyaltyPointsLedger
+from .commission import CommissionProgram, CommissionRule, CommissionParticipant, CommissionLedger
+
+# Commercial Growth Engine - Promotions, Campaigns & Referrals
+from .promotions import PromotionCampaign, PromotionRule, Coupon, PromotionRedemption
+from .referral import ReferralProgram, ReferralRelationship, ReferralReward
+
+# Operations & Fulfillment Engine
+from .fulfillment import (
+    PackingSlip, PackingSlipItem,
+    Dispatch, DispatchItem,
+    DeliveryCommissionSettlement, ReverseLogisticsReturn
+)
+
+# Cost & Profitability Intelligence Engine
+from .profitability import ProductCostValuation, TransactionCostSnapshot, InvoiceProfitabilityLedger
+
+# Reporting & Analytics Engine (Excel Grid, Flexi Studio, Chart Engine, Dashboard Manager)
+from .reporting import ReportDefinition, ReportSavedView, Dashboard, DashboardWidget
+
+# Step 1 Platform Baseline Schema Contracts
+from .control import (
+    ControlCompany,
+    ControlCompanyDatabase,
+    ControlUser,
+    ControlPSVConfig,
+)
+from .outbox import IntegrationOutboxEvent
+from .psv import (
+    PSVParty,
+    PSVPartySkuTracking,
+    PSVStockEvent,
+    PSVStockBalance,
+)

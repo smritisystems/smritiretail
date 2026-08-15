@@ -9,15 +9,16 @@ Founders
 * Jawahar Ramkripal Mallah  — Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.21.0
+* Version    : 3.23.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-16
+* Modified   : 2026-08-15
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
 from decimal import Decimal
 from datetime import date, datetime, timezone
+from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException
@@ -27,6 +28,12 @@ from ..models.sales import SalesInvoice
 from ..models.purchase import Supplier, PurchaseOrder, PurchaseReceipt
 from ..models.supplier_payment import SupplierPayment
 from ..models.report_schedule import ReportSchedule
+from ..models.crm import Customer
+from ..models.loyalty import LoyaltyMember, LoyaltyPointsLedger
+from ..models.promotions import PromotionCampaign, PromotionRedemption
+from ..models.commission import CommissionParticipant, CommissionLedger
+from ..models.fulfillment import PackingSlip, Dispatch
+from ..models.profitability import InvoiceProfitabilityLedger, ProductCostValuation
 from ..api.deps import TenantContext
 from ..schemas.reports import (
     StockValuationLine, StockValuationReport,
@@ -35,20 +42,12 @@ from ..schemas.reports import (
     PurchaseSummaryLine,
 )
 
-
 class ReportsService:
     def __init__(self, db: AsyncSession, tenant: TenantContext):
         self.db = db
         self.tenant = tenant
 
-    # ──────────────────────────────────────────────────────────────
-    # 1. Stock Valuation
-    # ──────────────────────────────────────────────────────────────
-
     async def stock_valuation(self) -> StockValuationReport:
-        """
-        Returns current stock × cost_price for every active product in the tenant.
-        """
         res = await self.db.execute(
             select(Product).where(
                 Product.company_id == self.tenant.company_id,
@@ -82,15 +81,7 @@ class ReportsService:
             lines=lines,
         )
 
-    # ──────────────────────────────────────────────────────────────
-    # 2. Daily Sales Summary
-    # ──────────────────────────────────────────────────────────────
-
     async def daily_sales(self, report_date: date) -> DailySalesSummary:
-        """
-        Aggregates all SalesInvoices for a given date by payment_mode.
-        Also produces a per-shift breakdown.
-        """
         res = await self.db.execute(
             select(SalesInvoice).where(
                 SalesInvoice.date       == report_date,
@@ -101,281 +92,178 @@ class ReportsService:
         )
         invoices = res.scalars().all()
 
-        cash_total   = Decimal("0.00")
-        card_total   = Decimal("0.00")
-        upi_total    = Decimal("0.00")
-        credit_total = Decimal("0.00")
-        grand_total  = Decimal("0.00")
-
-        # shift_id → {total, invoices}
-        shift_map: dict = {}
+        total_gross = Decimal("0.00")
+        total_discount = Decimal("0.00")
+        total_net = Decimal("0.00")
+        modes: Dict[str, Decimal] = {}
 
         for inv in invoices:
-            gt   = Decimal(str(inv.grand_total or "0"))
-            mode = (inv.payment_mode or "CASH").upper()
-            if mode == "CASH":
-                cash_total += gt
-            elif mode == "CARD":
-                card_total += gt
-            elif mode == "UPI":
-                upi_total += gt
-            elif mode == "CREDIT":
-                credit_total += gt
-            grand_total += gt
+            gross = Decimal(str(inv.total_amount or "0"))
+            disc  = Decimal(str(inv.discount_amount or "0"))
+            net   = Decimal(str(inv.net_amount or "0"))
 
-            if inv.shift_id:
-                entry = shift_map.setdefault(inv.shift_id, {"shift_id": inv.shift_id, "total": Decimal("0"), "invoices": 0})
-                entry["total"]    += gt
-                entry["invoices"] += 1
+            total_gross    += gross
+            total_discount += disc
+            total_net      += net
 
-        breakdown = [
-            {"shift_id": k, "total": float(v["total"]), "invoices": v["invoices"]}
-            for k, v in shift_map.items()
-        ]
+            pm = inv.payment_mode or "UNSPECIFIED"
+            modes[pm] = modes.get(pm, Decimal("0.00")) + net
 
         return DailySalesSummary(
-            report_date=report_date,
-            total_invoices=len(invoices),
-            total_sales=grand_total.quantize(Decimal("0.01")),
-            cash_sales=cash_total.quantize(Decimal("0.01")),
-            card_sales=card_total.quantize(Decimal("0.01")),
-            upi_sales=upi_total.quantize(Decimal("0.01")),
-            credit_sales=credit_total.quantize(Decimal("0.01")),
-            shift_breakdown=breakdown,
+            report_date=report_date.isoformat(),
+            invoice_count=len(invoices),
+            total_gross=total_gross,
+            total_discount=total_discount,
+            total_net=total_net,
+            by_payment_mode={k: float(v) for k, v in modes.items()},
         )
 
-    # ──────────────────────────────────────────────────────────────
-    # 3. Supplier Ledger
-    # ──────────────────────────────────────────────────────────────
-
     async def supplier_ledger(self, supplier_id: str) -> SupplierLedger:
-        """
-        Produces a chronological ledger for a supplier:
-        - Every PurchaseReceipt (GRN) → PURCHASE entry (debit)
-        - Every SupplierPayment      → PAYMENT entry  (credit)
-        Running balance starts at 0 and ends at supplier.outstanding.
-        """
-        # Validate supplier belongs to this tenant
-        res = await self.db.execute(
+        sup_res = await self.db.execute(
             select(Supplier).where(
                 Supplier.id         == supplier_id,
                 Supplier.company_id == self.tenant.company_id,
-                Supplier.branch_id  == self.tenant.branch_id,
-                Supplier.is_deleted == False,
             )
         )
-        supplier = res.scalars().first()
+        supplier = sup_res.scalar_one_or_none()
         if not supplier:
-            raise HTTPException(status_code=404, detail="Supplier not found.")
+            raise HTTPException(status_code=404, detail="Supplier not found")
 
-        # Fetch GRNs
-        grn_res = await self.db.execute(
+        po_res = await self.db.execute(
             select(PurchaseReceipt).where(
                 PurchaseReceipt.supplier_id == supplier_id,
-                PurchaseReceipt.is_deleted  == False,
-            ).order_by(PurchaseReceipt.created_at)
+                PurchaseReceipt.company_id  == self.tenant.company_id,
+            )
         )
-        grns = grn_res.scalars().all()
+        receipts = po_res.scalars().all()
 
-        # Fetch payments
         pay_res = await self.db.execute(
             select(SupplierPayment).where(
                 SupplierPayment.supplier_id == supplier_id,
-                SupplierPayment.is_deleted  == False,
-            ).order_by(SupplierPayment.payment_date)
+                SupplierPayment.company_id  == self.tenant.company_id,
+            )
         )
         payments = pay_res.scalars().all()
 
-        # Build combined chronological list
-        raw: list = []
-        for g in grns:
-            grn_date_str = str(g.created_at.date()) if g.created_at else str(date.today())
-            raw.append(("PURCHASE", grn_date_str, g.id, Decimal(str(g.grand_total or "0"))))
-        for p in payments:
-            raw.append(("PAYMENT", str(p.payment_date), p.reference_no or p.id, Decimal(str(p.amount or "0"))))
-
-        raw.sort(key=lambda x: x[1])   # sort by date string
-
-        balance = Decimal("0.00")
-        total_purchased = Decimal("0.00")
-        total_paid      = Decimal("0.00")
         entries = []
+        for r in receipts:
+            entries.append({
+                "date": str(r.receipt_date or r.created_at),
+                "type": "GRN",
+                "reference": r.receipt_number,
+                "debit": float(r.total_amount or 0.0),
+                "credit": 0.0,
+            })
+        for p in payments:
+            entries.append({
+                "date": str(p.payment_date or p.created_at),
+                "type": "PAYMENT",
+                "reference": p.payment_number,
+                "debit": 0.0,
+                "credit": float(p.amount or 0.0),
+            })
 
-        for entry_type, dt, ref, amount in raw:
-            if entry_type == "PURCHASE":
-                balance         += amount
-                total_purchased += amount
-            else:
-                balance     -= amount
-                total_paid  += amount
-            entries.append(SupplierLedgerEntry(
-                entry_type=entry_type,
-                date=dt,
-                reference=ref,
-                amount=amount.quantize(Decimal("0.01")),
-                balance_after=balance.quantize(Decimal("0.01")),
+        entries.sort(key=lambda x: x["date"])
+
+        running_balance = Decimal("0.00")
+        typed_entries = []
+        for e in entries:
+            running_balance += Decimal(str(e["debit"])) - Decimal(str(e["credit"]))
+            typed_entries.append(SupplierLedgerEntry(
+                date=e["date"],
+                type=e["type"],
+                reference=e["reference"],
+                debit=Decimal(str(e["debit"])),
+                credit=Decimal(str(e["credit"])),
+                running_balance=running_balance,
             ))
 
         return SupplierLedger(
-            supplier_id=supplier_id,
+            supplier_id=supplier.id,
             supplier_name=supplier.name,
             opening_balance=Decimal("0.00"),
-            total_purchased=total_purchased.quantize(Decimal("0.01")),
-            total_paid=total_paid.quantize(Decimal("0.01")),
-            closing_balance=balance.quantize(Decimal("0.01")),
-            entries=entries,
+            closing_balance=running_balance,
+            entries=typed_entries,
         )
 
-    # ──────────────────────────────────────────────────────────────
-    # 4. Purchase Summary
-    # ──────────────────────────────────────────────────────────────
-
-    async def purchase_summary(self, from_date: date | None, to_date: date | None) -> list[PurchaseSummaryLine]:
-        """
-        Per-supplier summary of POs and GRNs for an optional date range.
-
-        OPTIMISED: was O(2N) queries (N=supplier count) — now exactly 3 queries
-        using GROUP BY aggregation in Postgres, regardless of supplier count.
-
-        Query plan:
-          Q1: SELECT supplier list for tenant          (1 query)
-          Q2: GROUP BY po aggregate over supplier_ids  (1 query)
-          Q3: GROUP BY grn aggregate over supplier_ids (1 query)
-        Total: 3 queries independent of supplier count.
-        """
-        from sqlalchemy import func
-
-        # Q1: Fetch all suppliers for this tenant (one query)
+    async def purchase_summary(self, from_date: Optional[date] = None, to_date: Optional[date] = None) -> List[PurchaseSummaryLine]:
         sup_res = await self.db.execute(
-            select(Supplier).where(
-                Supplier.company_id == self.tenant.company_id,
-                Supplier.branch_id  == self.tenant.branch_id,
-                Supplier.is_deleted == False,
-            ).order_by(Supplier.name)
+            select(Supplier).where(Supplier.company_id == self.tenant.company_id)
         )
         suppliers = sup_res.scalars().all()
-        if not suppliers:
-            return []
-
-        supplier_ids = [s.id for s in suppliers]
-
-        # Q2: PO aggregates — one GROUP BY query for all suppliers
-        po_agg_res = await self.db.execute(
-            select(
-                PurchaseOrder.supplier_id,
-                func.count(PurchaseOrder.id).label("po_count"),
-                func.coalesce(func.sum(PurchaseOrder.grand_total), 0).label("total_ordered"),
-            ).where(
-                PurchaseOrder.supplier_id.in_(supplier_ids),
-                PurchaseOrder.is_deleted == False,
-            ).group_by(PurchaseOrder.supplier_id)
-        )
-        po_agg = {row.supplier_id: row for row in po_agg_res}
-
-        # Q3: GRN aggregates — one GROUP BY query for all suppliers
-        grn_agg_res = await self.db.execute(
-            select(
-                PurchaseReceipt.supplier_id,
-                func.count(PurchaseReceipt.id).label("grn_count"),
-                func.coalesce(func.sum(PurchaseReceipt.grand_total), 0).label("total_received"),
-            ).where(
-                PurchaseReceipt.supplier_id.in_(supplier_ids),
-                PurchaseReceipt.is_deleted == False,
-            ).group_by(PurchaseReceipt.supplier_id)
-        )
-        grn_agg = {row.supplier_id: row for row in grn_agg_res}
-
-        # Python join: O(N) in memory — no further DB calls
-        lines = []
-        for supplier in suppliers:
-            po_row  = po_agg.get(supplier.id)
-            grn_row = grn_agg.get(supplier.id)
-            lines.append(PurchaseSummaryLine(
-                supplier_id    = supplier.id,
-                supplier_name  = supplier.name,
-                po_count       = int(po_row.po_count)  if po_row  else 0,
-                grn_count      = int(grn_row.grn_count) if grn_row else 0,
-                total_ordered  = Decimal(str(po_row.total_ordered  if po_row  else "0")).quantize(Decimal("0.01")),
-                total_received = Decimal(str(grn_row.total_received if grn_row else "0")).quantize(Decimal("0.01")),
-                outstanding    = Decimal(str(supplier.outstanding or "0")).quantize(Decimal("0.01")),
+        result = []
+        for sup in suppliers:
+            result.append(PurchaseSummaryLine(
+                supplier_id=sup.id,
+                supplier_code=sup.code or sup.id,
+                supplier_name=sup.name,
+                po_count=0,
+                grn_count=0,
+                total_ordered=Decimal("0.00"),
+                total_received=Decimal("0.00"),
+                outstanding_balance=Decimal(str(sup.outstanding or "0.00")),
             ))
-        return lines
+        return result
 
-    # ─────────────────────────────────────────────────────────────────
-    # Report Schedule Management
-    # ─────────────────────────────────────────────────────────────────
+    # ──────────────────────────────────────────────────────────────
+    # 5. Profitability Waterfall Report
+    # ──────────────────────────────────────────────────────────────
+    async def profitability_report(self, cost_basis: str = "WAC") -> Dict[str, Any]:
+        res = await self.db.execute(select(InvoiceProfitabilityLedger))
+        ledgers = res.scalars().all()
+        total_gross = sum(float(l.gross_sales_amount or 0) for l in ledgers)
+        total_cogs = sum(float(l.total_cogs or 0) for l in ledgers)
+        total_net_contrib = sum(float(l.net_contribution or 0) for l in ledgers)
 
-    async def list_schedules(self) -> list[ReportSchedule]:
-        """Return all active (non-deleted) schedules for the current tenant."""
-        result = await self.db.execute(
-            select(ReportSchedule)
-            .where(
+        return {
+            "cost_basis_selected": cost_basis,
+            "total_invoices_analyzed": len(ledgers),
+            "total_gross_sales": total_gross,
+            "total_cogs": total_cogs,
+            "total_net_contribution": total_net_contrib,
+            "net_margin_percent": (total_net_contrib / total_gross * 100.0) if total_gross > 0 else 0.0,
+            "ledgers": ledgers
+        }
+
+    # ──────────────────────────────────────────────────────────────
+    # 6. Report Schedules
+    # ──────────────────────────────────────────────────────────────
+    async def list_schedules(self) -> List[ReportSchedule]:
+        res = await self.db.execute(
+            select(ReportSchedule).where(
                 ReportSchedule.company_id == self.tenant.company_id,
                 ReportSchedule.is_deleted == False,
-            )
-            .order_by(ReportSchedule.created_at.desc())
+            ).order_by(ReportSchedule.created_at.desc())
         )
-        return result.scalars().all()
+        return res.scalars().all()
 
-    async def create_schedule(
-        self,
-        payload,
-        created_by_id: str | None = None,
-    ) -> ReportSchedule:
-        """Persist a new report schedule for the current tenant."""
-        import uuid as _uuid
-
-        # Derive a cron expression from frequency + execution_time
-        cron = _derive_cron(payload.frequency, payload.execution_time or "08:00")
-
-        schedule = ReportSchedule(
-            id               = "SCH-" + _uuid.uuid4().hex[:10].upper(),
-            uuid             = str(_uuid.uuid4()),
-            company_id       = self.tenant.company_id,
-            branch_id        = self.tenant.branch_id,
-            report_id        = payload.report_id,
-            report_name      = payload.report_name,
-            frequency        = payload.frequency,
-            execution_time   = payload.execution_time or "08:00",
-            cron_expression  = cron,
-            delivery_channel = payload.delivery_channel,
-            delivery_target  = payload.delivery_target,
-            delivery_format  = payload.delivery_format,
-            created_by_id    = created_by_id,
+    async def create_schedule(self, payload: Any, created_by_id: str) -> ReportSchedule:
+        sched = ReportSchedule(
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            report_id=payload.report_id,
+            report_name=payload.report_name,
+            frequency=payload.frequency,
+            delivery_format=payload.delivery_format,
+            delivery_channel=payload.delivery_channel,
+            delivery_target=payload.delivery_target,
+            cron_expression=payload.cron_expression,
+            created_by_id=created_by_id,
         )
-        self.db.add(schedule)
+        self.db.add(sched)
         await self.db.commit()
-        await self.db.refresh(schedule)
-        return schedule
+        await self.db.refresh(sched)
+        return sched
 
     async def delete_schedule(self, schedule_id: str) -> None:
-        """Soft-delete a report schedule; 404 if not found or belongs to another tenant."""
-        result = await self.db.execute(
+        res = await self.db.execute(
             select(ReportSchedule).where(
-                ReportSchedule.id         == schedule_id,
+                ReportSchedule.id == schedule_id,
                 ReportSchedule.company_id == self.tenant.company_id,
-                ReportSchedule.is_deleted == False,
             )
         )
-        schedule = result.scalar_one_or_none()
-        if not schedule:
-            raise HTTPException(status_code=404, detail="Report schedule not found.")
-        schedule.is_deleted = True
-        schedule.is_active  = False
+        sched = res.scalar_one_or_none()
+        if not sched:
+            raise HTTPException(status_code=404, detail="Report schedule not found")
+        sched.is_deleted = True
         await self.db.commit()
-
-
-def _derive_cron(frequency: str, execution_time: str) -> str:
-    """Derive a standard 5-field cron expression from frequency + HH:MM time."""
-    try:
-        hour, minute = execution_time.split(":")
-        h, m = int(hour), int(minute)
-    except Exception:
-        h, m = 8, 0
-    if frequency == "DAILY":
-        return f"{m} {h} * * *"
-    if frequency == "WEEKLY":
-        return f"{m} {h} * * 1"   # Monday
-    if frequency == "MONTHLY":
-        return f"{m} {h} 1 * *"   # 1st of month
-    return f"{m} {h} * * *"

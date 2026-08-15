@@ -47,6 +47,7 @@ import { useTheme } from "../contexts/ThemeContext.tsx";
 import { useNotifications } from "../notifications/notification_store.tsx";
 import { NotificationCenter } from "../notifications/NotificationCenter.tsx";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
+import { CompanySelector } from "../components/layout/CompanySelector.tsx";
 
 interface LayoutManagerProps {
   activeTab: string;
@@ -113,7 +114,10 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
           </div>
 
           {/* Global Control Center & Settings */}
-          <div className="flex items-center space-x-6 relative">
+          <div className="flex items-center space-x-4 relative">
+            
+            {/* Company / Tenant Selector */}
+            <CompanySelector />
             
             {/* Notifications */}
             <div className="relative">

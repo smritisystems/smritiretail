@@ -313,6 +313,22 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     if (loadedPrefs.lastWorkspace && onTabChange) {
       onTabChange(loadedPrefs.lastWorkspace);
     }
+
+    // Centralized Menu Resolver: Fetch resolved navigation tree from backend
+    try {
+      const res = await apiFetchV1("/menus/resolved");
+      if (Array.isArray(res) && res.length > 0) {
+        const dynamicWorkspaces: WorkspaceConfig[] = res.map((m: any) => ({
+          id: (m.route || "").replace(/^\//, "") || m.id.replace(/^menu-/, ""),
+          label: m.title || m.label,
+          icon: m.icon || "grid_view",
+          category: m.module || "Operations",
+        }));
+        setRegisteredWorkspaces(dynamicWorkspaces);
+      }
+    } catch (err) {
+      console.warn("[MenuResolver] Using offline degraded navigation fallback", err);
+    }
   };
 
   const savePreferences = async (customPrefs?: Partial<LayoutPreferences>) => {

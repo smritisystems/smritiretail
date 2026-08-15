@@ -53,6 +53,16 @@ interface ShortcutContextType {
 
 const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
   {
+    id: "switch_company",
+    name: "Switch Company / Tenant (Tally Alt+F3)",
+    description: "Open company selector to switch active business database tenant",
+    defaultKey: { key: "F3", ctrl: false, alt: true, shift: false, meta: false }, // Alt + F3
+    currentKey: { key: "F3", ctrl: false, alt: true, shift: false, meta: false },
+    category: "Global",
+    roles: ["Shop Owner", "Cashier", "Warehouse Staff", "Purchase Executive", "Sales Executive", "Store Manager", "Branch Manager", "Distributor", "Franchise Owner", "Accountant (Operational)", "Admin"],
+    actionType: "palette"
+  },
+  {
     id: "open_palette",
     name: "Open Command Palette / Help",
     description: "Open the searchable command palette and keyboard shortcuts manager",
