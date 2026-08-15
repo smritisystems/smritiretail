@@ -36,6 +36,11 @@ def upgrade() -> None:
     if 'workflow_status' not in columns:
         op.add_column('products', sa.Column('workflow_status', sa.String(30), nullable=True, server_default='Approved'))
 
+    # Ensure customers.code
+    cust_cols = [c['name'] for c in inspector.get_columns('customers')]
+    if 'code' not in cust_cols:
+        op.add_column('customers', sa.Column('code', sa.String(50), nullable=True))
+
 def downgrade() -> None:
     op.drop_column('products', 'workflow_status')
     op.drop_column('products', 'tenant_id')
