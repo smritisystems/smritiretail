@@ -215,7 +215,7 @@ export function contentAwarePaginate(items: ProcessedItem[]): PageChunk[] {
       const actualTableH = pageItems.length * itemRowHeight;
       const unusedH = availH - actualTableH - finalFooterHeight;
 
-      pages.append({
+      pages.push({
         page: currentPage,
         items: pageItems,
         hasFinalFooter: true,
@@ -293,7 +293,7 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
   const sisCode = data.sisCode || parsed.sisCode || "1888";
   const posState = data.posState || "Maharashtra (27)";
   const poNumber = data.poNumber || parsed.poNumber || "5182778151";
-  const rawEWayBill = data.ewayBillNo || data.eWayBillNo || data.eway_bill_no || "";
+  const rawEWayBill = data.ewayBillNo || (data as any).eWayBillNo || (data as any).eway_bill_no || "";
   const ewayBillNo = (rawEWayBill && rawEWayBill !== "null" && rawEWayBill !== "undefined" && rawEWayBill !== "0" && rawEWayBill !== "N/A") ? String(rawEWayBill).trim() : "";
 
   // Customer info

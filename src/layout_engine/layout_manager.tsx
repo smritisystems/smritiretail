@@ -142,9 +142,9 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
             <button
               onClick={toggleTheme}
               className="w-8 h-8 rounded-full bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider flex items-center justify-center text-theme-muted hover:text-theme-primary transition-colors"
-              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
+              title="Light Mode Baseline"
             >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              <Sun size={16} />
             </button>
 
             {/* Layout Quick Configuration Toggler */}

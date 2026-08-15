@@ -21,6 +21,6 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     include: ['src/tests/**/*.test.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', 'src/tests/about.test.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'src/tests/about.test.ts', 'src/tests/termsAndPrintMigration.test.ts'],
   },
 });

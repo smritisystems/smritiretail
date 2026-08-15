@@ -190,7 +190,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
   const ensureAuthenticated = async () => {
     if (typeof localStorage !== 'undefined') {
       const existingToken = localStorage.getItem("smriti_jwt_token");
-      if (!existingToken || existingToken === "null" || isLocalMockToken(existingToken)) {
+      if (!existingToken || existingToken === "null" || isLocalMockToken()) {
         try {
           const loginRes = await fetch("/api/v1/auth/login", {
             method: "POST",

@@ -465,7 +465,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
               </tr>
               <tr className="border-b border-gray-100">
                 <td className="py-0.5 text-gray-500 font-normal text-left whitespace-nowrap">PO / Reference:</td>
-                <td className="py-0.5 font-bold text-gray-900 text-right whitespace-nowrap">{data.poRef || data.po_order_reference || ""}</td>
+                <td className="py-0.5 font-bold text-gray-900 text-right whitespace-nowrap">{data.poRef || (data as any).po_order_reference || data.poOrderReference || ""}</td>
               </tr>
               <tr className="border-b border-gray-100">
                 <td className="py-0.5 text-gray-500 font-normal text-left whitespace-nowrap">E-Way Bill No:</td>
