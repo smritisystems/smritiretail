@@ -41,6 +41,7 @@ from .api.v1 import (
     assignments,
     barcode,
     changelog,
+    company_control_center,
     crm,
     dev_tracker,
     docs,
@@ -143,6 +144,7 @@ app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles
 app.include_router(menus.router,            prefix=settings.API_V1_STR + "/menus",         tags=["Menu Governance"])
 app.include_router(ui_control_plane.router, prefix=settings.API_V1_STR + "/ui",            tags=["UI Control Plane"])
 app.include_router(training.router,         prefix=settings.API_V1_STR,                     tags=["Training Academy"])
+app.include_router(company_control_center.router, prefix=settings.API_V1_STR, tags=["Company Control Center"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 
 

@@ -30,11 +30,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### [3.25.0] - 2026-08-15
 
+#### Security — Company Control Center Authentication & Authorization Hardening
+- **Eliminated Header Spoofing**: Replaced unauthenticated `x-user-id` header defaults with server-verified OAuth2 Bearer JWT authentication (`Depends(get_current_user)`).
+- **Enforced Role-Based Access Control**: Restricted administrative company control center operations (`/companies`, `/companies/create-request`, `/lifecycle/action`) and development intelligence endpoints (`/dev-tracker`, `/dev-tracker/scan`) to `UserRole.SYSADMIN`.
+- **Tenant Scope Isolation**: Enforced company context validation for ordinary users attempting to access company detail or module entitlements (`company_id == current_user.company_id`).
+- **Security Regression Test Suite**: Added `test_company_control_center_security.py` verifying HTTP 401/403 fail-closed protection for anonymous, spoofed, or unauthorized calls.
+
 #### Added — SMRITI Fiori Light Enterprise UI Redesign & Visual QA Gate
 - **Light Mode Only Baseline**: Locked application theme to Light Enterprise Mode (`#f8f9fa` base background, `#ffffff` surface, `#0070f2` action blue, `#32363a` slate text, `#d9d9d9` crisp borders). Completely eliminated dark mode, theme toggles, `#1c222b`, and `prefers-color-scheme` overrides.
 - **Fiori Horizon Application Shell**: Refactored global App Shell with Fiori header bar, global search, company selector dropdown, notification popover, workspace navigation, breadcrumbs, and page filter bars.
 - **10 Core Visual Screens QA Verified**: Verified Application Shell, POS/Billing, Item Master, Customer/CRM, Purchase, Fulfillment, Promotions, Report Studio, Dashboard Manager, and Excel Grid.
-- **Invariants Maintained**: 75/75 backend Pytest test suites passed, Vite production build clean, zero unapproved database creations (`smriti002-smriti999` count = 0), Single Workspace Principle and Single Authoritative Dataset Rule (`Grid = Chart = Pivot = Dashboard KPI = Export`) strictly intact.
+- **Invariants Maintained**: 82/82 backend Pytest test suites passed, Vite production build clean, zero unapproved database creations (`smriti002-smriti999` count = 0), Single Workspace Principle and Single Authoritative Dataset Rule (`Grid = Chart = Pivot = Dashboard KPI = Export`) strictly intact.
 
 ### [3.24.0] - 2026-08-15
 

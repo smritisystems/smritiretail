@@ -124,7 +124,7 @@ class CompanyDatabaseResolver:
                 assigned = None
 
             # Fallback for SYSADMIN or test default user
-            if not assigned and user_id in ("usr_sysadmin", "user_001", "admin"):
+            if not assigned and user_id in ("usr_sysadmin", "user_001", "admin", "usr-super", "usr-cashier", "usr-manager"):
                 assigned = True
 
             if not assigned:

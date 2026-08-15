@@ -18,15 +18,17 @@ Founders
 
 * Version    : 1.0.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-08-15
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
 from ...dev_tracker.scanner import scan_codebase
 from ...dev_tracker.reports import write_reports
+from ..deps import require_role
+from ...models.auth import User, UserRole
 
 router = APIRouter()
 
@@ -34,9 +36,11 @@ router = APIRouter()
 cached_results: Dict[str, Any] = {}
 
 @router.get("/dev-tracker", tags=["Development Intelligence"])
-async def get_dev_tracker_status():
+async def get_dev_tracker_status(
+    current_user: User = Depends(require_role(UserRole.SYSADMIN))
+):
     """
-    Get latest cached codebase development diagnostics scan results.
+    Get latest cached codebase development diagnostics scan results (SYSADMIN required).
     """
     global cached_results
     if not cached_results:
@@ -50,9 +54,11 @@ async def get_dev_tracker_status():
     return cached_results
 
 @router.post("/dev-tracker/scan", tags=["Development Intelligence"])
-async def trigger_dev_tracker_scan():
+async def trigger_dev_tracker_scan(
+    current_user: User = Depends(require_role(UserRole.SYSADMIN))
+):
     """
-    Trigger on-demand codebase static scan, rewrite reports, and reload memory cache.
+    Trigger on-demand codebase static scan, rewrite reports, and reload memory cache (SYSADMIN required).
     """
     global cached_results
     try:

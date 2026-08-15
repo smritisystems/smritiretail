@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import pytest
 from fastapi import HTTPException
+from app.models.auth import User, UserRole
 from app.api.v1.company_control_center import (
     validate_company_code,
     get_company_detail,
@@ -25,6 +26,9 @@ from app.api.v1.company_control_center import (
     CreateCompanyRequest,
     LifecycleActionRequest
 )
+
+sysadmin_user = User(id="usr-super", role=UserRole.SYSADMIN, company_id="COMP-001")
+ordinary_user = User(id="usr-cashier", role=UserRole.CASHIER, company_id="COMP-001")
 
 def test_valid_company_code_validation_abc():
     """Verify code validation accepts ABC and returns smritiABC."""
@@ -47,12 +51,12 @@ def test_invalid_company_code_rejection_000_and_sys():
 def test_unauthorized_company_access_returns_403():
     """Verify unauthorized user access to company context returns HTTP 403."""
     with pytest.raises(HTTPException) as exc_info:
-        get_company_detail("COMP-999", x_user_id="unauthorized_user_123")
+        get_company_detail("COMP-999", current_user=ordinary_user)
     assert exc_info.value.status_code == 403
 
 def test_zero_credentials_in_company_detail_payload():
     """Verify company detail endpoint returns zero DB passwords or connection strings."""
-    res = get_company_detail("COMP-001", x_user_id="usr_sysadmin")
+    res = get_company_detail("COMP-001", current_user=sysadmin_user)
     assert res["database_name"] == "smriti001"
     assert "password" not in res
     assert "connection_string" not in res
@@ -60,7 +64,7 @@ def test_zero_credentials_in_company_detail_payload():
 def test_dry_run_company_create_request_zero_mutations():
     """Verify company create request runs in dry-run mode without DB mutations."""
     req = CreateCompanyRequest(company_id="COMP-MUM", company_name="SMRITI Mumbai Megastore", company_code="MUM")
-    res = create_company_request(req, x_user_id="usr_sysadmin")
+    res = create_company_request(req, current_user=sysadmin_user)
     assert res["dry_run_plan"]["database_name"] == "smritiMUM"
     assert res["dry_run_plan"]["database_mutations"] == 0
 
@@ -68,5 +72,5 @@ def test_delete_action_requires_dual_approval_gate():
     """Verify DELETE action is rejected without dual administrative approval gate."""
     req = LifecycleActionRequest(company_id="COMP-001", action="DELETE")
     with pytest.raises(HTTPException) as exc_info:
-        execute_lifecycle_action(req, x_user_id="usr_sysadmin")
+        execute_lifecycle_action(req, current_user=sysadmin_user)
     assert exc_info.value.status_code == 403

@@ -11,7 +11,7 @@
  * Classification: Internal
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Header, status
+from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
@@ -23,6 +23,8 @@ try:
     )
     from app.services.company_code_allocator import CompanyCodeAllocator
     from app.services.company_database_provisioner import CompanyDatabaseProvisioner
+    from app.api.deps import get_current_user, require_role
+    from app.models.auth import User, UserRole
 except ImportError:
     from backend.app.services.company_database_resolver import (
         CompanyDatabaseResolver,
@@ -31,6 +33,8 @@ except ImportError:
     )
     from backend.app.services.company_code_allocator import CompanyCodeAllocator
     from backend.app.services.company_database_provisioner import CompanyDatabaseProvisioner
+    from backend.app.api.deps import get_current_user, require_role
+    from backend.app.models.auth import User, UserRole
 
 router = APIRouter(prefix="/control-center", tags=["Company Control Center"])
 
@@ -73,9 +77,8 @@ def validate_company_code(payload: ValidateCodeRequest):
     }
 
 @router.get("/companies")
-def list_companies(x_user_id: str = Header("usr_sysadmin")):
-    """Lists companies accessible to the logged-in user."""
-    # System Admin view
+def list_companies(current_user: User = Depends(require_role(UserRole.SYSADMIN))):
+    """Lists companies accessible to the logged-in user (SYSADMIN required)."""
     return [
         {
             "company_id": "COMP-001",
@@ -87,9 +90,17 @@ def list_companies(x_user_id: str = Header("usr_sysadmin")):
     ]
 
 @router.get("/companies/{company_id}")
-def get_company_detail(company_id: str, x_user_id: str = Header("usr_sysadmin")):
-    """Returns company details & database metadata. ZERO raw credentials returned."""
-    res = CompanyDatabaseResolver.resolve_company_database(x_user_id, company_id)
+def get_company_detail(
+    company_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Returns company details & database metadata. Enforces tenant scope for non-SYSADMIN."""
+    if current_user.role != UserRole.SYSADMIN and company_id != current_user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: You are not authorized to access company '{company_id}'."
+        )
+    res = CompanyDatabaseResolver.resolve_company_database(current_user.id, company_id)
     return {
         "company_id": res["company_id"],
         "company_code": res["company_code"],
@@ -102,8 +113,11 @@ def get_company_detail(company_id: str, x_user_id: str = Header("usr_sysadmin"))
     }
 
 @router.post("/companies/create-request")
-def create_company_request(payload: CreateCompanyRequest, x_user_id: str = Header("usr_sysadmin")):
-    """Executes a dry-run company creation plan (ZERO DB mutations)."""
+def create_company_request(
+    payload: CreateCompanyRequest,
+    current_user: User = Depends(require_role(UserRole.SYSADMIN))
+):
+    """Executes a dry-run company creation plan (DRY-RUN mode, SYSADMIN required)."""
     provisioner = CompanyDatabaseProvisioner(dry_run=True)
     plan = provisioner.run_dry_run_provisioning(
         company_id=payload.company_id,
@@ -116,9 +130,17 @@ def create_company_request(payload: CreateCompanyRequest, x_user_id: str = Heade
     }
 
 @router.get("/modules")
-def get_company_modules(company_id: str = "COMP-001", x_user_id: str = Header("usr_sysadmin")):
+def get_company_modules(
+    company_id: str = "COMP-001",
+    current_user: User = Depends(get_current_user)
+):
     """Returns module capability entitlements for the specified company."""
-    CompanyDatabaseResolver.resolve_company_database(x_user_id, company_id)
+    if current_user.role != UserRole.SYSADMIN and company_id != current_user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: You are not authorized to view module entitlements for company '{company_id}'."
+        )
+    CompanyDatabaseResolver.resolve_company_database(current_user.id, company_id)
     return [
         {"id": "pos", "name": "POS Billing & Cash Shift", "enabled": True},
         {"id": "sales", "name": "Sales & Invoicing", "enabled": True},
@@ -129,8 +151,11 @@ def get_company_modules(company_id: str = "COMP-001", x_user_id: str = Header("u
     ]
 
 @router.post("/lifecycle/action")
-def execute_lifecycle_action(payload: LifecycleActionRequest, x_user_id: str = Header("usr_sysadmin")):
-    """Validates & plans a lifecycle action (SUSPEND, RESUME, ARCHIVE, etc.). Rejects DELETE without approval."""
+def execute_lifecycle_action(
+    payload: LifecycleActionRequest,
+    current_user: User = Depends(require_role(UserRole.SYSADMIN))
+):
+    """Validates & plans a lifecycle action (SUSPEND, RESUME, ARCHIVE, etc.). SYSADMIN required."""
     if payload.action == "DELETE":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
