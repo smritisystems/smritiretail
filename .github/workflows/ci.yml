@@ -13,9 +13,9 @@ name: SMRITI CI
 
 on:
   push:
-    branches: [ main, developer ]
+    branches: [ main, smritiNX, developer ]
   pull_request:
-    branches: [ main, developer ]
+    branches: [ main, smritiNX, developer ]
 
 jobs:
   build-and-test:
@@ -25,7 +25,7 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_DB: smriti_retail_db
+          POSTGRES_DB: smritisys
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
@@ -56,11 +56,14 @@ jobs:
       - name: Install Node Dependencies
         run: npm ci
 
-      - name: Run TypeScript Linter Check
-        run: npm run lint
+      - name: Run Strict TypeScript Verification
+        run: npx tsc --noEmit
 
-      - name: Run Node Test Suite
-        run: npm test
+      - name: Run Vitest Unit Tests
+        run: npx vitest run
+
+      - name: Run Production Bundle Build
+        run: npm run build
 
       - name: Install Python Backend Dependencies
         run: |
@@ -68,20 +71,28 @@ jobs:
           if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
           if [ -f backend/dev.txt ]; then pip install -r backend/dev.txt; fi
 
-      - name: Run Alembic Migrations
+      - name: Create Company Business Database (smriti001)
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE smriti001;"
+
+      - name: Run Alembic Control Plane Migrations
         working-directory: backend
         env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smriti_retail_db
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys
         run: alembic upgrade head
 
-      - name: Run MyPy Type Check with Baseline
+      - name: Run Alembic Company Business Database Migrations
         working-directory: backend
-        run: python -m mypy app/ | python -m mypy_baseline filter
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001
+        run: alembic upgrade head
+
+      - name: Run Read-Only Schema Drift Audit
+        run: python scripts/audit_sqlalchemy_schema_drift.py smriti001 smritisys
 
       - name: Run Python Backend Tests
         working-directory: backend
         env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smriti_retail_db
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys
           JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
           SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
         run: pytest -v
