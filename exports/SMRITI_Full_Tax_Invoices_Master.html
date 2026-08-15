@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SMRITI Retail OS — Master Tax Invoice Export Report</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #F8FAFC; color: #0F172A; margin: 20px; }
+        .header { background: #1E1B4B; color: white; padding: 24px; border-radius: 8px; margin-bottom: 20px; }
+        .header h1 { margin: 0 0 8px 0; font-size: 24px; }
+        .header p { margin: 0; color: #C7D2FE; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th { background: #475569; color: white; padding: 12px 16px; text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 14px 16px; border-bottom: 1px solid #E2E8F0; font-size: 13px; vertical-align: top; }
+        tr:hover { background: #F1F5F9; }
+        .summary-card { background: #EEF2FF; border: 1px solid #C7D2FE; padding: 16px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 40px; }
+        .stat { display: flex; flex-direction: column; }
+        .stat-val { font-size: 20px; font-weight: bold; color: #1E1B4B; }
+        .stat-lbl { font-size: 12px; color: #4338CA; font-weight: 500; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>SMRITI Retail OS — Master Tax Invoice Export Report</h1>
+        <p>Full statutory detail export including Shipping Address, Billing Address, PO References, Tax Breakdowns, and Payment Terms.</p>
+    </div>
+
+    <div class="summary-card">
+        <div class="stat"><span class="stat-val">10</span><span class="stat-lbl">Total Tax Invoices</span></div>
+        <div class="stat"><span class="stat-val">₹13,26,096.60</span><span class="stat-lbl">Total Taxable Subtotal</span></div>
+        <div class="stat"><span class="stat-val">₹66,303.75</span><span class="stat-lbl">Total 18% IGST Tax</span></div>
+        <div class="stat"><span class="stat-val">₹13,92,400.35</span><span class="stat-lbl">Total Invoiced Grand Value</span></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Invoice #</th>
+                <th>Date</th>
+                <th>Customer & GSTIN</th>
+                <th>SIS / PO Ref</th>
+                <th>Billing Address</th>
+                <th>Shipping Address</th>
+                <th style="text-align:right;">Subtotal (₹)</th>
+                <th style="text-align:right;">Tax (₹)</th>
+                <th style="text-align:right;">Grand Total (₹)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/18</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-1888</span><br><small>PO: 5182778151</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site 1888, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site 1888, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹168,634.88</td>
+            <td style="text-align:right; color:#059669;">₹8,431.76<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹177,066.64</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/19</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-1969</span><br><small>PO: 5182778152</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site 1969, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site 1969, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹168,634.88</td>
+            <td style="text-align:right; color:#059669;">₹8,431.76<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹177,066.64</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/20</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-1977</span><br><small>PO: 5182778153</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site 1977, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site 1977, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹155,538.24</td>
+            <td style="text-align:right; color:#059669;">₹7,776.84<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹163,315.08</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/21</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-8155</span><br><small>PO: 5182778154</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site 8155, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site 8155, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹106,127.36</td>
+            <td style="text-align:right; color:#059669;">₹5,306.32<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹111,433.68</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/22</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-8313</span><br><small>PO: 5182778155</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site 8313, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site 8313, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹106,127.36</td>
+            <td style="text-align:right; color:#059669;">₹5,306.32<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹111,433.68</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/23</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-8361</span><br><small>PO: 5182778156</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site 8361, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site 8361, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹134,289.60</td>
+            <td style="text-align:right; color:#059669;">₹6,714.44<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹141,004.04</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/24</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-9556</span><br><small>PO: 5182778157</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site 9556, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site 9556, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹168,634.88</td>
+            <td style="text-align:right; color:#059669;">₹8,431.76<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹177,066.64</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/25</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-T0N6</span><br><small>PO: 5182778159</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site T0N6, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site T0N6, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹106,127.36</td>
+            <td style="text-align:right; color:#059669;">₹5,306.32<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹111,433.68</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/26</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-T1BJ</span><br><small>PO: 5182778160</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site T1BJ, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site T1BJ, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹135,526.32</td>
+            <td style="text-align:right; color:#059669;">₹6,776.27<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹142,302.59</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        <tr>
+            <td style="font-weight:bold; color:#1E1B4B;">TT2026-2027/27</td>
+            <td>2026-08-12</td>
+            <td><strong>Reliance Retail Limited</strong><br><small style="color:#64748B;">GSTIN: 27AAACR1921R1Z5</small></td>
+            <td><span style="background:#E0E7FF; color:#3730A3; padding:3px 8px; border-radius:4px; font-weight:bold;">SIS-T25I</span><br><small>PO: 5182778161</small></td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Ltd, SIS Site T25I, Commercial Hub, Mumbai, Maharashtra 400051</td>
+            <td style="font-size:12px; color:#475569;">Reliance Retail Warehouse, SIS Site T25I, Logistics Park, Bhiwandi, Maharashtra 421302</td>
+            <td style="text-align:right;">₹76,446.08</td>
+            <td style="text-align:right; color:#059669;">₹3,822.28<br><small>(18% IGST)</small></td>
+            <td style="text-align:right; font-weight:bold; color:#1E1B4B;">₹80,268.36</td>
+            <td><span style="background:#D1FAE5; color:#065F46; padding:3px 8px; border-radius:4px; font-weight:bold;">COMPLETED</span></td>
+        </tr>
+        
+        </tbody>
+    </table>
+</body>
+</html>
