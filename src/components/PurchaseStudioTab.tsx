@@ -216,7 +216,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   const fetchSuppliers = async (query = "") => {
     setLoading(true);
     try {
-      const data = await apiFetchV1(`/purchase/suppliers?q=${encodeURIComponent(query)}`);
+      const data = await apiFetchV1(`/purchase/suppliers/?q=${encodeURIComponent(query)}`);
       setSuppliersList(data);
     } catch (e: any) {
       onNotification("Error", e.message || "Failed to retrieve suppliers list.", "error");
@@ -249,7 +249,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
       if (eDate) params.append("endDate", eDate);
       const query = params.toString();
 
-      const data = await apiFetchV1(`/purchase/orders${query ? `?${query}` : ""}`);
+      const data = await apiFetchV1(`/purchase/orders/${query ? `?${query}` : ""}`);
       setPurchaseOrders(data);
     } catch (e: any) {
       onNotification("Error", e.message || "Failed to load purchase orders registry.", "error");
@@ -583,7 +583,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     }
   };
 
-  // Goods receipt submission
+  // Goods receipt submission (GRN)
   const handleConfirmReceipt = async () => {
     if (isReadOnly) {
       onNotification("Access Denied", "Operating under a Read-Only Report User role. Write operations are prohibited.", "error");
@@ -591,32 +591,48 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     }
     if (!selectedPO) return;
 
-    const receivedItems = Object.keys(receiptQuantities)
-      .map(pid => ({
-        productId: pid,
-        quantityReceived: receiptQuantities[pid] || 0
-      }))
-      .filter(item => item.quantityReceived > 0);
+    const grnNo = `GRN-${Date.now().toString().slice(-6)}`;
+    const items = (selectedPO.items || []).map((poItem: any) => {
+      const pid = poItem.productId || poItem.product_id;
+      const recQty = receiptQuantities[pid] !== undefined ? receiptQuantities[pid] : (poItem.quantity || 0);
+      return {
+        product_id: pid,
+        code: poItem.code || pid,
+        name: poItem.name || "Product Item",
+        quantity_ordered: poItem.quantity || 0,
+        quantity_received: recQty,
+        cost_price: poItem.costPrice || poItem.cost_price || 0,
+        gst_rate: poItem.gstRate || poItem.gst_rate || 5.0,
+      };
+    }).filter((i: any) => i.quantity_received > 0);
 
-    if (receivedItems.length === 0) {
+    if (items.length === 0) {
       onNotification("Quantities Empty", "Specify physical arrival quantities for at least one item.", "error");
       return;
     }
 
+    const payload = {
+      id: grnNo,
+      receipt_no: grnNo,
+      supplier_id: selectedPO.supplierId || selectedPO.supplier_id,
+      order_id: selectedPO.id,
+      notes: `GRN received against PO ${selectedPO.orderNo || selectedPO.document_number}`,
+      items: items,
+    };
+
     try {
-      const data = await apiFetchV1(`/purchase/orders/${selectedPO.id}/receive`, {
+      const data = await apiFetchV1("/purchase/purchase-receipts/", {
         method: "POST",
-        body: JSON.stringify({ receivedItems })
+        body: JSON.stringify(payload),
       });
       onNotification(
         "Receipt Logged",
-        `GRN Goods Receipt recorded! Product inventories updated automatically.`,
+        `GRN Goods Receipt ${data.receipt_no || grnNo} recorded! Stock incremented automatically.`,
         "success"
       );
       setReceiptQuantities({});
-      setSelectedPO(data.order);
       onRefreshProducts();
-      fetchPurchaseOrders("Approved");
+      fetchPurchaseOrders();
     } catch (e: any) {
       onNotification("Connection Lost", e.message || "Failed to record physical goods receipt.", "error");
     }

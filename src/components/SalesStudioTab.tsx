@@ -27,6 +27,7 @@ import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 import { getCustomers, getCustomerGroups, saveCustomers } from "../services/customerStore.ts";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
+import { CompanySelector } from "./layout/CompanySelector.tsx";
 import { formatDate, formatDateTime, formatCurrency } from "../utils/formatters.ts";
 import { isValidMobile } from "../utils/validators.ts";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
@@ -440,12 +441,33 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     try {
       // Migrated: GET /api/sales/invoices (Express) → GET /api/v1/sales/invoices (FastAPI)
       const params = new URLSearchParams();
-      if (filters.customer) params.append("customer", filters.customer);
-      if (filters.status && filters.status.length > 0) params.append("status", filters.status.join(","));
-      if (filters.date?.start) params.append("startDate", filters.date.start);
-      if (filters.date?.end) params.append("endDate", filters.date.end);
+      if (filters && filters.customer) params.append("customer", String(filters.customer));
+      if (filters && filters.status) {
+        const statusVal = Array.isArray(filters.status) ? filters.status.join(",") : String(filters.status);
+        if (statusVal) params.append("status", statusVal);
+      }
+      if (filters && filters.date?.start) params.append("startDate", String(filters.date.start));
+      if (filters && filters.date?.end) params.append("endDate", String(filters.date.end));
       const data = await apiFetchV1(`/sales/invoices${params.toString() ? `?${params.toString()}` : ""}`);
-      setSalesInvoices(data);
+      const normalizedData = (Array.isArray(data) ? data : []).map((si: any) => ({
+        ...si,
+        invoiceNo: si.invoiceNo || si.invoice_no || "INV",
+        customerId: si.customerId || si.customer_id || "",
+        grandTotal: typeof si.grandTotal === "number" ? si.grandTotal : parseFloat(si.grand_total || "0"),
+        taxTotal: typeof si.taxTotal === "number" ? si.taxTotal : parseFloat(si.tax_total || "0"),
+        isInterstate: si.isInterstate ?? si.is_interstate ?? false,
+        eWayBillNo: si.eWayBillNo || si.eway_bill_no || "",
+        items: (si.items || []).map((item: any) => ({
+          ...item,
+          productId: item.productId || item.product_id,
+          gstRate: typeof item.gstRate === "number" ? item.gstRate : parseFloat(item.gst_rate || "0"),
+          taxAmount: typeof item.taxAmount === "number" ? item.taxAmount : parseFloat(item.tax_amount || "0"),
+          totalAmount: typeof item.totalAmount === "number" ? item.totalAmount : parseFloat(item.total_amount || "0"),
+          price: typeof item.price === "number" ? item.price : parseFloat(item.price || "0"),
+          quantity: typeof item.quantity === "number" ? item.quantity : parseFloat(item.quantity || "0"),
+        }))
+      }));
+      setSalesInvoices(normalizedData);
     } catch (e) {
       onNotification("Sync Error", "Failed to load sales invoices.", "error");
     } finally {
@@ -458,10 +480,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     try {
       // Migrated: GET /api/sales/returns (Express) → GET /api/v1/sales/returns (FastAPI)
       const params = new URLSearchParams();
-      if (filters.customer) params.append("customer", filters.customer);
-      if (filters.status && filters.status.length > 0) params.append("status", filters.status.join(","));
-      if (filters.date?.start) params.append("startDate", filters.date.start);
-      if (filters.date?.end) params.append("endDate", filters.date.end);
+      if (filters && filters.customer) params.append("customer", String(filters.customer));
+      if (filters && filters.status) {
+        const statusVal = Array.isArray(filters.status) ? filters.status.join(",") : String(filters.status);
+        if (statusVal) params.append("status", statusVal);
+      }
+      if (filters && filters.date?.start) params.append("startDate", String(filters.date.start));
+      if (filters && filters.date?.end) params.append("endDate", String(filters.date.end));
       const data = await apiFetchV1(`/sales/returns/${params.toString() ? `?${params.toString()}` : ""}`);
       setSalesReturns(data);
     } catch (e) {
@@ -604,10 +629,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     try {
       // Migrated: GET /api/sales/quotations (Express unmounted) → GET /api/v1/sales/quotations/ (FastAPI)
       const params = new URLSearchParams();
-      if (filters.customer) params.append("customer", filters.customer);
-      if (filters.status && filters.status.length > 0) params.append("status", filters.status.join(","));
-      if (filters.date?.start) params.append("startDate", filters.date.start);
-      if (filters.date?.end) params.append("endDate", filters.date.end);
+      if (filters && filters.customer) params.append("customer", String(filters.customer));
+      if (filters && filters.status) {
+        const statusVal = Array.isArray(filters.status) ? filters.status.join(",") : String(filters.status);
+        if (statusVal) params.append("status", statusVal);
+      }
+      if (filters && filters.date?.start) params.append("startDate", String(filters.date.start));
+      if (filters && filters.date?.end) params.append("endDate", String(filters.date.end));
       const data = await apiFetchV1(`/sales/quotations/${params.toString() ? `?${params.toString()}` : ""}`);
       setQuotations(data);
     } catch (e) {
@@ -621,10 +649,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     try {
       // Migrated: GET /api/sales/orders (Express unmounted) → GET /api/v1/sales/orders/ (FastAPI)
       const params = new URLSearchParams();
-      if (filters.customer) params.append("customer", filters.customer);
-      if (filters.status && filters.status.length > 0) params.append("status", filters.status.join(","));
-      if (filters.date?.start) params.append("startDate", filters.date.start);
-      if (filters.date?.end) params.append("endDate", filters.date.end);
+      if (filters && filters.customer) params.append("customer", String(filters.customer));
+      if (filters && filters.status) {
+        const statusVal = Array.isArray(filters.status) ? filters.status.join(",") : String(filters.status);
+        if (statusVal) params.append("status", statusVal);
+      }
+      if (filters && filters.date?.start) params.append("startDate", String(filters.date.start));
+      if (filters && filters.date?.end) params.append("endDate", String(filters.date.end));
       const data = await apiFetchV1(`/sales/orders/${params.toString() ? `?${params.toString()}` : ""}`);
       setSalesOrders(data);
     } catch (e) {
@@ -812,9 +843,16 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
 
     try {
+      // Client-Generated Idempotency Key — persists across request retries
+      const idempotencyKey = (window as any)._activeInvoiceIdempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `idempotent-key-${Date.now()}`);
+      (window as any)._activeInvoiceIdempotencyKey = idempotencyKey;
+
       // Migrated: POST /api/sales/invoices (Express) → POST /api/v1/sales/invoices (FastAPI)
-      await apiFetchV1("/sales/invoices", {
+      const serverResponse = await apiFetchV1("/sales/invoices", {
         method: "POST",
+        headers: {
+          "Idempotency-Key": idempotencyKey
+        },
         body: JSON.stringify({
           customerId: invoiceCustomerId,
           items: invoiceItems,
@@ -823,7 +861,19 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           eWayBillNo: invoiceEWayBill || undefined
         })
       });
-      onNotification("Success", "Sales Invoice written to database ledger.", "success");
+      // Clear idempotency key upon successful commit
+      delete (window as any)._activeInvoiceIdempotencyKey;
+
+      // Authoritative State Replacement: replace local state with complete server response
+      const normalizedInv = {
+        ...serverResponse,
+        invoiceNo: serverResponse.invoiceNo || serverResponse.invoice_no || "INV",
+        customerId: serverResponse.customerId || serverResponse.customer_id || "",
+        grandTotal: typeof serverResponse.grandTotal === "number" ? serverResponse.grandTotal : parseFloat(serverResponse.grand_total || "0"),
+        taxTotal: typeof serverResponse.taxTotal === "number" ? serverResponse.taxTotal : parseFloat(serverResponse.tax_total || "0"),
+      };
+      onNotification("Success", `Sales Invoice ${normalizedInv.invoiceNo} written to database ledger.`, "success");
+      setSelectedInvoice(normalizedInv);
       setIsCreatingInvoice(false);
       setInvoiceCustomerId("");
       setInvoiceItems([]);
@@ -1087,6 +1137,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
             </div>
 
             <div className="flex items-center space-x-3 w-full xl:w-auto justify-end">
+              <CompanySelector />
               <SmartFilter 
                 filters={filterConfig} 
                 onApply={(filters) => {

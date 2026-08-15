@@ -59,18 +59,25 @@ class SalesService:
     # Sales Invoice
     # ──────────────────────────────────────────────────────────────
 
-    async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate) -> SalesInvoice:
-        # Check duplicate invoice no
+    async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate, idempotency_key: Optional[str] = None) -> SalesInvoice:
+        # Auto-generate ID and invoice_no if missing; use idempotency_key as primary invoice_id if supplied
+        invoice_id = idempotency_key or invoice_in.id or f"inv-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+        invoice_no = invoice_in.invoice_no or f"INV-{invoice_id.upper()}"
+
+        # Idempotency / Double-Submit protection: return existing invoice if already created
         existing = await self.db.execute(
-            select(SalesInvoice).filter(
-                SalesInvoice.invoice_no == invoice_in.invoice_no,
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .filter(
+                (SalesInvoice.id == invoice_id) | (SalesInvoice.invoice_no == invoice_no),
                 SalesInvoice.is_deleted == False,
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
                 SalesInvoice.branch_id == self.tenant_ctx.branch_id
             )
         )
-        if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="Sales invoice with this invoice number already exists")
+        existing_inv = existing.scalars().first()
+        if existing_inv:
+            return existing_inv
 
         # 1. Validate items and calculate totals
         calculated_tax_total = Decimal("0.00")
@@ -110,12 +117,13 @@ class SalesService:
             invoice_items.append(db_item)
 
         # 2. Check customer credit limit
-        await self.crm_service.check_credit_limit(invoice_in.customer_id, float(calculated_grand_total))
+        if invoice_in.customer_id:
+            await self.crm_service.check_credit_limit(invoice_in.customer_id, float(calculated_grand_total))
 
         # 3. Save Sales Invoice & items
         db_invoice = SalesInvoice(
-            id=invoice_in.id,
-            invoice_no=invoice_in.invoice_no,
+            id=invoice_id,
+            invoice_no=invoice_no,
             date=invoice_in.date,
             customer_id=invoice_in.customer_id,
             tax_total=calculated_tax_total,
@@ -131,7 +139,7 @@ class SalesService:
         # Deduct stock of products and record stock movements
         for item in invoice_in.items:
             product_stmt = select(Product).filter(
-                Product.id == item.product_id,
+                (Product.id == item.product_id) | (Product.code == item.product_id) | (Product.code == item.code),
                 Product.is_deleted == False,
                 Product.company_id == self.tenant_ctx.company_id,
                 Product.branch_id == self.tenant_ctx.branch_id
@@ -164,16 +172,38 @@ class SalesService:
                 self.db.add(db_movement)
 
         self.db.add(db_invoice)
+
+        # Record Transactional Outbox event atomically within same DB transaction
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PSV_QUEUE",
+            payload={
+                "action": "SALES_INVOICE_CREATED",
+                "invoice_no": db_invoice.invoice_no,
+                "grand_total": str(db_invoice.grand_total),
+                "customer_id": db_invoice.customer_id,
+                "company_code": self.tenant_ctx.company_id
+            },
+            causation_id=db_invoice.invoice_no
+        )
         try:
             await self.db.commit()
-        except IntegrityError:
+        except Exception as e:
             await self.db.rollback()
+            import traceback
+            traceback.print_exc()
             raise HTTPException(
                 status_code=400,
-                detail="Sales invoice with this invoice number already exists"
+                detail=f"Commit error: {str(e)}"
             )
-        await self.db.refresh(db_invoice)
-        return db_invoice
+        # Re-fetch with eager items to avoid MissingGreenlet during response serialization
+        res = await self.db.execute(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(SalesInvoice.id == db_invoice.id)
+        )
+        return res.scalars().first()
 
     # ──────────────────────────────────────────────────────────────
     # Sales Quotation

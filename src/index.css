@@ -1,33 +1,18 @@
 /**
  * Project      : SMRITI Retail OS
- * Repository   : SMRITIRetailNX
- * Organization : AITDL NETWORKS
- *
- * Founders
- *
- * * Pushpa Devi Jawahar Mallah
- *   * Founder & Chairperson
- *   * Phone: +91 9324117007
- *   * Email: founder@aitdl.com
- *
- * * Jawahar Ramkripal Mallah
- *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
- *   * Email: founder@aitdl.com
- *
- * * Websites: aitdl.com | erpnbook.com | smritibooks.com
- *
- * * Version    : 2.1.1
- * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * Author       : Jawahar Ramkripal Mallah
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 3.24.0
+ * Created      : 2026-07-10
+ * Modified     : 2026-08-15
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Classification: Internal
  */
 
 @import "tailwindcss";
 @import "./smriti_scroll.css";
-
-/* Tailwind v4 class-based dark mode */
-@custom-variant dark (&:is(.dark *));
 
 @theme {
 	--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -48,31 +33,18 @@
 
 @layer base {
 	:root {
-		/* Light Mode Palette */
-		--c-theme-base: #f1f5f9; /* gray-100 */
+		/* SMRITI SAP Fiori Horizon Light Enterprise Palette */
+		--c-theme-base: #f8f9fa;
 		--c-theme-surface-1: #ffffff;
-		--c-theme-surface-2: #f8fafc; /* gray-50 */
+		--c-theme-surface-2: #f8f9fa;
 		--c-theme-surface-3: #ffffff;
-		--c-theme-surface-4: #f1f5f9; /* gray-100 */
-		--c-theme-surface-hover: #e2e8f0; /* gray-200 */
-		--c-theme-divider: #e2e8f0;
-		--c-theme-muted: #64748b; /* gray-500 */
-		--c-theme-primary: #0f172a; /* gray-900 */
-		--c-theme-body: #0f172a; /* gray-900 */
-	}
-
-	.dark {
-		/* Dark Mode Palette (original SMRITI hex values) */
-		--c-theme-base: #1a2b5c;
-		--c-theme-surface-1: #16213e;
-		--c-theme-surface-2: #121c35;
-		--c-theme-surface-3: #1a2744;
-		--c-theme-surface-4: #111827;
-		--c-theme-surface-hover: #20315a;
-		--c-theme-divider: #2a3a5c;
-		--c-theme-muted: #8892a4;
-		--c-theme-primary: #e2e8f0;
-		--c-theme-body: #ffffff;
+		--c-theme-surface-4: #f1f5f9;
+		--c-theme-surface-hover: #eef2f6;
+		--c-theme-divider: #d9d9d9;
+		--c-theme-subtle-divider: #e5e7eb;
+		--c-theme-muted: #6a6d70;
+		--c-theme-primary: #0070f2; /* Fiori Action Blue */
+		--c-theme-body: #32363a;    /* Fiori Primary Text */
 	}
 
 	html, body, #root {
@@ -81,16 +53,137 @@
 		width: 100% !important;
 		height: 100% !important;
 		overflow: hidden !important;
+		background-color: var(--c-theme-base) !important;
+		color: var(--c-theme-body) !important;
+		font-family: var(--font-sans);
+		font-size: 13px;
 	}
 
 	body {
 		background-color: var(--c-theme-base);
-		color: var(--c-theme-primary);
-		font-family: var(--font-sans);
-		transition:
-			background-color 0.3s ease,
-			color 0.3s ease;
+		color: var(--c-theme-body);
 	}
+}
+
+/* Fiori Horizon Light Enterprise Utilities */
+.fiori-shell-header {
+	background-color: #32363a;
+	color: #ffffff;
+	height: 48px;
+	border-bottom: 1px solid #1c1f23;
+}
+
+.fiori-filter-bar {
+	background-color: #ffffff;
+	border: 1px solid #d9d9d9;
+	border-radius: 4px;
+	padding: 10px 16px;
+}
+
+.fiori-card {
+	background-color: #ffffff;
+	border: 1px solid #d9d9d9;
+	border-radius: 4px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.fiori-table {
+	width: 100%;
+	border-collapse: collapse;
+	background-color: #ffffff;
+}
+
+.fiori-table th {
+	background-color: #f8f9fa;
+	color: #32363a;
+	font-weight: 600;
+	text-align: left;
+	padding: 8px 12px;
+	border-bottom: 1px solid #d9d9d9;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.fiori-table td {
+	padding: 8px 12px;
+	border-bottom: 1px solid #e5e7eb;
+	color: #32363a;
+	font-size: 13px;
+}
+
+.fiori-table tr:hover {
+	background-color: #eef2f6;
+}
+
+.fiori-btn-primary {
+	background-color: #0070f2;
+	color: #ffffff;
+	font-weight: 500;
+	padding: 6px 14px;
+	border-radius: 4px;
+	border: 1px solid #0056b3;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.fiori-btn-primary:hover {
+	background-color: #0056b3;
+}
+
+.fiori-btn-secondary {
+	background-color: #ffffff;
+	color: #32363a;
+	font-weight: 500;
+	padding: 6px 14px;
+	border-radius: 4px;
+	border: 1px solid #d9d9d9;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.fiori-btn-secondary:hover {
+	background-color: #f8f9fa;
+}
+
+.fiori-btn-destructive {
+	background-color: #bb0000;
+	color: #ffffff;
+	font-weight: 500;
+	padding: 6px 14px;
+	border-radius: 4px;
+	border: 1px solid #990000;
+	cursor: pointer;
+}
+
+.fiori-badge-success {
+	background-color: #e6f4ea;
+	color: #107e3e;
+	border: 1px solid #b7e1cd;
+	padding: 2px 8px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.fiori-badge-warning {
+	background-color: #fef7e0;
+	color: #e06c00;
+	border: 1px solid #fce8b2;
+	padding: 2px 8px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.fiori-badge-error {
+	background-color: #fce8e6;
+	color: #bb0000;
+	border: 1px solid #f5c6cb;
+	padding: 2px 8px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 600;
 }
 
 /* Material Symbols configuration */
@@ -98,7 +191,7 @@
 	font-family: "Material Symbols Outlined";
 	font-weight: normal;
 	font-style: normal;
-	font-size: 24px;
+	font-size: 20px;
 	line-height: 1;
 	letter-spacing: normal;
 	text-transform: none;
@@ -132,4 +225,3 @@
     display: none !important;
   }
 }
-

@@ -65,6 +65,8 @@ import { PrintProvider } from "./print_engine/print_store.tsx";
 import { PrintStudioTab } from "./print_engine/PrintStudioTab.tsx";
 import { PrintHistoryTab } from "./print_engine/PrintHistoryTab.tsx";
 import { AboutSmritiTab } from "./components/AboutSmritiTab.tsx";
+import { TaxInvoicePrintPage } from "./components/TaxInvoicePrintPage.tsx";
+import { TrainingAcademyTab } from "./components/training/TrainingAcademyTab.tsx";
 import { DevTrackerTab } from "./modules/dev_tracker/ui/DevTrackerTab.tsx";
 import { AccountingSyncTab } from "./components/AccountingSyncTab.tsx";
 import { BusinessLedgerTab } from "./components/BusinessLedgerTab.tsx";
@@ -285,7 +287,7 @@ const AppContent: React.FC = () => {
 
       // Fetch products from FastAPI backend
       try {
-        const prodData = await apiFetchV1("/inventory");
+        const prodData = await apiFetchV1("/inventory/");
         const mappedProducts = prodData.map((p: any) => ({
           id: p.id,
           code: p.code,
@@ -448,6 +450,11 @@ const AppContent: React.FC = () => {
         return <PrintHistoryTab />;
       case "about-smriti":
         return <AboutSmritiTab />;
+      case "tax-invoice-print":
+      case "statutory-a4":
+        return <TaxInvoicePrintPage />;
+      case "training-academy":
+        return <TrainingAcademyTab />;
       case "dev-tracker":
         return <DevTrackerTab />;
       case "accounting-sync":

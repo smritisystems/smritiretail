@@ -37,6 +37,7 @@ This section is auto-generated from `docs/user_guide/*.md`. Run this script afte
 - [End-User Training — Authors & Product Metadata](docs/user_guide/ENDUSER_TRAINING_AUTHORS.md)
 - [End-User Training — Company & Demo Details](docs/user_guide/ENDUSER_TRAINING_COMPANY_DETAILS.md)
 - [End-User Training — Sales Studio](docs/user_guide/ENDUSER_TRAINING_SALES_STUDIO.md)
+- [User Training Blueprint — 7-Day Business Transaction Lifecycle](docs/user_guide/USER_TRAINING_BLUEPRINT.md)
 
 <!-- USER GUIDE INDEX END -->
 

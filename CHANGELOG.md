@@ -28,6 +28,30 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.25.0] - 2026-08-15
+
+#### Added — SMRITI Fiori Light Enterprise UI Redesign & Visual QA Gate
+- **Light Mode Only Baseline**: Locked application theme to Light Enterprise Mode (`#f8f9fa` base background, `#ffffff` surface, `#0070f2` action blue, `#32363a` slate text, `#d9d9d9` crisp borders). Completely eliminated dark mode, theme toggles, `#1c222b`, and `prefers-color-scheme` overrides.
+- **Fiori Horizon Application Shell**: Refactored global App Shell with Fiori header bar, global search, company selector dropdown, notification popover, workspace navigation, breadcrumbs, and page filter bars.
+- **10 Core Visual Screens QA Verified**: Verified Application Shell, POS/Billing, Item Master, Customer/CRM, Purchase, Fulfillment, Promotions, Report Studio, Dashboard Manager, and Excel Grid.
+- **Invariants Maintained**: 75/75 backend Pytest test suites passed, Vite production build clean, zero unapproved database creations (`smriti002-smriti999` count = 0), Single Workspace Principle and Single Authoritative Dataset Rule (`Grid = Chart = Pivot = Dashboard KPI = Export`) strictly intact.
+
+### [3.24.0] - 2026-08-15
+
+#### Added — SMRITI Reporting Platform & Data Integrity Engine Architecture
+- **Reporting Engine & Flexi Studio**: Excel-style analytical grid (filters, column drag, multi-sort, group-by, subtotals, pivot, copy/paste to Excel), Flexi report builder with Dimensions & Measures, and user saved views (`ReportSavedView`).
+- **Chart Visualizer & Dashboard Manager**: Multi-chart visual abstraction (Bar, Line, Pie, Area, Stacked, Combo, Scatter, KPI, Funnel, Ranking) and Dashboard Manager for CEO, Sales, Store Manager, CRM, and Profitability dashboards (`DashboardWidget`).
+- **Single Authoritative Dataset Rule Locked**: Guaranteed dataset metric consistency where `Grid total = Chart total = Pivot total = Dashboard KPI total = Export total`.
+- **20-Point Forensic Runtime Data Integrity**: Runtime report execution verified across 10 business domains with zero unapproved database creations and strict tenant isolation (`HTTP 403` on cross-tenant access).
+
+### [3.23.0] - 2026-08-15
+
+#### Added — Commercial Growth, Customer 360, Operations & Fulfillment, and Cost Profitability Engine Architecture
+- **Commercial Growth & Customer 360**: Co-located CRM, Loyalty Program (CGE), Promotions & Campaigns, Referral Engine, and Universal Incentive & Commission Engine (SICE) inside `smriti001`.
+- **Promotion Conflict & Pricing Resolution Engine**: Priority ranking, exclusivity override (`is_exclusive`), stacking rules, maximum combined discount cap (50%), and evaluation audit snapshots (`evaluated_campaigns_snapshot`).
+- **Operations & Fulfillment Engine**: Order Pick & Pack (`packing_slips`), Dispatch manifests & driver assignments (`dispatches`), driver delivery commission settlement (`delivery_commission_settlements`), and reverse logistics returns with stock restock and commission reversal (`reverse_logistics_returns`).
+- **Cost & Profitability Intelligence Engine**: Multi-valuation cost prices (Purchase, WAC, Last Purchase, FIFO, Landed Cost, Standard Cost, MRP, Replacement Cost), line-item COGS snapshots, and transaction Net Contribution waterfall ledger.
+
 ### [3.20.0-cleanup] - 2026-07-15
 
 #### Removed -- MC2 Phase 5D: Deprecated URL Aliases

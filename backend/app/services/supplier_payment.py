@@ -90,6 +90,21 @@ class SupplierPaymentService:
         supplier.outstanding = (outstanding - req.amount).quantize(Decimal("0.01"))
         supplier.modified_at = datetime.now(timezone.utc)
 
+        # Record Transactional Outbox event atomically within same DB transaction
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PSV_QUEUE",
+            payload={
+                "action": "SUPPLIER_PAYMENT_PROCESSED",
+                "payment_id": payment.id,
+                "supplier_id": payment.supplier_id,
+                "amount": str(payment.amount),
+                "company_code": self.tenant.company_id
+            },
+            causation_id=payment.id
+        )
+
         try:
             await self.db.commit()
         except IntegrityError:
