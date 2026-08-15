@@ -64,3 +64,21 @@ smriti_retail_os/public/extracted_images/
 # Local Dev Directories
 apps/
 scratch/
+
+# Temporary test, build, and process log artifacts
+*.log
+pytest_output*.txt
+pytest_*output*.txt
+full-tsc-output.txt
+tsc-userprofile-output.txt
+tmp_item_master_debug.txt
+pytest_pie_failure.txt
+failing_test_run.txt
+repo_commit_check.txt
+repo_commit_files.txt
+frontend_backend_route_audit.json
+frontend_backend_route_audit2.json
+*.tmp
+*.bak
+desktop.ini
+served_bundle.js
