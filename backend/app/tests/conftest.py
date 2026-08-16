@@ -11,6 +11,9 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import os
+os.environ.setdefault("JWT_SECRET_KEY", "dev-test-jwt-secret-key-32-chars-long-smriti")
+os.environ.setdefault("INTERNAL_SERVICE_KEY", "dev-test-internal-service-key-32-chars")
 import asyncio
 import sys
 
@@ -73,9 +76,13 @@ async def clear_db(db_session: AsyncSession):
     from app.models.master_lookup import MasterType, MasterValue
     from app.models.workflow import WorkflowEvent
     from app.models.report_schedule import ReportSchedule
+    from app.models.psv import PSVParty, PSVPartySkuTracking
 
+    await db_session.execute(delete(PSVPartySkuTracking))
+    await db_session.execute(delete(PSVParty))
     await db_session.execute(delete(SalesReturnItem))
     await db_session.execute(delete(SalesReturn))
+
     await db_session.execute(delete(ProductIdentity))
     await db_session.execute(delete(BarcodeProvider))
     await db_session.execute(delete(IdentityRule))
@@ -104,6 +111,9 @@ async def clear_db(db_session: AsyncSession):
     await db_session.execute(delete(SystemConfig))
     await db_session.execute(delete(DataExchangeTask))
     await db_session.execute(delete(DataExchangeFieldMapping))
+    from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
+    await db_session.execute(delete(UserCompanyAssignment))
+    await db_session.execute(delete(UserBranchAssignment))
     await db_session.execute(delete(User))
     await db_session.execute(delete(Store))
     await db_session.execute(delete(Warehouse))
@@ -111,6 +121,12 @@ async def clear_db(db_session: AsyncSession):
     await db_session.execute(delete(MasterType))
     await db_session.execute(delete(ReportSchedule))
     await db_session.execute(delete(Branch))
+    for tbl in ["company_financial_years", "company_tax_profiles", "company_control_center"]:
+        try:
+            async with db_session.begin_nested():
+                await db_session.execute(text(f"DELETE FROM {tbl};"))
+        except Exception:
+            pass
     await db_session.execute(delete(Company))
     await db_session.commit()
 

@@ -93,7 +93,7 @@ async def set_system_config(
         await db.refresh(existing)
         return existing
 
-    new_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}"
+    new_id = f"sys-{str(uuid.uuid4())[:18]}"
     config = SystemConfig(
         id=new_id,
         key=key,
@@ -594,7 +594,8 @@ async def company_setup(
 
     staff_entries = users_payload.staff or []
 
-    async with db.begin():
+    tx_ctx = db.begin_nested() if db.in_transaction() else db.begin()
+    async with tx_ctx:
         company = Company(
             id=company_id,
             name=company_name,
@@ -618,6 +619,7 @@ async def company_setup(
                 is_deleted=False,
             )
             db.add(branch)
+            await db.flush()
             created_branches.append(branch)
 
             store_id = f"stor-{timestamp_ms + idx}"
@@ -648,7 +650,7 @@ async def company_setup(
             if not username:
                 username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
 
-            temp_password = secrets.token_urlsafe(12)
+            temp_password = f"{secrets.token_urlsafe(10)}@1A!"
             user_req = UserCreate(
                 username=username,
                 password=temp_password,

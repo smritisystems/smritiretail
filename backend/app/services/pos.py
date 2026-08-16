@@ -406,8 +406,9 @@ class POSService:
                         detail=f"Insufficient stock for '{item.name}'. "
                                f"Available: {product.stock}, requested: {int(qty)}.",
                     )
-                product.stock -= int(qty)
+                product.modified_at = datetime.now(timezone.utc)
                 self.db.add(product)
+
                 movement_id = (
                     f"SM-{int(datetime.now(timezone.utc).timestamp())}-"
                     f"{uuid.uuid4().hex[:6]}"
@@ -497,6 +498,8 @@ class POSService:
                 detail="A billing conflict occurred. Please try again.",
             )
 
+        self.db.expire_all()
         await self.db.refresh(invoice)
         await self.db.refresh(shift)
         return {"invoice": invoice, "shift": shift, "cached": False}
+

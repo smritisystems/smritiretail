@@ -12,6 +12,8 @@ License      : Proprietary Commercial Software
 """
 
 import os
+os.environ.setdefault("JWT_SECRET_KEY", "dev-test-jwt-secret-key-32-chars-long-smriti")
+os.environ.setdefault("INTERNAL_SERVICE_KEY", "dev-test-internal-service-key-32-chars")
 import json
 import socket
 import asyncio

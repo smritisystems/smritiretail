@@ -10,8 +10,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = 'v1335_add_user_role_id_and_seed_roles'
-down_revision = 'v1334_add_v325_enterprise_tables'
+revision = 'v1335_seed_roles'
+down_revision = 'v1334_add_v325_enterprise'
 branch_labels = None
 depends_on = None
 
@@ -119,8 +119,8 @@ def upgrade():
         op.execute(
             sa.text(
                 """
-                INSERT INTO roles (id, name, description, permissions_json, is_system, is_deleted, created_at, modified_at)
-                VALUES (:id, :name, :description, :permissions_json, :is_system, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT INTO roles (id, uuid, name, description, permissions_json, is_system, is_deleted, created_at, modified_at)
+                VALUES (:id, :id, :name, :description, :permissions_json, :is_system, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON CONFLICT (name) DO UPDATE SET
                     description = EXCLUDED.description,
                     permissions_json = EXCLUDED.permissions_json,

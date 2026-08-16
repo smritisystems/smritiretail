@@ -197,10 +197,6 @@ async def get_tenant_context(
         branch_id=target_branch,
     )
 
-    return TenantContext(
-        company_id=current_user.company_id,
-        branch_id=current_user.branch_id,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -209,14 +205,30 @@ async def get_tenant_context(
 def require_role(*allowed_roles: UserRole) -> Callable:
     """
     Returns a FastAPI dependency that raises 403 if the current user's role
-    is not in the allowed set.
-
-    Usage:
-        @router.post("/products/")
-        async def create(current_user = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))):
-            ...
+    is not in the allowed set. Checked against role_id permissions table if set,
+    falling back to enum role check.
     """
-    async def _guard(current_user: User = Depends(get_current_user)) -> User:
+    async def _guard(
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(_get_db),
+    ) -> User:
+        if current_user.role_id:
+            res = await db.execute(select(Role).where(Role.id == current_user.role_id, Role.is_deleted == False))
+            role_obj = res.scalars().first()
+            if role_obj:
+                perms = []
+                if role_obj.permissions_json:
+                    try:
+                        perms = json.loads(role_obj.permissions_json)
+                    except Exception:
+                        perms = []
+                if "*" in perms:
+                    return current_user
+                allowed_role_names = {r.value.upper() for r in allowed_roles}
+                role_name_normalized = role_obj.name.upper().replace(" ", "_")
+                if role_obj.name.upper() in allowed_role_names or role_name_normalized in allowed_role_names:
+                    return current_user
+
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=403,

@@ -147,8 +147,9 @@ class SalesService:
             product_res = await self.db.execute(product_stmt)
             product = product_res.scalars().first()
             if product and product.tracking_mode != "No-stock":
-                product.stock -= int(item.quantity)
+                product.modified_at = datetime.now(timezone.utc)
                 self.db.add(product)
+
 
                 # Record StockMovement
                 movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
@@ -478,9 +479,9 @@ class SalesService:
         # Apply stock increments (returned items add back to stock) and record stock movements
         for product, qty in product_stock_updates:
             if product.tracking_mode != "No-stock":
-                product.stock += int(qty)
                 product.modified_at = datetime.now(timezone.utc)
                 self.db.add(product)
+
 
                 # Record StockMovement
                 movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"

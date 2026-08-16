@@ -99,7 +99,7 @@ class ReportsService:
         credit_sales = Decimal("0.00")
 
         for inv in invoices:
-            net = Decimal(str(inv.net_amount or inv.total_amount or "0"))
+            net = Decimal(str(getattr(inv, "net_amount", None) or getattr(inv, "total_amount", None) or getattr(inv, "grand_total", None) or "0"))
             total_sales += net
 
             pm = (inv.payment_mode or "").upper()
@@ -154,63 +154,96 @@ class ReportsService:
 
         entries = []
         for r in receipts:
+            amt = float(getattr(r, "total_amount", None) or getattr(r, "grand_total", 0.0) or 0.0)
             entries.append({
-                "date": str(r.receipt_date or r.created_at),
-                "type": "GRN",
-                "reference": r.receipt_number,
-                "debit": float(r.total_amount or 0.0),
+                "date": str(getattr(r, "receipt_date", None) or getattr(r, "created_at", "")),
+                "type": "PURCHASE",
+                "reference": getattr(r, "receipt_number", None) or getattr(r, "receipt_no", "") or r.id,
+                "debit": amt,
                 "credit": 0.0,
             })
         for p in payments:
+            amt = float(getattr(p, "amount", 0.0) or 0.0)
             entries.append({
-                "date": str(p.payment_date or p.created_at),
+                "date": str(getattr(p, "payment_date", None) or getattr(p, "created_at", "")),
                 "type": "PAYMENT",
-                "reference": p.payment_number,
+                "reference": getattr(p, "payment_number", None) or getattr(p, "payment_no", "") or p.id,
                 "debit": 0.0,
-                "credit": float(p.amount or 0.0),
+                "credit": amt,
             })
 
         entries.sort(key=lambda x: x["date"])
 
         running_balance = Decimal("0.00")
+        total_purchased = Decimal("0.00")
+        total_paid = Decimal("0.00")
         typed_entries = []
         for e in entries:
-            running_balance += Decimal(str(e["debit"])) - Decimal(str(e["credit"]))
+            deb = Decimal(str(e["debit"]))
+            cred = Decimal(str(e["credit"]))
+            total_purchased += deb
+            total_paid += cred
+            running_balance += deb - cred
             typed_entries.append(SupplierLedgerEntry(
+                entry_type=e["type"],
                 date=e["date"],
-                type=e["type"],
                 reference=e["reference"],
-                debit=Decimal(str(e["debit"])),
-                credit=Decimal(str(e["credit"])),
-                running_balance=running_balance,
+                amount=deb if deb > 0 else cred,
+                balance_after=running_balance,
             ))
 
         return SupplierLedger(
             supplier_id=supplier.id,
             supplier_name=supplier.name,
             opening_balance=Decimal("0.00"),
+            total_purchased=total_purchased,
+            total_paid=total_paid,
             closing_balance=running_balance,
             entries=typed_entries,
         )
 
     async def purchase_summary(self, from_date: Optional[date] = None, to_date: Optional[date] = None) -> List[PurchaseSummaryLine]:
         sup_res = await self.db.execute(
-            select(Supplier).where(Supplier.company_id == self.tenant.company_id)
+            select(Supplier).where(
+                Supplier.company_id == self.tenant.company_id,
+                Supplier.is_deleted == False,
+            )
         )
         suppliers = sup_res.scalars().all()
         result = []
         for sup in suppliers:
+            po_res = await self.db.execute(
+                select(PurchaseOrder).where(
+                    PurchaseOrder.supplier_id == sup.id,
+                    PurchaseOrder.company_id == self.tenant.company_id,
+                    PurchaseOrder.is_deleted == False,
+                )
+            )
+            pos = po_res.scalars().all()
+
+            grn_res = await self.db.execute(
+                select(PurchaseReceipt).where(
+                    PurchaseReceipt.supplier_id == sup.id,
+                    PurchaseReceipt.company_id == self.tenant.company_id,
+                    PurchaseReceipt.is_deleted == False,
+                )
+            )
+            grns = grn_res.scalars().all()
+
+            total_ordered = sum((getattr(p, "total_amount", None) or getattr(p, "grand_total", Decimal("0.00")) or Decimal("0.00")) for p in pos)
+            total_received = sum((getattr(g, "total_amount", None) or getattr(g, "grand_total", Decimal("0.00")) or Decimal("0.00")) for g in grns)
+
             result.append(PurchaseSummaryLine(
                 supplier_id=sup.id,
-                supplier_code=sup.code or sup.id,
                 supplier_name=sup.name,
-                po_count=0,
-                grn_count=0,
-                total_ordered=Decimal("0.00"),
-                total_received=Decimal("0.00"),
-                outstanding_balance=Decimal(str(sup.outstanding or "0.00")),
+                po_count=len(pos),
+                grn_count=len(grns),
+                total_ordered=Decimal(str(total_ordered)),
+                total_received=Decimal(str(total_received)),
+                outstanding=Decimal(str(sup.outstanding or "0.00")),
             ))
         return result
+
 
     # ──────────────────────────────────────────────────────────────
     # 5. Profitability Waterfall Report
@@ -245,16 +278,36 @@ class ReportsService:
         return res.scalars().all()
 
     async def create_schedule(self, payload: Any, created_by_id: str) -> ReportSchedule:
+        import uuid
+        cron_expr = getattr(payload, "cron_expression", None)
+        if not cron_expr and getattr(payload, "frequency", None):
+            freq = payload.frequency.upper()
+            exec_time = getattr(payload, "execution_time", "08:00") or "08:00"
+            try:
+                hour, minute = exec_time.split(":")
+                hour_i = int(hour)
+                min_i = int(minute)
+            except Exception:
+                hour_i, min_i = 8, 0
+            if freq == "DAILY":
+                cron_expr = f"{min_i} {hour_i} * * *"
+            elif freq == "WEEKLY":
+                cron_expr = f"{min_i} {hour_i} * * 1"
+            elif freq == "MONTHLY":
+                cron_expr = f"{min_i} {hour_i} 1 * *"
+
         sched = ReportSchedule(
+            id=f"SCH-{uuid.uuid4().hex[:12].upper()}",
             company_id=self.tenant.company_id,
             branch_id=self.tenant.branch_id,
             report_id=payload.report_id,
             report_name=payload.report_name,
             frequency=payload.frequency,
+            execution_time=getattr(payload, "execution_time", "08:00"),
             delivery_format=payload.delivery_format,
             delivery_channel=payload.delivery_channel,
             delivery_target=payload.delivery_target,
-            cron_expression=payload.cron_expression,
+            cron_expression=cron_expr,
             created_by_id=created_by_id,
         )
         self.db.add(sched)
@@ -273,4 +326,7 @@ class ReportsService:
         if not sched:
             raise HTTPException(status_code=404, detail="Report schedule not found")
         sched.is_deleted = True
+        sched.is_active = False
+        self.db.add(sched)
         await self.db.commit()
+

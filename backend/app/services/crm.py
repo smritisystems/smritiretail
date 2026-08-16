@@ -81,11 +81,17 @@ class CrmService:
         if not group:
             raise HTTPException(status_code=400, detail="Specified Customer Group does not exist")
 
+        cust_dict = customer_in.model_dump()
+        if not cust_dict.get("code"):
+            import uuid
+            cust_dict["code"] = f"CUST-{uuid.uuid4().hex[:8].upper()}"
+
         db_customer = Customer(
-            **customer_in.model_dump(),
+            **cust_dict,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
         )
+
         self.db.add(db_customer)
         try:
             await self.db.commit()

@@ -27,7 +27,7 @@ from app.main import app
 from app.models.auth import User, RefreshTokenBlacklist, UserRole
 from app.models.tenant import Company, Branch
 from app.models.inventory import Product, StockMovement
-from app.models.sales import SalesInvoice, SalesInvoiceItem
+from app.models.sales import SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem, SalesQuotation, SalesQuotationItem, SalesOrder, SalesOrderItem
 from app.models.purchase import (
     Supplier, PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
@@ -47,8 +47,17 @@ async def override_db_and_tenant(db_session):
 
     async def _cleanup():
         await db_session.execute(sa_delete(SupplierPayment))
+        await db_session.execute(sa_delete(SalesReturnItem))
+        await db_session.execute(sa_delete(SalesReturn))
+        await db_session.execute(sa_delete(SalesQuotationItem))
+        await db_session.execute(sa_delete(SalesQuotation))
+        await db_session.execute(sa_delete(SalesOrderItem))
+        await db_session.execute(sa_delete(SalesOrder))
         await db_session.execute(sa_delete(SalesInvoiceItem))
         await db_session.execute(sa_delete(SalesInvoice))
+
+
+
         await db_session.execute(sa_delete(PurchaseReceiptItem))
         await db_session.execute(sa_delete(PurchaseReceipt))
         await db_session.execute(sa_delete(PurchaseOrderItem))

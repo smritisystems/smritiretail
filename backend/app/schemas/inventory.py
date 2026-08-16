@@ -24,7 +24,7 @@ class ProductBase(BaseModel):
     category: str = Field(..., max_length=100)
     is_favorite: bool = False
     barcode: str = Field(..., max_length=100)
-    secondary_barcodes: List[str] = []
+    secondary_barcodes: Optional[List[str]] = Field(default_factory=list)
     brand: Optional[str] = Field(None, max_length=100)
     color: Optional[str] = Field(None, max_length=50)
     size: Optional[str] = Field(None, max_length=50)
@@ -38,9 +38,10 @@ class ProductBase(BaseModel):
     tracking_mode: str = "Standard"
     variant_template_id: Optional[str] = Field(None, max_length=50)
     weight_grams: Decimal = Decimal("0.00")
-    attributes: Dict[str, Any] = {}
+    attributes: Optional[Dict[str, Any]] = Field(default_factory=dict)
     primary_image_url: Optional[str] = Field(None, max_length=512)
-    gallery_images: List[str] = []
+    gallery_images: Optional[List[str]] = Field(default_factory=list)
+
 
 class ProductCreate(ProductBase):
     id: str = Field(..., max_length=50)
