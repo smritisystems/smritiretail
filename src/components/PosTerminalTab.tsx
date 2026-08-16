@@ -414,7 +414,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
             </div>
 
             {/* Products grid */}
-            <SmritiScrollArea maxHeight={460} fadeColorClass="from-[#16213e]">
+            <SmritiScrollArea maxHeight={460} fadeColorClass="from-theme-surface-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pr-1">
                 {filteredProducts.map(prod => (
                   <div
@@ -506,7 +506,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
               </div>
 
               {/* Cart List */}
-              <SmritiScrollArea maxHeight={200} fadeColorClass="from-[#16213e]">
+              <SmritiScrollArea maxHeight={200} fadeColorClass="from-theme-surface-1">
                 <div className="space-y-2 pt-2 pr-1">
                   {cart.length === 0 ? (
                     <div className="py-12 text-center text-theme-muted text-xs space-y-1">
@@ -589,7 +589,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                     </div>
                     
                     {/* Dark Navy Grand Total Banner */}
-                    <div className="bg-[#1E293B] text-white p-3 rounded-lg flex justify-between items-center mt-2 shadow-xs">
+                    <div className="bg-theme-banner-dark text-white p-3 rounded-lg flex justify-between items-center mt-2 shadow-xs">
                       <span className="font-bold uppercase tracking-wider font-mono text-xs">Grand Total</span>
                       <span className="text-lg font-bold font-mono">₹{totalCartValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                     </div>
@@ -634,7 +634,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                 <button
                   onClick={handleCheckout}
                   disabled={cart.length === 0}
-                  className="w-full bg-[#1E293B] hover:bg-slate-800 text-white font-bold uppercase py-2.5 rounded-xl border border-[#334155] transition-all flex items-center justify-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs shadow-xs"
+                  className="w-full bg-theme-banner-dark hover:bg-slate-800 text-white font-bold uppercase py-2.5 rounded-xl border border-theme-pos-dark-border transition-all flex items-center justify-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs shadow-xs"
                 >
                   <Zap size={14} />
                   <span>Standard Checkout (F12)</span>
@@ -684,7 +684,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-theme-muted">Sales Registered (Value):</span>
-                <span className="font-bold text-[#22c55e]">+₹{activeShift.salesValue}</span>
+                <span className="font-bold text-theme-success">+₹{activeShift.salesValue}</span>
               </div>
               <div className="flex justify-between border-t border-theme-divider pt-2 mt-2">
                 <span className="text-theme-body font-semibold">Expected Closing Drawer Value:</span>

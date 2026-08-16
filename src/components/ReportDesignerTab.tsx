@@ -552,20 +552,20 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         ]}>
                           <defs>
                             <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#0070F2" stopOpacity={0.2}/>
-                              <stop offset="95%" stopColor="#0070F2" stopOpacity={0}/>
+                              <stop offset="5%" stopColor="var(--c-theme-primary)" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="var(--c-theme-primary)" stopOpacity={0}/>
                             </linearGradient>
                             <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                              <stop offset="5%" stopColor="var(--c-theme-chart-green)" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="var(--c-theme-chart-green)" stopOpacity={0}/>
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
-                          <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
-                          <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
-                          <RechartsTooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#CBD5E1", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
-                          <Area type="monotone" dataKey="sales" name="Gross Sales (INR)" stroke="#0070F2" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" />
-                          <Area type="monotone" dataKey="margin" name="Est. Net Margin (INR)" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorMargin)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--c-theme-divider)" opacity={0.6} />
+                          <XAxis dataKey="name" stroke="var(--c-theme-chart-axis)" fontSize={11} tickLine={false} />
+                          <YAxis stroke="var(--c-theme-chart-axis)" fontSize={11} tickLine={false} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: "var(--c-theme-surface-1)", borderColor: "var(--c-theme-border)", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+                          <Area type="monotone" dataKey="sales" name="Gross Sales (INR)" stroke="var(--c-theme-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" />
+                          <Area type="monotone" dataKey="margin" name="Est. Net Margin (INR)" stroke="var(--c-theme-chart-green)" strokeWidth={2} fillOpacity={1} fill="url(#colorMargin)" />
                         </AreaChart>
                       ) : activeStudio === "purchase_studio" ? (
                         <BarChart data={[
@@ -575,12 +575,12 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           { supplier: "Modern Foods", ordered: 320000, received: 320000 },
                           { supplier: "Unilever Ind", ordered: 500000, received: 480000 }
                         ]}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
-                          <XAxis dataKey="supplier" stroke="#64748b" fontSize={10} tickLine={false} />
-                          <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
-                          <RechartsTooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#CBD5E1", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
-                          <Bar dataKey="ordered" name="Procured Order Value" fill="#0070F2" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="received" name="Actual GRN Settled" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--c-theme-divider)" opacity={0.6} />
+                          <XAxis dataKey="supplier" stroke="var(--c-theme-chart-axis)" fontSize={10} tickLine={false} />
+                          <YAxis stroke="var(--c-theme-chart-axis)" fontSize={10} tickLine={false} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: "var(--c-theme-surface-1)", borderColor: "var(--c-theme-border)", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+                          <Bar dataKey="ordered" name="Procured Order Value" fill="var(--c-theme-primary)" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="received" name="Actual GRN Settled" fill="var(--c-theme-chart-amber)" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       ) : (
                         <LineChart data={[
@@ -592,11 +592,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           { label: "Sat", count: 950 },
                           { label: "Sun", count: 890 }
                         ]}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
-                          <XAxis dataKey="label" stroke="#64748b" fontSize={11} />
-                          <YAxis stroke="#64748b" fontSize={11} />
-                          <RechartsTooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#CBD5E1", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
-                          <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--c-theme-divider)" opacity={0.6} />
+                          <XAxis dataKey="label" stroke="var(--c-theme-chart-axis)" fontSize={11} />
+                          <YAxis stroke="var(--c-theme-chart-axis)" fontSize={11} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: "var(--c-theme-surface-1)", borderColor: "var(--c-theme-border)", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+                          <Line type="monotone" dataKey="count" stroke="var(--c-theme-chart-indigo)" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                       )}
                     </ResponsiveContainer>
