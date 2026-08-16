@@ -127,6 +127,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Sales & POS",
     },
     {
+      id: "create-tax-invoice",
+      label: "Create Tax Invoice (B2B)",
+      icon: "post_add",
+      category: "Sales & POS",
+    },
+    {
       id: "customer-master",
       label: "Customer Master",
       icon: "contacts",

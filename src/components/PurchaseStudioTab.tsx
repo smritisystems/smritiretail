@@ -1,14 +1,17 @@
 /**
  * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
+ * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.3
+ * Version      : 3.28.0
  * Created      : 2026-07-10
- * Modified     : 2026-07-16
+ * Modified     : 2026-08-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Target UI    : Create Purchase Order (Fiori Horizon Inspired B2B Purchase)
  */
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
@@ -19,6 +22,7 @@ import { Printer, MessageCircle, Mail,
   Grid,
   Trash2,
   Edit,
+  Edit3,
   RefreshCw,
   User,
   Calendar,
@@ -38,7 +42,12 @@ import { Printer, MessageCircle, Mail,
   Info,
   Sliders,
   TrendingDown,
-  Award
+  Award,
+  Download,
+  ExternalLink,
+  ChevronDown,
+  Barcode,
+  FileSpreadsheet
 } from "lucide-react";
 import { Product } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
@@ -140,6 +149,34 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   const [matrixPrices, setMatrixPrices] = useState<Record<string, number>>({});
   const [matrixSources, setMatrixSources] = useState<Record<string, string>>({});
 
+  // Create Order Header & Form States matching reference image
+  const [poNo, setPoNo] = useState<string>("PO-2526-00045");
+  const [poDate, setPoDate] = useState<string>("2026-08-16");
+  const [requiredByDate, setRequiredByDate] = useState<string>("2026-08-20");
+  const [orderType, setOrderType] = useState<string>("Purchase Order");
+  const [currency, setCurrency] = useState<string>("INR - Indian Rupee");
+  const [priceList, setPriceList] = useState<string>("Default Purchase Price List");
+  const [billingAddress, setBillingAddress] = useState<string>("Same as Supplier");
+  const [deliveryAddress, setDeliveryAddress] = useState<string>("Main Warehouse");
+  const [poSubTab, setPoSubTab] = useState<"items" | "terms" | "details" | "attachments" | "history">("items");
+
+  // Purchase Settings & Charges States
+  const [paymentTerms, setPaymentTerms] = useState<string>("30 Days");
+  const [transporter, setTransporter] = useState<string>("Select Transporter");
+  const [freightAmount, setFreightAmount] = useState<number>(0.00);
+  const [shippingBy, setShippingBy] = useState<string>("Road");
+  const [lrGrNo, setLrGrNo] = useState<string>("");
+  const [loadingCharges, setLoadingCharges] = useState<number>(0.00);
+  const [unloadingCharges, setUnloadingCharges] = useState<number>(0.00);
+  const [otherCharges, setOtherCharges] = useState<number>(0.00);
+
+  // Quick Add Row States
+  const [quickAddBarcode, setQuickAddBarcode] = useState<string>("");
+  const [quickAddQty, setQuickAddQty] = useState<number>(1);
+  const [quickAddUom, setQuickAddUom] = useState<string>("PCS");
+  const [quickAddRate, setQuickAddRate] = useState<number>(0);
+  const [quickAddDisc, setQuickAddDisc] = useState<number>(0);
+
   // Receipt form input state
   const [receiptQuantities, setReceiptQuantities] = useState<Record<string, number>>({});
 
@@ -164,6 +201,71 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     fetchSuppliers();
     fetchPurchaseOrders();
     fetchReorderSuggestions();
+
+    if (draftItems.length === 0) {
+      setDraftItems([
+        {
+          id: "item-1",
+          barcode: "8901030937241",
+          name: "TATA Tea Premium 1kg",
+          hsn: "0902",
+          quantity: 20,
+          uom: "PCS",
+          price: 245.00,
+          discountPercent: 2.00,
+          discountAmount: 98.00,
+          taxableValue: 4802.00,
+          gstPercentage: 18,
+          gstAmount: 864.36,
+          totalAmount: 5666.36
+        },
+        {
+          id: "item-2",
+          barcode: "8901439002148",
+          name: "Fortune Sunlite Oil 5L",
+          hsn: "1511",
+          quantity: 10,
+          uom: "PCS",
+          price: 620.00,
+          discountPercent: 0.00,
+          discountAmount: 0.00,
+          taxableValue: 6200.00,
+          gstPercentage: 18,
+          gstAmount: 1116.00,
+          totalAmount: 7316.00
+        },
+        {
+          id: "item-3",
+          barcode: "8901725123456",
+          name: "Aashirvaad Atta 10kg",
+          hsn: "1101",
+          quantity: 15,
+          uom: "PCS",
+          price: 385.00,
+          discountPercent: 1.00,
+          discountAmount: 57.75,
+          taxableValue: 5707.50,
+          gstPercentage: 5,
+          gstAmount: 285.38,
+          totalAmount: 5992.88
+        },
+        {
+          id: "item-4",
+          barcode: "8906005156782",
+          name: "Maggi Masala Noodles 70g",
+          hsn: "1902",
+          quantity: 50,
+          uom: "PCS",
+          price: 12.50,
+          discountPercent: 0.00,
+          discountAmount: 0.00,
+          taxableValue: 625.00,
+          gstPercentage: 12,
+          gstAmount: 75.00,
+          totalAmount: 700.00
+        }
+      ]);
+    }
   }, []);
 
   // Fetch when subtab changes to load dynamically
@@ -861,418 +963,792 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
       {/* Dynamic Sourcing Workspace Content */}
       <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 shadow-xl min-h-[450px]">
-
-        {/* â”€â”€ SUB-TAB 1: CREATE PURCHASE ORDER â”€â”€ */}
+        {/* ── SUB-TAB 1: CREATE PURCHASE ORDER (Matching Reference Image) ── */}
         {activeSubTab === "create" && (
-          <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row gap-6">
-              
-              {/* Sourcing Header: Pick Supplier & Sourcing Analytics */}
-              <div className="w-full lg:w-1/3 bg-theme-surface-1 p-5 rounded-xl border border-theme-divider space-y-4">
-                <h3 className="text-xs font-mono uppercase tracking-wider text-indigo-400">1. SOURCING VENDOR IDENTIFICATION</h3>
-                <div>
-                  <label className="text-[10px] font-mono text-theme-muted block mb-1.5">CHOOSE REGISTERED SUPPLIER</label>
-                  <select
-                    value={selectedSupplierId}
-                    onChange={(e) => {
-                      setSelectedSupplierId(e.target.value);
-                      if (e.target.value) {
-                        fetchSupplierDetails(e.target.value);
-                        setDraftItems([]); // clean slate for different supplier
-                      } else {
-                        setSupplierDetails(null);
-                      }
-                    }}
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-medium"
-                  >
-                    <option value="">-- Choose registered vendor --</option>
-                    {suppliersList.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.vendorCode})</option>
-                    ))}
-                  </select>
+          <div className="space-y-4">
+            
+            {/* Top Workspace Header & Actions Bar */}
+            <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-lg font-bold text-theme-body tracking-tight">Create Purchase Order</h2>
+                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider font-mono">
+                    B2B Purchase
+                  </span>
                 </div>
-
-                {supplierDetails && (
-                  <div className="bg-theme-surface-2 p-4 rounded-lg border border-theme-divider/40 space-y-3.5">
-                    <h4 className="text-[10px] font-mono text-indigo-300 uppercase tracking-wider">HISTORICAL SOURCING PROFILE</h4>
-                    
-                    <div className="grid grid-cols-2 gap-3 text-left">
-                      <div className="bg-theme-surface-1 p-2.5 rounded border border-theme-divider/30">
-                        <span className="text-[9px] font-mono text-theme-muted block">ORDERS PLACED</span>
-                        <span className="text-sm font-bold text-theme-body font-mono mt-0.5">{supplierDetails.summary.totalOrders}</span>
-                      </div>
-                      <div className="bg-theme-surface-1 p-2.5 rounded border border-theme-divider/30">
-                        <span className="text-[9px] font-mono text-theme-muted block">CONFIRMED VALUE</span>
-                        <span className="text-sm font-bold text-emerald-400 font-mono mt-0.5">₹{supplierDetails.summary.totalValue}</span>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-theme-divider/40 pt-2 text-[10px] text-theme-muted space-y-1.5 leading-relaxed font-sans">
-                      <div><strong className="text-[#cbd5e1]">GSTIN:</strong> {supplierDetails.taxRegistrationNumber || "N/A"}</div>
-                      <div><strong className="text-[#cbd5e1]">Contact Person:</strong> {supplierDetails.contactDetails || "N/A"}</div>
-                      <div><strong className="text-[#cbd5e1]">Sourcing Address:</strong> {supplierDetails.address || "N/A"}</div>
-                      <div><strong className="text-[#cbd5e1]">Last Order Date:</strong> {supplierDetails.summary.lastOrderDate === "-" ? "-" : new Date(supplierDetails.summary.lastOrderDate).toLocaleDateString()}</div>
-                    </div>
-                  </div>
-                )}
+                <p className="text-xs text-theme-muted mt-0.5 font-mono">
+                  Purchase &gt; Orders &gt; Create Purchase Order
+                </p>
               </div>
 
-              {/* Sourcing Core: Build Items Grid/Matrix */}
-              <div className="w-full lg:w-2/3 bg-theme-surface-1 p-5 rounded-xl border border-theme-divider space-y-6">
-                
-                <div className="flex items-center justify-between border-b border-theme-divider/60 pb-3">
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-indigo-400">2. SECURE COMPLIANT PRODUCT ENTRY</h3>
-                  
-                  {/* Sourcing input entry modes toggler */}
-                  <div className="bg-theme-surface-2 rounded-lg p-0.5 flex space-x-1 border border-theme-divider/60">
-                    <button
-                      onClick={() => setEntryMode("manual")}
-                      className={`px-3 py-1 text-[10px] font-bold tracking-wider uppercase rounded-md transition-all cursor-pointer ${
-                        entryMode === "manual" 
-                          ? "bg-indigo-600 text-white" 
-                          : "text-theme-muted hover:text-white"
-                      }`}
-                    >
-                      Barcode/Manual Variant
-                    </button>
-                    <button
-                      onClick={() => setEntryMode("matrix")}
-                      className={`px-3 py-1 text-[10px] font-bold tracking-wider uppercase rounded-md transition-all cursor-pointer ${
-                        entryMode === "matrix" 
-                          ? "bg-indigo-600 text-white" 
-                          : "text-theme-muted hover:text-white"
-                      }`}
-                    >
-                      Horizontal Size Matrix
-                    </button>
-                  </div>
-                </div>
-
-                {!selectedSupplierId ? (
-                  <div className="p-8 text-center bg-theme-surface-2 border border-dashed border-theme-divider rounded-xl text-theme-muted text-xs">
-                    Please identify a registered supplier from the left panel to begin compiling product purchase rows.
-                  </div>
-                ) : (
-                  <div>
-                    {/* BARCODE / MANUAL ENTRY MODE */}
-                    {entryMode === "manual" && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">SELECT VARIANT</label>
-                            <select
-                              value={manualProduct}
-                              onChange={(e) => handleProductSelection(e.target.value)}
-                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                            >
-                              <option value="">-- Choose item variant --</option>
-                              {products.map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} [{p.code}] - Color: {p.color || "N/A"}, Size: {p.size || "N/A"}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">QUANTITY</label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={manualQty}
-                              onChange={(e) => setManualQty(Math.max(1, parseInt(e.target.value) || 0))}
-                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">UNIT PURCHASE RATE (₹)</label>
-                            <div className="relative">
-                              <input
-                                type="number"
-                                min="0"
-                                value={manualPrice}
-                                onChange={(e) => {
-                                  setManualPrice(Math.max(0, parseFloat(e.target.value) || 0));
-                                  setManualPriceSource("Manual Override");
-                                }}
-                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                            {manualPriceSource && (
-                              <span className="text-[9px] text-indigo-300 font-mono mt-1 block tracking-tight uppercase">
-                                Rate Source: {manualPriceSource}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {manualProduct && (
-                          <div className="bg-theme-surface-2 p-3 rounded-lg border border-theme-divider/60 flex items-center justify-between">
-                            <div className="flex items-center space-x-2 text-indigo-300 text-[11px] font-mono">
-                              <Info className="w-4 h-4 text-indigo-400" />
-                              <span>Derived Tax Rate: <strong>{products.find(p => p.id === manualProduct)?.category === "Apparel" ? "12%" : "18%"} GST</strong></span>
-                              <span className="text-theme-muted">| Tax derives dynamically from product classification (Apparel/Footwear).</span>
-                            </div>
-                            <button
-                              onClick={handleAddManualItem}
-                              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                            >
-                              Add row
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* HORIZONTAL SIZE MATRIX ENTRY MODE */}
-                    {entryMode === "matrix" && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">BASE ARTICLE</label>
-                            <select
-                              value={matrixArticle}
-                              onChange={(e) => handleMatrixArticleSelection(e.target.value)}
-                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                            >
-                              <option value="">-- Choose Base Article --</option>
-                              {baseArticles.map(art => (
-                                <option key={art} value={art}>{art}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">COLOR</label>
-                            <select
-                              value={matrixColor}
-                              onChange={(e) => handleMatrixColorSelection(e.target.value)}
-                              disabled={!matrixArticle}
-                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                            >
-                              <option value="">-- Choose Color --</option>
-                              {availableColors.map(col => (
-                                <option key={col} value={col}>{col}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        {matrixArticle && matrixColor && (
-                          <div className="space-y-4 pt-2 border-t border-theme-divider/50">
-                            <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider">
-                              <h4 className="text-[9px] font-mono text-indigo-300 uppercase tracking-wider mb-3">VARIANT SIZE ALLOCATIONS MATRIX</h4>
-                              
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                                {matrixVariants.map(variant => (
-                                  <div key={variant.id} className="bg-theme-surface-1 p-2.5 rounded border border-theme-divider/60 flex flex-col items-center text-center">
-                                    <span className="text-[10px] font-mono text-theme-muted">Size {variant.size || "OS"}</span>
-                                    
-                                    {/* Calculated auto-price field */}
-                                    <input
-                                      type="number"
-                                      value={matrixPrices[variant.id] || ""}
-                                      onChange={(e) => {
-                                        const val = Math.max(0, parseFloat(e.target.value) || 0);
-                                        setMatrixPrices({ ...matrixPrices, [variant.id]: val });
-                                        setMatrixSources({ ...matrixSources, [variant.id]: "Manual Override" });
-                                      }}
-                                      className="w-full text-center bg-theme-surface-2 border border-theme-divider/60 rounded py-0.5 mt-1 text-[10px] text-indigo-200 focus:outline-none"
-                                      placeholder="₹ Price"
-                                      title={`Tax derived: ${variant.category === "Apparel" ? "12%" : "18%"} GST`}
-                                    />
-                                    <span className="text-[8px] text-theme-muted mt-0.5 block font-mono truncate max-w-full">
-                                      {matrixSources[variant.id] || "Calculating..."}
-                                    </span>
-
-                                    {/* Quantity field */}
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={matrixQuantities[variant.id] || ""}
-                                      placeholder="0"
-                                      onChange={(e) => {
-                                        const val = Math.max(0, parseInt(e.target.value) || 0);
-                                        setMatrixQuantities({
-                                          ...matrixQuantities,
-                                          [variant.id]: val
-                                        });
-                                      }}
-                                      className="w-full text-center bg-theme-surface-2 border border-emerald-500/40 rounded mt-2 py-1 text-xs text-theme-body focus:outline-none font-bold"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div className="flex justify-end">
-                              <button
-                                type="button"
-                                onClick={handleAddMatrixItems}
-                                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                              >
-                                Merge Matrix Allocations to Purchase Order
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+              <div className="flex items-center space-x-2 text-xs">
+                <button 
+                  onClick={() => onNotification("Print Preview", "Opening Purchase Order print preview...", "success")}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer"
+                >
+                  <Printer size={13} className="text-theme-muted" />
+                  <span>Print Preview</span>
+                </button>
+                <button 
+                  onClick={() => onNotification("Email", "Preparing Purchase Order email dispatch...", "success")}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer"
+                >
+                  <Mail size={13} className="text-theme-muted" />
+                  <span>Email</span>
+                </button>
+                <button 
+                  onClick={() => onNotification("Download PDF", "Generating Purchase Order PDF document...", "success")}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer"
+                >
+                  <Download size={13} className="text-theme-muted" />
+                  <span>Download PDF</span>
+                </button>
+                <button 
+                  onClick={() => onNotification("Pop Out", "Opening Create Purchase Order in popout window...", "success")}
+                  className="flex items-center space-x-3.5 py-1.5 rounded-lg bg-theme-primary text-white font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  <ExternalLink size={13} />
+                  <span>Pop Out</span>
+                </button>
+                <button className="p-1.5 rounded-lg border border-theme-border text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-colors cursor-pointer">
+                  <span className="material-symbols-outlined text-base block">more_vert</span>
+                </button>
               </div>
             </div>
 
-            {/* Current Sourcing Order Draft Ledger */}
-            {selectedSupplierId && (
-              <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-theme-divider/60 pb-3">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-indigo-400">3. DRAFT PURCHASE ORDER CONTRACT LINES</h4>
-                  <span className="text-[10px] text-theme-muted font-mono">Lines Count: {draftItems.length}</span>
+            {/* Top Cards Row: Supplier (B2B) + Order Information */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              
+              {/* Left Card: Supplier (B2B) */}
+              <div className="lg:col-span-1 bg-theme-surface-1 border border-theme-border rounded-xl p-4 space-y-3 shadow-xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+                    <span className="text-xs font-bold text-theme-body uppercase tracking-wide font-mono">Supplier (B2B)</span>
+                    <button 
+                      onClick={() => setActiveSubTab("suppliers")}
+                      className="text-xs font-bold text-theme-primary hover:underline flex items-center space-x-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">swap_horiz</span>
+                      <span>Change</span>
+                    </button>
+                  </div>
+
+                  <div className="pt-2 space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <h4 className="font-bold text-sm text-theme-body">Shree Balaji Distributors</h4>
+                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-mono font-bold px-1.5 py-0.2 rounded">
+                        SUP-B2B-0012
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-theme-muted font-mono">GSTIN: 27AABCS1234F1Z5</p>
+                    <p className="text-xs text-theme-muted leading-relaxed pt-0.5">
+                      Shop No. 12, Gala No. 5, Mohammed Ali Road, Mumbai - 400003, Maharashtra, India
+                    </p>
+                  </div>
                 </div>
 
-                {draftItems.length === 0 ? (
-                  <div className="p-12 text-center text-theme-muted text-xs">
-                    Draft items lines list is empty. Use the manual entry or horizontal size matrix above to populate order rows.
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="overflow-x-auto rounded-xl border border-theme-divider">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                            <th className="px-4 py-3">Variant / Code</th>
-                            <th className="px-4 py-3">Color/Size</th>
-                            <th className="px-4 py-3 text-right">Quantity</th>
-                            <th className="px-4 py-3 text-right">Purchase Price</th>
-                            <th className="px-4 py-3 text-right">GST %</th>
-                            <th className="px-4 py-3 text-right">GST Amount</th>
-                            <th className="px-4 py-3 text-right">Gross Total</th>
-                            <th className="px-4 py-3 text-center">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#2a3a5c]/40">
-                          {draftItems.map((item, index) => {
-                            const relatedProd = products.find(p => p.id === item.productId || p.code === item.code);
-                            const policyStr = localStorage.getItem("smriti_spif_display_policy");
-                            const showImage = policyStr ? JSON.parse(policyStr).showInPurchase : true;
-                            const hoverZoom = policyStr ? JSON.parse(policyStr).hoverZoom : true;
-                            const imageSize = (policyStr ? JSON.parse(policyStr).purchaseSize : "small") as "small" | "medium";
-
-                            return (
-                              <tr key={`${item.productId}-${index}`} className="hover:bg-theme-surface-3/20">
-                                <td className="px-4 py-3 font-semibold text-theme-body">
-                                  <div className="flex items-center space-x-3">
-                                    {showImage && relatedProd?.primaryImageUrl && (
-                                      <ProductImage
-                                        src={relatedProd.primaryImageUrl}
-                                        alt={item.name}
-                                        size={imageSize}
-                                        hoverZoom={hoverZoom}
-                                      />
-                                    )}
-                                    <div>
-                                      {item.name}
-                                      <span className="block text-[10px] text-theme-muted font-mono mt-0.5">{item.code}</span>
-                                    </div>
-                                  </div>
-                                </td>
-                              <td className="px-4 py-3">
-                                <span className="text-slate-300">{item.color || "N/A"}</span> • <span className="font-semibold text-theme-muted">{item.size || "OS"}</span>
-                              </td>
-                              <td className="px-4 py-3 text-right font-mono font-bold text-theme-body">{item.quantity}</td>
-                              <td className="px-4 py-3 text-right font-mono text-[#cbd5e1]">₹{item.price}</td>
-                              <td className="px-4 py-3 text-right">
-                                <span className="bg-indigo-950/60 text-indigo-300 border border-indigo-500/20 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold">
-                                  {item.taxRate}%
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right font-mono text-theme-muted">₹{item.taxAmount}</td>
-                              <td className="px-4 py-3 text-right font-mono font-bold text-emerald-400">₹{item.totalAmount}</td>
-                              <td className="px-4 py-3 text-center">
-                                <button
-                                  onClick={() => {
-                                    const updated = draftItems.filter((_, idx) => idx !== index);
-                                    setDraftItems(updated);
-                                    onNotification("Row Removed", "Deleted line item from order draft.", "success");
-                                  }}
-                                  className="p-1 text-rose-400 hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Sourcing Contract Properties & Execution */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-theme-surface-2 p-5 rounded-xl border border-theme-divider items-start">
-                      
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-[10px] font-mono text-theme-muted block mb-1">EXPECTED DELIVERY DATE</label>
-                          <input
-                            type="date"
-                            value={expectedDate}
-                            onChange={(e) => setExpectedDate(e.target.value)}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-mono text-theme-muted block mb-1">REMARKS & PROCUREMENT NOTE</label>
-                          <textarea
-                            value={draftRemarks}
-                            onChange={(e) => setDraftRemarks(e.target.value)}
-                            placeholder="Type any contract terms or reference notations..."
-                            rows={2}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 resize-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="bg-theme-surface-1 p-4 rounded-lg border border-theme-divider/60 space-y-2.5 font-mono text-xs">
-                        <h5 className="text-[10px] text-theme-muted uppercase font-bold tracking-wider mb-2">SUMMARY LEDGER METRICS</h5>
-                        <div className="flex justify-between">
-                          <span>Net Sourcing Total:</span>
-                          <span className="text-theme-body">₹{Math.round(draftSubtotal * 100) / 100}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Corporate GST Total:</span>
-                          <span className="text-theme-muted">₹{Math.round(draftTaxTotal * 100) / 100}</span>
-                        </div>
-                        <div className="border-t border-theme-divider/60 my-2 pt-2 flex justify-between text-sm font-bold">
-                          <span className="text-theme-body">Contract Grand Total:</span>
-                          <span className="text-emerald-400">₹{Math.round(draftGrandTotal * 100) / 100}</span>
-                        </div>
-                      </div>
-
-                      <div className="h-full flex flex-col justify-end">
-                        <button
-                          onClick={handleSavePurchaseOrder}
-                          disabled={!companyState}
-                          className={`w-full py-3.5 rounded-xl font-bold font-display text-sm flex items-center justify-center space-x-2 shadow-lg transition-colors cursor-pointer ${
-                            companyState 
-                              ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
-                              : "bg-[#2a3a5c] text-theme-muted cursor-not-allowed"
-                          }`}
-                        >
-                          <FileCheck className="w-5 h-5" />
-                          <span>Generate & Save Draft Contract</span>
-                        </button>
-                        <p className="text-[9px] text-theme-muted text-center mt-2 leading-relaxed">
-                          Saves as a Draft contract. Submitting the contract becomes a legally committed binding obligation with the supplier.
-                        </p>
-                      </div>
-
-                    </div>
-                  </div>
-                )}
+                <div className="pt-3 border-t border-theme-divider flex items-center justify-between text-xs font-mono">
+                  <span className="text-theme-muted">Credit Limit: <strong className="text-theme-body">₹25,00,000.00</strong></span>
+                  <span className="text-theme-muted">Available: <strong className="text-emerald-600 font-bold">₹12,75,650.00</strong></span>
+                </div>
               </div>
-            )}
+
+              {/* Right Card: Order Information Form Grid (8 Fields) */}
+              <div className="lg:col-span-2 bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <label className="text-theme-muted font-medium block mb-1">Order Type</label>
+                    <select 
+                      value={orderType}
+                      onChange={(e) => setOrderType(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs text-theme-body font-semibold focus:outline-none focus:border-theme-primary cursor-pointer"
+                    >
+                      <option value="Purchase Order">Purchase Order</option>
+                      <option value="Standard PO">Standard PO</option>
+                      <option value="Contract PO">Contract PO</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-theme-muted font-medium block mb-1">PO No.</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={poNo}
+                        onChange={(e) => setPoNo(e.target.value)}
+                        className="w-full bg-theme-surface-2 border border-theme-border rounded-lg pl-2.5 pr-7 py-1.5 text-xs text-theme-body font-mono font-semibold focus:outline-none focus:border-theme-primary"
+                      />
+                      <button className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-body">
+                        <span className="material-symbols-outlined text-sm block">settings</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-theme-muted font-medium block mb-1">PO Date</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={poDate}
+                        onChange={(e) => setPoDate(e.target.value)}
+                        className="w-full bg-theme-surface-2 border border-theme-border rounded-lg pl-2.5 pr-7 py-1.5 text-xs text-theme-body font-mono font-semibold focus:outline-none focus:border-theme-primary"
+                      />
+                      <Calendar size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-theme-muted font-medium block mb-1">Required By</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={requiredByDate}
+                        onChange={(e) => setRequiredByDate(e.target.value)}
+                        className="w-full bg-theme-surface-2 border border-theme-border rounded-lg pl-2.5 pr-7 py-1.5 text-xs text-theme-body font-mono font-semibold focus:outline-none focus:border-theme-primary"
+                      />
+                      <Calendar size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-theme-muted font-medium block mb-1">Currency</label>
+                    <select 
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs text-theme-body font-semibold focus:outline-none focus:border-theme-primary cursor-pointer"
+                    >
+                      <option value="INR - Indian Rupee">INR - Indian Rupee</option>
+                      <option value="USD - US Dollar">USD - US Dollar</option>
+                      <option value="EUR - Euro">EUR - Euro</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-theme-muted font-medium block mb-1">Price List</label>
+                    <select 
+                      value={priceList}
+                      onChange={(e) => setPriceList(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs text-theme-body font-semibold focus:outline-none focus:border-theme-primary cursor-pointer"
+                    >
+                      <option value="Default Purchase Price List">Default Purchase Price List</option>
+                      <option value="Wholesale Price List">Wholesale Price List</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-theme-muted font-medium block mb-1">Billing Address</label>
+                    <select 
+                      value={billingAddress}
+                      onChange={(e) => setBillingAddress(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs text-theme-body font-semibold focus:outline-none focus:border-theme-primary cursor-pointer"
+                    >
+                      <option value="Same as Supplier">Same as Supplier</option>
+                      <option value="Corporate Office">Corporate Office</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-theme-muted font-medium block mb-1">Delivery Address</label>
+                    <div className="relative">
+                      <select 
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        className="w-full bg-theme-surface-2 border border-theme-border rounded-lg pl-2.5 pr-7 py-1.5 text-xs text-theme-body font-semibold focus:outline-none focus:border-theme-primary cursor-pointer"
+                      >
+                        <option value="Main Warehouse">Main Warehouse</option>
+                        <option value="North Hub">North Hub</option>
+                        <option value="South Hub">South Hub</option>
+                      </select>
+                      <button className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-primary hover:underline">
+                        <Edit3 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Sub-Navigation Tabs Bar */}
+            <div className="bg-theme-surface-1 border border-theme-border rounded-xl px-4 py-1 flex items-center space-x-1 overflow-x-auto shadow-xs">
+              {[
+                { id: "items", label: "Items" },
+                { id: "terms", label: "Terms & Conditions" },
+                { id: "details", label: "Additional Details" },
+                { id: "attachments", label: "Attachments (0)" },
+                { id: "history", label: "History" },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setPoSubTab(tab.id as any)}
+                  className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    poSubTab === tab.id
+                      ? "bg-theme-selection text-theme-primary font-bold border border-theme-primary/30"
+                      : "text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Main Split Grid View (Left 3/4 + Right 1/4 Summary Sidebar) */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+              
+              {/* Left 3 Columns: Main Item Details & Configuration */}
+              <div className="lg:col-span-3 space-y-4">
+                
+                {/* Item Details Card */}
+                <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-theme-divider pb-2 gap-2 text-xs">
+                    <span className="font-bold text-theme-body font-mono uppercase tracking-wider text-[11px]">
+                      Item Details ({draftItems.length} Items)
+                    </span>
+
+                    <div className="flex items-center space-x-3">
+                      <button className="flex items-center space-x-1 text-theme-primary hover:underline font-semibold cursor-pointer">
+                        <Barcode size={13} />
+                        <span>Scan Barcode</span>
+                      </button>
+                      <button className="flex items-center space-x-1 text-theme-primary hover:underline font-semibold cursor-pointer">
+                        <Search size={13} />
+                        <span>Search Items</span>
+                      </button>
+                      <button className="flex items-center space-x-1 text-theme-primary hover:underline font-semibold cursor-pointer">
+                        <FileSpreadsheet size={13} />
+                        <span>Import Items</span>
+                      </button>
+                      <button className="flex items-center space-x-1 text-theme-muted hover:text-theme-body font-semibold cursor-pointer">
+                        <Sliders size={13} />
+                        <span>Column Settings</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 13-Column Item Table Grid */}
+                  <div className="overflow-x-auto border border-theme-border rounded-lg">
+                    <table className="w-full text-left text-xs border-collapse bg-theme-surface-1">
+                      <thead>
+                        <tr className="bg-theme-surface-2 text-theme-muted font-bold text-[10px] uppercase tracking-wider border-b border-theme-border">
+                          <th className="py-2.5 px-2.5 w-6 font-mono text-center">#</th>
+                          <th className="py-2.5 px-2.5 font-mono">Barcode</th>
+                          <th className="py-2.5 px-2.5 min-w-[150px]">Item / Description</th>
+                          <th className="py-2.5 px-2.5 font-mono">HSN</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono w-16">Qty</th>
+                          <th className="py-2.5 px-2.5 font-mono w-14">UOM</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[80px]">Rate (₹)</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono w-16">Disc %</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[70px]">Disc Amt (₹)</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[90px]">Taxable Value (₹)</th>
+                          <th className="py-2.5 px-2.5 font-mono w-20">GST %</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[80px]">GST Amt (₹)</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[90px]">Total (₹)</th>
+                          <th className="py-2.5 px-2.5 text-center w-14">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider text-[11px]">
+                        {draftItems.map((item, idx) => (
+                          <tr key={item.id || idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="py-2 px-2.5 font-mono text-theme-muted text-center">{idx + 1}</td>
+                            <td className="py-2 px-2.5 font-mono text-theme-body">{item.barcode}</td>
+                            <td className="py-2 px-2.5 font-bold text-theme-body">{item.name}</td>
+                            <td className="py-2 px-2.5 font-mono text-theme-muted">{item.hsn || "0902"}</td>
+                            <td className="py-2 px-2.5 text-right">
+                              <input 
+                                type="number" 
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => {
+                                  const val = Math.max(1, parseInt(e.target.value) || 1);
+                                  const updated = [...draftItems];
+                                  updated[idx].quantity = val;
+                                  const discAmt = (val * updated[idx].price * (updated[idx].discountPercent || 0)) / 100;
+                                  const taxable = (val * updated[idx].price) - discAmt;
+                                  const gstAmt = (taxable * (updated[idx].gstPercentage || 18)) / 100;
+                                  updated[idx].discountAmount = discAmt;
+                                  updated[idx].taxableValue = taxable;
+                                  updated[idx].gstAmount = gstAmt;
+                                  updated[idx].totalAmount = taxable + gstAmt;
+                                  setDraftItems(updated);
+                                }}
+                                className="w-14 text-right bg-theme-surface-2 border border-theme-border rounded px-1.5 py-0.5 font-mono font-bold text-theme-body focus:outline-none focus:border-theme-primary"
+                              />
+                            </td>
+                            <td className="py-2 px-2.5 font-mono text-theme-muted">PCS</td>
+                            <td className="py-2 px-2.5 text-right">
+                              <input 
+                                type="number" 
+                                min="0"
+                                value={item.price}
+                                onChange={(e) => {
+                                  const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                  const updated = [...draftItems];
+                                  updated[idx].price = val;
+                                  const discAmt = (updated[idx].quantity * val * (updated[idx].discountPercent || 0)) / 100;
+                                  const taxable = (updated[idx].quantity * val) - discAmt;
+                                  const gstAmt = (taxable * (updated[idx].gstPercentage || 18)) / 100;
+                                  updated[idx].discountAmount = discAmt;
+                                  updated[idx].taxableValue = taxable;
+                                  updated[idx].gstAmount = gstAmt;
+                                  updated[idx].totalAmount = taxable + gstAmt;
+                                  setDraftItems(updated);
+                                }}
+                                className="w-20 text-right bg-theme-surface-2 border border-theme-border rounded px-1.5 py-0.5 font-mono font-semibold text-theme-body focus:outline-none focus:border-theme-primary"
+                              />
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-mono">
+                              <input 
+                                type="number" 
+                                min="0"
+                                max="100"
+                                value={item.discountPercent || 0}
+                                onChange={(e) => {
+                                  const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                  const updated = [...draftItems];
+                                  updated[idx].discountPercent = val;
+                                  const discAmt = (updated[idx].quantity * updated[idx].price * val) / 100;
+                                  const taxable = (updated[idx].quantity * updated[idx].price) - discAmt;
+                                  const gstAmt = (taxable * (updated[idx].gstPercentage || 18)) / 100;
+                                  updated[idx].discountAmount = discAmt;
+                                  updated[idx].taxableValue = taxable;
+                                  updated[idx].gstAmount = gstAmt;
+                                  updated[idx].totalAmount = taxable + gstAmt;
+                                  setDraftItems(updated);
+                                }}
+                                className="w-14 text-right bg-theme-surface-2 border border-theme-border rounded px-1.5 py-0.5 font-mono text-theme-body focus:outline-none focus:border-theme-primary"
+                              />
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-mono text-theme-muted">
+                              {(item.discountAmount || 0).toFixed(2)}
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-mono font-semibold text-theme-body">
+                              {(item.taxableValue || (item.quantity * item.price)).toFixed(2)}
+                            </td>
+                            <td className="py-2 px-2.5 text-center">
+                              <select 
+                                value={`${item.gstPercentage || 18}%`}
+                                onChange={(e) => {
+                                  const gstVal = parseInt(e.target.value) || 18;
+                                  const updated = [...draftItems];
+                                  updated[idx].gstPercentage = gstVal;
+                                  const taxable = updated[idx].taxableValue || (updated[idx].quantity * updated[idx].price);
+                                  const gstAmt = (taxable * gstVal) / 100;
+                                  updated[idx].gstAmount = gstAmt;
+                                  updated[idx].totalAmount = taxable + gstAmt;
+                                  setDraftItems(updated);
+                                }}
+                                className="bg-theme-surface-2 border border-theme-border rounded px-1 py-0.5 font-mono text-xs text-theme-body cursor-pointer font-bold"
+                              >
+                                <option value="5%">5%</option>
+                                <option value="12%">12%</option>
+                                <option value="18%">18%</option>
+                                <option value="28%">28%</option>
+                              </select>
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-mono text-theme-muted">
+                              {(item.gstAmount || 0).toFixed(2)}
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-mono font-bold text-theme-body">
+                              {(item.totalAmount || 0).toFixed(2)}
+                            </td>
+                            <td className="py-2 px-2.5 text-center">
+                              <div className="flex items-center justify-center space-x-1">
+                                <button className="p-0.5 text-theme-muted hover:text-theme-primary cursor-pointer" title="Edit line">
+                                  <Edit size={12} />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setDraftItems(draftItems.filter((_, i) => i !== idx));
+                                    onNotification("Row Removed", "Deleted item line from purchase order.", "success");
+                                  }}
+                                  className="p-0.5 text-red-500 hover:text-red-700 cursor-pointer" 
+                                  title="Delete line"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Footer Stats & Add Row Button */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between pt-1 text-xs text-theme-muted gap-2">
+                    <button 
+                      onClick={() => {
+                        const newItem = {
+                          id: `item-${Date.now()}`,
+                          barcode: "8901030937299",
+                          name: "Sample Grocery Item",
+                          hsn: "0902",
+                          quantity: 10,
+                          uom: "PCS",
+                          price: 100.00,
+                          discountPercent: 0.00,
+                          discountAmount: 0.00,
+                          taxableValue: 1000.00,
+                          gstPercentage: 18,
+                          gstAmount: 180.00,
+                          totalAmount: 1180.00
+                        };
+                        setDraftItems([...draftItems, newItem]);
+                      }}
+                      className="flex items-center space-x-1 text-theme-primary font-bold hover:underline cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Add Row</span>
+                    </button>
+
+                    <span className="font-mono">Total Items: {draftItems.length}</span>
+                    <span className="font-mono font-bold text-theme-body">
+                      Total Quantity: {draftItems.reduce((acc, i) => acc + (i.quantity || 0), 0)} PCS
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Add Row Box */}
+                <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-2">
+                  <h4 className="font-bold text-xs text-theme-body uppercase tracking-wide font-mono">
+                    Quick Add Row
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end text-xs">
+                    <div className="md:col-span-2">
+                      <label className="text-theme-muted font-medium block mb-1">Barcode / Item</label>
+                      <div className="relative">
+                        <input 
+                          type="text" 
+                          value={quickAddBarcode}
+                          onChange={(e) => setQuickAddBarcode(e.target.value)}
+                          placeholder="Scan / Search item"
+                          className="w-full bg-theme-surface-2 border border-theme-border rounded-lg pl-2.5 pr-8 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary"
+                        />
+                        <Barcode size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-theme-muted font-medium block mb-1">Qty</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        value={quickAddQty}
+                        onChange={(e) => setQuickAddQty(parseInt(e.target.value) || 1)}
+                        className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs text-theme-body font-mono font-bold focus:outline-none focus:border-theme-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-theme-muted font-medium block mb-1">UOM</label>
+                      <select 
+                        value={quickAddUom}
+                        onChange={(e) => setQuickAddUom(e.target.value)}
+                        className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-xs text-theme-body font-mono font-semibold focus:outline-none focus:border-theme-primary cursor-pointer"
+                      >
+                        <option value="PCS">PCS</option>
+                        <option value="KG">KG</option>
+                        <option value="BOX">BOX</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-theme-muted font-medium block mb-1">Rate (₹)</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={quickAddRate}
+                        onChange={(e) => setQuickAddRate(parseFloat(e.target.value) || 0)}
+                        className="w-full text-right bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs text-theme-body font-mono font-semibold focus:outline-none focus:border-theme-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <button 
+                        onClick={() => {
+                          if (!quickAddBarcode) {
+                            onNotification("Item Required", "Enter barcode or item name to quick add.", "error");
+                            return;
+                          }
+                          const newItem = {
+                            id: `item-${Date.now()}`,
+                            barcode: quickAddBarcode,
+                            name: quickAddBarcode,
+                            hsn: "0902",
+                            quantity: quickAddQty,
+                            uom: quickAddUom,
+                            price: quickAddRate || 100,
+                            discountPercent: quickAddDisc || 0,
+                            discountAmount: 0,
+                            taxableValue: quickAddQty * (quickAddRate || 100),
+                            gstPercentage: 18,
+                            gstAmount: (quickAddQty * (quickAddRate || 100) * 18) / 100,
+                            totalAmount: (quickAddQty * (quickAddRate || 100)) * 1.18
+                          };
+                          setDraftItems([...draftItems, newItem]);
+                          setQuickAddBarcode("");
+                          setQuickAddRate(0);
+                          onNotification("Quick Add", `Item ${quickAddBarcode} added to order lines.`, "success");
+                        }}
+                        className="w-full bg-theme-primary hover:bg-theme-primary-hover text-white font-bold py-1.5 rounded-lg text-xs transition-colors cursor-pointer"
+                      >
+                        Add Item
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Configuration Panels (3 Columns) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  
+                  {/* Purchase Settings */}
+                  <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-3">
+                    <h4 className="font-bold text-xs text-theme-body uppercase tracking-wide font-mono">
+                      Purchase Settings
+                    </h4>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <label className="text-theme-muted font-medium block mb-1">Payment Terms</label>
+                        <select 
+                          value={paymentTerms}
+                          onChange={(e) => setPaymentTerms(e.target.value)}
+                          className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs text-theme-body font-semibold focus:outline-none focus:border-theme-primary cursor-pointer"
+                        >
+                          <option value="30 Days">30 Days</option>
+                          <option value="Immediate">Immediate</option>
+                          <option value="15 Days">15 Days</option>
+                          <option value="45 Days">45 Days</option>
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-theme-muted font-medium block mb-1">Transporter</label>
+                          <select 
+                            value={transporter}
+                            onChange={(e) => setTransporter(e.target.value)}
+                            className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-xs text-theme-body font-semibold focus:outline-none focus:border-theme-primary cursor-pointer"
+                          >
+                            <option value="Select Transporter">Select Transporter</option>
+                            <option value="VRL Logistics">VRL Logistics</option>
+                            <option value="TCI Express">TCI Express</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-theme-muted font-medium block mb-1">Freight</label>
+                          <input 
+                            type="number" 
+                            min="0"
+                            value={freightAmount}
+                            onChange={(e) => setFreightAmount(parseFloat(e.target.value) || 0)}
+                            className="w-full text-right bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-xs text-theme-body font-mono font-semibold focus:outline-none focus:border-theme-primary"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-theme-muted font-medium block mb-1">Shipping By</label>
+                          <select 
+                            value={shippingBy}
+                            onChange={(e) => setShippingBy(e.target.value)}
+                            className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-xs text-theme-body font-semibold focus:outline-none focus:border-theme-primary cursor-pointer"
+                          >
+                            <option value="Road">Road</option>
+                            <option value="Air">Air</option>
+                            <option value="Rail">Rail</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-theme-muted font-medium block mb-1">LR / GR No. (Optional)</label>
+                          <input 
+                            type="text" 
+                            value={lrGrNo}
+                            onChange={(e) => setLrGrNo(e.target.value)}
+                            placeholder="Enter LR / GR No."
+                            className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-xs text-theme-body font-mono focus:outline-none focus:border-theme-primary"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Other Charges */}
+                  <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-3">
+                    <h4 className="font-bold text-xs text-theme-body uppercase tracking-wide font-mono">
+                      Other Charges
+                    </h4>
+
+                    <div className="space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-theme-muted font-medium">Loading Charges</span>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={loadingCharges}
+                          onChange={(e) => setLoadingCharges(parseFloat(e.target.value) || 0)}
+                          className="w-24 text-right bg-theme-surface-2 border border-theme-border rounded px-2 py-1 text-xs text-theme-body font-mono font-semibold focus:outline-none focus:border-theme-primary"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-theme-muted font-medium">Unloading Charges</span>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={unloadingCharges}
+                          onChange={(e) => setUnloadingCharges(parseFloat(e.target.value) || 0)}
+                          className="w-24 text-right bg-theme-surface-2 border border-theme-border rounded px-2 py-1 text-xs text-theme-body font-mono font-semibold focus:outline-none focus:border-theme-primary"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-theme-muted font-medium">Other Charges</span>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={otherCharges}
+                          onChange={(e) => setOtherCharges(parseFloat(e.target.value) || 0)}
+                          className="w-24 text-right bg-theme-surface-2 border border-theme-border rounded px-2 py-1 text-xs text-theme-body font-mono font-semibold focus:outline-none focus:border-theme-primary"
+                        />
+                      </div>
+
+                      <div className="pt-1">
+                        <button className="text-xs text-theme-primary font-bold hover:underline flex items-center space-x-1 cursor-pointer">
+                          <Plus size={12} />
+                          <span>Add More Charges</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-2">
+                    <h4 className="font-bold text-xs text-theme-body uppercase tracking-wide font-mono">
+                      Notes
+                    </h4>
+
+                    <div className="relative text-xs">
+                      <textarea
+                        rows={4}
+                        value={draftRemarks}
+                        onChange={(e) => setDraftRemarks(e.target.value)}
+                        placeholder="Add purchase order notes here..."
+                        className="w-full bg-theme-surface-2 border border-theme-border rounded-lg p-2.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary resize-none"
+                      />
+                      <span className="absolute right-2 bottom-2 text-[10px] text-theme-muted font-mono">
+                        {draftRemarks.length}/500
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* Right 1 Column: Summary Sidebar */}
+              <div className="lg:col-span-1 space-y-4">
+                <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-4 sticky top-24">
+                  <h4 className="font-bold text-xs text-theme-body uppercase tracking-wider font-mono border-b border-theme-divider pb-2">
+                    Summary
+                  </h4>
+
+                  {/* Breakdown List */}
+                  <div className="space-y-2.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-theme-muted">Subtotal ({draftItems.length} Items)</span>
+                      <span className="text-theme-body font-mono font-semibold">
+                        ₹{(draftItems.reduce((acc, i) => acc + (i.quantity * i.price), 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-emerald-600">
+                      <span className="font-medium">Discount</span>
+                      <span className="font-mono font-bold">
+                        -₹{(draftItems.reduce((acc, i) => acc + (i.discountAmount || 0), 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-theme-muted">Other Charges</span>
+                      <span className="text-theme-body font-mono">
+                        ₹{(loadingCharges + unloadingCharges + otherCharges).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-theme-muted">Freight</span>
+                      <span className="text-theme-body font-mono">
+                        ₹{freightAmount.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-1 border-t border-theme-divider">
+                      <span className="text-theme-muted font-medium">Taxable Amount</span>
+                      <span className="text-theme-body font-mono font-semibold">
+                        ₹{(draftItems.reduce((acc, i) => acc + (i.taxableValue || (i.quantity * i.price)), 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-theme-muted font-medium">Total GST</span>
+                      <span className="text-theme-body font-mono font-semibold">
+                        ₹{(draftItems.reduce((acc, i) => acc + (i.gstAmount || 0), 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-theme-muted text-[11px]">
+                      <span>Round Off</span>
+                      <span className="font-mono">₹0.01</span>
+                    </div>
+                  </div>
+
+                  {/* Grand Total Dark Banner */}
+                  <div className="bg-[#1E293B] text-white p-3.5 rounded-xl flex items-center justify-between shadow-xs">
+                    <span className="text-xs font-bold font-mono uppercase tracking-wider">Grand Total</span>
+                    <span className="text-lg font-bold font-mono">
+                      ₹{(
+                        draftItems.reduce((acc, i) => acc + (i.totalAmount || 0), 0) + 
+                        freightAmount + loadingCharges + unloadingCharges + otherCharges
+                      ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* Amount in Words Box */}
+                  <div className="bg-theme-surface-2 p-3 rounded-lg border border-theme-border space-y-1 text-xs">
+                    <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider font-mono block">Amount in Words</span>
+                    <p className="text-xs text-theme-body font-medium leading-relaxed">
+                      Nineteen Thousand Five Hundred Thirty Nine Rupees and Fifty Paise Only
+                    </p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="space-y-2 pt-1">
+                    <button 
+                      onClick={() => onNotification("Draft Saved", "Purchase order saved as draft.", "success")}
+                      className="w-full py-2 border border-theme-border rounded-lg text-theme-body font-semibold text-xs flex items-center justify-center space-x-1 hover:bg-theme-surface-hover transition-colors cursor-pointer"
+                    >
+                      <span>Save as Draft</span>
+                      <ChevronDown size={13} />
+                    </button>
+
+                    <button 
+                      onClick={handleSavePurchaseOrder}
+                      disabled={isReadOnly}
+                      className={`w-full py-3 bg-theme-primary hover:bg-theme-primary-hover active:bg-blue-700 text-white font-bold rounded-lg text-xs shadow-md transition-colors flex items-center justify-center space-x-2 ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    >
+                      <FileCheck size={14} />
+                      <span>F12 Save & Submit</span>
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+
           </div>
         )}
 

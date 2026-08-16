@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.2
+ * * Version    : 3.25.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-08-16
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -127,7 +127,7 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
     } select-none`}>
       {/* Title & Status */}
       <div className="flex items-center space-x-2.5">
-        <span className="material-symbols-outlined text-blue-500 text-lg">
+        <span className="material-symbols-outlined text-theme-primary text-lg">
           {icon}
         </span>
         <h2 className="text-xs font-display font-semibold text-theme-body tracking-wide">
