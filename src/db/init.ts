@@ -236,6 +236,12 @@ async function seedFromFlatFile() {
  * Seeds default users (super, manager, cashier) into the PostgreSQL users table if empty.
  */
 export async function seedDefaultUsers() {
+  if (process.env.NODE_ENV === "production") {
+    console.warn(
+      "[SMRITI DB] Skipping default seed user creation in production environment. A real admin account must be created via POST /api/v1/auth/bootstrap instead."
+    );
+    return;
+  }
   const client = await pool.connect();
   try {
     // 1. Auto-provision default company and branch entities if missing

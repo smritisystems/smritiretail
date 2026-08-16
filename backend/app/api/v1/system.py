@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 """
 
 import re
+import json
 import uuid
 import secrets
 from datetime import datetime, timezone, timedelta
@@ -425,11 +426,24 @@ async def list_audit_logs(
 @router.get(
     "/layout/preferences",
 )
-async def get_layout_preferences():
+async def get_layout_preferences(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """
-    Return frontend layout preferences saved by the current session.
+    Return frontend layout preferences saved by the current authenticated user.
     """
-    return layout_preferences
+    if current_user.preferences_json:
+        try:
+            stored_prefs = json.loads(current_user.preferences_json)
+            if isinstance(stored_prefs, dict):
+                if "layout" in stored_prefs and isinstance(stored_prefs["layout"], dict):
+                    return stored_prefs["layout"]
+                if "sidebarWidth" in stored_prefs:
+                    return stored_prefs
+        except Exception:
+            pass
+    return DEFAULT_LAYOUT_PREFERENCES
 
 
 @router.post(
@@ -437,23 +451,42 @@ async def get_layout_preferences():
 )
 async def save_layout_preferences(
     payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Store UI layout preferences for the current backend instance.
+    Store UI layout preferences for the current authenticated user.
     """
-    global layout_preferences
+    existing_prefs = {}
+    if current_user.preferences_json:
+        try:
+            parsed = json.loads(current_user.preferences_json)
+            if isinstance(parsed, dict):
+                existing_prefs = parsed
+        except Exception:
+            existing_prefs = {}
 
-    layout_preferences = {
-        "position": payload.get("position", layout_preferences.get("position")),
-        "collapsed": bool(payload.get("collapsed", layout_preferences.get("collapsed", False))),
-        "iconOnly": bool(payload.get("iconOnly", payload.get("icon_only", layout_preferences.get("iconOnly", False)))),
-        "sidebarWidth": int(payload.get("sidebarWidth", payload.get("sidebar_width", layout_preferences.get("sidebarWidth", 260)))),
-        "lastWorkspace": payload.get("lastWorkspace", payload.get("last_workspace", layout_preferences.get("lastWorkspace", "dashboard"))),
-        "collapsedGroups": payload.get("collapsedGroups", payload.get("collapsed_groups", layout_preferences.get("collapsedGroups", []))) or [],
-        "favorites": payload.get("favorites", layout_preferences.get("favorites", ["pos", "sales"])) or ["pos", "sales"],
+    current_layout = existing_prefs.get("layout", DEFAULT_LAYOUT_PREFERENCES)
+    if not isinstance(current_layout, dict):
+        current_layout = DEFAULT_LAYOUT_PREFERENCES
+
+    new_layout = {
+        "position": payload.get("position", current_layout.get("position", "left")),
+        "collapsed": bool(payload.get("collapsed", current_layout.get("collapsed", False))),
+        "iconOnly": bool(payload.get("iconOnly", payload.get("icon_only", current_layout.get("iconOnly", False)))),
+        "sidebarWidth": int(payload.get("sidebarWidth", payload.get("sidebar_width", current_layout.get("sidebarWidth", 260)))),
+        "lastWorkspace": payload.get("lastWorkspace", payload.get("last_workspace", current_layout.get("lastWorkspace", "dashboard"))),
+        "collapsedGroups": payload.get("collapsedGroups", payload.get("collapsed_groups", current_layout.get("collapsedGroups", []))) or [],
+        "favorites": payload.get("favorites", current_layout.get("favorites", ["pos", "sales"])) or ["pos", "sales"],
     }
 
-    return {"success": True, "prefs": layout_preferences}
+    existing_prefs["layout"] = new_layout
+    current_user.preferences_json = json.dumps(existing_prefs)
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+
+    return {"success": True, "prefs": new_layout}
 
 
 @router.get(

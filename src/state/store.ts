@@ -229,140 +229,146 @@ export function migrateUsersAndSeedOrganizationData() {
     });
   }
 
-  // Seed default users if they don't exist
-  if (!users.find(u => u.username === "super")) {
-    users.push({
-      id: "usr-super",
-      userId: "usr-super",
-      employeeId: "EMP-001",
-      username: "super",
-      passwordHash: "whynothing", // Will be hashed in the self-healing block below
-      role: "Admin",
-      status: "Active",
-      photo: "",
-      fullName: "SYSTEM ADMINISTRATOR",
-      displayName: "Super",
-      employeeCode: "EMP-001",
-      gender: "Male",
-      dateOfBirth: "1980-01-01",
-      mobile: "9999999999",
-      email: "super@smritibooks.com",
-      emergencyContact: "",
-      address: "System Root",
-      city: "Mumbai",
-      state: "Maharashtra",
-      country: "India",
-      pinCode: "400001",
-      department: "Management",
-      designation: "Administrator",
-      branch: "HQ Store",
-      dateOfJoining: "2026-07-10",
-      reportingManager: "",
-      employmentType: "Permanent",
-      allowedBranches: ["HQ Store"],
-      preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" },
-      notificationSettings: {
-        salaryCredit: true,
-        commissionEarned: true,
-        targetAchievement: true,
-        travelClaimApproval: true,
-        leaveApproval: true,
-        attendanceAlerts: true,
-        holidayWeeklyOff: true,
-        birthdayAnniversary: true,
-        policyAnnouncements: true
-      }
-    });
-  }
+  // Seed default users if they don't exist (local/dev only)
+  if (process.env.NODE_ENV === "production") {
+    console.warn(
+      "[SMRITI Store] Skipping default seed user creation in production environment. A real admin account must be created via POST /api/v1/auth/bootstrap instead."
+    );
+  } else {
+    if (!users.find(u => u.username === "super")) {
+      users.push({
+        id: "usr-super",
+        userId: "usr-super",
+        employeeId: "EMP-001",
+        username: "super",
+        passwordHash: "whynothing", // Will be hashed in the self-healing block below
+        role: "Admin",
+        status: "Active",
+        photo: "",
+        fullName: "SYSTEM ADMINISTRATOR",
+        displayName: "Super",
+        employeeCode: "EMP-001",
+        gender: "Male",
+        dateOfBirth: "1980-01-01",
+        mobile: "9999999999",
+        email: "super@smritibooks.com",
+        emergencyContact: "",
+        address: "System Root",
+        city: "Mumbai",
+        state: "Maharashtra",
+        country: "India",
+        pinCode: "400001",
+        department: "Management",
+        designation: "Administrator",
+        branch: "HQ Store",
+        dateOfJoining: "2026-07-10",
+        reportingManager: "",
+        employmentType: "Permanent",
+        allowedBranches: ["HQ Store"],
+        preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" },
+        notificationSettings: {
+          salaryCredit: true,
+          commissionEarned: true,
+          targetAchievement: true,
+          travelClaimApproval: true,
+          leaveApproval: true,
+          attendanceAlerts: true,
+          holidayWeeklyOff: true,
+          birthdayAnniversary: true,
+          policyAnnouncements: true
+        }
+      });
+    }
 
-  if (!users.find(u => u.username === "manager")) {
-    users.push({
-      id: "usr-manager",
-      userId: "usr-manager",
-      employeeId: "EMP-002",
-      username: "manager",
-      passwordHash: "Password@123",
-      role: "Store Manager",
-      status: "Active",
-      photo: "",
-      fullName: "STORE MANAGER",
-      displayName: "Manager",
-      employeeCode: "EMP-002",
-      gender: "Male",
-      dateOfBirth: "1985-05-15",
-      mobile: "9876543210",
-      email: "manager@smritibooks.com",
-      emergencyContact: "",
-      address: "HQ Store Area",
-      city: "Mumbai",
-      state: "Maharashtra",
-      country: "India",
-      pinCode: "400001",
-      department: "Retail Operations",
-      designation: "Store Manager",
-      branch: "HQ Store",
-      dateOfJoining: "2026-07-10",
-      reportingManager: "",
-      employmentType: "Permanent",
-      allowedBranches: ["HQ Store"],
-      preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" },
-      notificationSettings: {
-        salaryCredit: true,
-        commissionEarned: true,
-        targetAchievement: true,
-        travelClaimApproval: true,
-        leaveApproval: true,
-        attendanceAlerts: true,
-        holidayWeeklyOff: true,
-        birthdayAnniversary: true,
-        policyAnnouncements: true
-      }
-    });
-  }
+    if (!users.find(u => u.username === "manager")) {
+      users.push({
+        id: "usr-manager",
+        userId: "usr-manager",
+        employeeId: "EMP-002",
+        username: "manager",
+        passwordHash: "Password@123",
+        role: "Store Manager",
+        status: "Active",
+        photo: "",
+        fullName: "STORE MANAGER",
+        displayName: "Manager",
+        employeeCode: "EMP-002",
+        gender: "Male",
+        dateOfBirth: "1985-05-15",
+        mobile: "9876543210",
+        email: "manager@smritibooks.com",
+        emergencyContact: "",
+        address: "HQ Store Area",
+        city: "Mumbai",
+        state: "Maharashtra",
+        country: "India",
+        pinCode: "400001",
+        department: "Retail Operations",
+        designation: "Store Manager",
+        branch: "HQ Store",
+        dateOfJoining: "2026-07-10",
+        reportingManager: "",
+        employmentType: "Permanent",
+        allowedBranches: ["HQ Store"],
+        preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" },
+        notificationSettings: {
+          salaryCredit: true,
+          commissionEarned: true,
+          targetAchievement: true,
+          travelClaimApproval: true,
+          leaveApproval: true,
+          attendanceAlerts: true,
+          holidayWeeklyOff: true,
+          birthdayAnniversary: true,
+          policyAnnouncements: true
+        }
+      });
+    }
 
-  if (!users.find(u => u.username === "cashier")) {
-    users.push({
-      id: "usr-cashier",
-      userId: "usr-cashier",
-      employeeId: "EMP-003",
-      username: "cashier",
-      passwordHash: "cashier123",
-      role: "Cashier",
-      status: "Active",
-      photo: "",
-      fullName: "CASHIER OPERATOR",
-      displayName: "Cashier",
-      employeeCode: "EMP-003",
-      gender: "Female",
-      dateOfBirth: "1992-08-20",
-      mobile: "9876543211",
-      email: "cashier@smritibooks.com",
-      emergencyContact: "",
-      address: "Billing Counter 1",
-      city: "Mumbai",
-      state: "Maharashtra",
-      country: "India",
-      pinCode: "400001",
-      department: "Billing Desk",
-      designation: "Cashier",
-      branch: "HQ Store",
-      dateOfJoining: "2026-07-10",
-      reportingManager: "",
-      employmentType: "Permanent",
-      allowedBranches: ["HQ Store"],
-      preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" },
-      notificationSettings: {
-        salaryCredit: true,
-        commissionEarned: true,
-        targetAchievement: true,
-        travelClaimApproval: true,
-        leaveApproval: true,
-        attendanceAlerts: true,
-        holidayWeeklyOff: true,
-        birthdayAnniversary: true,
-        policyAnnouncements: true
-      }
-    });
+    if (!users.find(u => u.username === "cashier")) {
+      users.push({
+        id: "usr-cashier",
+        userId: "usr-cashier",
+        employeeId: "EMP-003",
+        username: "cashier",
+        passwordHash: "cashier123",
+        role: "Cashier",
+        status: "Active",
+        photo: "",
+        fullName: "CASHIER OPERATOR",
+        displayName: "Cashier",
+        employeeCode: "EMP-003",
+        gender: "Female",
+        dateOfBirth: "1992-08-20",
+        mobile: "9876543211",
+        email: "cashier@smritibooks.com",
+        emergencyContact: "",
+        address: "Billing Counter 1",
+        city: "Mumbai",
+        state: "Maharashtra",
+        country: "India",
+        pinCode: "400001",
+        department: "Billing Desk",
+        designation: "Cashier",
+        branch: "HQ Store",
+        dateOfJoining: "2026-07-10",
+        reportingManager: "",
+        employmentType: "Permanent",
+        allowedBranches: ["HQ Store"],
+        preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" },
+        notificationSettings: {
+          salaryCredit: true,
+          commissionEarned: true,
+          targetAchievement: true,
+          travelClaimApproval: true,
+          leaveApproval: true,
+          attendanceAlerts: true,
+          holidayWeeklyOff: true,
+          birthdayAnniversary: true,
+          policyAnnouncements: true
+        }
+      });
+    }
   }
 
   // 1. Seed Company if empty
