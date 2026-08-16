@@ -82,3 +82,7 @@ frontend_backend_route_audit2.json
 *.bak
 desktop.ini
 served_bundle.js
+
+# Local MCP Configurations with API Keys
+.agents/mcp_config.json
+
