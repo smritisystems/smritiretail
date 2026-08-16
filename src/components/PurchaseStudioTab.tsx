@@ -886,7 +886,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           onClick={() => setActiveSubTab("create")}
           className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
             activeSubTab === "create"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
+              ? "bg-theme-primary text-theme-body border-transparent shadow-md"
               : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -898,7 +898,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           onClick={() => setActiveSubTab("suppliers")}
           className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
             activeSubTab === "suppliers"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
+              ? "bg-theme-primary text-theme-body border-transparent shadow-md"
               : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -910,7 +910,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           onClick={() => setActiveSubTab("reorder")}
           className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all relative cursor-pointer ${
             activeSubTab === "reorder"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
+              ? "bg-theme-primary text-theme-body border-transparent shadow-md"
               : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -927,7 +927,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           onClick={() => setActiveSubTab("receive")}
           className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
             activeSubTab === "receive"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
+              ? "bg-theme-primary text-theme-body border-transparent shadow-md"
               : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -939,7 +939,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           onClick={() => setActiveSubTab("reports")}
           className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
             activeSubTab === "reports"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
+              ? "bg-theme-primary text-theme-body border-transparent shadow-md"
               : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -1706,7 +1706,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                   </div>
 
                   {/* Grand Total Dark Banner */}
-                  <div className="bg-[#1E293B] text-white p-3.5 rounded-xl flex items-center justify-between shadow-xs">
+                  <div className="bg-theme-banner-dark text-white p-3.5 rounded-xl flex items-center justify-between shadow-xs">
                     <span className="text-xs font-bold font-mono uppercase tracking-wider">Grand Total</span>
                     <span className="text-lg font-bold font-mono">
                       ₹{(
@@ -1785,7 +1785,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                     setSupplierSearchQuery(e.target.value);
                     fetchSuppliers(e.target.value);
                   }}
-                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-4 py-2 text-xs text-theme-body placeholder-[#8892a4] focus:outline-none focus:border-blue-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-4 py-2 text-xs text-theme-body placeholder-theme-placeholder focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -1829,7 +1829,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               
               {!isEditingSupplier && !supplierDetails && (
                 <div className="p-12 text-center text-theme-muted text-xs h-full flex flex-col items-center justify-center">
-                  <User className="w-12 h-12 text-[#2a3a5c] mb-3" />
+                  <User className="w-12 h-12 text-theme-purchase-border mb-3" />
                   Select a supplier variant from the registry to inspect profile metrics, historical summaries and outstanding bounds, or click "Add Vendor" to onboard a new sourcing partner.
                 </div>
               )}
@@ -2077,7 +2077,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         <th className="px-4 py-3 text-right">Est Purchase Rate</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#2a3a5c]/40">
+                    <tbody className="divide-y divide-theme-purchase-border/40">
                       {reorderSuggestions.map(s => (
                         <tr
                           key={s.productId}
@@ -2213,7 +2213,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               
               {!selectedPO ? (
                 <div className="p-12 text-center text-theme-muted text-xs h-full flex flex-col items-center justify-center">
-                  <Truck className="w-12 h-12 text-[#2a3a5c] mb-3" />
+                  <Truck className="w-12 h-12 text-theme-purchase-border mb-3" />
                   Identify a confirmed PO on the left panel to register physical stock dispatches and reconcile arrivals into SMRITI inventories.
                 </div>
               ) : (
@@ -2244,7 +2244,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                             <th className="px-4 py-3 text-right w-36">Arrived Today Qty</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#2a3a5c]/40">
+                        <tbody className="divide-y divide-theme-purchase-border/40">
                           {selectedPO.items.map((item: any) => {
                             const pending = item.quantity - item.receivedQuantity;
                             return (
@@ -2253,7 +2253,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                                   {item.name}
                                   <span className="block text-[10px] text-theme-muted font-mono mt-0.5">{item.code}</span>
                                 </td>
-                                <td className="px-4 py-3 text-right font-mono text-[#cbd5e1]">{item.quantity} units</td>
+                                <td className="px-4 py-3 text-right font-mono text-theme-purchase-subtext">{item.quantity} units</td>
                                 <td className="px-4 py-3 text-right font-mono text-emerald-400">{item.receivedQuantity} units</td>
                                 <td className="px-4 py-3 text-right font-mono font-bold text-amber-300">{pending} units</td>
                                 <td className="px-4 py-3 text-right">
@@ -2379,7 +2379,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         <th className="px-4 py-3 text-center">Authorized Sourcing Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#2a3a5c]/40">
+                    <tbody className="divide-y divide-theme-purchase-border/40">
                       {purchaseOrders.map(po => (
                         <tr key={po.id} className="hover:bg-theme-surface-3/20">
                           <td className="px-4 py-3 font-bold font-mono text-theme-body">{po.orderNo}</td>
@@ -2496,7 +2496,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                           <th className="px-3 py-2.5 text-center">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#2a3a5c]/40 font-mono">
+                      <tbody className="divide-y divide-theme-purchase-border/40 font-mono">
                         {outstandingReport.map(r => (
                           <tr key={r.supplierId} className="hover:bg-theme-surface-3/20">
                             <td className="px-3 py-2.5 font-sans font-bold text-theme-body text-xs">{r.name}</td>
@@ -2560,7 +2560,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                           <th className="px-3 py-2.5 text-center">Suppliers</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#2a3a5c]/40 font-mono text-[11px]">
+                      <tbody className="divide-y divide-theme-purchase-border/40 font-mono text-[11px]">
                         {pendingDeliveryReport.map(item => (
                           <tr key={item.productId} className="hover:bg-theme-surface-3/20">
                             <td className="px-3 py-2.5 font-sans font-semibold text-theme-body">
@@ -2588,7 +2588,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
       {/* AMENDMENT POPUP MODAL */}
       {amendPO && (
-        <div className="fixed inset-0 bg-[#070b19]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-theme-overlay/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95">
             <div className="bg-theme-surface-2 p-5 border-b border-theme-divider flex justify-between items-center">
               <div>
@@ -2627,7 +2627,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         <th className="px-4 py-2.5 text-right w-40">Amended Target Qty</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#2a3a5c]/40">
+                    <tbody className="divide-y divide-theme-purchase-border/40">
                       {amendPO.items.map((item: any) => (
                         <tr key={item.productId} className="hover:bg-theme-surface-3/20">
                           <td className="px-4 py-2.5 font-semibold text-theme-body">
@@ -2678,7 +2678,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
       {/* PAYMENT MODAL */}
       {payModalPO && (
-        <div className="fixed inset-0 bg-[#070b19]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-theme-overlay/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95">
             <div className="bg-theme-surface-2 p-5 border-b border-theme-divider flex justify-between items-center">
               <div>
