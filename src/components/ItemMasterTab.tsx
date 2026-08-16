@@ -43,6 +43,7 @@ interface ItemMasterTabProps {
   onRefreshProducts: () => Promise<void>;
   onNotification: (title: string, message: string, type?: "success" | "error") => void;
   currentUser?: { role: string; name: string } | null;
+  initialSubTab?: TabType;
 }
 
 type TabType = "registry" | "excel-grid" | "attributes" | "templates" | "bulk" | "analytics" | "barcode-mapping" | "label-printing";
@@ -53,11 +54,12 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   products, 
   onRefreshProducts, 
   onNotification,
-  currentUser
+  currentUser,
+  initialSubTab = "registry"
 }) => {
   const { openMenu } = useACAS();
   const isReadOnly = currentUser?.role === "Report User";
-  const [activeTab, setActiveTab] = useState<TabType>("registry");
+  const [activeTab, setActiveTab] = useState<TabType>(initialSubTab);
   const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [density, setDensity] = useState<"compact" | "comfortable" | "relaxed">("comfortable");

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.0
+ * Version      : 3.17.0
  * Created      : 2026-07-13
- * Modified     : 2026-07-13
+ * Modified     : 2026-08-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -15,9 +15,14 @@ import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { 
   FileSpreadsheet, Plus, Trash2, CheckCircle2, Keyboard,
-  ClipboardCopy, ChevronDown, ChevronUp, Info
+  ClipboardCopy, ChevronDown, ChevronUp, Info, AlertTriangle, XCircle, Check, X, BookMarked
 } from "lucide-react";
 import { AttributeGroup, AttributeDefinition } from "../types.js";
+import { defaultHeaderMappingEngine, HeaderMappingEngine } from "../lib/headerMapping/HeaderMappingEngine";
+import { getSmritiItemMasterFields } from "../lib/headerMapping/HeaderAliasRegistry";
+import { HeaderMappingEngineResult, ColumnMappingResult } from "../lib/headerMapping/types";
+import { HeaderMappingPreviewModal } from "./HeaderMappingPreviewModal";
+import { HeaderAliasManagerModal } from "./HeaderAliasManagerModal";
 
 interface ExcelGridEntrySectionProps {
   onRefreshProducts: () => Promise<void>;
@@ -28,20 +33,23 @@ interface GridRow {
   code: string;
   name: string;
   barcode: string;
-  costPrice: string;
-  price: string;
-  mrp: string;
-  gstPercentage: string;
-  stock: string;
   brand: string;
-  styleCode: string;
   category: string;
+  subCategory: string;
+  size: string;
+  colour: string;
   hsnCode: string;
+  gstPercentage: string;
+  price: string;
+  uom: string;
+  mrp: string;
+  costPrice: string;
+  stock: string;
+  styleCode: string;
   vendorCode: string;
   purchaseClass: string;
   department: string;
   merchandiseCategory: string;
-  subCategory: string;
   gender: string;
   heels: string;
   upperMaterial: string;
@@ -61,160 +69,18 @@ interface FieldConfig {
 const FIELD_CONFIG_STORAGE_KEY = "smriti_excel_import_field_configs";
 
 const defaultFieldConfigs: FieldConfig[] = [
-  {
-    key: "code",
-    label: "SKU Code",
-    required: true,
-    aliases: ["Product Style Code", "Style Code", "SKU Code", "SKU", "Code", "Product Code", "Product Style"],
-    editable: false,
-  },
-  {
-    key: "name",
-    label: "Item Name",
-    required: true,
-    aliases: ["Item Name", "Description", "Item Description", "Name", "Product Name"],
-    editable: false,
-  },
-  {
-    key: "barcode",
-    label: "Barcode",
-    required: true,
-    aliases: ["Barcode", "Barcode No", "Barcode Number", "UPC", "EAN"],
-    editable: false,
-  },
-  {
-    key: "costPrice",
-    label: "Buy Cost",
-    required: false,
-    aliases: ["Buy Cost", "Cost Price", "Buying Price", "Cost", "Buy"],
-    editable: true,
-  },
-  {
-    key: "price",
-    label: "Selling Price",
-    required: false,
-    aliases: ["Selling Price", "Selling", "Price", "Plate Rate"],
-    editable: true,
-  },
-  {
-    key: "mrp",
-    label: "MRP",
-    required: false,
-    aliases: ["MRP", "Max Retail Price", "MRP Price", "Plate Rate or MRP"],
-    editable: true,
-  },
-  {
-    key: "gstPercentage",
-    label: "GST %",
-    required: false,
-    aliases: ["GST %", "GST Percentage", "Tax", "Product Tax", "GST"],
-    editable: true,
-  },
-  {
-    key: "stock",
-    label: "Stock",
-    required: false,
-    aliases: ["Initial Stock", "Stock", "Qty", "Quantity"],
-    editable: true,
-  },
-  {
-    key: "brand",
-    label: "Brand Name",
-    required: false,
-    aliases: ["Brand", "Brand Name", "Manufacturer", "Label"],
-    editable: true,
-  },
-  {
-    key: "styleCode",
-    label: "Product Style Code",
-    required: false,
-    aliases: ["Product Style Code", "Style Code", "StyleCode", "Product Code"],
-    editable: true,
-  },
-  {
-    key: "category",
-    label: "Category",
-    required: false,
-    aliases: ["Category", "Merchandise Category", "Product Category", "Department"],
-    editable: true,
-  },
-  {
-    key: "hsnCode",
-    label: "HSN Code",
-    required: false,
-    aliases: ["HSN Code", "HSN", "HSN/SAC", "HSNCode"],
-    editable: true,
-  },
-  {
-    key: "vendorCode",
-    label: "Vendor Code",
-    required: false,
-    aliases: ["Vendor Code", "Vendor", "Supplier Code", "VendorID"],
-    editable: true,
-  },
-  {
-    key: "purchaseClass",
-    label: "Purchase Class",
-    required: false,
-    aliases: ["Purchase Class", "PurchaseType", "Buying Class", "Purchase Category"],
-    editable: true,
-  },
-  {
-    key: "department",
-    label: "Department",
-    required: false,
-    aliases: ["Department", "Division", "Store Department"],
-    editable: true,
-  },
-  {
-    key: "merchandiseCategory",
-    label: "Merchandise Category",
-    required: false,
-    aliases: ["Merchandise Category", "Merchandise", "Merch Category", "Sub Category"],
-    editable: true,
-  },
-  {
-    key: "subCategory",
-    label: "Sub Category",
-    required: false,
-    aliases: ["Sub Category", "Sub-category", "Subcategory", "Segment"],
-    editable: true,
-  },
-  {
-    key: "gender",
-    label: "Gender",
-    required: false,
-    aliases: ["Gender", "Gender Code", "Sex"],
-    editable: true,
-  },
-  {
-    key: "heels",
-    label: "Heels",
-    required: false,
-    aliases: ["Heels", "Heel Type", "Heel"],
-    editable: true,
-  },
-  {
-    key: "upperMaterial",
-    label: "Upper Material",
-    required: false,
-    aliases: ["Upper Material", "UpperMaterial", "Upper", "Upper Shoe Material"],
-    editable: true,
-  },
-  {
-    key: "outsole",
-    label: "Outsole",
-    required: false,
-    aliases: ["Outsole", "Outer Sole", "Sole", "Out Sole"],
-    editable: true,
-  },
-  {
-    key: "imageLink",
-    label: "Image Link",
-    required: false,
-    aliases: ["Image Link", "Image URL", "Picture", "Image", "ImagePath"],
-    editable: true,
-  },
+  { key: "code", label: "SKU CODE", required: true, aliases: ["Product Style Code", "Style Code", "SKU Code", "SKU", "Code", "Product Code"], editable: false },
+  { key: "name", label: "ITEM NAME", required: true, aliases: ["Item Name", "Description", "Item Description", "Name", "Product Name"], editable: false },
+  { key: "barcode", label: "BARCODE", required: true, aliases: ["Barcode", "Barcode No", "Barcode Number", "UPC", "EAN"], editable: false },
+  { key: "brand", label: "BRAND", required: false, aliases: ["Brand", "Brand Name", "Manufacturer", "Label"], editable: true },
+  { key: "category", label: "CATEGORY", required: true, aliases: ["Category", "Merchandise Category", "Product Category", "Department"], editable: true },
+  { key: "subCategory", label: "SUB CATEGORY", required: false, aliases: ["Sub Category", "Sub-category", "Subcategory", "Segment"], editable: true },
+  { key: "size", label: "SIZE", required: false, aliases: ["Size", "Product Size", "Item Size"], editable: true },
+  { key: "colour", label: "COLOUR", required: false, aliases: ["Colour", "Color", "Item Colour", "Product Colour"], editable: true },
+  { key: "hsnCode", label: "HSN CODE", required: true, aliases: ["HSN Code", "HSN", "HSN/SAC", "HSNCode"], editable: true },
+  { key: "gstPercentage", label: "GST %", required: true, aliases: ["GST %", "GST Percentage", "Tax", "Product Tax", "GST"], editable: true },
+  { key: "price", label: "SELLING PRICE", required: true, aliases: ["Selling Price", "Selling", "Price", "Plate Rate"], editable: true },
+  { key: "uom", label: "UOM", required: false, aliases: ["UOM", "Unit", "Unit of Measure"], editable: true },
 ];
 
 export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
@@ -229,6 +95,32 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(defaultFieldConfigs);
+  const [isMappingModalOpen, setIsMappingModalOpen] = useState(false);
+  const [pendingMappingEngineResult, setPendingMappingEngineResult] = useState<HeaderMappingEngineResult | null>(null);
+  const [pendingMatrix, setPendingMatrix] = useState<string[][] | null>(null);
+  const [pendingHeaderRowIndex, setPendingHeaderRowIndex] = useState(0);
+  const [pendingSampleRows, setPendingSampleRows] = useState<string[][]>([]);
+  const [lastMappingSummary, setLastMappingSummary] = useState<{ mapped: number; review: number; ignored: number } | null>(null);
+  const [customAttrs, setCustomAttrs] = useState<{ key: string; label: string }[]>([]);
+  const [showAddAttrModal, setShowAddAttrModal] = useState(false);
+  const [newAttrLabelInput, setNewAttrLabelInput] = useState("");
+  const [showAliasManagerModal, setShowAliasManagerModal] = useState(false);
+
+  const handleAddCustomAttribute = () => {
+    if (!newAttrLabelInput.trim()) return;
+    const cleanLabel = newAttrLabelInput.trim();
+    const cleanKey = cleanLabel.toLowerCase().replace(/[^a-z0-9]/g, "_");
+
+    if (customAttrs.some(c => c.key === cleanKey)) {
+      onNotification("Attribute Exists", `Attribute "${cleanLabel}" already exists in spreadsheet grid.`, "error");
+      return;
+    }
+
+    setCustomAttrs(prev => [...prev, { key: cleanKey, label: cleanLabel }]);
+    setNewAttrLabelInput("");
+    setShowAddAttrModal(false);
+    onNotification("Attribute Added", `Added custom attribute column "${cleanLabel}" to grid.`, "success");
+  };
 
   const updateFieldConfig = (key: string, patch: Partial<FieldConfig>) => {
     const nextConfigs = fieldConfigs.map((config) =>
@@ -257,10 +149,8 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     }
   }, []);
 
-  // Core columns
   const coreCols = fieldConfigs;
 
-  // Fetch groups and definitions on mount
   useEffect(() => {
     const loadMetadata = async () => {
       try {
@@ -285,49 +175,158 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     ? activeGroup.attributeIds.map(aid => definitions.find(d => d.id === aid)).filter((d): d is AttributeDefinition => !!d)
     : [];
 
-  const allFieldKeys = [
-    ...coreCols.map(c => c.key),
-    ...activeAttrs.map(a => `attr_${a.name}`)
-  ];
-
-  // Initialize spreadsheet with blank rows
-  useEffect(() => {
-    resetGrid();
-  }, [selectedGroupId]);
+  const createBlankRow = (): GridRow => ({
+    code: "",
+    name: "",
+    barcode: "",
+    brand: "",
+    category: "Apparel",
+    subCategory: "Men",
+    size: "",
+    colour: "",
+    hsnCode: "",
+    gstPercentage: "18",
+    price: "",
+    uom: "Pcs",
+    mrp: "",
+    costPrice: "",
+    stock: "",
+    styleCode: "",
+    vendorCode: "",
+    purchaseClass: "Standard",
+    department: "",
+    merchandiseCategory: "",
+    gender: "",
+    heels: "",
+    upperMaterial: "",
+    outsole: "",
+    imageLink: "",
+    attributes: {}
+  });
 
   const resetGrid = () => {
-    const initialRows: GridRow[] = Array.from({ length: 5 }, () => createBlankRow());
+    const initialRows: GridRow[] = [
+      {
+        code: "SKU-0001",
+        name: "Cotton T-Shirt",
+        barcode: "8901234567890",
+        brand: "SMRITI",
+        category: "Apparel",
+        subCategory: "Men",
+        size: "M",
+        colour: "Blue",
+        hsnCode: "61091000",
+        gstPercentage: "18",
+        price: "599.00",
+        uom: "Pcs",
+        mrp: "599.00",
+        costPrice: "350.00",
+        stock: "50",
+        styleCode: "TS-01",
+        vendorCode: "VND-101",
+        purchaseClass: "Standard",
+        department: "Apparel",
+        merchandiseCategory: "T-Shirts",
+        gender: "Men",
+        heels: "",
+        upperMaterial: "Cotton",
+        outsole: "",
+        imageLink: "",
+        attributes: {}
+      },
+      {
+        code: "SKU-0002",
+        name: "Denim Jeans",
+        barcode: "8901234567891",
+        brand: "SMRITI",
+        category: "Apparel",
+        subCategory: "Men",
+        size: "32",
+        colour: "Blue",
+        hsnCode: "62034200",
+        gstPercentage: "18",
+        price: "1,299.00",
+        uom: "Pcs",
+        mrp: "1,299.00",
+        costPrice: "750.00",
+        stock: "40",
+        styleCode: "JN-02",
+        vendorCode: "VND-101",
+        purchaseClass: "Standard",
+        department: "Apparel",
+        merchandiseCategory: "Jeans",
+        gender: "Men",
+        heels: "",
+        upperMaterial: "Denim",
+        outsole: "",
+        imageLink: "",
+        attributes: {}
+      },
+      {
+        code: "SKU-0003",
+        name: "Women Top",
+        barcode: "8901234567892",
+        brand: "SMRITI",
+        category: "Apparel",
+        subCategory: "Women",
+        size: "L",
+        colour: "Pink",
+        hsnCode: "61099020",
+        gstPercentage: "18",
+        price: "499.00",
+        uom: "Pcs",
+        mrp: "499.00",
+        costPrice: "280.00",
+        stock: "30",
+        styleCode: "TP-03",
+        vendorCode: "VND-102",
+        purchaseClass: "Standard",
+        department: "Apparel",
+        merchandiseCategory: "Tops",
+        gender: "Women",
+        heels: "",
+        upperMaterial: "Silk Blend",
+        outsole: "",
+        imageLink: "",
+        attributes: {}
+      },
+      {
+        code: "SKU-0004",
+        name: "Running Shoes",
+        barcode: "8901234567893",
+        brand: "SMRITI",
+        category: "Footwear",
+        subCategory: "Men",
+        size: "8",
+        colour: "Black",
+        hsnCode: "64041990",
+        gstPercentage: "12",
+        price: "2,199.00",
+        uom: "Pcs",
+        mrp: "2,199.00",
+        costPrice: "1,350.00",
+        stock: "25",
+        styleCode: "SH-04",
+        vendorCode: "VND-103",
+        purchaseClass: "Standard",
+        department: "Footwear",
+        merchandiseCategory: "Shoes",
+        gender: "Men",
+        heels: "Flat",
+        upperMaterial: "Mesh Synthetic",
+        outsole: "TPR Rubber",
+        imageLink: "",
+        attributes: {}
+      },
+      createBlankRow()
+    ];
     setRows(initialRows);
     setFocusedCell(null);
   };
 
-  const createBlankRow = (): GridRow => {
-    return {
-      code: "",
-      name: "",
-      barcode: "",
-      costPrice: "",
-      price: "",
-      mrp: "",
-      gstPercentage: "18",
-      stock: "",
-      brand: "",
-      styleCode: "",
-      category: "",
-      hsnCode: "",
-      vendorCode: "",
-      purchaseClass: "",
-      department: "",
-      merchandiseCategory: "",
-      subCategory: "",
-      gender: "",
-      heels: "",
-      upperMaterial: "",
-      outsole: "",
-      imageLink: "",
-      attributes: {}
-    };
-  };
+  useEffect(() => {
+    resetGrid();
+  }, [selectedGroupId]);
 
   const handleAddRow = () => {
     setRows(prev => [...prev, createBlankRow()]);
@@ -341,6 +340,108 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     setRows(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const handleDuplicateRow = (idx: number) => {
+    setRows(prev => {
+      const target = prev[idx];
+      if (!target) return prev;
+      const copyRow: GridRow = {
+        ...target,
+        code: target.code ? `${target.code}-DUP` : "",
+        barcode: target.barcode ? `${target.barcode}1` : "",
+        attributes: { ...target.attributes },
+      };
+      const updated = [...prev];
+      updated.splice(idx + 1, 0, copyRow);
+      return updated;
+    });
+  };
+
+  const getRowStatus = (row: GridRow) => {
+    const isFilled = row.code.trim() !== "" || row.name.trim() !== "" || row.barcode.trim() !== "";
+    if (!isFilled) return { status: "empty", label: "--", color: "text-slate-400" };
+
+    if (!row.code.trim() || !row.name.trim() || !row.barcode.trim()) {
+      return { status: "error", label: "Error", color: "bg-rose-50 text-rose-700 border border-rose-200" };
+    }
+
+    if (row.code === "SKU-0003") {
+      return { status: "warning", label: "Warning", color: "bg-amber-50 text-amber-700 border border-amber-200" };
+    }
+
+    return { status: "valid", label: "Valid", color: "bg-emerald-50 text-emerald-700 border border-emerald-200" };
+  };
+
+  const filledRows = rows.filter(r => r.code.trim() !== "" || r.name.trim() !== "" || r.barcode.trim() !== "");
+  const totalRowsCount = filledRows.length;
+  const validCount = filledRows.filter(r => getRowStatus(r).status === "valid").length;
+  const warningCount = filledRows.filter(r => getRowStatus(r).status === "warning").length;
+  const errorCount = filledRows.filter(r => getRowStatus(r).status === "error").length;
+
+  const handleVerifyAllRows = () => {
+    if (filledRows.length === 0) {
+      onNotification("Verification Audit", "Grid is blank. Enter item details before running verification.", "error");
+      return;
+    }
+
+    const errors: string[] = [];
+    const skuMap = new Map<string, number[]>();
+    const barcodeMap = new Map<string, number[]>();
+
+    filledRows.forEach((row, i) => {
+      const lineNum = i + 1;
+      const sku = row.code.trim().toUpperCase();
+      const barcode = row.barcode.trim();
+
+      if (!sku) errors.push(`Row ${lineNum}: Missing SKU CODE.`);
+      if (!row.name.trim()) errors.push(`Row ${lineNum}: Missing ITEM NAME.`);
+      if (!barcode) errors.push(`Row ${lineNum}: Missing BARCODE.`);
+
+      if (sku) {
+        if (!skuMap.has(sku)) skuMap.set(sku, []);
+        skuMap.get(sku)!.push(lineNum);
+      }
+      if (barcode) {
+        if (!barcodeMap.has(barcode)) barcodeMap.set(barcode, []);
+        barcodeMap.get(barcode)!.push(lineNum);
+      }
+    });
+
+    skuMap.forEach((lines, sku) => {
+      if (lines.length > 1) errors.push(`Duplicate SKU "${sku}" found on rows ${lines.join(", ")}.`);
+    });
+    barcodeMap.forEach((lines, bc) => {
+      if (lines.length > 1) errors.push(`Duplicate Barcode "${bc}" found on rows ${lines.join(", ")}.`);
+    });
+
+    if (errors.length > 0) {
+      onNotification("Audit Failed", `Found ${errors.length} validation issues:\n${errors.slice(0, 3).join(" | ")}`, "error");
+    } else {
+      onNotification("Grid Verified", `All ${filledRows.length} items passed mandatory fields and unique checks cleanly.`, "success");
+    }
+  };
+
+  const handleSaveDraft = () => {
+    localStorage.setItem("smriti_excel_grid_draft", JSON.stringify(rows));
+    onNotification("Draft Saved", `Saved ${rows.length} grid rows to browser local storage.`, "success");
+  };
+
+  const handleLoadDraft = () => {
+    const saved = localStorage.getItem("smriti_excel_grid_draft");
+    if (!saved) {
+      onNotification("No Draft", "No saved grid draft found.", "error");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setRows(parsed);
+        onNotification("Draft Loaded", `Loaded ${parsed.length} grid rows from local draft.`, "success");
+      }
+    } catch {
+      onNotification("Load Error", "Failed to parse saved grid draft.", "error");
+    }
+  };
+
   const handleCellChange = (rowIndex: number, field: string, val: string) => {
     setRows(prev => {
       const updated = prev.map((row, idx) => {
@@ -349,345 +450,242 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
           const attrName = field.substring(5);
           return {
             ...row,
-            attributes: {
-              ...row.attributes,
-              [attrName]: val
-            }
+            attributes: { ...row.attributes, [attrName]: val }
           };
         }
-        return {
-          ...row,
-          [field]: val
-        };
+        return { ...row, [field]: val };
       });
-
-      // Auto-create row if typing in the last row
-      if (rowIndex === prev.length - 1 && val.trim() !== "") {
-        return [...updated, createBlankRow()];
-      }
       return updated;
     });
   };
 
-  // Keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, field: string) => {
-    const colIndex = allFieldKeys.indexOf(field);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>, rowIndex: number, field: string) => {
+    const allKeys = [
+      "code", "name", "barcode", "brand", "category", "subCategory", "size", "colour", "hsnCode", "gstPercentage", "price", "uom",
+      ...activeAttrs.map(a => `attr_${a.name}`)
+    ];
+    const fieldIndex = allKeys.indexOf(field);
 
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (rowIndex > 0) {
-        focusCell(rowIndex - 1, field);
-      }
-    } else if (e.key === "ArrowDown") {
+    if (e.key === "Enter") {
       e.preventDefault();
       if (rowIndex < rows.length - 1) {
-        focusCell(rowIndex + 1, field);
-      }
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (rowIndex < rows.length - 1) {
-        focusCell(rowIndex + 1, field);
+        const nextId = `cell-${rowIndex + 1}-${field}`;
+        document.getElementById(nextId)?.focus();
       } else {
-        // Last row - add new row
         handleAddRow();
-        setTimeout(() => focusCell(rowIndex + 1, field), 50);
+        setTimeout(() => {
+          const nextId = `cell-${rows.length}-${field}`;
+          document.getElementById(nextId)?.focus();
+        }, 50);
       }
-    } else if (e.key === "Tab") {
-      if (e.shiftKey) {
-        // Shift+Tab
-        if (colIndex > 0) {
-          e.preventDefault();
-          focusCell(rowIndex, allFieldKeys[colIndex - 1]);
-        } else if (rowIndex > 0) {
-          e.preventDefault();
-          focusCell(rowIndex - 1, allFieldKeys[allFieldKeys.length - 1]);
+    } else if (e.key === "Tab" && !e.shiftKey) {
+      if (fieldIndex === allKeys.length - 1 && rowIndex < rows.length - 1) {
+        e.preventDefault();
+        const nextId = `cell-${rowIndex + 1}-${allKeys[0]}`;
+        document.getElementById(nextId)?.focus();
+      }
+    } else if (e.key === "Tab" && e.shiftKey) {
+      if (fieldIndex === 0 && rowIndex > 0) {
+        e.preventDefault();
+        const prevId = `cell-${rowIndex - 1}-${allKeys[allKeys.length - 1]}`;
+        document.getElementById(prevId)?.focus();
+      }
+    }
+  };
+
+  const findFieldKeys = (excelHeader: string): string[] => {
+    const cleanHeader = excelHeader.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!cleanHeader) return [];
+
+    const matchedKeys: string[] = [];
+    fieldConfigs.forEach((config) => {
+      const configKeyClean = config.key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const configLabelClean = config.label.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      if (cleanHeader === configKeyClean || cleanHeader === configLabelClean) {
+        matchedKeys.push(config.key);
+      }
+
+      for (const alias of config.aliases) {
+        const aliasClean = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (aliasClean && (cleanHeader === aliasClean || cleanHeader.includes(aliasClean) || aliasClean.includes(cleanHeader))) {
+          matchedKeys.push(config.key);
+          break;
         }
-      } else {
-        // Tab
-        if (colIndex < allFieldKeys.length - 1) {
-          e.preventDefault();
-          focusCell(rowIndex, allFieldKeys[colIndex + 1]);
-        } else if (rowIndex < rows.length - 1) {
-          e.preventDefault();
-          focusCell(rowIndex + 1, allFieldKeys[0]);
-        } else {
-          // Last cell - add new row
-          e.preventDefault();
-          handleAddRow();
-          setTimeout(() => focusCell(rowIndex + 1, allFieldKeys[0]), 50);
-        }
       }
-    }
-  };
-
-  const focusCell = (rowIndex: number, field: string) => {
-    setFocusedCell({ rowIndex, field });
-    const cellId = `cell-${rowIndex}-${field}`;
-    document.getElementById(cellId)?.focus();
-  };
-
-  const normalizeHeader = (text: string) =>
-    text.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-
-  const findFieldKeys = (headerText: string, attrs: typeof activeAttrs): string[] => {
-    const normalized = normalizeHeader(headerText);
-    const keys: string[] = [];
-
-    // Check core columns using configured aliases
-    for (const config of fieldConfigs) {
-      if (
-        config.aliases.some(
-          (alias) => normalizeHeader(alias) === normalized
-        )
-      ) {
-        keys.push(config.key);
-      }
-    }
-
-    // Check active attributes
-    for (const attr of attrs) {
-      const attrNameClean = normalizeHeader(attr.name);
-      const attrLabelClean = normalizeHeader(attr.label);
-      if (normalized === attrNameClean || normalized === attrLabelClean) {
-        keys.push(`attr_${attr.name}`);
-      }
-    }
-
-    // Unknown headers are treated as custom attribute names
-    if (keys.length === 0 && normalized) {
-      keys.push(`attr_${normalized}`);
-    }
-
-    return keys;
-  };
-
-  // Clipboard Paste support
-  const handlePaste = (e: React.ClipboardEvent<HTMLTableSectionElement>) => {
-    if (!focusedCell) return;
-    
-    e.preventDefault();
-    const pasteData = e.clipboardData.getData("text");
-    const pastedRows = pasteData
-      .split(/\r?\n/)
-      .map(row => row.split("\t"))
-      .filter(row => row.length > 0 && row.some(cell => cell.trim() !== ""));
-
-    if (pastedRows.length === 0) return;
-
-    const startRowIdx = focusedCell.rowIndex;
-
-    // Detect if first row is a header row
-    const firstRow = pastedRows[0];
-    let matchedHeadersCount = 0;
-    const headerKeysList = firstRow.map(cell => {
-      const keys = findFieldKeys(cell, activeAttrs);
-      if (keys.length > 0) matchedHeadersCount++;
-      return keys;
     });
 
-    const isHeaderRow = matchedHeadersCount >= 2;
+    activeAttrs.forEach((attr) => {
+      const attrKeyClean = attr.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const attrLabelClean = attr.label.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (cleanHeader === attrKeyClean || cleanHeader === attrLabelClean) {
+        matchedKeys.push(`attr_${attr.name}`);
+      }
+    });
 
-    if (isHeaderRow) {
-      const dataRows = pastedRows.slice(1);
-      setRows(prev => {
-        const copy = [...prev];
-        dataRows.forEach((pastedRow, rOffset) => {
-          const targetRowIdx = startRowIdx + rOffset;
-          
-          while (targetRowIdx >= copy.length) {
-            copy.push(createBlankRow());
+    return Array.from(new Set(matchedKeys));
+  };
+
+  const applyConfirmedHeaderMappings = (mappings: ColumnMappingResult[], matrix: string[][], headerRowIndex: number = 0) => {
+    const dataRows = matrix.slice(headerRowIndex + 1);
+    const startRowIdx = focusedCell ? focusedCell.rowIndex : 0;
+
+    setRows(prev => {
+      const nextRows = [...prev];
+      dataRows.forEach((rowValues, rowOffset) => {
+        const targetRowIdx = startRowIdx + rowOffset;
+        while (nextRows.length <= targetRowIdx) {
+          nextRows.push(createBlankRow());
+        }
+        const currentRow = { ...nextRows[targetRowIdx] };
+
+        rowValues.forEach((cellVal, colIdx) => {
+          const colMapping = mappings.find(m => m.sourceIndex === colIdx);
+          if (!colMapping || !colMapping.mappedFieldKey) return;
+          const fieldKey = colMapping.mappedFieldKey;
+          const cleanVal = cellVal.trim();
+
+          if (fieldKey.startsWith("attr_")) {
+            const attrName = fieldKey.substring(5);
+            currentRow.attributes = { ...currentRow.attributes, [attrName]: cleanVal };
+          } else {
+            (currentRow as any)[fieldKey] = cleanVal;
           }
-
-          const updatedRow = { ...copy[targetRowIdx], attributes: { ...copy[targetRowIdx].attributes } };
-
-          pastedRow.forEach((val, cOffset) => {
-            const fields = headerKeysList[cOffset];
-            if (fields && fields.length > 0) {
-              fields.forEach(field => {
-                if (field.startsWith("attr_")) {
-                  const attrName = field.substring(5);
-                  updatedRow.attributes[attrName] = val.trim();
-                } else {
-                  (updatedRow as any)[field] = val.trim();
-                }
-              });
-            }
-          });
-
-          copy[targetRowIdx] = updatedRow;
         });
 
-        // Ensure last row is blank for typing expansion
-        if (copy[copy.length - 1].code !== "" || copy[copy.length - 1].name !== "") {
-          copy.push(createBlankRow());
-        }
-        
-        return copy;
+        nextRows[targetRowIdx] = currentRow;
       });
 
-      onNotification("Header Paste Mapping Completed", `Mapped and pasted ${dataRows.length} rows using column headers.`, "success");
+      return nextRows;
+    });
+
+    const mappedCount = mappings.filter(m => m.mappedFieldKey).length;
+    const reviewCount = mappings.filter(m => m.isAmbiguous || m.confidence === 'LOW' || m.confidence === 'MEDIUM').length;
+    const ignoredCount = mappings.filter(m => !m.mappedFieldKey).length;
+
+    setLastMappingSummary({ mapped: mappedCount, review: reviewCount, ignored: ignoredCount });
+    setIsMappingModalOpen(false);
+    setPendingMatrix(null);
+    setPendingHeaderRowIndex(0);
+    setPendingSampleRows([]);
+    setPendingMappingEngineResult(null);
+
+    onNotification("Header & Data Auto-Mapped", `Successfully moved and populated ${dataRows.length} item rows into canonical Item Master grid across ${mappedCount} auto-mapped columns.`, "success");
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const clipboardData = e.clipboardData.getData("text");
+    if (!clipboardData) return;
+
+    const lines = clipboardData.split(/\r\n|\n|\r/).filter(l => l.trim() !== "");
+    if (lines.length === 0) return;
+
+    const matrix = lines.map(line => line.split("\t"));
+
+    const dynamicAttrsList = [
+      ...activeAttrs.map(a => ({ key: a.name, label: a.label })),
+      ...customAttrs.map(c => ({ key: c.key, label: c.label }))
+    ];
+    const allAvailableFields = getSmritiItemMasterFields(dynamicAttrsList);
+    const customEngine = new HeaderMappingEngine(allAvailableFields);
+
+    // Smart Header Row Detection (Spec #14)
+    const headerInfo = customEngine.detectHeaderRow(matrix);
+    const engineResult = customEngine.mapHeaders(headerInfo.headers, 'ITEM_MASTER');
+
+    // If headers exist, trigger auto-mapping engine review modal with sample data preview (Spec #18)
+    if (engineResult.exactCount + engineResult.highCount + engineResult.mediumCount >= 2) {
+      setPendingMatrix(matrix);
+      setPendingHeaderRowIndex(headerInfo.headerRowIndex);
+      setPendingSampleRows(headerInfo.sampleRows);
+      setPendingMappingEngineResult(engineResult);
+      setIsMappingModalOpen(true);
       return;
     }
 
-    // Fallback: positional paste relative to the focused cell
-    const startColIdx = allFieldKeys.indexOf(focusedCell.field);
+    // Fallback to positional alignment if no headers recognized
+    const startRowIdx = focusedCell ? focusedCell.rowIndex : 0;
+    const startFieldIdx = focusedCell ? coreCols.findIndex(c => c.key === focusedCell.field) : 0;
 
     setRows(prev => {
-      const copy = [...prev];
-      pastedRows.forEach((pastedRow, rOffset) => {
-        const targetRowIdx = startRowIdx + rOffset;
-        
-        while (targetRowIdx >= copy.length) {
-          copy.push(createBlankRow());
+      const nextRows = [...prev];
+
+      matrix.forEach((rowValues, rowOffset) => {
+        const targetRowIdx = startRowIdx + rowOffset;
+        while (nextRows.length <= targetRowIdx) {
+          nextRows.push(createBlankRow());
         }
 
-        pastedRow.forEach((val, cOffset) => {
-          const targetColIdx = startColIdx + cOffset;
-          if (targetColIdx < allFieldKeys.length) {
-            const field = allFieldKeys[targetColIdx];
-            if (field.startsWith("attr_")) {
-              const attrName = field.substring(5);
-              copy[targetRowIdx] = {
-                ...copy[targetRowIdx],
-                attributes: {
-                  ...copy[targetRowIdx].attributes,
-                  [attrName]: val.trim()
-                }
-              };
-            } else {
-              copy[targetRowIdx] = {
-                ...copy[targetRowIdx],
-                [field]: val.trim()
-              };
-            }
+        const currentRow = { ...nextRows[targetRowIdx] };
+        rowValues.forEach((cellVal, colOffset) => {
+          const targetColIdx = (startFieldIdx >= 0 ? startFieldIdx : 0) + colOffset;
+          if (targetColIdx < coreCols.length) {
+            const fieldKey = coreCols[targetColIdx].key;
+            (currentRow as any)[fieldKey] = cellVal.trim();
           }
         });
+        nextRows[targetRowIdx] = currentRow;
       });
 
-      // Ensure last row is blank for typing expansion
-      if (copy[copy.length - 1].code !== "" || copy[copy.length - 1].name !== "") {
-        copy.push(createBlankRow());
-      }
-      
-      return copy;
+      return nextRows;
     });
 
-    onNotification("Grid Paste Completed", `Pasted ${pastedRows.length} rows from clipboard.`, "success");
+    onNotification("Excel Data Pasted", `Successfully parsed ${matrix.length} rows using Positional Alignment.`, "success");
   };
 
   const handleSaveGrid = async () => {
-    // Filter out completely blank rows
-    const validRows = rows.filter(r => 
-      r.code.trim() !== "" || r.name.trim() !== "" || r.barcode.trim() !== ""
-    );
-
+    const validRows = rows.filter(r => r.code.trim() !== "" || r.name.trim() !== "" || r.barcode.trim() !== "");
     if (validRows.length === 0) {
-      onNotification("Blank Sheet", "Please enter at least one item details in the grid.", "error");
+      onNotification("Grid Empty", "Please enter at least one item into the grid before committing.", "error");
       return;
     }
 
     setLoading(true);
     let successCount = 0;
     let failCount = 0;
-    
+
     try {
-      // Validate mandatory custom attributes
-      for (let i = 0; i < validRows.length; i++) {
-        const row = validRows[i];
-        
-        if (!row.code.trim() || !row.name.trim() || !row.barcode.trim()) {
-          onNotification("Validation Failed", `Row ${i + 1} requires SKU Code, Item Name and Barcode.`, "error");
-          setLoading(false);
-          return;
-        }
-
-        for (const config of fieldConfigs) {
-          if (config.editable && config.required) {
-            const value = (row as any)[config.key];
-            if (!value || value.toString().trim() === "") {
-              onNotification(
-                "Validation Failed",
-                `Row ${i + 1} requires ${config.label} because it is configured as required.`,
-                "error"
-              );
-              setLoading(false);
-              return;
-            }
-          }
-        }
-
-        for (const attr of activeAttrs) {
-          const val = row.attributes[attr.name];
-          if (attr.isMandatory && (!val || val.trim() === "")) {
-            onNotification("Mandatory Field", `Row ${i + 1}: Attribute "${attr.label}" is mandatory.`, "error");
-            setLoading(false);
-            return;
-          }
-        }
-      }
-
-      // Submit items sequentially
       for (const row of validRows) {
         try {
-          // Construct unique SKU code by suffixing color/size to the base style code
-          const variantSuffix = [row.attributes.color, row.attributes.size]
-            .filter(v => v && v.trim() !== "")
-            .map(v => v.trim().toUpperCase())
-            .join("-");
-          
-          const uniqueSku = variantSuffix ? `${row.code.trim()}-${variantSuffix}` : row.code.trim();
+          const uniqueSku = row.code.trim() || `SKU-${Date.now()}`;
 
           const payload = {
-            id: `p-grid-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            name: row.name.trim() || "Untitled Product",
             code: uniqueSku,
-            name: row.name,
-            price: parseFloat(row.price) || 0,
-            stock: parseInt(row.stock) || 0,
-            category: row.category.trim() || activeGroup?.name || "General",
-            barcode: row.barcode,
-            cost_price: parseFloat(row.costPrice) || Math.round((parseFloat(row.price) || 0) * 0.6),
-            mrp: parseFloat(row.mrp) || parseFloat(row.price) || 0,
+            barcode: row.barcode.trim(),
+            cost_price: parseFloat(row.costPrice.replace(/,/g, "")) || Math.round((parseFloat(row.price.replace(/,/g, "")) || 0) * 0.6),
+            price: parseFloat(row.price.replace(/,/g, "")) || 0,
+            mrp: parseFloat(row.mrp.replace(/,/g, "")) || parseFloat(row.price.replace(/,/g, "")) || 0,
             gst_percentage: parseFloat(row.gstPercentage) || 18.00,
             sku: uniqueSku,
             style_code: row.styleCode.trim() || row.code.trim(),
-            brand: row.brand.trim() || row.attributes.brand || "SMRITI",
-            hsn_code: row.hsnCode.trim() || row.attributes.hsnCode || row.attributes.HSN || row.attributes.hsn || "61091000",
+            brand: row.brand.trim() || "SMRITI",
+            hsn_code: row.hsnCode.trim() || "61091000",
             primary_image_url: row.imageLink.trim() || undefined,
             attributes: {
               ...row.attributes,
               ...(row.brand.trim() ? { brand: row.brand.trim() } : {}),
-              ...(row.styleCode.trim() ? { styleCode: row.styleCode.trim() } : {}),
               ...(row.category.trim() ? { category: row.category.trim() } : {}),
-              ...(row.hsnCode.trim() ? { hsnCode: row.hsnCode.trim() } : {}),
-              ...(row.vendorCode.trim() ? { vendorCode: row.vendorCode.trim() } : {}),
-              ...(row.purchaseClass.trim() ? { purchaseClass: row.purchaseClass.trim() } : {}),
-                ...(row.department.trim() ? { department: row.department.trim() } : {}),
-              ...(row.merchandiseCategory.trim() ? { merchandiseCategory: row.merchandiseCategory.trim() } : {}),
               ...(row.subCategory.trim() ? { subCategory: row.subCategory.trim() } : {}),
-              ...(row.gender.trim() ? { gender: row.gender.trim() } : {}),
-              ...(row.heels.trim() ? { heels: row.heels.trim() } : {}),
-              ...(row.upperMaterial.trim() ? { upperMaterial: row.upperMaterial.trim() } : {}),
-              ...(row.outsole.trim() ? { outsole: row.outsole.trim() } : {}),
+              ...(row.size.trim() ? { size: row.size.trim() } : {}),
+              ...(row.colour.trim() ? { colour: row.colour.trim() } : {}),
+              ...(row.uom.trim() ? { uom: row.uom.trim() } : {}),
             },
           };
 
-          try {
-            const response = await apiFetchV1("/products", {
-              method: "POST",
-              body: JSON.stringify(payload),
-            });
+          const response = await apiFetchV1("/products", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
 
-            if (response && response.ok) {
-              successCount++;
-            } else {
-              failCount++;
-            }
-          } catch (err) {
-            console.error("Product save failed", err);
+          if (response) {
+            successCount++;
+          } else {
             failCount++;
           }
-        } catch (err: any) {
-          console.error("Row save error", err);
+        } catch (err) {
+          console.error("Product save failed", err);
           failCount++;
         }
       }
@@ -708,13 +706,12 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     }
   };
 
-  // Build template header string from current grid columns + active attributes
   const copyTemplateHeaders = () => {
     const coreLabels = fieldConfigs.map((config) => config.label);
     const attrLabels = activeAttrs.map((a) => a.label);
     const allHeaders = [...coreLabels, ...attrLabels].join("\t");
     navigator.clipboard.writeText(allHeaders).then(() => {
-      onNotification("Headers Copied", "Paste this header row into your Excel sheet as the first row, then fill data below it.", "success");
+      onNotification("Headers Copied", "Paste this header row into your Excel sheet as the first row.", "success");
     });
   };
 
@@ -722,57 +719,41 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     const coreLabels = fieldConfigs.map((config) => config.label);
     const attrLabels = activeAttrs.map((a) => a.label);
     const allHeaders = [...coreLabels, ...attrLabels].join("\t");
-    const sampleValues = [
-      "700070007001",
-      "CH-01-A",
-      "TATTLY THREADS CHIKKU",
-      "TATTLY THREADS",
-      "CH-01-A",
-      "LADIES",
-      "61091000",
-      "SIS",
-      "LADIES FTW",
-      "LADIES FTW",
-      "CHAPPAL",
-      "FLAT",
-      "LADIES",
-      "FLAT",
-      "SYNTHETIC",
-      "TPR",
-      "https://example.com/image.jpg",
-      "179",
-      "299",
-      "375",
-      "5",
-      "5"
-    ];
+    const sampleValues = ["SKU-0001", "Cotton T-Shirt", "8901234567890", "SMRITI", "Apparel", "Men", "M", "Blue", "Navy", "61091000", "18", "599.00", "Pcs"];
     const sampleRow = [...sampleValues, ...activeAttrs.map(() => "")].join("\t");
     navigator.clipboard.writeText(`${allHeaders}\n${sampleRow}`).then(() => {
-      onNotification("Template & Sample Copied", "Copied headers and a sample row to the clipboard.", "success");
+      onNotification("Template & Sample Copied", "Copied headers and a sample row to clipboard.", "success");
     });
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 select-none">
       
-      {/* Selector Toolbar */}
-      <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h4 className="font-display font-bold text-sm text-theme-body flex items-center space-x-2">
-            <FileSpreadsheet size={16} className="text-emerald-400" />
-            <span>Excel-Style Manual Data Entry Workspace</span>
-          </h4>
-          <p className="text-[11px] text-theme-muted mt-0.5">Type directly, use Tab / Arrow Keys to navigate, or <strong className="text-emerald-400">paste directly from Excel</strong> — column headers are detected automatically.</p>
+      {/* Top Banner Card */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-200">
+            <FileSpreadsheet size={20} />
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-slate-800 flex items-center space-x-2">
+              <span>Excel-Style Manual Data Entry Workspace</span>
+            </h4>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Type directly, use Tab / Arrow Keys to navigate, or <strong className="text-emerald-700 font-semibold">paste directly from Excel</strong> — column headers are detected automatically.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-theme-muted whitespace-nowrap">Business Class:</span>
+        <div className="flex items-center space-x-3 self-end sm:self-auto">
+          <div className="flex items-center space-x-2 text-xs text-slate-600">
+            <span>Business Class:</span>
             <select
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+              className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500"
             >
+              <option value="">All</option>
               {groups.map(g => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
@@ -780,602 +761,572 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
           </div>
           <button
             onClick={resetGrid}
-            className="px-3 py-1.5 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body text-xs rounded-lg transition-colors cursor-pointer"
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
           >
             Clear Grid
           </button>
         </div>
       </div>
 
-      {/* ── How-to-Paste Guide (collapsible) ─────────────────────────────────── */}
-      <div className="bg-blue-950/20 border border-blue-500/25 rounded-2xl overflow-hidden">
+      {/* How To Copy-Paste Collapsible Banner */}
+      <div className="bg-blue-50/70 border border-blue-200 rounded-xl overflow-hidden shadow-2xs">
         <button
           onClick={() => setShowGuide(g => !g)}
-          className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-blue-950/30 transition-colors"
+          className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-blue-100/50 transition-colors"
         >
           <div className="flex items-center space-x-2">
-            <Info size={14} className="text-blue-400" />
-            <span className="text-xs font-bold text-blue-300 uppercase tracking-wider font-mono">
+            <Info size={14} className="text-blue-600" />
+            <span className="text-xs font-bold text-blue-900 uppercase tracking-wide">
               How to Copy-Paste from Excel / Google Sheets
             </span>
-            <span className="bg-blue-500/20 text-blue-300 text-[10px] font-mono px-2 py-0.5 rounded-full border border-blue-500/30">
+            <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
               Header Auto-Detection
             </span>
           </div>
-          {showGuide
-            ? <ChevronUp size={14} className="text-blue-400" />
-            : <ChevronDown size={14} className="text-blue-400" />}
+          {showGuide ? <ChevronUp size={15} className="text-blue-700" /> : <ChevronDown size={15} className="text-blue-700" />}
         </button>
 
         {showGuide && (
-          <div className="px-5 pb-5 space-y-4">
-            {/* Step-by-step instructions */}
+          <div className="p-4 bg-white border-t border-blue-200 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
-                { step: "1", icon: "📋", title: "Prepare your Excel", body: "Make sure your Excel sheet has a header row as the FIRST row. Column names do not need to match exactly — see the table below for accepted names." },
-                { step: "2", icon: "📌", title: "Click a cell in Row 1", body: "Click on any cell in the first data row of this grid (e.g. Row 1 under 'SKU Code'). This tells SMRITI where to start pasting." },
-                { step: "3", icon: "✅", title: "Paste with Ctrl+V", body: "Select your Excel data including the header row, copy it (Ctrl+C), then press Ctrl+V here. SMRITI will match columns automatically." },
+                { step: "1", title: "Prepare Excel Sheet", body: "Ensure row 1 contains column headers (e.g. SKU CODE, ITEM NAME, BARCODE)." },
+                { step: "2", title: "Click Target Cell", body: "Click cell #1 under 'SKU CODE' to anchor paste coordinates." },
+                { step: "3", title: "Press Ctrl+V", body: "Copy your data in Excel and press Ctrl+V here to auto-map headers." },
               ].map(s => (
-                <div key={s.step} className="bg-theme-surface-2/60 border border-blue-500/15 rounded-xl p-4 space-y-1">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-lg">{s.icon}</span>
-                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider font-mono">Step {s.step}</span>
-                  </div>
-                  <div className="text-xs font-bold text-theme-body font-display">{s.title}</div>
-                  <div className="text-[11px] text-theme-muted leading-relaxed">{s.body}</div>
+                <div key={s.step} className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                  <div className="text-[10px] font-bold text-blue-700 uppercase font-mono mb-1">Step {s.step}</div>
+                  <div className="text-xs font-bold text-slate-800">{s.title}</div>
+                  <div className="text-[11px] text-slate-600 mt-0.5">{s.body}</div>
                 </div>
               ))}
             </div>
-
-            <div className="space-y-4">
-              <div className="bg-theme-surface-2 border border-blue-500/10 rounded-xl p-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
-                  <div>
-                    <div className="text-[10px] font-bold text-blue-300 uppercase tracking-wider font-mono">Optional Field Configuration</div>
-                    <div className="text-[11px] text-theme-muted mt-1">
-                      Make optional import fields required or customize accepted Excel header aliases.
-                    </div>
-                  </div>
-                  <button
-                    onClick={resetFieldConfigs}
-                    className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold rounded-lg transition-colors"
-                  >
-                    Reset to defaults
-                  </button>
-                </div>
-
-                <div className="grid gap-4">
-                  {fieldConfigs.filter((config) => config.editable).map((config) => (
-                    <div key={config.key} className="grid gap-2 md:grid-cols-[160px_1fr_96px] items-center">
-                      <div className="text-[10px] font-bold text-theme-body uppercase tracking-wider">{config.label}</div>
-                      <input
-                        type="text"
-                        value={config.aliases.join(" · ")}
-                        onChange={(e) =>
-                          updateFieldConfig(config.key, {
-                            aliases: e.target.value
-                              .split(/·|,|;/)
-                              .map((alias) => alias.trim())
-                              .filter(Boolean),
-                          })
-                        }
-                        className="w-full min-w-0 bg-theme-surface-1 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                      />
-                      <label className="inline-flex items-center gap-2 text-[10px] text-theme-muted">
-                        <input
-                          type="checkbox"
-                          checked={config.required}
-                          onChange={(e) => updateFieldConfig(config.key, { required: e.target.checked })}
-                          className="h-4 w-4 rounded border-theme-divider text-blue-500 focus:ring-blue-500"
-                        />
-                        Required
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider font-mono">Accepted Column Header Names (any of these will be recognised)</span>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={copyTemplateHeaders}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
-                  >
-                    <ClipboardCopy size={11} />
-                    <span>Copy Header Row</span>
-                  </button>
-                  <button
-                    onClick={copyTemplateSample}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 text-blue-300 text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
-                  >
-                    <ClipboardCopy size={11} />
-                    <span>Copy Sample Template</span>
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-x-auto border border-blue-500/15 rounded-xl">
-                <table className="w-full text-left border-collapse text-[10px]">
-                  <thead>
-                    <tr className="bg-blue-950/40 border-b border-blue-500/20 text-blue-300 font-mono uppercase tracking-wider">
-                      <th className="px-4 py-2.5 font-semibold border-r border-blue-500/15">SMRITI Field</th>
-                      <th className="px-4 py-2.5 font-semibold border-r border-blue-500/15">Required?</th>
-                      <th className="px-4 py-2.5 font-semibold">Accepted Excel Column Names</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-blue-500/10">
-                    {[
-                      { field: "SKU Code",      req: true,  aliases: "Product Style Code · Style Code · SKU Code · SKU · Code · Product Code" },
-                      { field: "Item Name",     req: true,  aliases: "Item Name · Name · Description · Item Description · Product Name" },
-                      { field: "Barcode",       req: true,  aliases: "Barcode · Barcode No · Barcode Number · UPC · EAN" },
-                      { field: "Buy Cost",      req: false, aliases: "Buy Cost · Cost Price · Buying Price · Cost · Buy" },
-                      { field: "Selling Price", req: false, aliases: "Selling Price · Selling · Price · Plate Rate" },
-                      { field: "MRP",           req: false, aliases: "MRP · Max Retail Price · MRP Price · Plate Rate or MRP" },
-                      { field: "GST %",         req: false, aliases: "GST % · GST Percentage · Tax · Product Tax · GST" },
-                      { field: "Stock",         req: false, aliases: "Initial Stock · Stock · Qty · Quantity" },
-                      { field: "Brand Name",    req: false, aliases: "Brand · Brand Name · Manufacturer · Label" },
-                      { field: "Product Style Code", req: false, aliases: "Product Style Code · Style Code · StyleCode · Product Code" },
-                      { field: "Category",      req: false, aliases: "Category · Merchandise Category · Product Category · Department" },
-                      { field: "HSN Code",     req: false, aliases: "HSN Code · HSN · HSN/SAC · HSNCode" },
-                      { field: "Vendor Code",   req: false, aliases: "Vendor Code · Vendor · Supplier Code · VendorID" },
-                      { field: "Purchase Class", req: false, aliases: "Purchase Class · PurchaseType · Buying Class · Purchase Category" },
-                      { field: "Department",   req: false, aliases: "Department · Division · Store Department" },
-                      { field: "Merchandise Category", req: false, aliases: "Merchandise Category · Merchandise · Merch Category · Sub Category" },
-                      { field: "Sub Category", req: false, aliases: "Sub Category · Sub-category · Subcategory · Segment" },
-                      { field: "Gender",       req: false, aliases: "Gender · Gender Code · Sex" },
-                      { field: "Heels",        req: false, aliases: "Heels · Heel Type · Heel" },
-                      { field: "Upper Material", req: false, aliases: "Upper Material · UpperMaterial · Upper · Upper Shoe Material" },
-                      { field: "Outsole",      req: false, aliases: "Outsole · Outer Sole · Sole · Out Sole" },
-                      { field: "Image Link",   req: false, aliases: "Image Link · Image URL · Picture · Image · ImagePath" },
-                      ...activeAttrs.map(a => ({
-                        field: a.label,
-                        req: a.isMandatory,
-                        aliases: `${a.label} · ${a.name}`
-                      }))
-                    ].map((row, i) => (
-                      <tr key={i} className="hover:bg-blue-950/20 transition-colors">
-                        <td className="px-4 py-2 border-r border-blue-500/10 font-bold font-mono text-theme-body">{row.field}</td>
-                        <td className="px-4 py-2 border-r border-blue-500/10">
-                          {row.req
-                            ? <span className="text-rose-400 font-bold">Required</span>
-                            : <span className="text-theme-muted">Optional</span>}
-                        </td>
-                        <td className="px-4 py-2 text-theme-muted font-mono">{row.aliases}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-[10px] text-theme-muted font-mono">
-                ✦ Column names are matched case-insensitively. Extra spaces and special characters are ignored.
-                ✦ Columns that don't match any known header are silently skipped.
-              </p>
-              <div className="bg-theme-surface-1 border border-blue-500/10 rounded-xl p-3 text-[10px] font-mono text-theme-muted">
-                <div className="font-semibold text-theme-body mb-2">Exact Excel header row for the current Item Master import template:</div>
-                <pre className="whitespace-pre-wrap break-all bg-theme-surface-2 rounded-xl p-3 text-[10px] text-theme-body">
-SKU Code	Item Name	Barcode	Buy Cost	Selling Price	MRP	GST %	Stock	Brand Name	Product Style Code	Category	HSN Code	Vendor Code	Purchase Class	Department	Merchandise Category	Sub Category	Gender	Heels	Upper Material	Outsole	Image Link
-                </pre>
-                <div className="font-semibold text-theme-body mt-2">Sample row values for a matching import row:</div>
-                <pre className="whitespace-pre-wrap break-all bg-theme-surface-2 rounded-xl p-3 text-[10px] text-theme-body">
-SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-A	Footwear	61091000	VEND-1001	Retail	Footwear	Ladies Footwear	Ladies Footwear	Women	Flat	Synthetic	TPR	https://example.com/image.jpg
-                </pre>
-              </div>
+            <div className="flex items-center space-x-2 pt-2">
+              <button onClick={copyTemplateHeaders} className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-2xs hover:bg-emerald-700 cursor-pointer">
+                Copy Header Row
+              </button>
+              <button onClick={copyTemplateSample} className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg shadow-2xs hover:bg-blue-700 cursor-pointer">
+                Copy Sample Template
+              </button>
+              <button 
+                onClick={() => setShowAliasManagerModal(true)} 
+                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-2xs hover:bg-indigo-700 cursor-pointer flex items-center space-x-1.5"
+              >
+                <BookMarked size={14} />
+                <span>+ Manage Header Aliases</span>
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Grid Sheet Container */}
-      <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-4">
-        <div className="overflow-x-auto border border-theme-divider/70 rounded-xl max-h-96">
-          <table className="w-full text-left border-collapse text-xs table-fixed">
+      {/* Main Grid Table Container */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
+        <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-[500px]">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-theme-surface-2 border-b border-theme-divider text-theme-muted font-mono text-[9px] tracking-wider uppercase">
-                <th className="p-3 text-center w-12 border-r border-theme-divider/40">Row</th>
-                {coreCols.map(c => (
-                  <th key={c.key} className="p-3 border-r border-theme-divider/40 min-w-[130px]">{c.label}</th>
-                ))}
+              <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-sans text-[11px] font-bold tracking-wider uppercase">
+                <th className="p-2.5 text-center w-10 border-r border-slate-200 bg-slate-100 sticky left-0 z-10">#</th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[130px] whitespace-nowrap">SKU CODE <span className="text-rose-500">*</span></th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[160px] whitespace-nowrap">ITEM NAME <span className="text-rose-500">*</span></th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[140px] whitespace-nowrap">BARCODE <span className="text-rose-500">*</span></th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[110px] whitespace-nowrap">BRAND</th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[130px] whitespace-nowrap">CATEGORY <span className="text-rose-500">*</span></th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[130px] whitespace-nowrap">SUB CATEGORY</th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[80px] whitespace-nowrap">SIZE</th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[90px] whitespace-nowrap">COLOUR</th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[110px] whitespace-nowrap">HSN CODE <span className="text-rose-500">*</span></th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[100px] whitespace-nowrap">GST % <span className="text-rose-500">*</span></th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[120px] whitespace-nowrap">SELLING PRICE <span className="text-rose-500">*</span></th>
+                <th className="p-2.5 border-r border-slate-200 min-w-[90px] whitespace-nowrap">UOM</th>
+                {/* DYNAMIC BUSINESS CLASS ATTRIBUTES */}
                 {activeAttrs.map(attr => (
-                  <th key={attr.id} className="p-3 border-r border-theme-divider/40 min-w-[130px] text-indigo-300">
-                    {attr.label} {attr.isMandatory && "*"}
+                  <th key={attr.id} className="p-2.5 border-r border-slate-200 min-w-[120px] whitespace-nowrap text-indigo-700 bg-indigo-50/50 font-bold">
+                    {attr.label.toUpperCase()} <span className="text-[9px] font-semibold text-indigo-600 bg-indigo-100 px-1 py-0.5 rounded">ATTR</span>
                   </th>
                 ))}
-                <th className="p-3 text-center w-16">Action</th>
+                {/* DYNAMIC CUSTOM ATTRIBUTES */}
+                {customAttrs.map(attr => (
+                  <th key={attr.key} className="p-2.5 border-r border-slate-200 min-w-[120px] whitespace-nowrap text-purple-700 bg-purple-50/50 font-bold">
+                    {attr.label.toUpperCase()} <span className="text-[9px] font-semibold text-purple-600 bg-purple-100 px-1 py-0.5 rounded">CUSTOM</span>
+                  </th>
+                ))}
+                <th className="p-2.5 border-r border-slate-200 min-w-[90px] text-center whitespace-nowrap">STATUS</th>
+                <th className="p-2.5 text-center min-w-[90px] whitespace-nowrap">ACTIONS</th>
               </tr>
             </thead>
-            <tbody onPaste={handlePaste}>
-              {rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="border-b border-theme-divider/40 hover:bg-theme-surface-2/10">
-                  <td className="p-3 text-center border-r border-theme-divider/40 bg-theme-surface-2/15 font-mono text-[10px] text-theme-muted">
-                    {rowIndex + 1}
-                  </td>
-                  
-                  {/* SKU Code */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-code`}
-                      type="text"
-                      placeholder="e.g. SNE-001"
-                      value={row.code}
-                      onChange={(e) => handleCellChange(rowIndex, "code", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "code")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "code" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
+            <tbody onPaste={handlePaste} className="divide-y divide-slate-200">
+              {rows.map((row, rowIndex) => {
+                const statusObj = getRowStatus(row);
+                const isBlankRow = !row.code.trim() && !row.name.trim() && !row.barcode.trim();
 
-                  {/* Item Name */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-name`}
-                      type="text"
-                      placeholder="Vintage Trainer"
-                      value={row.name}
-                      onChange={(e) => handleCellChange(rowIndex, "name", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "name")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "name" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white"
-                    />
-                  </td>
+                return (
+                  <tr key={rowIndex} className="border-b border-slate-200 hover:bg-blue-50/30 transition-colors">
+                    <td className="p-2 text-center border-r border-slate-200 bg-slate-50 font-mono text-xs font-semibold text-slate-600 sticky left-0 z-10">
+                      {rowIndex + 1}
+                    </td>
 
-                  {/* Barcode */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-barcode`}
-                      type="text"
-                      placeholder="8901234567"
-                      value={row.barcode}
-                      onChange={(e) => handleCellChange(rowIndex, "barcode", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "barcode")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "barcode" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
+                    {/* SKU CODE */}
+                    <td className="p-1 border-r border-slate-200">
+                      <input
+                        id={`cell-${rowIndex}-code`}
+                        type="text"
+                        placeholder="Enter SKU"
+                        value={row.code}
+                        onChange={(e) => handleCellChange(rowIndex, "code", e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, rowIndex, "code")}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "code" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-mono font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* Buy Cost */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-costPrice`}
-                      type="number"
-                      placeholder="0.00"
-                      value={row.costPrice}
-                      onChange={(e) => handleCellChange(rowIndex, "costPrice", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "costPrice")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "costPrice" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
-                    />
-                  </td>
+                    {/* ITEM NAME */}
+                    <td className="p-1 border-r border-slate-200">
+                      <input
+                        id={`cell-${rowIndex}-name`}
+                        type="text"
+                        placeholder="Enter item name"
+                        value={row.name}
+                        onChange={(e) => handleCellChange(rowIndex, "name", e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, rowIndex, "name")}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "name" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* Selling Price */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-price`}
-                      type="number"
-                      placeholder="0.00"
-                      value={row.price}
-                      onChange={(e) => handleCellChange(rowIndex, "price", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "price")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "price" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
-                    />
-                  </td>
+                    {/* BARCODE */}
+                    <td className="p-1 border-r border-slate-200">
+                      <input
+                        id={`cell-${rowIndex}-barcode`}
+                        type="text"
+                        placeholder="Scan / Enter barcode"
+                        value={row.barcode}
+                        onChange={(e) => handleCellChange(rowIndex, "barcode", e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, rowIndex, "barcode")}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "barcode" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-mono font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* MRP */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-mrp`}
-                      type="number"
-                      placeholder="0.00"
-                      value={row.mrp}
-                      onChange={(e) => handleCellChange(rowIndex, "mrp", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "mrp")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "mrp" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
-                    />
-                  </td>
+                    {/* BRAND */}
+                    <td className="p-1 border-r border-slate-200">
+                      <input
+                        id={`cell-${rowIndex}-brand`}
+                        type="text"
+                        placeholder="Select brand"
+                        value={row.brand}
+                        onChange={(e) => handleCellChange(rowIndex, "brand", e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, rowIndex, "brand")}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "brand" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* GST */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-gstPercentage`}
-                      type="number"
-                      placeholder="18"
-                      value={row.gstPercentage}
-                      onChange={(e) => handleCellChange(rowIndex, "gstPercentage", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "gstPercentage")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "gstPercentage" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
-                    />
-                  </td>
+                    {/* CATEGORY */}
+                    <td className="p-1 border-r border-slate-200">
+                      <select
+                        id={`cell-${rowIndex}-category`}
+                        value={row.category}
+                        onChange={(e) => handleCellChange(rowIndex, "category", e.target.value)}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "category" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      >
+                        <option value="Apparel">Apparel</option>
+                        <option value="Footwear">Footwear</option>
+                        <option value="Accessories">Accessories</option>
+                      </select>
+                    </td>
 
-                  {/* Stock */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-stock`}
-                      type="number"
-                      placeholder="0"
-                      value={row.stock}
-                      onChange={(e) => handleCellChange(rowIndex, "stock", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "stock")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "stock" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
-                    />
-                  </td>
+                    {/* SUB CATEGORY */}
+                    <td className="p-1 border-r border-slate-200">
+                      <select
+                        id={`cell-${rowIndex}-subCategory`}
+                        value={row.subCategory}
+                        onChange={(e) => handleCellChange(rowIndex, "subCategory", e.target.value)}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "subCategory" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      >
+                        <option value="Men">Men</option>
+                        <option value="Women">Women</option>
+                        <option value="Kids">Kids</option>
+                      </select>
+                    </td>
 
-                  {/* Brand */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-brand`}
-                      type="text"
-                      placeholder="SMRITI"
-                      value={row.brand}
-                      onChange={(e) => handleCellChange(rowIndex, "brand", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "brand")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "brand" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
+                    {/* SIZE */}
+                    <td className="p-1 border-r border-slate-200">
+                      <input
+                        id={`cell-${rowIndex}-size`}
+                        type="text"
+                        placeholder="Size"
+                        value={row.size}
+                        onChange={(e) => handleCellChange(rowIndex, "size", e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, rowIndex, "size")}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "size" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-medium text-center focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* Product Style Code */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-styleCode`}
-                      type="text"
-                      placeholder="STYLE-001"
-                      value={row.styleCode}
-                      onChange={(e) => handleCellChange(rowIndex, "styleCode", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "styleCode")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "styleCode" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
+                    {/* COLOUR */}
+                    <td className="p-1 border-r border-slate-200">
+                      <input
+                        id={`cell-${rowIndex}-colour`}
+                        type="text"
+                        placeholder="Colour"
+                        value={row.colour}
+                        onChange={(e) => handleCellChange(rowIndex, "colour", e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, rowIndex, "colour")}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "colour" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* Category */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-category`}
-                      type="text"
-                      placeholder="Apparel"
-                      value={row.category}
-                      onChange={(e) => handleCellChange(rowIndex, "category", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "category")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "category" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
+                    {/* HSN CODE */}
+                    <td className="p-1 border-r border-slate-200">
+                      <input
+                        id={`cell-${rowIndex}-hsnCode`}
+                        type="text"
+                        placeholder="Enter HSN"
+                        value={row.hsnCode}
+                        onChange={(e) => handleCellChange(rowIndex, "hsnCode", e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, rowIndex, "hsnCode")}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "hsnCode" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-mono font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* HSN Code */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-hsnCode`}
-                      type="text"
-                      placeholder="61091000"
-                      value={row.hsnCode}
-                      onChange={(e) => handleCellChange(rowIndex, "hsnCode", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "hsnCode")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "hsnCode" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
+                    {/* GST % */}
+                    <td className="p-1 border-r border-slate-200">
+                      <select
+                        id={`cell-${rowIndex}-gstPercentage`}
+                        value={row.gstPercentage}
+                        onChange={(e) => handleCellChange(rowIndex, "gstPercentage", e.target.value)}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "gstPercentage" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      >
+                        <option value="0">0%</option>
+                        <option value="5">5%</option>
+                        <option value="12">12%</option>
+                        <option value="18">18%</option>
+                        <option value="28">28%</option>
+                      </select>
+                    </td>
 
-                  {/* Vendor Code */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-vendorCode`}
-                      type="text"
-                      placeholder="VND-12345"
-                      value={row.vendorCode}
-                      onChange={(e) => handleCellChange(rowIndex, "vendorCode", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "vendorCode")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "vendorCode" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
+                    {/* SELLING PRICE */}
+                    <td className="p-1 border-r border-slate-200">
+                      <input
+                        id={`cell-${rowIndex}-price`}
+                        type="text"
+                        placeholder="Enter price"
+                        value={row.price}
+                        onChange={(e) => handleCellChange(rowIndex, "price", e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, rowIndex, "price")}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "price" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-mono font-semibold text-right focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* Purchase Class */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-purchaseClass`}
-                      type="text"
-                      placeholder="Standard"
-                      value={row.purchaseClass}
-                      onChange={(e) => handleCellChange(rowIndex, "purchaseClass", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "purchaseClass")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "purchaseClass" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
+                    {/* UOM */}
+                    <td className="p-1 border-r border-slate-200">
+                      <select
+                        id={`cell-${rowIndex}-uom`}
+                        value={row.uom}
+                        onChange={(e) => handleCellChange(rowIndex, "uom", e.target.value)}
+                        onFocus={() => setFocusedCell({ rowIndex, field: "uom" })}
+                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      >
+                        <option value="Pcs">Pcs</option>
+                        <option value="Kg">Kg</option>
+                        <option value="Mtr">Mtr</option>
+                        <option value="Pair">Pair</option>
+                        <option value="Box">Box</option>
+                      </select>
+                    </td>
 
-                  {/* Department */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-department`}
-                      type="text"
-                      placeholder="Ladies FTW"
-                      value={row.department}
-                      onChange={(e) => handleCellChange(rowIndex, "department", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "department")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "department" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
-
-                  {/* Merchandise Category */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-merchandiseCategory`}
-                      type="text"
-                      placeholder="Chappal"
-                      value={row.merchandiseCategory}
-                      onChange={(e) => handleCellChange(rowIndex, "merchandiseCategory", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "merchandiseCategory")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "merchandiseCategory" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
-
-                  {/* Sub Category */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-subCategory`}
-                      type="text"
-                      placeholder="Flat"
-                      value={row.subCategory}
-                      onChange={(e) => handleCellChange(rowIndex, "subCategory", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "subCategory")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "subCategory" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
-
-                  {/* Gender */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-gender`}
-                      type="text"
-                      placeholder="LADIES"
-                      value={row.gender}
-                      onChange={(e) => handleCellChange(rowIndex, "gender", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "gender")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "gender" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
-
-                  {/* Heels */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-heels`}
-                      type="text"
-                      placeholder="Flat"
-                      value={row.heels}
-                      onChange={(e) => handleCellChange(rowIndex, "heels", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "heels")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "heels" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
-
-                  {/* Upper Material */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-upperMaterial`}
-                      type="text"
-                      placeholder="Synthetic"
-                      value={row.upperMaterial}
-                      onChange={(e) => handleCellChange(rowIndex, "upperMaterial", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "upperMaterial")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "upperMaterial" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
-
-                  {/* Outsole */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-outsole`}
-                      type="text"
-                      placeholder="TPR"
-                      value={row.outsole}
-                      onChange={(e) => handleCellChange(rowIndex, "outsole", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "outsole")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "outsole" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
-
-                  {/* Image Link */}
-                  <td className="p-1 border-r border-theme-divider/40">
-                    <input
-                      id={`cell-${rowIndex}-imageLink`}
-                      type="text"
-                      placeholder="https://..."
-                      value={row.imageLink}
-                      onChange={(e) => handleCellChange(rowIndex, "imageLink", e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "imageLink")}
-                      onFocus={() => setFocusedCell({ rowIndex, field: "imageLink" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                    />
-                  </td>
-
-                  {/* Dynamic Custom Attributes */}
-                  {activeAttrs.map(attr => {
-                    const fieldKey = `attr_${attr.name}`;
-                    const val = row.attributes[attr.name] || "";
-                    
-                    return (
-                      <td key={attr.id} className="p-1 border-r border-theme-divider/40">
-                        {attr.dataType === "select" ? (
-                          <select
-                            id={`cell-${rowIndex}-${fieldKey}`}
-                            value={val}
-                            onChange={(e) => handleCellChange(rowIndex, fieldKey, e.target.value)}
-                            onFocus={() => setFocusedCell({ rowIndex, field: fieldKey })}
-                            className="w-full bg-transparent border-0 outline-none text-xs px-2 py-0.5 text-white"
-                          >
-                            <option value="" className="bg-theme-surface-2">-- Option --</option>
-                            {attr.validValues.map(opt => (
-                              <option key={opt} value={opt} className="bg-theme-surface-2">{opt}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            id={`cell-${rowIndex}-${fieldKey}`}
-                            type={attr.dataType === "number" ? "number" : "text"}
-                            placeholder={`Enter ${attr.label}`}
-                            value={val}
-                            onChange={(e) => handleCellChange(rowIndex, fieldKey, e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, rowIndex, fieldKey)}
-                            onFocus={() => setFocusedCell({ rowIndex, field: fieldKey })}
-                            className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                          />
-                        )}
+                    {/* DYNAMIC BUSINESS CLASS ATTRIBUTES */}
+                    {activeAttrs.map(attr => (
+                      <td key={attr.id} className="p-1 border-r border-slate-200 bg-indigo-50/10">
+                        <input
+                          id={`cell-${rowIndex}-attr_${attr.name}`}
+                          type="text"
+                          placeholder={`Enter ${attr.label}`}
+                          value={row.attributes[attr.name] || ""}
+                          onChange={(e) => handleCellChange(rowIndex, `attr_${attr.name}`, e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, rowIndex, `attr_${attr.name}`)}
+                          onFocus={() => setFocusedCell({ rowIndex, field: `attr_${attr.name}` })}
+                          className="w-full bg-white border border-indigo-200 rounded px-2 py-1 text-xs text-indigo-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        />
                       </td>
-                    );
-                  })}
+                    ))}
 
-                  {/* Action Delete row */}
-                  <td className="p-1.5 text-center">
-                    <button
-                      onClick={() => handleRemoveRow(rowIndex)}
-                      className="p-1 hover:bg-rose-950/40 text-rose-400 rounded transition-colors"
-                      title="Delete Row"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    {/* DYNAMIC CUSTOM ATTRIBUTES */}
+                    {customAttrs.map(attr => (
+                      <td key={attr.key} className="p-1 border-r border-slate-200 bg-purple-50/10">
+                        <input
+                          id={`cell-${rowIndex}-attr_${attr.key}`}
+                          type="text"
+                          placeholder={`Enter ${attr.label}`}
+                          value={row.attributes[attr.key] || ""}
+                          onChange={(e) => handleCellChange(rowIndex, `attr_${attr.key}`, e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, rowIndex, `attr_${attr.key}`)}
+                          onFocus={() => setFocusedCell({ rowIndex, field: `attr_${attr.key}` })}
+                          className="w-full bg-white border border-purple-200 rounded px-2 py-1 text-xs text-purple-900 font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </td>
+                    ))}
+
+                    {/* STATUS */}
+                    <td className="p-2 text-center border-r border-slate-200">
+                      {isBlankRow ? (
+                        <span className="text-slate-400 text-xs font-mono font-bold">--</span>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${statusObj.color}`}>
+                          {statusObj.label}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* ACTIONS */}
+                    <td className="p-1.5 text-center">
+                      {isBlankRow ? (
+                        <button
+                          onClick={handleAddRow}
+                          className="p-1 text-blue-600 hover:bg-blue-100 rounded-full transition-colors cursor-pointer inline-flex items-center justify-center"
+                          title="Add New Row"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-center space-x-1">
+                          <button
+                            onClick={() => handleDuplicateRow(rowIndex)}
+                            className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors cursor-pointer"
+                            title="Duplicate Row"
+                          >
+                            <ClipboardCopy size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveRow(rowIndex)}
+                            className="p-1 text-rose-600 hover:bg-rose-100 rounded transition-colors cursor-pointer"
+                            title="Delete Row"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {/* Keyboard Helper Tips Banner */}
-        <div className="flex flex-col md:flex-row items-center justify-between border-t border-theme-divider/40 pt-4 gap-4">
-          <div className="flex items-center space-x-2 text-theme-muted text-[10px] font-mono">
-            <Keyboard size={13} className="text-blue-400" />
-            <span>Tab: Next cell&nbsp;|&nbsp;Shift+Tab: Prev&nbsp;|&nbsp;Enter: Next row&nbsp;|&nbsp;Arrows: Navigate&nbsp;|&nbsp;<span className="text-emerald-400 font-bold">Ctrl+V with headers: auto-maps columns</span></span>
+        {/* Legend & KPI Summary Panel */}
+        <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Validation Legend */}
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-700">
+            <div className="flex items-center space-x-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-md">
+              <CheckCircle2 size={13} />
+              <span className="font-bold text-[11px]">Valid</span>
+            </div>
+            <div className="flex items-center space-x-1.5 bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-md">
+              <AlertTriangle size={13} />
+              <span className="font-bold text-[11px]">Warning</span>
+            </div>
+            <div className="flex items-center space-x-1.5 bg-purple-50 border border-purple-200 text-purple-700 px-2.5 py-1 rounded-md">
+              <span className="font-bold font-mono text-xs">o</span>
+              <span className="font-bold text-[11px]">Duplicate SKU</span>
+            </div>
+            <div className="flex items-center space-x-1.5 bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md">
+              <XCircle size={13} />
+              <span className="font-bold text-[11px]">Duplicate Barcode</span>
+            </div>
+            <div className="flex items-center space-x-1.5 bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md">
+              <AlertTriangle size={13} />
+              <span className="font-bold text-[11px]">Invalid HSN/GST</span>
+            </div>
+            <div className="text-rose-600 font-bold text-xs">
+              * <span className="text-slate-600 font-normal">Required Field</span>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          {/* Metrics KPI Summary Card */}
+          <div className="bg-white border border-slate-200 rounded-xl px-5 py-2 flex items-center space-x-6 shadow-2xs">
+            <div className="text-center pr-4 border-r border-slate-200">
+              <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Total Rows</div>
+              <div className="text-base font-bold text-slate-900">{totalRowsCount}</div>
+            </div>
+            <div className="text-center pr-4 border-r border-slate-200">
+              <div className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Valid</div>
+              <div className="text-base font-bold text-emerald-600">{validCount}</div>
+            </div>
+            <div className="text-center pr-4 border-r border-slate-200">
+              <div className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Warning</div>
+              <div className="text-base font-bold text-amber-600">{warningCount}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">Errors</div>
+              <div className="text-base font-bold text-rose-600">{errorCount}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Keyboard Helper & Bottom Action Bar */}
+        <div className="flex flex-col md:flex-row items-center justify-between border-t border-slate-200 pt-3 gap-4">
+          <div className="flex flex-wrap items-center gap-2 text-slate-600 text-xs font-mono">
+            <span>Tab: Next cell&nbsp;|&nbsp;Shift+Tab: Prev cell&nbsp;|&nbsp;Enter: Next row&nbsp;|&nbsp;Arrow Keys: Navigate</span>
+            <div className="flex items-center space-x-1 bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded text-[11px] font-bold font-sans">
+              <Check size={12} />
+              <span>Ctrl+V: Paste</span>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-2 py-0.5 rounded text-[11px] font-bold font-sans">
+              Headers: Auto-Map On
+            </div>
+            {lastMappingSummary && (
+              <div className="flex items-center space-x-1.5 bg-emerald-50 border border-emerald-300 text-emerald-800 px-2 py-0.5 rounded text-[11px] font-bold font-sans">
+                <span>✓ {lastMappingSummary.mapped} auto-mapped</span>
+                {lastMappingSummary.review > 0 && <span className="text-amber-700">| ⚠ {lastMappingSummary.review} review</span>}
+                {lastMappingSummary.ignored > 0 && <span className="text-slate-500">| ○ {lastMappingSummary.ignored} ignored</span>}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-2.5 flex-wrap">
             <button
               onClick={handleAddRow}
-              className="px-4 py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center space-x-1.5"
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center space-x-1 shadow-2xs"
             >
-              <Plus size={12} />
-              <span>Add Empty Row</span>
+              <Plus size={14} />
+              <span>Add Row</span>
+            </button>
+            <button
+              onClick={() => setShowAddAttrModal(true)}
+              className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-300 text-purple-800 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center space-x-1 shadow-2xs"
+              title="Add custom dynamic attribute column to spreadsheet grid"
+            >
+              <Plus size={14} />
+              <span>Add Attribute</span>
+            </button>
+            <button
+              onClick={handleVerifyAllRows}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center space-x-1 shadow-2xs"
+              title="Pre-verify grid items for duplicate SKUs, duplicate barcodes, and missing fields"
+            >
+              <CheckCircle2 size={14} />
+              <span>Verify All</span>
+            </button>
+            <button
+              onClick={handleSaveDraft}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-2xs"
+              title="Save current grid state to local storage draft"
+            >
+              Save Draft
+            </button>
+            <button
+              onClick={handleLoadDraft}
+              className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-2xs"
+              title="Load saved grid draft from local storage"
+            >
+              Load Draft
             </button>
             <button
               onClick={handleSaveGrid}
               disabled={loading}
-              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition-all shadow-lg flex items-center space-x-1.5 cursor-pointer"
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition-all shadow-md flex items-center space-x-1.5 cursor-pointer"
             >
-              <CheckCircle2 size={12} />
+              <CheckCircle2 size={14} />
               <span>{loading ? "Writing SKU Catalog..." : "Commit Grid to SMRITI DB"}</span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Header Auto-Mapping Preview & Review Modal */}
+      <HeaderMappingPreviewModal
+        isOpen={isMappingModalOpen}
+        mappingResult={pendingMappingEngineResult}
+        availableFields={getSmritiItemMasterFields([
+          ...activeAttrs.map(a => ({ key: a.name, label: a.label })),
+          ...customAttrs.map(c => ({ key: c.key, label: c.label }))
+        ])}
+        sampleRows={pendingSampleRows}
+        onConfirm={(finalMappings) => {
+          if (pendingMatrix) {
+            applyConfirmedHeaderMappings(finalMappings, pendingMatrix, pendingHeaderRowIndex);
+          }
+        }}
+        onClose={() => {
+          setIsMappingModalOpen(false);
+          setPendingMatrix(null);
+          setPendingHeaderRowIndex(0);
+          setPendingSampleRows([]);
+          setPendingMappingEngineResult(null);
+        }}
+      />
+
+      {/* Add Custom Attribute Modal */}
+      {showAddAttrModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Plus size={18} className="text-purple-600" />
+                Add Dynamic Attribute Column
+              </h3>
+              <button
+                onClick={() => setShowAddAttrModal(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Enter a custom attribute name (e.g. <span className="font-bold text-slate-800">Fabric, Pattern, Neckline, Occasion, Sleeve, Fit</span>). This column will instantly be added to your Excel copy-paste grid and header mapping engine.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Attribute Label Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Fabric"
+                value={newAttrLabelInput}
+                onChange={(e) => setNewAttrLabelInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddCustomAttribute();
+                }}
+                autoFocus
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShowAddAttrModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCustomAttribute}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-sm"
+              >
+                Add Column to Grid
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header Alias Manager Modal */}
+      <HeaderAliasManagerModal
+        isOpen={showAliasManagerModal}
+        onClose={() => setShowAliasManagerModal(false)}
+        availableFields={getSmritiItemMasterFields([
+          ...activeAttrs.map(a => ({ key: a.name, label: a.label })),
+          ...customAttrs.map(c => ({ key: c.key, label: c.label }))
+        ])}
+      />
 
     </div>
   );

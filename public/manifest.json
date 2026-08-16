@@ -1,0 +1,17 @@
+{
+  "name": "SMRITI Retail OS",
+  "short_name": "SMRITI OS",
+  "description": "SMRITI Retail OS - Enterprise Point of Sale, Inventory, and Retail Management System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9ff",
+  "theme_color": "#24389c",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

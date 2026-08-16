@@ -36,10 +36,10 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
 
   // Sanitize endpoint string — remove any embedded docker hostname prefixes (e.g. python-core:8000, smriti-api:8000)
   let cleanEndpoint = endpoint
-    .replace(/https?:\/\/python-core:8000/gi, "")
-    .replace(/https?:\/\/smriti-api:8000/gi, "")
-    .replace(/https?:\/\/localhost:8000/gi, "")
-    .replace(/https?:\/\/127\.0\.0\.1:8000/gi, "");
+    .replace(/https?:\/\/python-core(:[0-9]+)?/gi, "")
+    .replace(/https?:\/\/smriti-api(:[0-9]+)?/gi, "")
+    .replace(/https?:\/\/localhost(:[0-9]+)?/gi, "")
+    .replace(/https?:\/\/127\.0\.0\.1(:[0-9]+)?/gi, "");
 
   if (cleanEndpoint.startsWith("/api/v1")) {
     cleanEndpoint = cleanEndpoint.replace(/^\/api\/v1/, "");
@@ -47,10 +47,16 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
 
   const url = `/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers
+    });
+  } catch (networkError: any) {
+    console.error(`[apiFetchV1 Network Error] Target URL "${url}" unreachable:`, networkError);
+    throw new Error("SMRITI Backend API Server is unreachable. Please ensure the FastAPI service (python-core:8000 / localhost:8000) is running.");
+  }
 
   if (!response.ok) {
     let errorData: any;

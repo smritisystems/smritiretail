@@ -40,7 +40,7 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
     companyAdmin: 'Jawahar Ramkripal Mallah',
     branches: ['Main Branch - Mumbai', 'Sub-Branch - Delhi'],
     database: {
-      databaseName: 'smriti001',
+      databaseName: 'company_db_001',
       provisioningStatus: 'READY',
       healthStatus: 'HEALTHY',
       schemaVersion: '3.16.0',

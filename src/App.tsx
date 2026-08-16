@@ -86,6 +86,8 @@ import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
+import { AppShell } from "./components/shell/AppShell.tsx";
+import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
 import { X } from "lucide-react";
 
 interface AppNotification {
@@ -106,6 +108,12 @@ const AppContent: React.FC = () => {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const checkAuth = async () => {
+    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
+    if (!token) {
+      setCurrentUser(null);
+      setCheckingAuth(false);
+      return;
+    }
     try {
       // Migrated: GET /api/auth/me (Express session) → GET /api/v1/auth/me (FastAPI JWT)
       const data = await apiFetchV1("/auth/me");
@@ -121,7 +129,9 @@ const AppContent: React.FC = () => {
         setCurrentUser(null);
       }
     } catch {
-      // apiFetchV1 throws on non-2xx — treat as unauthenticated
+      // apiFetchV1 throws on non-2xx (e.g. 401 expired) — clear token and treat as unauthenticated
+      localStorage.removeItem("smriti_jwt_token");
+      localStorage.removeItem("smriti_session_token");
       setCurrentUser(null);
     } finally {
       setCheckingAuth(false);
@@ -356,15 +366,31 @@ const AppContent: React.FC = () => {
     };
   }, [activeTab, registeredWorkspaces, popOutTab]);
 
+  const mapModuleId = (id: string): string => {
+    const map: Record<string, string> = {
+      launchpad: "dashboard",
+      item_master: "item-master",
+      inventory: "stock-ledger",
+      suppliers: "supplier-mgmt",
+      reports: "report-designer",
+      dev_tracker: "dev-tracker",
+      system: "masters",
+      settings: "profiles",
+      about: "about-smriti",
+      grn: "purchase",
+    };
+    return map[id] || id;
+  };
+
   const renderTab = (tabId: string) => {
     switch (tabId) {
       case "dashboard":
+      case "launchpad":
         return (
-          <DashboardTab
-            products={products}
-            formulas={formulas}
-            psvParties={psvParties}
-            onSelectFormula={(f) => setSelectedFormula(f)}
+          <FioriLaunchpad
+            onSelectModule={(modId) => {
+              setActiveTab(mapModuleId(modId));
+            }}
           />
         );
       case "pos":
@@ -440,6 +466,17 @@ const AppContent: React.FC = () => {
             onRefreshProducts={fetchSystemState}
             onNotification={addNotification}
             currentUser={currentUser}
+            initialSubTab="registry"
+          />
+        );
+      case "item-create-grid":
+        return (
+          <ItemMasterTab
+            products={products}
+            onRefreshProducts={fetchSystemState}
+            onNotification={addNotification}
+            currentUser={currentUser}
+            initialSubTab="excel-grid"
           />
         );
       case "profiles":
@@ -559,8 +596,23 @@ const AppContent: React.FC = () => {
     );
   }
 
+  const getTabLabel = (id: string): string => {
+    const tabMeta = registeredWorkspaces.find((w) => w.id === id);
+    if (tabMeta) return tabMeta.label;
+    if (id === "dashboard" || id === "launchpad") return "Fiori Launchpad";
+    return id.replace(/-/g, " ").toUpperCase();
+  };
+
   return (
-    <div className="relative w-full h-full pb-13">
+    <AppShell
+      activeModuleId={activeTab}
+      activeModuleTitle={getTabLabel(activeTab)}
+      onSelectModule={(id) => setActiveTab(mapModuleId(id))}
+      onNavigateHome={() => setActiveTab("dashboard")}
+      userName={currentUser?.name || "Operator"}
+      userRole={currentUser?.role || "System Admin"}
+    >
+      <div className="relative w-full h-full pb-13">
       {/* Toast Notification Stack */}
       <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
         <AnimatePresence>
@@ -641,33 +693,30 @@ const AppContent: React.FC = () => {
         );
       })()}
 
-      {/* SMRITI Layout Manager Shell */}
-      <LayoutManager 
-        activeTab={activeTab} 
-        onTabSelect={setActiveTab}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-      >
+      {/* Authoritative Single Application Workspace Canvas */}
+      <div className="flex-1 flex flex-col h-full w-full min-w-0 max-w-full overflow-hidden relative">
         <DrillDownBreadcrumbs />
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.15 }}
-            className="h-full"
-            style={{
-              transform: `scale(${globalZoom})`,
-              transformOrigin: "top left",
-              width: `${100 / globalZoom}%`,
-              height: `${100 / globalZoom}%`,
-            }}
-          >
-          {renderTabSafe(activeTab)}
-          </motion.div>
-        </AnimatePresence>
-      </LayoutManager>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 min-w-0 max-w-full relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+              className="w-full h-full min-w-0 max-w-full"
+              style={{
+                transform: `scale(${globalZoom})`,
+                transformOrigin: "top left",
+                width: `${100 / globalZoom}%`,
+                height: `${100 / globalZoom}%`,
+              }}
+            >
+              {renderTabSafe(activeTab)}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
 
       {/* Floating Workspace Windows Host */}
       <FloatingWindowHost renderTab={(id) => renderTabSafe(id)} />
@@ -690,6 +739,7 @@ const AppContent: React.FC = () => {
       {/* SMRITI Workspace Taskbar - Only rendered when user is logged in */}
       <WorkspaceTaskbar />
     </div>
+    </AppShell>
   );
 };
 
