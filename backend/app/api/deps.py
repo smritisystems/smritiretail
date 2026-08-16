@@ -23,6 +23,7 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
+import json
 from dataclasses import dataclass
 from typing import Callable, Tuple
 from fastapi import Depends, HTTPException, Header, Request
@@ -34,6 +35,7 @@ from ..core.config import settings
 
 from ..db.session import get_db as _get_db
 from ..models.auth import User, UserRole
+from ..models.role import Role
 from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 from ..core.security import decode_token
 
