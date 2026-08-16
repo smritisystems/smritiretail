@@ -349,11 +349,11 @@ class PurchaseService:
         self.db.add(receipt)
         self.db.add_all(item_rows)
 
-        # Apply stock increments, update supplier outstanding, and record stock movements
+        # Apply stock increments via StockMovement trigger, update supplier outstanding
         for product, qty in product_stock_updates:
-            product.stock += int(qty)
             product.modified_at = datetime.now(timezone.utc)
             self.db.add(product)
+
 
             # Record StockMovement
             movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"

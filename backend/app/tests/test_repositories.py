@@ -58,10 +58,12 @@ async def test_product_repository_crud(db_session):
     assert total >= 1
     
     # 5. Delete (Soft)
-    deleted = await repo.soft_delete(fetched)
+    v_before_delete = updated.version
+    deleted = await repo.soft_delete(updated)
     assert deleted.is_deleted is True
-    assert deleted.version == updated.version + 1
+    assert deleted.version == v_before_delete + 1
     assert deleted.deleted_at.tzinfo is not None
+
     
     # Fetching should return None now (due to soft delete check)
     fetched_deleted = await repo.get(prod_id)

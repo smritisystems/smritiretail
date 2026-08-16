@@ -136,6 +136,7 @@ async def _make_customer(db_session, suffix: str, company_id: str, branch_id: st
 
     customer = Customer(
         id=f"cust-sal-{suffix}",
+        code=f"CUST-SAL-{suffix}",
         customer_group_id=group.id,
         name=f"Sales Customer {suffix}",
         outstanding=Decimal("0.00"),

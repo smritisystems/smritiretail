@@ -54,15 +54,9 @@ class InventoryService:
         if product.tracking_mode == "No-stock":
             return
 
-        # Update product stock
-        if movement_type == "IN":
-            product.stock += int(quantity)
-        elif movement_type == "OUT":
-            product.stock -= int(quantity)
-        elif movement_type == "ADJUSTMENT":
-            product.stock += int(quantity) # Quantity can be negative for adjustments
-        
+        # Stock is updated automatically by PostgreSQL trigger trg_inventory_state_reconciliation on StockMovement insert
         self.db.add(product)
+
 
         # Create StockMovement record
         movement = StockMovement(

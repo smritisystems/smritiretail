@@ -236,4 +236,26 @@ async def root_landing_page(request: Request):
     })
 
 
+# Production static-file serving & SPA fallback mount
+import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+_workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_dist_dir = os.path.join(_workspace_root, "dist")
+if os.path.exists(_dist_dir):
+    _assets_dir = os.path.join(_dist_dir, "assets")
+    if os.path.exists(_assets_dir):
+        app.mount("/assets", StaticFiles(directory=_assets_dir), name="static_assets")
+
+    @app.get("/app/{full_path:path}", include_in_schema=False)
+    @app.get("/ui/{full_path:path}", include_in_schema=False)
+    async def serve_spa_frontend(full_path: str = ""):
+        target_file = os.path.join(_dist_dir, full_path)
+        if full_path and os.path.exists(target_file) and os.path.isfile(target_file):
+            return FileResponse(target_file)
+        return FileResponse(os.path.join(_dist_dir, "index.html"))
+
+
+
 

@@ -28,11 +28,13 @@ class ReportScheduleCreate(BaseModel):
     report_name      : str             = Field(..., description="Human-readable report name")
     frequency        : Frequency       = Field(..., description="DAILY | WEEKLY | MONTHLY")
     execution_time   : Optional[str]   = Field(default="08:00", description="HH:MM execution time")
+    cron_expression  : Optional[str]   = Field(default=None, description="Optional cron expression")
     delivery_channel : DeliveryChannel = Field(..., description="EMAIL | WHATSAPP | SMS")
     delivery_target  : str             = Field(..., description="Email address or phone number")
     delivery_format  : DeliveryFormat  = Field(default="PDF", description="PDF | Excel | CSV")
 
     model_config = {"from_attributes": True}
+
 
 
 class ReportScheduleResponse(BaseModel):
