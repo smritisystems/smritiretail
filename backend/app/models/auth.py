@@ -46,6 +46,7 @@ class User(Base):
     mobile          = Column(String(20),  nullable=True)
     hashed_password = Column(String(255), nullable=False)
     role            = Column(SAEnum(UserRole), nullable=False, default=UserRole.CASHIER)
+    role_id         = Column(String(50), ForeignKey("roles.id", ondelete="SET NULL"), nullable=True, index=True)
     is_active       = Column(Boolean,     nullable=False, default=True)
     is_deleted      = Column(Boolean,     nullable=False, default=False)
 

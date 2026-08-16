@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.8.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-08-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -15,6 +15,7 @@ from typing import List, Optional
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from ..models.sales import SalesInvoice
 from .base import BaseRepository
 from ..api.deps import TenantContext
@@ -26,7 +27,7 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
         super().__init__(SalesInvoice, db, tenant_ctx)
 
     async def get(self, id: str) -> Optional[SalesInvoice]:
-        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(SalesInvoice.id == id)
+        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(or_(SalesInvoice.id == id, SalesInvoice.invoice_no == id))
         if hasattr(self.model, "is_deleted"):
             stmt = stmt.filter(self.model.is_deleted == False)
         stmt = self._apply_tenant_filter(stmt)

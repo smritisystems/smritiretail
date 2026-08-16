@@ -110,11 +110,11 @@ class Settings(BaseSettings):
     # Priority defaults
     PORT: int = 8000
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys"
-    JWT_SECRET_KEY: str  # Remove default â€” raise error if missing
+    JWT_SECRET_KEY: str  # Remove default — raise error if missing
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60       # 1 hour â€” suitable for retail POS sessions
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60       # 1 hour — suitable for retail POS sessions
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7          # 7-day sliding window refresh
-    INTERNAL_SERVICE_KEY: str = "smriti_secret_fallback_key"
+    INTERNAL_SERVICE_KEY: str  # Remove default — raise error if missing
 
     
     # Platform profiles

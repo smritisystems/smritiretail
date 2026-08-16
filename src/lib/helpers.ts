@@ -96,7 +96,7 @@ export async function allocateVoucherNumber(docType: string, context?: { branch?
     const pythonCoreHost = process.env.DATABASE_URL?.includes("@db:") ? "http://python-core:8000" : "http://localhost:8000";
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "X-Internal-Service-Key": process.env.INTERNAL_SERVICE_KEY || "smriti_secret_fallback_key"
+      "X-Internal-Service-Key": process.env.INTERNAL_SERVICE_KEY || ""
     };
     if (context?.authHeader) {
       headers["Authorization"] = context.authHeader;
@@ -240,7 +240,7 @@ export async function recordStockMovement(productId: any, productCode: any, prod
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Internal-Service-Key": process.env.INTERNAL_SERVICE_KEY || "smriti_secret_fallback_key"
+        "X-Internal-Service-Key": process.env.INTERNAL_SERVICE_KEY || ""
       },
       body: JSON.stringify(payload)
     });

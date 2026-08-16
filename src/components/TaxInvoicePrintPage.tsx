@@ -220,9 +220,13 @@ export const TaxInvoicePrintPage: React.FC = () => {
         await ensureAuthenticated();
         let data: any = null;
         try {
-          data = await apiFetchV1("/tattly/invoices?company_code=tattly_threads");
+          data = await apiFetchV1("/sales/invoices?company_code=tattly_threads");
         } catch (_err) {
-          console.warn("[TaxInvoicePrintPage] Primary invoices list fetch error:", _err);
+          try {
+            data = await apiFetchV1("/tattly/invoices?company_code=tattly_threads");
+          } catch (_err2) {
+            console.warn("[TaxInvoicePrintPage] Primary invoices list fetch error:", _err2);
+          }
         }
 
         if (Array.isArray(data) && data.length > 0) {
@@ -261,9 +265,13 @@ export const TaxInvoicePrintPage: React.FC = () => {
       let data: any = null;
 
       try {
-        data = await apiFetchV1(`/tattly/invoices/${cleanId}?company_code=tattly_threads`);
-      } catch (_err1) {
         data = await apiFetchV1(`/sales/invoices/${cleanId}?company_code=tattly_threads`);
+      } catch (_err1) {
+        try {
+          data = await apiFetchV1(`/tattly/invoices/${cleanId}?company_code=tattly_threads`);
+        } catch (_err2) {
+          console.warn("[TaxInvoicePrintPage] Invoice fetch fallback error:", _err2);
+        }
       }
 
       if (!data) {
