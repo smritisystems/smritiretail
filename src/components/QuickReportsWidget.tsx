@@ -2,25 +2,16 @@
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
- *
- * Founders
- *
- * * Pushpa Devi Jawahar Mallah
- *   * Founder & Chairperson
- *   * Phone: +91 9324117007
- *   * Email: founder@aitdl.com
- *
- * * Jawahar Ramkripal Mallah
- *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
- *   * Email: founder@aitdl.com
- *
- * * Websites: aitdl.com | erpnbook.com | smritibooks.com
- *
- * * Version    : 3.16.0
- * * Created    : 2026-07-10
- * * Modified   : 2026-07-13
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 3.28.0
+ * Created      : 2026-07-10
+ * Modified     : 2026-08-16
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Target UI    : Quick Reports Widget (Fiori Horizon Inspired Light Theme)
  */
 
 import React, { useState, useEffect } from "react";
@@ -61,8 +52,8 @@ const PREDEFINED_REPORTS = [
     code: "RPT-OPS-001",
     description: "Gross revenue, ticket size, and payment modes.",
     icon: FileBarChart,
-    color: "text-blue-500",
-    bg: "bg-blue-500/10"
+    color: "text-blue-700",
+    bg: "bg-blue-50"
   },
   {
     id: "sales-billing" as ReportType,
@@ -70,8 +61,8 @@ const PREDEFINED_REPORTS = [
     code: "RPT-SAL-002",
     description: "Completed cash, card, and UPI invoice records.",
     icon: Receipt,
-    color: "text-emerald-500",
-    bg: "bg-emerald-500/10"
+    color: "text-emerald-700",
+    bg: "bg-emerald-50"
   },
   {
     id: "inventory-status" as ReportType,
@@ -79,8 +70,8 @@ const PREDEFINED_REPORTS = [
     code: "RPT-INV-003",
     description: "Safety stocks, reorders, and capital locked.",
     icon: AlertTriangle,
-    color: "text-amber-500",
-    bg: "bg-amber-500/10"
+    color: "text-amber-700",
+    bg: "bg-amber-50"
   },
   {
     id: "compliance-audit" as ReportType,
@@ -88,8 +79,8 @@ const PREDEFINED_REPORTS = [
     code: "RPT-CMP-004",
     description: "Rule 10 non-repudiation audit trails & logs.",
     icon: ShieldCheck,
-    color: "text-purple-500",
-    bg: "bg-purple-500/10"
+    color: "text-indigo-700",
+    bg: "bg-indigo-50"
   }
 ];
 
@@ -230,18 +221,18 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
   return (
     <>
       {/* SIDEBAR WIDGET UI */}
-      <div id="quick-reports-sidebar-card" className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider shadow-md flex flex-col space-y-4">
+      <div id="quick-reports-sidebar-card" className="bg-theme-surface-1 rounded-xl p-4 border border-theme-border shadow-xs flex flex-col space-y-3.5">
         <div className="flex items-center space-x-2">
-          <span className="material-symbols-outlined text-[#2563EB] text-xl">print</span>
+          <Printer size={18} className="text-theme-primary" />
           <div className="flex-1">
-            <h4 className="font-display font-semibold text-sm text-theme-body">
+            <h4 className="font-bold text-xs text-theme-body uppercase tracking-wider font-mono">
               Quick Reports Printout
             </h4>
-            <p className="text-[10px] text-theme-muted">
-              Trigger high-fidelity reports without opening designer
+            <p className="text-[10px] text-theme-muted font-mono">
+              Trigger high-fidelity reports instantly
             </p>
           </div>
-          <span className="text-[9px] font-mono font-bold bg-theme-surface-3 text-blue-400 px-1.5 py-0.5 rounded border border-theme-divider">
+          <span className="text-[9px] font-mono font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200 uppercase">
             Instant
           </span>
         </div>
@@ -249,7 +240,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
         {/* Predefined Reports List */}
         <div id="predefined-reports-list-container" className="space-y-2">
           <label className="text-[9px] text-theme-muted uppercase font-bold font-mono tracking-wider">Predefined Reports</label>
-          <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
             {PREDEFINED_REPORTS.map((report) => {
               const ReportIcon = report.icon;
               const isSelected = selectedReport === report.id;
@@ -258,26 +249,26 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                   id={`report-item-${report.id}`}
                   key={report.id}
                   onClick={() => setSelectedReport(report.id)}
-                  className={`group p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
+                  className={`group p-2.5 rounded-lg border transition-all cursor-pointer flex flex-col justify-between gap-2 ${
                     isSelected
-                      ? "bg-theme-surface-3 border-blue-500/50 shadow-md shadow-blue-500/5"
-                      : "bg-theme-surface-2 border-theme-divider hover:border-theme-divider/80 hover:bg-theme-surface-3/60"
+                      ? "bg-theme-selection border-theme-primary shadow-xs"
+                      : "bg-theme-surface-2 border-theme-border hover:bg-theme-surface-hover"
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${report.bg} ${report.color} flex-shrink-0`}>
-                      <ReportIcon size={16} />
+                  <div className="flex items-start gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${report.bg} ${report.color} flex-shrink-0 border border-theme-border`}>
+                      <ReportIcon size={15} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <h5 className={`font-display font-bold text-xs truncate ${isSelected ? "text-blue-400 font-extrabold" : "text-theme-body"}`}>
+                      <div className="flex items-center justify-between gap-1">
+                        <h5 className={`font-bold text-xs truncate ${isSelected ? "text-theme-primary font-bold" : "text-theme-body"}`}>
                           {report.title}
                         </h5>
-                        <span className="text-[8px] font-mono bg-theme-surface-4 text-theme-muted px-1.5 py-0.5 rounded border border-theme-divider flex-shrink-0">
+                        <span className="text-[8px] font-mono bg-theme-surface-1 text-theme-muted px-1.5 py-0.5 rounded border border-theme-border flex-shrink-0">
                           {report.code}
                         </span>
                       </div>
-                      <p className="text-[10px] text-theme-muted line-clamp-2 mt-0.5 leading-tight">
+                      <p className="text-[10px] text-theme-muted line-clamp-2 mt-0.5 font-mono">
                         {report.description}
                       </p>
                     </div>

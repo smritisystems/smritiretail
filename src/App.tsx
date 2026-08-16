@@ -37,6 +37,7 @@ import { FormulaRegistryTab } from "./components/FormulaRegistryTab.tsx";
 import { PsvTab } from "./components/PsvTab.tsx";
 import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
 import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
+import { AdvancedBillingEngine } from "./components/AdvancedBillingEngine.tsx";
 import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
 import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
@@ -403,6 +404,20 @@ const AppContent: React.FC = () => {
             products={products}
             onNotification={addNotification}
             currentUser={currentUser}
+          />
+        );
+      case "create-tax-invoice":
+        return (
+          <AdvancedBillingEngine
+            cart={[]}
+            onClearCart={() => {}}
+            activeShift={shifts[0] || null}
+            activeProfile={profiles[0] || null}
+            onCheckoutSuccess={(bill) => {
+              fetchSystemState();
+            }}
+            onNotification={addNotification}
+            isStandaloneTab={true}
           />
         );
       case "purchase":

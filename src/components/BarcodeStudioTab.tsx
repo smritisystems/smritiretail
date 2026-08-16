@@ -2,25 +2,16 @@
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
- *
- * Founders
- *
- * * Pushpa Devi Jawahar Mallah
- *   * Founder & Chairperson
- *   * Phone: +91 9324117007
- *   * Email: founder@aitdl.com
- *
- * * Jawahar Ramkripal Mallah
- *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
- *   * Email: founder@aitdl.com
- *
- * * Websites: aitdl.com | erpnbook.com | smritibooks.com
- *
- * * Version    : 2.1.1
- * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 3.28.0
+ * Created      : 2026-07-10
+ * Modified     : 2026-08-16
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Target UI    : Barcode Studio & Label Designer (Fiori Horizon Inspired Light Theme)
  */
 
 import React, { useState, useEffect } from "react";
@@ -97,32 +88,32 @@ export const BarcodeStudioTab: React.FC<BarcodeStudioTabProps> = ({ currentUser 
       </AnimatePresence>
 
       {/* Sidebar Navigation */}
-      <div className="w-56 shrink-0 bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-xl p-4 flex flex-col h-[calc(100vh-140px)]">
-        <div className="flex items-center gap-2 text-theme-body font-display font-bold text-lg mb-6 px-2">
-          <Barcode className="text-indigo-500" />
+      <div className="w-56 shrink-0 bg-theme-surface-1 border border-theme-border rounded-xl shadow-xs p-4 flex flex-col h-[calc(100vh-140px)]">
+        <div className="flex items-center gap-2 text-theme-body font-bold text-base mb-5 px-1 font-mono uppercase tracking-wider">
+          <Barcode className="text-theme-primary" size={20} />
           Barcode Studio
         </div>
         
         <nav className="space-y-1">
-          <NavItem icon={<Database />} label="Barcode Master" active={activeView === "master"} onClick={() => setActiveView("master")} />
-          <NavItem icon={<Plus />} label="Generate Barcode" active={activeView === "generator"} onClick={() => setActiveView("generator")} />
-          <NavItem icon={<Printer />} label="Label Printing" active={activeView === "printing"} onClick={() => setActiveView("printing")} />
-          <NavItem icon={<Tag />} label="Barcode Demo" active={activeView === "demo"} onClick={() => setActiveView("demo")} />
-          <NavItem icon={<Search />} label="Scanner Console" active={activeView === "scanner"} onClick={() => setActiveView("scanner")} />
-          <NavItem icon={<History />} label="Barcode History" active={activeView === "history"} onClick={() => setActiveView("history")} />
+          <NavItem icon={<Database size={15} />} label="Barcode Master" active={activeView === "master"} onClick={() => setActiveView("master")} />
+          <NavItem icon={<Plus size={15} />} label="Generate Barcode" active={activeView === "generator"} onClick={() => setActiveView("generator")} />
+          <NavItem icon={<Printer size={15} />} label="Label Printing" active={activeView === "printing"} onClick={() => setActiveView("printing")} />
+          <NavItem icon={<Tag size={15} />} label="Barcode Demo" active={activeView === "demo"} onClick={() => setActiveView("demo")} />
+          <NavItem icon={<Search size={15} />} label="Scanner Console" active={activeView === "scanner"} onClick={() => setActiveView("scanner")} />
+          <NavItem icon={<History size={15} />} label="Barcode History" active={activeView === "history"} onClick={() => setActiveView("history")} />
         </nav>
         
         <div className="mt-auto space-y-1 pt-4 border-t border-theme-divider">
-          <NavItem icon={<Settings />} label="Engine Settings" active={activeView === "settings"} onClick={() => setActiveView("settings")} />
+          <NavItem icon={<Settings size={15} />} label="Engine Settings" active={activeView === "settings"} onClick={() => setActiveView("settings")} />
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-xl overflow-hidden flex flex-col h-[calc(100vh-140px)]">
+      <div className="flex-1 bg-theme-surface-1 border border-theme-border rounded-xl shadow-xs overflow-hidden flex flex-col h-[calc(100vh-140px)]">
         {isReadOnly && (
-          <div className="bg-amber-950/40 border-b border-amber-500/30 px-6 py-2.5 flex items-center space-x-2 text-amber-400 text-xs">
-            <span className="material-symbols-outlined text-sm">warning</span>
-            <span className="font-mono uppercase tracking-wider font-bold">Read-Only Mode:</span>
+          <div className="bg-amber-50 border-b border-amber-200 px-5 py-2 flex items-center space-x-2 text-amber-800 text-xs font-mono">
+            <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+            <span className="uppercase tracking-wider font-bold">Read-Only Mode:</span>
             <span>Operating under a Read-Only Report User role. Modifying barcodes or templates is prohibited.</span>
           </div>
         )}

@@ -119,5 +119,15 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-08-14 | sales | SMRITI Statutory A4 Tax Invoice Print & PDF Engine Integration v4.7.0 | [SMRITI_Statutory_A4_Tax_Invoice_Print_Engine_v4.7.0.md](sales/SMRITI_Statutory_A4_Tax_Invoice_Print_Engine_v4.7.0.md) |
 | 2026-08-15 | foundation | Commercial Growth, Customer 360, Fulfillment & Cost Profitability Architecture v1.0 | [Commercial_Growth_Customer360_Fulfillment_And_Cost_Profitability_v1.0.md](foundation/Commercial_Growth_Customer360_Fulfillment_And_Cost_Profitability_v1.0.md) |
 | 2026-08-15 | reports | SMRITI Reporting Platform & Data Integrity Engine v1.0 — Excel Grid, Flexi Studio, Chart Visualizer & Dashboard Manager | [Reporting_Platform_And_Data_Integrity_v1.0.md](reports/Reporting_Platform_And_Data_Integrity_v1.0.md) |
+| 2026-08-16 | inventory | Inventory Workspace Visual Refactor (Fiori Horizon Inspired) v3.27.0 — Header, 5 KPI cards, filter bar, table grid, inspector drawer, bottom transaction log & quick actions | [Inventory_Workspace_Refactor_v3.27.0.md](inventory/Inventory_Workspace_Refactor_v3.27.0.md) |
+| 2026-08-16 | procurement | Create Purchase Order (B2B Purchase) Visual Refactor v3.28.0 — Top subheader, 8-field order card, 13-column item grid, quick add row, 3 configuration panels, summary sidebar | [Create_Purchase_Order_Refactor_v3.28.0.md](procurement/Create_Purchase_Order_Refactor_v3.28.0.md) |
+| 2026-08-16 | pos | POS Billing Terminal Visual Refactor v3.28.0 — Terminal header bar, product catalog grid, cart desk, cash calculator, hotkey indicators, checkout buttons | [POS_Billing_Terminal_Refactor_v3.28.0.md](pos/POS_Billing_Terminal_Refactor_v3.28.0.md) |
+| 2026-08-16 | crm | Customer CRM & Loyalty Studio Visual Refactor v3.28.0 — Customer directory subheader, 4 KPI cards, filter toolbar, 10-column table grid, side drawer inspector, modal dialog, CRM & Loyalty tabs | [Customer_CRM_Loyalty_Refactor_v3.28.0.md](crm/Customer_CRM_Loyalty_Refactor_v3.28.0.md) |
+| 2026-08-16 | reports | Reports & Analytics Studio Visual Refactor v3.28.0 — BI center subheader, RBAC role swapper, sidebar explorer studios, studio cards, dynamic KPI metrics, SVG Recharts visualization, reports ledger, quick print widget | [Reports_Analytics_Studio_Refactor_v3.28.0.md](reports/Reports_Analytics_Studio_Refactor_v3.28.0.md) |
+| 2026-08-16 | foundation | Barcode Studio & System Master Management Visual Refactor v3.28.0 — Barcode sidebar navigation, master registry, scanner console, PRN label designer, document series prefix builder, system master lookup console | [System_Master_Barcode_Refactor_v3.28.0.md](foundation/System_Master_Barcode_Refactor_v3.28.0.md) |
+
+
+
+
 
 

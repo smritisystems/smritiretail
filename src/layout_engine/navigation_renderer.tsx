@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.1
+ * * Version    : 3.25.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-08-16
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -135,7 +135,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
 
     return (
       <div className="flex flex-col h-full bg-theme-surface-1 select-none text-sm border-r border-theme-divider">
-        {/* Workspace Quick Search (Satisfies Global Search & Workspace Toolbar requirements) */}
+        {/* Workspace Quick Search */}
         {!isCollapsed && (
           <div className="p-3 border-b border-theme-divider/60">
             <div className="relative">
@@ -168,8 +168,8 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
           {/* Favorites Section (if not collapsed and favorites exist) */}
           {!isCollapsed && preferences.favorites.length > 0 && (
             <div className="space-y-1 animate-in fade-in duration-300">
-              <span className="text-[10px] font-mono text-amber-400 font-bold tracking-wider uppercase px-2 flex items-center space-x-1">
-                <Star size={10} className="fill-amber-400 text-amber-400" />
+              <span className="text-[10px] font-mono text-amber-500 font-bold tracking-wider uppercase px-2 flex items-center space-x-1">
+                <Star size={10} className="fill-amber-500 text-amber-500" />
                 <span>Pinned Favorites</span>
               </span>
               <div className="space-y-0.5">
@@ -182,18 +182,18 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                       onContextMenu={(e) => handleContextMenu(e, w.id, w.label, w.icon)}
                       className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between group transition-all cursor-pointer ${
                         activeTab === w.id
-                          ? "bg-blue-50 border border-blue-200 text-blue-700 font-semibold shadow-xs"
+                          ? "bg-theme-selection border border-theme-primary/30 text-theme-primary font-semibold shadow-xs"
                           : "text-theme-muted hover:bg-theme-surface-2 hover:text-theme-body border border-transparent"
                       }`}
                     >
                       <div className="flex items-center space-x-2.5">
-                        {renderIcon(w.icon, `text-lg ${activeTab === w.id ? "text-blue-600" : "text-theme-muted"}`)}
+                        {renderIcon(w.icon, `text-lg ${activeTab === w.id ? "text-theme-primary" : "text-theme-muted"}`)}
                         <span className="text-xs font-display">{w.label}</span>
                       </div>
                       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={(e) => { e.stopPropagation(); handlePopOut(w.id, w.label, w.icon); }}
-                          className="p-1 rounded text-theme-muted hover:text-blue-600 hover:bg-theme-surface-2 transition-all"
+                          className="p-1 rounded text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2 transition-all"
                           title="Pop-out Workspace"
                         >
                           <ExternalLink size={11} />
@@ -248,12 +248,12 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                             title={isCollapsed ? w.label : undefined}
                             className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between group transition-all border cursor-pointer ${
                               isSel
-                                ? "bg-blue-600 border-blue-500 text-white font-semibold shadow-xs"
-                                : "text-theme-body hover:bg-theme-surface-2 hover:text-blue-600 border-transparent"
+                                ? "bg-theme-selection border-theme-primary/30 text-theme-primary font-semibold shadow-xs"
+                                : "text-theme-body hover:bg-theme-surface-2 hover:text-theme-primary border-transparent"
                             }`}
                           >
                             <div className="flex items-center space-x-2.5">
-                              {renderIcon(w.icon, `text-lg ${isSel ? "text-white" : "text-theme-muted group-hover:text-blue-600"}`)}
+                              {renderIcon(w.icon, `text-lg ${isSel ? "text-theme-primary" : "text-theme-muted group-hover:text-theme-primary"}`)}
                               {!isCollapsed && <span className="text-xs font-display">{w.label}</span>}
                             </div>
                             
@@ -261,7 +261,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                               <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); handlePopOut(w.id, w.label, w.icon); }}
-                                  className={`p-1 rounded transition-all ${isSel ? "text-white hover:bg-blue-700" : "text-theme-muted hover:text-blue-400 hover:bg-theme-surface-2"}`}
+                                  className={`p-1 rounded transition-all ${isSel ? "text-theme-primary hover:bg-theme-surface-hover" : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2"}`}
                                   title="Pop-out Workspace"
                                 >
                                   <ExternalLink size={11} />

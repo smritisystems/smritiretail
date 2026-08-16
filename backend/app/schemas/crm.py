@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.7.0
+Version      : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-08-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -77,15 +77,15 @@ class CustomerGroupResponse(CustomerGroupBase):
     branch_id: Optional[str] = None
     created_at: datetime
     modified_at: datetime
-    is_active: bool
-    is_deleted: bool
-    version: int
+    is_active: bool = True
+    is_deleted: bool = False
+    version: Optional[int] = 1
 
     model_config = ConfigDict(from_attributes=True)
 
 # Base schema for Customer
 class CustomerBase(BaseModel):
-    customer_group_id: str = Field(..., max_length=50)
+    customer_group_id: Optional[str] = Field(None, max_length=50)
     code: Optional[str] = Field(None, max_length=50)
     name: str = Field(..., max_length=255)
     mobile: Optional[str] = Field(None, max_length=20)
@@ -116,8 +116,8 @@ class CustomerResponse(CustomerBase):
     branch_id: Optional[str] = None
     created_at: datetime
     modified_at: datetime
-    is_active: bool
-    is_deleted: bool
-    version: int
+    is_active: bool = True
+    is_deleted: bool = False
+    version: Optional[int] = 1
 
     model_config = ConfigDict(from_attributes=True)

@@ -2,25 +2,16 @@
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
- *
- * Founders
- *
- * * Pushpa Devi Jawahar Mallah
- *   * Founder & Chairperson
- *   * Phone: +91 9324117007
- *   * Email: founder@aitdl.com
- *
- * * Jawahar Ramkripal Mallah
- *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
- *   * Email: founder@aitdl.com
- *
- * * Websites: aitdl.com | erpnbook.com | smritibooks.com
- *
- * * Version    : 3.21.0
- * * Created    : 2026-07-10
- * * Modified   : 2026-07-16
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 3.28.0
+ * Created      : 2026-07-10
+ * Modified     : 2026-08-16
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Target UI    : BI & Reporting Center (Fiori Horizon Inspired Light Theme)
  */
 
 import React, { useState, useEffect } from "react";
@@ -364,32 +355,25 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         )}
       </AnimatePresence>
 
-      {/* Header Controller */}
-      <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Header Controller Bar */}
+      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
         <div>
-          <div className="flex items-center gap-3">
-            <span className="p-2 bg-blue-500/10 text-blue-400 rounded-xl">
-              <FileBarChart size={24} />
+          <div className="flex items-center space-x-2">
+            <h2 className="text-lg font-bold text-theme-body tracking-tight">SMRITI BI &amp; Reporting Center</h2>
+            <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded font-mono uppercase">
+              Studios v2.2
             </span>
-            <div>
-              <h2 className="text-xl font-bold font-display tracking-tight text-theme-body flex items-center gap-2">
-                SMRITI BI & Reporting Center
-                <span className="text-[10px] tracking-wider uppercase font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  Studios v2.2
-                </span>
-              </h2>
-              <p className="text-xs text-theme-muted mt-1 max-w-2xl">
-                Multi-studio analytical terminal with real-time aggregates, immutable ledger trails, and secure Rule 10 policy enforcement.
-              </p>
-            </div>
           </div>
+          <p className="text-xs text-theme-muted font-mono mt-0.5">
+            Multi-studio analytical terminal with real-time aggregates, immutable ledger trails, and secure Rule 10 policy enforcement.
+          </p>
         </div>
 
         {/* RBAC Role Swapper for Instant Interactive Testing */}
-        <div className="flex items-center gap-3 self-stretch md:self-auto bg-theme-surface-2 border border-theme-divider px-3 py-2 rounded-xl">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="text-emerald-400" size={14} />
-            <span className="text-xs font-semibold text-theme-muted">Simulate Role:</span>
+        <div className="flex items-center gap-2 self-stretch md:self-auto bg-theme-surface-2 border border-theme-border px-3 py-1.5 rounded-lg text-xs">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="text-emerald-600" size={14} />
+            <span className="font-semibold text-theme-muted font-mono text-[11px]">Simulate Role:</span>
           </div>
           <select 
             value={activeRole} 
@@ -399,7 +383,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               setSelectedReport(null);
               showNotification("success", `Active session mutated. Operating under role: ${e.target.value}`);
             }}
-            className="bg-theme-surface-3 border border-theme-divider rounded-lg px-2.5 py-1 text-xs text-theme-body font-bold focus:outline-none focus:border-blue-500 cursor-pointer"
+            className="bg-theme-surface-1 border border-theme-border rounded-md px-2 py-1 text-xs text-theme-body font-bold focus:outline-none focus:border-theme-primary cursor-pointer"
           >
             <option value="Store Manager">Store Manager (RBAC Level 3)</option>
             <option value="Cashier">Cashier (RBAC Level 1 - Rule 10 Active)</option>
@@ -411,13 +395,13 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
       {/* Main View Manager */}
       {activeView === "bi_center" && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 items-start">
           
           {/* Sidebar Navigation - 8 specialized Studios */}
-          <div className="lg:col-span-1 space-y-2.5 bg-theme-surface-1 border border-theme-divider p-3.5 rounded-2xl shadow-lg shrink-0">
-            <div className="px-2 py-1.5 border-b border-theme-divider/55 mb-2 flex items-center justify-between text-xs font-bold text-theme-muted">
+          <div className="lg:col-span-1 space-y-2 bg-theme-surface-1 border border-theme-border p-3 rounded-xl shadow-xs shrink-0">
+            <div className="px-2 py-1 border-b border-theme-divider mb-1.5 flex items-center justify-between text-xs font-bold text-theme-muted font-mono uppercase">
               <span>EXPLORER STUDIOS</span>
-              <Database size={12} className="text-indigo-400" />
+              <Database size={13} className="text-theme-primary" />
             </div>
 
             {Object.entries(studios).map(([key, data]: [string, any]) => {
@@ -426,24 +410,24 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 <button
                   key={key}
                   onClick={() => setActiveStudio(key)}
-                  className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-semibold flex items-center justify-between group transition-all relative overflow-hidden border ${
+                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-between group transition-all relative overflow-hidden border cursor-pointer ${
                     isActive 
-                      ? "bg-blue-600/10 border-blue-500/30 text-blue-400" 
-                      : "bg-transparent border-transparent hover:bg-theme-surface-2 text-theme-muted hover:text-theme-body"
+                      ? "bg-theme-selection border-theme-primary text-theme-primary font-bold shadow-xs" 
+                      : "bg-transparent border-transparent hover:bg-theme-surface-hover text-theme-body"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className={`material-symbols-outlined text-[18px] ${isActive ? "text-blue-400" : "text-theme-muted group-hover:text-theme-body"}`}>
+                  <div className="flex items-center gap-2.5">
+                    <span className={`material-symbols-outlined text-[18px] ${isActive ? "text-theme-primary" : "text-theme-muted group-hover:text-theme-body"}`}>
                       {data.icon}
                     </span>
                     <div className="truncate">
                       <div className="font-bold">{data.name}</div>
-                      <div className="text-[10px] text-theme-muted font-normal mt-0.5 truncate max-w-[160px]">
+                      <div className="text-[10px] text-theme-muted font-normal truncate max-w-[150px]">
                         {data.description}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 font-mono text-[10px] bg-theme-surface-3 px-1.5 py-0.5 rounded border border-theme-divider">
+                  <div className="flex items-center gap-1 font-mono text-[10px] bg-theme-surface-2 px-1.5 py-0.5 rounded border border-theme-border font-bold">
                     <span>{data.reports?.length || 0}</span>
                   </div>
                 </button>
@@ -452,27 +436,26 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           </div>
 
           {/* Right Pane - Studio Workspace */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-5">
             {loading ? (
-              <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl h-96 flex flex-col items-center justify-center text-center">
-                <RefreshCw className="animate-spin text-blue-500 mb-3" size={32} />
+              <div className="bg-theme-surface-1 border border-theme-border rounded-xl h-96 flex flex-col items-center justify-center text-center shadow-xs">
+                <RefreshCw className="animate-spin text-theme-primary mb-3" size={28} />
                 <p className="text-xs text-theme-muted font-mono">Retrieving active registry records...</p>
               </div>
             ) : (
               <>
                 {/* Active Studio Details Card */}
-                <div className="bg-gradient-to-r from-theme-surface-1 via-theme-surface-1 to-blue-950/20 border border-theme-divider rounded-2xl p-6 shadow-xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full"></div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="material-symbols-outlined text-[28px] text-blue-400">
+                <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-5 shadow-xs relative">
+                  <div className="flex items-center gap-2.5 mb-1">
+                    <span className="material-symbols-outlined text-[24px] text-theme-primary">
                       {studios[activeStudio]?.icon}
                     </span>
-                    <h3 className="text-lg font-bold text-theme-body font-display">
+                    <h3 className="text-base font-bold text-theme-body tracking-tight">
                       {studios[activeStudio]?.name} Workspace
                     </h3>
                   </div>
-                  <p className="text-xs text-theme-muted max-w-xl">
-                    {studios[activeStudio]?.description} Access is checked under SMRITI RBAC guidelines.
+                  <p className="text-xs text-theme-muted font-mono">
+                    {studios[activeStudio]?.description} Access checked under SMRITI RBAC guidelines.
                   </p>
                 </div>
 
@@ -480,89 +463,77 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {activeStudio === "sales_studio" && (
                     <>
-                      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4.5 shadow-md hover:border-emerald-500/20 transition-colors">
-                        <div className="text-[11px] font-bold font-mono tracking-wider text-theme-muted uppercase mb-1">AGGREGATE SALES (TODAY)</div>
-                        <div className="text-xl font-bold text-emerald-400 font-mono tracking-tight">₹1,46,850</div>
-                        <div className="text-[10px] text-emerald-500 mt-1.5 flex items-center gap-1 font-semibold">
-                          <span>↑ 14.5% against previous shift</span>
-                        </div>
+                      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">AGGREGATE SALES (TODAY)</div>
+                        <div className="text-xl font-bold text-emerald-700 font-mono">₹1,46,850.00</div>
+                        <div className="text-[10px] text-emerald-600 font-mono font-bold">↑ 14.5% vs previous shift</div>
                       </div>
-                      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4.5 shadow-md hover:border-blue-500/20 transition-colors">
-                        <div className="text-[11px] font-bold font-mono tracking-wider text-theme-muted uppercase mb-1">AVERAGE BASKET SIZE</div>
-                        <div className="text-xl font-bold text-blue-400 font-mono tracking-tight">₹1,005</div>
-                        <div className="text-[10px] text-theme-muted mt-1.5 flex items-center gap-1 font-mono">
-                          <span>Computed from 146 receipts</span>
-                        </div>
+                      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">AVERAGE BASKET SIZE</div>
+                        <div className="text-xl font-bold text-theme-primary font-mono">₹1,005.00</div>
+                        <div className="text-[10px] text-theme-muted font-mono">From 146 receipts</div>
                       </div>
-                      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4.5 shadow-md hover:border-violet-500/20 transition-colors">
-                        <div className="text-[11px] font-bold font-mono tracking-wider text-theme-muted uppercase mb-1">SALES RETURN VALUE</div>
-                        <div className="text-xl font-bold text-violet-400 font-mono tracking-tight">₹3,450</div>
-                        <div className="text-[10px] text-theme-muted mt-1.5 flex items-center gap-1 font-semibold">
-                          <span>2.3% of total volume (Ideal)</span>
-                        </div>
+                      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">SALES RETURN VALUE</div>
+                        <div className="text-xl font-bold text-indigo-700 font-mono">₹3,450.00</div>
+                        <div className="text-[10px] text-theme-muted font-mono">2.3% of volume</div>
                       </div>
                     </>
                   )}
 
                   {activeStudio === "purchase_studio" && (
                     <>
-                      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4.5 shadow-md hover:border-amber-500/20 transition-colors">
-                        <div className="text-[11px] font-bold font-mono tracking-wider text-theme-muted uppercase mb-1">SUPPLIER PAYABLES OUTSTANDING</div>
-                        <div className="text-xl font-bold text-amber-400 font-mono tracking-tight">₹14,56,800</div>
-                        <div className="text-[10px] text-amber-500 mt-1.5 flex items-center gap-1 font-semibold">
-                          <span>Next payment cycle due in 5 days</span>
-                        </div>
+                      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">SUPPLIER PAYABLES OUTSTANDING</div>
+                        <div className="text-xl font-bold text-amber-700 font-mono">₹14,56,800.00</div>
+                        <div className="text-[10px] text-amber-600 font-mono font-bold">Due in 5 days</div>
                       </div>
-                      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4.5 shadow-md hover:border-blue-500/20 transition-colors">
-                        <div className="text-[11px] font-bold font-mono tracking-wider text-theme-muted uppercase mb-1">ACTIVE PURCHASE ORDERS</div>
-                        <div className="text-xl font-bold text-blue-400 font-mono tracking-tight">22 Issued</div>
-                        <div className="text-[10px] text-theme-muted mt-1.5 flex items-center gap-1 font-mono">
-                          <span>6 pending complete receipt</span>
-                        </div>
+                      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">ACTIVE PURCHASE ORDERS</div>
+                        <div className="text-xl font-bold text-theme-primary font-mono">22 Issued</div>
+                        <div className="text-[10px] text-theme-muted font-mono">6 pending receipt</div>
                       </div>
-                      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4.5 shadow-md hover:border-rose-500/20 transition-colors">
-                        <div className="text-[11px] font-bold font-mono tracking-wider text-theme-muted uppercase mb-1">GRN DISCREPANCY INDEX</div>
-                        <div className="text-xl font-bold text-rose-400 font-mono tracking-tight">0.45%</div>
-                        <div className="text-[10px] text-emerald-500 mt-1.5 flex items-center gap-1 font-semibold">
-                          <span>↓ Minor shortage reported</span>
-                        </div>
+                      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">GRN DISCREPANCY INDEX</div>
+                        <div className="text-xl font-bold text-rose-700 font-mono">0.45%</div>
+                        <div className="text-[10px] text-emerald-600 font-mono font-bold">Minor shortage</div>
                       </div>
                     </>
                   )}
 
                   {activeStudio !== "sales_studio" && activeStudio !== "purchase_studio" && (
                     <>
-                      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4.5 shadow-md">
-                        <div className="text-[11px] font-bold font-mono tracking-wider text-theme-muted uppercase mb-1">ACTIVE SKUS COMPILATION</div>
-                        <div className="text-xl font-bold text-theme-body font-mono tracking-tight">4,850 SKUs</div>
-                        <div className="text-[10px] text-theme-muted mt-1.5">Monitored live in SMRITI master ledger</div>
+                      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">ACTIVE SKUS COMPILATION</div>
+                        <div className="text-xl font-bold text-theme-body font-mono">4,850 SKUs</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Monitored live</div>
                       </div>
-                      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4.5 shadow-md">
-                        <div className="text-[11px] font-bold font-mono tracking-wider text-theme-muted uppercase mb-1">COMPLIANCE RATIO</div>
-                        <div className="text-xl font-bold text-emerald-400 font-mono tracking-tight">99.8%</div>
-                        <div className="text-[10px] text-emerald-500 mt-1.5 font-semibold">Immutable logs active</div>
+                      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">COMPLIANCE RATIO</div>
+                        <div className="text-xl font-bold text-emerald-700 font-mono">99.8%</div>
+                        <div className="text-[10px] text-emerald-600 font-mono font-bold">Immutable logs</div>
                       </div>
-                      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4.5 shadow-md">
-                        <div className="text-[11px] font-bold font-mono tracking-wider text-theme-muted uppercase mb-1">AUDITED TRANSACTION SLOTS</div>
-                        <div className="text-xl font-bold text-blue-400 font-mono tracking-tight">12,460</div>
-                        <div className="text-[10px] text-theme-muted mt-1.5 font-mono">Rule 10 certified audits</div>
+                      <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">AUDITED TRANSACTION SLOTS</div>
+                        <div className="text-xl font-bold text-theme-primary font-mono">12,460</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Rule 10 certified</div>
                       </div>
                     </>
                   )}
                 </div>
 
                 {/* SMRITI Charts Engine Section */}
-                <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 shadow-xl">
-                  <div className="flex items-center justify-between mb-4 border-b border-theme-divider pb-3">
+                <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs">
+                  <div className="flex items-center justify-between mb-3 border-b border-theme-divider pb-2.5">
                     <div>
-                      <h4 className="text-xs font-bold text-theme-body uppercase tracking-wider font-sans">
+                      <h4 className="text-xs font-bold text-theme-body uppercase tracking-wider font-mono">
                         Dynamic Visualization Panel
                       </h4>
-                      <p className="text-[10px] text-theme-muted mt-0.5">
+                      <p className="text-[10px] text-theme-muted font-mono">
                         Interactive plotting using active dataset models
                       </p>
                     </div>
-                    <span className="text-[10px] bg-theme-surface-3 px-2 py-1 rounded border border-theme-divider font-mono text-theme-muted">
+                    <span className="text-[9px] bg-theme-surface-2 px-2 py-0.5 rounded border border-theme-border font-mono text-theme-muted font-bold">
                       SVG RENDERING
                     </span>
                   </div>
@@ -581,19 +552,19 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         ]}>
                           <defs>
                             <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                              <stop offset="5%" stopColor="#0070F2" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="#0070F2" stopOpacity={0}/>
                             </linearGradient>
                             <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
                               <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#2a3a5c" opacity={0.25} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
                           <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
                           <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
-                          <RechartsTooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#1e293b", borderRadius: "12px" }} />
-                          <Area type="monotone" dataKey="sales" name="Gross Sales (INR)" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" />
+                          <RechartsTooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#CBD5E1", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+                          <Area type="monotone" dataKey="sales" name="Gross Sales (INR)" stroke="#0070F2" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" />
                           <Area type="monotone" dataKey="margin" name="Est. Net Margin (INR)" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorMargin)" />
                         </AreaChart>
                       ) : activeStudio === "purchase_studio" ? (
@@ -604,11 +575,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           { supplier: "Modern Foods", ordered: 320000, received: 320000 },
                           { supplier: "Unilever Ind", ordered: 500000, received: 480000 }
                         ]}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#2a3a5c" opacity={0.25} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
                           <XAxis dataKey="supplier" stroke="#64748b" fontSize={10} tickLine={false} />
                           <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
-                          <RechartsTooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#1e293b", borderRadius: "12px" }} />
-                          <Bar dataKey="ordered" name="Procured Order Value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#CBD5E1", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+                          <Bar dataKey="ordered" name="Procured Order Value" fill="#0070F2" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="received" name="Actual GRN Settled" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       ) : (
@@ -621,11 +592,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           { label: "Sat", count: 950 },
                           { label: "Sun", count: 890 }
                         ]}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#2a3a5c" opacity={0.25} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.6} />
                           <XAxis dataKey="label" stroke="#64748b" fontSize={11} />
                           <YAxis stroke="#64748b" fontSize={11} />
-                          <RechartsTooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#1e293b", borderRadius: "12px" }} />
-                          <Line type="monotone" dataKey="count" stroke="#a78bfa" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#CBD5E1", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+                          <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                       )}
                     </ResponsiveContainer>
@@ -633,10 +604,10 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 </div>
 
                 {/* Reports Registry List for selected Studio */}
-                <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-xl overflow-hidden">
-                  <div className="p-4 border-b border-theme-divider bg-theme-surface-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                    <h4 className="text-xs font-bold text-theme-body flex items-center gap-2">
-                      <Database size={14} className="text-indigo-400" />
+                <div className="bg-theme-surface-1 border border-theme-border rounded-xl shadow-xs overflow-hidden">
+                  <div className="p-3 border-b border-theme-divider bg-theme-surface-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <h4 className="text-xs font-bold text-theme-body flex items-center gap-2 uppercase font-mono tracking-wider">
+                      <Database size={14} className="text-theme-primary" />
                       Studio Reports Ledger
                     </h4>
 
@@ -648,7 +619,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search studio reports..." 
-                        className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg pl-9 pr-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-blue-500"
+                        className="w-full bg-theme-surface-1 border border-theme-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary font-medium"
                       />
                     </div>
                   </div>
@@ -678,27 +649,27 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             return (
                               <tr 
                                 key={r.id} 
-                                className={`border-b border-theme-divider/40 transition-colors ${
+                                className={`border-b border-theme-divider/60 transition-colors ${
                                   isAllowed 
                                     ? "hover:bg-theme-surface-hover cursor-pointer" 
-                                    : "opacity-45 bg-rose-500/5 cursor-not-allowed"
+                                    : "opacity-45 bg-rose-50 cursor-not-allowed"
                                 }`} 
                                 onClick={() => isAllowed && runReport(r)}
                               >
-                                <td className="px-5 py-3 font-mono font-bold text-blue-400">{r.id}</td>
+                                <td className="px-5 py-3 font-mono font-bold text-theme-primary">{r.id}</td>
                                 <td className="px-5 py-3">
                                   <div className="font-bold text-theme-body">{r.title}</div>
                                   <div className="text-[10px] text-theme-muted mt-0.5">{r.description}</div>
                                 </td>
                                 <td className="px-5 py-3 text-theme-muted">{r.category}</td>
                                 <td className="px-5 py-3">
-                                  <span className="px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider rounded bg-theme-surface-3 text-theme-muted border border-theme-divider">
+                                  <span className="px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider rounded bg-theme-surface-2 text-theme-muted border border-theme-border font-mono">
                                     {r.format}
                                   </span>
                                 </td>
                                 <td className="px-5 py-3">
                                   {r.drillDownEnabled ? (
-                                    <span className="text-emerald-400 font-semibold flex items-center gap-1 text-[11px]">
+                                    <span className="text-emerald-700 font-semibold flex items-center gap-1 text-[11px]">
                                       <CheckSquare size={12} /> True
                                     </span>
                                   ) : (
@@ -711,12 +682,12 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                                   {isAllowed ? (
                                     <button 
                                       onClick={() => runReport(r)}
-                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-md shadow-blue-500/10 transition-colors"
+                                      className="px-3 py-1.5 bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                     >
-                                      <Play size={10} /> Execute
+                                      <Play size={10} /> Run Engine
                                     </button>
                                   ) : (
-                                    <span className="text-rose-400 font-mono font-bold text-[10px] uppercase flex items-center gap-1 justify-end">
+                                    <span className="text-rose-700 font-mono font-bold text-[10px] uppercase flex items-center gap-1 justify-end">
                                       <ShieldAlert size={12} /> Locked
                                     </span>
                                   )}

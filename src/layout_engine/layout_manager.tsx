@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.1
+ * * Version    : 3.25.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-08-16
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -87,12 +87,12 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-theme-base text-theme-primary font-sans antialiased select-none">
-      {/* 1. FIXED APPLICATION HEADER (Satisfies Application Header requirement) */}
+      {/* 1. FIXED APPLICATION HEADER — Fiori Horizon Light Shell Header */}
       {!focusMode && (
         <header className="bg-theme-surface-1 border-b border-theme-divider px-4 h-12 flex-shrink-0 flex items-center justify-between z-30 shadow-xs">
           {/* Brand Logo & Info */}
           <div className="flex items-center space-x-3">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-sm font-display text-white border border-blue-500 shadow-xs">
+            <div className="w-7 h-7 rounded-lg bg-theme-primary flex items-center justify-center font-bold text-sm font-display text-white shadow-xs">
               S
             </div>
             <div className="flex items-center space-x-2">
@@ -109,7 +109,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
           </div>
 
           {/* Global Control Center & Settings */}
-          <div className="flex items-center space-x-4 relative">
+          <div className="flex items-center space-x-3 relative">
             
             {/* Company / Tenant Selector */}
             <CompanySelector />
@@ -118,12 +118,12 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="w-8 h-8 rounded-full bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider flex items-center justify-center text-theme-muted hover:text-theme-primary transition-colors relative"
+                className="w-8 h-8 rounded-full bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider flex items-center justify-center text-theme-muted hover:text-theme-body transition-colors relative cursor-pointer"
                 title="Notifications"
               >
-                <Bell size={16} />
+                <Bell size={15} />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 border border-theme-surface-1 rounded-full animate-pulse"></span>
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-theme-error border-2 border-theme-surface-1 rounded-full animate-pulse"></span>
                 )}
               </button>
               <NotificationCenter 
@@ -136,20 +136,20 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="w-8 h-8 rounded-full bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider flex items-center justify-center text-theme-muted hover:text-theme-primary transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-full bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider flex items-center justify-center text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
               title={theme === "dark" ? "Switch to Light Theme" : "Switch to Dark Theme"}
             >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
 
             {/* Layout Quick Configuration Toggler */}
             <div className="relative">
               <button
                 onClick={() => setShowLayoutConfig(!showLayoutConfig)}
-                className="px-3 py-1.5 rounded-lg bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-xs font-bold font-display text-blue-700 flex items-center space-x-2 cursor-pointer transition-colors"
+                className="px-2.5 py-1.5 rounded-md bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-xs font-semibold text-theme-primary flex items-center space-x-1.5 cursor-pointer transition-colors"
               >
                 <Layout size={13} />
-                <span>Dock Position ({preferences.position})</span>
+                <span>Dock ({preferences.position})</span>
               </button>
 
               {showLayoutConfig && (
@@ -158,7 +158,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
                     className="fixed inset-0 z-30"
                     onClick={() => setShowLayoutConfig(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-56 rounded-xl bg-theme-surface-2 border border-theme-divider shadow-2xl p-4 space-y-3 z-40 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl bg-theme-surface-1 border border-theme-divider shadow-xl p-3 space-y-3 z-40 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
                     <span className="text-[10px] font-mono text-theme-muted font-bold uppercase tracking-wider block">
                       Dock Layout Options
                     </span>
@@ -168,10 +168,10 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
                           <button
                             key={`dropdown-pos-${pos}`}
                             onClick={() => handlePositionChange(pos)}
-                            className={`py-2 text-[10px] font-mono font-bold uppercase rounded-lg border transition-colors cursor-pointer ${
+                            className={`py-1.5 text-[10px] font-mono font-bold uppercase rounded-md border transition-colors cursor-pointer ${
                               preferences.position === pos
-                                ? "bg-blue-600 border-blue-500 text-white"
-                                : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover"
+                                ? "bg-theme-primary border-theme-primary text-white"
+                                : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover"
                             }`}
                           >
                             {pos} Dock
@@ -197,7 +197,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
 
             {/* User Session Identity & Sign Out */}
             {currentUser && (
-              <div className="flex items-center space-x-3 border-l border-theme-divider pl-4">
+              <div className="flex items-center space-x-2.5 border-l border-theme-divider pl-3">
                 <div 
                   onClick={() => onTabSelect("user-profile")}
                   className="text-right hidden sm:block cursor-pointer hover:opacity-80 transition-opacity"
@@ -212,7 +212,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
                 </div>
                 <button
                   onClick={onLogout}
-                  className="w-8 h-8 rounded-full bg-theme-surface-3 hover:bg-rose-50 border border-theme-divider flex items-center justify-center text-theme-muted hover:text-rose-600 hover:border-rose-200 transition-all cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-theme-surface-2 hover:bg-theme-error-bg border border-theme-divider flex items-center justify-center text-theme-muted hover:text-theme-error hover:border-theme-error/40 transition-all cursor-pointer"
                   title="Logout Session"
                 >
                   <span className="material-symbols-outlined text-[16px] block">logout</span>
@@ -221,9 +221,9 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
             )}
 
             {/* System Clock */}
-            <div className="text-right hidden md:block border-l border-theme-divider pl-4">
+            <div className="text-right hidden md:block border-l border-theme-divider pl-3">
               <span className="text-[9px] text-theme-muted block font-mono">
-                SYSTEM SYNCHRONIZED
+                SYNCHRONIZED
               </span>
               <span className="font-mono text-xs text-theme-body font-medium">
                 {systemClock.toLocaleDateString("en-IN", {
@@ -238,7 +238,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
         </header>
       )}
 
-      {/* 2. DOCK MANAGER & VIEWPORT SHELL (Only the workspace inside the DockManager scrolls) */}
+      {/* 2. DOCK MANAGER & VIEWPORT SHELL */}
       <DockManager
         activeTab={activeTab}
         onTabSelect={onTabSelect}
@@ -252,7 +252,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
       {focusMode && (
         <button
           onClick={toggleFocusMode}
-          className="fixed bottom-6 right-6 z-50 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-full shadow-lg flex items-center space-x-2 border border-blue-400 transition-all scale-95 hover:scale-100 cursor-pointer text-xs"
+          className="fixed bottom-6 right-6 z-50 px-4 py-2.5 bg-theme-primary hover:bg-theme-primary-hover text-white font-semibold rounded-full shadow-lg flex items-center space-x-2 border border-theme-primary/30 transition-all scale-95 hover:scale-100 cursor-pointer text-xs"
         >
           <span className="material-symbols-outlined text-sm">visibility_off</span>
           <span>Exit Focus Mode</span>

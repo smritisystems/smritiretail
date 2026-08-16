@@ -5,7 +5,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 3.26.0
  * Created      : 2026-07-10
  * Modified     : 2026-08-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -55,13 +55,14 @@ export interface ItemBillingDetails {
 }
 
 interface AdvancedBillingEngineProps {
-  cart: { product: Product; quantity: number }[];
-  onClearCart: () => void;
-  activeShift: Shift | null;
-  activeProfile: POSProfile | null;
-  onCheckoutSuccess: (bill: any) => void;
-  onNotification: (title: string, msg: string, type: "success" | "error") => void;
-  onClose: () => void;
+  cart?: { product: Product; quantity: number }[];
+  onClearCart?: () => void;
+  activeShift?: Shift | null;
+  activeProfile?: POSProfile | null;
+  onCheckoutSuccess?: (bill: any) => void;
+  onNotification?: (title: string, msg: string, type: "success" | "error") => void;
+  onClose?: () => void;
+  isStandaloneTab?: boolean;
 }
 
 const SALESPERSONS = [
@@ -72,13 +73,14 @@ const SALESPERSONS = [
 ];
 
 export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
-  cart,
+  cart = [],
   onClearCart,
-  activeShift,
-  activeProfile,
+  activeShift = null,
+  activeProfile = null,
   onCheckoutSuccess,
   onNotification,
-  onClose
+  onClose,
+  isStandaloneTab = false
 }) => {
   // Default Customer State initialized to B2B Partner from mockup
   const [customer, setCustomer] = useState<AdvancedCustomer>({
@@ -245,7 +247,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   // Add Item to Table Grid
   const handleAddQuickRow = () => {
     if (!quickBarcode.trim()) {
-      onNotification("Validation", "Please enter barcode or product description.", "error");
+      notify("Validation", "Please enter barcode or product description.", "error");
       return;
     }
 
@@ -275,7 +277,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     setQuickMrp(0);
     setQuickDiscPercent(0);
     setQuickDiscAmt(0);
-    onNotification("Item Added", "Item successfully added to invoice grid.", "success");
+    notify("Item Added", "Item successfully added to invoice grid.", "success");
   };
 
   // Remove Item
@@ -286,7 +288,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   // Checkout Handler
   const handleCheckoutSubmit = async () => {
     if (itemDetailsList.length === 0) {
-      onNotification("Empty Cart", "Cannot checkout an empty invoice grid.", "error");
+      notify("Empty Cart", "Cannot checkout an empty invoice grid.", "error");
       return;
     }
 
@@ -311,174 +313,149 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
           })
         });
       }
-      onNotification("Success", "Tax Invoice generated & recorded cleanly.", "success");
-      onCheckoutSuccess(payload);
+      notify("Success", "Tax Invoice generated & recorded cleanly.", "success");
+      if (onCheckoutSuccess) onCheckoutSuccess(payload);
     } catch (e: any) {
-      onNotification("Success", "Tax Invoice generated & recorded cleanly.", "success");
+      notify("Success", "Tax Invoice generated & recorded cleanly.", "success");
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 overflow-y-auto">
-      <div className="bg-[#F8FAFC] w-full max-w-[1440px] rounded-xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800 font-sans flex flex-col max-h-[96vh]">
+  const notify = (title: string, msg: string, type: "success" | "error") => {
+    if (onNotification) onNotification(title, msg, type);
+  };
+
+    const renderInnerContent = () => (
+      <div className="w-full text-theme-body font-sans flex flex-col space-y-4">
         
-        {/* ========================================================================= */}
-        {/* TOP NAVIGATION HEADER */}
-        {/* ========================================================================= */}
-        <header className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-xs">
-          <div className="flex items-center space-x-3">
-            <button className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600">
-              <span className="material-symbols-outlined text-2xl">menu</span>
-            </button>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-[#1E3A8A] flex items-center justify-center text-white font-bold text-base shadow-sm font-display">
-                S
-              </div>
-              <div>
-                <h1 className="font-display font-bold text-sm text-[#0F172A] tracking-tight leading-tight">SMRITI</h1>
-                <p className="text-[10px] text-[#64748B] tracking-wider uppercase font-semibold">RETAIL OS</p>
+        {/* TOP MODAL HEADER (Only shown in modal popup mode) */}
+        {!isStandaloneTab && (
+          <header className="bg-theme-surface-1 border-b border-theme-divider px-5 py-3 flex items-center justify-between shadow-xs">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-theme-primary flex items-center justify-center text-white font-bold text-base shadow-sm font-display">
+                  S
+                </div>
+                <div>
+                  <h1 className="font-display font-bold text-sm text-theme-body tracking-tight leading-tight">SMRITI</h1>
+                  <p className="text-[10px] text-theme-muted tracking-wider uppercase font-semibold">RETAIL OS</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Center Search Input Bar */}
-          <div className="flex-1 max-w-lg mx-6 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search items, customers, invoices..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-16 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#1E3A8A] focus:ring-1 focus:ring-[#1E3A8A]/20 transition-all"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-medium text-slate-400 bg-white border border-slate-200 rounded px-1.5 py-0.5 shadow-xs">
-              Ctrl + K
-            </span>
-          </div>
-
-          {/* Right Header Toolbar */}
-          <div className="flex items-center space-x-3">
-            <button 
-              onClick={() => { setItemDetailsList([]); onNotification("New Sale", "Invoice grid reset for new transaction.", "success"); }}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-[#1E3A8A] text-[#1E3A8A] hover:bg-blue-50 text-xs font-semibold transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>New Sale</span>
-            </button>
-
-            <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors">
-              <PauseCircle className="w-3.5 h-3.5 text-slate-500" />
-              <span>Hold (2)</span>
-            </button>
-
-            <button className="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center">
-                5
+            <div className="flex-1 max-w-lg mx-6 relative">
+              <Search className="w-4 h-4 text-theme-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search items, customers, invoices..."
+                className="w-full bg-theme-surface-2 border border-theme-border rounded-lg pl-9 pr-16 py-2 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary transition-all"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-medium text-theme-muted bg-theme-surface-1 border border-theme-border rounded px-1.5 py-0.5 shadow-xs">
+                Ctrl + K
               </span>
-            </button>
-
-            <div className="h-6 w-px bg-slate-200 mx-1" />
-
-            <div className="flex items-center space-x-2">
-              <div className="w-7 h-7 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 font-bold text-xs">
-                A
-              </div>
-              <div className="text-left hidden sm:block">
-                <span className="block text-xs font-bold text-slate-900 leading-tight">Admin</span>
-                <span className="block text-[10px] text-slate-500 leading-tight">Super Admin</span>
-              </div>
             </div>
-            
-            <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
-              <span className="material-symbols-outlined text-xl">close</span>
-            </button>
-          </div>
-        </header>
 
-        {/* ========================================================================= */}
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => { setItemDetailsList([]); notify("New Sale", "Invoice grid reset for new transaction.", "success"); }}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-primary text-theme-primary hover:bg-theme-selection text-xs font-semibold transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Sale</span>
+              </button>
+
+              <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover text-xs font-semibold transition-colors">
+                <PauseCircle className="w-3.5 h-3.5 text-theme-muted" />
+                <span>Hold (2)</span>
+              </button>
+
+              {onClose && (
+                <button onClick={onClose} className="p-1 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover">
+                  <span className="material-symbols-outlined text-xl">close</span>
+                </button>
+              )}
+            </div>
+          </header>
+        )}
+
         {/* SUB-HEADER / BREADCRUMB ACTION BAR */}
-        {/* ========================================================================= */}
-        <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+        <div className="bg-theme-surface-1 border border-theme-border rounded-xl px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
           <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-base font-bold text-[#0F172A] tracking-tight">Create Tax Invoice</h2>
-              <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+            <div className="flex items-center space-x-2.5">
+              <h2 className="text-base font-bold text-theme-body tracking-tight">Create Tax Invoice</h2>
+              <span className="bg-theme-success-bg border border-theme-success/40 text-theme-success text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                 B2B Invoice
               </span>
             </div>
-            <p className="text-[11px] text-[#64748B] mt-0.5">
-              POS &gt; Billing &gt; <span className="font-semibold text-slate-700">Create Invoice</span>
+            <p className="text-[11px] text-theme-muted mt-0.5">
+              POS &gt; Billing &gt; <span className="font-semibold text-theme-body">Create Invoice</span>
             </p>
           </div>
 
           <div className="flex items-center space-x-2">
-            <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors">
-              <Printer className="w-3.5 h-3.5 text-slate-500" />
+            <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover text-xs font-medium transition-colors cursor-pointer">
+              <Printer className="w-3.5 h-3.5 text-theme-muted" />
               <span>Print Preview</span>
             </button>
 
-            <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors">
-              <Mail className="w-3.5 h-3.5 text-slate-500" />
+            <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover text-xs font-medium transition-colors cursor-pointer">
+              <Mail className="w-3.5 h-3.5 text-theme-muted" />
               <span>Email</span>
             </button>
 
-            <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors">
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+            <button className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover text-xs font-medium transition-colors cursor-pointer">
+              <Download className="w-3.5 h-3.5 text-theme-muted" />
               <span>Download PDF</span>
             </button>
 
-            <button className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-[#1E3A8A] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs transition-colors">
+            <button className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-theme-primary hover:bg-theme-primary-hover text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer">
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Pop Out</span>
             </button>
           </div>
         </div>
 
-        {/* ========================================================================= */}
         {/* MAIN SPLIT WORKSPACE BODY */}
-        {/* ========================================================================= */}
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-4 gap-4 bg-[#F8FAFC]">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden gap-4">
           
-          {/* ----------------------------------------------------------------------- */}
-          {/* LEFT WORKSPACE PANEL (Col Span 8) */}
-          {/* ----------------------------------------------------------------------- */}
-          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+          {/* LEFT WORKSPACE PANEL */}
+          <div className="flex-1 space-y-4">
             
             {/* 1. CUSTOMER (B2B) CARD */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+            <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">
+                <span className="text-xs font-bold text-theme-body uppercase tracking-wide font-mono">
                   Customer (B2B)
                 </span>
                 <button 
                   onClick={() => setCustomerChangeModal(true)}
-                  className="text-xs font-semibold text-[#1E3A8A] hover:underline flex items-center space-x-1"
+                  className="text-xs font-semibold text-theme-primary hover:underline flex items-center space-x-1 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-sm">sync_alt</span>
                   <span>Change</span>
                 </button>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 border border-slate-200/80 rounded-lg p-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-theme-surface-2 border border-theme-divider rounded-lg p-3">
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="font-bold text-sm text-[#0F172A]">{customer.name}</h3>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded font-mono border border-emerald-200">
+                    <h3 className="font-bold text-sm text-theme-body">{customer.name}</h3>
+                    <span className="bg-theme-success-bg text-theme-success text-[10px] font-bold px-2 py-0.5 rounded font-mono border border-theme-success/30">
                       {customer.membershipId}
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#64748B] font-mono mt-1">
-                    GSTIN: <span className="font-semibold text-slate-800">{customer.gstin}</span>
+                  <p className="text-[11px] text-theme-muted font-mono mt-1">
+                    GSTIN: <span className="font-semibold text-theme-body">{customer.gstin}</span>
                   </p>
-                  <p className="text-[11px] text-[#64748B] mt-0.5 line-clamp-1">
+                  <p className="text-[11px] text-theme-muted mt-0.5 line-clamp-1">
                     {customer.billingAddress}
                   </p>
                 </div>
 
-                <div className="sm:text-right text-xs bg-white border border-slate-200 rounded-lg p-2.5 shrink-0">
-                  <span className="block text-[10px] text-slate-500 font-mono">
-                    Credit Limit: <span className="font-bold text-slate-800">₹5,000,000.00</span>
+                <div className="sm:text-right text-xs bg-theme-surface-1 border border-theme-border rounded-lg p-2.5 shrink-0">
+                  <span className="block text-[10px] text-theme-muted font-mono">
+                    Credit Limit: <span className="font-bold text-theme-body">₹5,000,000.00</span>
                   </span>
-                  <span className="block text-[10px] text-slate-500 font-mono mt-0.5">
+                  <span className="block text-[10px] text-theme-muted font-mono mt-0.5">
                     Available: <span className="font-bold text-emerald-600">₹2,35,420.00</span>
                   </span>
                 </div>
@@ -486,31 +463,30 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             </div>
 
             {/* 2. SCANNER / BARCODE INPUT SECTION */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-              {/* Tab Navigation */}
-              <div className="flex items-center space-x-6 border-b border-slate-200 pb-2 mb-4 text-xs font-semibold">
+            <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs">
+              <div className="flex items-center space-x-6 border-b border-theme-divider pb-2 mb-4 text-xs font-semibold">
                 <button 
                   onClick={() => setActiveInputTab("scan")}
-                  className={`pb-2 transition-all relative ${activeInputTab === "scan" ? "text-[#1E3A8A] font-bold" : "text-slate-500 hover:text-slate-800"}`}
+                  className={`pb-2 transition-all relative cursor-pointer ${activeInputTab === "scan" ? "text-theme-primary font-bold" : "text-theme-muted hover:text-theme-body"}`}
                 >
                   Scan Barcode
-                  {activeInputTab === "scan" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E3A8A] rounded-full" />}
+                  {activeInputTab === "scan" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-theme-primary rounded-full" />}
                 </button>
                 <button 
                   onClick={() => setActiveInputTab("search")}
-                  className={`pb-2 transition-all relative ${activeInputTab === "search" ? "text-[#1E3A8A] font-bold" : "text-slate-500 hover:text-slate-800"}`}
+                  className={`pb-2 transition-all relative cursor-pointer ${activeInputTab === "search" ? "text-theme-primary font-bold" : "text-theme-muted hover:text-theme-body"}`}
                 >
                   Search & Add
                 </button>
                 <button 
                   onClick={() => setActiveInputTab("manual")}
-                  className={`pb-2 transition-all relative ${activeInputTab === "manual" ? "text-[#1E3A8A] font-bold" : "text-slate-500 hover:text-slate-800"}`}
+                  className={`pb-2 transition-all relative cursor-pointer ${activeInputTab === "manual" ? "text-theme-primary font-bold" : "text-theme-muted hover:text-theme-body"}`}
                 >
                   Manual Add
                 </button>
                 <button 
                   onClick={() => setActiveInputTab("import")}
-                  className="pb-2 text-slate-500 hover:text-slate-800 flex items-center space-x-1"
+                  className="pb-2 text-theme-muted hover:text-theme-body flex items-center space-x-1 cursor-pointer"
                 >
                   <span>Import Items</span>
                   <ChevronDown className="w-3.5 h-3.5" />
@@ -531,74 +507,76 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                         if (e.key === "Enter" && scannedBarcode.trim()) {
                           setQuickBarcode(scannedBarcode.trim());
                           setScannedBarcode("");
-                          onNotification("Barcode Scanned", `Barcode ${scannedBarcode} registered.`, "success");
+                          notify("Barcode Scanned", `Barcode ${scannedBarcode} registered.`, "success");
                         }
                       }}
-                      className="w-full bg-blue-50/50 border border-blue-200 rounded-lg pl-3 pr-8 py-2 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#1E3A8A]"
+                      className="w-full bg-theme-selection border border-theme-primary/40 rounded-lg pl-3 pr-8 py-2 text-xs font-mono text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary"
                     />
-                    <Barcode className="w-4 h-4 text-blue-600 absolute right-2.5 top-1/2 -translate-y-1/2" />
+                    <Barcode className="w-4 h-4 text-theme-primary absolute right-2.5 top-1/2 -translate-y-1/2" />
                   </div>
-                  <button className="text-[11px] text-[#1E3A8A] font-semibold hover:underline flex items-center space-x-1">
+                  <button className="text-[11px] text-theme-primary font-semibold hover:underline flex items-center space-x-1 cursor-pointer">
                     <span className="material-symbols-outlined text-xs">settings</span>
-                    <span>Configure Scanner</span>
+                    <span>Configure Scanner / Import</span>
                   </button>
                 </div>
 
                 {/* Box 2: Scanner Settings */}
-                <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 space-y-1.5">
+                <div className="bg-theme-surface-2 border border-theme-divider rounded-lg p-2.5 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-600">Scanner Settings</span>
-                    <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-[11px] font-bold text-theme-body">Scanner Settings</span>
+                    <HelpCircle className="w-3.5 h-3.5 text-theme-muted" />
                   </div>
-                  <div className="flex items-center space-x-3 text-[11px] font-medium text-slate-700">
+                  <div className="flex items-center space-x-3 text-[11px] font-medium text-theme-body">
                     <label className="flex items-center space-x-1.5 cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="scannerMode" 
-                        checked={scannerMode === "manual"} 
+                      <input
+                        type="radio"
+                        name="scannerMode"
+                        checked={scannerMode === "manual"}
                         onChange={() => setScannerMode("manual")}
-                        className="text-[#1E3A8A] focus:ring-[#1E3A8A]" 
+                        className="text-theme-primary focus:ring-theme-primary"
                       />
                       <span>Manual</span>
                     </label>
                     <label className="flex items-center space-x-1.5 cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="scannerMode" 
-                        checked={scannerMode === "auto"} 
+                      <input
+                        type="radio"
+                        name="scannerMode"
+                        checked={scannerMode === "auto"}
                         onChange={() => setScannerMode("auto")}
-                        className="text-[#1E3A8A] focus:ring-[#1E3A8A]" 
+                        className="text-theme-primary focus:ring-theme-primary"
                       />
                       <span>Auto (Use default/last qty)</span>
                     </label>
                   </div>
+                  <p className="text-[10px] text-theme-muted italic">Manual: Ask quantity after scan</p>
                 </div>
 
                 {/* Box 3: Default Qty */}
-                <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 space-y-1">
+                <div className="bg-theme-surface-2 border border-theme-divider rounded-lg p-2.5 space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-600">Default Qty (Auto Mode)</span>
-                    <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-[11px] font-bold text-theme-body">Default Qty (Auto Mode)</span>
+                    <HelpCircle className="w-3.5 h-3.5 text-theme-muted" />
                   </div>
                   <input
                     type="number"
                     value={defaultAutoQty}
                     onChange={(e) => setDefaultAutoQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs font-mono font-semibold focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full bg-theme-surface-1 border border-theme-border rounded px-2.5 py-1 text-xs font-mono font-semibold text-theme-body focus:outline-none focus:border-theme-primary"
                   />
+                  <p className="text-[10px] text-theme-muted">Used in Auto mode</p>
                 </div>
 
                 {/* Box 4: Last Scanned Item */}
-                <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-2 flex items-center space-x-2.5">
+                <div className="bg-theme-surface-2 border border-theme-divider rounded-lg p-2 flex items-center space-x-2.5">
                   <div className="w-10 h-10 rounded bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-emerald-700 text-xl">inventory_2</span>
                   </div>
                   <div className="flex-1 min-w-0 text-[11px]">
-                    <span className="block font-bold text-slate-900 truncate">TATA Tea Premium 1kg</span>
-                    <span className="block font-mono text-[10px] text-slate-500">8901030937241</span>
-                    <span className="block text-[10px] text-slate-600">MRP: ₹285.00 Rate: ₹270.00</span>
+                    <span className="block font-bold text-theme-body truncate">TATA Tea Premium 1kg</span>
+                    <span className="block font-mono text-[10px] text-theme-muted">8901030937241</span>
+                    <span className="block text-[10px] text-theme-muted">MRP: ₹285.00 Rate: ₹270.00</span>
                   </div>
-                  <button className="text-[10px] font-bold text-[#1E3A8A] hover:underline shrink-0">
+                  <button className="text-[10px] font-bold text-theme-primary hover:underline shrink-0 cursor-pointer">
                     Add to Grid
                   </button>
                 </div>
@@ -606,40 +584,50 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             </div>
 
             {/* 3. ITEM DETAILS TABLE */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+            <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wide font-mono">
+                <h3 className="text-xs font-bold text-theme-body uppercase tracking-wide font-mono">
                   Item Details ({itemDetailsList.length} Items)
                 </h3>
+                <div className="flex items-center space-x-3 text-xs text-theme-primary font-semibold">
+                  <button className="hover:underline flex items-center space-x-1 cursor-pointer">
+                    <span className="material-symbols-outlined text-sm">content_paste</span>
+                    <span>Paste from Excel</span>
+                  </button>
+                  <button className="hover:underline flex items-center space-x-1 cursor-pointer">
+                    <span className="material-symbols-outlined text-sm">tune</span>
+                    <span>Column Settings</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-left text-xs border-collapse">
+              <div className="overflow-x-auto border border-theme-border rounded-lg">
+                <table className="w-full text-left text-xs border-collapse bg-theme-surface-1">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                    <tr className="bg-theme-surface-2 border-b border-theme-border text-[11px] font-bold text-theme-muted uppercase tracking-wider">
                       <th className="py-2.5 px-3 w-8">#</th>
                       <th className="py-2.5 px-3 font-mono text-red-600">Barcode *</th>
                       <th className="py-2.5 px-3 text-red-600">Item / Description *</th>
                       <th className="py-2.5 px-3">HSN</th>
                       <th className="py-2.5 px-3 text-red-600 text-right">Qty *</th>
-                      <th className="py-2.5 px-3 text-red-600 text-right">MRP (₹) *</th>
+                      <th className="py-2.5 px-3 text-red-600 text-right">MRP (₹)</th>
                       <th className="py-2.5 px-3 text-right">Disc %</th>
                       <th className="py-2.5 px-3 text-right">Disc Amt (₹)</th>
                       <th className="py-2.5 px-3 text-right">Rate (₹)</th>
                       <th className="py-2.5 px-3 text-right">Taxable Value (₹)</th>
                       <th className="py-2.5 px-3 text-right">CGST 9% (₹)</th>
                       <th className="py-2.5 px-3 text-right">SGST 9% (₹)</th>
-                      <th className="py-2.5 px-3 text-right font-bold text-slate-900">Total (₹)</th>
+                      <th className="py-2.5 px-3 text-right font-bold text-theme-body">Total (₹)</th>
                       <th className="py-2.5 px-3 text-center">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 text-[11px]">
+                  <tbody className="divide-y divide-theme-divider text-[11px]">
                     {totals.lines.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-2.5 px-3 font-mono text-slate-500">{idx + 1}</td>
-                        <td className="py-2.5 px-3 font-mono font-medium text-slate-800">{item.product.barcode}</td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-900">{item.product.name}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-500">{item.hsnCode}</td>
+                      <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                        <td className="py-2.5 px-3 font-mono text-theme-muted">{idx + 1}</td>
+                        <td className="py-2.5 px-3 font-mono font-medium text-theme-body">{item.product.barcode}</td>
+                        <td className="py-2.5 px-3 font-semibold text-theme-body">{item.product.name}</td>
+                        <td className="py-2.5 px-3 font-mono text-theme-muted">{item.hsnCode}</td>
                         <td className="py-2.5 px-3 text-right font-bold">
                           <input
                             type="number"
@@ -648,11 +636,11 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                               const q = Math.max(1, parseInt(e.target.value, 10) || 1);
                               setItemDetailsList(prev => prev.map((it, i) => i === idx ? { ...it, quantity: q } : it));
                             }}
-                            className="w-12 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono focus:outline-none focus:border-[#1E3A8A]"
+                            className="w-12 bg-theme-surface-1 border border-theme-border rounded px-1.5 py-0.5 text-right font-mono text-theme-body focus:outline-none focus:border-theme-primary"
                           />
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono">{item.mrp.toFixed(2)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-blue-700 bg-blue-50/50 rounded px-1">
+                        <td className="py-2.5 px-3 text-right font-mono text-theme-primary bg-theme-selection rounded px-1">
                           <input
                             type="number"
                             value={item.discPercent}
@@ -660,26 +648,26 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                               const p = Math.max(0, parseFloat(e.target.value) || 0);
                               setItemDetailsList(prev => prev.map((it, i) => i === idx ? { ...it, discounts: { ...it.discounts, percentage: p } } : it));
                             }}
-                            className="w-12 bg-transparent text-right font-mono font-semibold focus:outline-none text-blue-700"
+                            className="w-12 bg-transparent text-right font-mono font-semibold focus:outline-none text-theme-primary"
                           />
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono">{item.discAmt.toFixed(2)}</td>
                         <td className="py-2.5 px-3 text-right font-mono font-semibold">{item.rate.toFixed(2)}</td>
                         <td className="py-2.5 px-3 text-right font-mono">{item.taxableValue.toFixed(2)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">{item.cgst.toFixed(2)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">{item.sgst.toFixed(2)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{item.lineTotal.toFixed(2)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-theme-muted">{item.cgst.toFixed(2)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-theme-muted">{item.sgst.toFixed(2)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-theme-body">{item.lineTotal.toFixed(2)}</td>
                         <td className="py-2.5 px-3 text-center">
                           <div className="flex items-center justify-center space-x-1.5">
                             <button 
                               onClick={() => setEditingItemIdx(idx)}
-                              className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-800"
+                              className="p-1 rounded hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body cursor-pointer"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                             <button 
                               onClick={() => handleRemoveItem(idx)}
-                              className="p-1 rounded hover:bg-red-50 text-red-500"
+                              className="p-1 rounded hover:bg-red-50 text-red-500 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -691,81 +679,111 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                 </table>
               </div>
 
-              <div className="mt-3">
-                <button 
-                  onClick={() => setQuickBarcode("NEW-ITEM")}
-                  className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-[#1E3A8A] hover:bg-blue-50 text-xs font-semibold transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Row</span>
-                </button>
+              <div className="mt-3 flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setQuickBarcode("NEW-ITEM")}
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-dashed border-theme-border text-theme-primary hover:bg-theme-selection font-semibold transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Row</span>
+                  </button>
+                  <button
+                    onClick={() => handleRemoveItem(0)}
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-theme-border text-red-600 hover:bg-red-50 font-semibold transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Selected</span>
+                  </button>
+                  <button
+                    onClick={() => setItemDetailsList([])}
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-theme-border text-theme-muted hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer"
+                  >
+                    <span>Clear All</span>
+                  </button>
+                </div>
+                <span className="text-xs text-theme-muted font-mono font-semibold">
+                  {itemDetailsList.length} Items
+                </span>
               </div>
             </div>
 
             {/* 4. QUICK ADD ROW SECTION */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono mb-3">
-                Quick Add Row
-              </h4>
+            <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <h4 className="text-xs font-bold text-theme-body uppercase tracking-wide font-mono">
+                    Quick Add Row (Configurable)
+                  </h4>
+                  <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded font-mono">
+                    Active
+                  </span>
+                </div>
+                <button className="text-[11px] text-theme-primary font-semibold hover:underline flex items-center space-x-1 cursor-pointer">
+                  <span className="material-symbols-outlined text-xs">tune</span>
+                  <span>Manage Fields</span>
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3 text-xs items-end">
                 <div className="md:col-span-2 space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-600">Barcode</label>
+                  <label className="block text-[10px] font-bold text-theme-muted">Barcode</label>
                   <div className="relative">
                     <input
                       type="text"
                       placeholder="Scan / Enter barcode"
                       value={quickBarcode}
                       onChange={(e) => setQuickBarcode(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-7 py-1.5 text-xs font-mono focus:outline-none focus:border-[#1E3A8A]"
+                      className="w-full bg-theme-surface-2 border border-theme-border rounded-lg pl-3 pr-7 py-1.5 text-xs font-mono text-theme-body focus:outline-none focus:border-theme-primary"
                     />
-                    <Barcode className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+                    <Barcode className="w-3.5 h-3.5 text-theme-muted absolute right-2.5 top-1/2 -translate-y-1/2" />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-600">Qty</label>
+                  <label className="block text-[10px] font-bold text-theme-muted">Qty</label>
                   <input
                     type="number"
                     value={quickQty}
                     onChange={(e) => setQuickQty(parseInt(e.target.value, 10) || 1)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs font-mono text-theme-body focus:outline-none focus:border-theme-primary"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-600">MRP (₹)</label>
+                  <label className="block text-[10px] font-bold text-theme-muted">MRP (₹)</label>
                   <input
                     type="number"
                     value={quickMrp}
                     onChange={(e) => setQuickMrp(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs font-mono text-theme-body focus:outline-none focus:border-theme-primary"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-600">Disc %</label>
+                  <label className="block text-[10px] font-bold text-theme-muted">Disc %</label>
                   <input
                     type="number"
                     value={quickDiscPercent}
                     onChange={(e) => setQuickDiscPercent(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs font-mono text-theme-body focus:outline-none focus:border-theme-primary"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-600">Disc Amt (₹)</label>
+                  <label className="block text-[10px] font-bold text-theme-muted">Disc Amt (₹)</label>
                   <input
                     type="number"
                     value={quickDiscAmt}
                     onChange={(e) => setQuickDiscAmt(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-2.5 py-1.5 text-xs font-mono text-theme-body focus:outline-none focus:border-theme-primary"
                   />
                 </div>
 
                 <div>
                   <button 
                     onClick={handleAddQuickRow}
-                    className="w-full bg-[#1E3A8A] hover:bg-[#1E40AF] text-white font-semibold py-1.5 px-3 rounded-lg text-xs transition-colors shadow-xs"
+                    className="w-full bg-theme-primary hover:bg-theme-primary-hover text-white font-semibold py-1.5 px-3 rounded-lg text-xs transition-colors shadow-xs cursor-pointer"
                   >
                     Add Item
                   </button>
@@ -776,18 +794,18 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             {/* 5. THREE COLUMN BOTTOM CONTROLS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               {/* Col 1: Discount Options */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-xs">
-                <h4 className="font-bold text-slate-700 uppercase tracking-wide font-mono text-[11px]">
+              <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 space-y-3 shadow-xs">
+                <h4 className="font-bold text-theme-body uppercase tracking-wide font-mono text-[11px]">
                   Discount Options
                 </h4>
-                <div className="flex items-center space-x-3 text-[11px] font-medium text-slate-700">
+                <div className="flex items-center space-x-3 text-[11px] font-medium text-theme-body">
                   <label className="flex items-center space-x-1.5 cursor-pointer">
                     <input 
                       type="radio" 
                       name="discountOption" 
                       checked={discountOption === "line"}
                       onChange={() => setDiscountOption("line")}
-                      className="text-[#1E3A8A]"
+                      className="text-theme-primary"
                     />
                     <span>Line Item Discount</span>
                   </label>
@@ -797,41 +815,41 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                       name="discountOption" 
                       checked={discountOption === "bill"}
                       onChange={() => setDiscountOption("bill")}
-                      className="text-[#1E3A8A]"
+                      className="text-theme-primary"
                     />
                     <span>Bill Level Discount</span>
                   </label>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] text-slate-500 font-medium">Percentage (%)</label>
+                  <label className="block text-[10px] text-theme-muted font-medium">Percentage (%)</label>
                   <div className="flex items-center space-x-2">
                     <input
                       type="number"
                       value={billDiscPercent}
                       onChange={(e) => setBillDiscPercent(parseFloat(e.target.value) || 0)}
-                      className="flex-1 bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-xs font-mono font-semibold focus:outline-none focus:border-[#1E3A8A]"
+                      className="flex-1 bg-theme-surface-2 border border-theme-border rounded px-2.5 py-1 text-xs font-mono font-semibold text-theme-body focus:outline-none focus:border-theme-primary"
                     />
-                    <span className="text-slate-500 font-mono">%</span>
+                    <span className="text-theme-muted font-mono">%</span>
                   </div>
                 </div>
 
                 <button 
-                  onClick={() => onNotification("Discount Applied", "Applied bill discount percentage.", "success")}
-                  className="text-[11px] text-[#1E3A8A] font-semibold hover:underline block"
+                  onClick={() => notify("Discount Applied", "Applied bill discount percentage.", "success")}
+                  className="text-[11px] text-theme-primary font-semibold hover:underline block cursor-pointer"
                 >
                   Apply to all items
                 </button>
               </div>
 
               {/* Col 2: Salesperson & Other Charges */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-xs">
+              <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 space-y-3 shadow-xs">
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide font-mono">Salesperson</label>
+                  <label className="block text-[10px] font-bold text-theme-muted uppercase tracking-wide font-mono">Salesperson</label>
                   <select
                     value={selectedSalesperson}
                     onChange={(e) => setSelectedSalesperson(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full bg-theme-surface-2 border border-theme-border rounded px-2.5 py-1.5 text-xs text-theme-body focus:outline-none focus:border-theme-primary cursor-pointer"
                   >
                     <option value="">Select Salesperson</option>
                     {SALESPERSONS.map(s => (
@@ -840,25 +858,25 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                   </select>
                 </div>
 
-                <div className="space-y-1 pt-1 border-t border-slate-100">
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide font-mono">Other Charges (Optional)</label>
+                <div className="space-y-1 pt-1 border-t border-theme-divider">
+                  <label className="block text-[10px] font-bold text-theme-muted uppercase tracking-wide font-mono">Other Charges (Optional)</label>
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
                     <div>
-                      <span className="text-[10px] text-slate-500 block">Delivery Charges</span>
+                      <span className="text-[10px] text-theme-muted block">Delivery Charges</span>
                       <input
                         type="number"
                         value={deliveryCharges}
                         onChange={(e) => setDeliveryCharges(parseFloat(e.target.value) || 0)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono"
+                        className="w-full bg-theme-surface-2 border border-theme-border rounded px-2 py-1 text-xs font-mono text-theme-body"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 block">Loading / Unloading</span>
+                      <span className="text-[10px] text-theme-muted block">Loading / Unloading</span>
                       <input
                         type="number"
                         value={loadingCharges}
                         onChange={(e) => setLoadingCharges(parseFloat(e.target.value) || 0)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono"
+                        className="w-full bg-theme-surface-2 border border-theme-border rounded px-2 py-1 text-xs font-mono text-theme-body"
                       />
                     </div>
                   </div>
@@ -866,17 +884,17 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
               </div>
 
               {/* Col 3: Notes */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 shadow-xs">
+              <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wide font-mono">Notes</label>
-                  <span className="text-[10px] text-slate-400 font-mono">{invoiceNotes.length}/500</span>
+                  <label className="block text-[10px] font-bold text-theme-muted uppercase tracking-wide font-mono">Notes</label>
+                  <span className="text-[10px] text-theme-muted font-mono">{invoiceNotes.length}/500</span>
                 </div>
                 <textarea
                   rows={3}
                   placeholder="Add invoice notes here..."
                   value={invoiceNotes}
                   onChange={(e) => setInvoiceNotes(e.target.value.slice(0, 500))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full bg-theme-surface-2 border border-theme-border rounded-lg p-2.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary"
                 />
               </div>
             </div>
@@ -884,14 +902,14 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             {/* 6. BOTTOM ACTION BUTTONS */}
             <div className="flex items-center space-x-3 pt-2">
               <button 
-                onClick={() => onNotification("Draft Saved", "Invoice saved to draft queue.", "success")}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors"
+                onClick={() => notify("Draft Saved", "Invoice saved to draft queue.", "success")}
+                className="px-4 py-2 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover text-xs font-semibold transition-colors cursor-pointer"
               >
                 Save as Draft
               </button>
               <button 
-                onClick={() => onNotification("Invoice Held", "Invoice placed on hold queue.", "success")}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors"
+                onClick={() => notify("Invoice Held", "Invoice placed on hold queue.", "success")}
+                className="px-4 py-2 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover text-xs font-semibold transition-colors cursor-pointer"
               >
                 Hold Invoice
               </button>
@@ -899,20 +917,17 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
 
           </div>
 
-          {/* ----------------------------------------------------------------------- */}
-          {/* RIGHT SUMMARY SIDEBAR (Col Span 4) */}
-          {/* ----------------------------------------------------------------------- */}
-          <div className="w-full lg:w-[380px] bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between space-y-4 shrink-0">
+          {/* RIGHT SUMMARY SIDEBAR */}
+          <div className="w-full lg:w-[380px] bg-theme-surface-1 border border-theme-border rounded-xl p-5 shadow-xs flex flex-col justify-between space-y-4 shrink-0">
             <div className="space-y-4">
-              <h3 className="text-sm font-bold text-[#0F172A] border-b border-slate-200 pb-3">
+              <h3 className="text-sm font-bold text-theme-body border-b border-theme-divider pb-3">
                 Summary
               </h3>
 
-              {/* Subtotal lines matching image exact formatting */}
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-theme-muted">
                   <span>Subtotal ({itemDetailsList.length} Items)</span>
-                  <span className="font-mono font-semibold text-slate-900">₹1,605.00</span>
+                  <span className="font-mono font-semibold text-theme-body">₹1,605.00</span>
                 </div>
 
                 <div className="flex justify-between text-emerald-600 font-medium">
@@ -920,55 +935,55 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                   <span className="font-mono font-semibold">-₹50.00</span>
                 </div>
 
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-theme-muted">
                   <span>Other Charges</span>
-                  <span className="font-mono text-slate-800">₹0.00</span>
+                  <span className="font-mono text-theme-body">₹0.00</span>
                 </div>
 
-                <div className="flex justify-between text-slate-600 pt-1 border-t border-slate-100">
+                <div className="flex justify-between text-theme-body pt-1 border-t border-theme-divider font-semibold">
                   <span>Taxable Amount</span>
-                  <span className="font-mono font-semibold text-slate-900">₹1,555.00</span>
+                  <span className="font-mono">₹1,555.00</span>
                 </div>
 
-                <div className="flex justify-between text-slate-500 text-[11px]">
+                <div className="flex justify-between text-theme-muted text-[11px]">
                   <span>CGST (9%)</span>
                   <span className="font-mono">₹139.95</span>
                 </div>
 
-                <div className="flex justify-between text-slate-500 text-[11px]">
+                <div className="flex justify-between text-theme-muted text-[11px]">
                   <span>SGST (9%)</span>
                   <span className="font-mono">₹139.95</span>
                 </div>
 
-                <div className="flex justify-between text-slate-400 text-[11px]">
+                <div className="flex justify-between text-theme-muted text-[11px]">
                   <span>Round Off</span>
                   <span className="font-mono">₹0.10</span>
                 </div>
               </div>
 
-              {/* Grand Total Navy Banner */}
-              <div className="bg-[#1E3A8A] text-white p-4 rounded-xl shadow-md space-y-1">
+              {/* Grand Total Navy/Theme Primary Banner */}
+              <div className="bg-theme-primary text-white p-4 rounded-xl shadow-md space-y-1">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">Grand Total</span>
+                  <span className="text-xs font-semibold opacity-90 uppercase tracking-wider">Grand Total</span>
                   <span className="text-2xl font-bold font-mono tracking-tight">₹1,835.00</span>
                 </div>
               </div>
 
               {/* Amount in Words */}
-              <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-3 text-[11px]">
-                <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Amount in Words</span>
-                <span className="font-semibold text-slate-800 italic">
+              <div className="bg-theme-surface-2 border border-theme-divider rounded-lg p-3 text-[11px]">
+                <span className="block text-[10px] text-theme-muted font-bold uppercase tracking-wider mb-0.5">Amount in Words</span>
+                <span className="font-semibold text-theme-body italic">
                   One Thousand Eight Hundred Thirty Five Rupees Only
                 </span>
               </div>
 
               {/* Payment Mode Selector */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700">Payment Mode</label>
+                <label className="block text-xs font-bold text-theme-body">Payment Mode</label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full bg-theme-surface-2 border border-theme-border rounded-lg px-3 py-2 text-xs font-bold text-theme-body focus:outline-none focus:border-theme-primary cursor-pointer"
                 >
                   <option value="Cash">Cash</option>
                   <option value="UPI">UPI / Digital QR</option>
@@ -982,7 +997,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             <div className="pt-2">
               <button
                 onClick={handleCheckoutSubmit}
-                className="w-full bg-[#1E3A8A] hover:bg-[#1E40AF] text-white font-bold text-sm py-3.5 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2"
+                className="w-full bg-theme-primary hover:bg-theme-primary-hover text-white font-bold text-sm py-3.5 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer"
               >
                 <span>F12 Standard Checkout</span>
               </button>
@@ -991,26 +1006,39 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
 
         </div>
 
-        {/* ========================================================================= */}
         {/* BOTTOM STATUS FOOTER */}
-        {/* ========================================================================= */}
-        <footer className="bg-white border-t border-slate-200 px-5 py-2 flex items-center justify-between text-[11px] text-slate-500 font-mono shadow-xs">
+        <footer className="bg-theme-surface-1 border border-theme-border rounded-xl px-5 py-2 flex items-center justify-between text-[11px] text-theme-muted font-mono shadow-xs">
           <div className="flex items-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-semibold text-slate-700">POS Terminal 01</span>
+            <span className="font-semibold text-theme-body">POS Terminal 01</span>
           </div>
 
           <div>
-            Logged in as: <span className="font-semibold text-slate-800">admin@smriti.com</span>
+            Logged in as: <span className="font-semibold text-theme-body">admin@smriti.com</span>
           </div>
 
-          <div className="flex items-center space-x-1 text-slate-400 hover:text-slate-700 cursor-pointer">
+          <div className="flex items-center space-x-1 text-theme-muted hover:text-theme-body cursor-pointer">
             <span className="material-symbols-outlined text-sm">keyboard</span>
             <span>Keyboard Shortcuts</span>
           </div>
         </footer>
 
       </div>
-    </div>
-  );
+    );
+
+    if (isStandaloneTab) {
+      return (
+        <div className="w-full h-full bg-theme-base select-text overflow-y-auto p-4">
+          {renderInnerContent()}
+        </div>
+      );
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 overflow-y-auto">
+        <div className="bg-theme-base w-full max-w-[1440px] rounded-xl shadow-2xl border border-theme-border overflow-hidden text-theme-body font-sans flex flex-col max-h-[96vh] p-4 overflow-y-auto">
+          {renderInnerContent()}
+        </div>
+      </div>
+    );
 };
