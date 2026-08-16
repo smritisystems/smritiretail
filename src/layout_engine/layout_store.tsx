@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.1
  * Created      : 2026-07-10
- * Modified     : 2026-07-14
+ * Modified     : 2026-08-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -320,20 +320,23 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       onTabChange(loadedPrefs.lastWorkspace);
     }
 
-    // Centralized Menu Resolver: Fetch resolved navigation tree from backend
-    try {
-      const res = await apiFetchV1("/menus/resolved");
-      if (Array.isArray(res) && res.length > 0) {
-        const dynamicWorkspaces: WorkspaceConfig[] = res.map((m: any) => ({
-          id: (m.route || "").replace(/^\//, "") || m.id.replace(/^menu-/, ""),
-          label: m.title || m.label,
-          icon: m.icon || "grid_view",
-          category: m.module || "Operations",
-        }));
-        setRegisteredWorkspaces(dynamicWorkspaces);
+    // Centralized Menu Resolver: Fetch resolved navigation tree from backend (only if authenticated)
+    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
+    if (token) {
+      try {
+        const res = await apiFetchV1("/menus/resolved");
+        if (Array.isArray(res) && res.length > 0) {
+          const dynamicWorkspaces: WorkspaceConfig[] = res.map((m: any) => ({
+            id: (m.route || "").replace(/^\//, "") || m.id.replace(/^menu-/, ""),
+            label: m.title || m.label,
+            icon: m.icon || "grid_view",
+            category: m.module || "Operations",
+          }));
+          setRegisteredWorkspaces(dynamicWorkspaces);
+        }
+      } catch (err) {
+        console.warn("[MenuResolver] Using offline degraded navigation fallback", err);
       }
-    } catch (err) {
-      console.warn("[MenuResolver] Using offline degraded navigation fallback", err);
     }
   };
 

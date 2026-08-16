@@ -28,7 +28,7 @@ const DEFAULT_COMPANIES: CompanyOption[] = [
     company_id: "COMP-001",
     company_code: "001",
     company_name: "Tattly Retail Pvt Ltd",
-    database_name: "smriti001",
+    database_name: "company_db_001",
     status: "READY"
   }
 ];
@@ -48,7 +48,7 @@ export const CompanySelector: React.FC = () => {
       localStorage.setItem("smriti_company_code", "001");
     }
     if (!localStorage.getItem("smriti_database_name")) {
-      localStorage.setItem("smriti_database_name", "smriti001");
+      localStorage.setItem("smriti_database_name", "company_db_001");
     }
 
     let isMounted = true;
@@ -60,7 +60,7 @@ export const CompanySelector: React.FC = () => {
             company_id: item.company_id || "COMP-001",
             company_code: item.company_code || "001",
             company_name: item.company_name || "Tattly Retail Pvt Ltd",
-            database_name: item.database_name || "smriti001",
+            database_name: item.database_name || "company_db_001",
             status: item.status || "READY"
           }));
           setCompanies(mapped);
