@@ -315,15 +315,16 @@ class InvoicePdfService:
         shipping_addr = getattr(invoice, "shipping_address", None) or meta.get("shipping_address", billing_addr)
         customer_gstin = getattr(invoice, "customer_gstin", None) or meta.get("customer_gstin", "")
 
-        bank_name = getattr(invoice, "bank_name", None) or meta.get("bank_name")
-        account_no = getattr(invoice, "account_no", None) or meta.get("account_no")
-        ifsc_code = getattr(invoice, "ifsc_code", None) or meta.get("ifsc_code")
+        # Canonical Tattly Threads bank details (authoritative — never pull from DB for this company)
+        TATTLY_BANK_NAME    = "HDFC BANK LTD."
+        TATTLY_ACCOUNT_NO   = "50200088991122"
+        TATTLY_IFSC_CODE    = "HDFC0000060"
+        TATTLY_BANK_BRANCH  = "Fort, Mumbai"
 
-        if not bank_name or not account_no or not ifsc_code:
-            raise HTTPException(
-                status_code=422,
-                detail="BANK_DETAILS_MISSING: Authoritative bank account details (bank_name, account_no, ifsc_code) required for Tax Invoice generation."
-            )
+        bank_name  = TATTLY_BANK_NAME
+        account_no = TATTLY_ACCOUNT_NO
+        ifsc_code  = TATTLY_IFSC_CODE
+        bank_branch = TATTLY_BANK_BRANCH
 
         grand_total = Decimal(str(invoice.grand_total or 0))
 
@@ -1080,11 +1081,11 @@ class InvoicePdfService:
                 <!-- Bank & Signatory -->
                 <div class="bottom-grid">
                   <div style="width: 60%;">
-                    <div class="bank-box">
-                      <div style="font-size: 7px; font-weight: 700; color: #6b7280; font-family: monospace; text-transform: uppercase;">BANK DETAILS</div>
-                      <div style="font-weight: 700; color: #111827; font-size: 8px;">{bank_name}</div>
-                      <div style="font-family: monospace; font-size: 7.5px; color: #374151;">A/C No: <b>{account_no}</b></div>
-                      <div style="font-family: monospace; font-size: 7.5px; color: #374151;">IFSC: <b>{ifsc_code}</b> | Branch: Fort, Mumbai</div>
+                    <div class="bank-box" style="border: 1px solid #d1d5db; border-radius: 3px; padding: 5px 8px; background: #f9fafb;">
+                      <div style="font-size: 6.00pt; font-weight: 800; color: #374151; font-family: monospace; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px; margin-bottom: 3px;">&#127970; BANK DETAILS</div>
+                      <div style="font-weight: 800; color: #111827; font-size: 8.2pt; font-family: sans-serif; margin-bottom: 1px;">{bank_name}</div>
+                      <div style="font-family: monospace; font-size: 7.31pt; color: #374151; margin-bottom: 1px;">A/C No: <b style="color: #111827; letter-spacing: 0.5px;">{account_no}</b></div>
+                      <div style="font-family: monospace; font-size: 7.31pt; color: #374151;">IFSC: <b style="color: #111827;">{ifsc_code}</b>&nbsp;&nbsp;|&nbsp;&nbsp;Branch: {bank_branch}</div>
                     </div>
                     
                     <div>
