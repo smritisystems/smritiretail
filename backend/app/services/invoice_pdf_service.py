@@ -951,7 +951,7 @@ class InvoicePdfService:
                         <tr><td class="meta-label">Invoice No:</td><td class="meta-val">{invoice_no}</td></tr>
                         <tr><td class="meta-label">Date:</td><td class="meta-val">{date_str}</td></tr>
                         <tr><td class="meta-label">SIS Code:</td><td class="meta-val">{sis_code}</td></tr>
-                        <tr><td class="meta-label">POS State:</td><td class="meta-val">{pos_state}</td></tr>
+                        <tr><td class="meta-label">Place of Supply:</td><td class="meta-val">{pos_state}</td></tr>
                         <tr><td class="meta-label">PO / Reference:</td><td class="meta-val">{po_reference}</td></tr>
                         <tr><td class="meta-label">E-Way Bill No:</td><td class="meta-val">{eway_bill}</td></tr>
                       </table>
