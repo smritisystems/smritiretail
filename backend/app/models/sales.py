@@ -31,6 +31,33 @@ class SalesInvoice(BaseEntity):
     payment_mode = Column(String(20), default="CASH")  # CASH | CARD | UPI | CREDIT
     status       = Column(String(20), default="Draft")
 
+    # Historical & Canonical Metadata
+    source_type             = Column(String(50), default="LIVE")
+    source_system           = Column(String(50))
+    source_file             = Column(String(500))
+    import_batch_id         = Column(String(100))
+    imported_at             = Column(Date)
+    import_validation_status = Column(String(50))
+    import_validation_notes  = Column(Text)
+    sis_code                = Column(String(50))
+    pos_state               = Column(String(100))
+    po_reference            = Column(String(100))
+    customer_name           = Column(String(255))
+    customer_gstin          = Column(String(50))
+    billing_address         = Column(Text)
+    shipping_address        = Column(Text)
+    site_name               = Column(String(255))
+    taxable_value           = Column(Numeric(15, 2))
+    rounding_amount         = Column(Numeric(10, 4), default=0.0000)
+    amount_in_words         = Column(Text)
+    bank_name               = Column(String(100))
+    account_no              = Column(String(100))
+    ifsc_code               = Column(String(50))
+    original_pdf_sha256     = Column(String(64))
+    original_pdf_path       = Column(String(500))
+    original_pdf_size       = Column(Integer)
+    original_pdf_pages      = Column(Integer)
+
     # Relationships
     items = relationship("SalesInvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
 
@@ -49,6 +76,13 @@ class SalesInvoiceItem(Base):
     gst_rate = Column(Numeric(5, 2), default=18.00)
     tax_amount = Column(Numeric(15, 2), default=0.00)
     total_amount = Column(Numeric(15, 2), nullable=False)
+    mrp          = Column(Numeric(15, 2))
+    disc_pct     = Column(Numeric(7, 4))
+    taxable_value = Column(Numeric(15, 2))
+    igst_amount  = Column(Numeric(15, 2), default=0.00)
+    cgst_amount  = Column(Numeric(15, 2), default=0.00)
+    sgst_amount  = Column(Numeric(15, 2), default=0.00)
+    line_no      = Column(Integer)
 
     # Relationships
     invoice = relationship("SalesInvoice", back_populates="items")

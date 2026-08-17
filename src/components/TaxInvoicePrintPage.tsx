@@ -30,6 +30,7 @@ import {
   Check,
   ShieldCheck,
   FileText,
+  FileCheck,
   List,
   Building2,
   Phone,

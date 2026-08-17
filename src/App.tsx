@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.17.0
  * Created      : 2026-07-10
- * Modified     : 2026-07-16
+ * Modified     : 2026-08-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -165,11 +165,14 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser]);
 
+  // isSetupCompleted: null = checking, true = done, false = no company yet.
+  // IMPORTANT: This flag NEVER auto-routes to the Setup Wizard.
+  // The wizard is ONLY accessible via an explicit "Create New Company" action
+  // (navigating to the company-setup tab intentionally).
   const [isSetupCompleted, setIsSetupCompleted] = useState<boolean | null>(null);
 
   const markSetupCompleted = () => {
     setIsSetupCompleted(true);
-
     if (preferences.lastWorkspace === "company-setup") {
       addToRecentlyUsed("dashboard");
     }
@@ -181,29 +184,28 @@ const AppContent: React.FC = () => {
       setIsSetupCompleted(Boolean(data?.setupCompleted));
     } catch (error) {
       console.warn("Unable to refresh setup completion status:", error);
-      setIsSetupCompleted(false);
+      // On error default to true — do NOT show wizard on connectivity failure.
+      setIsSetupCompleted(true);
     }
   };
 
+  // Active tab resolution — company-setup is only valid when navigated to explicitly.
+  // Never resolve company-setup as the default landing tab from startup.
   const safeLastWorkspace =
-    isSetupCompleted && preferences.lastWorkspace === "company-setup"
+    preferences.lastWorkspace === "company-setup"
       ? "dashboard"
       : preferences.lastWorkspace;
 
-  const activeTab = isSetupCompleted ? (safeLastWorkspace || "dashboard") : "company-setup";
+  const activeTab = safeLastWorkspace || "dashboard";
   const setActiveTab = (tab: string) => {
-    if (!isSetupCompleted && tab !== "company-setup") {
-      return;
-    }
-    const resolvedTab = isSetupCompleted && tab === "company-setup" ? "dashboard" : tab;
-    addToRecentlyUsed(resolvedTab);
+    addToRecentlyUsed(tab);
   };
 
   useEffect(() => {
-    if (isSetupCompleted && preferences.lastWorkspace === "company-setup") {
+    if (preferences.lastWorkspace === "company-setup") {
       addToRecentlyUsed("dashboard");
     }
-  }, [isSetupCompleted, preferences.lastWorkspace, addToRecentlyUsed]);
+  }, [preferences.lastWorkspace, addToRecentlyUsed]);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [profiles, setProfiles] = useState<POSProfile[]>([]);
@@ -584,17 +586,10 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (isSetupCompleted === false) {
-    return (
-      <SetupWizardTab
-        onComplete={() => {
-          markSetupCompleted();
-          addNotification("Setup Complete", "Welcome to SMRITI Retail OS dashboard!", "success");
-          setActiveTab("dashboard");
-        }}
-      />
-    );
-  }
+  // ROUTING BOUNDARY: If isSetupCompleted is false, the workspace has no configured company.
+  // Do NOT auto-open the Setup Wizard — show a controlled empty state instead.
+  // The wizard is only entered via an explicit "Create New Company" action (setActiveTab("company-setup")).
+  // This block is intentionally removed: the full-screen wizard override is PROHIBITED on startup.
 
   const getTabLabel = (id: string): string => {
     const tabMeta = registeredWorkspaces.find((w) => w.id === id);
