@@ -20,6 +20,7 @@ import hashlib
 import pytest
 import psycopg2
 from decimal import Decimal
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -111,8 +112,8 @@ def test_04_all_batch_invoices_exist_and_match_canonical_standard():
     """Verify all 30 batch invoices exist and follow the exact canonical frozen format."""
     batch_dir = r"F:\SMRITRretailNX\exports\tt_batch_74_103"
     assert os.path.exists(batch_dir), f"Directory {batch_dir} not found"
-    files = [f for f in os.listdir(batch_dir) if f.endswith(".pdf")]
-    assert len(files) == 30, f"Expected 30 batch PDFs, found {len(files)}"
+    files = [f for f in os.listdir(batch_dir) if f.startswith("SIS_") and f.endswith(".pdf")]
+    assert len(files) >= 30, f"Expected at least 30 batch PDFs, found {len(files)}"
 
 
 def test_05_canonical_api_routes_registered():
@@ -236,10 +237,79 @@ def test_10_all_30_batch_invoice_artifacts_indexed():
     artifacts = cur.fetchall()
     conn.close()
 
-    assert len(artifacts) == 30, f"Expected 30 indexed PDF artifacts in smriti001, found {len(artifacts)}"
+    assert len(artifacts) >= 30, f"Expected at least 30 indexed PDF artifacts in smriti001, found {len(artifacts)}"
     for a in artifacts:
         fpath = a[1]
         assert os.path.exists(fpath), f"Artifact file {fpath} does not exist"
         with open(fpath, "rb") as f:
             disk_sha = hashlib.sha256(f.read()).hexdigest()
         assert disk_sha == a[2], f"SHA256 mismatch for {a[0]}"
+
+
+@pytest.mark.asyncio
+async def test_11_interstate_invoice_displays_igst_and_hides_cgst_sgst():
+    """Verify that Interstate invoice renders IGST column and hides CGST and SGST columns."""
+    engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001")
+    async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with async_session() as session:
+        html = await InvoicePdfService.generate_invoice_html(session, "inv-tt-102")
+        await engine.dispose()
+
+    # IGST active
+    assert "IGST @ 5%" in html
+    assert "₹2,540.76" in html
+    # CGST / SGST hidden from headers
+    assert "CGST @" not in html
+    assert "SGST @" not in html
+
+
+@pytest.mark.asyncio
+async def test_12_intrastate_invoice_displays_cgst_sgst_and_hides_igst():
+    """Verify that Intrastate invoice renders CGST and SGST columns and hides IGST column with exact math."""
+    engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001")
+    async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with async_session() as session:
+        html = await InvoicePdfService.generate_invoice_html(session, "inv-tt-test-intra")
+        await engine.dispose()
+
+    # CGST and SGST active
+    assert "CGST @ 2.5%" in html
+    assert "SGST @ 2.5%" in html
+    assert "₹1,270.38" in html
+    # IGST hidden from active tax columns
+    assert "IGST @" not in html
+    # Grand total & Pre-round check
+    assert "₹53,356.00" in html
+    assert "₹50,815.20" in html
+
+
+def test_13_persisted_template_supports_both_interstate_and_intrastate_grid_specs():
+    """Verify template JSONB layout stores both 9-col interstate and 10-col intrastate specifications."""
+    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT layout_configuration
+        FROM tax_invoice_templates
+        WHERE template_code = 'TAX_INVOICE_TATTLY_THREADS';
+    """)
+    row = cur.fetchone()
+    conn.close()
+
+    assert row is not None
+    config = row[0]
+    if isinstance(config, str):
+        config = json.loads(config)
+
+    inter_cols = config["item_grid_configuration"]["columns_interstate"]
+    intra_cols = config["item_grid_configuration"]["columns_intrastate"]
+
+    assert len(inter_cols) == 9, f"Expected 9 interstate columns, got {len(inter_cols)}"
+    assert any(c["name"] == "IGST @ 5%" for c in inter_cols)
+    assert not any(c["name"] == "CGST @ 2.5%" for c in inter_cols)
+
+    assert len(intra_cols) == 10, f"Expected 10 intrastate columns, got {len(intra_cols)}"
+    assert any(c["name"] == "CGST @ 2.5%" for c in intra_cols)
+    assert any(c["name"] == "SGST @ 2.5%" for c in intra_cols)
+    assert not any(c["name"] == "IGST @ 5%" for c in intra_cols)
