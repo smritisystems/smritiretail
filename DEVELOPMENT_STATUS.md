@@ -1,7 +1,7 @@
 # SMRITI Development Status Dashboard
 
 *Generated: Mon 08/17/2026*
-*Branch: smritiNX | Last Commit: 5f93fb49*
+*Branch: smritiNX | Last Commit: 16898442*
 
 ## SMRITI Development Health Index (DHI)
 ```
@@ -29,12 +29,14 @@ Security: ██████████ 100%
 | Accounting Sync | Workspace | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | 52% |
 | Report Designer | Workspace | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | 76% |
 | Item Master | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 88% |
-| Barcode Studio | Workspace | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | 44% |
+| Product Identity Engine | Inventory & Sourcing | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | 76% |
+| Barcode Studio | Workspace | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | 56% |
+| Party Stock Visibility (PSV) | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 84% |
 | Stock Ledger | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 68% |
 | Master Framework | Workspace | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | 44% |
 | Field Explorer (UFE) | Workspace | ❌ | ✅ | ❌ | ✅ | ❌ | ✅ | 36% |
 | KPI Registry | Workspace | ❌ | ✅ | ❌ | ✅ | ✅ | ❌ | 40% |
-| Channel Visibility | Workspace | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ | 60% |
+| Channel Visibility | Workspace | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | 64% |
 | Numbering Engine | Workspace | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | 72% |
 | Approval Matrix | Workspace | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | 56% |
 | Staff Management | Workspace | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ | 56% |
