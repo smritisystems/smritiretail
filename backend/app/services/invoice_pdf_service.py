@@ -573,7 +573,7 @@ class InvoicePdfService:
           border-collapse: collapse;
           border: 1px solid #d1d5db;
           table-layout: fixed;
-          font-size: 7.31pt;
+          font-size: 8.2pt;
           font-family: monospace;
         }
         .item-table th {
@@ -592,7 +592,7 @@ class InvoicePdfService:
           height: 20.47pt;
           padding: 0 2px;
           vertical-align: middle;
-          font-size: 7.31pt;
+          font-size: 8.2pt;
           white-space: nowrap !important;
         }
         .item-row:hover {
