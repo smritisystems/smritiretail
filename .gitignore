@@ -89,4 +89,10 @@ served_bundle.js
 # Local PostgreSQL Data Cluster
 backend/pgdata/
 
-
+# Exported and generated invoice documents, audit PDFs, and forensic artifacts
+exports/
+TT/**
+!TT/logo/
+!TT/logo/**
+*.pdf
+*.csv
