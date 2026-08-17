@@ -11,7 +11,7 @@ Founders
 
 * Version    : 3.12.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-08-17
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -418,6 +418,7 @@ async def test_pos_checkout_happy_path(db_session):
     assert Decimal(data["grand_total"]) == Decimal("100.00")
 
     # Verify stock was deducted in DB
+    await db_session.refresh(product)
     from sqlalchemy.future import select as _select
     from app.models.inventory import Product as _Product
     res_db = await db_session.execute(
@@ -470,6 +471,7 @@ async def test_pos_checkout_idempotency(db_session):
     assert r2.json()["cached"] is True   # second call: idempotent
 
     # Stock deducted only once
+    await db_session.refresh(product)
     from sqlalchemy.future import select as _select
     from app.models.inventory import Product as _Product
     res_db = await db_session.execute(
