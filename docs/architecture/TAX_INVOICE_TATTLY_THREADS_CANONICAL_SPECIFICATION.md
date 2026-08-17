@@ -102,14 +102,25 @@
 
 ---
 
-## 5. API Endpoints Contract
+## 5. API Endpoints Contract & Execution Flow
+
+```
+UI Action          Frontend Trigger                    Backend Endpoint                     Response
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Preview            Click "Preview"                    GET /api/v1/sales/invoices/{id}/preview   text/html
+Print              Click "PRINT TAX INVOICE" / "Print" GET /api/v1/sales/invoices/{id}/print     text/html (auto-print)
+Export / Download  Click "Export PDF" / "Download"    GET /api/v1/sales/invoices/{id}/download  application/pdf (attachment)
+PDF Stream         Direct Document View                GET /api/v1/sales/invoices/{id}/pdf       application/pdf (inline)
+Reprint            Click "Reprint"                    GET /api/v1/sales/invoices/{id}/reprint   application/pdf (original hash)
+```
 
 - `GET /api/v1/sales/invoices/{id}/html`: Canonical HTML preview
 - `GET /api/v1/sales/invoices/{id}/preview`: Canonical HTML preview alias
-- `GET /api/v1/sales/invoices/{id}/print`: Canonical browser print
-- `GET /api/v1/sales/invoices/{id}/reprint`: Canonical document reprint
-- `GET /api/v1/sales/invoices/{id}/pdf`: Canonical streaming document
-- `GET /api/v1/sales/invoices/{id}/download`: Downloadable PDF attachment
+- `GET /api/v1/sales/invoices/{id}/print`: Canonical browser print (includes client auto-print trigger)
+- `GET /api/v1/sales/invoices/{id}/reprint`: Canonical document reprint resolving original immutable historical PDF artifact
+- `GET /api/v1/sales/invoices/{id}/pdf`: Canonical streaming document (`format=binary` returns binary PDF; default returns HTML preview)
+- `GET /api/v1/sales/invoices/{id}/download`: Downloadable PDF attachment with `Content-Disposition: attachment`
+
 
 ---
 

@@ -93,17 +93,7 @@ async def get_sales_invoice_contract(
     response_class=Response,
     summary="Render Canonical Sales Invoice Preview",
 )
-@router.get(
-    "/invoices/{invoice_id}/print",
-    response_class=Response,
-    summary="Render Canonical Sales Invoice for Browser Print",
-)
-@router.get(
-    "/invoices/{invoice_id}/reprint",
-    response_class=Response,
-    summary="Render Canonical Sales Invoice Reprint Document",
-)
-async def get_sales_invoice_html_contract(
+async def get_sales_invoice_preview_contract(
     invoice_id: str,
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -120,16 +110,69 @@ async def get_sales_invoice_html_contract(
 
 
 @router.get(
+    "/invoices/{invoice_id}/print",
+    response_class=Response,
+    summary="Render Canonical Sales Invoice for Browser Print",
+)
+async def get_sales_invoice_print_contract(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Render canonical HTML invoice configured for automatic browser print."""
+    from ...services.invoice_pdf_service import InvoicePdfService
+    html_content = await InvoicePdfService.generate_invoice_html(
+        session=db,
+        invoice_id=invoice_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id
+    )
+    auto_print_html = html_content + "\n<script>window.addEventListener('load', function() { window.print(); });</script>"
+    return Response(content=auto_print_html, media_type="text/html")
+
+
+@router.get(
+    "/invoices/{invoice_id}/reprint",
+    response_class=Response,
+    summary="Render Canonical Sales Invoice Reprint Document",
+)
+async def get_sales_invoice_reprint_contract(
+    invoice_id: str,
+    format: Optional[str] = "pdf",
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Retrieve immutable historical invoice document artifact by SHA256 integrity for reprinting."""
+    from ...services.invoice_pdf_service import InvoicePdfService
+    if format == "html":
+        html_content = await InvoicePdfService.generate_invoice_html(
+            session=db,
+            invoice_id=invoice_id,
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id
+        )
+        return Response(content=html_content, media_type="text/html")
+    
+    pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
+        session=db,
+        invoice_id=invoice_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id
+    )
+    safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}_REPRINT.pdf"'}
+    )
+
+
+@router.get(
     "/invoices/{invoice_id}/pdf",
     response_class=Response,
     summary="Stream Sales Invoice PDF Document",
 )
-@router.get(
-    "/invoices/{invoice_id}/download",
-    response_class=Response,
-    summary="Download Sales Invoice PDF Attachment",
-)
-async def get_sales_invoice_pdf_contract(
+async def get_sales_invoice_pdf_stream(
     invoice_id: str,
     format: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
@@ -138,16 +181,17 @@ async def get_sales_invoice_pdf_contract(
     """Stream rendered Tax Invoice PDF document from single Canonical TaxInvoiceRenderer."""
     from ...services.invoice_pdf_service import InvoicePdfService
     if format == "binary":
-        pdf_bytes = await InvoicePdfService.render_pdf_bytes(
+        pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
             session=db,
             invoice_id=invoice_id,
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id
         )
+        safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="TaxInvoice_{invoice_id}.pdf"'}
+            headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}.pdf"'}
         )
     html_content = await InvoicePdfService.generate_invoice_html(
         session=db,
@@ -156,6 +200,32 @@ async def get_sales_invoice_pdf_contract(
         branch_id=tenant_ctx.branch_id
     )
     return Response(content=html_content, media_type="text/html")
+
+
+@router.get(
+    "/invoices/{invoice_id}/download",
+    response_class=Response,
+    summary="Download Sales Invoice PDF Attachment",
+)
+async def get_sales_invoice_download_attachment(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Download Tax Invoice PDF document as an attachment from single Canonical TaxInvoiceRenderer."""
+    from ...services.invoice_pdf_service import InvoicePdfService
+    pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
+        session=db,
+        invoice_id=invoice_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id
+    )
+    safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="TaxInvoice_{safe_no}.pdf"'}
+    )
 
 
 # ─────────────────────────── Sales Quotation ───────────────────────────

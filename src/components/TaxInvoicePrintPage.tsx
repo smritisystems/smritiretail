@@ -361,11 +361,25 @@ export const TaxInvoicePrintPage: React.FC = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    if (activeInvoiceId) {
+      window.open(`/api/v1/sales/invoices/${activeInvoiceId}/print`, "_blank");
+    } else {
+      window.print();
+    }
   };
 
   const handleExportPDF = () => {
-    window.print();
+    if (activeInvoiceId) {
+      window.open(`/api/v1/sales/invoices/${activeInvoiceId}/download`, "_blank");
+    } else {
+      window.print();
+    }
+  };
+
+  const handleReprint = () => {
+    if (activeInvoiceId) {
+      window.open(`/api/v1/sales/invoices/${activeInvoiceId}/reprint`, "_blank");
+    }
   };
 
   const handleBack = () => {
@@ -512,10 +526,19 @@ export const TaxInvoicePrintPage: React.FC = () => {
             <button
               onClick={handleExportPDF}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-emerald-600/30 transition"
-              title="Export / Save PDF"
+              title="Export / Download PDF"
             >
               <Download size={14} />
               <span>Export PDF</span>
+            </button>
+
+            <button
+              onClick={handleReprint}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-xs font-semibold border border-amber-500/40 shadow-md transition"
+              title="Reprint Immutable Historical Document Artifact"
+            >
+              <FileCheck size={14} />
+              <span>Reprint</span>
             </button>
           </div>
         </div>

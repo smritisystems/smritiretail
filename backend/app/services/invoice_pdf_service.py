@@ -401,9 +401,10 @@ class InvoicePdfService:
 
         rounding_row = ""
         if abs(rounding_adj) > Decimal("0.001"):
+            round_sign = "+" if rounding_adj > 0 else "-"
             rounding_row = f'''
             <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">Rounding Adjustment:</div>
-            <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{rounding_adj:+.2f}</div>
+            <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">{round_sign}₹{abs(rounding_adj):.2f}</div>
             '''
 
         html_template = f"""

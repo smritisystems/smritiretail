@@ -241,12 +241,12 @@ def seed_canonical_tax_invoice_template(company_db_name: str = "smriti001"):
                     id, uuid, company_id, branch_id, invoice_id, invoice_no,
                     document_type, template_code, template_version, template_status,
                     storage_path, sha256_hash, file_size, page_count,
-                    generated_at, modified_at, created_by, is_active, is_deleted, is_valid
+                    generated_at, created_at, modified_at, created_by, is_active, is_deleted, is_valid, version
                 ) VALUES (
                     %s, %s, 'comp-default', 'br-default', %s, %s,
                     'TAX_INVOICE', 'TAX_INVOICE_TATTLY_THREADS', 'V1', 'FROZEN',
                     %s, %s, %s, %s,
-                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', TRUE, FALSE, TRUE
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', TRUE, FALSE, TRUE, 1
                 )
                 ON CONFLICT (id) DO UPDATE SET
                     storage_path = EXCLUDED.storage_path,

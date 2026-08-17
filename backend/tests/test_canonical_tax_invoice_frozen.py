@@ -313,3 +313,80 @@ def test_13_persisted_template_supports_both_interstate_and_intrastate_grid_spec
     assert any(c["name"] == "CGST @ 2.5%" for c in intra_cols)
     assert any(c["name"] == "SGST @ 2.5%" for c in intra_cols)
     assert not any(c["name"] == "IGST @ 5%" for c in intra_cols)
+
+
+@pytest.mark.asyncio
+async def test_14_api_invoice_preview_and_print_contracts():
+    """Verify preview and print contracts return text/html with canonical layout and auto-print script."""
+    from app.api.v1.sales import get_sales_invoice_preview_contract, get_sales_invoice_print_contract
+    from app.api.deps import TenantContext
+
+    engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001")
+    async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+    tenant_ctx = TenantContext(company_id="COMP-001", branch_id="MAIN")
+
+    async with async_session() as session:
+        # Preview
+        resp_prev = await get_sales_invoice_preview_contract("inv-tt-102", db=session, tenant_ctx=tenant_ctx)
+        assert resp_prev.status_code == 200
+        assert resp_prev.media_type == "text/html"
+        html_prev = resp_prev.body.decode("utf-8")
+        assert "TT2026-2027/102" in html_prev
+        assert "IGST @ 5%" in html_prev
+
+        # Print
+        resp_print = await get_sales_invoice_print_contract("inv-tt-102", db=session, tenant_ctx=tenant_ctx)
+        assert resp_print.status_code == 200
+        assert resp_print.media_type == "text/html"
+        html_print = resp_print.body.decode("utf-8")
+        assert "window.print()" in html_print
+
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_15_api_invoice_reprint_artifact_contract():
+    """Verify reprint contract returns application/pdf with SHA256 integrity and reprint disposition."""
+    from app.api.v1.sales import get_sales_invoice_reprint_contract
+    from app.api.deps import TenantContext
+
+    engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001")
+    async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+    tenant_ctx = TenantContext(company_id="COMP-001", branch_id="MAIN")
+
+    async with async_session() as session:
+        resp = await get_sales_invoice_reprint_contract("inv-tt-102", format="pdf", db=session, tenant_ctx=tenant_ctx)
+        assert resp.status_code == 200
+        assert resp.media_type == "application/pdf"
+        assert "REPRINT" in resp.headers["Content-Disposition"]
+        assert len(resp.body) > 50000
+
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_16_api_invoice_pdf_stream_and_download_contracts():
+    """Verify GET /pdf streams inline and GET /download streams attachment."""
+    from app.api.v1.sales import get_sales_invoice_pdf_stream, get_sales_invoice_download_attachment
+    from app.api.deps import TenantContext
+
+    engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001")
+    async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+    tenant_ctx = TenantContext(company_id="COMP-001", branch_id="MAIN")
+
+    async with async_session() as session:
+        # PDF Stream (binary inline)
+        resp_pdf = await get_sales_invoice_pdf_stream("inv-tt-102", format="binary", db=session, tenant_ctx=tenant_ctx)
+        assert resp_pdf.status_code == 200
+        assert resp_pdf.media_type == "application/pdf"
+        assert "inline" in resp_pdf.headers["Content-Disposition"]
+        assert len(resp_pdf.body) > 50000
+
+        # Download (attachment)
+        resp_dl = await get_sales_invoice_download_attachment("inv-tt-102", db=session, tenant_ctx=tenant_ctx)
+        assert resp_dl.status_code == 200
+        assert resp_dl.media_type == "application/pdf"
+        assert "attachment" in resp_dl.headers["Content-Disposition"]
+        assert len(resp_dl.body) > 50000
+
+    await engine.dispose()

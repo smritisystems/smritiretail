@@ -22,23 +22,26 @@ Freeze the definitive canonical Tax Invoice rendering engine (`InvoicePdfService
 - Route consolidation across `/invoices/{id}/html`, `/preview`, `/print`, `/reprint`, `/pdf`, `/download` in `backend/app/api/v1/sales.py`.
 - Complete table grid enforcement: horizontal separator after every item row, vertical column borders, zero text wrapping.
 - GST Column Engine: dynamic conditional column rendering for Interstate (IGST @ 5% — 9 columns) and Intrastate (CGST @ 2.5% + SGST @ 2.5% — 10 columns).
+- Frontend UI action wiring in `SalesStudioTab.tsx` and `TaxInvoicePrintPage.tsx` for Print Tax Invoice, Preview, Export PDF, Download, and Reprint.
 - Exact statutory financial calculation reconciliation on TT batch invoices (`TT2026-2027/74` through `TT2026-2027/103`) and intra-state fixtures.
 - Company Database persistence (`tax_invoice_templates`, `tax_invoice_template_versions`, `invoice_document_artifacts`) in `smriti001`.
 - Cryptographic SHA256 integrity verification and immutable historical document reprint protection.
-- Automated test suite verification with 371/371 PASS baseline.
+- Automated test suite verification with 374/374 PASS baseline.
 
 ## 3. Files Created
 - `backend/app/models/tax_invoice_template.py`: SQLAlchemy entity models for `TaxInvoiceTemplate`, `TaxInvoiceTemplateVersion`, and `InvoiceDocumentArtifact`.
 - `backend/app/db/seed_tax_invoice_canonical_template.py`: Seeding script for canonical frozen template and artifact SHA256 indexing.
-- `backend/tests/test_canonical_tax_invoice_frozen.py`: 13 automated tests validating canonical config, financial reconciliation on Invoice 102, zero-wrap guarantee, route registration, DB persistence, SHA256 integrity, tenant isolation, and Interstate/Intrastate GST column engine.
+- `backend/tests/test_canonical_tax_invoice_frozen.py`: 16 automated tests validating canonical config, financial reconciliation on Invoice 102, zero-wrap guarantee, route registration, DB persistence, SHA256 integrity, tenant isolation, Interstate/Intrastate GST column engine, and API preview/print/reprint/download contracts.
 - `docs/walkthrough/sales/Sales_Tax_Invoice_Canonical_Renderer_Freeze_v1.0.md`: Formal WGP governance walkthrough.
 
 ## 4. Files Modified
 - `backend/app/models/__init__.py`: Exported new template and artifact models.
 - `backend/app/services/invoice_pdf_service.py`: Added `TAX_INVOICE_TATTLY_THREADS_CANONICAL_V1` configuration dictionary, `render_pdf_bytes`, `get_or_render_pdf_artifact` (reprint protection), `get_template_configuration`, dynamic GST rates/columns, and `TaxInvoiceRenderer` / `TaxInvoicePrintService` aliases.
-- `backend/app/api/v1/sales.py`: Added canonical route aliases `/preview`, `/print`, `/reprint`, `/download` ensuring single-renderer execution.
-- `backend/generate_tt_tax_invoices_batch.py`: Synchronized item row horizontal and vertical borders and CSS styling.
-- `docs/architecture/TAX_INVOICE_TATTLY_THREADS_CANONICAL_SPECIFICATION.md`: Added Company Database persistence, artifact governance, and GST column engine specifications.
+- `backend/app/api/v1/sales.py`: Added canonical route handlers for `/preview`, `/print`, `/reprint`, `/pdf`, `/download` ensuring single-renderer execution.
+- `src/components/SalesStudioTab.tsx`: Connected `PRINT TAX INVOICE`, `Preview`, `Export PDF`, and `Reprint` action buttons to FastAPI canonical endpoints.
+- `src/components/TaxInvoicePrintPage.tsx`: Connected `Print`, `Export PDF`, and `Reprint` toolbar actions to FastAPI canonical endpoints.
+- `backend/generate_tt_tax_invoices_batch.py`: Synchronized item row horizontal and vertical borders, column widths, and CSS styling.
+- `docs/architecture/TAX_INVOICE_TATTLY_THREADS_CANONICAL_SPECIFICATION.md`: Added Company Database persistence, artifact governance, GST column engine, and API execution flow specifications.
 - `docs/walkthrough/README.md`: Appended entry for this walkthrough.
 
 ## 5. Architecture Decisions
@@ -66,10 +69,10 @@ pytest app/tests/ -q
 ```
 
 ## 9. Verification Results
-- `tests/test_canonical_tax_invoice_frozen.py`: 13/13 PASS
-- `tests/`: 185/185 PASS
+- `tests/test_canonical_tax_invoice_frozen.py`: 16/16 PASS
+- `tests/`: 188/188 PASS
 - `app/tests/`: 186/186 PASS
-- Combined Total: 371/371 PASS (0 Failures)
+- Combined Total: 374/374 PASS (0 Failures)
 - `ITEM_GRID_TEXT_WRAP_COUNT = 0`
 - `MISSING_ITEM_ROW_BORDER_COUNT = 0`
 - `smritisys` operational invoices count = 0
