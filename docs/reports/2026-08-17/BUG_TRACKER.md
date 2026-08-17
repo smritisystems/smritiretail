@@ -24,7 +24,7 @@
 | Master Framework | High | No active recommendations |
 | Field Explorer (UFE) | High | Write automated unit tests. |
 | KPI Registry | High | No active recommendations |
-| Channel Visibility | Medium | No active recommendations |
+| Channel Visibility | Low | No active recommendations |
 | Numbering Engine | Medium | No active recommendations |
 | Approval Matrix | Medium | Write automated unit tests. |
 | Staff Management | Medium | No active recommendations |

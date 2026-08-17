@@ -124,3 +124,25 @@ async def test_07_cashier_or_manager_lifecycle_action_rejected_403():
         res_list = await client.get("/api/v1/control-center/companies")
         assert res_list.status_code == 403
     app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
+async def test_08_non_sysadmin_unassigned_user_rejected_403():
+    """Verify non-SYSADMIN user with ZERO assignment row in DB is strictly rejected with 403."""
+    unassigned_cashier = User(id="usr-unassigned-999", role=UserRole.CASHIER, company_id="COMP-001")
+    app.dependency_overrides[get_current_user] = lambda: unassigned_cashier
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.get("/api/v1/control-center/companies/COMP-001")
+        assert res.status_code == 403
+        assert "not authorized to access Company" in res.json()["detail"]
+    app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
+async def test_09_sysadmin_accesses_any_company_without_explicit_assignment_row():
+    """Verify SYSADMIN role grants access to any company based on DB/verified role without needing an explicit assignment row."""
+    unassigned_sysadmin = User(id="usr-sysadmin-unassigned-888", role=UserRole.SYSADMIN, company_id="COMP-001")
+    app.dependency_overrides[get_current_user] = lambda: unassigned_sysadmin
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.get("/api/v1/control-center/companies/COMP-001")
+        assert res.status_code == 200
+        assert res.json()["company_id"] == "COMP-001"
+    app.dependency_overrides.clear()

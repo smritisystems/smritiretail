@@ -13,7 +13,9 @@
 
 # SMRITI Database Routing Architecture Specification v1.0
 
-**Status:** AUDIT_VERIFIED  
+> **CANONICAL REFERENCE:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)
+
+**Status:** **ROUTING VERIFIED & OPERATIONAL**  
 **Centralized Resolver:** `app.services.company_database_resolver.CompanyDatabaseResolver`  
 **Registry Service:** `app.services.control_database_registry.ControlDatabaseRegistryService`  
 

@@ -12,14 +12,43 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import sys, os
 import pytest
 import asyncio
 from decimal import Decimal
 import httpx
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from app.main import app
+from app.api.deps import get_current_user, get_db
+from app.db.session import async_session
+from app.models.auth import User, UserRole
 from app.core.security import create_access_token
 
 
-BASE_URL = "http://localhost:8000/api/v1"
+BASE_URL = "http://test/api/v1"
+
+sysadmin_user_a = User(id="usr-super", username="usr_super", role=UserRole.SYSADMIN, company_id="COMP-001", branch_id="MAIN", is_active=True, is_deleted=False)
+sysadmin_user_b = User(id="usr-super", username="usr_super", role=UserRole.SYSADMIN, company_id="COMPANY_B", branch_id="BRANCH_B", is_active=True, is_deleted=False)
+cashier_user = User(id="usr-cashier", username="usr_cashier", role=UserRole.CASHIER, company_id="comp-default", branch_id="br-default", is_active=True, is_deleted=False)
+
+from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from app.core.config import settings
+
+test_engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
+test_sessionmaker = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
+
+@pytest.fixture(autouse=True)
+def setup_user_override():
+    app.dependency_overrides[get_current_user] = lambda: sysadmin_user_a
+    async def _test_get_db():
+        async with test_sessionmaker() as session:
+            yield session
+    app.dependency_overrides[get_db] = _test_get_db
+    yield
+    app.dependency_overrides.clear()
 
 @pytest.fixture
 def auth_headers_company_a():
@@ -44,7 +73,7 @@ def auth_headers_company_b():
 
 @pytest.mark.asyncio
 async def test_01_multi_tenant_routing_company_a(auth_headers_company_a):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices?limit=10", headers=auth_headers_company_a)
         assert res.status_code == 200
         invoices = res.json()
@@ -52,7 +81,8 @@ async def test_01_multi_tenant_routing_company_a(auth_headers_company_a):
 
 @pytest.mark.asyncio
 async def test_02_multi_tenant_routing_company_b(auth_headers_company_b):
-    async with httpx.AsyncClient() as client:
+    app.dependency_overrides[get_current_user] = lambda: sysadmin_user_b
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices?limit=10", headers=auth_headers_company_b)
         assert res.status_code == 200
         invoices = res.json()
@@ -61,6 +91,7 @@ async def test_02_multi_tenant_routing_company_b(auth_headers_company_b):
 
 @pytest.mark.asyncio
 async def test_03_header_tampering_and_cross_tenant_isolation_forbidden(auth_headers_company_b):
+    app.dependency_overrides[get_current_user] = lambda: cashier_user
     token = create_access_token({"sub": "usr-cashier", "company_id": "comp-default", "branch_id": "br-default"})
     tampered_headers = {
         "Authorization": f"Bearer {token}",
@@ -68,12 +99,13 @@ async def test_03_header_tampering_and_cross_tenant_isolation_forbidden(auth_hea
         "X-Branch-Code": "MAIN",
         "Content-Type": "application/json"
     }
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         # Header tampering check
         res = await client.get(f"{BASE_URL}/sales/invoices?limit=10", headers=tampered_headers)
         assert res.status_code == 403
 
         # Cross-Tenant PDF/HTML Access Check: Attempting to access Company A invoice from Company B context
+        app.dependency_overrides[get_current_user] = lambda: sysadmin_user_b
         res_cross_pdf = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/pdf", headers=auth_headers_company_b)
         assert res_cross_pdf.status_code == 404
 
@@ -82,7 +114,7 @@ async def test_03_header_tampering_and_cross_tenant_isolation_forbidden(auth_hea
 
 @pytest.mark.asyncio
 async def test_04_create_invoice_and_verify_stock_deduction(auth_headers_company_a):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         inv_payload = {
             "id": "inv-test-contract-04",
             "invoiceNo": "INV-TEST-CONTRACT-04",
@@ -109,7 +141,7 @@ async def test_04_create_invoice_and_verify_stock_deduction(auth_headers_company
 
 @pytest.mark.asyncio
 async def test_05_create_invoice_outbox_event(auth_headers_company_a):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04", headers=auth_headers_company_a)
         assert res.status_code == 200
         inv = res.json()
@@ -117,7 +149,7 @@ async def test_05_create_invoice_outbox_event(auth_headers_company_a):
 
 @pytest.mark.asyncio
 async def test_06_get_invoice_detail_authoritative(auth_headers_company_a):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04", headers=auth_headers_company_a)
         assert res.status_code == 200
         inv = res.json()
@@ -126,7 +158,7 @@ async def test_06_get_invoice_detail_authoritative(auth_headers_company_a):
 
 @pytest.mark.asyncio
 async def test_07_get_html_preview_matches_db(auth_headers_company_a):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/html", headers=auth_headers_company_a)
         assert res.status_code == 200
         assert "TAX INVOICE" in res.text
@@ -134,14 +166,14 @@ async def test_07_get_html_preview_matches_db(auth_headers_company_a):
 
 @pytest.mark.asyncio
 async def test_08_get_pdf_rendered_successfully(auth_headers_company_a):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/pdf", headers=auth_headers_company_a)
         assert res.status_code == 200
         assert "TAX INVOICE" in res.text
 
 @pytest.mark.asyncio
 async def test_09_print_preview_structure(auth_headers_company_a):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/html", headers=auth_headers_company_a)
         assert res.status_code == 200
         assert "2360.00" in res.text
@@ -168,7 +200,7 @@ async def test_10_double_submit_idempotency_semantics(auth_headers_company_a):
         "isInterstate": False
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         # Step 1: Request 1 + Key A -> Invoice 1 Created
         res1 = await client.post(f"{BASE_URL}/sales/invoices", json=inv_payload_1, headers=headers_key_a)
         assert res1.status_code in (200, 201)

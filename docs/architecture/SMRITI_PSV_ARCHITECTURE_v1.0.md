@@ -8,15 +8,20 @@
   Modified     : 2026-08-17
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
-  Classification: Internal
+  Classification: Canonical PSV Architecture Specification
 -->
 
 # SMRITI Party Stock Visibility (PSV) Architecture Specification v1.0
 
-**Status:** ARCHITECTURE_VERIFIED / IMPLEMENTED  
+> **CANONICAL REFERENCE:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
+> **Status:** **VERIFIED (COMPANY-LOCAL PSV)**
+
+**Canonical Principle:**
+> "Party Stock Visibility (PSV) is a company-local shadow inventory and intelligence layer residing inside the corresponding Company Database (`smriti001`, `smriti002`, `smriti<CODE>`). PSV data never becomes centralized shared operational state."
+
 **Service:** `app.services.psv_projection_service.PSVProjectionService`  
-**Configuration Model:** `app.models.control.control_models.ControlPSVConfig`  
-**Data Models:** `app.models.psv.PSVStockEvent`, `app.models.psv.PSVStockBalance`, `app.models.psv.PSVParty`, `app.models.psv.PSVSKUTracking`  
+**Configuration Model (Control Plane):** `app.models.control.control_models.ControlPSVConfig` (in `smritisys`)  
+**Data Models (Company-Local):** `app.models.psv.PSVStockEvent`, `app.models.psv.PSVStockBalance`, `app.models.psv.PSVParty`, `app.models.psv.PSVSKUTracking`  
 
 ---
 
@@ -30,57 +35,61 @@ Party Stock Visibility (PSV) is a decoupled, asynchronous shadow-ledger projecti
 
 ---
 
-## 2. PSV Data Topology & Flow
+## 2. PSV Data Topology & Routing
 
 ```text
-Operational Transaction (Sales Invoice / Consignment Dispatch / GRN)
-                               │
-                               ▼
-                    [PSV Enabled for Company?]
-                      (ControlPSVConfig Check)
-                               │
-                               ▼ (Yes)
-                     PSVProjectionService
-                               │
-            ┌──────────────────┴──────────────────┐
-            ▼                                     ▼
-     PSVStockEvent                        PSVStockBalance
-  (Immutable Event Log)                (Aggregated Party SKU Balance)
+                    smritisys
+                  CONTROL PLANE
+                  (control_psv_configs)
+                       │
+               Company Resolver
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+     smriti001      smriti002      smriti00N
+        │              │              │
+      PSV-001        PSV-002        PSV-N
+        │              │              │
+        └── Company-local shadow inventory (psv_*)
+```
+
+Flow:
+```text
+User / API Request -> Auth & Company Context -> CompanyDatabaseResolver -> Company DB (e.g. smriti001) -> PSV Tables in smriti001
 ```
 
 ---
 
 ## 3. Data Models & Schema
 
-1. **`ControlPSVConfig`** (Control Plane):
-   - Company-level toggle to enable or disable PSV shadow event emission.
+1. **`ControlPSVConfig`** (Control Plane in `smritisys`):
+   - Company-level governance toggle to enable or disable PSV shadow event emission.
    - Fields: `company_id`, `is_psv_enabled`, `sync_mode`, `retention_days`.
 
-2. **`PSVStockEvent`** (Event Stream):
+2. **`PSVStockEvent`** (Company-Local in `smriti<Code>`):
    - Append-only immutable log of party inventory movements.
-   - Fields: `id`, `company_id`, `party_id`, `party_type`, `sku_id`, `event_type`, `quantity`, `reference_doc_type`, `reference_doc_id`, `event_timestamp`, `status`.
-   - **Idempotency Key:** Compound unique index on `(company_id, reference_doc_type, reference_doc_id, event_type)`.
+   - **Idempotency Key:** Compound unique index on `(company_code, source_event_id)`.
 
-3. **`PSVStockBalance`** (Read Model / Projections):
+3. **`PSVStockBalance`** (Company-Local in `smriti<Code>`):
    - Running balances per party, company, and SKU.
-   - Fields: `id`, `company_id`, `party_id`, `sku_id`, `available_qty`, `reserved_qty`, `in_transit_qty`, `last_updated_at`.
+   - Fields: `id`, `company_code`, `psv_party_id`, `sku`, `billed_qty`, `received_qty`, `sold_qty`, `returned_qty`, `transferred_qty`, `current_balance`, `last_event_id`, `last_updated_at`.
 
-4. **`PSVParty` & `PSVSKUTracking`**:
-   - Partner registry and tracking metadata.
+4. **`PSVParty` & `PSVSKUTracking`** (Company-Local in `smriti<Code>`):
+   - Partner registry and tracking metadata within each company database.
 
 ---
 
 ## 4. Operational Invariants & Service Guarantees
 
-1. **Idempotent Projections:** Duplicate event emissions with identical document references return `SKIPPED_ALREADY_PROJECTED` without double-incrementing balances.
-2. **Reversibility:** Cancellations and returns emit inverse events with negative quantities, preserving full auditability.
-3. **Multi-Tenant Isolation:** All PSV queries and balance computations strictly filter by `company_id`.
-4. **Session Separation:** `PSVProjectionService` accepts an explicit session parameter, allowing execution in a separate database session if targeted.
+1. **Company-Local Physical Isolation:** Company 001 PSV events reside only in `smriti001`; Company 002 PSV events reside only in `smriti002`. Cross-company contamination is physically impossible.
+2. **Idempotent Projections:** Duplicate event emissions with identical source event IDs return `SKIPPED_ALREADY_PROJECTED` without double-incrementing balances.
+3. **Core Inventory Non-Mutation:** Projections to `psv_stock_events` never mutate `products.stock` or `stock_movements`.
+4. **Zero Control Plane Mutations:** PSV events are never written to `smritisys`.
 
 ---
 
 ## 5. Database Deployment Reality
 
-- **Target Architecture Design:** Separate dedicated database (`SmritiPSV`).
-- **Current Deployed Reality:** PSV tables (`psv_parties`, `psv_sku_tracking`, `psv_stock_events`, `psv_stock_balances`) are provisioned directly in `smritisys` (Control Plane) and company databases (`smriti001`). `SmritiPSV` is not provisioned as a standalone database instance.
-- **Impact:** Functionality is 100% operational in tests and runtime; architectural separation into an isolated database instance is an operational migration task.
+- **Canonical Architecture:** **100% COMPANY-LOCAL PSV**.
+- **Shared `SmritiPSV` Database:** **SUPERSEDED & DROPPED**. No shared operational PSV database exists.
+- **Status:** **VERIFIED & OPERATIONAL (COMPANY-LOCAL)**.

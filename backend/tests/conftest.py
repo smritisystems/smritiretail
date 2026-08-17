@@ -10,9 +10,15 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import sys, os
 import pytest
 import psycopg2
 import uuid
+import asyncio
+
+# Force SelectorEventLoop on Windows to prevent asyncpg socket concurrency collisions
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 @pytest.fixture(autouse=True, scope="session")
 def seed_control_plane_test_assignments():
@@ -24,10 +30,62 @@ def seed_control_plane_test_assignments():
         conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smritisys")
         cur = conn.cursor()
         
-        # 0. Insert default company COMP-001
+        # 0. Insert default companies COMP-001 and comp-default
         cur.execute("""
             INSERT INTO companies (id, uuid, name, company_code, is_active, is_deleted, created_at, modified_at)
             VALUES ('COMP-001', %s, 'SMRITI Retail Enterprise Default', '001', true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        cur.execute("""
+            INSERT INTO companies (id, uuid, name, company_code, is_active, is_deleted, created_at, modified_at)
+            VALUES ('comp-default', %s, 'SMRITI Default Company', 'DEF', true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        # 0a. Insert default branch MAIN for COMP-001
+        cur.execute("""
+            INSERT INTO branches (id, uuid, company_id, name, code, is_active, is_deleted, created_at, modified_at)
+            VALUES ('MAIN', %s, 'COMP-001', 'Main Branch', 'MAIN', true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        # 0b. Insert sample products for integration tests
+        cur.execute("""
+            INSERT INTO products (id, uuid, code, name, barcode, category, brand, company_id, branch_id, stock, price, is_active, is_deleted, created_at, modified_at)
+            VALUES ('prod-ch-24-g-black-36', %s, 'CH-24-G-BLACK-36', 'CH-24-G BLACK 36', 'BAR-CH-24-G', 'Footwear', 'CH', 'COMP-001', 'MAIN', 1000, 1000.00, true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET company_id = 'COMP-001', branch_id = 'MAIN', stock = 1000, price = 1000.00, is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        cur.execute("""
+            INSERT INTO products (id, uuid, code, name, barcode, category, brand, company_id, branch_id, stock, price, is_active, is_deleted, created_at, modified_at)
+            VALUES ('prod-ch-01-a-cream-36', %s, 'CH-01-A-CREAM-36', 'CH-01-A CREAM 36', 'BAR-CH-01-A', 'Footwear', 'CH', 'COMP-001', 'MAIN', 1000, 1000.00, true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET company_id = 'COMP-001', branch_id = 'MAIN', stock = 1000, price = 1000.00, is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        # 0c. Insert sample customer group and customer for integration tests
+        cur.execute("""
+            INSERT INTO customer_groups (id, uuid, company_id, branch_id, name, credit_limit, is_active, is_deleted, created_at, modified_at)
+            VALUES ('cg-default', %s, 'COMP-001', 'MAIN', 'Default Group', 1000000.00, true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        cur.execute("""
+            INSERT INTO customers (id, uuid, code, name, mobile, email, customer_group_id, company_id, branch_id, outstanding, is_active, is_deleted, created_at, modified_at)
+            VALUES ('cust-ril-1888', %s, 'CUST-RIL-1888', 'Reliance Retail Ltd', '9876543210', 'ril@test.com', 'cg-default', 'COMP-001', 'MAIN', 0.00, true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET company_id = 'COMP-001', branch_id = 'MAIN', customer_group_id = 'cg-default', outstanding = 0.00, is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        # 0d. Insert sample invoice for dispatch/return tests
+        cur.execute("""
+            INSERT INTO sales_invoices (
+                id, uuid, company_id, branch_id, invoice_no, date, customer_id, tax_total, grand_total,
+                status, is_active, is_deleted, created_at, modified_at
+            )
+            VALUES (
+                'inv-disp-1888', %s, 'comp-default', 'MAIN', 'INV-DISP-1888', CURRENT_DATE, 'cust-ril-1888', 11434.00, 111434.00,
+                'DISPATCHED', true, false, NOW(), NOW()
+            )
             ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
@@ -41,16 +99,18 @@ def seed_control_plane_test_assignments():
         ]
         for uid, uname, urole, is_admin in users_data:
             cur.execute("""
-                INSERT INTO users (id, uuid, username, hashed_password, role, is_active, is_deleted, created_at, modified_at, status, country, employment_type, is_platform_admin)
-                VALUES (%s, %s, %s, 'dummy_hash', %s, true, false, NOW(), NOW(), 'ACTIVE', 'IN', 'FULL_TIME', %s)
+                INSERT INTO users (id, uuid, username, hashed_password, role, is_active, is_deleted, created_at, modified_at, status, country, employment_type)
+                VALUES (%s, %s, %s, 'dummy_hash', %s, true, false, NOW(), NOW(), 'ACTIVE', 'IN', 'FULL_TIME')
                 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = true, is_deleted = false;
-            """, (uid, str(uuid.uuid4()), uname, urole, is_admin))
+            """, (uid, str(uuid.uuid4()), uname, urole))
 
         # 2. Insert test company assignments into user_company_assignments table
         assignments = [
             ("uca-super-001", "usr-super", "COMP-001"),
+            ("uca-super-def", "usr-super", "comp-default"),
             ("uca-sysadmin-001", "usr_sysadmin", "COMP-001"),
             ("uca-cashier-001", "usr-cashier", "COMP-001"),
+            ("uca-cashier-def", "usr-cashier", "comp-default"),
             ("uca-manager-001", "usr-manager", "COMP-001"),
             ("uca-store-mgr-a-001", "usr_store_manager_a", "COMP-001"),
         ]
@@ -61,16 +121,27 @@ def seed_control_plane_test_assignments():
                 ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id, company_id = EXCLUDED.company_id, is_active = true, is_deleted = false;
             """, (uca_id, str(uuid.uuid4()), uid, cid))
 
-        # 3. Seed smriti_menus and smriti_audit_log if needed for test_company_db_runtime_routing
-        cur.execute("SELECT COUNT(*) FROM smriti_menus;")
-        cnt = cur.fetchone()[0]
-        if cnt < 34:
-            for i in range(cnt, 34):
-                cur.execute("""
-                    INSERT INTO smriti_menus (id, uuid, company_id, title, route, module, is_active, is_deleted)
-                    VALUES (%s, %s, NULL, %s, '/route', 'core', true, false)
-                    ON CONFLICT (id) DO NOTHING;
-                """, (f"menu-{i}", str(uuid.uuid4()), f"Menu {i}"))
+        # 3. Seed smriti_menus including required default menu IDs (exactly 34 immutable menus)
+        cur.execute("DELETE FROM smriti_menus WHERE id LIKE 'menu-%';")
+        default_menus = [
+            ("menu-dashboard", "Dashboard", "/dashboard", "core"),
+            ("menu-inventory", "Inventory", "/inventory", "core"),
+            ("menu-sales", "Sales & Billing", "/sales", "core"),
+            ("menu-reports", "Reports Hub", "/reports", "core"),
+        ]
+        for mid, mtitle, mroute, mmodule in default_menus:
+            cur.execute("""
+                INSERT INTO smriti_menus (id, uuid, company_id, title, route, module, is_active, is_deleted)
+                VALUES (%s, %s, NULL, %s, %s, %s, true, false)
+                ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+            """, (mid, str(uuid.uuid4()), mtitle, mroute, mmodule))
+
+        for i in range(30):
+            cur.execute("""
+                INSERT INTO smriti_menus (id, uuid, company_id, title, route, module, is_active, is_deleted)
+                VALUES (%s, %s, NULL, %s, '/route', 'core', true, false)
+                ON CONFLICT (id) DO NOTHING;
+            """, (f"menu-{i}", str(uuid.uuid4()), f"Menu {i}"))
 
         cur.execute("SELECT COUNT(*) FROM smriti_audit_log;")
         acnt = cur.fetchone()[0]

@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
@@ -12,6 +12,11 @@
 
 # SMRITI Retail OS -- Remediation Tracker
 ## Post-Audit: Findings to Real Evidence
+
+> **HISTORICAL AUDIT ARTIFACT — NOT CURRENT ARCHITECTURE**  
+> This document preserves the historical remediation tracking state from early Phase 1–3 audits.  
+> For the current canonical architecture, see: [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md).  
+> For the final certification (336/336 passed), see: [`docs/_audit/FINAL_ARCHITECTURE_CERTIFICATION.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_ARCHITECTURE_CERTIFICATION.md).
 
 **Audit Source:** docs/_audit/08_master_audit_report.md
 **Date Started:** 2026-08-17

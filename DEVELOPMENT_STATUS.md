@@ -1,7 +1,7 @@
 # SMRITI Development Status Dashboard
 
 *Generated: Mon 08/17/2026*
-*Branch: smritiNX | Last Commit: 16898442*
+*Branch: smritiNX | Last Commit: 6cdb0aa6*
 
 ## SMRITI Development Health Index (DHI)
 ```
@@ -29,9 +29,7 @@ Security: ██████████ 100%
 | Accounting Sync | Workspace | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | 52% |
 | Report Designer | Workspace | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | 76% |
 | Item Master | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 88% |
-| Product Identity Engine | Inventory & Sourcing | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | 76% |
-| Barcode Studio | Workspace | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | 56% |
-| Party Stock Visibility (PSV) | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 84% |
+| Barcode Studio | Workspace | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | 44% |
 | Stock Ledger | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 68% |
 | Master Framework | Workspace | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | 44% |
 | Field Explorer (UFE) | Workspace | ❌ | ✅ | ❌ | ✅ | ❌ | ✅ | 36% |

@@ -12,5 +12,5 @@
 ## Active Gaps & Vulnerabilities
 - **Critical Gaps:** 0
 - **High Gaps:** 7
-- **Medium Gaps:** 8
-- **Low Gaps:** 18
+- **Medium Gaps:** 7
+- **Low Gaps:** 19

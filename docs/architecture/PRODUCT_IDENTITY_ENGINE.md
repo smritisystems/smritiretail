@@ -25,7 +25,9 @@
 
 # SMRITI Product Identity Engine (PIE)
 
-**Status:** IMPLEMENTED / DATABASE_VERIFIED (Alembic `j6k7l8m9n0o` applied; tables present in `smritisys`)
+> **CANONICAL REFERENCE:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)
+
+**Status:** **IMPLEMENTED / DATABASE_VERIFIED** (Alembic `j6k7l8m9n0o` applied; tables present in `smritisys`)
 
 > The SMRITI Product Identity Engine provides a governance-grade identity service for product SKUs, barcode assignment, and master identity rules. It is designed to be the core Product Identity & Barcode Governance Engine (PIBGE) for the ERP platform.
 

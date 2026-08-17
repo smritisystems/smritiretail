@@ -24,7 +24,7 @@
 | Master Framework | ✅ | Documentation is up to date |
 | Field Explorer (UFE) | ✅ | Write automated unit tests. |
 | KPI Registry | ❌ | Documentation is up to date |
-| Channel Visibility | ❌ | Documentation is up to date |
+| Channel Visibility | ✅ | Documentation is up to date |
 | Numbering Engine | ❌ | Documentation is up to date |
 | Approval Matrix | ❌ | Write automated unit tests. |
 | Staff Management | ❌ | Documentation is up to date |

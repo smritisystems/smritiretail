@@ -24,7 +24,7 @@
 | Master Framework | Workspace | 44% | High |
 | Field Explorer (UFE) | Workspace | 36% | High |
 | KPI Registry | Workspace | 40% | High |
-| Channel Visibility | Workspace | 60% | Medium |
+| Channel Visibility | Workspace | 64% | Low |
 | Numbering Engine | Workspace | 72% | Medium |
 | Approval Matrix | Workspace | 56% | Medium |
 | Staff Management | Workspace | 56% | Medium |
