@@ -710,12 +710,14 @@ class InvoicePdfService:
           font-family: monospace;
           font-size: 6.00pt;
           color: #6b7280;
-          text-align: center;
           border-top: 1px dashed #d1d5db;
           padding-top: 2px;
           margin-top: 2px;
           display: flex;
-          justify-content: space-between;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 1px;
         }
         .continuation-header {
           display: flex;
@@ -1104,18 +1106,17 @@ class InvoicePdfService:
                   </div>
                 </div>
                 
-                <!-- Disclaimers -->
-                <div style="text-align: center; font-family: monospace; font-size: 6.5px; color: #6b7280; margin-top: 4px;">
-                  <div>This is a computer-generated tax invoice and does not require a physical signature.</div>
-                  <div style="font-weight: 700; text-transform: uppercase; color: #374151;">SUBJECT TO MUMBAI JURISDICTION.</div>
-                  <div style="font-weight: 600; color: #4b5563;">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</div>
-                </div>
-                """
+"""
                 
             footer_html = f"""
-            <div class="page-footer">
-              <span>Page {p_idx} of {total_pages}</span>
-              <span>Invoice No: {invoice_no}</span>
+            <div class="page-footer" style="flex-direction: column; text-align: center; gap: 1px;">
+              <div style="font-size: 6.00pt; color: #6b7280;">This is a computer-generated tax invoice and does not require a physical signature.</div>
+              <div style="font-size: 6.00pt; font-weight: 700; text-transform: uppercase; color: #374151;">SUBJECT TO MUMBAI JURISDICTION.</div>
+              <div style="font-size: 6.00pt; font-weight: 600; color: #4b5563;">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</div>
+              <div style="font-size: 6.00pt; color: #6b7280; display: flex; justify-content: space-between; width: 100%; padding-top: 1px; border-top: 1px dashed #d1d5db; margin-top: 1px;">
+                <span>Page {p_idx} of {total_pages}</span>
+                <span>Invoice No: {invoice_no}</span>
+              </div>
             </div>
             """
             
