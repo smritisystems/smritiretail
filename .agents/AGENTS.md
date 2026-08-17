@@ -1002,4 +1002,22 @@ When any agent edits an existing file that is missing its author details block, 
 
 ---
 
-*DAGPMP Rule 16 | UADHP-v1.0 | Effective 2026-07-11 | Jawahar Ramkripal Mallah | support@smritibooks.com*
+# SMRITI Canonical Tax Invoice Format (SMRITITAXINVOICE) Immutability Law
+
+**Policy ID:** STIF-IMMUTABLE-v1.0  
+**Status:** MANDATORY — PERMANENT — FROZEN (Effective 2026-08-17)
+
+## 1. Absolute Rule: SMRITITAXINVOICE Is Immutable
+The canonical statutory Tax Invoice layout and rendering standard named **`SMRITITAXINVOICE`** (Version `V1`) is permanently frozen. No agent, developer, or automated script may alter:
+- Page geometry (ISO A4 portrait: `595.92 x 842.88 pt`, margins `23.25 pt`, content width `550.55 pt`).
+- Table column percentages for Interstate (`# 3.5%`, `Description 26.0%`, `HSN 8.0%`, `QTY 4.5%`, `MRP 8.0%`, `DISC % 6.0%`, `TAXABLE 11.0%`, `TAX % 6.0%`, `IGST 9.0%`, `AMOUNT 18.0%`) or Intrastate.
+- Row heights (`11.25 pt` item row, `13.50 pt` subtotal row, `15.0 pt` header row).
+- Mandatory Page 1 retention of Code 128 invoice barcode and GST E-Invoice QR code.
+- PostgreSQL database trigger protection (`trg_prevent_tax_template_mutation`) preventing update or deletion of `SMRITITAXINVOICE`.
+
+## 2. Integrity Verification
+Any modification attempting to alter `backend/app/services/smrititaxinvoice_frozen_spec.py` or mutate the template in `tax_invoice_templates` must be rejected by `pytest backend/tests/test_smrititaxinvoice_immutability_guard.py`.
+
+---
+
+*DAGPMP Rule 16 | UADHP-v1.0 | STIF-IMMUTABLE-v1.0 | Effective 2026-08-17 | Jawahar Ramkripal Mallah | support@smritibooks.com*
