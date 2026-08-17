@@ -64,3 +64,10 @@ from .psv import (
     PSVStockEvent,
     PSVStockBalance,
 )
+
+# Canonical Tax Invoice Template & Artifact Governance Models
+from .tax_invoice_template import (
+    TaxInvoiceTemplate,
+    TaxInvoiceTemplateVersion,
+    InvoiceDocumentArtifact,
+)

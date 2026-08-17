@@ -15,6 +15,8 @@ Classification: Internal
 import os
 import sys
 import re
+import json
+import hashlib
 import pytest
 import psycopg2
 from decimal import Decimal
@@ -87,9 +89,9 @@ def test_02_invoice_102_exact_mathematical_reconciliation():
 def test_03_rendered_pdf_grid_borders_and_zero_wrap():
     """Verify that generated PDF has horizontal and vertical borders on every row and column with 0 wrapping."""
     import fitz
-    pdf_path = r"F:\SMRITRretailNX\TT\SIS_TXSR_TaxInvoice_TT2026-2027_102.pdf"
+    pdf_path = r"F:\SMRITRretailNX\exports\tt_batch_74_103\SIS_TXSR_TaxInvoice_TT2026-2027_102.pdf"
     if not os.path.exists(pdf_path):
-        pdf_path = r"F:\SMRITRretailNX\exports\tt_batch_74_103\SIS_TXSR_TaxInvoice_TT2026-2027_102.pdf"
+        pdf_path = r"F:\SMRITRretailNX\TT\SIS_TXSR_TaxInvoice_TT2026-2027_102.pdf"
     assert os.path.exists(pdf_path), f"Invoice 102 PDF not found at {pdf_path}"
 
     doc = fitz.open(pdf_path)
@@ -139,10 +141,105 @@ def test_05_canonical_api_routes_registered():
 
 
 def test_06_smritisys_control_plane_zero_operational_invoices():
-    """Enforce architectural isolation: smritisys has 0 operational invoices."""
+    """Enforce architectural isolation: smritisys has 0 operational invoices and 0 operational templates."""
     conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smritisys")
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM sales_invoices;")
     count = cur.fetchone()[0]
     conn.close()
     assert count == 0, f"Architecture violation: smritisys has {count} operational invoices (must be 0)"
+
+
+def test_07_persisted_canonical_template_in_company_database():
+    """Verify TAX_INVOICE_TATTLY_THREADS V1 is persisted in smriti001 company database."""
+    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT template_code, template_name, template_type, status, current_version, layout_configuration, configuration_hash
+        FROM tax_invoice_templates
+        WHERE template_code = 'TAX_INVOICE_TATTLY_THREADS';
+    """)
+    tpl = cur.fetchone()
+    conn.close()
+
+    assert tpl is not None, "Canonical template TAX_INVOICE_TATTLY_THREADS not found in smriti001"
+    assert tpl[0] == "TAX_INVOICE_TATTLY_THREADS"
+    assert tpl[1] == "TATTLY THREADS Tax Invoice"
+    assert tpl[2] == "TAX_INVOICE"
+    assert tpl[3] == "FROZEN"
+    assert tpl[4] == "V1"
+
+    config = tpl[5]
+    if isinstance(config, str):
+        config = json.loads(config)
+    assert config["item_grid_configuration"]["no_wrap"] is True
+    assert config["item_grid_configuration"]["horizontal_border_every_row"] is True
+    assert config["item_grid_configuration"]["vertical_borders"] is True
+    assert len(tpl[6]) == 64, "Expected valid 64-char SHA256 configuration hash"
+
+
+def test_08_persisted_template_version_v1_immutability():
+    """Verify version V1 is recorded with FROZEN status in tax_invoice_template_versions."""
+    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT v.version, v.status, v.configuration_hash
+        FROM tax_invoice_template_versions v
+        JOIN tax_invoice_templates t ON v.template_id = t.id
+        WHERE t.template_code = 'TAX_INVOICE_TATTLY_THREADS';
+    """)
+    ver = cur.fetchone()
+    conn.close()
+
+    assert ver is not None, "Version V1 not found for TAX_INVOICE_TATTLY_THREADS"
+    assert ver[0] == "V1"
+    assert ver[1] == "FROZEN"
+    assert len(ver[2]) == 64
+
+
+def test_09_invoice_102_document_artifact_and_sha256_integrity():
+    """Verify TT2026-2027/102 PDF artifact is persisted with cryptographic SHA256 integrity."""
+    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT invoice_no, template_code, template_version, template_status, storage_path, sha256_hash, file_size, page_count, is_valid
+        FROM invoice_document_artifacts
+        WHERE invoice_no = 'TT2026-2027/102';
+    """)
+    art = cur.fetchone()
+    conn.close()
+
+    assert art is not None, "Document artifact for TT2026-2027/102 not found in smriti001"
+    assert art[0] == "TT2026-2027/102"
+    assert art[1] == "TAX_INVOICE_TATTLY_THREADS"
+    assert art[2] == "V1"
+    assert art[3] == "FROZEN"
+    assert os.path.exists(art[4]), f"Artifact file missing at {art[4]}"
+
+    # Verify SHA256 on disk equals DB record
+    with open(art[4], "rb") as f:
+        actual_sha256 = hashlib.sha256(f.read()).hexdigest()
+    assert actual_sha256 == art[5], f"SHA256 mismatch: disk {actual_sha256} vs db {art[5]}"
+    assert art[7] == 2, f"Expected 2 pages for Invoice 102, got {art[7]}"
+    assert art[8] is True, "Expected artifact to be marked is_valid = True"
+
+
+def test_10_all_30_batch_invoice_artifacts_indexed():
+    """Verify all 30 batch invoices have valid PDF artifacts with matching SHA256 checksums in smriti001."""
+    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT invoice_no, storage_path, sha256_hash, file_size, page_count
+        FROM invoice_document_artifacts
+        ORDER BY invoice_no;
+    """)
+    artifacts = cur.fetchall()
+    conn.close()
+
+    assert len(artifacts) == 30, f"Expected 30 indexed PDF artifacts in smriti001, found {len(artifacts)}"
+    for a in artifacts:
+        fpath = a[1]
+        assert os.path.exists(fpath), f"Artifact file {fpath} does not exist"
+        with open(fpath, "rb") as f:
+            disk_sha = hashlib.sha256(f.read()).hexdigest()
+        assert disk_sha == a[2], f"SHA256 mismatch for {a[0]}"
