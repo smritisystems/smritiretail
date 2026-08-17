@@ -246,23 +246,23 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
     item_rows_html = ""
     for idx, item in enumerate(inv["items"], start=1):
         if is_interstate:
-            tax_cell = f'<td class="py-1 px-1 border-r border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap">₹{item["tax_amount"]:.2f}</td>'
+            tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item["tax_amount"]:.2f}</td>'
         else:
             cgst = item["tax_amount"] / 2.0
             sgst = item["tax_amount"] / 2.0
-            tax_cell = f'<td class="py-1 px-1 border-r border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap">₹{cgst:.2f}</td><td class="py-1 px-1 border-r border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap">₹{sgst:.2f}</td>'
+            tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{cgst:.2f}</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{sgst:.2f}</td>'
 
         item_rows_html += f"""
-        <tr class="hover:bg-gray-50/50">
-          <td class="py-1 px-1 border-r border-gray-300 text-center font-mono">{idx}</td>
-          <td class="py-1 px-1.5 border-r border-gray-300 font-medium text-gray-900 font-mono nowrap-cell" style="white-space: nowrap !important; overflow: hidden;">{item['name'].replace(' ', '&nbsp;')}</td>
-          <td class="py-1 px-1 border-r border-gray-300 text-center font-mono">{item['hsn']}</td>
-          <td class="py-1 px-1 border-r border-gray-300 text-right font-mono font-semibold">{item['qty']}</td>
-          <td class="py-1 px-1 border-r border-gray-300 text-right font-mono font-medium text-gray-700 whitespace-nowrap">₹{item['mrp']:.2f}</td>
-          <td class="py-1 px-1 border-r border-gray-300 text-right font-mono font-medium text-blue-900 whitespace-nowrap">43.76%</td>
-          <td class="py-1 px-1 border-r border-gray-300 text-right font-mono font-semibold text-gray-900 whitespace-nowrap">₹{item['taxable_amount']:.2f}</td>
+        <tr class="hover:bg-gray-50/50 border-b border-gray-300" style="border-bottom: 1px solid #d1d5db;">
+          <td class="py-1 px-1 border border-gray-300 text-center font-mono" style="border: 1px solid #d1d5db;">{idx}</td>
+          <td class="py-1 px-1.5 border border-gray-300 font-medium text-gray-900 font-mono nowrap-cell" style="border: 1px solid #d1d5db; white-space: nowrap !important; overflow: hidden;">{item['name'].replace(' ', '&nbsp;')}</td>
+          <td class="py-1 px-1 border border-gray-300 text-center font-mono" style="border: 1px solid #d1d5db;">{item['hsn']}</td>
+          <td class="py-1 px-1 border border-gray-300 text-right font-mono font-semibold" style="border: 1px solid #d1d5db;">{item['qty']}</td>
+          <td class="py-1 px-1 border border-gray-300 text-right font-mono font-medium text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item['mrp']:.2f}</td>
+          <td class="py-1 px-1 border border-gray-300 text-right font-mono font-medium text-blue-900 whitespace-nowrap" style="border: 1px solid #d1d5db;">43.76%</td>
+          <td class="py-1 px-1 border border-gray-300 text-right font-mono font-semibold text-gray-900 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item['taxable_amount']:.2f}</td>
           {tax_cell}
-          <td class="py-1 px-1 text-right font-mono font-bold text-gray-900 whitespace-nowrap">₹{item['total_amount']:.2f}</td>
+          <td class="py-1 px-1 border border-gray-300 text-right font-mono font-bold text-gray-900 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item['total_amount']:.2f}</td>
         </tr>
         """
 
@@ -423,9 +423,27 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }}
-    table {{ width: 100%; border-collapse: collapse; }}
-    table td {{ white-space: nowrap !important; }}
-    table th {{ white-space: nowrap !important; }}
+    table {{ width: 100%; border-collapse: collapse; border: 1px solid #d1d5db; }}
+    table th {{
+      border: 1px solid #d1d5db;
+      padding: 4px 3px;
+      background-color: #f3f4f6;
+      font-weight: 700;
+      white-space: nowrap !important;
+      font-size: 8.5px;
+    }}
+    table td {{
+      border: 1px solid #d1d5db;
+      padding: 3.5px 3px;
+      white-space: nowrap !important;
+      font-size: 8.5px;
+      vertical-align: middle;
+    }}
+    table tbody tr {{
+      border-bottom: 1px solid #d1d5db;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }}
     thead {{ display: table-header-group; }}
     tr {{ page-break-inside: avoid; break-inside: avoid; }}
   </style>

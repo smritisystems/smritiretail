@@ -238,7 +238,7 @@ class InvoicePdfService:
                 item_igst = (taxable * (gst_rate_dec / Decimal("100.00"))).quantize(Decimal("0.01"))
                 item_tax = item_igst
                 total_igst += item_igst
-                tax_cell = f'<td class="py-1 px-1 border-r border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap">₹{item_igst:.2f}</td>'
+                tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item_igst:.2f}</td>'
             else:
                 half_gst = gst_rate_dec / Decimal("2.00")
                 item_cgst = (taxable * (half_gst / Decimal("100.00"))).quantize(Decimal("0.01"))
@@ -246,7 +246,7 @@ class InvoicePdfService:
                 item_tax = item_cgst + item_sgst
                 total_cgst += item_cgst
                 total_sgst += item_sgst
-                tax_cell = f'<td class="py-1 px-1 border-r border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap">₹{item_cgst:.2f}</td><td class="py-1 px-1 border-r border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap">₹{item_sgst:.2f}</td>'
+                tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item_cgst:.2f}</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item_sgst:.2f}</td>'
 
             total_tax += item_tax
             tot_amt = taxable + item_tax
@@ -254,16 +254,16 @@ class InvoicePdfService:
             clean_desc = item.name.replace("Tattly Footwear ", "").replace("Size ", "").strip()
 
             items_rows += f"""
-            <tr class="hover:bg-gray-50/50">
-              <td class="py-1 px-1 border-r border-gray-300 text-center font-mono">{idx}</td>
-              <td class="py-1 px-1.5 border-r border-gray-300 font-medium text-gray-900 font-mono nowrap-cell" style="white-space: nowrap !important; overflow: hidden;">{clean_desc.replace(' ', '&nbsp;')}</td>
-              <td class="py-1 px-1 border-r border-gray-300 text-center font-mono">{item.hsn_code or '64041990'}</td>
-              <td class="py-1 px-1 border-r border-gray-300 text-right font-mono font-semibold">{qty}</td>
-              <td class="py-1 px-1 border-r border-gray-300 text-right font-mono font-medium text-gray-700 whitespace-nowrap">₹{mrp_val:.2f}</td>
-              <td class="py-1 px-1 border-r border-gray-300 text-right font-mono font-medium text-blue-900 whitespace-nowrap">{disc_pct_str}</td>
-              <td class="py-1 px-1 border-r border-gray-300 text-right font-mono font-semibold text-gray-900 whitespace-nowrap">₹{taxable:.2f}</td>
+            <tr class="hover:bg-gray-50/50 border-b border-gray-300" style="border-bottom: 1px solid #d1d5db;">
+              <td class="py-1 px-1 border border-gray-300 text-center font-mono" style="border: 1px solid #d1d5db;">{idx}</td>
+              <td class="py-1 px-1.5 border border-gray-300 font-medium text-gray-900 font-mono nowrap-cell" style="border: 1px solid #d1d5db; white-space: nowrap !important; overflow: hidden;">{clean_desc.replace(' ', '&nbsp;')}</td>
+              <td class="py-1 px-1 border border-gray-300 text-center font-mono" style="border: 1px solid #d1d5db;">{item.hsn_code or '64041990'}</td>
+              <td class="py-1 px-1 border border-gray-300 text-right font-mono font-semibold" style="border: 1px solid #d1d5db;">{qty}</td>
+              <td class="py-1 px-1 border border-gray-300 text-right font-mono font-medium text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{mrp_val:.2f}</td>
+              <td class="py-1 px-1 border border-gray-300 text-right font-mono font-medium text-blue-900 whitespace-nowrap" style="border: 1px solid #d1d5db;">{disc_pct_str}</td>
+              <td class="py-1 px-1 border border-gray-300 text-right font-mono font-semibold text-gray-900 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{taxable:.2f}</td>
               {tax_cell}
-              <td class="py-1 px-1 text-right font-mono font-bold text-gray-900 whitespace-nowrap">₹{tot_amt:.2f}</td>
+              <td class="py-1 px-1 border border-gray-300 text-right font-mono font-bold text-gray-900 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{tot_amt:.2f}</td>
             </tr>
             """
 
@@ -429,9 +429,27 @@ class InvoicePdfService:
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }}
-    table {{ width: 100%; border-collapse: collapse; }}
-    table td {{ white-space: nowrap !important; }}
-    table th {{ white-space: nowrap !important; }}
+    table {{ width: 100%; border-collapse: collapse; border: 1px solid #d1d5db; }}
+    table th {{
+      border: 1px solid #d1d5db;
+      padding: 4px 3px;
+      background-color: #f3f4f6;
+      font-weight: 700;
+      white-space: nowrap !important;
+      font-size: 8.5px;
+    }}
+    table td {{
+      border: 1px solid #d1d5db;
+      padding: 3.5px 3px;
+      white-space: nowrap !important;
+      font-size: 8.5px;
+      vertical-align: middle;
+    }}
+    table tbody tr {{
+      border-bottom: 1px solid #d1d5db;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }}
     thead {{ display: table-header-group; }}
     tr {{ page-break-inside: avoid; break-inside: avoid; }}
   </style>
