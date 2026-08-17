@@ -280,47 +280,48 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
           <col style="width: 14%;">
         </colgroup>
         '''
-        tax_header_th = '<th class="py-1 px-1 border-r border-gray-300 text-right w-[10%] align-middle font-bold whitespace-nowrap">IGST @ 5%</th>'
-        subtotal_tax_td = f'<td class="p-1.5 border-r border-gray-300 text-right font-bold">₹{inv["total_tax"]:,.2f}</td>'
+        tax_header_th = '<th class="py-1 px-1 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db;">IGST @ 5%</th>'
+        subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{inv["total_tax"]:,.2f}</td>'
         tax_totals_summary = f'''
         <div class="p-1.5 bg-gray-50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">IGST @ 5%:</div>
         <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{inv["total_tax"]:,.2f}</div>
         '''
-        hsn_tax_cols_th = '<th class="p-1 border-r border-gray-300 text-right w-20">IGST Rate</th><th class="p-1 border-r border-gray-300 text-right">IGST Amount</th>'
-        hsn_tax_cols_td = f'<td class="p-1.5 border-r border-gray-300 text-right">5%</td><td class="p-1.5 border-r border-gray-300 text-right">₹{inv["total_tax"]:,.2f}</td>'
+        hsn_tax_cols_th = '<th class="p-1 border border-gray-300 text-right w-20" style="border: 1px solid #d1d5db;">IGST Rate</th><th class="p-1 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">IGST Amount</th>'
+        hsn_tax_cols_td = f'<td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">5%</td><td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">₹{inv["total_tax"]:,.2f}</td>'
     else:
         table_colgroup = '''
         <colgroup>
-          <col style="width: 4%;">
-          <col style="width: 30%;">
-          <col style="width: 9%;">
+          <col style="width: 3.5%;">
+          <col style="width: 27.5%;">
+          <col style="width: 8%;">
+          <col style="width: 5%;">
+          <col style="width: 8%;">
           <col style="width: 6%;">
-          <col style="width: 9%;">
-          <col style="width: 7%;">
           <col style="width: 11%;">
-          <col style="width: 5%;">
-          <col style="width: 5%;">
-          <col style="width: 14%;">
+          <col style="width: 9%;">
+          <col style="width: 9%;">
+          <col style="width: 13%;">
         </colgroup>
         '''
         cgst_tot = inv['cgst_total']
         sgst_tot = inv['sgst_total']
-        tax_header_th = '<th class="py-1 px-1 border-r border-gray-300 text-right w-[5%] align-middle font-bold whitespace-nowrap">CGST @ 2.5%</th><th class="py-1 px-1 border-r border-gray-300 text-right w-[5%] align-middle font-bold whitespace-nowrap">SGST @ 2.5%</th>'
-        subtotal_tax_td = f'<td class="p-1.5 border-r border-gray-300 text-right font-bold">₹{cgst_tot:,.2f}</td><td class="p-1.5 border-r border-gray-300 text-right font-bold">₹{sgst_tot:,.2f}</td>'
+        tax_header_th = '<th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">CGST @ 2.5%</th><th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">SGST @ 2.5%</th>'
+        subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{cgst_tot:,.2f}</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{sgst_tot:,.2f}</td>'
         tax_totals_summary = f'''
         <div class="p-1.5 bg-gray-50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">CGST @ 2.5%:</div>
         <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{cgst_tot:,.2f}</div>
         <div class="p-1.5 bg-gray-50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">SGST @ 2.5%:</div>
         <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{sgst_tot:,.2f}</div>
         '''
-        hsn_tax_cols_th = '<th class="p-1 border-r border-gray-300 text-right w-16">CGST Rate</th><th class="p-1 border-r border-gray-300 text-right">CGST Amount</th><th class="p-1 border-r border-gray-300 text-right w-16">SGST Rate</th><th class="p-1 border-r border-gray-300 text-right">SGST Amount</th>'
-        hsn_tax_cols_td = f'<td class="p-1.5 border-r border-gray-300 text-right">2.5%</td><td class="p-1.5 border-r border-gray-300 text-right">₹{cgst_tot:,.2f}</td><td class="p-1.5 border-r border-gray-300 text-right">2.5%</td><td class="p-1.5 border-r border-gray-300 text-right">₹{sgst_tot:,.2f}</td>'
+        hsn_tax_cols_th = '<th class="p-1 border border-gray-300 text-right w-16" style="border: 1px solid #d1d5db;">CGST Rate</th><th class="p-1 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">CGST Amount</th><th class="p-1 border border-gray-300 text-right w-16" style="border: 1px solid #d1d5db;">SGST Rate</th><th class="p-1 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">SGST Amount</th>'
+        hsn_tax_cols_td = f'<td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">2.5%</td><td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">₹{cgst_tot:,.2f}</td><td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">2.5%</td><td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">₹{sgst_tot:,.2f}</td>'
 
     rounding_row = ""
     if abs(inv["round_adj"]) > 0.001:
+        round_sign = "+" if inv["round_adj"] > 0 else "-"
         rounding_row = f'''
         <div class="p-1.5 bg-gray-50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">Rounding Adjustment:</div>
-        <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{inv["round_adj"]:+.2f}</div>
+        <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">{round_sign}₹{abs(inv["round_adj"]):.2f}</div>
         '''
 
     html = f"""

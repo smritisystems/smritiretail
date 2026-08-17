@@ -560,7 +560,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   // ACAS Global Event Listeners
   useEffect(() => {
     const handlePrintInvoice = (e: any) => {
-      onNotification("Print Action", `Sales Invoice ${e.detail.invoiceNo} sent to standard print spooler.`, "success");
+      const inv = e.detail;
+      if (inv?.id) {
+        window.open(`/api/v1/sales/invoices/${inv.id}/print`, "_blank");
+        onNotification("Print Action", `Sales Invoice ${inv.invoiceNo} opened in canonical print spooler.`, "success");
+      }
     };
     const handleWhatsAppInvoice = (e: any) => {
       onNotification("WhatsApp Shared", `Sales Invoice ${e.detail.invoiceNo} successfully dispatched.`, "success");
@@ -3879,13 +3883,44 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     <span>Cancel Invoice</span>
                   </button>
                 )}
-                <div className="grid grid-cols-2 gap-2">
+                {/* Canonical Print & Document Actions */}
+                <button
+                  onClick={() => {
+                    window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/print`, "_blank");
+                    onNotification("Print Action", `Sales Invoice ${selectedInvoice.invoiceNo} opened in canonical print spooler.`, "success");
+                  }}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all"
+                  title="Print Tax Invoice (A4 Canonical Layout)"
+                >
+                  <Printer size={15} />
+                  <span>PRINT TAX INVOICE</span>
+                </button>
+
+                <div className="grid grid-cols-3 gap-2">
                   <button
-                    onClick={() => window.dispatchEvent(new CustomEvent("SMRITI_PRINT_SALES_INVOICE", { detail: selectedInvoice }))}
-                    className="w-full py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-xs font-semibold transition-colors"
+                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/preview`, "_blank")}
+                    className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-[11px] font-semibold transition-colors text-center"
+                    title="Open Live Canonical Preview"
                   >
-                    Print
+                    Preview
                   </button>
+                  <button
+                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/download`, "_blank")}
+                    className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-emerald-400 rounded-xl text-[11px] font-semibold transition-colors text-center"
+                    title="Export / Download PDF"
+                  >
+                    Export PDF
+                  </button>
+                  <button
+                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/reprint`, "_blank")}
+                    className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-amber-400 rounded-xl text-[11px] font-semibold transition-colors text-center"
+                    title="Reprint Immutable Historical Artifact"
+                  >
+                    Reprint
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2">
                   <button
                     onClick={() => window.dispatchEvent(new CustomEvent("SMRITI_WHATSAPP_SALES_INVOICE", { detail: selectedInvoice }))}
                     className="w-full py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-xs font-semibold transition-colors"
