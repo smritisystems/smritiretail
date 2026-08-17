@@ -246,11 +246,11 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
     item_rows_html = ""
     for idx, item in enumerate(inv["items"], start=1):
         if is_interstate:
-            tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item["tax_amount"]:.2f}</td>'
+            tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-center font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">5%</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item["tax_amount"]:.2f}</td>'
         else:
             cgst = item["tax_amount"] / 2.0
             sgst = item["tax_amount"] / 2.0
-            tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{cgst:.2f}</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{sgst:.2f}</td>'
+            tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-center font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">2.5%</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{cgst:.2f}</td><td class="py-1 px-1 border border-gray-300 text-center font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">2.5%</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{sgst:.2f}</td>'
 
         item_rows_html += f"""
         <tr class="hover:bg-gray-50/50 border-b border-gray-300" style="border-bottom: 1px solid #d1d5db;">
@@ -269,19 +269,20 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
     if is_interstate:
         table_colgroup = '''
         <colgroup>
-          <col style="width: 4%;">
-          <col style="width: 30%;">
-          <col style="width: 9%;">
+          <col style="width: 3.5%;">
+          <col style="width: 26%;">
+          <col style="width: 8%;">
+          <col style="width: 4.5%;">
+          <col style="width: 8%;">
+          <col style="width: 6%;">
+          <col style="width: 11%;">
           <col style="width: 6%;">
           <col style="width: 9%;">
-          <col style="width: 7%;">
-          <col style="width: 11%;">
-          <col style="width: 10%;">
-          <col style="width: 14%;">
+          <col style="width: 18%;">
         </colgroup>
         '''
-        tax_header_th = '<th class="py-1 px-1 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db;">IGST @ 5%</th>'
-        subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{inv["total_tax"]:,.2f}</td>'
+        tax_header_th = '<th class="py-1 px-1 border border-gray-300 text-center align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db;">TAX %</th><th class="py-1 px-1 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db;">IGST</th>'
+        subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-center text-gray-400 font-bold" style="border: 1px solid #d1d5db;">-</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{inv["total_tax"]:,.2f}</td>'
         tax_totals_summary = f'''
         <div class="p-1.5 bg-gray-50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">IGST @ 5%:</div>
         <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{inv["total_tax"]:,.2f}</div>
@@ -292,21 +293,23 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
         table_colgroup = '''
         <colgroup>
           <col style="width: 3.5%;">
-          <col style="width: 27.5%;">
-          <col style="width: 8%;">
+          <col style="width: 23.5%;">
+          <col style="width: 7.5%;">
+          <col style="width: 4%;">
+          <col style="width: 7.5%;">
           <col style="width: 5%;">
-          <col style="width: 8%;">
-          <col style="width: 6%;">
-          <col style="width: 11%;">
-          <col style="width: 9%;">
-          <col style="width: 9%;">
-          <col style="width: 13%;">
+          <col style="width: 10.5%;">
+          <col style="width: 5.5%;">
+          <col style="width: 8.5%;">
+          <col style="width: 5.5%;">
+          <col style="width: 8.5%;">
+          <col style="width: 14.5%;">
         </colgroup>
         '''
         cgst_tot = inv['cgst_total']
         sgst_tot = inv['sgst_total']
-        tax_header_th = '<th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">CGST @ 2.5%</th><th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">SGST @ 2.5%</th>'
-        subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{cgst_tot:,.2f}</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{sgst_tot:,.2f}</td>'
+        tax_header_th = '<th class="py-1 px-0.5 border border-gray-300 text-center align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">CGST %</th><th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">CGST</th><th class="py-1 px-0.5 border border-gray-300 text-center align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">SGST %</th><th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">SGST</th>'
+        subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-center text-gray-400 font-bold" style="border: 1px solid #d1d5db;">-</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{cgst_tot:,.2f}</td><td class="p-1.5 border border-gray-300 text-center text-gray-400 font-bold" style="border: 1px solid #d1d5db;">-</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{sgst_tot:,.2f}</td>'
         tax_totals_summary = f'''
         <div class="p-1.5 bg-gray-50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">CGST @ 2.5%:</div>
         <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{cgst_tot:,.2f}</div>
@@ -544,28 +547,28 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
     </div>
 
     <!-- Item Table -->
-    <table class="w-full text-left border border-gray-300 border-collapse mb-4 table-fixed" style="font-size: 8.5px;">
+    <table class="w-full text-left border border-gray-300 border-collapse mb-4 table-fixed" style="font-size: 8px;">
       {table_colgroup}
       <thead>
-        <tr class="bg-gray-100 border-b border-gray-300 font-bold uppercase text-gray-800" style="font-size: 8.5px;">
-          <th class="py-1 px-1 border-r border-gray-300 text-center w-[4%] align-middle font-bold">#</th>
-          <th class="py-1 px-1.5 border-r border-gray-300 text-left w-[29%] align-middle font-bold whitespace-nowrap">ITEM DESCRIPTION</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-center w-[9%] align-middle font-bold whitespace-nowrap">HSN/SAC</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-right w-[6%] align-middle font-bold whitespace-nowrap">QTY</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-right w-[9%] align-middle font-bold whitespace-nowrap">MRP</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-right w-[7%] align-middle font-bold whitespace-nowrap">DISC %</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-right w-[11%] align-middle font-bold whitespace-nowrap">TAXABLE VALUE</th>
+        <tr class="bg-gray-100 border-b border-gray-300 font-bold uppercase text-gray-800" style="font-size: 8px;">
+          <th class="py-1 px-1 border-r border-gray-300 text-center align-middle font-bold">#</th>
+          <th class="py-1 px-1.5 border-r border-gray-300 text-left align-middle font-bold whitespace-nowrap">ITEM DESCRIPTION</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-center align-middle font-bold whitespace-nowrap">HSN/SAC</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-right align-middle font-bold whitespace-nowrap">QTY</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-right align-middle font-bold whitespace-nowrap">MRP</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-right align-middle font-bold whitespace-nowrap">DISC %</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-right align-middle font-bold whitespace-nowrap">TAXABLE VALUE</th>
           {tax_header_th}
-          <th class="py-1 px-1 text-right w-[14%] align-middle font-bold whitespace-nowrap">AMOUNT</th>
+          <th class="py-1 px-1 text-right align-middle font-bold whitespace-nowrap">AMOUNT</th>
         </tr>
       </thead>
       <tbody>
         {item_rows_html}
-        <tr class="bg-gray-100 border-t-2 border-gray-300 font-bold font-mono text-gray-900" style="font-size: 9px;">
+        <tr class="bg-gray-100 border-t-2 border-gray-300 font-bold font-mono text-gray-900" style="font-size: 8.5px;">
           <td colspan="3" class="p-1.5 border-r border-gray-300 text-right uppercase tracking-wider font-bold">
             TOTAL PAIRS:
           </td>
-          <td class="p-1.5 border-r border-gray-300 text-right font-bold text-blue-900 bg-blue-50" style="font-size: 10px;">
+          <td class="p-1.5 border-r border-gray-300 text-right font-bold text-blue-900 bg-blue-50" style="font-size: 9.5px;">
             {inv['total_quantity']}
           </td>
           <td colspan="2" class="p-1.5 border-r border-gray-300 text-right uppercase tracking-wider text-gray-600" style="font-size: 8px;">
@@ -575,7 +578,7 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
             ₹{inv['subtotal']:,.2f}
           </td>
           {subtotal_tax_td}
-          <td class="p-1.5 text-right font-bold text-gray-950" style="font-size: 10px;">
+          <td class="p-1.5 text-right font-bold text-gray-950" style="font-size: 9.5px;">
             ₹{inv['grand_total']:,.2f}
           </td>
         </tr>

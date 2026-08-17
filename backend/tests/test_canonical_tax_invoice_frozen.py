@@ -248,7 +248,7 @@ def test_10_all_30_batch_invoice_artifacts_indexed():
 
 @pytest.mark.asyncio
 async def test_11_interstate_invoice_displays_igst_and_hides_cgst_sgst():
-    """Verify that Interstate invoice renders IGST column and hides CGST and SGST columns."""
+    """Verify that Interstate invoice renders explicit TAX % and IGST columns and hides CGST/SGST columns."""
     engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001")
     async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -256,17 +256,20 @@ async def test_11_interstate_invoice_displays_igst_and_hides_cgst_sgst():
         html = await InvoicePdfService.generate_invoice_html(session, "inv-tt-102")
         await engine.dispose()
 
-    # IGST active
-    assert "IGST @ 5%" in html
+    # Explicit TAX % and IGST active
+    assert "TAX %" in html
+    assert "IGST" in html
+    assert "5%" in html
     assert "₹2,540.76" in html
+    assert "AMOUNT" in html
     # CGST / SGST hidden from headers
-    assert "CGST @" not in html
-    assert "SGST @" not in html
+    assert "CGST %" not in html
+    assert "SGST %" not in html
 
 
 @pytest.mark.asyncio
 async def test_12_intrastate_invoice_displays_cgst_sgst_and_hides_igst():
-    """Verify that Intrastate invoice renders CGST and SGST columns and hides IGST column with exact math."""
+    """Verify that Intrastate invoice renders explicit CGST %, CGST, SGST %, SGST columns and hides IGST column with exact math."""
     engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001")
     async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -274,19 +277,23 @@ async def test_12_intrastate_invoice_displays_cgst_sgst_and_hides_igst():
         html = await InvoicePdfService.generate_invoice_html(session, "inv-tt-test-intra")
         await engine.dispose()
 
-    # CGST and SGST active
-    assert "CGST @ 2.5%" in html
-    assert "SGST @ 2.5%" in html
+    # CGST %, CGST and SGST %, SGST active
+    assert "CGST %" in html
+    assert "CGST" in html
+    assert "SGST %" in html
+    assert "SGST" in html
+    assert "2.5%" in html
     assert "₹1,270.38" in html
-    # IGST hidden from active tax columns
-    assert "IGST @" not in html
+    assert "AMOUNT" in html
+    # TAX % / IGST hidden from active tax columns
+    assert "TAX %" not in html
     # Grand total & Pre-round check
     assert "₹53,356.00" in html
     assert "₹50,815.20" in html
 
 
 def test_13_persisted_template_supports_both_interstate_and_intrastate_grid_specs():
-    """Verify template JSONB layout stores both 9-col interstate and 10-col intrastate specifications."""
+    """Verify template JSONB layout stores both 10-col interstate and 12-col intrastate specifications."""
     conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
     cur = conn.cursor()
     cur.execute("""
@@ -305,14 +312,19 @@ def test_13_persisted_template_supports_both_interstate_and_intrastate_grid_spec
     inter_cols = config["item_grid_configuration"]["columns_interstate"]
     intra_cols = config["item_grid_configuration"]["columns_intrastate"]
 
-    assert len(inter_cols) == 9, f"Expected 9 interstate columns, got {len(inter_cols)}"
-    assert any(c["name"] == "IGST @ 5%" for c in inter_cols)
-    assert not any(c["name"] == "CGST @ 2.5%" for c in inter_cols)
+    assert len(inter_cols) == 10, f"Expected 10 interstate columns, got {len(inter_cols)}"
+    assert any(c["name"] == "TAX %" for c in inter_cols)
+    assert any(c["name"] == "IGST" for c in inter_cols)
+    assert any(c["name"] == "AMOUNT" for c in inter_cols)
+    assert not any(c["name"] == "CGST %" for c in inter_cols)
 
-    assert len(intra_cols) == 10, f"Expected 10 intrastate columns, got {len(intra_cols)}"
-    assert any(c["name"] == "CGST @ 2.5%" for c in intra_cols)
-    assert any(c["name"] == "SGST @ 2.5%" for c in intra_cols)
-    assert not any(c["name"] == "IGST @ 5%" for c in intra_cols)
+    assert len(intra_cols) == 12, f"Expected 12 intrastate columns, got {len(intra_cols)}"
+    assert any(c["name"] == "CGST %" for c in intra_cols)
+    assert any(c["name"] == "CGST" for c in intra_cols)
+    assert any(c["name"] == "SGST %" for c in intra_cols)
+    assert any(c["name"] == "SGST" for c in intra_cols)
+    assert any(c["name"] == "AMOUNT" for c in intra_cols)
+    assert not any(c["name"] == "TAX %" for c in intra_cols)
 
 
 @pytest.mark.asyncio
@@ -332,7 +344,9 @@ async def test_14_api_invoice_preview_and_print_contracts():
         assert resp_prev.media_type == "text/html"
         html_prev = resp_prev.body.decode("utf-8")
         assert "TT2026-2027/102" in html_prev
-        assert "IGST @ 5%" in html_prev
+        assert "TAX %" in html_prev
+        assert "IGST" in html_prev
+        assert "AMOUNT" in html_prev
 
         # Print
         resp_print = await get_sales_invoice_print_contract("inv-tt-102", db=session, tenant_ctx=tenant_ctx)
@@ -390,3 +404,33 @@ async def test_16_api_invoice_pdf_stream_and_download_contracts():
         assert len(resp_dl.body) > 50000
 
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_17_invoice_103_explicit_tax_rate_and_amount_reconciliation():
+    """Verify Invoice TT2026-2027/103 has exact statutory totals and explicit separate TAX % / IGST / AMOUNT columns."""
+    engine = create_async_engine("postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001")
+    async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with async_session() as session:
+        html = await InvoicePdfService.generate_invoice_html(session, "inv-tt-103", "COMP-001", "MAIN")
+        pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(session, "inv-tt-103", "COMP-001", "MAIN")
+        await engine.dispose()
+
+    # Exact statutory financial totals for Invoice 103
+    assert "TT2026-2027/103" in html
+    assert "₹52,613.76" in html  # Taxable Value
+    assert "₹2,630.69" in html   # IGST
+    assert "-₹0.45" in html      # Rounding Adjustment
+    assert "₹55,244.00" in html  # Grand Total
+
+    # Explicit Separate Column Headers and Cells
+    assert "TAX %" in html
+    assert "IGST" in html
+    assert "AMOUNT" in html
+    assert "5%" in html
+
+    # Rendered PDF Validity
+    assert len(pdf_bytes) > 50000
+    assert meta["source"] == "IMMUTABLE_HISTORICAL_ARTIFACT"
+

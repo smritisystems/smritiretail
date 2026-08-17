@@ -52,30 +52,31 @@
 
 ---
 
-## 3. GST Column Engine & Proportions
+## 3. GST Column Engine & Proportions (Explicit Tax % & Amount Columns)
 
-### A. Interstate Supply (`is_interstate = True` — 9 Columns)
+### A. Interstate Supply (`is_interstate = True` — 10 Columns)
 ```
-┌──────┬────────────────────────────────┬──────────┬─────┬───────────┬────────┬───────────────┬─────────────┬──────────────┐
-│  #   │       ITEM DESCRIPTION         │ HSN/SAC  │ QTY │    MRP    │ DISC % │ TAXABLE VALUE │  IGST @ 5%  │    AMOUNT    │
-├──────┼────────────────────────────────┼──────────┼─────┼───────────┼────────┼───────────────┼─────────────┼──────────────┤
-│  4%  │              30%               │    9%    │ 6%  │    9%     │   7%   │      11%      │     10%     │     14%      │
-└──────┴────────────────────────────────┴──────────┴─────┴───────────┴────────┴───────────────┴─────────────┴──────────────┘
+┌──────┬──────────────────────────┬──────────┬──────┬───────────┬────────┬───────────────┬───────┬───────────┬──────────────┐
+│  #   │     ITEM DESCRIPTION     │ HSN/SAC  │ QTY  │    MRP    │ DISC % │ TAXABLE VALUE │ TAX % │   IGST    │    AMOUNT    │
+├──────┼──────────────────────────┼──────────┼──────┼───────────┼────────┼───────────────┼───────┼───────────┼──────────────┤
+│ 3.5% │           26%            │    8%    │ 4.5% │    8%     │   6%   │      11%      │  6%   │    9%     │     18%      │
+└──────┴──────────────────────────┴──────────┴──────┴───────────┴────────┴───────────────┴───────┴───────────┴──────────────┘
 ```
 
-### B. Intrastate Supply (`is_interstate = False` — 10 Columns)
+### B. Intrastate Supply (`is_interstate = False` — 12 Columns)
 ```
-┌──────┬──────────────────────────┬──────────┬─────┬───────────┬────────┬───────────────┬───────────┬───────────┬──────────────┐
-│  #   │     ITEM DESCRIPTION     │ HSN/SAC  │ QTY │    MRP    │ DISC % │ TAXABLE VALUE │ CGST 2.5% │ SGST 2.5% │    AMOUNT    │
-├──────┼──────────────────────────┼──────────┼─────┼───────────┼────────┼───────────────┼───────────┼───────────┼──────────────┤
-│ 3.5% │          27.5%           │    8%    │ 5%  │    8%     │   6%   │      11%      │    9%     │    9%     │     13%      │
-└──────┴──────────────────────────┴──────────┴─────┴───────────┴────────┴───────────────┴───────────┴───────────┴──────────────┘
+┌──────┬────────────────────────┬─────────┬─────┬──────────┬────────┬───────────────┬────────┬───────────┬────────┬───────────┬──────────────┐
+│  #   │    ITEM DESCRIPTION    │ HSN/SAC │ QTY │   MRP    │ DISC % │ TAXABLE VALUE │ CGST % │   CGST    │ SGST % │   SGST    │    AMOUNT    │
+├──────┼────────────────────────┼─────────┼─────┼──────────┼────────┼───────────────┼────────┼───────────┼────────┼───────────┼──────────────┤
+│ 3.5% │         23.5%          │  7.5%   │ 4%  │   7.5%   │   5%   │     10.5%     │  5.5%  │   8.5%    │  5.5%  │   8.5%    │    14.5%     │
+└──────┴────────────────────────┴─────────┴─────┴──────────┴────────┴───────────────┴────────┴───────────┴────────┴───────────┴──────────────┘
 ```
 
 ### C. Conditional Tax Display Rules
-1. **Interstate**: Displays `IGST @ <rate>%` column, tax summary row, and HSN breakdown. Hides CGST and SGST.
-2. **Intrastate**: Displays `CGST @ <half_rate>%` and `SGST @ <half_rate>%` columns, dual tax summary rows, and HSN breakdown. Hides IGST.
-3. **Mutual Exclusivity**: Never shows both IGST and CGST/SGST simultaneously for standard domestic supplies.
+1. **Interstate**: Displays separate `TAX %` and `IGST` columns, tax summary row, and HSN breakdown. Hides CGST and SGST.
+2. **Intrastate**: Displays separate `CGST %`, `CGST`, `SGST %`, and `SGST` columns, dual tax summary rows, and HSN breakdown. Hides IGST.
+3. **Amount Column Protection**: The final column is always `AMOUNT` and displays the exact backend statutory line amount.
+4. **Mutual Exclusivity**: Never shows both IGST and CGST/SGST simultaneously for standard domestic supplies.
 
 
 ---

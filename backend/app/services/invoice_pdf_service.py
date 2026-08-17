@@ -155,27 +155,30 @@ CANONICAL_INVOICE_LAYOUT_CONFIG: Dict[str, Any] = {
     "margins_mm": {"top": 8, "bottom": 12, "left": 8, "right": 8},
     "column_widths": {
         "interstate": {
-            "sl_no": "4%",
-            "item_description": "30%",
-            "hsn_sac": "9%",
-            "qty": "6%",
-            "mrp": "9%",
-            "discount_pct": "7%",
-            "taxable_value": "11%",
-            "igst": "10%",
-            "amount": "14%"
-        },
-        "intrastate": {
             "sl_no": "3.5%",
-            "item_description": "27.5%",
+            "item_description": "26%",
             "hsn_sac": "8%",
-            "qty": "5%",
+            "qty": "4.5%",
             "mrp": "8%",
             "discount_pct": "6%",
             "taxable_value": "11%",
-            "cgst": "9%",
-            "sgst": "9%",
-            "amount": "13%"
+            "tax_pct": "6%",
+            "igst": "9%",
+            "amount": "18%"
+        },
+        "intrastate": {
+            "sl_no": "3.5%",
+            "item_description": "23.5%",
+            "hsn_sac": "7.5%",
+            "qty": "4%",
+            "mrp": "7.5%",
+            "discount_pct": "5%",
+            "taxable_value": "10.5%",
+            "cgst_pct": "5.5%",
+            "cgst": "8.5%",
+            "sgst_pct": "5.5%",
+            "sgst": "8.5%",
+            "amount": "14.5%"
         }
     },
     "grid_borders": {
@@ -298,19 +301,22 @@ class InvoicePdfService:
             disc_pct_str = "43.76%"
 
             gst_rate_dec = Decimal(str(item.gst_rate or Decimal("5.00")))
+            gst_rate_cell_str = f"{gst_rate_dec:.0f}%" if gst_rate_dec == gst_rate_dec.to_integral() else f"{gst_rate_dec:.1f}%"
+
             if is_interstate:
                 item_igst = (taxable * (gst_rate_dec / Decimal("100.00"))).quantize(Decimal("0.01"))
                 item_tax = item_igst
                 total_igst += item_igst
-                tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item_igst:.2f}</td>'
+                tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-center font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">{gst_rate_cell_str}</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item_igst:.2f}</td>'
             else:
                 half_gst = gst_rate_dec / Decimal("2.00")
+                half_rate_cell_str = f"{half_gst:.0f}%" if half_gst == half_gst.to_integral() else f"{half_gst:.1f}%"
                 item_cgst = (taxable * (half_gst / Decimal("100.00"))).quantize(Decimal("0.01"))
                 item_sgst = (taxable * (half_gst / Decimal("100.00"))).quantize(Decimal("0.01"))
                 item_tax = item_cgst + item_sgst
                 total_cgst += item_cgst
                 total_sgst += item_sgst
-                tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item_cgst:.2f}</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item_sgst:.2f}</td>'
+                tax_cell = f'<td class="py-1 px-1 border border-gray-300 text-center font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">{half_rate_cell_str}</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item_cgst:.2f}</td><td class="py-1 px-1 border border-gray-300 text-center font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">{half_rate_cell_str}</td><td class="py-1 px-1 border border-gray-300 text-right font-mono text-gray-700 whitespace-nowrap" style="border: 1px solid #d1d5db;">₹{item_sgst:.2f}</td>'
 
             total_tax += item_tax
             tot_amt = taxable + item_tax
@@ -354,19 +360,20 @@ class InvoicePdfService:
         if is_interstate:
             table_colgroup = '''
             <colgroup>
-              <col style="width: 4%;">
-              <col style="width: 30%;">
-              <col style="width: 9%;">
+              <col style="width: 3.5%;">
+              <col style="width: 26%;">
+              <col style="width: 8%;">
+              <col style="width: 4.5%;">
+              <col style="width: 8%;">
+              <col style="width: 6%;">
+              <col style="width: 11%;">
               <col style="width: 6%;">
               <col style="width: 9%;">
-              <col style="width: 7%;">
-              <col style="width: 11%;">
-              <col style="width: 10%;">
-              <col style="width: 14%;">
+              <col style="width: 18%;">
             </colgroup>
             '''
-            tax_header_th = f'<th class="py-1 px-1 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db;">IGST @ {gst_rate_str}</th>'
-            subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{total_igst:,.2f}</td>'
+            tax_header_th = '<th class="py-1 px-1 border border-gray-300 text-center align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db;">TAX %</th><th class="py-1 px-1 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db;">IGST</th>'
+            subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-center text-gray-400 font-bold" style="border: 1px solid #d1d5db;">-</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{total_igst:,.2f}</td>'
             tax_totals_summary = f'''
             <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">IGST @ {gst_rate_str}:</div>
             <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{total_igst:,.2f}</div>
@@ -377,19 +384,21 @@ class InvoicePdfService:
             table_colgroup = '''
             <colgroup>
               <col style="width: 3.5%;">
-              <col style="width: 27.5%;">
-              <col style="width: 8%;">
+              <col style="width: 23.5%;">
+              <col style="width: 7.5%;">
+              <col style="width: 4%;">
+              <col style="width: 7.5%;">
               <col style="width: 5%;">
-              <col style="width: 8%;">
-              <col style="width: 6%;">
-              <col style="width: 11%;">
-              <col style="width: 9%;">
-              <col style="width: 9%;">
-              <col style="width: 13%;">
+              <col style="width: 10.5%;">
+              <col style="width: 5.5%;">
+              <col style="width: 8.5%;">
+              <col style="width: 5.5%;">
+              <col style="width: 8.5%;">
+              <col style="width: 14.5%;">
             </colgroup>
             '''
-            tax_header_th = f'<th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">CGST @ {half_rate_str}</th><th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">SGST @ {half_rate_str}</th>'
-            subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{total_cgst:,.2f}</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{total_sgst:,.2f}</td>'
+            tax_header_th = '<th class="py-1 px-0.5 border border-gray-300 text-center align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">CGST %</th><th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">CGST</th><th class="py-1 px-0.5 border border-gray-300 text-center align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">SGST %</th><th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">SGST</th>'
+            subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-center text-gray-400 font-bold" style="border: 1px solid #d1d5db;">-</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{total_cgst:,.2f}</td><td class="p-1.5 border border-gray-300 text-center text-gray-400 font-bold" style="border: 1px solid #d1d5db;">-</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{total_sgst:,.2f}</td>'
             tax_totals_summary = f'''
             <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">CGST @ {half_rate_str}:</div>
             <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{total_cgst:,.2f}</div>
@@ -625,28 +634,28 @@ class InvoicePdfService:
     </div>
 
     <!-- Item Table -->
-    <table class="w-full text-left border border-gray-300 border-collapse mb-4 table-fixed" style="font-size: 8.5px;">
+    <table class="w-full text-left border border-gray-300 border-collapse mb-4 table-fixed" style="font-size: 8px;">
       {table_colgroup}
       <thead>
-        <tr class="bg-gray-100 border-b border-gray-300 font-bold uppercase text-gray-800" style="font-size: 8.5px;">
-          <th class="py-1 px-1 border-r border-gray-300 text-center w-[4%] align-middle font-bold">#</th>
-          <th class="py-1 px-1.5 border-r border-gray-300 text-left w-[29%] align-middle font-bold whitespace-nowrap">ITEM DESCRIPTION</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-center w-[9%] align-middle font-bold whitespace-nowrap">HSN/SAC</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-right w-[6%] align-middle font-bold whitespace-nowrap">QTY</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-right w-[9%] align-middle font-bold whitespace-nowrap">MRP</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-right w-[7%] align-middle font-bold whitespace-nowrap">DISC %</th>
-          <th class="py-1 px-1 border-r border-gray-300 text-right w-[11%] align-middle font-bold whitespace-nowrap">TAXABLE VALUE</th>
+        <tr class="bg-gray-100 border-b border-gray-300 font-bold uppercase text-gray-800" style="font-size: 8px;">
+          <th class="py-1 px-1 border-r border-gray-300 text-center align-middle font-bold">#</th>
+          <th class="py-1 px-1.5 border-r border-gray-300 text-left align-middle font-bold whitespace-nowrap">ITEM DESCRIPTION</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-center align-middle font-bold whitespace-nowrap">HSN/SAC</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-right align-middle font-bold whitespace-nowrap">QTY</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-right align-middle font-bold whitespace-nowrap">MRP</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-right align-middle font-bold whitespace-nowrap">DISC %</th>
+          <th class="py-1 px-1 border-r border-gray-300 text-right align-middle font-bold whitespace-nowrap">TAXABLE VALUE</th>
           {tax_header_th}
-          <th class="py-1 px-1 text-right w-[14%] align-middle font-bold whitespace-nowrap">AMOUNT</th>
+          <th class="py-1 px-1 text-right align-middle font-bold whitespace-nowrap">AMOUNT</th>
         </tr>
       </thead>
       <tbody>
         {items_rows}
-        <tr class="bg-gray-100 border-t-2 border-gray-300 font-bold font-mono text-gray-900" style="font-size: 9px;">
+        <tr class="bg-gray-100 border-t-2 border-gray-300 font-bold font-mono text-gray-900" style="font-size: 8.5px;">
           <td colspan="3" class="p-1.5 border-r border-gray-300 text-right uppercase tracking-wider font-bold">
             TOTAL PAIRS:
           </td>
-          <td class="p-1.5 border-r border-gray-300 text-right font-bold text-blue-900 bg-blue-50" style="font-size: 10px;">
+          <td class="p-1.5 border-r border-gray-300 text-right font-bold text-blue-900 bg-blue-50" style="font-size: 9.5px;">
             {total_quantity}
           </td>
           <td colspan="2" class="p-1.5 border-r border-gray-300 text-right uppercase tracking-wider text-gray-600" style="font-size: 8px;">
@@ -656,7 +665,7 @@ class InvoicePdfService:
             ₹{subtotal:,.2f}
           </td>
           {subtotal_tax_td}
-          <td class="p-1.5 text-right font-bold text-gray-950" style="font-size: 10px;">
+          <td class="p-1.5 text-right font-bold text-gray-950" style="font-size: 9.5px;">
             ₹{grand_total:,.2f}
           </td>
         </tr>
