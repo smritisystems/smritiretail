@@ -85,16 +85,16 @@ CANONICAL_LAYOUT_CONFIG = {
             {"name": "AMOUNT", "width": "14%", "align": "right"}
         ],
         "columns_intrastate": [
-            {"name": "#", "width": "4%", "align": "center"},
-            {"name": "ITEM DESCRIPTION", "width": "30%", "align": "left", "no_wrap": True},
-            {"name": "HSN/SAC", "width": "9%", "align": "center"},
-            {"name": "QTY", "width": "6%", "align": "right"},
-            {"name": "MRP", "width": "9%", "align": "right"},
-            {"name": "DISC %", "width": "7%", "align": "right"},
+            {"name": "#", "width": "3.5%", "align": "center"},
+            {"name": "ITEM DESCRIPTION", "width": "27.5%", "align": "left", "no_wrap": True},
+            {"name": "HSN/SAC", "width": "8%", "align": "center"},
+            {"name": "QTY", "width": "5%", "align": "right"},
+            {"name": "MRP", "width": "8%", "align": "right"},
+            {"name": "DISC %", "width": "6%", "align": "right"},
             {"name": "TAXABLE VALUE", "width": "11%", "align": "right"},
-            {"name": "CGST @ 2.5%", "width": "5%", "align": "right"},
-            {"name": "SGST @ 2.5%", "width": "5%", "align": "right"},
-            {"name": "AMOUNT", "width": "14%", "align": "right"}
+            {"name": "CGST @ 2.5%", "width": "9%", "align": "right"},
+            {"name": "SGST @ 2.5%", "width": "9%", "align": "right"},
+            {"name": "AMOUNT", "width": "13%", "align": "right"}
         ]
     },
     "styling_configuration": {

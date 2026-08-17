@@ -166,16 +166,16 @@ CANONICAL_INVOICE_LAYOUT_CONFIG: Dict[str, Any] = {
             "amount": "14%"
         },
         "intrastate": {
-            "sl_no": "4%",
-            "item_description": "30%",
-            "hsn_sac": "9%",
-            "qty": "6%",
-            "mrp": "9%",
-            "discount_pct": "7%",
+            "sl_no": "3.5%",
+            "item_description": "27.5%",
+            "hsn_sac": "8%",
+            "qty": "5%",
+            "mrp": "8%",
+            "discount_pct": "6%",
             "taxable_value": "11%",
-            "cgst": "5%",
-            "sgst": "5%",
-            "amount": "14%"
+            "cgst": "9%",
+            "sgst": "9%",
+            "amount": "13%"
         }
     },
     "grid_borders": {
@@ -331,6 +331,20 @@ class InvoicePdfService:
             </tr>
             """
 
+        # Statutory Rate & Tax determination
+        first_item_gst = Decimal(str(invoice.items[0].gst_rate or Decimal("5.00"))) if invoice.items else Decimal("5.00")
+        half_gst_rate = first_item_gst / Decimal("2.00")
+        gst_rate_str = f"{first_item_gst:.0f}%" if first_item_gst == first_item_gst.to_integral() else f"{first_item_gst:.1f}%"
+        half_rate_str = f"{half_gst_rate:.0f}%" if half_gst_rate == half_gst_rate.to_integral() else f"{half_gst_rate:.1f}%"
+
+        if is_interstate:
+            total_igst = (subtotal * (first_item_gst / Decimal("100.00"))).quantize(Decimal("0.01"))
+            total_tax = total_igst
+        else:
+            total_cgst = (subtotal * (half_gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+            total_sgst = (subtotal * (half_gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+            total_tax = total_cgst + total_sgst
+
         grand_total = Decimal(str(invoice.grand_total))
         pre_round = subtotal + total_tax
         rounding_adj = grand_total - pre_round
@@ -351,45 +365,45 @@ class InvoicePdfService:
               <col style="width: 14%;">
             </colgroup>
             '''
-            tax_header_th = '<th class="py-1 px-1 border-r border-gray-300 text-right w-[10%] align-middle font-bold whitespace-nowrap">IGST @ 5%</th>'
-            subtotal_tax_td = f'<td class="p-1.5 border-r border-gray-300 text-right font-bold">₹{total_igst:,.2f}</td>'
+            tax_header_th = f'<th class="py-1 px-1 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db;">IGST @ {gst_rate_str}</th>'
+            subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{total_igst:,.2f}</td>'
             tax_totals_summary = f'''
-            <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">IGST @ 5%:</div>
-            <div class="p-1.5 pr-3 font-semibold text-gray-900">₹{total_igst:,.2f}</div>
+            <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">IGST @ {gst_rate_str}:</div>
+            <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{total_igst:,.2f}</div>
             '''
-            hsn_tax_cols_th = '<th class="p-1 border-r border-gray-300 text-right w-20">IGST Rate</th><th class="p-1 border-r border-gray-300 text-right">IGST Amount</th>'
-            hsn_tax_cols_td = f'<td class="p-1.5 border-r border-gray-300 text-right">5%</td><td class="p-1.5 border-r border-gray-300 text-right">₹{total_igst:,.2f}</td>'
+            hsn_tax_cols_th = f'<th class="p-1 border border-gray-300 text-right w-20" style="border: 1px solid #d1d5db;">IGST Rate</th><th class="p-1 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">IGST Amount</th>'
+            hsn_tax_cols_td = f'<td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">{gst_rate_str}</td><td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">₹{total_igst:,.2f}</td>'
         else:
             table_colgroup = '''
             <colgroup>
-              <col style="width: 4%;">
-              <col style="width: 30%;">
-              <col style="width: 9%;">
+              <col style="width: 3.5%;">
+              <col style="width: 27.5%;">
+              <col style="width: 8%;">
+              <col style="width: 5%;">
+              <col style="width: 8%;">
               <col style="width: 6%;">
-              <col style="width: 9%;">
-              <col style="width: 7%;">
               <col style="width: 11%;">
-              <col style="width: 5%;">
-              <col style="width: 5%;">
-              <col style="width: 14%;">
+              <col style="width: 9%;">
+              <col style="width: 9%;">
+              <col style="width: 13%;">
             </colgroup>
             '''
-            tax_header_th = '<th class="py-1 px-1 border-r border-gray-300 text-right w-[5%] align-middle font-bold whitespace-nowrap">CGST @ 2.5%</th><th class="py-1 px-1 border-r border-gray-300 text-right w-[5%] align-middle font-bold whitespace-nowrap">SGST @ 2.5%</th>'
-            subtotal_tax_td = f'<td class="p-1.5 border-r border-gray-300 text-right font-bold">₹{total_cgst:,.2f}</td><td class="p-1.5 border-r border-gray-300 text-right font-bold">₹{total_sgst:,.2f}</td>'
+            tax_header_th = f'<th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">CGST @ {half_rate_str}</th><th class="py-1 px-0.5 border border-gray-300 text-right align-middle font-bold whitespace-nowrap" style="border: 1px solid #d1d5db; font-size: 8px;">SGST @ {half_rate_str}</th>'
+            subtotal_tax_td = f'<td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{total_cgst:,.2f}</td><td class="p-1.5 border border-gray-300 text-right font-bold" style="border: 1px solid #d1d5db;">₹{total_sgst:,.2f}</td>'
             tax_totals_summary = f'''
-            <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">CGST @ 2.5%:</div>
-            <div class="p-1.5 pr-3 font-semibold text-gray-900">₹{total_cgst:,.2f}</div>
-            <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">SGST @ 2.5%:</div>
-            <div class="p-1.5 pr-3 font-semibold text-gray-900">₹{total_sgst:,.2f}</div>
+            <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">CGST @ {half_rate_str}:</div>
+            <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{total_cgst:,.2f}</div>
+            <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">SGST @ {half_rate_str}:</div>
+            <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{total_sgst:,.2f}</div>
             '''
-            hsn_tax_cols_th = '<th class="p-1 border-r border-gray-300 text-right w-16">CGST Rate</th><th class="p-1 border-r border-gray-300 text-right">CGST Amount</th><th class="p-1 border-r border-gray-300 text-right w-16">SGST Rate</th><th class="p-1 border-r border-gray-300 text-right">SGST Amount</th>'
-            hsn_tax_cols_td = f'<td class="p-1.5 border-r border-gray-300 text-right">2.5%</td><td class="p-1.5 border-r border-gray-300 text-right">₹{total_cgst:,.2f}</td><td class="p-1.5 border-r border-gray-300 text-right">2.5%</td><td class="p-1.5 border-r border-gray-300 text-right">₹{total_sgst:,.2f}</td>'
+            hsn_tax_cols_th = f'<th class="p-1 border border-gray-300 text-right w-16" style="border: 1px solid #d1d5db;">CGST Rate</th><th class="p-1 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">CGST Amount</th><th class="p-1 border border-gray-300 text-right w-16" style="border: 1px solid #d1d5db;">SGST Rate</th><th class="p-1 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">SGST Amount</th>'
+            hsn_tax_cols_td = f'<td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">{half_rate_str}</td><td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">₹{total_cgst:,.2f}</td><td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">{half_rate_str}</td><td class="p-1.5 border border-gray-300 text-right" style="border: 1px solid #d1d5db;">₹{total_sgst:,.2f}</td>'
 
         rounding_row = ""
         if abs(rounding_adj) > Decimal("0.001"):
             rounding_row = f'''
-            <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">Rounding Adjustment:</div>
-            <div class="p-1.5 pr-3 font-semibold text-gray-900">₹{rounding_adj:+.2f}</div>
+            <div class="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-b border-gray-200 font-semibold">Rounding Adjustment:</div>
+            <div class="p-1.5 pr-3 font-semibold text-gray-900 border-b border-gray-200">₹{rounding_adj:+.2f}</div>
             '''
 
         html_template = f"""
