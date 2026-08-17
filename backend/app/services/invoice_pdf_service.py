@@ -152,6 +152,62 @@ def get_tattly_logo_base64() -> str:
 
 
 # ==============================================================================
+# GST STATE DIRECTORY & PLACE OF SUPPLY FORMATTER
+# ==============================================================================
+GST_STATE_MAP: Dict[str, str] = {
+    "01": "Jammu & Kashmir", "02": "Himachal Pradesh", "03": "Punjab", "04": "Chandigarh",
+    "05": "Uttarakhand", "06": "Haryana", "07": "Delhi", "08": "Rajasthan",
+    "09": "Uttar Pradesh", "10": "Bihar", "11": "Sikkim", "12": "Arunachal Pradesh",
+    "13": "Nagaland", "14": "Manipur", "15": "Mizoram", "16": "Tripura",
+    "17": "Meghalaya", "18": "Assam", "19": "West Bengal", "20": "Jharkhand",
+    "21": "Odisha", "22": "Chhattisgarh", "23": "Madhya Pradesh", "24": "Gujarat",
+    "26": "Dadra & Nagar Haveli and Daman & Diu", "27": "Maharashtra", "29": "Karnataka",
+    "30": "Goa", "31": "Lakshadweep", "32": "Kerala", "33": "Tamil Nadu",
+    "34": "Puducherry", "35": "Andaman & Nicobar Islands", "36": "Telangana",
+    "37": "Andhra Pradesh", "38": "Ladakh"
+}
+
+
+def format_place_of_supply(raw_state: str, is_interstate: bool, customer_gstin: str = "", supplier_gstin: str = "27AAXFT2508H1ZR") -> str:
+    """
+    Dynamically formats Place of Supply strictly per SMRITI Governance:
+      {STATE NAME} ({STATE CODE}) — {SUPPLY TYPE}
+    Examples:
+      Maharashtra (27) — Intra-State
+      Assam (18) — Inter-State
+      Delhi (07) — Inter-State
+    """
+    code = None
+    name = None
+    
+    # 1. Prefer extraction from customer GSTIN (first 2 digits)
+    if customer_gstin and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit() and customer_gstin[:2] in GST_STATE_MAP:
+        code = customer_gstin[:2]
+        name = GST_STATE_MAP[code]
+    elif raw_state:
+        # 2. Extract 2-digit code if already in raw state
+        m = re.search(r'\(?(\d{2})\)?', str(raw_state))
+        if m and m.group(1) in GST_STATE_MAP:
+            code = m.group(1)
+            name = GST_STATE_MAP[code]
+        else:
+            # 3. Match state name
+            st_clean = str(raw_state).strip().lower()
+            for c, n in GST_STATE_MAP.items():
+                if n.lower() in st_clean or st_clean in n.lower():
+                    code = c
+                    name = n
+                    break
+                    
+    if not code:
+        code = "27" if not is_interstate else "07"
+        name = GST_STATE_MAP.get(code, "Maharashtra")
+        
+    supply_type = "Inter-State" if is_interstate else "Intra-State"
+    return f"{name} ({code}) — {supply_type}"
+
+
+# ==============================================================================
 # CANONICAL GOVERNED TAX INVOICE CONFIGURATION (FROZEN V1)
 # ==============================================================================
 TAX_INVOICE_TATTLY_THREADS_CANONICAL_V1 = "TAX_INVOICE_TATTLY_THREADS_CANONICAL_V1"
@@ -326,6 +382,26 @@ class InvoicePdfService:
         shipping_addr = getattr(invoice, "shipping_address", None) or meta.get("shipping_address", billing_addr)
         customer_gstin = getattr(invoice, "customer_gstin", None) or meta.get("customer_gstin", "")
 
+        # Determine Supply Type dynamically from supplier GSTIN and Place of Supply / Customer GSTIN
+        supplier_state_code = company_gstin[:2] if (company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit()) else "27"
+        pos_code = None
+        if customer_gstin and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit():
+            pos_code = customer_gstin[:2]
+        elif pos_state:
+            m = re.search(r'\(?(\d{2})\)?', str(pos_state))
+            if m:
+                pos_code = m.group(1)
+            else:
+                for c, n in GST_STATE_MAP.items():
+                    if n.lower() in str(pos_state).lower() or str(pos_state).lower() in n.lower():
+                        pos_code = c
+                        break
+        if not pos_code:
+            pos_code = "27"
+            
+        is_interstate = (pos_code != supplier_state_code)
+        place_of_supply_display = format_place_of_supply(pos_state, is_interstate, customer_gstin, supplier_gstin=company_gstin)
+
         # Canonical Tattly Threads bank details (authoritative — never pull from DB for this company)
         TATTLY_BANK_NAME    = "STATE BANK OF INDIA"
         TATTLY_ACCOUNT_NO   = "43976711765"
@@ -339,9 +415,20 @@ class InvoicePdfService:
 
         grand_total = Decimal(str(invoice.grand_total or 0))
 
-        # Barcode & QR Generation
+        # Barcode & Compliance-Aware QR Generation (3-State Architecture)
         barcode_uri = generate_barcode_base64(invoice_no)
-        qr_data_str = f"GSTIN:{company_gstin}|INV:{invoice_no}|VAL:{float(grand_total):.2f}|DATE:{date_str}"
+        
+        # State 1: Cancelled / Voided Invoice
+        if is_cancelled:
+            qr_data_str = f"STATUS:CANCELLED|GSTIN:{company_gstin}|INV:{invoice_no}|DATE:{date_str}|VAL:{float(grand_total):.2f}"
+        # State 2: Registered IRP E-Invoice (if IRN present)
+        elif getattr(invoice, "irn", None) or meta.get("irn"):
+            irn_val = getattr(invoice, "irn", None) or meta.get("irn")
+            qr_data_str = getattr(invoice, "signed_qr_data", None) or meta.get("signed_qr_data", f"IRN:{irn_val}|GSTIN:{company_gstin}|INV:{invoice_no}|VAL:{float(grand_total):.2f}|DATE:{date_str}")
+        # State 3: Safe Dynamic Verification QR (B2C / Domestic Non-IRP)
+        else:
+            qr_data_str = f"GSTIN:{company_gstin}|INV:{invoice_no}|VAL:{float(grand_total):.2f}|DATE:{date_str}|POS:{pos_code}"
+
         qr_uri = generate_qr_base64(qr_data_str)
         logo_uri = get_tattly_logo_base64()
 
@@ -951,7 +1038,7 @@ class InvoicePdfService:
                         <tr><td class="meta-label">Invoice No:</td><td class="meta-val">{invoice_no}</td></tr>
                         <tr><td class="meta-label">Date:</td><td class="meta-val">{date_str}</td></tr>
                         <tr><td class="meta-label">SIS Code:</td><td class="meta-val">{sis_code}</td></tr>
-                        <tr><td class="meta-label">Place of Supply:</td><td class="meta-val">{pos_state}</td></tr>
+                        <tr><td class="meta-label">Place of Supply:</td><td class="meta-val">{place_of_supply_display}</td></tr>
                         <tr><td class="meta-label">PO / Reference:</td><td class="meta-val">{po_reference}</td></tr>
                         <tr><td class="meta-label">E-Way Bill No:</td><td class="meta-val">{eway_bill}</td></tr>
                       </table>
@@ -1225,13 +1312,24 @@ class InvoicePdfService:
             page = await browser.new_page()
             await page.set_content(html_content, wait_until="networkidle")
 
-            await page.pdf(
-                path=output_pdf_path,
+            pdf_data = await page.pdf(
                 format="A4",
                 margin={"top": "8mm", "bottom": "10mm", "left": "8mm", "right": "8mm"},
                 print_background=True
             )
             await browser.close()
+
+        try:
+            with open(output_pdf_path, "wb") as f:
+                f.write(pdf_data)
+        except PermissionError:
+            temp_out = output_pdf_path + ".tmp"
+            with open(temp_out, "wb") as f:
+                f.write(pdf_data)
+            try:
+                os.replace(temp_out, output_pdf_path)
+            except Exception:
+                pass
 
         return output_pdf_path
 
