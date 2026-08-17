@@ -88,12 +88,27 @@ async def get_sales_invoice_contract(
     response_class=Response,
     summary="Render Sales Invoice HTML Print Preview",
 )
+@router.get(
+    "/invoices/{invoice_id}/preview",
+    response_class=Response,
+    summary="Render Canonical Sales Invoice Preview",
+)
+@router.get(
+    "/invoices/{invoice_id}/print",
+    response_class=Response,
+    summary="Render Canonical Sales Invoice for Browser Print",
+)
+@router.get(
+    "/invoices/{invoice_id}/reprint",
+    response_class=Response,
+    summary="Render Canonical Sales Invoice Reprint Document",
+)
 async def get_sales_invoice_html_contract(
     invoice_id: str,
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Render authoritative GST Tax Invoice HTML for print preview directly from Smritibus_<CompanyCode> under tenant context."""
+    """Render authoritative GST Tax Invoice HTML from single Canonical TaxInvoiceRenderer."""
     from ...services.invoice_pdf_service import InvoicePdfService
     html_content = await InvoicePdfService.generate_invoice_html(
         session=db,
@@ -109,13 +124,31 @@ async def get_sales_invoice_html_contract(
     response_class=Response,
     summary="Stream Sales Invoice PDF Document",
 )
+@router.get(
+    "/invoices/{invoice_id}/download",
+    response_class=Response,
+    summary="Download Sales Invoice PDF Attachment",
+)
 async def get_sales_invoice_pdf_contract(
     invoice_id: str,
+    format: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Stream rendered Tax Invoice document from single authoritative backend template under tenant context."""
+    """Stream rendered Tax Invoice PDF document from single Canonical TaxInvoiceRenderer."""
     from ...services.invoice_pdf_service import InvoicePdfService
+    if format == "binary":
+        pdf_bytes = await InvoicePdfService.render_pdf_bytes(
+            session=db,
+            invoice_id=invoice_id,
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id
+        )
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="TaxInvoice_{invoice_id}.pdf"'}
+        )
     html_content = await InvoicePdfService.generate_invoice_html(
         session=db,
         invoice_id=invoice_id,
