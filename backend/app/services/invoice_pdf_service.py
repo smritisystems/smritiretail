@@ -402,6 +402,9 @@ class InvoicePdfService:
         is_interstate = (pos_code != supplier_state_code)
         place_of_supply_display = format_place_of_supply(pos_state, is_interstate, customer_gstin, supplier_gstin=company_gstin)
 
+        is_rcm = bool(getattr(invoice, "reverse_charge", False) or getattr(invoice, "is_reverse_charge", False) or meta.get("reverse_charge", False) or meta.get("is_reverse_charge", False))
+        reverse_charge_display = "Yes" if is_rcm else "No"
+
         # Canonical Tattly Threads bank details (authoritative — never pull from DB for this company)
         TATTLY_BANK_NAME    = "STATE BANK OF INDIA"
         TATTLY_ACCOUNT_NO   = "43976711765"
@@ -1039,6 +1042,7 @@ class InvoicePdfService:
                         <tr><td class="meta-label">Date:</td><td class="meta-val">{date_str}</td></tr>
                         <tr><td class="meta-label">SIS Code:</td><td class="meta-val">{sis_code}</td></tr>
                         <tr><td class="meta-label">Place of Supply:</td><td class="meta-val">{place_of_supply_display}</td></tr>
+                        <tr><td class="meta-label">Reverse Charge:</td><td class="meta-val">{reverse_charge_display}</td></tr>
                         <tr><td class="meta-label">PO / Reference:</td><td class="meta-val">{po_reference}</td></tr>
                         <tr><td class="meta-label">E-Way Bill No:</td><td class="meta-val">{eway_bill}</td></tr>
                       </table>

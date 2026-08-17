@@ -41,6 +41,8 @@ class SalesInvoice(BaseEntity):
     import_validation_notes  = Column(Text)
     sis_code                = Column(String(50))
     pos_state               = Column(String(100))
+    reverse_charge          = Column(Boolean, default=False)
+    is_reverse_charge       = Column(Boolean, default=False)
     po_reference            = Column(String(100))
     customer_name           = Column(String(255))
     customer_gstin          = Column(String(50))

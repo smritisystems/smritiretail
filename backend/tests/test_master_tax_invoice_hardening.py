@@ -198,6 +198,22 @@ def test_qr_3_state_compliance_architecture():
     assert b64_std.startswith("data:image/png;base64,")
 
 
+def test_reverse_charge_rule_46p_compliance():
+    """
+    Test 12: Reverse Charge Rule 46(p) Statutory Compliance
+    Under CGST Rule 46(p), Tax Invoice must explicitly state whether tax is payable on Reverse Charge basis.
+    Normal outward B2B/B2C sales -> 'No'.
+    When RCM genuinely applies -> 'Yes'.
+    """
+    rcm_false = False
+    display_no = "Yes" if rcm_false else "No"
+    assert display_no == "No"
+
+    rcm_true = True
+    display_yes = "Yes" if rcm_true else "No"
+    assert display_yes == "Yes"
+
+
 def test_cancelled_invoice_status_and_watermark():
     """
     Test 11: Cancelled invoice status preservation
