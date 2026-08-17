@@ -164,29 +164,29 @@ CANONICAL_INVOICE_LAYOUT_CONFIG: Dict[str, Any] = {
     "column_widths": {
         "interstate": {
             "sl_no": "3.5%",
-            "item_description": "26%",
-            "hsn_sac": "8%",
-            "qty": "4.5%",
-            "mrp": "8%",
-            "discount_pct": "6%",
-            "taxable_value": "11%",
-            "tax_pct": "6%",
-            "igst": "9%",
-            "amount": "18%"
+            "item_description": "28.0%",
+            "hsn_sac": "8.0%",
+            "qty": "5.5%",
+            "mrp": "10.0%",
+            "discount_pct": "6.5%",
+            "taxable_value": "11.0%",
+            "tax_pct": "5.0%",
+            "igst": "9.0%",
+            "amount": "13.5%"
         },
         "intrastate": {
             "sl_no": "3.5%",
-            "item_description": "23.5%",
+            "item_description": "24.0%",
             "hsn_sac": "7.5%",
-            "qty": "4%",
-            "mrp": "7.5%",
-            "discount_pct": "5%",
+            "qty": "4.5%",
+            "mrp": "9.5%",
+            "discount_pct": "5.5%",
             "taxable_value": "10.5%",
-            "cgst_pct": "5.5%",
+            "cgst_pct": "5.0%",
             "cgst": "8.5%",
-            "sgst_pct": "5.5%",
+            "sgst_pct": "5.0%",
             "sgst": "8.5%",
-            "amount": "14.5%"
+            "amount": "8.0%"
         }
     },
     "grid_borders": {
@@ -755,27 +755,27 @@ class InvoicePdfService:
             colgroup = """
             <colgroup>
               <col style="width: 3.5%;">
-              <col style="width: 26%;">
-              <col style="width: 8%;">
-              <col style="width: 4.5%;">
-              <col style="width: 8%;">
-              <col style="width: 6%;">
-              <col style="width: 11%;">
-              <col style="width: 6%;">
-              <col style="width: 9%;">
-              <col style="width: 18%;">
+              <col style="width: 28.0%;">
+              <col style="width: 8.0%;">
+              <col style="width: 5.5%;">
+              <col style="width: 10.0%;">
+              <col style="width: 6.5%;">
+              <col style="width: 11.0%;">
+              <col style="width: 5.0%;">
+              <col style="width: 9.0%;">
+              <col style="width: 13.5%;">
             </colgroup>
             """
             thead_html = """
             <thead>
               <tr>
                 <th>#</th>
-                <th style="text-align: left; padding-left: 4px;">ITEM DESCRIPTION<br/><span style="font-size: 6px; color: #6b7280;">(ARTICLE + COLOR + SIZE)</span></th>
+                <th style="text-align: left; padding-left: 4px;">ITEM DESCRIPTION</th>
                 <th>HSN/SAC</th>
-                <th>QTY<br/><span style="font-size: 6px; color: #6b7280;">(PAIRS)</span></th>
-                <th>MRP<br/><span style="font-size: 6px; color: #6b7280;">(INCL. TAX)</span></th>
-                <th>DISC %<br/><span style="font-size: 6px; color: #6b7280;">(MRP DISC)</span></th>
-                <th>TAXABLE<br/>VALUE</th>
+                <th>QTY</th>
+                <th>MRP</th>
+                <th>DISC %</th>
+                <th>TAXABLE VALUE</th>
                 <th>TAX %</th>
                 <th>IGST</th>
                 <th style="text-align: right; padding-right: 4px;">AMOUNT</th>
@@ -786,17 +786,17 @@ class InvoicePdfService:
             colgroup = """
             <colgroup>
               <col style="width: 3.5%;">
-              <col style="width: 23.5%;">
+              <col style="width: 24.0%;">
               <col style="width: 7.5%;">
-              <col style="width: 4%;">
-              <col style="width: 7.5%;">
-              <col style="width: 5%;">
+              <col style="width: 4.5%;">
+              <col style="width: 9.5%;">
+              <col style="width: 5.5%;">
               <col style="width: 10.5%;">
-              <col style="width: 5.5%;">
+              <col style="width: 5.0%;">
               <col style="width: 8.5%;">
-              <col style="width: 5.5%;">
+              <col style="width: 5.0%;">
               <col style="width: 8.5%;">
-              <col style="width: 14.5%;">
+              <col style="width: 8.0%;">
             </colgroup>
             """
             thead_html = """
