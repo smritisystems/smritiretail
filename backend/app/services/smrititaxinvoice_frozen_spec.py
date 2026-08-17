@@ -64,31 +64,31 @@ SMRITI_FONT_WATERMARK_PT: Final[float] = 72.00       # CANCELLED watermark
 # Interstate (IGST) 10-Column Width Allocation (Sum = 100.0%)
 SMRITI_INTERSTATE_COLUMNS: Final[Dict[str, str]] = {
     "sl_no": "3.5%",
-    "item_description": "26.0%",
+    "item_description": "28.0%",
     "hsn_sac": "8.0%",
-    "qty": "4.5%",
-    "mrp": "8.0%",
-    "discount_pct": "6.0%",
+    "qty": "5.5%",
+    "mrp": "10.0%",
+    "discount_pct": "6.5%",
     "taxable_value": "11.0%",
-    "tax_pct": "6.0%",
+    "tax_pct": "5.0%",
     "igst": "9.0%",
-    "amount": "18.0%"
+    "amount": "13.5%"
 }
 
 # Intrastate (CGST + SGST) 12-Column Width Allocation (Sum = 100.0%)
 SMRITI_INTRASTATE_COLUMNS: Final[Dict[str, str]] = {
     "sl_no": "3.5%",
-    "item_description": "23.5%",
+    "item_description": "24.0%",
     "hsn_sac": "7.5%",
-    "qty": "4.0%",
-    "mrp": "7.5%",
-    "discount_pct": "5.0%",
+    "qty": "4.5%",
+    "mrp": "9.5%",
+    "discount_pct": "5.5%",
     "taxable_value": "10.5%",
-    "cgst_pct": "5.5%",
+    "cgst_pct": "5.0%",
     "cgst": "8.5%",
-    "sgst_pct": "5.5%",
+    "sgst_pct": "5.0%",
     "sgst": "8.5%",
-    "amount": "14.0%"
+    "amount": "8.0%"
 }
 
 # Master Frozen CSS Tokens
