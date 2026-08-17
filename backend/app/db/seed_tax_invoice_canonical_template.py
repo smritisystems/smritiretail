@@ -74,27 +74,30 @@ CANONICAL_LAYOUT_CONFIG = {
         "vertical_borders": True,
         "repeat_header_on_page_break": True,
         "columns_interstate": [
-            {"name": "#", "width": "4%", "align": "center"},
-            {"name": "ITEM DESCRIPTION", "width": "30%", "align": "left", "no_wrap": True},
-            {"name": "HSN/SAC", "width": "9%", "align": "center"},
-            {"name": "QTY", "width": "6%", "align": "right"},
-            {"name": "MRP", "width": "9%", "align": "right"},
-            {"name": "DISC %", "width": "7%", "align": "right"},
-            {"name": "TAXABLE VALUE", "width": "11%", "align": "right"},
-            {"name": "IGST @ 5%", "width": "10%", "align": "right"},
-            {"name": "AMOUNT", "width": "14%", "align": "right"}
-        ],
-        "columns_intrastate": [
             {"name": "#", "width": "3.5%", "align": "center"},
-            {"name": "ITEM DESCRIPTION", "width": "27.5%", "align": "left", "no_wrap": True},
+            {"name": "ITEM DESCRIPTION", "width": "26%", "align": "left", "no_wrap": True},
             {"name": "HSN/SAC", "width": "8%", "align": "center"},
-            {"name": "QTY", "width": "5%", "align": "right"},
+            {"name": "QTY", "width": "4.5%", "align": "right"},
             {"name": "MRP", "width": "8%", "align": "right"},
             {"name": "DISC %", "width": "6%", "align": "right"},
             {"name": "TAXABLE VALUE", "width": "11%", "align": "right"},
-            {"name": "CGST @ 2.5%", "width": "9%", "align": "right"},
-            {"name": "SGST @ 2.5%", "width": "9%", "align": "right"},
-            {"name": "AMOUNT", "width": "13%", "align": "right"}
+            {"name": "TAX %", "width": "6%", "align": "center"},
+            {"name": "IGST", "width": "9%", "align": "right"},
+            {"name": "AMOUNT", "width": "18%", "align": "right"}
+        ],
+        "columns_intrastate": [
+            {"name": "#", "width": "3.5%", "align": "center"},
+            {"name": "ITEM DESCRIPTION", "width": "23.5%", "align": "left", "no_wrap": True},
+            {"name": "HSN/SAC", "width": "7.5%", "align": "center"},
+            {"name": "QTY", "width": "4%", "align": "right"},
+            {"name": "MRP", "width": "7.5%", "align": "right"},
+            {"name": "DISC %", "width": "5%", "align": "right"},
+            {"name": "TAXABLE VALUE", "width": "10.5%", "align": "right"},
+            {"name": "CGST %", "width": "5.5%", "align": "center"},
+            {"name": "CGST", "width": "8.5%", "align": "right"},
+            {"name": "SGST %", "width": "5.5%", "align": "center"},
+            {"name": "SGST", "width": "8.5%", "align": "right"},
+            {"name": "AMOUNT", "width": "14.5%", "align": "right"}
         ]
     },
     "styling_configuration": {
