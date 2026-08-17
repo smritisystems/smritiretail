@@ -316,10 +316,10 @@ class InvoicePdfService:
         customer_gstin = getattr(invoice, "customer_gstin", None) or meta.get("customer_gstin", "")
 
         # Canonical Tattly Threads bank details (authoritative — never pull from DB for this company)
-        TATTLY_BANK_NAME    = "HDFC BANK LTD."
-        TATTLY_ACCOUNT_NO   = "50200088991122"
-        TATTLY_IFSC_CODE    = "HDFC0000060"
-        TATTLY_BANK_BRANCH  = "Fort, Mumbai"
+        TATTLY_BANK_NAME    = "STATE BANK OF INDIA"
+        TATTLY_ACCOUNT_NO   = "43976711765"
+        TATTLY_IFSC_CODE    = "SBIN0030425"
+        TATTLY_BANK_BRANCH  = "WARDHMAN NAGAR NAGPUR"
 
         bank_name  = TATTLY_BANK_NAME
         account_no = TATTLY_ACCOUNT_NO
@@ -1083,6 +1083,7 @@ class InvoicePdfService:
                   <div style="width: 60%;">
                     <div class="bank-box" style="border: 1px solid #d1d5db; border-radius: 3px; padding: 5px 8px; background: #f9fafb;">
                       <div style="font-size: 6.00pt; font-weight: 800; color: #374151; font-family: monospace; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px; margin-bottom: 3px;">&#127970; BANK DETAILS</div>
+                      <div style="font-family: monospace; font-size: 6.58pt; color: #6b7280; margin-bottom: 1px;">A/C Name: <b style="color: #111827;">{company_name}</b></div>
                       <div style="font-weight: 800; color: #111827; font-size: 8.2pt; font-family: sans-serif; margin-bottom: 1px;">{bank_name}</div>
                       <div style="font-family: monospace; font-size: 7.31pt; color: #374151; margin-bottom: 1px;">A/C No: <b style="color: #111827; letter-spacing: 0.5px;">{account_no}</b></div>
                       <div style="font-family: monospace; font-size: 7.31pt; color: #374151;">IFSC: <b style="color: #111827;">{ifsc_code}</b>&nbsp;&nbsp;|&nbsp;&nbsp;Branch: {bank_branch}</div>
