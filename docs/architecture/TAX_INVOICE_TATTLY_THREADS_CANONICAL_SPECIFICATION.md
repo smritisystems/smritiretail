@@ -94,3 +94,27 @@
 - `GET /api/v1/sales/invoices/{id}/reprint`: Canonical document reprint
 - `GET /api/v1/sales/invoices/{id}/pdf`: Canonical streaming document
 - `GET /api/v1/sales/invoices/{id}/download`: Downloadable PDF attachment
+
+---
+
+## 6. Company Database Persistence & Artifact Governance
+
+### 1. Database Entity Models (`smriti<Code>`)
+- `tax_invoice_templates`:
+  - `template_code`: `TAX_INVOICE_TATTLY_THREADS` (Unique PK/Code)
+  - `template_name`: `TATTLY THREADS Tax Invoice`
+  - `template_type`: `TAX_INVOICE`
+  - `status`: `FROZEN`
+  - `current_version`: `V1`
+  - `layout_configuration`: Complete JSONB structure containing geometry, `<colgroup>`, fonts, borders, and footer.
+  - `configuration_hash`: Cryptographic SHA256 checksum (`16fbb84f1420911d...`).
+- `tax_invoice_template_versions`:
+  - Immutable version history record (`template_id`, `version = 'V1'`, `status = 'FROZEN'`, `layout_configuration`, `configuration_hash`, `effective_from = '2026-08-17'`).
+- `invoice_document_artifacts`:
+  - Tracks every issued invoice PDF (`invoice_id`, `invoice_no`, `template_code`, `template_version`, `storage_path`, `sha256_hash`, `file_size`, `page_count`, `generated_at`, `is_valid`, `reprint_count`).
+
+### 2. Historical Document Reprint Protection
+- When an invoice reprint is requested, the system verifies `invoice_document_artifacts` and checks the disk file against its stored `sha256_hash`.
+- If the artifact is valid, the original immutable PDF binary is returned directly without re-rendering or applying newer template changes, guaranteeing legal and statutory auditability.
+- In-place modification of `FROZEN` template versions is strictly prohibited. Future design alterations require version incrementation (`V2`, `V3`).
+

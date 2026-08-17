@@ -15,13 +15,22 @@ Classification: Internal
 import os
 import io
 import base64
+import hashlib
+import json
+import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from ..models.sales import SalesInvoice, SalesInvoiceItem
+from ..models.tax_invoice_template import (
+    TaxInvoiceTemplate,
+    TaxInvoiceTemplateVersion,
+    InvoiceDocumentArtifact,
+)
 
 # Barcode & QR Code generators
 try:
@@ -873,6 +882,163 @@ class InvoicePdfService:
             await browser.close()
 
         return pdf_bytes
+
+    @classmethod
+    async def get_template_configuration(
+        cls,
+        session: AsyncSession,
+        template_code: str = "TAX_INVOICE_TATTLY_THREADS"
+    ) -> Dict[str, Any]:
+        """
+        Retrieves canonical Tax Invoice template layout configuration from Company Database.
+        Falls back to in-code frozen configuration if table is unseeded.
+        """
+        stmt = select(TaxInvoiceTemplate).where(
+            TaxInvoiceTemplate.template_code == template_code,
+            TaxInvoiceTemplate.is_deleted == False
+        )
+        res = await session.execute(stmt)
+        tpl = res.scalars().first()
+        if tpl and tpl.layout_configuration:
+            return {
+                "template_code": tpl.template_code,
+                "template_name": tpl.template_name,
+                "status": tpl.status,
+                "version": tpl.current_version,
+                "configuration_hash": tpl.configuration_hash,
+                "layout": tpl.layout_configuration
+            }
+        return {
+            "template_code": template_code,
+            "template_name": "TATTLY THREADS Tax Invoice",
+            "status": "FROZEN",
+            "version": "V1",
+            "layout": cls.CONFIG
+        }
+
+    @classmethod
+    async def get_or_render_pdf_artifact(
+        cls,
+        session: AsyncSession,
+        invoice_id: str,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        is_reprint: bool = False
+    ) -> Tuple[bytes, Dict[str, Any]]:
+        """
+        Governed Document Artifact Retrieval & Reprint Protection:
+        1. Checks if an authoritative PDF artifact exists in Company DB.
+        2. On reprint: verifies SHA256 integrity of immutable original artifact.
+        3. If existing & valid on disk: returns original immutable PDF bytes and records reprint event.
+        4. If not yet generated: generates via canonical renderer, computes SHA256, stores artifact record, and returns PDF bytes.
+        """
+        art_stmt = select(InvoiceDocumentArtifact).where(
+            InvoiceDocumentArtifact.invoice_id == invoice_id,
+            InvoiceDocumentArtifact.is_deleted == False
+        )
+        art_res = await session.execute(art_stmt)
+        artifact = art_res.scalars().first()
+
+        # Check existing artifact on disk
+        if artifact and artifact.storage_path and os.path.exists(artifact.storage_path):
+            with open(artifact.storage_path, "rb") as f:
+                raw_bytes = f.read()
+
+            current_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+            if current_sha256 == artifact.sha256_hash:
+                if is_reprint:
+                    artifact.reprint_count = (artifact.reprint_count or 0) + 1
+                    artifact.last_reprinted_at = datetime.now(timezone.utc)
+                    await session.commit()
+
+                return raw_bytes, {
+                    "source": "IMMUTABLE_HISTORICAL_ARTIFACT",
+                    "invoice_no": artifact.invoice_no,
+                    "template_code": artifact.template_code,
+                    "template_version": artifact.template_version,
+                    "template_status": artifact.template_status,
+                    "sha256_hash": artifact.sha256_hash,
+                    "file_size": artifact.file_size,
+                    "page_count": artifact.page_count,
+                    "reprint_count": artifact.reprint_count,
+                    "storage_path": artifact.storage_path
+                }
+
+        # Otherwise render fresh PDF bytes via Canonical Renderer
+        pdf_bytes = await cls.render_pdf_bytes(
+            session=session,
+            invoice_id=invoice_id,
+            company_id=company_id,
+            branch_id=branch_id
+        )
+
+        sha256_hex = hashlib.sha256(pdf_bytes).hexdigest()
+        file_size = len(pdf_bytes)
+
+        # Get invoice record
+        inv_stmt = select(SalesInvoice).where(SalesInvoice.id == invoice_id)
+        inv_res = await session.execute(inv_stmt)
+        invoice = inv_res.scalars().first()
+        inv_no = invoice.invoice_no if invoice else f"INV-{invoice_id}"
+
+        # Save to disk
+        export_dir = r"F:\SMRITRretailNX\exports\tt_batch_74_103"
+        os.makedirs(export_dir, exist_ok=True)
+        safe_inv = inv_no.replace("/", "_")
+        storage_path = os.path.join(export_dir, f"TaxInvoice_{safe_inv}.pdf")
+        with open(storage_path, "wb") as f:
+            f.write(pdf_bytes)
+
+        page_count = 1
+        try:
+            import fitz
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            page_count = len(doc)
+            doc.close()
+        except Exception:
+            pass
+
+        # Upsert artifact record
+        if not artifact:
+            artifact = InvoiceDocumentArtifact(
+                id=f"art-{invoice_id}",
+                uuid=str(uuid.uuid4()),
+                company_id=company_id or (invoice.company_id if invoice else "comp-default"),
+                branch_id=branch_id or (invoice.branch_id if invoice else "br-default"),
+                invoice_id=invoice_id,
+                invoice_no=inv_no,
+                document_type="TAX_INVOICE",
+                template_code="TAX_INVOICE_TATTLY_THREADS",
+                template_version="V1",
+                template_status="FROZEN",
+                storage_path=storage_path,
+                sha256_hash=sha256_hex,
+                file_size=file_size,
+                page_count=page_count,
+                is_valid=True
+            )
+            session.add(artifact)
+        else:
+            artifact.storage_path = storage_path
+            artifact.sha256_hash = sha256_hex
+            artifact.file_size = file_size
+            artifact.page_count = page_count
+            artifact.is_valid = True
+            artifact.modified_at = datetime.now(timezone.utc)
+
+        await session.commit()
+
+        return pdf_bytes, {
+            "source": "CANONICAL_RENDERER_NEW_ARTIFACT",
+            "invoice_no": inv_no,
+            "template_code": "TAX_INVOICE_TATTLY_THREADS",
+            "template_version": "V1",
+            "template_status": "FROZEN",
+            "sha256_hash": sha256_hex,
+            "file_size": file_size,
+            "page_count": page_count,
+            "storage_path": storage_path
+        }
 
 
 # Canonical aliases for project-wide architecture naming
