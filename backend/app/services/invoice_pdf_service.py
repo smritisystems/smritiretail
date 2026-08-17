@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 4.9.2
+Version      : 4.9.4
 Created      : 2026-08-14
 Modified     : 2026-08-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -102,7 +102,9 @@ def number_to_indian_words(num: float) -> str:
     if paisa_part > 0:
         result += " and " + get_word_for_three_digits(paisa_part).strip() + " Paisa"
     result += " Only"
-    return result
+    # Normalize multiple internal spaces (e.g. 'Fifty  Thousand' -> 'Fifty Thousand')
+    import re as _re
+    return _re.sub(r' {2,}', ' ', result).strip()
 
 
 def generate_barcode_base64(val: str) -> str:
@@ -201,25 +203,23 @@ CANONICAL_INVOICE_LAYOUT_CONFIG: Dict[str, Any] = {
 }
 
 
-def paginate_items(items: list, first_page_max: int = 29, cont_page_max: int = 40, last_page_room: int = 22) -> List[list]:
+def paginate_items(items: list, first_page_max: int = 25, cont_page_max: int = 34, last_page_room: int = 18) -> List[list]:
     """
     Paginate items cleanly for multi-page invoices matching original layout geometry.
 
     Authoritative geometry (measured from drawn lines in OLD PDFs):
-      - Item row height: 19.50 pt
-      - A4 body height: ~728 pt (257mm at 72pt/in approx)
-      - Page 1 available (below header ~210pt): ~518 pt -> 26-29 items
-      - Continuation page available: ~600 pt -> 30-40 items
-      - Last page: items + totals + summary; leave ~22 items max
-
-    Modified: 2026-08-18 — Calibrated against OLD PDF drawn-line row pitch (mode=19.5-20.0pt).
+      - Item row height: 21.00 pt CSS (~20.5pt rendered)
+      - A4 body height: ~791 pt printable
+      - Page 1 available (below header ~205pt): ~548 pt -> 24-25 items
+      - Continuation page available: ~730 pt -> 35-36 items
+      - Last page: items + totals + summary; leave ~18 items max
     """
     total = len(items)
     if total == 0:
         return [[]]
     if total < 16:
         return [items]
-    if total <= 32 and total >= 16:
+    if total <= 30 and total >= 16:
         # Fits on page 1, summaries flow to page 2 (matches original 2-page geometry)
         return [items, []]
 
@@ -438,22 +438,22 @@ class InvoicePdfService:
         else:
             rounding_str = "₹0.00"
             
-        amount_words = getattr(invoice, "amount_in_words", None) or number_to_indian_words(float(grand_total))
+        # CRITICAL: Amount in Words MUST represent the final rounded Grand Total,
+        # never the pre-rounding sum.  Generate unconditionally from grand_total.
+        # grand_total = Decimal(invoice.grand_total) which is the DB-stored rounded value.
+        amount_words = number_to_indian_words(float(grand_total))
         
         # Dynamic address line and party container geometry
         b_lines = len([l for l in billing_addr.split("\n") if l.strip()])
         s_lines = len([l for l in shipping_addr.split("\n") if l.strip()])
         
         is_long_addr = (sis_code == "TYAC" or b_lines >= 4 or s_lines >= 4)
-        # Pagination: page 1 header is taller (~210pt) so fewer items fit.
-        # Continuation pages have ~600pt available at 19.5pt/row = ~30 items.
-        # For invoices with long addresses, reduce page 1 cap by 2.
         if is_long_addr:
-            first_page_cap = 27
+            first_page_cap = 23
         else:
-            first_page_cap = 29
+            first_page_cap = 25
 
-        pages_items = paginate_items(items_data, first_page_max=first_page_cap, cont_page_max=40, last_page_room=22)
+        pages_items = paginate_items(items_data, first_page_max=first_page_cap, cont_page_max=34, last_page_room=18)
         total_pages = len(pages_items)
 
         # Build CSS
@@ -1133,14 +1133,19 @@ class InvoicePdfService:
             footer_html = f"""
             <div class="page-footer" style="flex-direction: column; text-align: center; gap: 1px;">
               {disclaimer_html}
-              <div style="font-size: 6.00pt; color: #6b7280; display: flex; justify-content: space-between; width: 100%; padding-top: 1px; border-top: 1px dashed #d1d5db; margin-top: 1px;">
-                <span>Page {p_idx} of {total_pages}</span>
-                <span>Invoice No: {invoice_no}</span>
+              <div style="font-size: 6.00pt; color: #6b7280; display: flex; justify-content: space-between; align-items: center; width: 100%; padding-top: 2px; border-top: 1px dashed #d1d5db; margin-top: 1px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  {f'<img src="{logo_uri}" style="height: 14px; max-width: 65px; object-fit: contain;"/>' if logo_uri else ''}
+                  <span>Page {p_idx} of {total_pages}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  {f'<img src="{barcode_uri}" style="height: 12px; width: auto;"/>' if barcode_uri else ''}
+                  <span>Invoice No: {invoice_no}</span>
+                </div>
               </div>
             </div>
             """
 
-            
             if page_item_list:
                 table_html = f"""
                 <table class="item-table">
@@ -1148,7 +1153,7 @@ class InvoicePdfService:
                   {thead_html}
                   <tbody>
                     {rows_html}
-                    {subtotal_row}
+                    {subtotal_row if is_last else ''}
                   </tbody>
                 </table>
                 """
