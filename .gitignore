@@ -86,3 +86,7 @@ served_bundle.js
 # Local MCP Configurations with API Keys
 .agents/mcp_config.json
 
+# Local PostgreSQL Data Cluster
+backend/pgdata/
+
+

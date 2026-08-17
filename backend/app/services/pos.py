@@ -11,7 +11,7 @@ Founders
 
 * Version    : 3.17.1 (Phase 1 — POS Checkout)
 * Created    : 2026-07-11
-* Modified   : 2026-07-15 (Phase 1 — POS Checkout migration)
+* Modified   : 2026-08-17
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -498,7 +498,6 @@ class POSService:
                 detail="A billing conflict occurred. Please try again.",
             )
 
-        self.db.expire_all()
         await self.db.refresh(invoice)
         await self.db.refresh(shift)
         return {"invoice": invoice, "shift": shift, "cached": False}

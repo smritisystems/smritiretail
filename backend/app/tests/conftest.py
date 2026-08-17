@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.21.0
 Created      : 2026-07-11
-Modified     : 2026-07-15
+Modified     : 2026-08-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -37,6 +37,14 @@ def event_loop():
 @pytest.fixture
 async def db_engine():
     engine = create_async_engine(settings.DATABASE_URL)
+    from app.db.base import Base
+    from sqlalchemy import text
+    import app.models.psv  # noqa: F401
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text("CREATE OR REPLACE FUNCTION fn_reconcile_inventory_state() RETURNS TRIGGER AS 'BEGIN UPDATE products SET stock = COALESCE(stock, 0) + NEW.quantity WHERE id = NEW.product_id; RETURN NEW; END;' LANGUAGE plpgsql;"))
+        await conn.execute(text("DROP TRIGGER IF EXISTS trg_inventory_state_reconciliation ON stock_movements;"))
+        await conn.execute(text("CREATE TRIGGER trg_inventory_state_reconciliation AFTER INSERT ON stock_movements FOR EACH ROW EXECUTE FUNCTION fn_reconcile_inventory_state();"))
     yield engine
     await engine.dispose()
 

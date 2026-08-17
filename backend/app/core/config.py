@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-11
-Modified     : 2026-07-12
+Modified     : 2026-08-17
 Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -87,12 +87,29 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
     if host not in {"127.0.0.1", "localhost"}:
         return conn_str
 
-    port = parsed.port
-    if port is None:
-        return conn_str
+    port = parsed.port or 5432
 
     if _is_postgres_server(host, port):
         return conn_str
+
+    try:
+        import subprocess
+        out = subprocess.check_output(["wsl", "-d", "docker-desktop", "-e", "/sbin/ip", "addr"], text=True, stderr=subprocess.DEVNULL)
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith("inet "):
+                ip = line.split()[1].split("/")[0]
+                if ip != "127.0.0.1" and _is_postgres_server(ip, port):
+                    auth = ""
+                    if parsed.username:
+                        auth = parsed.username
+                        if parsed.password:
+                            auth += f":{parsed.password}"
+                        auth += "@"
+                    netloc = f"{auth}{ip}:{port}"
+                    return urlunparse(parsed._replace(netloc=netloc))
+    except Exception:
+        pass
 
     for alt_port in (5432, 5434):
         if alt_port == port:
@@ -188,29 +205,14 @@ def load_settings() -> Settings:
             except ValueError:
                 pass
 
-        env = base_settings.ENVIRONMENT.strip().lower()
-        is_local_dev = env in {"development", "local", "test"} or (env == "" and Path(__file__).resolve().parents[4].joinpath(".git").exists())
-        if is_local_dev and base_settings.DATABASE_URL.startswith("postgresql+asyncpg://"):
-            base_settings.DATABASE_URL = _resolve_local_dev_postgres_url(base_settings.DATABASE_URL)
-
-    if "app" in json_data:
-        app_data = json_data["app"]
-        base_settings.PROJECT_NAME = app_data.get("productName", base_settings.PROJECT_NAME)
-        base_settings.VERSION = app_data.get("version", base_settings.VERSION)
-        base_settings.EDITION = app_data.get("edition", base_settings.EDITION)
-        
-    if "author" in json_data:
-        auth_data = json_data["author"]
-        base_settings.ORGANIZATION = auth_data.get("organization", base_settings.ORGANIZATION)
-
-    # Parse ALLOWED_ORIGINS comma-separated string if provided
-    allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
-    if allowed_origins_env:
-        base_settings.ALLOWED_ORIGINS = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
-
     # Ensure DATABASE_URL uses asyncpg driver
     if base_settings.DATABASE_URL.startswith("postgresql://"):
         base_settings.DATABASE_URL = base_settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    env = base_settings.ENVIRONMENT.strip().lower()
+    is_local_dev = env in {"development", "local", "test"} or (env == "" and Path(__file__).resolve().parents[4].joinpath(".git").exists())
+    if is_local_dev and base_settings.DATABASE_URL.startswith("postgresql+asyncpg://"):
+        base_settings.DATABASE_URL = _resolve_local_dev_postgres_url(base_settings.DATABASE_URL)
 
     return base_settings
 
