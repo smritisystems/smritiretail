@@ -126,7 +126,11 @@ def get_company_detail(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Access denied: You are not authorized to access company '{company_id}'."
         )
-    res = CompanyDatabaseResolver.resolve_company_database(current_user.id, company_id)
+    res = CompanyDatabaseResolver.resolve_company_database(
+        user_id=current_user.id,
+        company_id=company_id,
+        user_role=current_user.role
+    )
     return {
         "company_id": res["company_id"],
         "company_code": res["company_code"],
@@ -166,7 +170,11 @@ def get_company_modules(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Access denied: You are not authorized to view module entitlements for company '{company_id}'."
         )
-    CompanyDatabaseResolver.resolve_company_database(current_user.id, company_id)
+    CompanyDatabaseResolver.resolve_company_database(
+        user_id=current_user.id,
+        company_id=company_id,
+        user_role=current_user.role
+    )
     return [
         {"id": "pos", "name": "POS Billing & Cash Shift", "enabled": True},
         {"id": "sales", "name": "Sales & Invoicing", "enabled": True},

@@ -132,7 +132,7 @@ class CrmService:
             
         # Assert outstanding + new purchase is within limit
         limit = float(group.credit_limit)
-        current_outstanding = float(customer.outstanding)
+        current_outstanding = float(customer.outstanding or 0.0)
         if current_outstanding + new_amount > limit:
             if group.auto_block_sales:
                 raise HTTPException(

@@ -1,7 +1,7 @@
 # SMRITI Development Status Dashboard
 
 *Generated: Mon 08/17/2026*
-*Branch: smritiNX | Last Commit: 5f93fb49*
+*Branch: smritiNX | Last Commit: 6cdb0aa6*
 
 ## SMRITI Development Health Index (DHI)
 ```
@@ -34,7 +34,7 @@ Security: ██████████ 100%
 | Master Framework | Workspace | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | 44% |
 | Field Explorer (UFE) | Workspace | ❌ | ✅ | ❌ | ✅ | ❌ | ✅ | 36% |
 | KPI Registry | Workspace | ❌ | ✅ | ❌ | ✅ | ✅ | ❌ | 40% |
-| Channel Visibility | Workspace | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ | 60% |
+| Channel Visibility | Workspace | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | 64% |
 | Numbering Engine | Workspace | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | 72% |
 | Approval Matrix | Workspace | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | 56% |
 | Staff Management | Workspace | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ | 56% |

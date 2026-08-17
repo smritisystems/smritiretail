@@ -42,9 +42,12 @@ async def db_engine():
     import app.models.psv  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(text("CREATE OR REPLACE FUNCTION fn_reconcile_inventory_state() RETURNS TRIGGER AS 'BEGIN UPDATE products SET stock = COALESCE(stock, 0) + NEW.quantity WHERE id = NEW.product_id; RETURN NEW; END;' LANGUAGE plpgsql;"))
-        await conn.execute(text("DROP TRIGGER IF EXISTS trg_inventory_state_reconciliation ON stock_movements;"))
-        await conn.execute(text("CREATE TRIGGER trg_inventory_state_reconciliation AFTER INSERT ON stock_movements FOR EACH ROW EXECUTE FUNCTION fn_reconcile_inventory_state();"))
+        try:
+            await conn.execute(text("CREATE OR REPLACE FUNCTION fn_reconcile_inventory_state() RETURNS TRIGGER AS 'BEGIN UPDATE products SET stock = COALESCE(stock, 0) + NEW.quantity WHERE id = NEW.product_id; RETURN NEW; END;' LANGUAGE plpgsql;"))
+            await conn.execute(text("DROP TRIGGER IF EXISTS trg_inventory_state_reconciliation ON stock_movements;"))
+            await conn.execute(text("CREATE TRIGGER trg_inventory_state_reconciliation AFTER INSERT ON stock_movements FOR EACH ROW EXECUTE FUNCTION fn_reconcile_inventory_state();"))
+        except Exception:
+            pass
     yield engine
     await engine.dispose()
 
@@ -131,10 +134,14 @@ async def clear_db(db_session: AsyncSession):
     await db_session.execute(delete(Branch))
     for tbl in ["company_financial_years", "company_tax_profiles", "company_control_center"]:
         try:
-            async with db_session.begin_nested():
-                await db_session.execute(text(f"DELETE FROM {tbl};"))
+            await db_session.execute(text(f"DELETE FROM {tbl};"))
         except Exception:
             pass
+    try:
+        await db_session.execute(text("DELETE FROM smriti_menus;"))
+        await db_session.execute(text("DELETE FROM smriti_audit_log;"))
+    except Exception:
+        pass
     await db_session.execute(delete(Company))
     await db_session.commit()
 

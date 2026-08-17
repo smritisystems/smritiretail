@@ -13,7 +13,11 @@
 
 # SMRITI Multi-Company Database Architecture Specification v1.0
 
-**Status: COMPANY_CODE_STANDARD_UPDATED — ZERO DATABASE PROVISIONING**  
+> **SUPERSEDED ARCHITECTURE SPECIFICATION**  
+> This v1.0 document is superseded by the current canonical specification:  
+> [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)
+
+**Status: SUPERSEDED BY CANONICAL SPECIFICATION**  
 **Audit Timestamp:** 2026-08-15 06:00:48 UTC  
 **Official Control Plane DB:** `smritisys`  
 **Official Company Business DB Naming Standard:** `smriti<3-character-alphanumeric-code>`

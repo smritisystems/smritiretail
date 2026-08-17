@@ -12,6 +12,7 @@
 """
 
 from fastapi import HTTPException, status
+from typing import Optional, Any
 import os, psycopg2, re
 
 DB_HOST = os.getenv("POSTGRES_HOST") or os.getenv("DATABASE_HOST") or "localhost"
@@ -68,7 +69,7 @@ class CompanyDatabaseResolver:
     """
 
     @staticmethod
-    def resolve_company_database(user_id: str, company_id: str, company_code: str = "001") -> dict:
+    def resolve_company_database(user_id: str, company_id: str, company_code: str = "001", user_role: Optional[Any] = None) -> dict:
         """
         Resolves dynamic database routing for a given user and company_id.
         Fails closed on unauthorized access, suspended company, or invalid database registry.
@@ -87,7 +88,7 @@ class CompanyDatabaseResolver:
         try:
             # 2. Check if company exists in DB
             try:
-                cur.execute("SELECT is_active, name, company_code FROM companies WHERE id = %s;", (company_id,))
+                cur.execute("SELECT is_active, name FROM companies WHERE id = %s;", (company_id,))
                 company_row = cur.fetchone()
             except Exception:
                 conn.rollback()
@@ -104,29 +105,49 @@ class CompanyDatabaseResolver:
                         detail=f"Company '{company_id}' is unknown or not active."
                     )
             else:
-                is_active, company_name, resolved_code = company_row
+                is_active, company_name = company_row
                 if not is_active:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail=f"Company '{company_id}' is inactive or suspended."
                     )
-                if not resolved_code:
-                    resolved_code = company_code
+                resolved_code = company_code
 
-            # 3. Verify User Assignment to Company
-            try:
-                cur.execute("""
-                    SELECT 1 FROM user_company_assignments 
-                    WHERE user_id = %s AND company_id = %s;
-                """, (user_id, company_id))
-                assigned = cur.fetchone()
-            except Exception:
-                conn.rollback()
-                assigned = None
+            # 3. Verify User Assignment to Company or SYSADMIN Role
+            is_sysadmin = False
+            if user_role is not None:
+                role_str = user_role.value if hasattr(user_role, "value") else str(user_role)
+                if role_str.strip().upper() in ("SYSADMIN", "USERROLE.SYSADMIN"):
+                    is_sysadmin = True
 
-            # Fallback for SYSADMIN or test default user
-            if not assigned and user_id in ("usr_sysadmin", "user_001", "admin", "usr-super", "usr-cashier", "usr-manager"):
+            if not is_sysadmin:
+                # Query database users table for verified role if user_role was not explicitly passed
+                try:
+                    cur.execute("""
+                        SELECT role FROM users 
+                        WHERE id = %s AND (is_active = true OR is_active IS NULL) AND (is_deleted = false OR is_deleted IS NULL);
+                    """, (user_id,))
+                    u_row = cur.fetchone()
+                    if u_row and str(u_row[0]).strip().upper() in ("SYSADMIN", "USERROLE.SYSADMIN"):
+                        is_sysadmin = True
+                except Exception:
+                    conn.rollback()
+
+            assigned = False
+            if is_sysadmin:
                 assigned = True
+            else:
+                try:
+                    cur.execute("""
+                        SELECT 1 FROM user_company_assignments 
+                        WHERE user_id = %s AND company_id = %s AND (is_active = true OR is_active IS NULL) AND (is_deleted = false OR is_deleted IS NULL);
+                    """, (user_id, company_id))
+                    row = cur.fetchone()
+                    if row:
+                        assigned = True
+                except Exception:
+                    conn.rollback()
+                    assigned = False
 
             if not assigned:
                 raise HTTPException(

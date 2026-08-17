@@ -6,11 +6,19 @@ This folder contains architecture-level documentation for SMRITI Retail OS.
 
 The architecture docs provide guidance for enterprise-grade design, governance, implementation, security, and operational readiness.
 
-## Key Documents
+## Canonical Architecture
 
+- **Primary Canonical Specification:** [`SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)
+- **AI Agent Governance Rules:** [`docs/AI_AGENT_ARCHITECTURE_RULES.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT_ARCHITECTURE_RULES.md)
+- **Master Documentation Index:** [`docs/SMRITI_DOCUMENTATION_INDEX.md`](file:///F:/SMRITRretailNX/docs/SMRITI_DOCUMENTATION_INDEX.md)
+
+## Key Subsystem Documents
+
+- `SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md` — database resolver runtime routing
+- `SMRITI_PSV_ARCHITECTURE_v1.0.md` — Party Stock Visibility shadow inventory projection
+- `PRODUCT_IDENTITY_ENGINE.md` — core Product Identity Engine design
 - `PLATFORM_ADAPTER_RULES.md` — platform adapter and PAL guidance
 - `PLATFORM_MICROSERVICES_ROADMAP.md` — long-term microservices vision
-- `PRODUCT_IDENTITY_ENGINE.md` — core Product Identity Engine design
 - `PRODUCT_IDENTITY_ENGINE_API_SPEC.md` — API contract for identity and barcode services
 - `PRODUCT_IDENTITY_ENGINE_ERD.md` — ERD and entity relationships
 - `PRODUCT_IDENTITY_ENGINE_IMPLEMENTATION_PLAN.md` — implementation phases, tasks, and acceptance criteria
