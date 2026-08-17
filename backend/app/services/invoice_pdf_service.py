@@ -132,12 +132,67 @@ def get_tattly_logo_base64() -> str:
     return ""
 
 
+# ==============================================================================
+# CANONICAL GOVERNED TAX INVOICE CONFIGURATION (FROZEN V1)
+# ==============================================================================
+TAX_INVOICE_TATTLY_THREADS_CANONICAL_V1 = "TAX_INVOICE_TATTLY_THREADS_CANONICAL_V1"
+
+CANONICAL_INVOICE_LAYOUT_CONFIG: Dict[str, Any] = {
+    "version": "1.0.0",
+    "template_id": TAX_INVOICE_TATTLY_THREADS_CANONICAL_V1,
+    "status": "FROZEN",
+    "page_size": "A4",
+    "page_orientation": "portrait",
+    "margins_mm": {"top": 8, "bottom": 12, "left": 8, "right": 8},
+    "column_widths": {
+        "interstate": {
+            "sl_no": "4%",
+            "item_description": "30%",
+            "hsn_sac": "9%",
+            "qty": "6%",
+            "mrp": "9%",
+            "discount_pct": "7%",
+            "taxable_value": "11%",
+            "igst": "10%",
+            "amount": "14%"
+        },
+        "intrastate": {
+            "sl_no": "4%",
+            "item_description": "30%",
+            "hsn_sac": "9%",
+            "qty": "6%",
+            "mrp": "9%",
+            "discount_pct": "7%",
+            "taxable_value": "11%",
+            "cgst": "5%",
+            "sgst": "5%",
+            "amount": "14%"
+        }
+    },
+    "grid_borders": {
+        "table_border": "1px solid #d1d5db",
+        "row_border_bottom": "1px solid #d1d5db",
+        "column_border_right": "1px solid #d1d5db",
+        "subtotal_border_top": "2px solid #9ca3af",
+        "subtotal_border_bottom": "2px solid #9ca3af"
+    },
+    "zero_text_wrapping": True,
+    "footer_disclaimer": "SMRITI OS Retail Suite - Powered by SMRITI SYSTEMS"
+}
+
+
 class InvoicePdfService:
     """
-    Tax Invoice PDF & HTML Rendering Engine.
-    Enforces Rule: PDF is strictly a rendered representation of business truth
-    stored in Smritibus_<CompanyCode>. Data flows from Smritibus_<CC> -> PDF Renderer.
+    Canonical Tax Invoice PDF & HTML Rendering Engine.
+    Single Source of Truth for:
+      - Preview
+      - Print / Browser Print
+      - PDF Export / Download
+      - Reprint
+      - Print History
     """
+    TEMPLATE_ID = TAX_INVOICE_TATTLY_THREADS_CANONICAL_V1
+    CONFIG = CANONICAL_INVOICE_LAYOUT_CONFIG
 
     @classmethod
     async def generate_invoice_html(
@@ -754,3 +809,72 @@ class InvoicePdfService:
             await browser.close()
 
         return output_pdf_path
+
+    @classmethod
+    async def render_pdf_bytes(
+        cls,
+        session: AsyncSession,
+        invoice_id: str,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        company_name: str = "TATTLY THREADS",
+        company_gstin: str = "27AAXFT2508H1ZR",
+        extra_meta: Optional[Dict[str, Any]] = None
+    ) -> bytes:
+        """
+        Renders an authoritative Tax Invoice record to in-memory PDF bytes using Playwright.
+        Used by /pdf, /download, /print, /export endpoints.
+        """
+        if async_playwright is None:
+            raise RuntimeError("Playwright is not available for PDF generation.")
+
+        html_content = await cls.generate_invoice_html(
+            session=session,
+            invoice_id=invoice_id,
+            company_id=company_id,
+            branch_id=branch_id,
+            company_name=company_name,
+            company_gstin=company_gstin,
+            extra_meta=extra_meta
+        )
+
+        meta = extra_meta or {}
+        inv_stmt = select(SalesInvoice).where(SalesInvoice.id == invoice_id)
+        res = await session.execute(inv_stmt)
+        invoice = res.scalars().first()
+        inv_no = invoice.invoice_no if invoice else meta.get("invoice_no", "TT2026-2027")
+
+        logo_uri = get_tattly_logo_base64()
+
+        footer_html = f'''
+        <div style="font-size: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 8mm; color: #4b5563; border-top: 1px solid #d1d5db; box-sizing: border-box;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            {f'<img src="{logo_uri}" style="height: 12px; width: auto; object-fit: contain;"/>' if logo_uri else ''}
+          </div>
+          <div style="font-family: monospace; text-align: right;">
+            <span>Tax Invoice No: {inv_no}</span> &bull; <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+          </div>
+        </div>
+        '''
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            page = await browser.new_page()
+            await page.set_content(html_content, wait_until="networkidle")
+
+            pdf_bytes = await page.pdf(
+                format="A4",
+                margin={"top": "8mm", "bottom": "12mm", "left": "8mm", "right": "8mm"},
+                display_header_footer=True,
+                header_template="<div></div>",
+                footer_template=footer_html,
+                print_background=True
+            )
+            await browser.close()
+
+        return pdf_bytes
+
+
+# Canonical aliases for project-wide architecture naming
+TaxInvoiceRenderer = InvoicePdfService
+TaxInvoicePrintService = InvoicePdfService
