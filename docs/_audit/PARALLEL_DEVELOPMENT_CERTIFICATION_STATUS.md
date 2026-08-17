@@ -42,7 +42,7 @@ TRACK 2 ARCHITECTURE CERTIFICATION STATUS
 - Database Routing         : VERIFIED (14 Connection Sites; 0 Unauthorized Engine Bypasses)
 - Runtime Write Ownership  : VERIFIED (Live Test: 7 Tables Mutated in smriti001 & smriti002; 0 in smritisys)
 - Runtime Read Isolation   : VERIFIED (Company 001 sees only C001 data; Company 002 sees only C002 data)
-- 179 Legacy Tables        : STATICALLY RECONCILED (163 Zero Code Refs; 16 Legacy Refs; 0 Writes)
+- 179 Non-CompanyDB Tables: PRESERVED RESIDUE (142 Scaffolding; 16 Legacy; 6 Migration; 15 Residue; 0 Writes)
 - 79 smritisys Residue     : STATICALLY RECONCILED (Schema Residue Only; 0 Operational Writes)
 - PSV Shadow Layer         : ARCHITECTURE VERIFIED (100% Company-Local; SmritiPSV Dropped)
 - eCommerce Core Channel   : ARCHITECTURE VERIFIED (Company-Local Orders/Reservations; SmritiEcom Dropped)
@@ -56,9 +56,9 @@ TRACK 2 ARCHITECTURE CERTIFICATION STATUS
 
 ## 3. Automated Test Suite Evidence
 
-- **Command 1:** `pytest tests/` ? **`158 passed, 22 warnings in 8.14s`** (Exit Code: 0)
-- **Command 2:** `pytest app/tests/` ? **`178 passed, 678 warnings in 102.96s`** (Exit Code: 0)
-- **Total:** **`336 / 336 PASS (100%)`**
+- **Command 1:** `pytest tests/` ? **`158 passed, 22 warnings in 8.52s`** (Exit Code: 0)
+- **Command 2:** `pytest app/tests/` ? **`180 passed, 678 warnings in 99.28s`** (Exit Code: 0)
+- **Total:** **`338 / 338 PASS (100%)`**
 
 ---
 
