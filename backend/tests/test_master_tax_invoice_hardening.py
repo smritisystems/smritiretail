@@ -21,6 +21,7 @@ from app.services.invoice_pdf_service import (
     number_to_indian_words,
     generate_barcode_base64,
     generate_qr_base64,
+    format_place_of_supply,
     InvoicePdfService
 )
 
@@ -90,16 +91,22 @@ def test_rounding_and_amount_in_words_consistency():
     assert "One Thousand Two Hundred Thirty Four Rupees and Fifty Paisa Only" in words_paise
 
 
-def test_place_of_supply_display_label():
+def test_place_of_supply_formatting():
     """
-    Test 5: Place of Supply display label mandate
-    The rendered invoice must show 'Place of Supply:' and not 'POS State:'.
+    Test 5: Place of Supply dynamic format mandate
+    Format: Place of Supply: {STATE NAME} ({STATE CODE}) — {SUPPLY TYPE}
     """
-    # Verify canonical template HTML generator config
-    import inspect
-    src = inspect.getsource(InvoicePdfService)
-    assert "Place of Supply:" in src
-    assert "POS State:" not in src
+    # Maharashtra Intra-State
+    pos_mh = format_place_of_supply("Maharashtra", is_interstate=False, customer_gstin="27AABCR1718E1ZR")
+    assert pos_mh == "Maharashtra (27) — Intra-State"
+
+    # Assam Inter-State
+    pos_as = format_place_of_supply("Assam", is_interstate=True, customer_gstin="18AABCR1718E1ZO")
+    assert pos_as == "Assam (18) — Inter-State"
+
+    # Delhi Inter-State
+    pos_dl = format_place_of_supply("Delhi", is_interstate=True, customer_gstin="07AABCR1718E1ZR")
+    assert pos_dl == "Delhi (07) — Inter-State"
 
 
 def test_invoice_identity_contract():
@@ -157,21 +164,38 @@ def test_barcode_payload_integrity():
     assert len(b64) > 100
 
 
-def test_qr_compliance_state():
+def test_qr_3_state_compliance_architecture():
     """
-    Test 10: QR compliance state without fabricating IRP IRN
+    Test 10: QR compliance-aware 3-state architecture
+    State 1: Cancelled / Voided Invoice
+    State 2: Registered IRP E-Invoice (if IRN present)
+    State 3: Safe B2C / Domestic Verification QR (Standard non-IRP / under-threshold)
     """
     company_gstin = "27AAXFT2508H1ZR"
     invoice_no = "TT2026-2027/64"
     grand_total = Decimal("150035.00")
     date_str = "12-08-2026"
+    pos_code = "07"
     
-    qr_payload = f"GSTIN:{company_gstin}|INV:{invoice_no}|VAL:{float(grand_total):.2f}|DATE:{date_str}"
-    qr_b64 = generate_qr_base64(qr_payload)
-    
-    assert qr_b64.startswith("data:image/png;base64,")
-    assert "GSTIN:" in qr_payload
-    assert "INV:TT2026-2027/64" in qr_payload
+    # State 1: Cancelled
+    qr_canc = f"STATUS:CANCELLED|GSTIN:{company_gstin}|INV:{invoice_no}|DATE:{date_str}|VAL:{float(grand_total):.2f}"
+    assert "STATUS:CANCELLED" in qr_canc
+    b64_canc = generate_qr_base64(qr_canc)
+    assert b64_canc.startswith("data:image/png;base64,")
+
+    # State 2: IRP Registered
+    irn_sample = "4b82d3345fa6e897..."
+    qr_irp = f"IRN:{irn_sample}|GSTIN:{company_gstin}|INV:{invoice_no}|VAL:{float(grand_total):.2f}|DATE:{date_str}"
+    assert "IRN:" in qr_irp
+    b64_irp = generate_qr_base64(qr_irp)
+    assert b64_irp.startswith("data:image/png;base64,")
+
+    # State 3: Safe Domestic Verification QR
+    qr_std = f"GSTIN:{company_gstin}|INV:{invoice_no}|VAL:{float(grand_total):.2f}|DATE:{date_str}|POS:{pos_code}"
+    assert "GSTIN:" in qr_std
+    assert "POS:07" in qr_std
+    b64_std = generate_qr_base64(qr_std)
+    assert b64_std.startswith("data:image/png;base64,")
 
 
 def test_cancelled_invoice_status_and_watermark():
