@@ -1108,17 +1108,22 @@ class InvoicePdfService:
                 
 """
                 
-            footer_html = f"""
-            <div class="page-footer" style="flex-direction: column; text-align: center; gap: 1px;">
+            is_last_page = (p_idx == total_pages)
+            disclaimer_html = f"""
               <div style="font-size: 6.00pt; color: #6b7280;">This is a computer-generated tax invoice and does not require a physical signature.</div>
               <div style="font-size: 6.00pt; font-weight: 700; text-transform: uppercase; color: #374151;">SUBJECT TO MUMBAI JURISDICTION.</div>
-              <div style="font-size: 6.00pt; font-weight: 600; color: #4b5563;">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</div>
+              <div style="font-size: 6.00pt; font-weight: 600; color: #4b5563; margin-bottom: 1px;">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</div>
+            """ if is_last_page else ""
+            footer_html = f"""
+            <div class="page-footer" style="flex-direction: column; text-align: center; gap: 1px;">
+              {disclaimer_html}
               <div style="font-size: 6.00pt; color: #6b7280; display: flex; justify-content: space-between; width: 100%; padding-top: 1px; border-top: 1px dashed #d1d5db; margin-top: 1px;">
                 <span>Page {p_idx} of {total_pages}</span>
                 <span>Invoice No: {invoice_no}</span>
               </div>
             </div>
             """
+
             
             if page_item_list:
                 table_html = f"""
