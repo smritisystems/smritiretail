@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.23.0
+Version      : 3.22.0
 Created      : 2026-08-14
-Modified     : 2026-08-14
+Modified     : 2026-08-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -35,9 +35,11 @@ cashier_user = User(id="usr-cashier", username="usr_cashier", role=UserRole.CASH
 
 from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from app.core.config import settings
 
-test_engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
+# Architecture Rule: Sales invoices are operational data -> Company DB (smriti001).
+# The test session MUST target smriti001, not smritisys (Control Plane).
+COMPANY_001_ASYNC_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001"
+test_engine = create_async_engine(COMPANY_001_ASYNC_URL, poolclass=NullPool)
 test_sessionmaker = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
 
 @pytest.fixture(autouse=True)
