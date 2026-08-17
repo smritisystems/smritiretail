@@ -127,6 +127,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-08-16 | foundation | SMRITI Contextual Navigation Refactor Walkthrough v3.17.0 — Single NavRail, Contextual Resolver, Item Master Create Grid, Role & State Action Gating | [SMRITI_Contextual_Navigation_Refactor_Walkthrough_v3.17.0.md](foundation/SMRITI_Contextual_Navigation_Refactor_Walkthrough_v3.17.0.md) |
 | 2026-08-16 | foundation | SMRITI UI/UX Contrast & Excel Grid Audit Walkthrough v3.17.0 — Contrast fixes, table header overlap resolution, launcher banner cleanup | [SMRITI_UI_UX_Contrast_And_Excel_Grid_Audit_Walkthrough_v3.17.0.md](foundation/SMRITI_UI_UX_Contrast_And_Excel_Grid_Audit_Walkthrough_v3.17.0.md) |
 | 2026-08-16 | foundation | SMRITI Item Master Universal Header Alias & Auto-Mapping Engine v3.17.0 — Decoupled normalizer, alias registry, multi-stage confidence scoring, preview modal & profile manager | [SMRITI_Header_Alias_Auto_Mapping_Engine_Walkthrough_v3.17.0.md](foundation/SMRITI_Header_Alias_Auto_Mapping_Engine_Walkthrough_v3.17.0.md) |
+| 2026-08-17 | governance | SMRITI User Training Readiness & E2E Certification v1.0.0 — Live multi-company PostgreSQL transaction pipeline, zero residual delta, 338/338 PASS | [Governance_User_Training_Readiness_And_E2E_Certification_v1.0.0.md](governance/Governance_User_Training_Readiness_And_E2E_Certification_v1.0.0.md) |
+
 
 
 

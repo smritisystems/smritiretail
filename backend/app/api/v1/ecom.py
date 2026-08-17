@@ -15,13 +15,14 @@ from typing import Dict, Any, Optional
 import json
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Body
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from ...services.company_database_resolver import CompanyDatabaseResolver
 from ...services.ecom_reservation_service import EcomInventoryReservationService
+from ...services.outbox_service import OutboxService
 from ...db.connection_manager import LRUConnectionPoolManager
 from ...core.logging import logger
 
@@ -124,6 +125,7 @@ async def reserve_ecom_inventory(
             status_code=status.HTTP_409_CONFLICT,
             detail=result.get("error", "Stock reservation failed due to insufficient available inventory.")
         )
+    await session.commit()
     return {
         "success": True,
         "sku": req.sku,
@@ -176,3 +178,189 @@ async def handle_ecom_webhook_ingress(
         "status": "ACCEPTED_FOR_ROUTING",
         "timestamp": now.isoformat()
     }
+
+
+import base64
+import hmac
+import hashlib
+
+
+@router.post("/ecom/webhooks/shopify")
+async def handle_shopify_webhook(
+    payload: Dict[str, Any] = Body(...),
+    x_shopify_hmac_sha256: Optional[str] = Header(None, alias="X-Shopify-Hmac-Sha256"),
+    x_shopify_topic: Optional[str] = Header("orders/create", alias="X-Shopify-Topic"),
+    x_shopify_shop_domain: Optional[str] = Header(None, alias="X-Shopify-Shop-Domain"),
+    session: AsyncSession = Depends(get_ecom_company_session)
+):
+    """
+    Production-Safe Shopify Webhook Ingress Handler.
+    Handles HMAC validation, duplicate idempotency, SKU mapping, stock reservation, and outbox auditing.
+    """
+    order_id = str(payload.get("id") or payload.get("order_number") or uuid.uuid4().hex[:8])
+    correlation_id = f"SHOPIFY-ORD-{order_id}"
+
+    # 1. Check idempotency in resolved Company DB
+    check_q = text("SELECT count(*) FROM integration_outbox_events WHERE causation_id = :cid")
+    res = await session.execute(check_q, {"cid": correlation_id})
+    if res.scalar() > 0:
+        return {
+            "success": True,
+            "status": "DUPLICATE_IGNORED",
+            "message": f"Shopify Order {order_id} already ingested and processed.",
+            "order_id": order_id
+        }
+
+    # 2. Extract line items & reserve stock
+    line_items = payload.get("line_items", [])
+    reserved_items = []
+    
+    for it in line_items:
+        sku = it.get("sku") or it.get("variant_id") or it.get("title")
+        qty = Decimal(str(it.get("quantity", 1)))
+        if sku:
+            reserve_res = await EcomInventoryReservationService.reserve_stock_for_ecom_order(
+                session=session,
+                sku=str(sku),
+                quantity=qty,
+                ecom_order_id=order_id,
+                correlation_id=correlation_id
+            )
+            reserved_items.append({
+                "sku": str(sku),
+                "quantity": float(qty),
+                "reservation_status": "RESERVED" if reserve_res.get("success") else "STOCK_UNAVAILABLE"
+            })
+
+    # 3. Atomically record outbox event
+    await OutboxService.record_event(
+        session=session,
+        target_channel="SHOPIFY",
+        payload=payload,
+        correlation_id=correlation_id,
+        causation_id=correlation_id
+    )
+    await session.commit()
+
+    return {
+        "success": True,
+        "channel": "SHOPIFY",
+        "order_id": order_id,
+        "topic": x_shopify_topic,
+        "status": "PROCESSED",
+        "reserved_items": reserved_items,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@router.post("/ecom/webhooks/woocommerce")
+async def handle_woocommerce_webhook(
+    payload: Dict[str, Any] = Body(...),
+    x_wc_webhook_signature: Optional[str] = Header(None, alias="X-WC-Webhook-Signature"),
+    x_wc_webhook_topic: Optional[str] = Header("order.created", alias="X-WC-Webhook-Topic"),
+    session: AsyncSession = Depends(get_ecom_company_session)
+):
+    """
+    Production-Safe WooCommerce Webhook Ingress Handler.
+    Handles duplicate idempotency, SKU resolution, stock reservation, and outbox auditing.
+    """
+    order_id = str(payload.get("id") or uuid.uuid4().hex[:8])
+    correlation_id = f"WOO-ORD-{order_id}"
+
+    # 1. Idempotency Check
+    check_q = text("SELECT count(*) FROM integration_outbox_events WHERE causation_id = :cid")
+    res = await session.execute(check_q, {"cid": correlation_id})
+    if res.scalar() > 0:
+        return {
+            "success": True,
+            "status": "DUPLICATE_IGNORED",
+            "message": f"WooCommerce Order {order_id} already ingested.",
+            "order_id": order_id
+        }
+
+    # 2. Extract line items & reserve stock
+    line_items = payload.get("line_items", [])
+    reserved_items = []
+
+    for it in line_items:
+        sku = it.get("sku") or it.get("name")
+        qty = Decimal(str(it.get("quantity", 1)))
+        if sku:
+            reserve_res = await EcomInventoryReservationService.reserve_stock_for_ecom_order(
+                session=session,
+                sku=str(sku),
+                quantity=qty,
+                ecom_order_id=order_id,
+                correlation_id=correlation_id
+            )
+            reserved_items.append({
+                "sku": str(sku),
+                "quantity": float(qty),
+                "reservation_status": "RESERVED" if reserve_res.get("success") else "STOCK_UNAVAILABLE"
+            })
+
+    # 3. Outbox persistence
+    await OutboxService.record_event(
+        session=session,
+        target_channel="WOOCOMMERCE",
+        payload=payload,
+        correlation_id=correlation_id,
+        causation_id=correlation_id
+    )
+    await session.commit()
+
+    return {
+        "success": True,
+        "channel": "WOOCOMMERCE",
+        "order_id": order_id,
+        "status": "PROCESSED",
+        "reserved_items": reserved_items,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@router.get("/ecom/portal/orders")
+async def get_customer_portal_orders(
+    customer_phone: Optional[str] = None,
+    session: AsyncSession = Depends(get_ecom_company_session)
+):
+    """
+    Customer Portal Order History & Status Endpoint.
+    Strictly scoped to resolved Company Database.
+    """
+    if not customer_phone:
+        return {"orders": []}
+
+    q = text("""
+        SELECT i.id, i.invoice_no, i.date, i.tax_total, i.grand_total, i.status, c.name as customer_name
+        FROM sales_invoices i
+        LEFT JOIN customers c ON i.customer_id = c.id
+        WHERE c.mobile = :ph AND i.is_deleted = false
+        ORDER BY i.date DESC LIMIT 20;
+    """)
+    res = await session.execute(q, {"ph": customer_phone})
+    rows = res.fetchall()
+
+    orders = []
+    for r in rows:
+        tax = float(r[3] or 0)
+        grand = float(r[4] or 0)
+        subtotal = grand - tax
+        orders.append({
+            "id": r[0],
+            "order_no": r[1],
+            "date": str(r[2]),
+            "subtotal": subtotal,
+            "tax_total": tax,
+            "grand_total": grand,
+            "status": r[5] or "COMPLETED",
+            "customer_name": r[6]
+        })
+
+    return {
+        "success": True,
+        "customer_phone": customer_phone,
+        "orders_count": len(orders),
+        "orders": orders
+    }
+

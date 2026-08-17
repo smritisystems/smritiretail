@@ -642,3 +642,78 @@ async def save_printer_settings(
         "usb_target": req.usb_target
     }
 
+
+from ...services.printer_service import PrinterService
+
+
+@router.get(
+    "/diagnostics",
+    summary="Hardware-Independent Thermal Printer & Engine Diagnostics",
+)
+async def printer_diagnostics(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Hardware-Independent Diagnostics Endpoint for SMRITI Printing Subsystem.
+    Evaluates Zebra ZPL, TSC TSPL, and ESC/POS Engines and checks printer connectivity.
+    """
+    return await PrinterService.run_diagnostics(db)
+
+
+@router.post(
+    "/test-print",
+    summary="Dispatch Test Pattern to Thermal or Receipt Printer",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def test_print(
+    req: Dict[str, Any] = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generates and dispatches a test pattern or PRN stream without modifying transactional data.
+    Body Parameters:
+      - format: "ZPL" | "TSPL" | "ESCPOS" (default: "ZPL")
+      - saveAsPrn: bool (default: False)
+      - target_override: Optional dict {"connection_type": "TCP", "ip": "...", "port": 9100}
+    """
+    fmt = req.get("format", "ZPL").upper()
+    save_as_prn = bool(req.get("saveAsPrn", False))
+    target_override = req.get("target_override")
+
+    if fmt == "TSPL":
+        payload = PrinterService.generate_tspl_label(
+            item_code="TEST-SKU", barcode="8901234567890", name="SMRITI TEST LABEL", price=100.0, mrp=150.0
+        )
+        is_binary = False
+    elif fmt == "ESCPOS":
+        payload = PrinterService.generate_escpos_receipt(
+            store_name="SMRITI RETAIL LAB",
+            invoice_no="TEST-RECEIPT-001",
+            items=[{"name": "Test Item 1", "quantity": 1, "price": 100.0, "total_amount": 100.0}],
+            subtotal=100.0,
+            tax_total=18.0,
+            grand_total=118.0,
+            cashier_name=current_user.username
+        )
+        is_binary = True
+    else:
+        payload = PrinterService.generate_zpl_label(
+            item_code="TEST-SKU", barcode="8901234567890", name="SMRITI TEST LABEL", price=100.0, mrp=150.0
+        )
+        is_binary = False
+
+    result = await PrinterService.dispatch_payload(
+        session=db,
+        payload_data=payload,
+        user_name=current_user.username,
+        item_code="TEST-SKU",
+        item_name="SMRITI Diagnostics Test Print",
+        barcode="8901234567890",
+        quantity=1,
+        is_binary=is_binary,
+        save_as_prn=save_as_prn,
+        override_target=target_override
+    )
+    return result

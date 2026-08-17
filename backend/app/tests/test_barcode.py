@@ -221,3 +221,12 @@ async def test_print_labels_dynamic_placeholder_replacement(db_session):
         log_codes = [l["itemCode"] for l in logs]
         assert "SKU-002" in log_codes
 
+        # Verify diagnostics endpoint
+        res_diag = await client.get("/api/v1/barcode/diagnostics", headers=headers)
+        assert res_diag.status_code == 200
+        diag_data = res_diag.json()
+        assert diag_data["software_engines"]["zebra_zpl_engine"] == "VERIFIED"
+        assert diag_data["software_engines"]["tsc_tspl_engine"] == "VERIFIED"
+        assert diag_data["software_engines"]["escpos_receipt_engine"] == "VERIFIED"
+        assert "physical_device_status" in diag_data["hardware_communication"]
+
