@@ -52,6 +52,7 @@ This index serves as the single authoritative navigation registry for all archit
 
 | Document | Classification | Scope & Description |
 |---|---|---|
+| [`docs/_audit/SMRITI_USER_TRAINING_READINESS_MATRIX.md`](file:///F:/SMRITRretailNX/docs/_audit/SMRITI_USER_TRAINING_READINESS_MATRIX.md) | **USER TRAINING READINESS MATRIX** | Authoritative 3-Day user training and Go-Live readiness matrix with live E2E execution verification. |
 | [`docs/_audit/PARALLEL_DEVELOPMENT_CERTIFICATION_STATUS.md`](file:///F:/SMRITRretailNX/docs/_audit/PARALLEL_DEVELOPMENT_CERTIFICATION_STATUS.md) | **PARALLEL STATUS REPORT** | Master Track 1 development + Track 2 certification gap tracking report. |
 | [`docs/_audit/RUNTIME_OWNERSHIP_CERTIFICATION_REPORT.md`](file:///F:/SMRITRretailNX/docs/_audit/RUNTIME_OWNERSHIP_CERTIFICATION_REPORT.md) | **RUNTIME OWNERSHIP AUDIT** | Comprehensive runtime ownership & multi-company architecture enforcement audit with literal execution logs. |
 | [`docs/_audit/LEGACY_TABLE_RUNTIME_CERTIFICATION.md`](file:///F:/SMRITRretailNX/docs/_audit/LEGACY_TABLE_RUNTIME_CERTIFICATION.md) | **LEGACY TABLE AUDIT** | 179 legacy/scaffolding table runtime retirement audit with code and runtime evidence. |
