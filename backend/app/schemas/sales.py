@@ -26,9 +26,9 @@ class SalesInvoiceItemBase(BaseModel):
     quantity: Decimal = Decimal("1.0000")
     price: Decimal = Field(..., ge=0)
     hsn_code: Optional[str] = Field(None, max_length=15, validation_alias=AliasChoices("hsn_code", "hsnCode"))
-    gst_rate: Decimal = Field(Decimal("18.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
-    tax_amount: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_amount", "taxAmount"))
-    total_amount: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("total_amount", "totalAmount"))
+    gst_rate: Optional[Decimal] = Field(Decimal("18.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
+    tax_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_amount", "taxAmount"))
+    total_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("total_amount", "totalAmount"))
 
 class SalesInvoiceItemCreate(SalesInvoiceItemBase):
     pass
@@ -67,14 +67,14 @@ class SalesInvoiceUpdate(BaseModel):
 
 class SalesInvoiceResponse(SalesInvoiceBase):
     id: str
-    uuid: str
+    uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
-    is_active: bool
-    is_deleted: bool
-    version: int
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
+    is_active: Optional[bool] = True
+    is_deleted: Optional[bool] = False
+    version: Optional[int] = 1
     items: List[SalesInvoiceItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
@@ -128,14 +128,14 @@ class SalesQuotationUpdate(BaseModel):
 
 class SalesQuotationResponse(SalesQuotationBase):
     id: str
-    uuid: str
+    uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
-    is_active: bool
-    is_deleted: bool
-    version: int
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
+    is_active: Optional[bool] = True
+    is_deleted: Optional[bool] = False
+    version: Optional[int] = 1
     items: List[SalesQuotationItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
@@ -189,14 +189,14 @@ class SalesOrderUpdate(BaseModel):
 
 class SalesOrderResponse(SalesOrderBase):
     id: str
-    uuid: str
+    uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
-    is_active: bool
-    is_deleted: bool
-    version: int
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
+    is_active: Optional[bool] = True
+    is_deleted: Optional[bool] = False
+    version: Optional[int] = 1
     items: List[SalesOrderItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
@@ -253,14 +253,14 @@ class SalesReturnUpdate(BaseModel):
 
 class SalesReturnResponse(SalesReturnBase):
     id: str
-    uuid: str
+    uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
-    is_active: bool
-    is_deleted: bool
-    version: int
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
+    is_active: Optional[bool] = True
+    is_deleted: Optional[bool] = False
+    version: Optional[int] = 1
     items: List[SalesReturnItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)

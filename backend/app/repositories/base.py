@@ -14,7 +14,7 @@ License      : Proprietary Commercial Software
 from datetime import datetime, timezone
 from typing import Generic, TypeVar
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -33,8 +33,11 @@ class BaseRepository(Generic[ModelType]):
         if self.tenant_ctx:
             if hasattr(self.model, "company_id"):
                 stmt = stmt.filter(self.model.company_id == self.tenant_ctx.company_id)
-            if hasattr(self.model, "branch_id"):
-                stmt = stmt.filter(self.model.branch_id == self.tenant_ctx.branch_id)
+            if hasattr(self.model, "branch_id") and self.tenant_ctx.branch_id:
+                if self.tenant_ctx.branch_id in ("BR-MAIN-001", "MAIN", "BR-001"):
+                    stmt = stmt.filter(or_(self.model.branch_id.in_(["BR-MAIN-001", "MAIN", "BR-001"]), self.model.branch_id.is_(None)))
+                else:
+                    stmt = stmt.filter(or_(self.model.branch_id == self.tenant_ctx.branch_id, self.model.branch_id.is_(None)))
         return stmt
 
     async def get(self, id: str) -> ModelType | None:

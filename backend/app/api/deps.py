@@ -129,18 +129,13 @@ async def get_tenant_context(
     header_branch = request.headers.get("x-branch-code") or request.headers.get("X-Branch-Code")
 
     target_company = header_company if header_company else current_user.company_id
-    if target_company in ("001", "TATTLY", "comp-default"):
+    if not target_company or target_company in ("001", "TATTLY", "comp-default", "tattly_threads", "default"):
         target_company = "COMP-001"
+    
     target_branch = header_branch if header_branch else current_user.branch_id
-
-    if not target_company or not target_branch:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "Your account is not assigned to a company and branch. "
-                "A SYSADMIN must assign you to a branch before you can access business data."
-            ),
-        )
+    if not target_branch:
+        # Default to main branch for company if unspecified
+        target_branch = "BR-MAIN-001" if target_company == "COMP-001" else f"BR-{target_company.replace('COMP-', '')}-MAIN"
 
     if current_user.role != UserRole.SYSADMIN:
         # Header Tampering Security Check

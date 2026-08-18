@@ -110,6 +110,7 @@ export const CompanySelector: React.FC = () => {
         localStorage.setItem("smriti_jwt_token", res.access_token);
         localStorage.setItem("smriti_company_id", comp.company_id);
         localStorage.setItem("smriti_company_code", comp.company_code);
+        localStorage.setItem("smriti_branch_id", targetBranch.id);
         setSelectedCompanyId(comp.company_id);
         setIsOpen(false);
         // Reload to re-initialize layout and workspace subscriptions with the committed company token

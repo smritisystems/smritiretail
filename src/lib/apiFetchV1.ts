@@ -13,7 +13,7 @@
 
 /**
  * Universal client fetch helper for FastAPI Core API (/api/v1/*)
- * Automatically attaches Authorization Bearer JWT and X-Company-Code multi-tenant routing header.
+ * Automatically attaches Authorization Bearer JWT and X-Company-Code & X-Branch-Code multi-tenant routing headers.
  * Includes one-shot silent token refresh on 401 to prevent session disruption during retail shifts.
  */
 
@@ -65,6 +65,7 @@ async function _attemptSilentRefresh(): Promise<string | null> {
   localStorage.removeItem("smriti_refresh_token");
   localStorage.removeItem("smriti_company_id");
   localStorage.removeItem("smriti_company_code");
+  localStorage.removeItem("smriti_branch_id");
   _refreshWaiters.forEach(r => r(null));
   _refreshWaiters = [];
   _refreshingToken = false;
@@ -76,6 +77,9 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (companyCode && !headers.has("X-Company-Code")) headers.set("X-Company-Code", companyCode);
   if (companyId && !headers.has("X-Company-ID")) headers.set("X-Company-ID", companyId);
+  const branchId = localStorage.getItem("smriti_branch_id") || "BR-MAIN-001";
+  if (branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", branchId);
+  if (branchId && !headers.has("X-Branch-Code")) headers.set("X-Branch-Code", branchId);
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
@@ -143,8 +147,6 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
     } catch {
       errorData = { detail: "Upstream python-core communication failed." };
     }
-    
-    // HREP Compliant error structure fallback
     const errMsg = errorData.detail || errorData.message || `API request failed with status ${response.status}`;
     throw new Error(typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg);
   }

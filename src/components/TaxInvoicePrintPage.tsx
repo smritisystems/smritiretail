@@ -187,31 +187,9 @@ export const TaxInvoicePrintPage: React.FC = () => {
     }
   }, []);
 
-  // Auto-authenticate default session if unauthenticated (Rule AUTH-001)
+  // Verify session authentication state
   const ensureAuthenticated = async () => {
-    if (typeof localStorage !== 'undefined') {
-      const existingToken = localStorage.getItem("smriti_jwt_token");
-      if (!existingToken || existingToken === "null" || isLocalMockToken()) {
-        try {
-          const loginRes = await fetch("/api/v1/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username: "super", password: "Shpr0128vdq!@" })
-          });
-          if (loginRes.ok) {
-            const authData = await loginRes.json();
-            if (authData.access_token) {
-              localStorage.setItem("smriti_jwt_token", authData.access_token);
-              localStorage.setItem("smriti_session_token", authData.access_token);
-              localStorage.setItem("smriti_company_code", "tattly_threads");
-              localStorage.setItem("smriti_active_company", "tattly_threads");
-            }
-          }
-        } catch (e) {
-          console.warn("[TaxInvoicePrintPage] Auto-authentication attempt failed:", e);
-        }
-      }
-    }
+    // Rely on standard session token from login
   };
 
   // Load the 54 Tattly Threads invoices for sequence navigation
@@ -221,13 +199,9 @@ export const TaxInvoicePrintPage: React.FC = () => {
         await ensureAuthenticated();
         let data: any = null;
         try {
-          data = await apiFetchV1("/sales/invoices?company_code=tattly_threads");
+          data = await apiFetchV1("/sales/invoices");
         } catch (_err) {
-          try {
-            data = await apiFetchV1("/tattly/invoices?company_code=tattly_threads");
-          } catch (_err2) {
-            console.warn("[TaxInvoicePrintPage] Primary invoices list fetch error:", _err2);
-          }
+          console.warn("[TaxInvoicePrintPage] Primary invoices list fetch error:", _err);
         }
 
         if (Array.isArray(data) && data.length > 0) {
@@ -266,13 +240,9 @@ export const TaxInvoicePrintPage: React.FC = () => {
       let data: any = null;
 
       try {
-        data = await apiFetchV1(`/sales/invoices/${cleanId}?company_code=tattly_threads`);
+        data = await apiFetchV1(`/sales/invoices/${cleanId}`);
       } catch (_err1) {
-        try {
-          data = await apiFetchV1(`/tattly/invoices/${cleanId}?company_code=tattly_threads`);
-        } catch (_err2) {
-          console.warn("[TaxInvoicePrintPage] Invoice fetch fallback error:", _err2);
-        }
+        console.warn("[TaxInvoicePrintPage] Invoice fetch fallback error:", _err1);
       }
 
       if (!data) {
