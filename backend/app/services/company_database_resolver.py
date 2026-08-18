@@ -97,7 +97,7 @@ class CompanyDatabaseResolver:
             if not company_row:
                 if company_id in ("COMP-001", "COMPANY-001"):
                     is_active = True
-                    company_name = "SMRITI Retail Enterprise Default"
+                    company_name = "Tattly Threads"
                     resolved_code = company_code
                 else:
                     raise HTTPException(

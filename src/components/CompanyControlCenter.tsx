@@ -34,13 +34,13 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
   const companyData = {
     companyId: companyId,
     companyCode: '001',
-    companyName: 'SMRITI Retail Enterprise Default',
-    legalName: 'SMRITI Systems Private Limited',
+    companyName: 'Tattly Threads',
+    legalName: 'Tattly Threads',
     status: 'READY',
     companyAdmin: 'Jawahar Ramkripal Mallah',
-    branches: ['Main Branch - Mumbai', 'Sub-Branch - Delhi'],
+    branches: ['Main Corporate Branch - Mumbai', 'South Distribution Hub'],
     database: {
-      databaseName: 'company_db_001',
+      databaseName: 'smriti001',
       provisioningStatus: 'READY',
       healthStatus: 'HEALTHY',
       schemaVersion: '3.16.0',
