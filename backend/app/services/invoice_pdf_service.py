@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 4.9.4
+Version      : 4.9.5
 Created      : 2026-08-14
-Modified     : 2026-08-18
+Modified     : 2026-08-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -125,9 +125,14 @@ def generate_barcode_base64(val: str) -> str:
 
 
 def generate_qr_base64(data_str: str) -> str:
-    """Generates GST E-Invoice QR Code as base64 PNG data URI."""
+    """Generates QR Code as base64 PNG data URI (supports standard and IRP signed payloads)."""
     try:
-        qr = qrcode.QRCode(version=1, box_size=3, border=1)
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=3,
+            border=1
+        )
         qr.add_data(data_str)
         qr.make(fit=True)
         img = qr.make_image(fill_color='black', back_color='white')
@@ -314,56 +319,25 @@ class InvoicePdfService:
     CONFIG = CANONICAL_INVOICE_LAYOUT_CONFIG
 
     @classmethod
-    async def generate_invoice_html(
+    def generate_invoice_html_from_model(
         cls,
-        session: AsyncSession,
-        invoice_id: str,
-        company_id: Optional[str] = None,
-        branch_id: Optional[str] = None,
+        invoice: Any,
         company_name: str = "TATTLY THREADS",
         company_gstin: str = "27AAXFT2508H1ZR",
         extra_meta: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        Retrieves authoritative invoice record from database under tenant isolation context
-        and renders pixel-faithful GST Tax Invoice HTML.
+        Renders pixel-faithful GST Tax Invoice HTML directly from an authoritative model or object.
         """
-        stmt = (
-            select(SalesInvoice)
-            .options(selectinload(SalesInvoice.items))
-            .where(SalesInvoice.id == invoice_id, SalesInvoice.is_deleted == False)
-        )
-        if company_id:
-            stmt = stmt.where(SalesInvoice.company_id == company_id)
-        if branch_id:
-            stmt = stmt.where(SalesInvoice.branch_id == branch_id)
-
-        res = await session.execute(stmt)
-        invoice = res.scalars().first()
-        if not invoice:
-            raise HTTPException(status_code=404, detail="Invoice not found under current company context.")
-
-        # Verify layout integrity before rendering
-        verify_smrititaxinvoice_integrity()
-
-        # Load persisted canonical template configuration from Company Database
-        tpl_stmt = select(TaxInvoiceTemplate).where(
-            TaxInvoiceTemplate.template_code.in_(["SMRITITAXINVOICE", "TAX_INVOICE_TATTLY_THREADS"]),
-            TaxInvoiceTemplate.is_deleted == False
-        )
-        tpl_res = await session.execute(tpl_stmt)
-        tpl_record = tpl_res.scalars().first()
-        tpl_config = (tpl_record.layout_configuration if tpl_record and tpl_record.layout_configuration else cls.CONFIG) or {}
-
         is_interstate = getattr(invoice, "is_interstate", True)
         if is_interstate is None:
             is_interstate = True
 
         status_str = getattr(invoice, "status", "Draft") or "Draft"
-        is_cancelled = status_str.upper() == "CANCELLED"
+        is_cancelled = str(status_str).upper() == "CANCELLED"
 
         meta = extra_meta or {}
-        invoice_no = invoice.invoice_no or f"INV-{invoice.id}"
+        invoice_no = getattr(invoice, "invoice_no", None) or f"INV-{getattr(invoice, 'id', '001')}"
         
         date_obj = invoice.date
         if hasattr(date_obj, "strftime"):
@@ -418,19 +392,34 @@ class InvoicePdfService:
 
         grand_total = Decimal(str(invoice.grand_total or 0))
 
-        # Barcode & Compliance-Aware QR Generation (3-State Architecture)
+        # Barcode & Compliance-Aware QR Generation (Backend-Driven Compliance State)
         barcode_uri = generate_barcode_base64(invoice_no)
         
+        irn = getattr(invoice, "irn", None) or meta.get("irn")
+        signed_qr_payload = (
+            getattr(invoice, "signed_qr_payload", None)
+            or meta.get("signed_qr_payload")
+            or getattr(invoice, "signed_qr_data", None)
+            or meta.get("signed_qr_data")
+        )
+        e_invoice_status = getattr(invoice, "e_invoice_status", None) or meta.get("e_invoice_status", "NOT_APPLICABLE")
+
         # State 1: Cancelled / Voided Invoice
         if is_cancelled:
+            qr_label = "VOID / CANCELLED"
             qr_data_str = f"STATUS:CANCELLED|GSTIN:{company_gstin}|INV:{invoice_no}|DATE:{date_str}|VAL:{float(grand_total):.2f}"
-        # State 2: Registered IRP E-Invoice (if IRN present)
-        elif getattr(invoice, "irn", None) or meta.get("irn"):
-            irn_val = getattr(invoice, "irn", None) or meta.get("irn")
-            qr_data_str = getattr(invoice, "signed_qr_data", None) or meta.get("signed_qr_data", f"IRN:{irn_val}|GSTIN:{company_gstin}|INV:{invoice_no}|VAL:{float(grand_total):.2f}|DATE:{date_str}")
-        # State 3: Safe Dynamic Verification QR (B2C / Domestic Non-IRP)
+        # State 2: Registered IRP E-Invoice (if BOTH valid IRN and signed QR payload are present)
+        elif irn and signed_qr_payload and str(e_invoice_status).upper() != "PENDING":
+            qr_label = "GST E-INVOICE QR"
+            qr_data_str = signed_qr_payload
+        # State 3: E-Invoice Applicable but Pending
+        elif str(e_invoice_status).upper() == "PENDING":
+            qr_label = "VERIFY INVOICE"
+            qr_data_str = f"DOC:TAX_INVOICE|INV:{invoice_no}|DATE:{date_str}|GSTIN:{company_gstin}|VAL:{float(grand_total):.2f}|STATUS:PENDING_IRP"
+        # State 4: Safe Dynamic Verification QR (B2C / Domestic Non-IRP / Missing IRN or Payload)
         else:
-            qr_data_str = f"GSTIN:{company_gstin}|INV:{invoice_no}|VAL:{float(grand_total):.2f}|DATE:{date_str}|POS:{pos_code}"
+            qr_label = "VERIFY INVOICE"
+            qr_data_str = f"DOC:TAX_INVOICE|INV:{invoice_no}|DATE:{date_str}|GSTIN:{company_gstin}|VAL:{float(grand_total):.2f}|POS:{pos_code}"
 
         qr_uri = generate_qr_base64(qr_data_str)
         logo_uri = get_tattly_logo_base64()
@@ -853,6 +842,18 @@ class InvoicePdfService:
           border-radius: 6px;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
+        .watermark-logo {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 80%;
+          max-width: 80%;
+          opacity: 0.07;
+          z-index: 0;
+          pointer-events: none;
+          user-select: none;
+        }
         """
         
         if is_interstate:
@@ -1033,8 +1034,8 @@ class InvoicePdfService:
                           {f'<div style="margin-top: 1px;"><img src="{barcode_uri}" style="height: 16px; width: auto;"/><div style="font-family: monospace; font-size: 6px; font-weight: 700; color: #374151;">{invoice_no}</div></div>' if barcode_uri else ''}
                         </div>
                         <div style="text-align: center;">
-                          {f'<img src="{qr_uri}" style="width: 42px; height: 42px; border: 1px solid #d1d5db; padding: 1px;"/>' if qr_uri else ''}
-                          <div style="font-family: monospace; font-size: 5.5px; color: #6b7280; text-transform: uppercase;">GST E-INVOICE QR</div>
+                          {f'<img src="{qr_uri}" style="width: 42px; height: 42px; border: 1px solid #d1d5db; padding: 1px; object-fit: contain;"/>' if qr_uri else ''}
+                          <div style="font-family: monospace; font-size: 5.5px; color: #6b7280; text-transform: uppercase;">{qr_label}</div>
                         </div>
                       </div>
                       <table class="meta-table">
@@ -1045,6 +1046,7 @@ class InvoicePdfService:
                         <tr><td class="meta-label">Reverse Charge:</td><td class="meta-val">{reverse_charge_display}</td></tr>
                         <tr><td class="meta-label">PO / Reference:</td><td class="meta-val">{po_reference}</td></tr>
                         <tr><td class="meta-label">E-Way Bill No:</td><td class="meta-val">{eway_bill}</td></tr>
+                        {f'<tr><td class="meta-label">IRN:</td><td class="meta-val" style="word-break: break-all; font-family: monospace; font-size: 5px;">{irn}</td></tr>' if (irn and signed_qr_payload and str(e_invoice_status).upper() != "PENDING") else ''}
                       </table>
                     </td>
                   </tr>
@@ -1217,19 +1219,21 @@ class InvoicePdfService:
                 
             is_last_page = (p_idx == total_pages)
             disclaimer_html = f"""
-              <div style="font-size: 6.00pt; color: #6b7280;">This is a computer-generated tax invoice and does not require a physical signature.</div>
-              <div style="font-size: 6.00pt; font-weight: 700; text-transform: uppercase; color: #374151;">SUBJECT TO MUMBAI JURISDICTION.</div>
-              <div style="font-size: 6.00pt; font-weight: 600; color: #4b5563; margin-bottom: 1px;">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</div>
+              <div style="font-size: 6.00pt; color: #6b7280; text-align: center;">This is a computer-generated tax invoice and does not require a physical signature.</div>
+              <div style="font-size: 6.00pt; font-weight: 700; text-transform: uppercase; color: #374151; text-align: center;">SUBJECT TO MUMBAI JURISDICTION.</div>
             """ if is_last_page else ""
             footer_html = f"""
             <div class="page-footer" style="flex-direction: column; text-align: center; gap: 1px;">
               {disclaimer_html}
               <div style="font-size: 6.00pt; color: #6b7280; display: flex; justify-content: space-between; align-items: center; width: 100%; padding-top: 2px; border-top: 1px dashed #d1d5db; margin-top: 1px;">
-                <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 6px; flex: 1; justify-content: flex-start;">
                   {f'<img src="{logo_uri}" style="height: 14px; max-width: 65px; object-fit: contain;"/>' if logo_uri else ''}
                   <span>Page {p_idx} of {total_pages}</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="font-size: 5.50pt; font-weight: 600; color: #4b5563; text-align: center; flex: 1.5;">
+                  SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; flex: 1; justify-content: flex-end;">
                   {f'<img src="{barcode_uri}" style="height: 12px; width: auto;"/>' if barcode_uri else ''}
                   <span>Invoice No: {invoice_no}</span>
                 </div>
@@ -1253,13 +1257,16 @@ class InvoicePdfService:
                 
             page_html = f"""
             <div class="page-container">
+              {f'<img class="watermark-logo" src="{logo_uri}" alt="" />' if logo_uri else ''}
               {f'<div class="watermark-cancelled">CANCELLED</div>' if is_cancelled else ''}
-              <div>
+              <div style="position: relative; z-index: 1;">
                 {page_top}
                 {table_html}
                 {page_bottom}
               </div>
-              {footer_html}
+              <div style="position: relative; z-index: 1;">
+                {footer_html}
+              </div>
             </div>
             """
             html_pages.append(page_html)
@@ -1280,6 +1287,80 @@ class InvoicePdfService:
         </html>
         """
         return full_html
+
+    @classmethod
+    def generate_invoice_html_sync(
+        cls,
+        invoice: Any,
+        company_name: str = "TATTLY THREADS",
+        company_gstin: str = "27AAXFT2508H1ZR",
+        extra_meta: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Synchronous wrapper for generating invoice HTML from model object."""
+        return cls.generate_invoice_html_from_model(
+            invoice=invoice,
+            company_name=company_name,
+            company_gstin=company_gstin,
+            extra_meta=extra_meta
+        )
+
+    @classmethod
+    async def generate_invoice_html(
+        cls,
+        session: Any = None,
+        invoice_id: Optional[str] = None,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        company_name: str = "TATTLY THREADS",
+        company_gstin: str = "27AAXFT2508H1ZR",
+        extra_meta: Optional[Dict[str, Any]] = None,
+        invoice: Optional[Any] = None
+    ) -> str:
+        """
+        Retrieves authoritative invoice record from database under tenant isolation context
+        (or directly processes an invoice model object) and renders pixel-faithful GST Tax Invoice HTML.
+        """
+        if invoice is not None:
+            return cls.generate_invoice_html_from_model(
+                invoice=invoice,
+                company_name=company_name,
+                company_gstin=company_gstin,
+                extra_meta=extra_meta
+            )
+
+        if session is not None and (not hasattr(session, "execute") or hasattr(session, "invoice_no")):
+            invoice_obj = session
+            return cls.generate_invoice_html_from_model(
+                invoice=invoice_obj,
+                company_name=company_name,
+                company_gstin=company_gstin,
+                extra_meta=extra_meta
+            )
+
+        stmt = (
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(SalesInvoice.id == invoice_id, SalesInvoice.is_deleted == False)
+        )
+        if company_id:
+            stmt = stmt.where(SalesInvoice.company_id == company_id)
+        if branch_id:
+            stmt = stmt.where(SalesInvoice.branch_id == branch_id)
+
+        res = await session.execute(stmt)
+        invoice_rec = res.scalars().first()
+        if not invoice_rec:
+            raise HTTPException(status_code=404, detail="Invoice not found under current company context.")
+
+        # Verify layout integrity before rendering
+        verify_smrititaxinvoice_integrity()
+
+        return cls.generate_invoice_html_from_model(
+            invoice=invoice_rec,
+            company_name=company_name,
+            company_gstin=company_gstin,
+            extra_meta=extra_meta
+        )
 
     @classmethod
     async def render_pdf_to_file(
