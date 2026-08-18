@@ -19,28 +19,28 @@ from pydantic import BaseModel, ConfigDict, Field
 # Base schema for CustomerGroup
 class CustomerGroupBase(BaseModel):
     name: str = Field(..., max_length=100)
-    credit_limit: Decimal = Decimal("0.00")
-    unlimited_credit: bool = False
-    credit_days: int = 0
-    grace_days: int = 0
-    credit_hold: bool = False
-    auto_block_sales: bool = True
-    warning_threshold_percent: Decimal = Decimal("80.00")
-    allow_override: bool = False
-    tax_inclusive: bool = True
-    max_discount_percent: Decimal = Decimal("0.00")
-    min_margin_percent: Decimal = Decimal("0.00")
-    rounding_rule: str = "Nearest1"
-    allowed_payment_methods: List[str] = []
+    credit_limit: Optional[Decimal] = Decimal("0.00")
+    unlimited_credit: Optional[bool] = False
+    credit_days: Optional[int] = 0
+    grace_days: Optional[int] = 0
+    credit_hold: Optional[bool] = False
+    auto_block_sales: Optional[bool] = True
+    warning_threshold_percent: Optional[Decimal] = Decimal("80.00")
+    allow_override: Optional[bool] = False
+    tax_inclusive: Optional[bool] = True
+    max_discount_percent: Optional[Decimal] = Decimal("0.00")
+    min_margin_percent: Optional[Decimal] = Decimal("0.00")
+    rounding_rule: Optional[str] = "Nearest1"
+    allowed_payment_methods: Optional[List[str]] = []
     preferred_payment_method: Optional[str] = None
-    allow_back_orders: bool = False
-    allow_negative_stock_sales: bool = False
-    require_po_number: bool = False
-    invoice_language: str = "en"
-    can_view_price: bool = True
-    can_view_margin: bool = False
-    can_purchase_on_credit: bool = False
-    can_receive_discount: bool = True
+    allow_back_orders: Optional[bool] = False
+    allow_negative_stock_sales: Optional[bool] = False
+    require_po_number: Optional[bool] = False
+    invoice_language: Optional[str] = "en"
+    can_view_price: Optional[bool] = True
+    can_view_margin: Optional[bool] = False
+    can_purchase_on_credit: Optional[bool] = False
+    can_receive_discount: Optional[bool] = True
 
 class CustomerGroupCreate(CustomerGroupBase):
     id: str = Field(..., max_length=50)
@@ -72,11 +72,11 @@ class CustomerGroupUpdate(BaseModel):
 
 class CustomerGroupResponse(CustomerGroupBase):
     id: str
-    uuid: str
+    uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
     is_active: bool = True
     is_deleted: bool = False
     version: Optional[int] = 1
@@ -91,9 +91,9 @@ class CustomerBase(BaseModel):
     mobile: Optional[str] = Field(None, max_length=20)
     email: Optional[str] = Field(None, max_length=255)
     gst_number: Optional[str] = Field(None, max_length=15)
-    outstanding: Decimal = Decimal("0.00")
-    status: str = "Active"
-    created_date: date = Field(default_factory=date.today)
+    outstanding: Optional[Decimal] = Decimal("0.00")
+    status: Optional[str] = "Active"
+    created_date: Optional[date] = Field(default_factory=date.today)
     tags: List[str] = []
 
 class CustomerCreate(CustomerBase):
@@ -111,11 +111,11 @@ class CustomerUpdate(BaseModel):
 
 class CustomerResponse(CustomerBase):
     id: str
-    uuid: str
+    uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
     is_active: bool = True
     is_deleted: bool = False
     version: Optional[int] = 1

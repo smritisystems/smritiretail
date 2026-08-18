@@ -67,12 +67,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         }
         localStorage.removeItem("smriti_session_token"); // clear legacy token
         const user = data.user ?? {};
+        const compId = data.company_id ?? user.company_id ?? "COMP-001";
+        const brId = data.branch_id ?? user.branch_id ?? "BR-MAIN-001";
+        localStorage.setItem("smriti_company_id", compId);
+        localStorage.setItem("smriti_company_code", compId.replace(/^COMP-/, "") || "001");
+        localStorage.setItem("smriti_branch_id", brId);
         onLoginSuccess({
           role: user.role ?? "",
           name: user.display_name || user.full_name || user.username || username,
           passwordResetRequired: data.password_reset_required ?? false,
-          companyId: data.company_id ?? user.company_id,
-          branchId: data.branch_id ?? user.branch_id,
+          companyId: compId,
+          branchId: brId,
         });
       } else {
         const errMsg = typeof data.detail === "string"
