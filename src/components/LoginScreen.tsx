@@ -62,6 +62,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       const data = await res.json();
       if (res.ok && data.access_token) {
         localStorage.setItem("smriti_jwt_token", data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem("smriti_refresh_token", data.refresh_token);
+        }
         localStorage.removeItem("smriti_session_token"); // clear legacy token
         const user = data.user ?? {};
         onLoginSuccess({
