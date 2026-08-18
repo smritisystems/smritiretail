@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.21.0
+ * Version      : 3.21.1
  * Created      : 2026-07-12
- * Modified     : 2026-08-14
+ * Modified     : 2026-08-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -14,27 +14,80 @@
 /**
  * Universal client fetch helper for FastAPI Core API (/api/v1/*)
  * Automatically attaches Authorization Bearer JWT and X-Company-Code multi-tenant routing header.
+ * Includes one-shot silent token refresh on 401 to prevent session disruption during retail shifts.
  */
+
+// Guard flag: prevents concurrent silent refresh storms if multiple requests 401 simultaneously
+let _refreshingToken = false;
+let _refreshWaiters: Array<(newToken: string | null) => void> = [];
+
+async function _attemptSilentRefresh(): Promise<string | null> {
+  // If a refresh is already in-flight, queue up and wait for it
+  if (_refreshingToken) {
+    return new Promise((resolve) => { _refreshWaiters.push(resolve); });
+  }
+
+  _refreshingToken = true;
+  const refreshToken = localStorage.getItem("smriti_refresh_token");
+  if (!refreshToken) {
+    _refreshingToken = false;
+    _refreshWaiters.forEach(r => r(null));
+    _refreshWaiters = [];
+    return null;
+  }
+
+  try {
+    const refreshRes = await fetch("/api/v1/auth/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (refreshRes.ok) {
+      const refreshData = await refreshRes.json();
+      if (refreshData.access_token) {
+        localStorage.setItem("smriti_jwt_token", refreshData.access_token);
+        if (refreshData.refresh_token) {
+          localStorage.setItem("smriti_refresh_token", refreshData.refresh_token);
+        }
+        _refreshWaiters.forEach(r => r(refreshData.access_token));
+        _refreshWaiters = [];
+        _refreshingToken = false;
+        return refreshData.access_token;
+      }
+    }
+  } catch {
+    // Network failure during refresh
+  }
+
+  // Refresh failed — clear all auth state
+  localStorage.removeItem("smriti_jwt_token");
+  localStorage.removeItem("smriti_session_token");
+  localStorage.removeItem("smriti_refresh_token");
+  localStorage.removeItem("smriti_company_id");
+  localStorage.removeItem("smriti_company_code");
+  _refreshWaiters.forEach(r => r(null));
+  _refreshWaiters = [];
+  _refreshingToken = false;
+  return null;
+}
+
+function _buildHeaders(token: string | null, companyCode: string, companyId: string, options: RequestInit): Headers {
+  const headers = new Headers(options.headers || {});
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (companyCode && !headers.has("X-Company-Code")) headers.set("X-Company-Code", companyCode);
+  if (companyId && !headers.has("X-Company-ID")) headers.set("X-Company-ID", companyId);
+  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+  return headers;
+}
+
 export async function apiFetchV1(endpoint: string, options: RequestInit = {}): Promise<any> {
   const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
   const companyCode = localStorage.getItem("smriti_company_code") || "001";
   const companyId = localStorage.getItem("smriti_company_id") || "COMP-001";
 
-  const headers = new Headers(options.headers || {});
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-  if (companyCode && !headers.has("X-Company-Code")) {
-    headers.set("X-Company-Code", companyCode);
-  }
-  if (companyId && !headers.has("X-Company-ID")) {
-    headers.set("X-Company-ID", companyId);
-  }
-  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  // Sanitize endpoint string — remove any embedded docker hostname prefixes (e.g. python-core:8000, smriti-api:8000)
+  // Sanitize endpoint string — remove any embedded docker hostname prefixes
   let cleanEndpoint = endpoint
     .replace(/https?:\/\/python-core(:[0-9]+)?/gi, "")
     .replace(/https?:\/\/smriti-api(:[0-9]+)?/gi, "")
@@ -51,12 +104,37 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
   try {
     response = await fetch(url, {
       ...options,
-      headers
+      headers: _buildHeaders(token, companyCode, companyId, options)
     });
   } catch (networkError: any) {
     console.error(`[apiFetchV1 Network Error] Target URL "${url}" unreachable:`, networkError);
     throw new Error("SMRITI Backend API Server is unreachable. Please ensure the FastAPI service (python-core:8000 / localhost:8000) is running.");
   }
+
+  // ── Silent Token Refresh on 401 ──────────────────────────────────────────────
+  // One-shot: attempt to silently refresh the access token, then retry the request.
+  // If refresh fails too, clear auth storage so the app cleanly routes to login.
+  if (response.status === 401) {
+    const newToken = await _attemptSilentRefresh();
+    if (newToken) {
+      // Retry original request with the fresh token
+      try {
+        const retryResponse = await fetch(url, {
+          ...options,
+          headers: _buildHeaders(newToken, companyCode, companyId, options)
+        });
+        if (retryResponse.ok) {
+          if (retryResponse.status === 204 || retryResponse.headers.get("content-length") === "0") return null;
+          const ct = retryResponse.headers.get("content-type") || "";
+          return ct.includes("text/plain") ? retryResponse.text() : retryResponse.json();
+        }
+        // Retry failed after refresh — fall through to throw
+      } catch { /* fall through */ }
+    }
+    // Refresh unavailable or retry failed
+    throw new Error("Token is invalid or has expired. Please log in again.");
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   if (!response.ok) {
     let errorData: any;
@@ -87,4 +165,3 @@ export function isLocalMockToken(): boolean {
   const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
   return !token || token.startsWith("MOCK_");
 }
-
