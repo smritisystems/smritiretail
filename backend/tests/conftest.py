@@ -46,9 +46,9 @@ def seed_control_plane_test_assignments():
 
         # 0. Insert governance companies into smritisys (Control Plane)
         ctrl_cur.execute("""
-            INSERT INTO companies (id, uuid, name, company_code, is_active, is_deleted, created_at, modified_at)
-            VALUES ('COMP-001', %s, 'SMRITI Retail Enterprise Default', '001', true, false, NOW(), NOW())
-            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+            INSERT INTO companies (id, uuid, name, gst_number, company_code, is_active, is_deleted, created_at, modified_at)
+            VALUES ('COMP-001', %s, 'Tattly Threads', '27AAXFT2508H1ZR', '001', true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET name = 'Tattly Threads', gst_number = '27AAXFT2508H1ZR', is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
         ctrl_cur.execute("""

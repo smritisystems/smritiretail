@@ -6,67 +6,57 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.25.0
  * Created      : 2026-08-14
- * Modified     : 2026-08-15
+ * Modified     : 2026-08-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Internal
  */
 
 import React, { useState, useEffect } from 'react';
-import { Building2, ChevronDown, Check } from 'lucide-react';
+import { Building2, ChevronDown, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { apiFetchV1 } from '../../lib/apiFetchV1';
 
 export interface CompanyOption {
   company_id: string;
   company_code: string;
   company_name: string;
-  database_name: string;
   status?: string;
 }
 
-const DEFAULT_COMPANIES: CompanyOption[] = [
-  {
-    company_id: "COMP-001",
-    company_code: "001",
-    company_name: "Tattly Retail Pvt Ltd",
-    database_name: "company_db_001",
-    status: "READY"
-  }
-];
+export interface BranchOption {
+  id: string;
+  name: string;
+  code: string;
+  company: string;
+}
 
 export const CompanySelector: React.FC = () => {
-  const [companies, setCompanies] = useState<CompanyOption[]>(DEFAULT_COMPANIES);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [branches, setBranches] = useState<BranchOption[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(() => {
     return localStorage.getItem("smriti_company_id") || "COMP-001";
   });
   const [isOpen, setIsOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!localStorage.getItem("smriti_company_id")) {
-      localStorage.setItem("smriti_company_id", "COMP-001");
-    }
-    if (!localStorage.getItem("smriti_company_code")) {
-      localStorage.setItem("smriti_company_code", "001");
-    }
-    if (!localStorage.getItem("smriti_database_name")) {
-      localStorage.setItem("smriti_database_name", "company_db_001");
-    }
-
     let isMounted = true;
     const loadCompanyRegistry = async () => {
       try {
-        const data = await apiFetchV1('/control-center/companies');
-        if (isMounted && Array.isArray(data) && data.length > 0) {
-          const mapped: CompanyOption[] = data.map((item: any) => ({
-            company_id: item.company_id || "COMP-001",
-            company_code: item.company_code || "001",
-            company_name: item.company_name || "Tattly Retail Pvt Ltd",
-            database_name: item.database_name || "company_db_001",
+        const data = await apiFetchV1('/auth/tenants');
+        if (isMounted && data && Array.isArray(data.companies) && data.companies.length > 0) {
+          const mapped: CompanyOption[] = data.companies.map((item: any) => ({
+            company_id: item.id || "COMP-001",
+            company_code: (item.id || "COMP-001").replace(/^COMP-/, "") || "001",
+            company_name: item.name || "Tattly Threads",
             status: item.status || "READY"
           }));
           setCompanies(mapped);
+          setBranches(Array.isArray(data.branches) ? data.branches : []);
         }
       } catch {
-        // Fallback to default company registry
+        // Retain current session state on fetch failure
       }
     };
 
@@ -87,24 +77,70 @@ export const CompanySelector: React.FC = () => {
     };
   }, []);
 
-  const handleSelectCompany = (comp: CompanyOption) => {
-    localStorage.setItem("smriti_company_id", comp.company_id);
-    localStorage.setItem("smriti_company_code", comp.company_code);
-    localStorage.setItem("smriti_database_name", comp.database_name);
-    setSelectedCompanyId(comp.company_id);
-    setIsOpen(false);
-    // Reload page to re-initialize API connection router
-    window.location.reload();
+  const handleSelectCompany = async (comp: CompanyOption) => {
+    if (comp.company_id === selectedCompanyId) {
+      setIsOpen(false);
+      return;
+    }
+
+    // 1. Resolve permitted branch for target company from authoritative /auth/tenants response
+    const compBranches = branches.filter((b) => b.company === comp.company_id);
+    if (compBranches.length === 0) {
+      setError(`No permitted branch found for ${comp.company_name}. Please contact your administrator.`);
+      return;
+    }
+
+    const targetBranch = compBranches[0];
+    setSwitching(true);
+    setError(null);
+
+    try {
+      const switchPayload = {
+        target_company_id: comp.company_id,
+        target_branch_id: targetBranch.id,
+      };
+
+      const res = await apiFetchV1('/auth/switch-context', {
+        method: 'POST',
+        body: JSON.stringify(switchPayload),
+      });
+
+      if (res && res.access_token) {
+        // 2. Commit updated token and company context ONLY on verified backend success
+        localStorage.setItem("smriti_jwt_token", res.access_token);
+        localStorage.setItem("smriti_company_id", comp.company_id);
+        localStorage.setItem("smriti_company_code", comp.company_code);
+        setSelectedCompanyId(comp.company_id);
+        setIsOpen(false);
+        // Reload to re-initialize layout and workspace subscriptions with the committed company token
+        window.location.reload();
+      } else {
+        throw new Error("Invalid response received during context switch.");
+      }
+    } catch (err: any) {
+      console.error("[CompanySelector] In-session switch failed:", err);
+      // 3. ON FAILURE: DO NOT change localStorage, DO NOT reload, keep current context intact
+      setSwitching(false);
+      setError("Unable to switch company. Your current workspace remains active. Please try again or contact your administrator.");
+    }
   };
 
-  const currentObj = companies.find(c => c.company_id === selectedCompanyId) || companies[0];
+  const currentObj = companies.find(c => c.company_id === selectedCompanyId) || {
+    company_id: selectedCompanyId,
+    company_code: selectedCompanyId.replace(/^COMP-/, "") || "001",
+    company_name: "SMRITI Workspace",
+    status: "READY"
+  };
 
   return (
     <div className="relative inline-block text-left">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setError(null);
+          setIsOpen(!isOpen);
+        }}
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white border border-blue-400 transition-all text-xs font-bold shadow-md cursor-pointer select-none"
-        title="Switch Active Business Database Tenant"
+        title="Switch Active Business Database Tenant (Alt+F3)"
       >
         <Building2 className="w-4 h-4 text-emerald-300 shrink-0" />
         <span className="max-w-[150px] truncate font-display">{currentObj.company_name}</span>
@@ -118,27 +154,55 @@ export const CompanySelector: React.FC = () => {
         <>
           <div 
             className="fixed inset-0 z-40" 
-            onClick={() => setIsOpen(false)} 
+            onClick={() => {
+              if (!switching) {
+                setIsOpen(false);
+                setError(null);
+              }
+            }} 
           />
-          <div className="absolute right-0 mt-2 w-64 rounded-xl bg-theme-surface-2 border border-theme-divider shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in duration-150">
-            <div className="px-3.5 py-2 text-[10px] font-mono font-bold text-theme-muted border-b border-theme-divider uppercase tracking-wider bg-theme-surface-3">
-              Select Active Business Tenant
+          <div className="absolute right-0 mt-2 w-72 rounded-xl bg-theme-surface-2 border border-theme-divider shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in duration-150">
+            <div className="px-3.5 py-2 text-[10px] font-mono font-bold text-theme-muted border-b border-theme-divider uppercase tracking-wider bg-theme-surface-3 flex items-center justify-between">
+              <span>Select Active Workspace</span>
+              {switching && <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />}
             </div>
-            {companies.map((comp) => (
-              <button
-                key={comp.company_id}
-                onClick={() => handleSelectCompany(comp)}
-                className={`w-full text-left px-3.5 py-2.5 text-xs flex items-center justify-between hover:bg-theme-surface-hover transition-colors cursor-pointer ${
-                  comp.company_id === selectedCompanyId ? 'text-blue-700 font-bold bg-blue-50 border-l-2 border-blue-600' : 'text-theme-body'
-                }`}
-              >
-                <div>
-                  <div className="font-semibold">{comp.company_name}</div>
-                  <div className="text-[10px] font-mono text-theme-muted mt-0.5">Database: {comp.database_name}</div>
-                </div>
-                {comp.company_id === selectedCompanyId && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
-              </button>
-            ))}
+
+            {/* Error Message if context switch fails */}
+            {error && (
+              <div className="m-2 p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[11px] flex items-start gap-2 font-mono">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400 mt-0.5" />
+                <div className="leading-tight">{error}</div>
+              </div>
+            )}
+
+            <div className="max-h-60 overflow-y-auto">
+              {companies.map((comp) => {
+                const isSelected = comp.company_id === selectedCompanyId;
+                const compBranches = branches.filter((b) => b.company === comp.company_id);
+                const branchName = compBranches[0]?.name || "Main Branch";
+
+                return (
+                  <button
+                    key={comp.company_id}
+                    disabled={switching}
+                    onClick={() => handleSelectCompany(comp)}
+                    className={`w-full text-left px-3.5 py-2.5 text-xs flex items-center justify-between hover:bg-theme-surface-hover transition-colors cursor-pointer ${
+                      isSelected ? 'text-blue-700 font-bold bg-blue-50 border-l-2 border-blue-600' : 'text-theme-body'
+                    } ${switching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="font-semibold truncate">{comp.company_name}</div>
+                      <div className="text-[10px] font-mono text-theme-muted mt-0.5 flex items-center gap-1.5">
+                        <span>Code: {comp.company_code}</span>
+                        <span>•</span>
+                        <span className="truncate">{branchName}</span>
+                      </div>
+                    </div>
+                    {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </>
       )}
