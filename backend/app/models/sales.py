@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.18.0
 Created      : 2026-07-11
-Modified     : 2026-07-14
+Modified     : 2026-08-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -59,6 +59,13 @@ class SalesInvoice(BaseEntity):
     original_pdf_path       = Column(String(500))
     original_pdf_size       = Column(Integer)
     original_pdf_pages      = Column(Integer)
+
+    # E-Invoice & IRP Compliance (Rule 5 & Backend-Driven Compliance State)
+    e_invoice_status        = Column(String(50), default="NOT_APPLICABLE")  # NOT_APPLICABLE | PENDING | GENERATED | FAILED
+    irn                     = Column(String(100))
+    ack_no                  = Column(String(100))
+    ack_date                = Column(String(100))
+    signed_qr_payload       = Column(Text)
 
     # Relationships
     items = relationship("SalesInvoiceItem", back_populates="invoice", cascade="all, delete-orphan")

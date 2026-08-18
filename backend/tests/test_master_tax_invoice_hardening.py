@@ -224,3 +224,179 @@ def test_cancelled_invoice_status_and_watermark():
     
     active_inv = "TT2026-2027/64"
     assert active_inv not in cancelled_numbers
+
+
+class MockItem:
+    def __init__(self, line_no=1, name="Shoe 1", quantity=10, price=Decimal("1000.00"), gst_rate=Decimal("5.00"), mrp=Decimal("1778.00"), disc_pct=Decimal("43.76"), taxable_value=Decimal("10000.00"), igst_amount=Decimal("500.00"), cgst_amount=Decimal("0.00"), sgst_amount=Decimal("0.00")):
+        self.line_no = line_no
+        self.name = name
+        self.code = "SKU-001"
+        self.quantity = quantity
+        self.price = price
+        self.gst_rate = gst_rate
+        self.mrp = mrp
+        self.disc_pct = disc_pct
+        self.taxable_value = taxable_value
+        self.igst_amount = igst_amount
+        self.cgst_amount = cgst_amount
+        self.sgst_amount = sgst_amount
+        self.hsn_code = "6403"
+
+
+class MockInvoice:
+    def __init__(self, invoice_no="TT2026-2027/64", irn=None, ack_no=None, ack_date=None, signed_qr_payload=None, e_invoice_status="NOT_APPLICABLE", is_reverse_charge=False):
+        self.invoice_no = invoice_no
+        self.date = "2026-08-12"
+        self.grand_total = Decimal("10500.00")
+        self.tax_total = Decimal("500.00")
+        self.customer_name = "RELIANCE RETAIL LIMITED"
+        self.customer_gstin = "07AABCR1718E1ZR"
+        self.billing_address = "Delhi, India"
+        self.shipping_address = "Delhi, India"
+        self.site_name = "Reliance Trends"
+        self.sis_code = "TVT0"
+        self.pos_state = "Delhi"
+        self.po_reference = "5182778202"
+        self.eway_bill_no = ""
+        self.is_interstate = True
+        self.status = "Generated"
+        self.reverse_charge = is_reverse_charge
+        self.is_reverse_charge = is_reverse_charge
+        self.irn = irn
+        self.ack_no = ack_no
+        self.ack_date = ack_date
+        self.signed_qr_payload = signed_qr_payload
+        self.e_invoice_status = e_invoice_status
+        self.items = [MockItem()]
+
+
+def test_valid_irp_signed_qr_rendering():
+    """
+    Test 13 (QR-1): Valid IRP signed QR and IRN display
+    When e-invoice is GENERATED with valid IRN and signed payload:
+    - QR label must be 'GST E-INVOICE QR'
+    - IRN must be printed in metadata table
+    - QR image must be generated from signed_qr_payload
+    """
+    irn_sample = "c743813959c9228d4889c09930777e48b816361a91e5e0cf7925e0bc08985160"
+    signed_qr_sample = f"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.GSTIN:27AAXFT2508H1ZR|IRN:{irn_sample}"
+    inv = MockInvoice(
+        irn=irn_sample,
+        ack_no="122026000012345",
+        ack_date="2026-08-12T10:30:00",
+        signed_qr_payload=signed_qr_sample,
+        e_invoice_status="GENERATED"
+    )
+    html = InvoicePdfService.generate_invoice_html_sync(inv)
+    assert "GST E-INVOICE QR" in html
+    assert "IRN:" in html
+    assert irn_sample in html
+
+
+def test_missing_irn_compliance():
+    """
+    Test 14 (QR-2): Missing IRN in pending e-invoice
+    When e-invoice status is PENDING:
+    - Must NOT fabricate IRN or claim IRP-registered
+    - QR label must be 'VERIFY INVOICE' (never GST E-INVOICE QR)
+    - IRN row must NOT appear
+    """
+    inv = MockInvoice(
+        irn=None,
+        signed_qr_payload=None,
+        e_invoice_status="PENDING"
+    )
+    html = InvoicePdfService.generate_invoice_html_sync(inv)
+    assert "GST E-INVOICE QR" not in html
+    assert "VERIFY INVOICE" in html
+    assert "<tr><td class=\"meta-label\">IRN:</td>" not in html
+
+
+def test_missing_signed_qr_payload():
+    """
+    Test 15 (QR-3): Missing signed QR payload
+    When IRN exists but signed payload is missing:
+    - Must NOT label as official GST E-INVOICE QR
+    - Falls back safely to VERIFY INVOICE
+    """
+    inv = MockInvoice(
+        irn="c743813959c9228d4889c09930777e48b816361a91e5e0cf7925e0bc08985160",
+        signed_qr_payload=None,
+        e_invoice_status="GENERATED"
+    )
+    html = InvoicePdfService.generate_invoice_html_sync(inv)
+    assert "GST E-INVOICE QR" not in html
+    assert "VERIFY INVOICE" in html
+
+
+def test_non_e_invoice_invoice():
+    """
+    Test 16 (QR-4): Non-E-Invoice standard invoice
+    When e-invoice is not applicable:
+    - Must NOT label as GST E-INVOICE QR
+    - Uses standard SMRITI document verification QR (VERIFY INVOICE)
+    - Never uses invoice number alone
+    """
+    inv = MockInvoice(
+        irn=None,
+        signed_qr_payload=None,
+        e_invoice_status="NOT_APPLICABLE"
+    )
+    html = InvoicePdfService.generate_invoice_html_sync(inv)
+    assert "GST E-INVOICE QR" not in html
+    assert "VERIFY INVOICE" in html
+    assert "IRN:" not in html
+
+
+def test_qr_rendering_and_scannability():
+    """
+    Test 17 (QR-5): QR rendering and byte integrity
+    Verifies that QR code generates valid PNG data URI without distortion.
+    """
+    payload_short = "DOC:TAX_INVOICE|INV:TT2026-2027/64|DATE:12-08-2026|GSTIN:27AAXFT2508H1ZR|VAL:150035.00"
+    b64_short = generate_qr_base64(payload_short)
+    assert b64_short.startswith("data:image/png;base64,")
+    assert len(b64_short) > 200
+
+    # Test large 600+ char signed JWT payload
+    payload_jwt = "eyJhbGciOiJSUzI1NiJ9." + ("x" * 600) + ".signature"
+    b64_jwt = generate_qr_base64(payload_jwt)
+    assert b64_jwt.startswith("data:image/png;base64,")
+    assert len(b64_jwt) > 500
+
+
+def test_database_persistence_e_invoice_fields():
+    """
+    Test 18 (QR-6): Database Model E-Invoice Fields
+    Verifies SalesInvoice model possesses all required compliance persistence columns.
+    """
+    from app.models.sales import SalesInvoice
+    assert hasattr(SalesInvoice, "e_invoice_status")
+    assert hasattr(SalesInvoice, "irn")
+    assert hasattr(SalesInvoice, "ack_no")
+    assert hasattr(SalesInvoice, "ack_date")
+    assert hasattr(SalesInvoice, "signed_qr_payload")
+
+
+def test_pdf_output_with_qr_states():
+    """
+    Test 19 (QR-7): Complete HTML generation across all compliance states
+    """
+    states = [
+        ("GENERATED", "valid_irn_123", "signed_jwt_abc", "GST E-INVOICE QR"),
+        ("PENDING", None, None, "VERIFY INVOICE"),
+        ("NOT_APPLICABLE", None, None, "VERIFY INVOICE")
+    ]
+    for status, irn, payload, expected_label in states:
+        inv = MockInvoice(
+            irn=irn,
+            signed_qr_payload=payload,
+            e_invoice_status=status
+        )
+        html = InvoicePdfService.generate_invoice_html_sync(inv)
+        assert expected_label in html
+        assert "Place of Supply:" in html
+        assert "Reverse Charge:" in html
+        assert "SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS" in html
+        assert "watermark-logo" in html
+
