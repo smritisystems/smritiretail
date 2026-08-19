@@ -16,6 +16,7 @@ License      : Proprietary Commercial Software
 # SMRITI api v1 submodules
 from . import (
     ai,
+    approval_matrix,
     attributes,
     auth,
     assignments,
