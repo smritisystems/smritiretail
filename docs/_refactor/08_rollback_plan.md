@@ -26,6 +26,10 @@ DROP VIEW IF EXISTS report_flat_inventory_sales;
 DROP INDEX IF EXISTS idx_products_variant_id;
 DROP INDEX IF EXISTS uq_variant_identity_active;
 
+-- Revert sequence default & sequence
+ALTER TABLE products ALTER COLUMN variant_id DROP DEFAULT;
+DROP SEQUENCE IF EXISTS products_variant_id_seq;
+
 -- Revert surrogate key column
 ALTER TABLE products DROP COLUMN IF EXISTS variant_id;
 ```
