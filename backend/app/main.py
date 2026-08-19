@@ -36,6 +36,7 @@ from app.compliance.api import router as compliance_router
 
 from .api.v1 import (
     ai,
+    approval_matrix,
     attributes,
     auth,
     assignments,
@@ -150,6 +151,7 @@ app.include_router(training.router,         prefix=settings.API_V1_STR,         
 app.include_router(ecom.router,             prefix=settings.API_V1_STR,                     tags=["eCommerce / Omnichannel Engine"])
 app.include_router(company_control_center.router, prefix=settings.API_V1_STR, tags=["Company Control Center"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
+app.include_router(approval_matrix.router,  prefix=settings.API_V1_STR + "/approval-matrix", tags=["Approval Matrix"])
 
 
 # 4. Standard Health Diagnostics Endpoints
