@@ -319,8 +319,9 @@ const AppContent: React.FC = () => {
 
       // Fetch products from FastAPI backend
       try {
-        const prodData = await apiFetchV1("/inventory/");
-        const mappedProducts = prodData.map((p: any) => ({
+        const prodData = await apiFetchV1("/inventory/?page=1&page_size=100");
+        const rawList = Array.isArray(prodData) ? prodData : (prodData?.items || []);
+        const mappedProducts = rawList.map((p: any) => ({
           id: p.id,
           code: p.code,
           name: p.name,
