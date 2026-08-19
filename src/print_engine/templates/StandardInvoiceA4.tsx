@@ -657,11 +657,11 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                         Bank Details (Payment Info)
                       </p>
                       <p className="m-0 text-slate-700 leading-snug font-medium text-[8.5px]">
-                        <span className="font-semibold">Bank:</span> {bankInfo?.bankName || "STATE BANK OF INDIA"}<br />
-                        <span className="font-semibold">A/C Name:</span> {bankInfo?.accountName || "TATTLY THREADS"}<br />
-                        <span className="font-semibold">A/C No:</span> <span className="font-mono font-bold">{bankInfo?.accountNo || bankInfo?.accountNumber || "43976711765"}</span><br />
-                        <span className="font-semibold">IFSC:</span> <span className="font-mono font-bold">{bankInfo?.ifsc || bankInfo?.ifscCode || "SBIN0030425"}</span><br />
-                        <span className="font-semibold">Branch:</span> {bankInfo?.branch || bankInfo?.branchName || "WARDHMAN NAGAR NAGPUR"}
+                        <span className="font-semibold">Bank:</span> {bankInfo?.bankName || ""}<br />
+                        <span className="font-semibold">A/C Name:</span> {bankInfo?.accountName || ""}<br />
+                        <span className="font-semibold">A/C No:</span> <span className="font-mono font-bold">{bankInfo?.accountNo || bankInfo?.accountNumber || ""}</span><br />
+                        <span className="font-semibold">IFSC:</span> <span className="font-mono font-bold">{bankInfo?.ifsc || bankInfo?.ifscCode || ""}</span><br />
+                        <span className="font-semibold">Branch:</span> {bankInfo?.branch || bankInfo?.branchName || ""}
                       </p>
                     </div>
 

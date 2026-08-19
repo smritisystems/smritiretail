@@ -216,9 +216,13 @@ def create_and_persist_invoices():
                 %s, %s, %s, NULL, 'BANK_TRANSFER',
                 'COMPLETED', true, false, NOW(), NOW(), 1,
                 'LIVE', %s, %s, false, false,
-                %s, 'Reliance Retail Limited', %s, %s,
+                %s, %s, %s,
                 %s, %s, %s, %s,
-                %s, 'STATE BANK OF INDIA', '43976711765', 'SBIN0030425', 'NOT_APPLICABLE'
+                %s,
+                os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA"),
+                os.getenv("DEFAULT_BANK_ACCOUNT_NO", ""),
+                os.getenv("DEFAULT_BANK_IFSC", ""),
+                'NOT_APPLICABLE'
             );
         """, (
             inv_id, inv_uuid, inv_no, inv_date,

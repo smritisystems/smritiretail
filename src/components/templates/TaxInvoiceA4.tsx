@@ -723,9 +723,9 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
               <span className="text-gray-500 font-mono text-[9px] uppercase font-bold block mb-1">
                 Bank Details
               </span>
-              <p className="font-semibold text-gray-900">{data.bankName || "STATE BANK OF INDIA"}</p>
-              <p className="text-gray-600 font-mono">A/C No: {data.bankAccountNo || "43976711765"}</p>
-              <p className="text-gray-600 font-mono">IFSC: {data.bankIfsc || "SBIN0030425"} | Branch: {data.bankBranch || "WARDHMAN NAGAR NAGPUR"}</p>
+              <p className="font-semibold text-gray-900">{data.bankName || ""}</p>
+              <p className="text-gray-600 font-mono">A/C No: {data.bankAccountNo || ""}</p>
+              <p className="text-gray-600 font-mono">IFSC: {data.bankIfsc || ""} {data.bankBranch ? `| Branch: ${data.bankBranch}` : ""}</p>
               {data.paymentTerms && <p className="text-gray-700 mt-1 italic">Terms: {data.paymentTerms}</p>}
             </div>
 
