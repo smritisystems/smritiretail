@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.25.0
 Created      : 2026-07-11
-Modified     : 2026-07-13
+Modified     : 2026-08-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import TenantContext, get_db, get_tenant_context, require_role, verify_internal_service_key
+from ...api.deps import TenantContext, get_company_db, get_tenant_context, require_role, verify_internal_service_key
 from ...models.auth import User, UserRole
 from ...models.inventory import Product, StockMovement
 from ...repositories.product import ProductRepository
@@ -45,7 +45,7 @@ router = APIRouter()
 )
 async def create_product(
     product_in: ProductCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a new product. Requires MANAGER or SYSADMIN role."""
@@ -61,7 +61,7 @@ async def list_products(
     category: str | None = Query(None),
     sort: str = Query("name"),
     order: str = Query("asc"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List products with server-side pagination, search, category filter, and sorting."""
@@ -92,7 +92,7 @@ async def search_products(
     category: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = ProductRepository(db, tenant_ctx)
@@ -103,7 +103,7 @@ async def search_products(
 async def list_stock_ledger(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List stock ledger movements. Tenant-scoped."""
@@ -125,7 +125,7 @@ async def list_stock_ledger(
 )
 async def create_stock_movement(
     movement_in: StockMovementCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Record an inventory stock movement.
@@ -178,7 +178,7 @@ async def create_stock_movement(
 @router.get("/{product_id}", response_model=ProductResponse)
 async def get_product(
     product_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = ProductRepository(db, tenant_ctx)
@@ -196,7 +196,7 @@ async def get_product(
 async def update_product(
     product_id: str,
     product_in: ProductUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Update a product master. Requires MANAGER or SYSADMIN role."""
@@ -215,7 +215,7 @@ async def update_product(
 )
 async def delete_product(
     product_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN)),
 ):
@@ -237,7 +237,7 @@ async def delete_product(
 async def add_secondary_barcode(
     product_id: str,
     barcode_in: dict,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Add a secondary barcode to a product."""
@@ -270,7 +270,7 @@ async def add_secondary_barcode(
 async def delete_secondary_barcode(
     product_id: str,
     value: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Delete a secondary barcode from a product."""
@@ -294,7 +294,7 @@ async def delete_secondary_barcode(
 async def upload_product_image(
     product_id: str,
     payload: dict = Body(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Upload/Replace product primary image as a base64 encoded string."""
@@ -328,7 +328,7 @@ async def upload_product_image(
 )
 async def delete_product_image(
     product_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Delete a product's primary image."""
@@ -352,7 +352,7 @@ async def delete_product_image(
 async def add_gallery_image(
     product_id: str,
     payload: dict = Body(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Add a new image to the product's image gallery."""
@@ -385,7 +385,7 @@ async def add_gallery_image(
 async def delete_gallery_image(
     product_id: str,
     filename: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Delete an image from the product's image gallery."""

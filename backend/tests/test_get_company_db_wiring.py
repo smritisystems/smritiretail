@@ -22,10 +22,11 @@ from app.db.session import (
     get_company_async_engine,
     get_company_sessionmaker,
     resolve_company_database_name,
-    get_company_db,
+    get_session_by_db_name,
     get_db,
     _company_engines
 )
+from app.api.deps import TenantContext, get_company_db
 
 
 @pytest.mark.asyncio
@@ -49,25 +50,27 @@ async def test_engine_pool_caching():
 
 @pytest.mark.asyncio
 async def test_get_company_db_session_execution():
-    """Verify get_company_db yields working session connected to smriti001."""
-    gen = get_company_db(x_company_id="COMP-001")
-    session = await anext(gen)
-    try:
+    """Verify get_company_db yields working session connected to smriti001 via TenantContext."""
+    tenant_ctx = TenantContext(company_id="COMP-001", branch_id="BR-001")
+    async for session in get_company_db(tenant_ctx=tenant_ctx):
         res = await session.execute(text("SELECT current_database();"))
         db_name = res.scalar()
         assert db_name == "smriti001", f"Expected connected database to be smriti001, got {db_name}"
-    finally:
-        await gen.aclose()
+
+
+@pytest.mark.asyncio
+async def test_get_session_by_db_name():
+    """Verify low-level get_session_by_db_name connects directly to requested database."""
+    async for session in get_session_by_db_name("smriti001"):
+        res = await session.execute(text("SELECT current_database();"))
+        db_name = res.scalar()
+        assert db_name == "smriti001", f"Expected smriti001, got {db_name}"
 
 
 @pytest.mark.asyncio
 async def test_get_control_db_session_execution():
     """Verify get_db yields working session connected to smritisys (Control Plane)."""
-    gen = get_db()
-    session = await anext(gen)
-    try:
+    async for session in get_db():
         res = await session.execute(text("SELECT current_database();"))
         db_name = res.scalar()
         assert db_name == "smritisys", f"Expected connected database to be smritisys, got {db_name}"
-    finally:
-        await gen.aclose()

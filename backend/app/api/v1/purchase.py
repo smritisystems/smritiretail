@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.18.0
+* Version    : 3.25.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-14
+* Modified   : 2026-08-20
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -28,7 +28,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_tenant_context, require_role, TenantContext
+from ...api.deps import get_company_db, get_tenant_context, require_role, TenantContext
 from ...models.auth import UserRole
 from ...schemas.purchase import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
@@ -53,7 +53,7 @@ router = APIRouter()
 async def create_supplier(
     req: SupplierCreate,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Create a new supplier. MANAGER or SYSADMIN only."""
     service = PurchaseService(db, tenant)
@@ -66,7 +66,7 @@ async def create_supplier(
 )
 async def list_suppliers(
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """List all suppliers for the current tenant."""
     service = PurchaseService(db, tenant)
@@ -80,7 +80,7 @@ async def list_suppliers(
 async def get_supplier(
     supplier_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Get a supplier by ID."""
     service = PurchaseService(db, tenant)
@@ -94,7 +94,7 @@ async def get_supplier(
 
 @router.get("/orders/", response_model=List[PurchaseOrderResponse], summary="List Purchase Orders (Contract URL)")
 async def list_purchase_orders_contract(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List purchase orders — canonical contract URL."""
@@ -106,7 +106,7 @@ async def list_purchase_orders_contract(
              dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
 async def create_purchase_order_contract(
     order_in: PurchaseOrderCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a purchase order — canonical contract URL."""
@@ -116,7 +116,7 @@ async def create_purchase_order_contract(
 @router.get("/orders/{order_id}", response_model=PurchaseOrderResponse, summary="Get Purchase Order (Contract URL)")
 async def get_purchase_order_contract(
     order_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Get a purchase order by ID — canonical contract URL."""
@@ -129,7 +129,7 @@ async def get_purchase_order_contract(
 async def cancel_purchase_order_contract(
     order_id: str,
     req: PurchaseOrderCancelRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Cancel a purchase order — canonical contract URL."""
@@ -142,7 +142,7 @@ async def cancel_purchase_order_contract(
 async def amend_purchase_order_contract(
     order_id: str,
     req: PurchaseOrderAmendRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Amend a purchase order — canonical contract URL."""
@@ -161,7 +161,7 @@ async def amend_purchase_order_contract(
 async def create_purchase_receipt(
     req: PurchaseReceiptCreate,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Post a Goods Receipt Note (GRN).
@@ -181,7 +181,7 @@ async def create_purchase_receipt(
 )
 async def list_purchase_receipts(
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """List all purchase receipts (GRNs) for the current tenant."""
     service = PurchaseService(db, tenant)
@@ -195,7 +195,7 @@ async def list_purchase_receipts(
 async def get_purchase_receipt(
     receipt_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Get a purchase receipt with its line items."""
     service = PurchaseService(db, tenant)
@@ -217,7 +217,7 @@ async def update_supplier(
     supplier_id: str,
     req: SupplierUpdate,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Partially update a supplier. MANAGER or SYSADMIN only."""
     service = PurchaseService(db, tenant)
@@ -232,7 +232,7 @@ async def update_supplier(
 async def delete_supplier(
     supplier_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Soft-delete a supplier. MANAGER or SYSADMIN only."""
     service = PurchaseService(db, tenant)
@@ -250,7 +250,7 @@ async def cancel_purchase_order(
     order_id: str,
     req: PurchaseOrderCancelRequest,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Cancel a purchase order (sets status=CANCELLED, soft-deletes).
@@ -271,7 +271,7 @@ async def amend_purchase_order(
     order_id: str,
     req: PurchaseOrderAmendRequest,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Amend a Confirmed purchase order.
@@ -295,7 +295,7 @@ async def amend_purchase_order(
 async def list_reorder_suggestions(
     supplier_id: Optional[str] = Query(None),
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Get inventory reorder suggestions."""
     service = PurchaseService(db, tenant)
@@ -310,7 +310,7 @@ async def list_reorder_suggestions(
 )
 async def get_jurisdiction(
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Get state jurisdiction."""
     service = PurchaseService(db, tenant)
@@ -325,7 +325,7 @@ async def get_jurisdiction(
 async def set_jurisdiction(
     req: PurchaseJurisdictionConfigCreate,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Set state jurisdiction. MANAGER or SYSADMIN only."""
     service = PurchaseService(db, tenant)
@@ -337,7 +337,7 @@ async def set_jurisdiction(
 
 @router.get("/settings", summary="Purchase Settings — company jurisdiction (AD-1)")
 async def get_purchase_settings(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Return the company's current tax jurisdiction state. Alias for GET /jurisdiction."""
@@ -353,7 +353,7 @@ async def get_purchase_settings(
 )
 async def update_purchase_jurisdiction(
     req: PurchaseJurisdictionConfigCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Update company_state tax jurisdiction. MANAGER or SYSADMIN only."""
@@ -366,7 +366,7 @@ async def update_purchase_jurisdiction(
 
 @router.get("/config", summary="Purchase Config Legacy Alias")
 async def get_purchase_config(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Legacy purchase configuration compatibility alias."""
@@ -382,7 +382,7 @@ async def get_purchase_config(
 )
 async def update_purchase_config_jurisdiction(
     req: PurchaseConfigJurisdictionRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Legacy purchase jurisdiction alias for Express frontend compatibility."""
@@ -401,7 +401,7 @@ async def update_purchase_config_jurisdiction(
 )
 async def convert_reorder_suggestions(
     req: PurchaseReorderConvertRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Convert selected low-stock suggestions into a draft purchase order."""
@@ -422,7 +422,7 @@ async def convert_reorder_suggestions(
 )
 async def submit_purchase_order(
     order_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Submit a DRAFT purchase order for fulfilment (sets status to CONFIRMED)."""
@@ -433,7 +433,7 @@ async def submit_purchase_order(
 
 @router.get("/reports/outstanding", summary="Supplier Outstanding Report")
 async def get_outstanding_report(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List suppliers with open (DRAFT/CONFIRMED) POs and total outstanding values."""
@@ -442,7 +442,7 @@ async def get_outstanding_report(
 
 @router.get("/reports/pending-delivery", summary="Pending Delivery Report")
 async def get_pending_delivery_report(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List CONFIRMED POs that have not yet received a GRN (purchase receipt)."""
@@ -458,7 +458,7 @@ async def get_pending_delivery_report(
 async def get_supplier_default_rate(
     supplier_id: str,
     product_id: str = Query(..., description="Product ID to look up cost for"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """
