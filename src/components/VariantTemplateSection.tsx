@@ -18,7 +18,7 @@
  *
  * * Version    : 2.1.1
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-13
+ * * Modified   : 2026-08-19
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -586,7 +586,7 @@ export const VariantTemplateSection: React.FC<VariantTemplateSectionProps> = ({
                                           />
                                         </div>
                                         <div className="flex items-center space-x-1">
-                                          <span className="text-[8px] text-theme-muted font-mono w-10">Cost (₹):</span>
+                                          <span className="text-[8px] text-theme-muted font-mono w-10">Cost:</span>
                                           <input
                                             type="number"
                                             value={cell.costPrice || 0}
@@ -601,7 +601,7 @@ export const VariantTemplateSection: React.FC<VariantTemplateSectionProps> = ({
                                           />
                                         </div>
                                         <div className="flex items-center space-x-1">
-                                          <span className="text-[8px] text-theme-muted font-mono w-10">Price (₹):</span>
+                                          <span className="text-[8px] text-theme-muted font-mono w-10">Price:</span>
                                           <input
                                             type="number"
                                             value={cell.price}

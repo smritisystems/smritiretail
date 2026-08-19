@@ -97,7 +97,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       key: "outstanding",
-      label: "Outstanding (₹)",
+      label: "Outstanding",
       width: "130px",
       align: "right",
       sortable: true,

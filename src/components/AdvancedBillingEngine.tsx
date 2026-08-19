@@ -7,7 +7,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.26.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Refactored Light Theme Create Tax Invoice (B2B)
@@ -610,14 +610,14 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                       <th className="py-2.5 px-3 text-red-600">Item / Description *</th>
                       <th className="py-2.5 px-3">HSN</th>
                       <th className="py-2.5 px-3 text-red-600 text-right">Qty *</th>
-                      <th className="py-2.5 px-3 text-red-600 text-right">MRP (₹)</th>
+                      <th className="py-2.5 px-3 text-red-600 text-right">MRP</th>
                       <th className="py-2.5 px-3 text-right">Disc %</th>
-                      <th className="py-2.5 px-3 text-right">Disc Amt (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Rate (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Taxable Value (₹)</th>
-                      <th className="py-2.5 px-3 text-right">CGST 9% (₹)</th>
-                      <th className="py-2.5 px-3 text-right">SGST 9% (₹)</th>
-                      <th className="py-2.5 px-3 text-right font-bold text-theme-body">Total (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Disc Amt</th>
+                      <th className="py-2.5 px-3 text-right">Rate</th>
+                      <th className="py-2.5 px-3 text-right">Taxable Value</th>
+                      <th className="py-2.5 px-3 text-right">CGST 9%</th>
+                      <th className="py-2.5 px-3 text-right">SGST 9%</th>
+                      <th className="py-2.5 px-3 text-right font-bold text-theme-body">Total</th>
                       <th className="py-2.5 px-3 text-center">Action</th>
                     </tr>
                   </thead>
@@ -751,7 +751,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-theme-muted">MRP (₹)</label>
+                  <label className="block text-[10px] font-bold text-theme-muted">MRP</label>
                   <input
                     type="number"
                     value={quickMrp}
@@ -771,7 +771,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-theme-muted">Disc Amt (₹)</label>
+                  <label className="block text-[10px] font-bold text-theme-muted">Disc Amt</label>
                   <input
                     type="number"
                     value={quickDiscAmt}

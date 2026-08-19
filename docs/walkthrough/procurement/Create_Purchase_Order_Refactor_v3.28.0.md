@@ -8,7 +8,7 @@
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.28.0
   Created      : 2026-08-16
-  Modified     : 2026-08-16
+  Modified     : 2026-08-19
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Enterprise UI Refactor Walkthrough
@@ -51,7 +51,7 @@ This walkthrough documents the visual refactor of the **Create Purchase Order (B
 3. **Sub-Navigation Tabs Bar**:
    - Tabs: `Items` (Active), `Terms & Conditions`, `Additional Details`, `Attachments (0)`, `History`.
 4. **Item Details Table Grid**:
-   - 13 columns: `#`, `Barcode`, `Item / Description`, `HSN`, `Qty`, `UOM`, `Rate (₹)`, `Disc %`, `Disc Amt (₹)`, `Taxable Value (₹)`, `GST %`, `GST Amt (₹)`, `Total (₹)`, `Action`.
+   - 13 columns: `#`, `Barcode`, `Item / Description`, `HSN`, `Qty`, `UOM`, `Rate`, `Disc %`, `Disc Amt`, `Taxable Value`, `GST %`, `GST Amt`, `Total`, `Action`.
    - Quick Add Row box with barcode/search item, qty, UOM, rate, disc %, and `Add Item` button.
    - Bottom 3-column configuration panels: `Purchase Settings` (Payment Terms, Transporter, Freight, Shipping By, LR/GR No.), `Other Charges` (Loading, Unloading, Other Charges), and `Notes` textarea with character counter.
 5. **Right Summary Sidebar**:

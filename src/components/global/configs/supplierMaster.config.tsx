@@ -100,7 +100,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       key: "outstanding",
-      label: "Payables (₹)",
+      label: "Payables",
       width: "130px",
       align: "right",
       sortable: true,

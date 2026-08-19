@@ -5,7 +5,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-08-14
- * Modified     : 2026-08-14
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -104,7 +104,7 @@ export const Day4BillingSimulator: React.FC<{ onCompleteStep: () => void }> = ({
               />
             </div>
             <div>
-              <label className="text-slate-400 block mb-1">Unit Price (₹)</label>
+              <label className="text-slate-400 block mb-1">Unit Price</label>
               <input
                 type="number"
                 value={unitPrice}

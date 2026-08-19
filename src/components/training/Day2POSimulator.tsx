@@ -5,7 +5,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-08-14
- * Modified     : 2026-08-14
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -103,7 +103,7 @@ export const Day2POSimulator: React.FC<{ onCompleteStep: () => void }> = ({ onCo
               />
             </div>
             <div>
-              <label className="text-slate-400 block mb-1">Purchase Rate (₹)</label>
+              <label className="text-slate-400 block mb-1">Purchase Rate</label>
               <input
                 type="number"
                 value={rate}

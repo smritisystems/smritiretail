@@ -5,7 +5,7 @@
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.18.1
   Created      : 2026-08-17
-  Modified     : 2026-08-17
+  Modified     : 2026-08-19
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -164,7 +164,7 @@ Output:
    in the cross-invoice sum. Acceptable for historical import; does not affect
    the legally-authoritative grand total on the invoice header.
 
-2. **Rounding extraction**: The rounding field (`Rounding (₹)`) in the PDFs shows
+2. **Rounding extraction**: The rounding field (`Rounding`) in the PDFs shows
    fractional values at `+0.36` or similar. The extractor stores 0 (the dominant case).
    Grand total is taken directly from the PDF-printed grand total, not recomputed.
 

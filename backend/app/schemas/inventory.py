@@ -30,7 +30,7 @@ class ProductBase(BaseModel):
     color: Optional[str] = Field(None, max_length=50)
     size: Optional[str] = Field(None, max_length=50)
     mrp: Optional[Decimal] = None
-    gst_percentage: Optional[Decimal] = Decimal("18.00")
+    gst_percentage: Optional[Decimal] = Decimal("5.00")
     style_code: Optional[str] = Field(None, max_length=100)
     cost_price: Optional[Decimal] = None
     sku: Optional[str] = Field(None, max_length=100)
