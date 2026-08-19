@@ -130,6 +130,10 @@ async def clear_db(db_session: AsyncSession):
     await db_session.execute(delete(Warehouse))
     await db_session.execute(delete(MasterValue))
     await db_session.execute(delete(MasterType))
+    from app.models.tax_invoice_template import TaxInvoiceTemplate, TaxInvoiceTemplateVersion, InvoiceDocumentArtifact
+    await db_session.execute(delete(InvoiceDocumentArtifact))
+    await db_session.execute(delete(TaxInvoiceTemplateVersion))
+    await db_session.execute(delete(TaxInvoiceTemplate))
     await db_session.execute(delete(ReportSchedule))
     await db_session.execute(delete(Branch))
     for tbl in ["company_financial_years", "company_tax_profiles", "company_control_center"]:
