@@ -31,13 +31,15 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  ExternalLink
 } from "lucide-react";
 import { MasterConfig, MasterColumnDef } from "./types.ts";
 import { MasterFormDrawer } from "./MasterFormDrawer.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { recordAuditAction } from "../../../lib/apiFetch.ts";
 import { SmritiScrollArea } from "../../SmritiScrollArea.tsx";
+import { useWorkspace } from "../../../contexts/WorkspaceContext.tsx";
 
 export interface MasterListScreenProps<T = any> {
   config: MasterConfig<T>;
@@ -59,6 +61,7 @@ export function MasterListScreen<T extends Record<string, any>>({
   customActions,
   detailDrawer
 }: MasterListScreenProps<T>) {
+  const { popOutExternalWindow } = useWorkspace();
   const isReadOnly = currentUser?.role === "Report User";
   const isServerPagination = Boolean(config.serverPagination);
 
@@ -449,6 +452,16 @@ export function MasterListScreen<T extends Record<string, any>>({
           >
             <Download size={14} />
             <span>Export CSV</span>
+          </button>
+
+          {/* Popout External Window Button */}
+          <button
+            type="button"
+            onClick={() => popOutExternalWindow(config.entityName.toLowerCase().replace(/\s+/g, "-"), config.title, typeof config.icon === "string" ? config.icon : undefined)}
+            title="Pop Out into Standalone Window"
+            className="p-2.5 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary border border-theme-divider transition-all cursor-pointer"
+          >
+            <ExternalLink size={15} />
           </button>
 
           {/* Slot: Extra Header Actions */}

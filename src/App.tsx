@@ -409,6 +409,7 @@ const AppContent: React.FC = () => {
       case "launchpad":
         return (
           <FioriLaunchpad
+            currentUser={currentUser}
             onSelectModule={(modId) => {
               setActiveTab(mapModuleId(modId));
             }}

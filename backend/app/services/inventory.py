@@ -102,8 +102,13 @@ class InventoryService:
         if existing_barcode.scalars().first():
             raise HTTPException(status_code=400, detail="Product with this barcode already exists")
 
+        prod_data = product_in.model_dump()
+        if not prod_data.get("id"):
+            import uuid
+            prod_data["id"] = f"PROD-{uuid.uuid4().hex[:8]}"
+
         db_product = Product(
-            **product_in.model_dump(),
+            **prod_data,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
         )

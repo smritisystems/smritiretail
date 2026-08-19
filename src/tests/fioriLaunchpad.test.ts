@@ -86,4 +86,24 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     const uniqueIds = new Set(ids);
     expect(ids.length).toBe(uniqueIds.size);
   });
+
+  it("should have primary quick actions defined for mobile/touch fast-switching", () => {
+    const quickActions = LAUNCHPAD_CATALOG.filter((t) => t.isQuickAction);
+    expect(quickActions.length).toBeGreaterThanOrEqual(4);
+    const qaIds = quickActions.map((t) => t.id);
+    expect(qaIds).toContain("pos");
+    expect(qaIds).toContain("item-master");
+    expect(qaIds).toContain("stock-ledger");
+    expect(qaIds).toContain("create-tax-invoice");
+  });
+
+  it("should allow cashiers access to core POS, Item Master, and Stock Ledger", () => {
+    const cashierTiles = LAUNCHPAD_CATALOG.filter((t) => !t.roles || t.roles.includes("CASHIER"));
+    const cashierIds = cashierTiles.map((t) => t.id);
+    expect(cashierIds).toContain("pos");
+    expect(cashierIds).toContain("item-master");
+    expect(cashierIds).toContain("stock-ledger");
+    expect(cashierIds).not.toContain("company-setup");
+    expect(cashierIds).not.toContain("ufe");
+  });
 });

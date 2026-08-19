@@ -23,7 +23,7 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     aliases: [
       "sku", "sku code", "item code", "item no", "item number", "item id",
       "product code", "product no", "product number", "style code", "style no",
-      "article code", "article no", "article number", "article"
+      "article code", "article no", "article number", "article", "style article code", "style/article code"
     ],
     description: "Unique SKU or product style code identifier"
   },
@@ -60,7 +60,7 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     required: true,
     aliases: [
       "category", "category name", "product category", "item category",
-      "group", "department"
+      "group", "department", "merchandise category"
     ],
     description: "Primary merchandise category"
   },
@@ -91,7 +91,7 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
   {
     key: "hsnCode",
     label: "HSN CODE",
-    required: true,
+    required: false,
     aliases: [
       "hsn", "hsn code", "hsn no", "hsn number", "hsn sac", "hsn/sac"
     ],
@@ -103,7 +103,7 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     required: true,
     aliases: [
       "gst", "gst %", "gst rate", "gst percentage", "tax rate", "tax %",
-      "tax percentage", "tax"
+      "tax percentage", "tax", "product tax", "product tax %"
     ],
     description: "GST percentage rate"
   },
@@ -120,7 +120,7 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
   {
     key: "price",
     label: "SELLING PRICE",
-    required: true,
+    required: false,
     aliases: [
       "selling price", "sale price", "sales price", "selling rate",
       "sale rate", "sp", "plate rate"
@@ -155,6 +155,55 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
       "quantity", "qty"
     ],
     description: "Opening inventory stock quantity"
+  },
+  {
+    key: "gender",
+    label: "GENDER",
+    required: false,
+    aliases: ["gender", "gender classification", "target gender", "section"],
+    description: "Target demographic / gender"
+  },
+  {
+    key: "vendorCode",
+    label: "VENDOR CODE",
+    required: false,
+    aliases: ["vendor code", "vendor id", "vendor no", "vendor number"],
+    description: "Supplier / Vendor identifier"
+  },
+  {
+    key: "purchaseClass",
+    label: "PURCHASE CLASS",
+    required: false,
+    aliases: ["purchase class", "purchase classification", "sourcing class"],
+    description: "Purchase classification (e.g. SIS, Outright, Consignment)"
+  },
+  {
+    key: "heels",
+    label: "HEELS",
+    required: false,
+    aliases: ["heels", "heel type", "heel height"],
+    description: "Footwear heel structure"
+  },
+  {
+    key: "upperMaterial",
+    label: "UPPER MATERIAL",
+    required: false,
+    aliases: ["upper material", "material", "upper", "fabric"],
+    description: "Shoe upper or garment material"
+  },
+  {
+    key: "outsole",
+    label: "OUTSOLE",
+    required: false,
+    aliases: ["outsole", "sole", "sole material", "bottom sole"],
+    description: "Shoe bottom outsole material"
+  },
+  {
+    key: "imageUrl",
+    label: "IMAGE LINK",
+    required: false,
+    aliases: ["image link", "image url", "image", "image_link", "image_url", "photo", "picture"],
+    description: "Primary product image URL or code"
   }
 ];
 
