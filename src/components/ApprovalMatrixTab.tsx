@@ -135,7 +135,7 @@ export const ApprovalMatrixTab: React.FC = () => {
                     <th className="px-4 py-3">Type</th>
                     <th className="px-4 py-3">Party / Counterpart</th>
                     <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3 text-right">Amount (₹)</th>
+                    <th className="px-4 py-3 text-right">Amount</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>

@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 2.1.4
  * Created      : 2026-07-10
- * Modified     : 2026-07-16
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -1493,8 +1493,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <th className="px-4 py-2.5 text-right">Qty</th>
                             <th className="px-4 py-2.5 text-right">Price</th>
                             <th className="px-4 py-2.5 text-right">GST %</th>
-                            <th className="px-4 py-2.5 text-right">Tax (₹)</th>
-                            <th className="px-4 py-2.5 text-right">Total (₹)</th>
+                            <th className="px-4 py-2.5 text-right">Tax</th>
+                            <th className="px-4 py-2.5 text-right">Total</th>
                             <th className="px-4 py-2.5 text-center">Action</th>
                           </tr>
                         </thead>
@@ -1885,8 +1885,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <th className="px-4 py-2.5 text-right">Qty</th>
                             <th className="px-4 py-2.5 text-right">Price</th>
                             <th className="px-4 py-2.5 text-right">GST %</th>
-                            <th className="px-4 py-2.5 text-right">Tax (₹)</th>
-                            <th className="px-4 py-2.5 text-right">Total (₹)</th>
+                            <th className="px-4 py-2.5 text-right">Tax</th>
+                            <th className="px-4 py-2.5 text-right">Total</th>
                             <th className="px-4 py-2.5 text-center">Action</th>
                           </tr>
                         </thead>

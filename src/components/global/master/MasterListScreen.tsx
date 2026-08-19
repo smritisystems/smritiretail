@@ -45,6 +45,7 @@ export interface MasterListScreenProps<T = any> {
   config: MasterConfig<T>;
   currentUser?: { role: string; name: string } | null;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
+  initialSubTab?: string;
   // Optional slot overrides provided directly at screen instantiation
   extraColumns?: (item: T) => React.ReactNode;
   extraFields?: (formState: any, setFormField: (name: string, val: any) => void) => React.ReactNode;
@@ -56,6 +57,7 @@ export function MasterListScreen<T extends Record<string, any>>({
   config,
   currentUser,
   onNotification,
+  initialSubTab,
   extraColumns,
   extraFields,
   customActions,
@@ -69,7 +71,7 @@ export function MasterListScreen<T extends Record<string, any>>({
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [activeSubTab, setActiveSubTab] = useState<string>(config.subTabs?.[0]?.id || "list");
+  const [activeSubTab, setActiveSubTab] = useState<string>(initialSubTab || config.subTabs?.[0]?.id || "list");
   
   // Filter States
   const [filterValues, setFilterValues] = useState<Record<string, any>>(() => {

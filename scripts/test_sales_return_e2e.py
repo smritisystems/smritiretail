@@ -30,6 +30,12 @@ def test_sales_return_e2e():
     ret_no = "RET-2026-E2E-444"
     cn_no = "CN-2026-E2E-444"
 
+    # Obtain a valid invoice ID and company ID
+    cur.execute("SELECT id, company_id FROM sales_invoices LIMIT 1;")
+    row_inv = cur.fetchone()
+    inv_id = row_inv[0] if row_inv else "inv-disp-1888"
+    comp_id = row_inv[1] if row_inv and row_inv[1] else "comp-default"
+
     # Clean up prior test record
     cur.execute("DELETE FROM sales_returns WHERE id = %s;", (ret_id,))
     conn.commit()
@@ -41,7 +47,7 @@ def test_sales_return_e2e():
             date, reason, tax_total, grand_total, status, is_active, is_deleted, created_at, modified_at
         )
         VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_DATE, 'Customer Return - Defect', 50.00, 1050.00, 'APPROVED', true, false, NOW(), NOW());
-    """, (ret_id, "uuid-ret-e2e-444", "smritibus_default", "comp-default", ret_no, "inv-disp-1888", cn_no))
+    """, (ret_id, "uuid-ret-e2e-444", "smritibus_default", comp_id, ret_no, inv_id, cn_no))
     conn.commit()
 
     # 2. Verify Database State & History Protection
@@ -53,7 +59,7 @@ def test_sales_return_e2e():
     row = cur.fetchone()
     assert row is not None
     assert row[0] == ret_no
-    assert row[1] == "inv-disp-1888"
+    assert row[1] == inv_id
     assert row[2] == cn_no
     assert Decimal(str(row[3])) == Decimal("1050.00")
     assert row[4] == "APPROVED"

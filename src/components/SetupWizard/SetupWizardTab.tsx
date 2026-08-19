@@ -18,7 +18,7 @@
  *
  * * Version    : 3.16.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-12
+ * * Modified   : 2026-08-19
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -104,7 +104,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const [detectedState, setDetectedState] = useState("");
   const [financialYear, setFinancialYear] = useState("2026-2027");
   const [booksStartDate, setBooksStartDate] = useState("2026-04-01");
-  const [currency] = useState("INR (₹)");
+  const [currency] = useState("INR");
 
   // Step 3: Org Structure
   const [orgLayout, setOrgLayout] = useState("single"); // single, multi, chain, distributor

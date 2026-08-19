@@ -9,7 +9,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.28.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-13
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -405,10 +405,11 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                         Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump,<br />
                         Mumbai, Maharashtra - 400003
                       </p>
-                      <p className="text-[10.5px] text-slate-600 mt-0.5 m-0">
-                        Web: <span className="font-mono">www.tattlythreads.com</span> | Dispatch: <span className="font-mono">dispatch@tattlythreads.com</span><br />
-                        Accounts: <span className="font-mono">accounts@tattlythreads.com</span>
-                      </p>
+                      <div className="text-[10.5px] text-slate-600 mt-0.5 font-mono leading-tight">
+                        <div>Web: {website}</div>
+                        <div>Dispatch: {dispatchEmail}</div>
+                        <div>Accounts: {accountsEmail}</div>
+                      </div>
                       <p className="text-[10.5px] text-slate-800 font-bold mt-0.5 m-0">
                         GSTIN: <span className="font-mono">{companyGst}</span>
                       </p>

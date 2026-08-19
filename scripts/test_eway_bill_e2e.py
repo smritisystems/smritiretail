@@ -28,7 +28,10 @@ def test_eway_bill_e2e():
 
     ewb_id = "EWB-E2E-333"
     ewb_no = "EWB-2026-E2E-333"
-    inv_id = "inv-disp-1888"
+    # Obtain a valid invoice ID
+    cur.execute("SELECT id FROM sales_invoices LIMIT 1;")
+    row_inv = cur.fetchone()
+    inv_id = row_inv[0] if row_inv else "inv-disp-1888"
 
     # Clean up prior test record
     cur.execute("DELETE FROM eway_bills WHERE id = %s;", (ewb_id,))

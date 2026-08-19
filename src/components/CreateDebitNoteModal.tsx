@@ -5,7 +5,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-08-15
- * Modified     : 2026-08-15
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -141,7 +141,7 @@ export const CreateDebitNoteModal: React.FC<CreateDebitNoteModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-theme-muted font-mono font-bold mb-1">Claim Amount (₹) *</label>
+              <label className="block text-theme-muted font-mono font-bold mb-1">Claim Amount *</label>
               <input
                 type="number"
                 step="0.01"

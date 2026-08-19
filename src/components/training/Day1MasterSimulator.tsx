@@ -5,7 +5,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-08-14
- * Modified     : 2026-08-14
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -137,7 +137,7 @@ export const Day1MasterSimulator: React.FC<{ onCompleteStep: () => void }> = ({ 
                 </select>
               </div>
               <div>
-                <label className="text-slate-400 block mb-1">MRP (₹)</label>
+                <label className="text-slate-400 block mb-1">MRP</label>
                 <input
                   type="number"
                   value={mrp}
@@ -147,7 +147,7 @@ export const Day1MasterSimulator: React.FC<{ onCompleteStep: () => void }> = ({ 
                 />
               </div>
               <div>
-                <label className="text-slate-400 block mb-1">Landing Rate (₹)</label>
+                <label className="text-slate-400 block mb-1">Landing Rate</label>
                 <input
                   type="number"
                   value={purchaseRate}

@@ -8,7 +8,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.28.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Create Purchase Order (Fiori Horizon Inspired B2B Purchase)
@@ -1236,13 +1236,13 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                           <th className="py-2.5 px-2.5 font-mono">HSN</th>
                           <th className="py-2.5 px-2.5 text-right font-mono w-16">Qty</th>
                           <th className="py-2.5 px-2.5 font-mono w-14">UOM</th>
-                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[80px]">Rate (₹)</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[80px]">Rate</th>
                           <th className="py-2.5 px-2.5 text-right font-mono w-16">Disc %</th>
-                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[70px]">Disc Amt (₹)</th>
-                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[90px]">Taxable Value (₹)</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[70px]">Disc Amt</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[90px]">Taxable Value</th>
                           <th className="py-2.5 px-2.5 font-mono w-20">GST %</th>
-                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[80px]">GST Amt (₹)</th>
-                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[90px]">Total (₹)</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[80px]">GST Amt</th>
+                          <th className="py-2.5 px-2.5 text-right font-mono min-w-[90px]">Total</th>
                           <th className="py-2.5 px-2.5 text-center w-14">Action</th>
                         </tr>
                       </thead>
@@ -1454,7 +1454,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                     </div>
 
                     <div>
-                      <label className="text-theme-muted font-medium block mb-1">Rate (₹)</label>
+                      <label className="text-theme-muted font-medium block mb-1">Rate</label>
                       <input 
                         type="number" 
                         min="0"
@@ -2714,7 +2714,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-mono text-theme-muted block">PAYMENT SETTLEMENT AMOUNT (₹)</label>
+                <label className="text-[10px] font-mono text-theme-muted block">PAYMENT SETTLEMENT AMOUNT</label>
                 <input
                   type="number"
                   min="1"

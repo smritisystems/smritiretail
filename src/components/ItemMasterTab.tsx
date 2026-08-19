@@ -132,6 +132,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     <MasterListScreen<Product>
       config={enrichedConfig}
       currentUser={currentUser}
+      initialSubTab={initialSubTab}
       onNotification={(t, m, type) => {
         if (onNotification) onNotification(t, m, type === "warning" || type === "info" ? "success" : type);
       }}

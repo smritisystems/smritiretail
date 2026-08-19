@@ -5,7 +5,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-08-15
- * Modified     : 2026-08-15
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -165,7 +165,7 @@ export const ProcessSalesReturnModal: React.FC<ProcessSalesReturnModalProps> = (
                     <th className="px-3 py-2">Item</th>
                     <th className="px-3 py-2 text-right">Billed Qty</th>
                     <th className="px-3 py-2 text-center">Return Qty</th>
-                    <th className="px-3 py-2 text-right">Refund (₹)</th>
+                    <th className="px-3 py-2 text-right">Refund</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-theme-divider">

@@ -219,7 +219,7 @@ export const approvalMatrixConfig: MasterConfig<ApprovalMatrix> = {
       label: "Threshold Field",
       type: "select",
       options: [
-        { label: "Total Amount (₹)", value: "Total Amount" },
+        { label: "Total Amount", value: "Total Amount" },
         { label: "Discount Percentage (%)", value: "Discount %" },
         { label: "Gross Margin (%)", value: "Gross Margin %" },
         { label: "Credit Limit Exceeded", value: "Credit Limit" }

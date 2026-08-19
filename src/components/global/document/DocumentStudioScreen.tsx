@@ -389,10 +389,10 @@ export const DocumentStudioScreen: React.FC<DocumentStudioScreenProps> = ({
                 <th className="px-3 py-2.5 min-w-[200px]">Item Description</th>
                 <th className="px-3 py-2.5 w-24">HSN</th>
                 <th className="px-3 py-2.5 w-20 text-right">Qty</th>
-                <th className="px-3 py-2.5 w-28 text-right">Rate (₹)</th>
+                <th className="px-3 py-2.5 w-28 text-right">Rate</th>
                 <th className="px-3 py-2.5 w-20 text-right">Disc %</th>
                 <th className="px-3 py-2.5 w-20 text-right">GST %</th>
-                <th className="px-3 py-2.5 w-32 text-right">Amount (₹)</th>
+                <th className="px-3 py-2.5 w-32 text-right">Amount</th>
                 <th className="px-3 py-2.5 w-12 text-center"></th>
               </tr>
             </thead>

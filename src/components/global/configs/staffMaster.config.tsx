@@ -183,7 +183,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "fixedMonthly",
-      label: "Fixed Monthly Salary (₹)",
+      label: "Fixed Monthly Salary",
       type: "number",
       defaultValue: 25000,
       colSpan: 1

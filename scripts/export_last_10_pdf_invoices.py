@@ -5,7 +5,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 4.7.0
 Created      : 2026-08-14
-Modified     : 2026-08-14
+Modified     : 2026-08-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -340,11 +340,11 @@ def generate_statutory_a4_html(inv: dict) -> str:
                     <th style="width: 35%; text-align: left;">Product Description</th>
                     <th style="width: 10%;">HSN/SAC</th>
                     <th style="width: 8%; text-align: right;">Qty</th>
-                    <th style="width: 12%; text-align: right;">Rate (₹)</th>
-                    <th style="width: 12%; text-align: right;">Taxable Val (₹)</th>
+                    <th style="width: 12%; text-align: right;">Rate</th>
+                    <th style="width: 12%; text-align: right;">Taxable Val</th>
                     <th style="width: 6%;">GST %</th>
-                    <th style="width: 10%; text-align: right;">IGST (₹)</th>
-                    <th style="width: 12%; text-align: right;">Total (₹)</th>
+                    <th style="width: 10%; text-align: right;">IGST</th>
+                    <th style="width: 12%; text-align: right;">Total</th>
                 </tr>
             </thead>
             <tbody>

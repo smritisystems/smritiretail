@@ -5,7 +5,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.25.0
  * Created      : 2026-08-15
- * Modified     : 2026-08-15
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -141,9 +141,9 @@ def export_full_invoices():
                 <th>SIS / PO Ref</th>
                 <th>Billing Address</th>
                 <th>Shipping Address</th>
-                <th style="text-align:right;">Subtotal (₹)</th>
-                <th style="text-align:right;">Tax (₹)</th>
-                <th style="text-align:right;">Grand Total (₹)</th>
+                <th style="text-align:right;">Subtotal</th>
+                <th style="text-align:right;">Tax</th>
+                <th style="text-align:right;">Grand Total</th>
                 <th>Status</th>
             </tr>
         </thead>

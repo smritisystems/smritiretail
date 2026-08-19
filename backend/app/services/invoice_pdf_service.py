@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 4.9.5
 Created      : 2026-08-14
-Modified     : 2026-08-18
+Modified     : 2026-08-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -258,10 +258,10 @@ def paginate_items(items: list, first_page_max: int = 20, cont_page_max: int = 3
     total = len(items)
     if total == 0:
         return [[]]
-    if total < 16:
+    if total <= 15:
         return [items]
-    if total <= 30 and total >= 16:
-        # Fits on page 1, summaries flow to page 2 (matches original 2-page geometry)
+    if total <= first_page_max:
+        # Fits on page 1, summaries flow to page 2 (clean 2-page geometry)
         return [items, []]
 
     pages = []
@@ -369,6 +369,10 @@ class InvoicePdfService:
         account_no = TATTLY_ACCOUNT_NO
         ifsc_code  = TATTLY_IFSC_CODE
         bank_branch = TATTLY_BANK_BRANCH
+
+        company_web = meta.get("company_website", "www.tattlythreads.com")
+        dispatch_email = meta.get("dispatch_email", "dispatch@tattlythreads.com")
+        accounts_email = meta.get("accounts_email", "accounts@tattlythreads.com")
 
         grand_total = Decimal(str(invoice.grand_total or 0))
 
@@ -649,8 +653,10 @@ class InvoicePdfService:
                           <div class="company-details">
                             Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery,<br/>near HP Petrol Pump, Mumbai, Maharashtra - 400003
                           </div>
-                          <div class="company-details" style="font-family: monospace; margin-top: 2px;">
-                            Web: www.tattlythreads.com | Dispatch: dispatch@tattlythreads.com | Accounts: accounts@tattlythreads.com
+                          <div class="company-details" style="font-family: monospace; margin-top: 2px; line-height: 1.35;">
+                            <div>Web: {company_web}</div>
+                            <div>Dispatch: {dispatch_email}</div>
+                            <div>Accounts: {accounts_email}</div>
                           </div>
                           <div style="font-size: 8px; font-weight: 700; font-family: monospace; margin-top: 2px;">
                             GSTIN: {company_gstin}
