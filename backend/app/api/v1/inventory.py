@@ -23,6 +23,7 @@ from ...api.deps import TenantContext, get_db, get_tenant_context, require_role,
 from ...models.auth import User, UserRole
 from ...models.inventory import Product, StockMovement
 from ...repositories.product import ProductRepository
+from ...schemas.pagination import PaginatedResponse
 from ...schemas.inventory import (
     ProductCreate,
     ProductResponse,
@@ -52,16 +53,37 @@ async def create_product(
     return await service.create_product(product_in)
 
 
-@router.get("/", response_model=list[ProductResponse])
+@router.get("/", response_model=PaginatedResponse[ProductResponse])
 async def list_products(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    q: str | None = Query(None),
+    category: str | None = Query(None),
+    sort: str = Query("name"),
+    order: str = Query("asc"),
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """List products for the authenticated user's tenant. Any role may read."""
+    """List products with server-side pagination, search, category filter, and sorting."""
     repo = ProductRepository(db, tenant_ctx)
-    return await repo.get_all(skip=skip, limit=limit)
+    items, total = await repo.get_paginated(
+        page=page,
+        page_size=page_size,
+        q=q,
+        category=category,
+        sort=sort,
+        order=order
+    )
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+    return PaginatedResponse(
+        items=items,
+        page=page,
+        page_size=page_size,
+        total=total,
+        total_pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1,
+    )
 
 
 @router.get("/search", response_model=list[ProductResponse])

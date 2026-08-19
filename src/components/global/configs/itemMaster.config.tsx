@@ -23,6 +23,8 @@ export const itemMasterConfig: MasterConfig<Product> = {
   icon: <Package size={20} />,
   apiEndpoint: "/api/v1/products/",
   idKey: "id",
+  serverPagination: true,
+  pageSize: 25,
   searchPlaceholder: "Search by product name, SKU code, barcode, or category...",
   searchFields: ["name", "code", "barcode", "category", "brand", "styleCode", "sku"],
 

@@ -5,7 +5,7 @@
 
 ## High-Level Engineering Indices
 - **SMRITI Development Health Index (DHI):** 84% (Grade B)
-- **Quality Score:** 39%
+- **Quality Score:** 49%
 - **Security Score:** 100%
 - **Release Readiness Score:** 87%
 

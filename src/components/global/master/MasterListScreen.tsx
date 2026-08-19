@@ -3,14 +3,14 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 4.0.0
  * Created      : 2026-08-19
  * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Search, 
@@ -22,6 +22,8 @@ import {
   RefreshCw, 
   ChevronLeft, 
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -58,9 +60,12 @@ export function MasterListScreen<T extends Record<string, any>>({
   detailDrawer
 }: MasterListScreenProps<T>) {
   const isReadOnly = currentUser?.role === "Report User";
+  const isServerPagination = Boolean(config.serverPagination);
+
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeSubTab, setActiveSubTab] = useState<string>(config.subTabs?.[0]?.id || "list");
   
   // Filter States
@@ -79,7 +84,13 @@ export function MasterListScreen<T extends Record<string, any>>({
 
   // Pagination State
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(config.pageSize || 15);
+  const [pageSize, setPageSize] = useState(config.pageSize || (isServerPagination ? 25 : 15));
+
+  // Server-Side Pagination Metadata
+  const [serverTotal, setServerTotal] = useState(0);
+  const [serverTotalPages, setServerTotalPages] = useState(1);
+  const [serverHasNext, setServerHasNext] = useState(false);
+  const [serverHasPrev, setServerHasPrev] = useState(false);
 
   // Modal / Drawer States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -90,53 +101,126 @@ export function MasterListScreen<T extends Record<string, any>>({
   const [itemToDelete, setItemToDelete] = useState<T | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Request ID sequence for stale response cancellation in server mode
+  const latestRequestId = useRef(0);
+
+  // Search Debounce (350ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset page when search or filters or sort or pageSize change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filterValues, sortState.key, sortState.direction, pageSize]);
+
   // Fetch Items from Backend
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
+    const requestId = ++latestRequestId.current;
     setLoading(true);
+
     try {
-      const data = await apiFetchV1(config.apiEndpoint);
-      let list: T[] = [];
-      if (config.responseTransform) {
-        list = config.responseTransform(data);
-      } else if (Array.isArray(data)) {
-        list = data;
-      } else if (data && Array.isArray(data.items)) {
-        list = data.items;
-      } else if (data && Array.isArray(data.users)) {
-        list = data.users;
-      } else if (data && Array.isArray(data.data)) {
-        list = data.data;
+      if (isServerPagination) {
+        // SERVER-SIDE PAGINATION URL
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("page_size", String(pageSize));
+        if (debouncedSearch.trim()) {
+          params.set("q", debouncedSearch.trim());
+        }
+        if (sortState.key) {
+          params.set("sort", sortState.key);
+          params.set("order", sortState.direction);
+        }
+        if (config.filters) {
+          for (const f of config.filters) {
+            const val = filterValues[f.id];
+            if (val !== undefined && val !== "ALL" && val !== "") {
+              params.set(f.field, String(val));
+            }
+          }
+        }
+
+        const separator = config.apiEndpoint.includes("?") ? "&" : "?";
+        const endpointWithParams = `${config.apiEndpoint}${separator}${params.toString()}`;
+        const data = await apiFetchV1(endpointWithParams);
+
+        if (requestId !== latestRequestId.current) return; // Stale request protection
+
+        if (data && typeof data === "object" && "items" in data) {
+          let list = data.items;
+          if (config.responseTransform) {
+            list = config.responseTransform(data);
+          }
+          setItems(Array.isArray(list) ? list : []);
+          setServerTotal(data.total ?? 0);
+          setServerTotalPages(data.total_pages ?? (Math.ceil((data.total ?? 0) / pageSize) || 1));
+          setServerHasNext(Boolean(data.has_next));
+          setServerHasPrev(Boolean(data.has_prev));
+        } else if (Array.isArray(data)) {
+          // Fallback if array returned
+          setItems(data);
+          setServerTotal(data.length);
+          setServerTotalPages(Math.ceil(data.length / pageSize) || 1);
+          setServerHasNext(page < (Math.ceil(data.length / pageSize) || 1));
+          setServerHasPrev(page > 1);
+        }
+      } else {
+        // CLIENT-SIDE MODE
+        const data = await apiFetchV1(config.apiEndpoint);
+        if (requestId !== latestRequestId.current) return;
+
+        let list: T[] = [];
+        if (config.responseTransform) {
+          list = config.responseTransform(data);
+        } else if (Array.isArray(data)) {
+          list = data;
+        } else if (data && Array.isArray(data.items)) {
+          list = data.items;
+        } else if (data && Array.isArray(data.users)) {
+          list = data.users;
+        } else if (data && Array.isArray(data.data)) {
+          list = data.data;
+        }
+        setItems(list);
       }
-      setItems(list);
     } catch (err: any) {
+      if (requestId !== latestRequestId.current) return;
       console.error(`[MasterListScreen] Failed to fetch ${config.entityName}:`, err);
       if (onNotification) {
         onNotification("Fetch Error", `Failed to load ${config.entityNamePlural || config.entityName}: ${err.message}`, "error");
       }
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestId.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [config, isServerPagination, page, pageSize, debouncedSearch, filterValues, sortState, onNotification]);
 
   useEffect(() => {
     fetchItems();
-  }, [config.apiEndpoint]);
+  }, [fetchItems]);
 
   // Debounced search audit logging
   useEffect(() => {
-    if (!searchQuery.trim()) return;
+    if (!debouncedSearch.trim()) return;
     const timer = setTimeout(() => {
-      recordAuditAction("SEARCH", config.entityName.toLowerCase(), "search", `Search for: "${searchQuery}"`);
+      recordAuditAction("SEARCH", config.entityName.toLowerCase(), "search", `Search for: "${debouncedSearch}"`);
     }, 1200);
     return () => clearTimeout(timer);
-  }, [searchQuery, config.entityName]);
+  }, [debouncedSearch, config.entityName]);
 
-  // Client-side Filter & Search Pipeline
+  // Client-side Filter & Search Pipeline (only active when serverPagination is false)
   const filteredItems = useMemo(() => {
+    if (isServerPagination) return items;
+
     return items.filter((item) => {
       // 1. Search Query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
+      if (debouncedSearch.trim()) {
+        const query = debouncedSearch.toLowerCase().trim();
         const searchFields = config.searchFields || config.columns.filter((c) => c.searchable !== false).map((c) => c.key);
         const matches = searchFields.some((key) => {
           const val = item[key];
@@ -161,11 +245,13 @@ export function MasterListScreen<T extends Record<string, any>>({
 
       return true;
     });
-  }, [items, searchQuery, filterValues, config]);
+  }, [items, debouncedSearch, filterValues, config, isServerPagination]);
 
-  // Sorted Items
+  // Sorted Items (only active when serverPagination is false)
   const sortedItems = useMemo(() => {
+    if (isServerPagination) return filteredItems;
     if (!sortState.key) return filteredItems;
+
     return [...filteredItems].sort((a, b) => {
       const aVal = a[sortState.key];
       const bVal = b[sortState.key];
@@ -179,11 +265,12 @@ export function MasterListScreen<T extends Record<string, any>>({
         
       return sortState.direction === "asc" ? comparison : -comparison;
     });
-  }, [filteredItems, sortState]);
+  }, [filteredItems, sortState, isServerPagination]);
 
-  // Paginated Items
-  const totalPages = Math.ceil(sortedItems.length / pageSize) || 1;
-  const paginatedItems = useMemo(() => {
+  // Paginated Items & Total Pages
+  const totalCount = isServerPagination ? serverTotal : sortedItems.length;
+  const totalPages = isServerPagination ? serverTotalPages : Math.ceil(sortedItems.length / pageSize) || 1;
+  const displayItems = isServerPagination ? items : useMemo(() => {
     const start = (page - 1) * pageSize;
     return sortedItems.slice(start, start + pageSize);
   }, [sortedItems, page, pageSize]);
@@ -220,8 +307,8 @@ export function MasterListScreen<T extends Record<string, any>>({
     recordAuditAction(
       isEdit ? "UPDATE" : "CREATE",
       config.entityName.toLowerCase(),
-      isEdit ? String(itemId) : "new",
-      `${isEdit ? "Updated" : "Created"} ${config.entityName}: ${res?.name || res?.title || res?.code || ""}`
+      itemId || res?.id || "new",
+      `${isEdit ? "Updated" : "Created"} ${config.entityName}: ${formData.name || formData.code || itemId}`
     );
 
     if (onNotification) {
@@ -232,6 +319,8 @@ export function MasterListScreen<T extends Record<string, any>>({
       );
     }
 
+    setIsFormOpen(false);
+    setEditingItem(null);
     await fetchItems();
   };
 
@@ -243,176 +332,178 @@ export function MasterListScreen<T extends Record<string, any>>({
     setIsDeleting(true);
 
     try {
-      await apiFetchV1(`${config.apiEndpoint.replace(/\/$/, "")}/${itemId}`, {
-        method: "DELETE"
-      });
+      const url = `${config.apiEndpoint.replace(/\/$/, "")}/${itemId}`;
+      await apiFetchV1(url, { method: "DELETE" });
 
       recordAuditAction(
         "DELETE",
         config.entityName.toLowerCase(),
-        String(itemId),
-        `Deleted ${config.entityName} ID: ${itemId}`
+        itemId,
+        `Deleted ${config.entityName}: ${itemToDelete.name || itemToDelete.code || itemId}`
       );
 
       if (onNotification) {
-        onNotification("Deleted", `${config.entityName} deleted successfully.`, "success");
+        onNotification("Deleted", `${config.entityName} was successfully deleted.`, "info");
       }
-
       setItemToDelete(null);
       await fetchItems();
     } catch (err: any) {
+      console.error(`[MasterListScreen] Delete failed:`, err);
       if (onNotification) {
-        onNotification("Delete Failed", err?.message || `Failed to delete ${config.entityName}.`, "error");
+        onNotification("Delete Failed", err.message || "Failed to delete record.", "error");
       }
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Status Badge Formatter
-  const renderStatusPill = (val: any) => {
-    const s = String(val || "").toUpperCase();
-    if (s === "ACTIVE" || s === "PAID" || s === "COMPLETED") {
-      return (
-        <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-          <CheckCircle2 size={10} />
-          <span>{String(val)}</span>
-        </span>
-      );
-    }
-    if (s === "INACTIVE" || s === "BLOCKED" || s === "CANCELLED") {
-      return (
-        <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono">
-          <XCircle size={10} />
-          <span>{String(val)}</span>
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
-        <Clock size={10} />
-        <span>{String(val || "N/A")}</span>
-      </span>
-    );
-  };
-
-  // CSV Export
+  // Export CSV (Current View / Page)
   const handleExportCSV = () => {
-    if (sortedItems.length === 0) return;
-    const headers = config.columns.map((c) => c.label).join(",");
-    const rows = sortedItems.map((item) =>
-      config.columns.map((c) => `"${String(item[c.key] ?? "").replace(/"/g, '""')}"`).join(",")
+    if (displayItems.length === 0) return;
+    const exportColumns = config.columns.filter((c) => c.key !== "actions");
+    const headers = exportColumns.map((c) => `"${c.label}"`).join(",");
+    const rows = displayItems.map((item) =>
+      exportColumns
+        .map((c) => {
+          const val = item[c.key];
+          if (val === null || val === undefined) return '""';
+          return `"${String(val).replace(/"/g, '""')}"`;
+        })
+        .join(",")
     );
     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${config.entityName.toLowerCase()}_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `${config.entityName.toLowerCase()}_page_${page}_export.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    recordAuditAction("EXPORT", config.entityName.toLowerCase(), "csv", `Exported ${displayItems.length} records to CSV`);
   };
 
+  // Permissions Check
+  const canCreate = !isReadOnly && (!config.permissions?.createRole || (currentUser && config.permissions.createRole.includes(currentUser.role)));
+  const canEdit = !isReadOnly && (!config.permissions?.editRole || (currentUser && config.permissions.editRole.includes(currentUser.role)));
+  const canDelete = !isReadOnly && (!config.permissions?.deleteRole || (currentUser && config.permissions.deleteRole.includes(currentUser.role)));
+
+  // Combine actions
+  const effectiveCustomActions = customActions || config.customActions;
+
+  // Selected subTab definition
+  const selectedSubTabDef = config.subTabs?.find((t) => t.id === activeSubTab);
+
   return (
-    <div className="flex flex-col h-full bg-theme-surface-1 text-theme-primary font-sans">
-      {/* Read-only Alert */}
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* Read Only Warning Banner */}
       {isReadOnly && (
-        <div className="bg-amber-950/40 border-b border-amber-500/30 px-6 py-2 flex items-center space-x-2 text-amber-400 text-xs shrink-0">
-          <AlertTriangle size={14} />
-          <span className="font-mono uppercase font-bold">Read-Only Mode:</span>
-          <span>You have view permissions only. Create, edit, and delete operations are restricted.</span>
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 flex items-center space-x-2 text-amber-400 text-xs font-mono">
+          <AlertTriangle size={15} className="shrink-0" />
+          <span className="font-bold">READ-ONLY MODE:</span>
+          <span>You have view-only access. Form modifications and deletions are disabled.</span>
         </div>
       )}
 
-      {/* Header Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-theme-divider bg-theme-surface-2 px-6 py-4 shrink-0 gap-4">
-        <div className="flex items-center space-x-3">
-          {config.icon && (
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center font-bold text-lg shadow-xs">
-              {config.icon}
-            </div>
-          )}
+      {/* Header Banner */}
+      <div className="bg-theme-surface-1 p-6 rounded-2xl border border-theme-divider flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center font-bold text-xl shrink-0">
+            {config.icon || <FileSpreadsheet size={24} />}
+          </div>
           <div>
-            <h2 className="text-lg font-bold font-display text-theme-primary tracking-tight">
-              {config.title}
-            </h2>
+            <div className="flex items-center space-x-2">
+              <h2 className="font-display font-bold text-xl text-theme-primary tracking-tight">
+                {config.title}
+              </h2>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-theme-surface-2 text-theme-muted border border-theme-divider">
+                {totalCount} {config.entityNamePlural || "Total"}
+              </span>
+            </div>
             {config.subtitle && (
-              <p className="text-xs text-theme-muted mt-0.5">{config.subtitle}</p>
+              <p className="text-xs text-theme-muted mt-0.5 leading-relaxed">
+                {config.subtitle}
+              </p>
             )}
           </div>
         </div>
 
-        {/* Right Side: KPIs + Actions */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Dynamic KPI counters */}
-          {config.kpis && config.kpis.length > 0 && (
-            <div className="flex items-center bg-theme-surface-3 px-3 py-1.5 rounded-lg border border-theme-divider gap-3 divide-x divide-theme-divider">
-              {config.kpis.map((kpi) => (
-                <div key={kpi.id} className="pl-3 first:pl-0 text-right">
-                  <div className="text-[9px] font-mono text-theme-muted uppercase font-bold">
-                    {kpi.label}
-                  </div>
-                  <div className={`text-xs font-bold font-mono ${
-                    kpi.color === "emerald" ? "text-emerald-400" :
-                    kpi.color === "amber" ? "text-amber-400" :
-                    kpi.color === "rose" ? "text-rose-400" :
-                    kpi.color === "indigo" ? "text-indigo-400" : "text-blue-400"
-                  }`}>
-                    {kpi.compute(items)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="flex items-center space-x-2 self-stretch md:self-auto">
+          {/* Refresh Button */}
+          <button
+            type="button"
+            onClick={() => fetchItems()}
+            disabled={loading}
+            title="Refresh Table"
+            className="p-2.5 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary border border-theme-divider transition-all cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={loading ? "animate-spin text-blue-400" : ""} />
+          </button>
+
+          {/* CSV Export Button */}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            disabled={displayItems.length === 0}
+            className="px-3.5 py-2.5 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-primary border border-theme-divider transition-all text-xs font-bold font-mono flex items-center space-x-1.5 cursor-pointer disabled:opacity-40"
+          >
+            <Download size={14} />
+            <span>Export CSV</span>
+          </button>
 
           {/* Slot: Extra Header Actions */}
-          {config.slots?.extraHeaderActions && config.slots.extraHeaderActions(fetchItems, items)}
-
-          {/* Export CSV */}
-          <button
-            onClick={handleExportCSV}
-            title="Export Table to CSV"
-            className="p-2 rounded-lg bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary border border-theme-divider transition-all cursor-pointer"
-          >
-            <Download size={15} />
-          </button>
-
-          {/* Refresh */}
-          <button
-            onClick={fetchItems}
-            title="Reload Master Data"
-            className="p-2 rounded-lg bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary border border-theme-divider transition-all cursor-pointer"
-          >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-          </button>
+          {config.slots?.extraHeaderActions && config.slots.extraHeaderActions(fetchItems, displayItems)}
 
           {/* Create Button */}
-          {!isReadOnly && (
+          {canCreate && (
             <button
+              type="button"
               onClick={() => {
                 setEditingItem(null);
                 setIsFormOpen(true);
               }}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 shadow-md hover:shadow-blue-500/20 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-500/20 transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
             >
               <Plus size={15} />
-              <span>Add {config.entityName}</span>
+              <span>New {config.entityName}</span>
             </button>
           )}
         </div>
       </div>
 
+      {/* KPI Bar */}
+      {config.kpis && config.kpis.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {config.kpis.map((kpi) => {
+            const val = kpi.compute(items);
+            return (
+              <div
+                key={kpi.id}
+                className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider flex flex-col justify-between space-y-1 shadow-xs"
+              >
+                <span className="text-[11px] font-mono text-theme-muted uppercase tracking-wider font-semibold">
+                  {kpi.label}
+                </span>
+                <span className="font-display font-bold text-2xl text-theme-primary">
+                  {val}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Sub Tabs Bar (if defined) */}
       {config.subTabs && config.subTabs.length > 0 && (
-        <div className="flex items-center px-6 bg-theme-surface-2 border-b border-theme-divider gap-2 shrink-0">
+        <div className="flex items-center space-x-1 border-b border-theme-divider pb-2 overflow-x-auto">
           {config.subTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id)}
-              className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider font-mono border-b-2 transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 activeSubTab === tab.id
-                  ? "border-blue-500 text-blue-400 bg-theme-surface-3"
-                  : "border-transparent text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2"
               }`}
             >
               {tab.label}
@@ -421,77 +512,93 @@ export function MasterListScreen<T extends Record<string, any>>({
         </div>
       )}
 
-      {/* Custom SubTab Content Render */}
-      {config.subTabs && activeSubTab !== "list" && activeSubTab !== (config.subTabs[0]?.id || "list") && (
-        <div className="flex-1 overflow-auto p-6">
-          {config.subTabs.find((t) => t.id === activeSubTab)?.renderContent?.(items, fetchItems)}
+      {/* Render SubTab Content Slot if active and not default table */}
+      {selectedSubTabDef && selectedSubTabDef.renderContent && (
+        <div className="mt-4">
+          {selectedSubTabDef.renderContent(displayItems, fetchItems)}
         </div>
       )}
 
-      {/* Primary List View */}
-      {(!config.subTabs || activeSubTab === "list" || activeSubTab === config.subTabs[0]?.id) && (
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          {/* Search & Filter Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 bg-theme-surface-1 border-b border-theme-divider shrink-0">
+      {/* Primary Table View (Rendered when no custom subTab renderContent is active) */}
+      {(!selectedSubTabDef || !selectedSubTabDef.renderContent) && (
+        <div className="bg-theme-surface-1 rounded-2xl border border-theme-divider overflow-hidden shadow-xs space-y-3 p-4">
+          {/* Controls Bar: Search & Dynamic Filters */}
+          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
             {/* Search Input */}
-            <div className="relative flex-1 min-w-[240px] max-w-md">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
+            <div className="relative flex-1 max-w-md">
+              <Search
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-theme-muted"
+              />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={config.searchPlaceholder || `Search ${config.entityNamePlural || config.entityName}...`}
-                className="w-full pl-9 pr-3 py-1.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-primary placeholder:text-theme-muted/50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full pl-9 pr-4 py-2 bg-theme-surface-2 border border-theme-divider rounded-xl text-xs text-theme-primary placeholder:text-theme-muted focus:outline-none focus:border-blue-500 font-sans"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-primary text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
-            {/* Filter Dropdowns */}
-            <div className="flex flex-wrap items-center gap-2">
-              {config.filters?.map((f) => (
-                <div key={f.id} className="flex items-center space-x-1.5">
-                  <span className="text-[10px] font-bold text-theme-muted uppercase font-mono">
-                    {f.label}:
-                  </span>
-                  <select
-                    value={filterValues[f.id] ?? "ALL"}
-                    onChange={(e) => setFilterValues((prev) => ({ ...prev, [f.id]: e.target.value }))}
-                    className="px-2.5 py-1 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-primary focus:outline-none focus:border-blue-500 font-mono"
-                  >
-                    <option value="ALL">All</option>
-                    {f.options.map((opt, oIdx) => (
-                      <option key={oIdx} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
+            {/* Dynamic Filter Dropdowns */}
+            {config.filters && config.filters.length > 0 && (
+              <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                <SlidersHorizontal size={14} className="text-theme-muted shrink-0 mr-1" />
+                {config.filters.map((filter) => (
+                  <div key={filter.id} className="flex items-center space-x-1">
+                    <span className="text-[11px] text-theme-muted font-mono">{filter.label}:</span>
+                    <select
+                      value={filterValues[filter.id]}
+                      onChange={(e) =>
+                        setFilterValues((prev) => ({
+                          ...prev,
+                          [filter.id]: e.target.value
+                        }))
+                      }
+                      className="px-2.5 py-1.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-primary focus:outline-none font-medium"
+                    >
+                      <option value="ALL">All</option>
+                      {filter.options.map((opt) => (
+                        <option key={String(opt.value)} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Table Area */}
-          <SmritiScrollArea className="flex-1 bg-theme-base">
-            <div className="min-w-full">
-              <table className="w-full text-left border-collapse font-sans text-xs">
-                <thead>
-                  <tr className="border-b border-theme-divider bg-theme-surface-2 text-theme-muted text-[10px] font-bold uppercase tracking-wider font-mono sticky top-0 z-10 shadow-xs">
-                    {config.columns.map((col) => (
-                      <th
-                        key={col.key}
-                        style={{ width: col.width, minWidth: col.minWidth }}
-                        className={`px-4 py-3 select-none ${
-                          col.sortable !== false ? "cursor-pointer hover:text-theme-primary transition-colors" : ""
-                        } ${
-                          col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
-                        }`}
-                        onClick={() => col.sortable !== false && handleSort(col.key)}
-                      >
-                        <div className={`flex items-center space-x-1.5 ${
-                          col.align === "right" ? "justify-end" : col.align === "center" ? "justify-center" : "justify-start"
-                        }`}>
-                          <span>{col.label}</span>
-                          {col.sortable !== false && (
-                            sortState.key === col.key ? (
+          {/* Main Data Table */}
+          <div className="overflow-x-auto border border-theme-divider rounded-xl">
+            <table className="w-full text-left border-collapse text-xs font-sans">
+              <thead>
+                <tr className="border-b border-theme-divider bg-theme-surface-2 text-theme-muted text-[10px] font-bold uppercase tracking-wider font-mono">
+                  {config.columns.map((col) => (
+                    <th
+                      key={col.key}
+                      style={{ width: col.width, minWidth: col.minWidth }}
+                      className={`px-4 py-3 ${
+                        col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
+                      } ${col.sortable ? "cursor-pointer hover:text-theme-primary transition-colors select-none" : ""}`}
+                      onClick={() => col.sortable && handleSort(col.key)}
+                    >
+                      <div className={`flex items-center space-x-1.5 ${
+                        col.align === "right" ? "justify-end" : col.align === "center" ? "justify-center" : "justify-start"
+                      }`}>
+                        <span>{col.label}</span>
+                        {col.sortable && (
+                          <span className="text-theme-muted">
+                            {sortState.key === col.key ? (
                               sortState.direction === "asc" ? (
                                 <ArrowUp size={12} className="text-blue-400" />
                               ) : (
@@ -499,159 +606,172 @@ export function MasterListScreen<T extends Record<string, any>>({
                               )
                             ) : (
                               <ArrowUpDown size={11} className="opacity-40" />
-                            )
-                          )}
-                        </div>
-                      </th>
-                    ))}
-
-                    {/* Slot: Extra Columns Header */}
-                    {config.slots?.extraColumns && (
-                      <th className="px-4 py-3 text-right">Details</th>
-                    )}
-
-                    {/* Actions Column Header */}
-                    <th className="px-4 py-3 text-right w-24">Actions</th>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                  {/* Slot: Extra Columns Header */}
+                  {(extraColumns || config.slots?.extraColumns) && (
+                    <th className="px-4 py-3 text-left">Details</th>
+                  )}
+                  {/* Actions Header */}
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-theme-divider">
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={config.columns.length + 2}
+                      className="py-12 text-center text-theme-muted font-mono"
+                    >
+                      <RefreshCw size={24} className="animate-spin mx-auto text-blue-400 mb-2" />
+                      <span>Loading {config.entityNamePlural || config.entityName}...</span>
+                    </td>
                   </tr>
-                </thead>
-
-                <tbody className="divide-y divide-theme-divider">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={config.columns.length + 2} className="py-12 text-center text-theme-muted">
-                        <div className="inline-flex items-center space-x-2 text-xs font-mono">
-                          <RefreshCw size={14} className="animate-spin text-blue-400" />
-                          <span>Loading {config.entityNamePlural || config.entityName}...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : paginatedItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={config.columns.length + 2} className="py-12 text-center text-theme-muted">
-                        <div className="space-y-1">
-                          <p className="text-xs font-bold text-theme-primary">No records found</p>
-                          <p className="text-[11px]">
-                            {searchQuery ? "Try adjusting your search criteria." : `No ${config.entityNamePlural || config.entityName} registered yet.`}
-                          </p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedItems.map((item, rowIdx) => {
-                      const idKey = config.idKey || "id";
-                      const itemId = item[idKey] || rowIdx;
-
-                      return (
-                        <tr
-                          key={itemId}
-                          className="hover:bg-theme-surface-hover transition-colors group cursor-pointer"
-                          onClick={() => {
-                            if (detailDrawer || config.slots?.detailDrawer) {
-                              setSelectedDetailItem(item);
-                            }
-                          }}
-                        >
-                          {config.columns.map((col) => {
-                            const val = item[col.key];
-
-                            return (
-                              <td
-                                key={col.key}
-                                className={`px-4 py-3 text-xs ${
-                                  col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
-                                }`}
-                              >
-                                {col.render ? (
-                                  col.render(val, item)
-                                ) : col.renderStatus ? (
-                                  renderStatusPill(val)
-                                ) : col.renderBadge ? (
-                                  (() => {
-                                    const b = col.renderBadge(val);
+                ) : displayItems.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={config.columns.length + 2}
+                      className="py-12 text-center text-theme-muted font-sans"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-theme-surface-2 border border-theme-divider flex items-center justify-center mx-auto mb-3 text-theme-muted">
+                        <Search size={20} />
+                      </div>
+                      <p className="font-bold text-sm text-theme-primary">
+                        No {config.entityNamePlural || config.entityName} found
+                      </p>
+                      <p className="text-xs text-theme-muted mt-0.5">
+                        {debouncedSearch
+                          ? `No records match your query "${debouncedSearch}".`
+                          : `Get started by registering your first ${config.entityName.toLowerCase()}.`}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  displayItems.map((item, idx) => {
+                    const idKey = config.idKey || "id";
+                    const rowKey = item[idKey] || `row-${idx}`;
+                    return (
+                      <tr
+                        key={rowKey}
+                        className="hover:bg-theme-surface-hover transition-colors group"
+                      >
+                        {config.columns.map((col) => {
+                          const val = item[col.key];
+                          return (
+                            <td
+                              key={col.key}
+                              className={`px-4 py-3 ${
+                                col.align === "right"
+                                  ? "text-right"
+                                  : col.align === "center"
+                                  ? "text-center"
+                                  : "text-left"
+                              }`}
+                            >
+                              {col.render
+                                ? col.render(val, item)
+                                : col.renderBadge
+                                ? (() => {
+                                    const badge = col.renderBadge(val);
                                     return (
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${b.color}`}>
-                                        {b.label}
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono border ${badge.color}`}
+                                      >
+                                        {badge.label}
                                       </span>
                                     );
                                   })()
-                                ) : (
-                                  <span className="text-theme-primary">
-                                    {val !== undefined && val !== null ? String(val) : "—"}
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          })}
-
-                          {/* Slot: Extra Columns Row */}
-                          {config.slots?.extraColumns && (
-                            <td className="px-4 py-3 text-right">
-                              {config.slots.extraColumns(item)}
+                                : String(val ?? "—")}
                             </td>
-                          )}
+                          );
+                        })}
 
-                          {/* Actions Column */}
-                          <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-end space-x-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                              {/* Custom Row Actions */}
-                              {(customActions || config.customActions)?.map((act) => {
-                                if (act.showWhen && !act.showWhen(item)) return null;
-                                return (
-                                  <button
-                                    key={act.id}
-                                    onClick={() => act.onClick(item, fetchItems)}
-                                    title={act.label}
-                                    className="p-1 rounded hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary transition-colors cursor-pointer"
-                                  >
-                                    {act.icon || act.label}
-                                  </button>
-                                );
-                              })}
-
-                              {/* Edit Action */}
-                              {!isReadOnly && (
-                                <button
-                                  onClick={() => {
-                                    setEditingItem(item);
-                                    setIsFormOpen(true);
-                                  }}
-                                  title={`Edit ${config.entityName}`}
-                                  className="p-1 rounded hover:bg-blue-500/10 text-theme-muted hover:text-blue-400 transition-colors cursor-pointer"
-                                >
-                                  <Edit3 size={13} />
-                                </button>
-                              )}
-
-                              {/* Delete Action */}
-                              {!isReadOnly && (
-                                <button
-                                  onClick={() => setItemToDelete(item)}
-                                  title={`Delete ${config.entityName}`}
-                                  className="p-1 rounded hover:bg-rose-500/10 text-theme-muted hover:text-rose-400 transition-colors cursor-pointer"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              )}
-                            </div>
+                        {/* Slot: Extra Columns Body */}
+                        {(extraColumns || config.slots?.extraColumns) && (
+                          <td className="px-4 py-3">
+                            {(extraColumns || config.slots?.extraColumns)!(item)}
                           </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </SmritiScrollArea>
+                        )}
 
-          {/* Pagination Footer */}
-          <div className="flex items-center justify-between px-6 py-3 border-t border-theme-divider bg-theme-surface-2 shrink-0 font-mono text-xs text-theme-muted">
+                        {/* Row Actions */}
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            {/* Custom Actions */}
+                            {effectiveCustomActions?.map((act) => {
+                              if (act.showWhen && !act.showWhen(item)) return null;
+                              return (
+                                <button
+                                  key={act.id}
+                                  type="button"
+                                  onClick={() => act.onClick(item, fetchItems)}
+                                  title={act.label}
+                                  className="p-1.5 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary border border-theme-divider transition-all cursor-pointer"
+                                >
+                                  {act.icon}
+                                </button>
+                              );
+                            })}
+
+                            {/* Detail View Drawer Trigger */}
+                            {(detailDrawer || config.slots?.detailDrawer) && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDetailItem(item)}
+                                title="View Details"
+                                className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all cursor-pointer"
+                              >
+                                <Search size={13} />
+                              </button>
+                            )}
+
+                            {/* Edit Action */}
+                            {canEdit && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingItem(item);
+                                  setIsFormOpen(true);
+                                }}
+                                title={`Edit ${config.entityName}`}
+                                className="p-1.5 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary border border-theme-divider transition-all cursor-pointer"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                            )}
+
+                            {/* Delete Action */}
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => setItemToDelete(item)}
+                                title={`Delete ${config.entityName}`}
+                                className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-all cursor-pointer"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Controls Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-theme-muted font-mono">
             <div className="flex items-center space-x-4">
               <span>
-                Showing {sortedItems.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
-                {Math.min(page * pageSize, sortedItems.length)} of {sortedItems.length} entries
+                Showing {totalCount === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalCount)} of {totalCount} {config.entityNamePlural || "records"}
               </span>
-              <div className="flex items-center space-x-1">
-                <span>Page Size:</span>
+              <div className="flex items-center space-x-1.5">
+                <span>Rows per page:</span>
                 <select
                   value={pageSize}
                   onChange={(e) => {
@@ -664,14 +784,24 @@ export function MasterListScreen<T extends Record<string, any>>({
                   <option value={15}>15</option>
                   <option value={25}>25</option>
                   <option value={50}>50</option>
+                  <option value={100}>100</option>
                 </select>
               </div>
             </div>
 
             <div className="flex items-center space-x-1">
               <button
-                disabled={page <= 1}
+                disabled={page <= 1 || loading}
+                onClick={() => setPage(1)}
+                title="First Page"
+                className="p-1.5 rounded border border-theme-divider hover:bg-theme-surface-hover disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              >
+                <ChevronsLeft size={14} />
+              </button>
+              <button
+                disabled={page <= 1 || loading}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
+                title="Previous Page"
                 className="p-1.5 rounded border border-theme-divider hover:bg-theme-surface-hover disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
               >
                 <ChevronLeft size={14} />
@@ -680,11 +810,20 @@ export function MasterListScreen<T extends Record<string, any>>({
                 {page} / {totalPages}
               </span>
               <button
-                disabled={page >= totalPages}
+                disabled={page >= totalPages || loading}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                title="Next Page"
                 className="p-1.5 rounded border border-theme-divider hover:bg-theme-surface-hover disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
               >
                 <ChevronRight size={14} />
+              </button>
+              <button
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage(totalPages)}
+                title="Last Page"
+                className="p-1.5 rounded border border-theme-divider hover:bg-theme-surface-hover disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              >
+                <ChevronsRight size={14} />
               </button>
             </div>
           </div>
