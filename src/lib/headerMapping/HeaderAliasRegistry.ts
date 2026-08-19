@@ -45,7 +45,10 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
       "barcode", "barcode no", "barcode number", "barcode code", "ean",
       "ean code", "ean13", "ean 13", "upc", "upc code"
     ],
-    description: "EAN / UPC scanner barcode"
+    description: "EAN / UPC scanner barcode",
+    additionalTargets: [
+      { target: "sku", targetLabel: "SKU", condition: "sku_mode === 'BARCODE'", transform: "identity" }
+    ]
   },
   {
     key: "brand",

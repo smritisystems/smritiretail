@@ -12,13 +12,14 @@
  """
 
 from datetime import datetime
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
 
 class Product(BaseEntity):
     __tablename__ = "products"
 
+    variant_id = Column(BigInteger, autoincrement=True, index=True)
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
     price = Column(Numeric(15, 2), nullable=False, default=0.00)

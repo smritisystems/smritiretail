@@ -552,6 +552,15 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
           } else {
             (currentRow as any)[fieldKey] = cleanVal;
           }
+
+          // Apply additional conditional targets from one-to-many configuration
+          if (colMapping.additionalTargets && colMapping.additionalTargets.length > 0) {
+            colMapping.additionalTargets.forEach(tgt => {
+              if (tgt.target && !(currentRow as any)[tgt.target]) {
+                (currentRow as any)[tgt.target] = cleanVal;
+              }
+            });
+          }
         });
 
         // SKU Code Generation & Sourcing Fallback

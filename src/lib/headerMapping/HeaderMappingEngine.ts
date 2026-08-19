@@ -102,7 +102,8 @@ export class HeaderMappingEngine {
           mappedFieldLabel: exactMatch.label,
           confidence: 'EXACT',
           confidenceScore: 100,
-          isAmbiguous: false
+          isAmbiguous: false,
+          additionalTargets: exactMatch.additionalTargets || []
         });
         return;
       }
@@ -129,7 +130,8 @@ export class HeaderMappingEngine {
           mappedFieldLabel: aliasMatchField.label,
           confidence: 'HIGH',
           confidenceScore: 90,
-          isAmbiguous: false
+          isAmbiguous: false,
+          additionalTargets: aliasMatchField.additionalTargets || []
         });
         return;
       }
@@ -172,7 +174,8 @@ export class HeaderMappingEngine {
           mappedFieldLabel: bestFuzzyField.label,
           confidence,
           confidenceScore: highestSimilarity,
-          isAmbiguous: false
+          isAmbiguous: false,
+          additionalTargets: bestFuzzyField.additionalTargets || []
         });
         return;
       }
