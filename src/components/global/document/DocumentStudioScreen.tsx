@@ -108,7 +108,8 @@ export const DocumentStudioScreen: React.FC<DocumentStudioScreenProps> = ({
       // 1. Check if product exists in backend catalog via search endpoint or products query
       const encodedQuery = encodeURIComponent(query.trim());
       const searchRes = await apiFetchV1(`/inventory/search?q=${encodedQuery}&limit=5`).catch(() => []);
-      const matched = Array.isArray(searchRes) && searchRes.length > 0 ? searchRes[0] : null;
+      const searchList = searchRes?.items || (Array.isArray(searchRes) ? searchRes : []);
+      const matched = searchList.length > 0 ? searchList[0] : null;
 
       if (!matched) {
         // Fallback: search products endpoint directly

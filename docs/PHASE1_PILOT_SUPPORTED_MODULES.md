@@ -90,3 +90,16 @@ During pilot deployment, all client requests MUST supply:
 3. `X-Branch-ID: <BR-ID>`
 
 The backend enforces fail-closed isolation across all Tier A routes: any request missing tenant context or mismatched across database scopes is rejected with `HTTP 401/403`.
+
+---
+
+## 5. Phase 2 Residual Risk Register & Watch Items
+
+| Risk Item | Operational Impact | Mitigation & Validation Gate |
+| :--- | :--- | :--- |
+| **Sales & Purchase Studios Dual-Run** | `DocumentStudioScreen` shell & configs are completed; full retirement of legacy studio components scheduled for subsequent phase. | Dual-run supported; verify lines addition, scan bar, and document posting on staging. |
+| **B2B Tax Invoice Flow** | Operational via `AdvancedBillingEngine` with statutory calculations. | Verify customer GSTIN lookup, line discounts, and PDF/A4 print generation on staging. |
+| **Barcode Thermal Hardware** | Backend `/api/v1/barcode/print` route is connected and verified. | Perform physical device print test with target thermal printer model on staging. |
+| **Scan Bar Query Envelope** | Product lookup now handles both direct arrays and paginated `{ items: [...] }` envelopes. | Verify barcode scan merges quantity on duplicate entries and displays clear toast on unknown SKUs. |
+| **Client-Side Ledger Pagination** | `LedgerScreen` currently uses 50-row client-side pagination. | Perform server-side `LIMIT/OFFSET` migration in Phase 3 if ledger table exceeds 10,000 records. |
+
