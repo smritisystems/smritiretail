@@ -127,6 +127,7 @@ export interface MasterConfig<T = any> {
     key: string;
     direction: "asc" | "desc";
   };
+  serverPagination?: boolean;
   pageSize?: number;
   slots?: {
     extraColumns?: (item: T) => React.ReactNode;

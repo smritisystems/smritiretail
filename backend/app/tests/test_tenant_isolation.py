@@ -146,6 +146,8 @@ async def test_read_isolation(db_session):
         res_a = await client.get("/api/v1/products/")
         assert res_a.status_code == 200
         products_a = res_a.json()
+        if isinstance(products_a, dict) and "items" in products_a:
+            products_a = products_a["items"]
         assert any(p["id"] == prod_a.id for p in products_a)
 
         # GET under Tenant B context should NOT find Product A
@@ -153,6 +155,8 @@ async def test_read_isolation(db_session):
         res_b = await client.get("/api/v1/products/")
         assert res_b.status_code == 200
         products_b = res_b.json()
+        if isinstance(products_b, dict) and "items" in products_b:
+            products_b = products_b["items"]
         assert not any(p["id"] == prod_a.id for p in products_b)
 
         # Search under Tenant B should NOT return Product A
