@@ -122,6 +122,7 @@ app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",     
 app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])
 app.include_router(inventory.router, prefix=settings.API_V1_STR + "/products",       tags=["Inventory"])
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
+app.include_router(crm.router,       prefix=settings.API_V1_STR + "/crm",          tags=["CRM"])
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated — remove at v3.20.0
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Contract URL (Phase 4A)
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/tattly",         tags=["Tattly Invoices"])

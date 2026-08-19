@@ -15,12 +15,13 @@ import React, { useState, useMemo, useEffect } from "react";
 import { 
   FileText, Save, CheckCircle2, Printer, Plus, Trash2, 
   Calendar, Building2, User, RefreshCw, Calculator, 
-  Tag, AlertCircle, ArrowLeft, Layers
+  Tag, AlertCircle, ArrowLeft, Layers, ExternalLink
 } from "lucide-react";
 import { DocumentStudioConfig, DocumentLineItem, DocumentHeaderState, DocumentTotals } from "./types.ts";
 import { BottomScanBar } from "./BottomScanBar.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { formatCurrency } from "../../../utils/formatters.ts";
+import { useWorkspace } from "../../../contexts/WorkspaceContext.tsx";
 
 export interface DocumentStudioScreenProps {
   config: DocumentStudioConfig;
@@ -39,6 +40,7 @@ export const DocumentStudioScreen: React.FC<DocumentStudioScreenProps> = ({
   onPrintDocument,
   onNotification,
 }) => {
+  const { popOutExternalWindow } = useWorkspace();
   const [header, setHeader] = useState<DocumentHeaderState>({
     docType: config.documentType,
     docNumber: `DOC-${Date.now().toString(36).toUpperCase()}`,
@@ -272,6 +274,16 @@ export const DocumentStudioScreen: React.FC<DocumentStudioScreenProps> = ({
               <span>Print</span>
             </button>
           )}
+
+          {/* Popout External Window Button */}
+          <button
+            type="button"
+            onClick={() => popOutExternalWindow(config.documentType.toLowerCase().replace(/\s+/g, "-"), config.title)}
+            title="Pop Out into Standalone Window"
+            className="p-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-muted hover:text-theme-primary rounded-xl transition-colors cursor-pointer"
+          >
+            <ExternalLink size={14} />
+          </button>
 
           <button
             type="button"

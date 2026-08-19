@@ -23,6 +23,7 @@ import { getSmritiItemMasterFields } from "../lib/headerMapping/HeaderAliasRegis
 import { HeaderMappingEngineResult, ColumnMappingResult } from "../lib/headerMapping/types";
 import { HeaderMappingPreviewModal } from "./HeaderMappingPreviewModal";
 import { HeaderAliasManagerModal } from "./HeaderAliasManagerModal";
+import { generateSkuCode, SkuConfigOptions, DEFAULT_SKU_CONFIG, SkuGenerationMode } from "../services/skuGenerationEngine.ts";
 
 interface ExcelGridEntrySectionProps {
   onRefreshProducts: () => Promise<void>;
@@ -552,6 +553,16 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
             (currentRow as any)[fieldKey] = cleanVal;
           }
         });
+
+        // SKU Code Generation & Sourcing Fallback
+        if (!currentRow.code || currentRow.code.trim() === "") {
+          currentRow.code = generateSkuCode(currentRow as any, DEFAULT_SKU_CONFIG, rowOffset);
+        }
+
+        // Selling Price Fallback: Default to MRP if price is empty
+        if ((!currentRow.price || currentRow.price.trim() === "") && currentRow.mrp) {
+          currentRow.price = currentRow.mrp;
+        }
 
         nextRows[targetRowIdx] = currentRow;
       });

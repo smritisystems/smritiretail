@@ -15,11 +15,12 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Search, RefreshCw, Download, Filter, 
   Calendar, Layers, FileSpreadsheet, Loader2, 
-  ChevronLeft, ChevronRight, AlertCircle, Database
+  ChevronLeft, ChevronRight, AlertCircle, Database, ExternalLink
 } from "lucide-react";
 import { LedgerConfig } from "./types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { formatDateTime } from "../../../utils/formatters.ts";
+import { useWorkspace } from "../../../contexts/WorkspaceContext.tsx";
 
 export interface LedgerScreenProps<T = any> {
   config: LedgerConfig<T>;
@@ -30,6 +31,7 @@ export function LedgerScreen<T extends Record<string, any>>({
   config,
   onNotification,
 }: LedgerScreenProps<T>) {
+  const { popOutExternalWindow } = useWorkspace();
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -184,6 +186,16 @@ export function LedgerScreen<T extends Record<string, any>>({
           >
             <Download size={13} />
             <span>Export CSV</span>
+          </button>
+
+          {/* Popout External Window Button */}
+          <button
+            type="button"
+            onClick={() => popOutExternalWindow(config.entityName.toLowerCase().replace(/\s+/g, "-"), config.title)}
+            title="Pop Out into Standalone Window"
+            className="p-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-muted hover:text-theme-primary rounded-xl transition-colors cursor-pointer"
+          >
+            <ExternalLink size={13} />
           </button>
         </div>
       </div>

@@ -44,7 +44,7 @@ class ProductBase(BaseModel):
 
 
 class ProductCreate(ProductBase):
-    id: str = Field(..., max_length=50)
+    id: Optional[str] = Field(default=None, max_length=50)
 
 class ProductUpdate(BaseModel):
     code: Optional[str] = None
@@ -132,8 +132,7 @@ class StockMovementResponse(BaseModel):
     source_module: Optional[str] = None
     approval: Optional[str] = None
     company_id: Optional[str] = None
-    branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

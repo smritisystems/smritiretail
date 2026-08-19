@@ -10,9 +10,12 @@
  * License      : Proprietary Commercial Software
  */
 
-import React from "react";
+import React, { useMemo } from "react";
+import { ExternalLink } from "lucide-react";
+import { useWorkspace } from "../../contexts/WorkspaceContext.tsx";
 
 export interface FioriLaunchpadProps {
+  currentUser?: { role: string; name: string } | null;
   onSelectModule: (moduleId: string) => void;
 }
 
@@ -24,6 +27,8 @@ export interface TileData {
   tag?: string;
   badgeType?: "info" | "warning" | "success" | "primary";
   group: string;
+  roles?: string[];
+  isQuickAction?: boolean;
 }
 
 export const LAUNCHPAD_CATALOG: TileData[] = [
@@ -36,6 +41,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Core POS",
     badgeType: "primary",
     group: "Retail Operations",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+    isQuickAction: true,
   },
   {
     id: "sales",
@@ -45,6 +52,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Sales",
     badgeType: "success",
     group: "Retail Operations",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
   },
   {
     id: "create-tax-invoice",
@@ -54,6 +62,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "GST A4",
     badgeType: "primary",
     group: "Retail Operations",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+    isQuickAction: true,
   },
   {
     id: "purchase",
@@ -63,6 +73,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Procurement",
     badgeType: "info",
     group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "profiles",
@@ -72,6 +83,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Registers",
     badgeType: "primary",
     group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
   },
 
   // 2. Master Data & Stock
@@ -83,6 +95,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Catalog",
     badgeType: "primary",
     group: "Master Data & Stock",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+    isQuickAction: true,
   },
   {
     id: "barcode",
@@ -92,6 +106,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Labels",
     badgeType: "info",
     group: "Master Data & Stock",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+    isQuickAction: true,
   },
   {
     id: "stock-ledger",
@@ -101,6 +117,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Inventory",
     badgeType: "success",
     group: "Master Data & Stock",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+    isQuickAction: true,
   },
   {
     id: "supplier-mgmt",
@@ -242,6 +260,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Setup",
     badgeType: "primary",
     group: "Data & Config",
+    roles: ["SYSADMIN"],
   },
   {
     id: "ufe",
@@ -251,6 +270,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Schema",
     badgeType: "info",
     group: "Data & Config",
+    roles: ["SYSADMIN"],
   },
   {
     id: "formulas",
@@ -260,6 +280,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Formulas",
     badgeType: "info",
     group: "Data & Config",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "psv",
@@ -269,6 +290,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Distribution",
     badgeType: "primary",
     group: "Data & Config",
+    roles: ["MANAGER", "SYSADMIN"],
   },
 
   // 6. System & Operations
@@ -280,6 +302,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "HR / Staff",
     badgeType: "info",
     group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "user-profile",
@@ -298,6 +321,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Security",
     badgeType: "warning",
     group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN", "AUDITOR"],
   },
   {
     id: "dev-tracker",
@@ -307,6 +331,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "DevOps",
     badgeType: "info",
     group: "System & Operations",
+    roles: ["SYSADMIN"],
   },
   {
     id: "wiki",
@@ -337,8 +362,28 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   },
 ];
 
-export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ onSelectModule }) => {
-  const groups = Array.from(new Set(LAUNCHPAD_CATALOG.map((t) => t.group)));
+export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onSelectModule }) => {
+  const { popOutExternalWindow } = useWorkspace();
+  
+  const userRole = (currentUser?.role || "SYSADMIN").toUpperCase().trim();
+  const isSysAdmin = userRole === "SYSADMIN" || userRole === "SYSTEM ADMIN" || userRole === "ADMIN";
+  const isManager = userRole === "MANAGER" || userRole === "STORE MANAGER" || isSysAdmin;
+
+  // Filter tiles based on current user role
+  const visibleTiles = useMemo(() => {
+    return LAUNCHPAD_CATALOG.filter((tile) => {
+      if (!tile.roles || isSysAdmin) return true;
+      return tile.roles.some((r) => r.toUpperCase() === userRole || (r === "MANAGER" && isManager));
+    });
+  }, [userRole, isSysAdmin, isManager]);
+
+  const quickActions = useMemo(() => {
+    return visibleTiles.filter((t) => t.isQuickAction);
+  }, [visibleTiles]);
+
+  const groups = useMemo(() => {
+    return Array.from(new Set(visibleTiles.map((t) => t.group)));
+  }, [visibleTiles]);
 
   return (
     <div className="flex-1 bg-theme-surface-1 overflow-y-auto p-4 md:p-6 space-y-6 select-none custom-scrollbar">
@@ -357,22 +402,52 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ onSelectModule }
         <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl backdrop-blur-xs border border-white/20 self-start md:self-auto font-mono">
           <div className="text-center px-3 border-r border-white/20">
             <div className="text-indigo-200 uppercase font-semibold text-[10px]">Workspaces</div>
-            <div className="text-base font-bold text-white">{LAUNCHPAD_CATALOG.length}</div>
+            <div className="text-base font-bold text-white">{visibleTiles.length}</div>
           </div>
           <div className="text-center px-3 border-r border-white/20">
-            <div className="text-indigo-200 uppercase font-semibold text-[10px]">Architecture</div>
-            <div className="text-base font-bold text-emerald-300">FastAPI + PG</div>
+            <div className="text-indigo-200 uppercase font-semibold text-[10px]">Role</div>
+            <div className="text-base font-bold text-emerald-300 font-sans">{currentUser?.role || "Admin"}</div>
           </div>
           <div className="text-center px-3">
-            <div className="text-indigo-200 uppercase font-semibold text-[10px]">Edition</div>
-            <div className="text-base font-bold text-white">Enterprise</div>
+            <div className="text-indigo-200 uppercase font-semibold text-[10px]">Architecture</div>
+            <div className="text-base font-bold text-white">FastAPI + PG</div>
           </div>
         </div>
       </div>
 
+      {/* Mobile / Touch Terminal Quick Action Primary Row */}
+      {quickActions.length > 0 && (
+        <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-4 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-theme-primary">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Primary Quick Actions (Mobile / Touch Bar)</span>
+            </div>
+            <span className="text-[10px] text-theme-muted font-mono">1-Tap Rapid Switch</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {quickActions.map((qa) => (
+              <button
+                key={`qa-${qa.id}`}
+                type="button"
+                onClick={() => onSelectModule(qa.id)}
+                className="p-3.5 bg-theme-surface-1 hover:bg-blue-600 hover:text-white border border-theme-divider hover:border-blue-500 rounded-xl flex flex-col items-center justify-center text-center gap-2 transition-all group cursor-pointer shadow-xs"
+              >
+                <div className="w-9 h-9 rounded-lg bg-blue-500/10 group-hover:bg-white/20 text-blue-400 group-hover:text-white flex items-center justify-center transition-colors">
+                  <span className="material-symbols-outlined text-[20px]">{qa.icon}</span>
+                </div>
+                <span className="text-xs font-bold font-display line-clamp-1 group-hover:text-white text-theme-primary">{qa.title}</span>
+                <span className="text-[10px] text-theme-muted group-hover:text-blue-100 font-mono">{qa.tag || "Quick"}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Grouped Tiles */}
       {groups.map((groupName) => {
-        const tiles = LAUNCHPAD_CATALOG.filter((t) => t.group === groupName);
+        const tiles = visibleTiles.filter((t) => t.group === groupName);
 
         return (
           <section key={groupName} className="space-y-3">
@@ -402,19 +477,33 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ onSelectModule }
                         <span className="material-symbols-outlined text-[20px]">{tile.icon}</span>
                       </div>
 
-                      {tile.tag && (
+                      <div className="flex items-center gap-1.5">
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono border ${
-                            tile.badgeType === "success"
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                              : tile.badgeType === "warning"
-                              ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                              : "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                          }`}
+                          role="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            popOutExternalWindow(tile.id, tile.title, tile.icon);
+                          }}
+                          title={`Pop out ${tile.title} into external window`}
+                          className="p-1 rounded-md text-theme-muted hover:text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
                         >
-                          {tile.tag}
+                          <ExternalLink size={12} />
                         </span>
-                      )}
+
+                        {tile.tag && (
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono border ${
+                              tile.badgeType === "success"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : tile.badgeType === "warning"
+                                ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                            }`}
+                          >
+                            {tile.tag}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <h3 className="font-bold text-sm text-theme-primary group-hover:text-blue-400 transition-colors mt-1 font-display">
