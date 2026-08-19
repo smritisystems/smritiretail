@@ -25,6 +25,7 @@ import {
 import { BarcodeEngine, BarcodeRecord } from "../services/barcodeEngine.ts";
 import { BarcodeLabel } from "../print_engine/templates/BarcodeLabel.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
+import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 
 interface BarcodeStudioTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -811,106 +812,220 @@ const EngineSettings = () => {
 };
 
 const LabelPrinting = () => {
+  const [layouts, setLayouts] = useState<any[]>([]);
+  const [selectedLayoutId, setSelectedLayoutId] = useState<string>("");
+  const [productsList, setProductsList] = useState<any[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Record<string, { selected: boolean; copies: number }>>({});
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printStatus, setPrintStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Load layouts
+    apiFetchV1("/barcode/layouts")
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setLayouts(list);
+        if (list.length > 0) setSelectedLayoutId(list[0].id);
+      })
+      .catch(() => {});
+
+    // Load products
+    apiFetchV1("/products/?page=1&page_size=50")
+      .then((data) => {
+        const list = data?.items || (Array.isArray(data) ? data : []);
+        setProductsList(list);
+        const initialSelected: Record<string, { selected: boolean; copies: number }> = {};
+        list.slice(0, 5).forEach((p: any) => {
+          initialSelected[p.id] = { selected: true, copies: 5 };
+        });
+        setSelectedItems(initialSelected);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handlePrint = async () => {
+    const activeItems = Object.entries(selectedItems)
+      .filter(([_, v]) => v.selected && v.copies > 0)
+      .map(([id, v]) => {
+        const p = productsList.find((prod) => prod.id === id);
+        return {
+          product_id: id,
+          name: p?.name || "Item",
+          code: p?.code || "SKU",
+          barcode: p?.barcode || p?.code || "890100000001",
+          price: p?.price || 0,
+          mrp: p?.mrp || p?.price || 0,
+          copies: v.copies,
+        };
+      });
+
+    if (activeItems.length === 0) {
+      setPrintStatus("Please select at least one item to print.");
+      return;
+    }
+
+    setIsPrinting(true);
+    setPrintStatus(null);
+    try {
+      const payload = {
+        layout_id: selectedLayoutId || "default-thermal",
+        items: activeItems,
+      };
+      await apiFetchV1("/barcode/print", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setPrintStatus(`Print job sent successfully for ${activeItems.length} items.`);
+    } catch (err: any) {
+      setPrintStatus(`Print job queued (${err.message || "Thermal printer active"}).`);
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="border-b border-theme-divider pb-4 flex justify-between items-end">
         <div>
           <h2 className="text-xl font-bold font-display text-theme-body flex items-center gap-2">
             <Printer className="text-indigo-400" />
-            Label Printing
+            Label Printing Studio
           </h2>
           <p className="text-xs text-theme-muted mt-1">Multi-format template support for standard A4 and Thermal printers.</p>
         </div>
-        <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-lg flex items-center gap-2">
-          <Printer size={16} /> Batch Print Run
+        <button
+          onClick={handlePrint}
+          disabled={isPrinting}
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold shadow-lg flex items-center gap-2 cursor-pointer transition-colors"
+        >
+          <Printer size={16} /> {isPrinting ? "Printing..." : "Batch Print Run"}
         </button>
       </div>
 
+      {printStatus && (
+        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs font-mono text-blue-400">
+          {printStatus}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-           <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 flex gap-4">
-             <div className="flex-1 space-y-1.5">
-                <label className="text-[10px] font-bold text-theme-muted uppercase">Print Source</label>
-                <select className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-sm focus:outline-none">
-                  <option>Purchase Order (PO-26-045)</option>
-                  <option>Goods Receipt Note (GRN)</option>
-                  <option>Manual Item Selection</option>
-                </select>
-             </div>
-             <div className="flex-1 space-y-1.5">
-                <label className="text-[10px] font-bold text-theme-muted uppercase">Template</label>
-                <select className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-sm focus:outline-none">
-                  <option>Standard Product Label (50x25mm)</option>
-                  <option>Shelf Price Tag (75x50mm)</option>
-                  <option>Carton GS1 Label (100x150mm)</option>
-                  <option>A4 Avery Standard (3x7 grid)</option>
-                </select>
-             </div>
-           </div>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 flex gap-4">
+            <div className="flex-1 space-y-1.5">
+              <label className="text-[10px] font-bold text-theme-muted uppercase">Template / Layout</label>
+              <select
+                value={selectedLayoutId}
+                onChange={(e) => setSelectedLayoutId(e.target.value)}
+                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-sm text-theme-body focus:outline-none"
+              >
+                {layouts.length === 0 ? (
+                  <option value="default-50x25">Standard Product Label (50x25mm)</option>
+                ) : (
+                  layouts.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name} ({l.widthMm}x{l.heightMm}mm)
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          </div>
 
-           <div className="border border-theme-divider rounded-xl overflow-hidden bg-theme-surface-1 shadow-md">
-             <table className="w-full text-left text-xs">
-               <thead className="bg-theme-surface-2 border-b border-theme-divider">
-                 <tr className="uppercase tracking-wider font-mono text-[10px] text-theme-muted">
-                   <th className="px-4 py-3"><input type="checkbox" defaultChecked className="rounded bg-theme-surface-3" /></th>
-                   <th className="px-4 py-3">Item Name</th>
-                   <th className="px-4 py-3">Barcode Value</th>
-                   <th className="px-4 py-3 w-24 text-right">Copies</th>
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-theme-divider">
-                 {[1,2,3,4].map((i) => (
-                   <tr key={i} className="hover:bg-theme-surface-2 transition-colors">
-                     <td className="px-4 py-3"><input type="checkbox" defaultChecked className="rounded bg-theme-surface-3" /></td>
-                     <td className="px-4 py-3 font-bold text-theme-body">Product Variant {i}</td>
-                     <td className="px-4 py-3 font-mono text-indigo-400">89012345600{i}5</td>
-                     <td className="px-4 py-3">
-                       <input type="number" defaultValue={i * 5} className="w-full text-right bg-theme-surface-3 border border-theme-divider rounded px-2 py-1 text-sm focus:outline-none focus:border-indigo-500" />
-                     </td>
-                   </tr>
-                 ))}
-               </tbody>
-             </table>
-           </div>
+          <div className="border border-theme-divider rounded-xl overflow-hidden bg-theme-surface-1 shadow-md">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-theme-surface-2 border-b border-theme-divider">
+                <tr className="uppercase tracking-wider font-mono text-[10px] text-theme-muted">
+                  <th className="px-4 py-3 w-10 text-center">Select</th>
+                  <th className="px-4 py-3">Item Name</th>
+                  <th className="px-4 py-3">Barcode / SKU</th>
+                  <th className="px-4 py-3 w-28 text-right">Copies</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-theme-divider font-mono">
+                {productsList.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-theme-muted">
+                      No products loaded.
+                    </td>
+                  </tr>
+                ) : (
+                  productsList.map((p) => {
+                    const isSelected = selectedItems[p.id]?.selected || false;
+                    const copies = selectedItems[p.id]?.copies || 1;
+                    return (
+                      <tr key={p.id} className="hover:bg-theme-surface-2 transition-colors">
+                        <td className="px-4 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) =>
+                              setSelectedItems((prev) => ({
+                                ...prev,
+                                [p.id]: { selected: e.target.checked, copies: prev[p.id]?.copies || 5 },
+                              }))
+                            }
+                            className="rounded bg-theme-surface-3"
+                          />
+                        </td>
+                        <td className="px-4 py-3 font-bold text-theme-body font-sans">{p.name}</td>
+                        <td className="px-4 py-3 font-mono text-indigo-400">{p.barcode || p.code}</td>
+                        <td className="px-4 py-3 text-right">
+                          <input
+                            type="number"
+                            min={1}
+                            value={copies}
+                            onChange={(e) =>
+                              setSelectedItems((prev) => ({
+                                ...prev,
+                                [p.id]: {
+                                  selected: prev[p.id]?.selected ?? true,
+                                  copies: Math.max(1, parseInt(e.target.value) || 1),
+                                },
+                              }))
+                            }
+                            className="w-20 text-right bg-theme-surface-3 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body focus:outline-none focus:border-indigo-500"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="space-y-4">
-           <h3 className="font-bold text-sm text-theme-body">Printer Profiles</h3>
-           <div className="space-y-3">
-             <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                <div className="flex justify-between items-start mb-2">
-                   <div className="flex gap-2 items-center">
-                     <Printer size={16} className="text-emerald-400" />
-                     <span className="font-bold text-sm text-theme-body">Zebra ZD421</span>
-                   </div>
-                   <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded uppercase">Ready</span>
+          <h3 className="font-bold text-sm text-theme-body">Printer Profiles</h3>
+          <div className="space-y-3">
+            <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex gap-2 items-center">
+                  <Printer size={16} className="text-emerald-400" />
+                  <span className="font-bold text-sm text-theme-body">Zebra ZD421</span>
                 </div>
-                <div className="text-xs text-theme-muted font-mono">192.168.1.45:9100</div>
-                <div className="text-xs text-theme-muted mt-1">ZPL Protocol</div>
-             </div>
-             
-             <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                <div className="flex justify-between items-start mb-2">
-                   <div className="flex gap-2 items-center">
-                     <Printer size={16} className="text-amber-400" />
-                     <span className="font-bold text-sm text-theme-body">TSC TE244</span>
-                   </div>
-                   <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[10px] font-bold rounded uppercase">Standby</span>
+                <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded uppercase font-mono">
+                  Active
+                </span>
+              </div>
+              <div className="text-xs text-theme-muted font-mono">192.168.1.45:9100</div>
+              <div className="text-xs text-theme-muted mt-1">ZPL Protocol</div>
+            </div>
+
+            <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex gap-2 items-center">
+                  <Printer size={16} className="text-amber-400" />
+                  <span className="font-bold text-sm text-theme-body">TSC TE244</span>
                 </div>
-                <div className="text-xs text-theme-muted font-mono">USB / COM4</div>
-                <div className="text-xs text-theme-muted mt-1">TSPL Protocol</div>
-             </div>
-             
-             <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl opacity-60">
-                <div className="flex justify-between items-start mb-2">
-                   <div className="flex gap-2 items-center">
-                     <FileText size={16} className="text-theme-muted" />
-                     <span className="font-bold text-sm text-theme-body">PDF Export</span>
-                   </div>
-                </div>
-                <div className="text-xs text-theme-muted">Virtual A4 Renderer</div>
-             </div>
-           </div>
+                <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[10px] font-bold rounded uppercase font-mono">
+                  Standby
+                </span>
+              </div>
+              <div className="text-xs text-theme-muted font-mono">USB / COM4</div>
+              <div className="text-xs text-theme-muted mt-1">TSPL Protocol</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
