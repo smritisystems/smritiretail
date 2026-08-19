@@ -5,7 +5,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.17.0
  * Created      : 2026-08-16
- * Modified     : 2026-08-16
+ * Modified     : 2026-08-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -78,6 +78,16 @@ const LAUNCHPAD_TILES: TileData[] = [
     icon: 'inventory_2',
     metric: '4,892',
     metricLabel: 'Active SKUs',
+    badgeType: 'primary',
+    group: 'Master Data & Stock',
+  },
+  {
+    id: 'barcode',
+    title: 'Barcode & Label Printing',
+    subtitle: 'Thermal label designer, EAN/UPC generator & batch printing',
+    icon: 'qr_code_scanner',
+    metric: 'Thermal Ready',
+    metricLabel: 'Print Engine',
     badgeType: 'primary',
     group: 'Master Data & Stock',
   },

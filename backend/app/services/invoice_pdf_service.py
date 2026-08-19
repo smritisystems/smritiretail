@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 4.9.5
 Created      : 2026-08-14
-Modified     : 2026-08-19
+Modified     : 2026-08-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -37,6 +37,10 @@ from .smrititaxinvoice_frozen_spec import (
     SMRITITAXINVOICE_TEMPLATE_CODE,
     SMRITITAXINVOICE_VERSION,
     SMRITITAXINVOICE_STATUS,
+    SMRITI_INTERSTATE_COLUMNS,
+    SMRITI_INTRASTATE_COLUMNS,
+    build_colgroup,
+    load_golden_css,
     verify_smrititaxinvoice_integrity,
 )
 
@@ -225,32 +229,8 @@ CANONICAL_INVOICE_LAYOUT_CONFIG: Dict[str, Any] = {
     "page_orientation": "portrait",
     "margins_mm": {"top": 8, "bottom": 10, "left": 8, "right": 8},
     "column_widths": {
-        "interstate": {
-            "sl_no": "3.5%",
-            "item_description": "28.0%",
-            "hsn_sac": "8.0%",
-            "qty": "5.5%",
-            "mrp": "10.0%",
-            "discount_pct": "6.5%",
-            "taxable_value": "11.0%",
-            "tax_pct": "5.0%",
-            "igst": "9.0%",
-            "amount": "13.5%"
-        },
-        "intrastate": {
-            "sl_no": "3.5%",
-            "item_description": "24.0%",
-            "hsn_sac": "7.5%",
-            "qty": "4.5%",
-            "mrp": "9.5%",
-            "discount_pct": "5.5%",
-            "taxable_value": "10.5%",
-            "cgst_pct": "5.0%",
-            "cgst": "8.5%",
-            "sgst_pct": "5.0%",
-            "sgst": "8.5%",
-            "amount": "8.0%"
-        }
+        "interstate": SMRITI_INTERSTATE_COLUMNS,
+        "intrastate": SMRITI_INTRASTATE_COLUMNS,
     },
     "grid_borders": {
         "table_border": "1px solid #d1d5db",
@@ -264,14 +244,14 @@ CANONICAL_INVOICE_LAYOUT_CONFIG: Dict[str, Any] = {
 }
 
 
-def paginate_items(items: list, first_page_max: int = 25, cont_page_max: int = 34, last_page_room: int = 18) -> List[list]:
+def paginate_items(items: list, first_page_max: int = 20, cont_page_max: int = 34, last_page_room: int = 19) -> List[list]:
     """
     Paginate items cleanly for multi-page invoices matching original layout geometry.
 
     Authoritative geometry (measured from drawn lines in OLD PDFs):
       - Item row height: 21.00 pt CSS (~20.5pt rendered)
       - A4 body height: ~791 pt printable
-      - Page 1 available (below header ~205pt): ~548 pt -> 24-25 items
+      - Page 1 available (below header ~205pt): ~520 pt -> 21-22 items max
       - Continuation page available: ~730 pt -> 35-36 items
       - Last page: items + totals + summary; leave ~18 items max
     """
@@ -528,349 +508,18 @@ class InvoicePdfService:
         
         is_long_addr = (sis_code == "TYAC" or b_lines >= 4 or s_lines >= 4)
         if is_long_addr:
-            first_page_cap = 23
+            first_page_cap = 18
         else:
-            first_page_cap = 25
+            first_page_cap = 20
 
-        pages_items = paginate_items(items_data, first_page_max=first_page_cap, cont_page_max=34, last_page_room=18)
+        pages_items = paginate_items(items_data, first_page_max=first_page_cap, cont_page_max=34, last_page_room=19)
         total_pages = len(pages_items)
 
-        # Build CSS
-        css = """
-        @page {
-          size: A4 portrait;
-          margin: 8mm 8mm 10mm 8mm;
-        }
-        * {
-          box-sizing: border-box;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-          color: #111827;
-          margin: 0;
-          padding: 0;
-          background: #ffffff;
-          font-size: 8px;
-          line-height: 1.25;
-        }
-        .page-container {
-          width: 100%;
-          height: 279mm;
-          position: relative;
-          page-break-after: always;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-        }
-        .page-container:last-child {
-          page-break-after: avoid;
-        }
-        
-        /* Header Block */
-        .header-table {
-          width: 100%;
-          border-collapse: collapse;
-          border: 1px solid #d1d5db;
-          margin-bottom: 7px;
-        }
-        .header-table td {
-          vertical-align: top;
-          padding: 6px 8px;
-        }
-        .company-name {
-          font-size: 10.24pt;
-          font-weight: 700;
-          color: #111827;
-          letter-spacing: 0.5px;
-          margin: 0 0 2px 0;
-        }
-        .company-details {
-          font-size: 7.31pt;
-          color: #4b5563;
-          line-height: 1.3;
-        }
-        .invoice-title {
-          font-size: 11.70pt;
-          font-weight: 700;
-          color: #111827;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          margin: 0 0 2px 0;
-        }
-        .meta-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-family: monospace;
-          font-size: 7.31pt;
-        }
-        .meta-table td {
-          padding: 1.5px 0;
-        }
-        .meta-label {
-          color: #6b7280;
-          width: 45%;
-        }
-        .meta-val {
-          font-weight: 600;
-          color: #111827;
-          text-align: right;
-        }
-        
-        /* Customer Block */
-        .customer-table {
-          width: 100%;
-          border-collapse: collapse;
-          border: 1px solid #d1d5db;
-          background: #f9fafb;
-          margin-bottom: 7px;
-        }
-        .customer-table td {
-          width: 50%;
-          padding: 6px 8px;
-          vertical-align: top;
-        }
-        .cust-heading {
-          font-size: 6.58pt;
-          font-weight: 700;
-          color: #4b5563;
-          text-transform: uppercase;
-          border-bottom: 1px solid #e5e7eb;
-          padding-bottom: 2px;
-          margin-bottom: 3px;
-        }
-        .cust-name {
-          font-size: 8.77pt;
-          font-weight: 700;
-          color: #111827;
-          margin: 0 0 2px 0;
-        }
-        .cust-address {
-          font-size: 7.31pt;
-          color: #374151;
-          line-height: 1.3;
-          margin: 0 0 3px 0;
-        }
-        .cust-gstin {
-          font-size: 7.31pt;
-          font-weight: 700;
-          font-family: monospace;
-          color: #111827;
-        }
-        
-        /* Item Table */
-        .item-table {
-          width: 100%;
-          border-collapse: collapse;
-          border: 1px solid #d1d5db;
-          table-layout: fixed;
-          font-size: 8.2pt;
-          font-family: monospace;
-        }
-        .item-table th {
-          background: #f3f4f6;
-          border: 1px solid #d1d5db;
-          height: 18pt;
-          padding: 2px 2px;
-          font-weight: 700;
-          text-align: center;
-          vertical-align: middle;
-          font-size: 6.58pt;
-          white-space: nowrap !important;
-        }
-        .item-table td {
-          border: 1px solid #d1d5db;
-          height: 21.00pt;
-          padding: 0 2px;
-          vertical-align: middle;
-          font-size: 8.2pt;
-          white-space: nowrap !important;
-          overflow: hidden;
-          max-height: 21.00pt;
-        }
-        .item-row:hover {
-          background: #f9fafb;
-        }
-        .subtotal-row {
-          background: #f3f4f6;
-          border-top: 2px solid #9ca3af !important;
-          border-bottom: 2px solid #9ca3af !important;
-          font-weight: 700;
-          font-size: 6.58pt;
-        }
-        .subtotal-row td {
-          border: 1px solid #d1d5db;
-          height: 21.00pt;
-          padding: 0 2px;
-          vertical-align: middle;
-          font-size: 6.58pt;
-        }
-        
-        /* Summary Sections */
-        .summary-grid {
-          display: flex;
-          justify-content: space-between;
-          gap: 8px;
-          margin: 5px 0;
-        }
-        .words-box {
-          width: 50%;
-          border: 1px solid #d1d5db;
-          background: #f9fafb;
-          padding: 6px 8px;
-          border-radius: 2px;
-        }
-        .totals-box {
-          width: 50%;
-          border: 1px solid #d1d5db;
-          border-radius: 2px;
-          overflow: hidden;
-        }
-        .totals-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-family: monospace;
-          font-size: 7.31pt;
-        }
-        .totals-table td {
-          padding: 2.5px 6px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .totals-label {
-          color: #4b5563;
-          font-weight: 600;
-          background: #f9fafb;
-          border-right: 1px solid #e5e7eb;
-          width: 50%;
-        }
-        .totals-val {
-          font-weight: 700;
-          color: #111827;
-          text-align: right;
-        }
-        .grand-total-row td {
-          background: #111827 !important;
-          color: #ffffff !important;
-          font-weight: 700;
-          font-size: 8.77pt;
-          padding: 4px 6px;
-          border: none;
-        }
-        
-        .gst-table {
-          width: 100%;
-          border-collapse: collapse;
-          border: 1px solid #d1d5db;
-          font-family: monospace;
-          font-size: 7.31pt;
-          margin: 4px 0;
-        }
-        .gst-table th, .gst-table td {
-          border: 1px solid #d1d5db;
-          padding: 2.5px 5px;
-        }
-        .gst-table th {
-          background: #f9fafb;
-          font-weight: 700;
-        }
-        
-        .bottom-grid {
-          display: flex;
-          justify-content: space-between;
-          gap: 8px;
-          border-top: 1px solid #e5e7eb;
-          padding-top: 4px;
-          margin-top: 3px;
-        }
-        .bank-box {
-          border: 1px solid #e5e7eb;
-          background: #f9fafb;
-          padding: 4px 6px;
-          border-radius: 2px;
-          margin-bottom: 3px;
-        }
-        .signatory-box {
-          border: 1px solid #d1d5db;
-          background: #f9fafb;
-          padding: 4px 8px;
-          text-align: center;
-          font-family: monospace;
-          width: 170px;
-        }
-        
-        /* Footer */
-        .page-footer {
-          font-family: monospace;
-          font-size: 6.00pt;
-          color: #6b7280;
-          border-top: 1px dashed #d1d5db;
-          padding-top: 2px;
-          margin-top: 2px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          gap: 1px;
-        }
-        .continuation-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-family: monospace;
-          font-size: 7.31pt;
-          font-weight: 700;
-          color: #4b5563;
-          border-bottom: 1px solid #d1d5db;
-          padding-bottom: 2px;
-          margin-bottom: 4px;
-        }
-        .watermark-cancelled {
-          position: absolute;
-          top: 38%;
-          left: 12%;
-          transform: rotate(-30deg);
-          font-size: 72px;
-          font-weight: 900;
-          color: rgba(220, 38, 38, 0.12);
-          border: 6px solid rgba(220, 38, 38, 0.12);
-          padding: 8px 30px;
-          text-transform: uppercase;
-          letter-spacing: 10px;
-          pointer-events: none;
-          z-index: 100;
-          border-radius: 6px;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-        .watermark-logo {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 80%;
-          max-width: 80%;
-          opacity: 0.07;
-          z-index: 0;
-          pointer-events: none;
-          user-select: none;
-        }
-        """
+        # Canonical visual CSS — loaded from golden artifact (never duplicated inline)
+        css = load_golden_css()
         
         if is_interstate:
-            colgroup = """
-            <colgroup>
-              <col style="width: 3.5%;">
-              <col style="width: 28.0%;">
-              <col style="width: 8.0%;">
-              <col style="width: 5.5%;">
-              <col style="width: 10.0%;">
-              <col style="width: 6.5%;">
-              <col style="width: 11.0%;">
-              <col style="width: 5.0%;">
-              <col style="width: 9.0%;">
-              <col style="width: 13.5%;">
-            </colgroup>
-            """
+            colgroup = build_colgroup(SMRITI_INTERSTATE_COLUMNS)
             thead_html = """
             <thead>
               <tr>
@@ -888,22 +537,7 @@ class InvoicePdfService:
             </thead>
             """
         else:
-            colgroup = """
-            <colgroup>
-              <col style="width: 3.5%;">
-              <col style="width: 24.0%;">
-              <col style="width: 7.5%;">
-              <col style="width: 4.5%;">
-              <col style="width: 9.5%;">
-              <col style="width: 5.5%;">
-              <col style="width: 10.5%;">
-              <col style="width: 5.0%;">
-              <col style="width: 8.5%;">
-              <col style="width: 5.0%;">
-              <col style="width: 8.5%;">
-              <col style="width: 8.0%;">
-            </colgroup>
-            """
+            colgroup = build_colgroup(SMRITI_INTRASTATE_COLUMNS)
             thead_html = """
             <thead>
               <tr>
@@ -1188,7 +822,7 @@ class InvoicePdfService:
                 <!-- Bank & Signatory -->
                 <div class="bottom-grid">
                   <div style="width: 60%;">
-                    <div class="bank-box" style="border: 1px solid #d1d5db; border-radius: 3px; padding: 5px 8px; background: #f9fafb;">
+                    <div class="bank-box" style="border: 1px solid #d1d5db; border-radius: 3px; padding: 5px 8px; background: rgba(249, 250, 251, 0.70);">
                       <div style="font-size: 6.00pt; font-weight: 800; color: #374151; font-family: monospace; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px; margin-bottom: 3px;">&#127970; BANK DETAILS</div>
                       <div style="font-family: monospace; font-size: 6.58pt; color: #6b7280; margin-bottom: 1px;">A/C Name: <b style="color: #111827;">{company_name}</b></div>
                       <div style="font-weight: 800; color: #111827; font-size: 8.2pt; font-family: sans-serif; margin-bottom: 1px;">{bank_name}</div>

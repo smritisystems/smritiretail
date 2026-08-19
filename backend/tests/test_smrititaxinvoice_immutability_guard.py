@@ -41,6 +41,8 @@ from app.services.smrititaxinvoice_frozen_spec import (
     SMRITI_ITEM_ROW_HEIGHT_PT,
     SMRITI_SUBTOTAL_ROW_HEIGHT_PT,
     verify_smrititaxinvoice_integrity,
+    verify_golden_css_integrity,
+    load_golden_css,
 )
 from app.models.tax_invoice_template import TaxInvoiceTemplate, TaxInvoiceTemplateVersion
 from app.services.invoice_pdf_service import InvoicePdfService, paginate_items
@@ -114,6 +116,15 @@ def test_03_database_trigger_strictly_blocks_deletion(sync_db):
 def test_04_python_spec_cryptographic_integrity_hash():
     """Verifies that the frozen Python layout specification is cryptographically valid and untampered."""
     assert verify_smrititaxinvoice_integrity() is True
+
+
+def test_04b_golden_css_artifact_integrity():
+    """Verifies smrititaxinvoice_v1.golden.css matches its integrity manifest."""
+    assert verify_golden_css_integrity() is True
+    css = load_golden_css(verify=False)
+    assert "@page" in css
+    assert ".item-table" in css
+    assert "height: 21.00pt" in css
 
 
 def test_05_grid_columns_and_geometry_immutability():

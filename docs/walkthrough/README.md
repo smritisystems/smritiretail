@@ -131,5 +131,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-08-17 | sales | Tattly Threads Tax Invoice Format Master Replication v1.0 — 54 Historical Invoices Reconciled 100%, Multi-Page Geometry, Barcode & QR Retained | [Sales_Tax_Invoice_Tattly_Threads_Format_Master_Replication_v1.0.md](sales/Sales_Tax_Invoice_Tattly_Threads_Format_Master_Replication_v1.0.md) |
 | 2026-08-18 | invoicing | Tattly Threads Tax Invoice Canonical Renderer Calibration v4.9.4 — Subtotals on Last Page Only, Footer Barcode & Brand Logo Across All Pages, 86 Invoices 100% Reconciled | [Invoicing_TattlyThreads_RendererCalibration_v4.9.2.md](invoicing/Invoicing_TattlyThreads_RendererCalibration_v4.9.2.md) |
 | 2026-08-18 | invoicing | Master Tax Invoice Hardening & Subtle Watermark v4.9.5 — 3-State QR Engine, Centered Footer Branding, 80% Background Watermark, 86/86 Invoices 100% PASS | [Invoicing_MasterTaxInvoiceHardening_And_Watermark_v4.9.5.md](invoicing/Invoicing_MasterTaxInvoiceHardening_And_Watermark_v4.9.5.md) |
+| 2026-08-18 | foundation | SMRITI Login → Company Database Selector → Dashboard Flow v3.25.0 — Reconciled Tenant DB routing, /auth/tenants READY filter, Fiori CompanySelectionScreen, switch-context | [Login_Company_Selector_Flow_v3.25.0.md](foundation/Login_Company_Selector_Flow_v3.25.0.md) | [Plan](../implementation/foundation/Login_Company_Selector_Flow_Plan_v3.25.0.md) | Completed |
+
 
 

@@ -55,6 +55,9 @@ async def override_db(db_session):
     app.dependency_overrides.pop(get_db, None)
 
 
+from app.models.company_database_registry import CompanyDatabaseRegistry
+
+
 async def _make_tenant(db_session, suffix: str):
     company = Company(
         id=f"comp-auth-{suffix}",
@@ -69,7 +72,13 @@ async def _make_tenant(db_session, suffix: str):
         code=f"BRAUTH-{suffix}",
         is_active=True,
     )
-    db_session.add_all([company, branch])
+    db_reg = CompanyDatabaseRegistry(
+        company_id=company.id,
+        database_id=f"db-auth-{suffix}",
+        database_name=f"smriti_auth_{suffix}",
+        status="READY",
+    )
+    db_session.add_all([company, branch, db_reg])
     await db_session.commit()
     return company, branch
 

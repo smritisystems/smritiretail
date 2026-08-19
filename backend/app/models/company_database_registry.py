@@ -3,18 +3,18 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.0
+ * Version      : 3.25.0
  * Created      : 2026-08-15
- * Modified     : 2026-08-15
+ * Modified     : 2026-08-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
 """
 
-from sqlalchemy import Column, String, Integer, DateTime, Text, Enum as SQLEnum
+from sqlalchemy import Column, String, Integer, DateTime
 from datetime import datetime, timezone
 import enum
-from backend.app.db.base_class import Base
+from ..db.base import Base
 
 class DatabaseStatus(str, enum.Enum):
     PROVISIONING = "PROVISIONING"
@@ -34,7 +34,7 @@ class CompanyDatabaseRegistry(Base):
     database_engine = Column(String(50), default="postgresql")
     host_reference = Column(String(255), default="localhost")
     port_reference = Column(Integer, default=5432)
-    status = Column(SQLEnum(DatabaseStatus), default=DatabaseStatus.READY, nullable=False)
+    status = Column(String(50), default="READY", nullable=False)
     schema_version = Column(String(50), default="3.16.0")
     region = Column(String(50), default="ap-south-1")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -42,3 +42,4 @@ class CompanyDatabaseRegistry(Base):
     last_health_check = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     provisioning_status = Column(String(50), default="COMPLETED")
     migration_status = Column(String(50), default="UP_TO_DATE")
+
