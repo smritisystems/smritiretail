@@ -57,6 +57,16 @@ class Product(BaseEntity):
 
     __table_args__ = (
         Index("idx_products_attributes", "attributes", postgresql_using="gin"),
+        Index("idx_products_variant_id", "variant_id"),
+        Index(
+            "uq_variant_identity_active",
+            "company_id",
+            text("lower(style_code)"),
+            text("lower(color)"),
+            text("lower(size)"),
+            unique=True,
+            postgresql_where=text("is_deleted = false AND style_code IS NOT NULL AND color IS NOT NULL AND size IS NOT NULL"),
+        ),
     )
 
 

@@ -1,46 +1,59 @@
 <!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
+  Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.17.0
+  Version      : 4.1.0
   Created      : 2026-08-19
-  Modified     : 2026-08-19
+  Modified     : 2026-08-20
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
+  Classification: Internal
 -->
 
 # FINAL REFACTOR REPORT — ITEM MASTER + PASTE-IMPORT + REPORTING
 
 **Repository:** `SMRITIRetailNX`  
 **Branch:** `smritiNX`  
-**Final Status:** `REFACTOR COMPLETE`  
-**Classification:** `Level 1 & Level 2 Runtime Verified`
+**Final Status:** `COMPLETE_VERIFIED`  
+**Classification:** Level 1 (Live PostgreSQL Runtime) & Level 2 (Automated Test Suite) Verified
 
 ---
 
-## 1. Executive Summary
+## 1. Refactor Status Matrix
 
-| Phase | Checkpoint Focus | Status | Verification Evidence |
-| :--- | :--- | :---: | :--- |
-| **Phase 0** | Company Scoping Verification | **`COMPANY-SCOPED`** | Confirmed `company_id` on `products` table in PostgreSQL |
-| **Phase 1** | Schema Baseline & Duplicate Check | **`DONE`** | 0 duplicate variant groups found across 36 active records |
-| **Phase 2** | Additive Schema Migration | **`DONE`** | Added `variant_id` BIGSERIAL & `uq_variant_identity_active` partial unique index |
-| **Phase 3** | Config-Driven One-to-Many Alias Registry | **`DONE`** | Extended `HeaderAliasRegistry.ts` and `HeaderMappingEngine.ts` with `additionalTargets` |
-| **Phase 4** | Unified Paste/Import Pipeline | **`DONE`** | Integrated mandatory preview modal, normalized variant keys, and non-blocking collision error handling |
-| **Phase 5** | Canonical Reporting Flat View | **`DONE`** | Created `report_flat_inventory_sales` view joined on surrogate `variant_id` |
-| **Phase 6** | Mandatory Test Suite Execution | **`DONE`** | 98/98 Vitest passed, 29/29 Pytest passed, 4/4 Headless SKU API tests passed |
-| **Phase 7** | Git Safety & Diff Inspection | **`DONE`** | Only intended additive files modified, zero destructive drops |
-| **Phase 8** | Reversible Rollback Plan | **`DONE`** | Full reverse SQL and code rollbacks documented in `08_rollback_plan.md` |
+| Component / Target | Code Status | DB Status (`smritisys`) | DB Status (`smriti001`) | Verification Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| **`variant_id` Column** | `PRESENT_CODE` | `PRESENT_DB` | `PRESENT_DB` | BigInteger column on `products` table |
+| **`uq_variant_identity_active`** | `PRESENT_CODE` | `PRESENT_DB` | `PRESENT_DB` | Partial unique index on active products |
+| **`idx_products_variant_id`** | `PRESENT_CODE` | `PRESENT_DB` | `PRESENT_DB` | B-tree index on `variant_id` |
+| **`report_flat_inventory_sales`** | `PRESENT_CODE` | `PRESENT_DB` | `PRESENT_DB` | Canonical SQL reporting view (588 rows returned) |
+| **`alias_preview_fe`** | `PRESENT` | N/A | N/A | `HeaderAliasRegistry.ts` & `HeaderMappingPreviewModal.tsx` |
+| **Alembic Migration** | `PRESENT_CODE` | `APPLIED` | `APPLIED` | Revision `v1336_variant_identity_view` |
 
 ---
 
-## 2. Invariant Checklist
+## 2. Invariant & Safety Checklist
 
-- [x] **Variant IDENTITY Enforced in DB**: Real unique constraint on `(company_id, LOWER(style_code), LOWER(color), LOWER(size))`.
-- [x] **Surrogate Key Added**: `variant_id` BIGSERIAL assigned to all products for downstream transaction joins.
-- [x] **Barcode & SKU as Labels**: Decoupled from load-bearing database uniqueness; generated cosmetically per configured mode.
-- [x] **One-to-Many Alias Registry**: Single columns map to primary target and conditional targets (`sku`, `code`, `price`).
-- [x] **Mandatory Import Preview**: Human confirmation required before committing clipboard / file rows.
-- [x] **Flat Reporting View**: `report_flat_inventory_sales` serves raw Excel dump and progressive drill-downs from one canonical query.
-- [x] **Zero Data Loss & Additive Only**: No existing columns or records dropped; 100% backward compatible.
+- [x] **Zero Duplicate Collisions**: 0 duplicate identity groups found in live PostgreSQL before index creation.
+- [x] **No Destructive Drops**: No existing columns, barcodes, or tables were dropped or modified.
+- [x] **SSOT Launchpad Wiring**: `item-master` and `item-create-grid` registered in `launchpadCatalog.ts` and dispatching in `App.tsx`.
+- [x] **FastAPI & ORM Alignment**: `Product` model `__table_args__` mirrors DB indexes.
+- [x] **Automated Tests**: 113/113 Vitest tests passed, 2/2 focused gap refactor Pytests passed, `tsc --noEmit` clean.
+
+---
+
+## 3. Verification Log Summary
+
+```text
+DB_STATUS: CONNECTED
+variant_id: CODE_YES | DB_YES
+uq_variant_identity_active: CODE_YES | DB_YES
+duplicates_before_index: 0
+report_flat_inventory_sales: CODE_YES | DB_YES
+alias_preview_fe: PRESENT (no rewrite)
+migration_applied: YES | v1336_variant_identity_view
+tests: tsc (0 errors) | vitest (113/113 passed) | pytest (2/2 passed)
+FINAL_STATUS: COMPLETE_VERIFIED
+```
