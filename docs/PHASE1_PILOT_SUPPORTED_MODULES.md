@@ -12,37 +12,42 @@
   Classification: Internal Governance & Pilot Readiness Specification
 -->
 
-# SMRITI Retail OS — Phase 1 Pilot Supported vs Preview Modules
+# SMRITI Retail OS — Pilot Supported vs Preview Modules Specification
 
-**Phase:** Phase 1 — Stabilize Tier A Money Path (Days 1–30)  
+**Phases Complete:**  
+- **Phase 1 (Days 1–30)**: Stabilize Tier A Money Path & Launchpad Directory  
+- **Phase 2 (Days 31–60)**: Global Screen Extensions (DocumentStudio & LedgerScreen), B2B Tax Invoicing & Barcode Studio  
 **Branch:** `smritiNX`  
 **Target Release:** v3.16.0  
-**Status:** Approved for Pilot Deployment  
+**Status:** Approved for Commercial Pilot Deployment  
 
 ---
 
 ## 1. Executive Summary
 
 This document establishes the official pilot deployment boundaries for SMRITI Retail OS. To guarantee operational stability, fiscal correctness, and strict multi-tenant database isolation, modules are formally classified into two tiers:
-- **Supported for Pilot (Tier A Money Path + Core Masters)**: Fully verified end-to-end, integrated with FastAPI + PostgreSQL transactional core, hardened tenant isolation, and protected against data corruption.
-- **Preview (Available for Evaluation)**: Functional for demonstration and non-transactional pilot staging, but undergoing subsequent consolidation or hardware certification before general production signoff.
+- **Supported for Pilot (Tier A + Core Masters + DocumentStudio + LedgerScreen + Barcode Studio)**: Fully verified end-to-end, integrated with FastAPI + PostgreSQL transactional core, hardened tenant isolation, and protected against data corruption.
+- **Preview (Available for Staging / Evaluation)**: Functional for demonstration and evaluation, scheduled for subsequent hardware certification or secondary reporting extensions in Phase 3.
 
 ---
 
-## 2. Supported Modules for Pilot (Tier A Money Path)
+## 2. Supported Modules for Pilot (Production & Pilot Ready)
 
-The following modules constitute the core transactional money path and master registry, fully supported for commercial pilot operations:
+The following 18 modules are fully supported for commercial pilot operations:
 
-| Module Identifier | Display Name | Category | Backend Endpoint | Pilot Capability & Verification Scope |
+| Module Identifier | Display Name | Category | Backend Endpoint | Verification Scope |
 | :--- | :--- | :--- | :--- | :--- |
 | `dashboard` / `launchpad` | **SMRITI Launchpad** | Operations | `/api/v1/auth/me` | Unified workspace director with 33 canonical routes; neutral status indicators. |
 | `pos` | **Billing Desk (POS)** | Sales & POS | `/api/v1/pos/`, `/api/v1/sales/` | Cashier shift management, barcode scanning, cart calculation, cash drawer reconciliation, receipt printing. |
 | `sales` | **Sales Studio** | Sales & POS | `/api/v1/sales/` | B2C retail invoice creation, multi-tender transactions, sales register, return processing. |
+| `create-tax-invoice` | **Create Tax Invoice (B2B)** | Sales & POS | `/api/v1/sales/invoices` | Full B2B statutory invoice UI with customer GSTIN validation, HSN rates, discount splits, and printable A4 invoice formats. |
 | `purchase` | **Purchase Studio** | Inventory & Sourcing | `/api/v1/purchase/` | Vendor purchase orders, goods receiving (GRN), inventory batch receiving. |
 | `item-master` | **Item Master & Catalog** | Inventory & Sourcing | `/api/v1/products/` | Database-level paginated product catalog (`LIMIT/OFFSET`), deterministic sorting, multi-field database search (`ILIKE`). |
 | `customer-master` | **Customer Master** | Sales & POS | `/api/v1/crm/` | Customer directory, GSTIN records, phone lookup, credit limit verification. |
 | `supplier-mgmt` | **Supplier Directory** | Inventory & Sourcing | `/api/v1/purchase/suppliers` | Vendor master registry, payment terms, GSTIN verification, payable balance tracking. |
-| `stock-ledger` | **Stock Movement Ledger** | Inventory & Sourcing | `/api/v1/inventory/ledger` | Real-time immutable stock movement history, inward/outward audit entries. |
+| `stock-ledger` | **Stock Movement Ledger** | Inventory & Sourcing | `/api/v1/inventory/ledger` | Global `LedgerScreen` architecture with real-time movement filtering, date ranges, and CSV audit export. |
+| `audit-logs` | **Security & Audit Logs** | System | `/api/v1/audit-logs` | Global `LedgerScreen` architecture with activity breakdown, user trace, and security event logs. |
+| `barcode` | **Barcode Studio** | Documents & Print | `/api/v1/barcode/` | Label printing studio with thermal printer layout selection, dynamic SKU batch selection, and live `/api/v1/barcode/print` dispatch. |
 | `profiles` | **POS Profiles & Counters** | Sales & POS | `/api/v1/pos/profiles/` | Counter profile assignment, cashier locks, default customer mapping. |
 | `document-series` | **Document Series Engine** | Data & Config | `/api/v1/numbering/` | Fiscal year prefixing, sequential numbering, auto-increment resets. |
 | `terms-engine` | **Commercial Terms Engine**| Data & Config | `/api/v1/terms/` | Legal terms, invoice footer conditions, return & warranty clauses. |
@@ -55,12 +60,10 @@ The following modules constitute the core transactional money path and master re
 
 ## 3. Preview Modules (Evaluation & Staging Mode)
 
-These modules are enabled in the interface for operational evaluation, but remain outside the Tier A pilot guarantee:
+These modules are enabled in the interface for operational evaluation:
 
 | Module Identifier | Display Name | Pilot Status | Reason for Preview Classification |
 | :--- | :--- | :--- | :--- |
-| `create-tax-invoice` | **Create Tax Invoice (B2B)** | Preview | B2B statutory invoice UI undergoing DocumentStudio shell consolidation in Phase 2. |
-| `barcode` | **Barcode Studio** | Preview | Thermal label engine active; hardware printer certification scheduled in Phase 2. |
 | `business-ledger` | **Business Accounts Ledger**| Preview | Sales journal verified; full double-entry accounting reconciliation scheduled for Phase 3. |
 | `accounting-sync` | **Accounting Sync** | Preview | External ERP synchronization connector interface in evaluation. |
 | `report-designer` | **Report Designer** | Preview | Standard FastAPI reporting operational; visual drag-and-drop builder in preview. |
@@ -74,7 +77,6 @@ These modules are enabled in the interface for operational evaluation, but remai
 | `formulas` | **KPI Registry** | Preview | Analytical metric expressions registry in evaluation. |
 | `psv` | **Channel Visibility (PSV)** | Preview | Multi-channel partner stock telemetry in preview. |
 | `dev-tracker` | **Dev Intelligence Center** | Preview | Internal developer diagnostics and health monitor. |
-| `audit-logs` | **Security & Audit Logs** | Preview | Security audit trails active; immutable export scheduled in Phase 3. |
 | `wiki` | **SMRITI Gyan Kendra** | Preview | Integrated markdown documentation viewer. |
 | `training-academy` | **Training Academy** | Preview | Training simulation tutorials for cashier onboarding. |
 
