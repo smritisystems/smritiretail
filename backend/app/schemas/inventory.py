@@ -17,6 +17,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 class ProductBase(BaseModel):
+    variant_id: Optional[int] = None
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     price: Decimal = Decimal("0.00")

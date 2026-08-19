@@ -16,12 +16,20 @@ export type ConfidenceLevel = 'EXACT' | 'HIGH' | 'MEDIUM' | 'LOW' | 'AMBIGUOUS' 
 
 export type MappingContext = 'ITEM_MASTER' | 'PURCHASE_ORDER' | 'GRN' | 'SALES_INVOICE';
 
+export interface ConditionalTarget {
+  target: string;
+  targetLabel?: string;
+  condition?: string;
+  transform?: 'identity' | 'uppercase' | 'trim' | 'number';
+}
+
 export interface SmritiFieldDefinition {
   key: string;
   label: string;
   required: boolean;
   aliases: string[];
   description?: string;
+  additionalTargets?: ConditionalTarget[];
 }
 
 export interface ColumnMappingResult {
@@ -34,6 +42,7 @@ export interface ColumnMappingResult {
   isAmbiguous: boolean;
   ambiguousCandidates?: { key: string; label: string; score: number }[];
   isOverridden?: boolean;
+  additionalTargets?: ConditionalTarget[];
 }
 
 export interface HeaderMappingEngineResult {
