@@ -205,8 +205,17 @@ export const TaxInvoicePrintPage: React.FC = () => {
         }
 
         if (Array.isArray(data) && data.length > 0) {
+          // Filter out invoices without any transactions / line items (0 line items or zero quantity/amount)
+          const validInvoices = data.filter((inv: any) => {
+            const hasItems = Array.isArray(inv.items) && inv.items.length > 0;
+            const itemsCount = Number(inv.items_count || inv.item_count || 0);
+            const grandTotal = parseFloat(inv.grand_total || inv.total_amount || 0);
+            const totalQty = Number(inv.total_quantity || inv.quantity || 0);
+            return hasItems || itemsCount > 0 || grandTotal > 0 || totalQty > 0;
+          });
+
           // Sort numerically by invoice sequence number (TT2026-2027/18 -> 18)
-          const sorted = [...data].sort((a, b) => {
+          const sorted = [...validInvoices].sort((a, b) => {
             const getSeq = (inv: any) => {
               const no = inv.invoice_number || inv.invoiceNo || "";
               if (no.includes("/")) {
@@ -220,7 +229,12 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
           // Find current invoice index
           const idx = sorted.findIndex((inv) => inv.id === activeInvoiceId || inv.invoice_number === activeInvoiceId);
-          if (idx !== -1) setCurrentIndex(idx);
+          if (idx !== -1) {
+            setCurrentIndex(idx);
+          } else if (sorted.length > 0) {
+            setCurrentIndex(0);
+            setActiveInvoiceId(sorted[0].id);
+          }
         }
       } catch (e) {
         console.warn("[TaxInvoicePrintPage] Failed to fetch invoices list for navigation:", e);
@@ -792,7 +806,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
                 <List size={18} className="text-blue-400" />
                 <div>
                   <h3 className="font-bold text-sm text-white">Registered Invoices Ledger</h3>
-                  <p className="text-[11px] text-slate-400">54 Existing Tattly Threads Invoices (TT2026-2027/18 → 71)</p>
+                  <p className="text-[11px] text-slate-400">{invoicesList.length} Active Tax Invoices with Transactions</p>
                 </div>
               </div>
               <button

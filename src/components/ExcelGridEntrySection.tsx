@@ -542,25 +542,38 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
 
         rowValues.forEach((cellVal, colIdx) => {
           const colMapping = mappings.find(m => m.sourceIndex === colIdx);
-          if (!colMapping || !colMapping.mappedFieldKey) return;
-          const fieldKey = colMapping.mappedFieldKey;
+          if (!colMapping) return;
           const cleanVal = cellVal.trim();
 
-          if (fieldKey.startsWith("attr_")) {
-            const attrName = fieldKey.substring(5);
-            currentRow.attributes = { ...currentRow.attributes, [attrName]: cleanVal };
-          } else {
-            (currentRow as any)[fieldKey] = cleanVal;
+          // Gather all destination field keys (1:many supported)
+          const targetKeys: string[] = [];
+          if (colMapping.targets && colMapping.targets.length > 0) {
+            colMapping.targets.forEach(t => {
+              if (t.target && !targetKeys.includes(t.target)) {
+                targetKeys.push(t.target);
+              }
+            });
+          } else if (colMapping.mappedFieldKey) {
+            targetKeys.push(colMapping.mappedFieldKey);
           }
 
-          // Apply additional conditional targets from one-to-many configuration
+          // Apply additional conditional targets if configured
           if (colMapping.additionalTargets && colMapping.additionalTargets.length > 0) {
             colMapping.additionalTargets.forEach(tgt => {
-              if (tgt.target && !(currentRow as any)[tgt.target]) {
-                (currentRow as any)[tgt.target] = cleanVal;
+              if (tgt.target && !targetKeys.includes(tgt.target)) {
+                targetKeys.push(tgt.target);
               }
             });
           }
+
+          targetKeys.forEach(fieldKey => {
+            if (fieldKey.startsWith("attr_")) {
+              const attrName = fieldKey.substring(5);
+              currentRow.attributes = { ...currentRow.attributes, [attrName]: cleanVal };
+            } else {
+              (currentRow as any)[fieldKey] = cleanVal;
+            }
+          });
         });
 
         // SKU Code Generation & Sourcing Fallback
@@ -579,9 +592,10 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
       return nextRows;
     });
 
-    const mappedCount = mappings.filter(m => m.mappedFieldKey).length;
+    const mappedCount = mappings.filter(m => (m.targets && m.targets.length > 0) || m.mappedFieldKey).length;
     const reviewCount = mappings.filter(m => m.isAmbiguous || m.confidence === 'LOW' || m.confidence === 'MEDIUM').length;
-    const ignoredCount = mappings.filter(m => !m.mappedFieldKey).length;
+    const ignoredCount = mappings.filter(m => (!m.targets || m.targets.length === 0) && !m.mappedFieldKey).length;
+
 
     setLastMappingSummary({ mapped: mappedCount, review: reviewCount, ignored: ignoredCount });
     setIsMappingModalOpen(false);

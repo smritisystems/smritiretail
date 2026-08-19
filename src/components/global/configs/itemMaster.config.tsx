@@ -28,6 +28,33 @@ export const itemMasterConfig: MasterConfig<Product> = {
   searchPlaceholder: "Search by product name, SKU code, barcode, or category...",
   searchFields: ["name", "code", "barcode", "category", "brand", "styleCode", "sku"],
 
+  responseTransform: (data: any) => {
+    const rawList = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+    return rawList.map((p: any) => {
+      const secBarcodes = Array.isArray(p.secondary_barcodes) ? p.secondary_barcodes : [];
+      return {
+        ...p,
+        id: p.id,
+        code: p.code,
+        name: p.name,
+        price: parseFloat(p.price || 0),
+        mrp: p.mrp ? parseFloat(p.mrp) : parseFloat(p.price || 0),
+        costPrice: p.cost_price ? parseFloat(p.cost_price) : 0,
+        stock: Number(p.stock || 0),
+        category: p.category || "Footwear",
+        brand: p.brand || "TATTLY THREADS",
+        color: p.color || "",
+        size: p.size || "",
+        styleCode: p.style_code || "",
+        barcode: p.barcode || "",
+        secondaryBarcodes: secBarcodes,
+        gstRate: p.gst_percentage ? parseFloat(p.gst_percentage) : 18,
+        status: p.is_active !== false ? "Active" : "Inactive",
+        isFavorite: Boolean(p.is_favorite)
+      };
+    });
+  },
+
   payloadTransform: (formData, mode, editingItem) => {
     const payload: any = { ...formData };
     if (mode === "create" && !payload.id) {

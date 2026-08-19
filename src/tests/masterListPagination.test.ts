@@ -103,4 +103,54 @@ describe("Item Master Server-Side Pagination Isolation & Configuration", () => {
     expect(computeNav(14, 25, 347)).toEqual({ totalPages: 14, hasNext: false, hasPrev: true });
     expect(computeNav(1, 25, 0)).toEqual({ totalPages: 0, hasNext: false, hasPrev: false });
   });
+
+  it("should safely transform paginated and raw array responses with robust secondary_barcodes fallback", () => {
+    const transform = itemMasterConfig.responseTransform!;
+    expect(transform).toBeDefined();
+
+    // 1. Paginated object with null/missing secondary_barcodes
+    const paginatedInput = {
+      items: [
+        {
+          id: "prod-1",
+          code: "SKU-001",
+          name: "Classic Tee",
+          price: "499.00",
+          mrp: "799.00",
+          stock: 12,
+          secondary_barcodes: null
+        }
+      ],
+      total: 1,
+      page: 1,
+      page_size: 25
+    };
+    const transformed1 = transform(paginatedInput);
+    expect(transformed1).toHaveLength(1);
+    expect(transformed1[0].id).toBe("prod-1");
+    expect(transformed1[0].price).toBe(499);
+    expect(transformed1[0].mrp).toBe(799);
+    expect(transformed1[0].secondaryBarcodes).toEqual([]);
+
+    // 2. Direct array input with valid secondary_barcodes
+    const arrayInput = [
+      {
+        id: "prod-2",
+        code: "SKU-002",
+        name: "Denim Jeans",
+        price: 1299,
+        secondary_barcodes: ["8901234567890", "8901234567891"]
+      }
+    ];
+    const transformed2 = transform(arrayInput);
+    expect(transformed2).toHaveLength(1);
+    expect(transformed2[0].id).toBe("prod-2");
+    expect(transformed2[0].secondaryBarcodes).toEqual(["8901234567890", "8901234567891"]);
+
+    // 3. Empty/undefined/invalid payload handling
+    expect(transform(null)).toEqual([]);
+    expect(transform(undefined)).toEqual([]);
+    expect(transform({})).toEqual([]);
+  });
 });
+

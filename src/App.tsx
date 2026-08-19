@@ -320,36 +320,39 @@ const AppContent: React.FC = () => {
       // Fetch products from FastAPI backend
       try {
         const prodData = await apiFetchV1("/inventory/?page=1&page_size=100");
-        const rawList = Array.isArray(prodData) ? prodData : (prodData?.items || []);
-        const mappedProducts = rawList.map((p: any) => ({
-          id: p.id,
-          code: p.code,
-          name: p.name,
-          price: parseFloat(p.price),
-          stock: p.stock,
-          category: p.category,
-          isFavorite: p.is_favorite,
-          barcode: p.barcode,
-          secondaryBarcodes: p.secondary_barcodes || [],
-          barcodes: [
-            { type: "Code128", value: p.barcode, isPrimary: true },
-            ...(p.secondary_barcodes || []).map((val: string) => ({ type: "Code128", value: val, isPrimary: false }))
-          ],
-          brand: p.brand,
-          color: p.color,
-          size: p.size,
-          mrp: p.mrp ? parseFloat(p.mrp) : undefined,
-          gstPercentage: p.gst_percentage ? parseFloat(p.gst_percentage) : 18,
-          styleCode: p.style_code,
-          costPrice: p.cost_price ? parseFloat(p.cost_price) : 0,
-          sku: p.sku,
-          hsnCode: p.hsn_code,
-          attributes: p.attributes || {},
-          pricingMode: p.pricing_mode,
-          trackingMode: p.tracking_mode,
-          variantTemplateId: p.variant_template_id,
-          weightGrams: p.weight_grams ? parseFloat(p.weight_grams) : 0
-        }));
+        const rawList = Array.isArray(prodData) ? prodData : (Array.isArray(prodData?.items) ? prodData.items : []);
+        const mappedProducts = rawList.map((p: any) => {
+          const secBarcodes = Array.isArray(p.secondary_barcodes) ? p.secondary_barcodes : [];
+          return {
+            id: p.id,
+            code: p.code,
+            name: p.name,
+            price: parseFloat(p.price || 0),
+            stock: Number(p.stock || 0),
+            category: p.category,
+            isFavorite: Boolean(p.is_favorite),
+            barcode: p.barcode,
+            secondaryBarcodes: secBarcodes,
+            barcodes: [
+              { type: "Code128", value: p.barcode, isPrimary: true },
+              ...secBarcodes.map((val: string) => ({ type: "Code128", value: val, isPrimary: false }))
+            ],
+            brand: p.brand,
+            color: p.color,
+            size: p.size,
+            mrp: p.mrp ? parseFloat(p.mrp) : undefined,
+            gstPercentage: p.gst_percentage ? parseFloat(p.gst_percentage) : 18,
+            styleCode: p.style_code,
+            costPrice: p.cost_price ? parseFloat(p.cost_price) : 0,
+            sku: p.sku,
+            hsnCode: p.hsn_code,
+            attributes: p.attributes || {},
+            pricingMode: p.pricing_mode,
+            trackingMode: p.tracking_mode,
+            variantTemplateId: p.variant_template_id,
+            weightGrams: p.weight_grams ? parseFloat(p.weight_grams) : 0
+          };
+        });
         setProducts(mappedProducts);
       } catch (err) {
         console.error("Failed to load products from FastAPI:", err);
