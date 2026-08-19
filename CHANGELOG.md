@@ -28,6 +28,17 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.26.0] - 2026-08-20
+
+#### Security — Multi-Tenant Database Routing & Credential Sanitization
+- **Hardened `get_company_db` Dependency**: Removed all raw unvalidated client header (`X-Company-Id`) and query parameter parsing. Tenant resolution strictly composes with `get_tenant_context(get_current_user)`, deriving tenant database scope from cryptographic JWT verification and database assignments in `smritisys`.
+- **100% Operational Router Wiring**: Replaced legacy `get_db` with `get_company_db` across all operational endpoints in `sales.py`, `inventory.py`, `purchase.py`, and `barcode.py`. Zero occurrences of `get_db` remain in operational routes.
+- **Barcode Subsystem Tenant Isolation**: Isolated `BarcodeLayout` CRUD, printer connection configuration (`printer_connection_{company_id}`), diagnostics, test-prints, and `PrintHistory` audit logging by tenant `company_id` and `branch_id`.
+- **Financial Credential Sanitization**: Sanitized `db_store.json`, legacy export scripts, test fixtures, and JSON geometry reports to eliminate real bank accounts and IFSC codes. Implemented dynamic environment-based fallback chain in `InvoicePdfService`.
+- **Automated CI Secret & Reachability Guard**: Created `scripts/ci_secret_and_reachability_guard.py` scanning for credential exposures and verifying complete router wiring.
+- **Consolidated Canonical Exporter**: Replaced 5 redundant invoice export scripts with unified CLI tool `scripts/export_tax_invoices_canonical.py` supporting PDF, HTML, JSON, and CSV exports.
+- **Retroactive Invoice Audit**: Audited all 93 active sales invoices in `smriti001` with 0 itemless invoices and 0 GST calculation discrepancies.
+
 ### [3.25.0] - 2026-08-15
 
 #### Security — Company Control Center Authentication & Authorization Hardening

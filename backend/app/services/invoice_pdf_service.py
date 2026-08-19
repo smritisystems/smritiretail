@@ -357,6 +357,7 @@ class InvoicePdfService:
         place_of_supply_display = format_place_of_supply(pos_state, is_interstate, customer_gstin, supplier_gstin=company_gstin)
 
         is_rcm = bool(getattr(invoice, "reverse_charge", False) or getattr(invoice, "is_reverse_charge", False) or meta.get("reverse_charge", False) or meta.get("is_reverse_charge", False))
+        reverse_charge_display = "Yes" if is_rcm else "No"
         # Dynamic Bank Details: Prefer model fields -> meta overrides -> environment variables -> fallback
         bank_name = (
             getattr(invoice, "bank_name", None)
