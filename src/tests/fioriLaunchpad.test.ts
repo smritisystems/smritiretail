@@ -12,7 +12,11 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { LAUNCHPAD_CATALOG } from "../components/launchpad/FioriLaunchpad.tsx";
+import {
+  LAUNCHPAD_CATALOG,
+  getVisibleLaunchpadTiles,
+  getQuickActionTiles,
+} from "../components/launchpad/launchpadCatalog.ts";
 
 const REGISTERED_APP_TABS = [
   "dashboard",
@@ -98,12 +102,25 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
   });
 
   it("should allow cashiers access to core POS, Item Master, and Stock Ledger", () => {
-    const cashierTiles = LAUNCHPAD_CATALOG.filter((t) => !t.roles || t.roles.includes("CASHIER"));
+    const cashierTiles = getVisibleLaunchpadTiles("CASHIER");
     const cashierIds = cashierTiles.map((t) => t.id);
     expect(cashierIds).toContain("pos");
     expect(cashierIds).toContain("item-master");
     expect(cashierIds).toContain("stock-ledger");
     expect(cashierIds).not.toContain("company-setup");
     expect(cashierIds).not.toContain("ufe");
+  });
+
+  it("should return all tiles for SYSADMIN", () => {
+    const sysAdminTiles = getVisibleLaunchpadTiles("SYSADMIN");
+    expect(sysAdminTiles.length).toBe(LAUNCHPAD_CATALOG.length);
+  });
+
+  it("should return quick actions filtered by role", () => {
+    const cashierQA = getQuickActionTiles("CASHIER");
+    expect(cashierQA.length).toBeGreaterThanOrEqual(4);
+    const qaIds = cashierQA.map((t) => t.id);
+    expect(qaIds).toContain("pos");
+    expect(qaIds).toContain("item-master");
   });
 });
