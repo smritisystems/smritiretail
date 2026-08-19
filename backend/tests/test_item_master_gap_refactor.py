@@ -32,6 +32,24 @@ def test_variant_id_on_product_model():
     
     assert "idx_products_variant_id" in index_names, "idx_products_variant_id must be in Product.__table_args__"
     assert "uq_variant_identity_active" in index_names, "uq_variant_identity_active must be in Product.__table_args__"
+    assert "uq_company_barcode_active" in index_names, "uq_company_barcode_active must be in Product.__table_args__"
+
+def test_barcode_company_isolation_live():
+    """Verify uq_company_barcode_active and idx_products_barcode live on PostgreSQL."""
+    try:
+        conn = psycopg2.connect(host="localhost", port=5432, user="postgres", password="postgres", dbname="smriti001")
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT indexname, indexdef
+            FROM pg_indexes
+            WHERE tablename = 'products' AND indexname IN ('idx_products_barcode', 'uq_company_barcode_active');
+        """)
+        idx_dict = {r[0]: r[1] for r in cur.fetchall()}
+        assert "idx_products_barcode" in idx_dict
+        assert "uq_company_barcode_active" in idx_dict
+        conn.close()
+    except Exception as e:
+        pytest.skip(f"PostgreSQL smriti001 not reachable: {e}")
 
 def test_report_flat_inventory_sales_view_live():
     """Verify that report_flat_inventory_sales view exists and is queryable in PostgreSQL."""

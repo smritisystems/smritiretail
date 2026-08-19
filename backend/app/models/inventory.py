@@ -26,7 +26,7 @@ class Product(BaseEntity):
     stock = Column(Integer, nullable=False, default=0)
     category = Column(String(100), nullable=False, index=True)
     is_favorite = Column(Boolean, default=False)
-    barcode = Column(String(100), nullable=False, unique=True, index=True)
+    barcode = Column(String(100), nullable=False, index=True)
     secondary_barcodes = Column(ARRAY(String), server_default="{}")
     brand = Column(String(100))
     color = Column(String(50))
@@ -66,6 +66,13 @@ class Product(BaseEntity):
             text("lower(size)"),
             unique=True,
             postgresql_where=text("is_deleted = false AND style_code IS NOT NULL AND color IS NOT NULL AND size IS NOT NULL"),
+        ),
+        Index(
+            "uq_company_barcode_active",
+            "company_id",
+            "barcode",
+            unique=True,
+            postgresql_where=text("is_deleted = false AND barcode IS NOT NULL"),
         ),
     )
 

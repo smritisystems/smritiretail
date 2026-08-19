@@ -33,13 +33,19 @@ from sqlalchemy.future import select
 from sqlalchemy.orm.attributes import set_committed_value
 from ..core.config import settings
 
-from ..db.session import get_db as _get_db
+from ..db.session import (
+    get_db as _get_db,
+    get_company_db as _get_company_db,
+    get_company_async_engine,
+    get_company_sessionmaker
+)
 from ..models.auth import User, UserRole
 from ..models.role import Role
 from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 from ..core.security import decode_token
 
 get_db = _get_db  # re-exported for router convenience
+get_company_db = _get_company_db  # re-exported multi-tenant company db dependency
 
 # OAuth2 Bearer scheme — token URL points at the login endpoint
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")

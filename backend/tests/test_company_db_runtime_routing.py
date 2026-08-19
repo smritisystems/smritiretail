@@ -32,7 +32,7 @@ def test_control_plane_db_connection_target():
 
 def test_company_db_runtime_routing_allow():
     """Verify Company A authorized routing returns READY company database target."""
-    res = CompanyDatabaseResolver.resolve_company_database("usr_sysadmin", "COMP-001")
+    res = CompanyDatabaseResolver.resolve_company_database("usr-admin", "COMP-001")
     assert res["company_id"] == "COMP-001"
     assert res["database_status"] == "READY"
 
@@ -51,13 +51,13 @@ def test_company_db_runtime_routing_unassigned():
 def test_company_db_runtime_routing_suspended():
     """Verify suspended company status receives 403 Forbidden."""
     with pytest.raises(HTTPException) as exc_info:
-        CompanyDatabaseResolver.resolve_company_database("usr_sysadmin", "COMP-SUSPENDED-001")
+        CompanyDatabaseResolver.resolve_company_database("usr-admin", "COMP-SUSPENDED-001")
     assert exc_info.value.status_code == 403
 
 def test_company_db_runtime_routing_unknown():
     """Verify unknown company receives 403 Forbidden."""
     with pytest.raises(HTTPException) as exc_info:
-        CompanyDatabaseResolver.resolve_company_database("usr_sysadmin", "COMP-UNKNOWN-XYZ")
+        CompanyDatabaseResolver.resolve_company_database("usr-admin", "COMP-UNKNOWN-XYZ")
     assert exc_info.value.status_code == 403
 
 def test_no_business_endpoint_accidental_smritisys_mutation():
