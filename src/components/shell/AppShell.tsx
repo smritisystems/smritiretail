@@ -25,6 +25,7 @@ interface AppShellProps {
   navigationHistory?: string[];
   onNavigateBack?: () => void;
   onNavigateHome: () => void;
+  onLogout?: () => void;
   userName?: string;
   userRole?: string;
   children: React.ReactNode;
@@ -62,6 +63,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   navigationHistory = [],
   onNavigateBack,
   onNavigateHome,
+  onLogout,
   userName,
   userRole,
   children,
@@ -123,6 +125,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           isFocusMode={isFocusMode}
           onToggleFocusMode={handleToggleFocusMode}
           onSelectModule={onSelectModule}
+          onLogout={onLogout}
           userName={userName}
           userRole={userRole}
         />

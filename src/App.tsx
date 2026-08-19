@@ -639,6 +639,7 @@ const AppContent: React.FC = () => {
       activeModuleTitle={getTabLabel(activeTab)}
       onSelectModule={(id) => setActiveTab(mapModuleId(id))}
       onNavigateHome={() => setActiveTab("dashboard")}
+      onLogout={handleLogout}
       userName={currentUser?.name || "Operator"}
       userRole={currentUser?.role || "System Admin"}
     >

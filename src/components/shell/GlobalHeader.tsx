@@ -23,6 +23,7 @@ interface GlobalHeaderProps {
   isFocusMode: boolean;
   onToggleFocusMode: () => void;
   onSelectModule?: (moduleId: string) => void;
+  onLogout?: () => void;
   userRole?: string;
   userName?: string;
   storeName?: string;
@@ -39,6 +40,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   isFocusMode,
   onToggleFocusMode,
   onSelectModule,
+  onLogout,
   userRole = 'System Admin',
   userName = 'Jawahar Mallah',
   storeName = 'Main Store (Branch 01)',
@@ -248,27 +250,64 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (onSelectModule) onSelectModule('settings');
+                    if (onSelectModule) onSelectModule('user-profile');
                     setIsUserMenuOpen(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#3d425f]">account_circle</span> My Profile Dashboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onSelectModule) onSelectModule('profiles');
+                    setIsUserMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px] text-[#3d425f]">settings</span> System Settings
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    if (onSelectModule) onSelectModule('about');
+                    if (onSelectModule) onSelectModule('about-smriti');
                     setIsUserMenuOpen(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px] text-[#3d425f]">info</span> About SMRITI OS
                 </button>
+
+                {onLogout && (
+                  <div className="pt-1 mt-1 border-t border-[#c5c5d4]/50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onLogout();
+                      }}
+                      className="w-full px-4 py-2 text-left text-xs font-semibold text-[#ba1a1a] hover:bg-[#ffdad6]/40 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#ba1a1a]">logout</span> Log Out Session
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
+
+        {/* Quick Header Logout Button */}
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            title="Logout Session"
+            className="p-1.5 hover:bg-[#ba1a1a] rounded-md transition-colors text-indigo-100 hover:text-white cursor-pointer ml-0.5"
+          >
+            <span className="material-symbols-outlined text-[18px]">logout</span>
+          </button>
+        )}
       </div>
     </header>
   );

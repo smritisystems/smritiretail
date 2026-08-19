@@ -43,7 +43,8 @@ import {
   Save,
   CheckCircle,
   AlertCircle,
-  Activity
+  Activity,
+  LogOut
 } from "lucide-react";
 import { User, UserPreferences, AuditLogEntry } from "../types.js";
 import { useNotifications } from "../notifications/notification_store.tsx";
@@ -376,13 +377,22 @@ export const UserProfileTab: React.FC = () => {
             Corporate Ledger Node ID: {currentUser.id} • Assigned Staff ID: {currentUser.employeeId}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-full font-bold uppercase tracking-wide">
             ● Session Active
           </span>
           <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs rounded-full font-bold uppercase tracking-wide">
             {currentUser.role}
           </span>
+          <button
+            type="button"
+            onClick={() => handleRevokeSession(localStorage.getItem("smriti_jwt_token") || "")}
+            className="px-3 py-1 bg-rose-500/10 hover:bg-rose-600 hover:text-white border border-rose-500/30 text-rose-400 text-xs rounded-full font-bold uppercase tracking-wide flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            title="Log Out and Invalidate Active Session"
+          >
+            <LogOut size={13} />
+            <span>Log Out</span>
+          </button>
         </div>
       </div>
 
