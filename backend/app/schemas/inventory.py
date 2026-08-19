@@ -22,22 +22,22 @@ class ProductBase(BaseModel):
     price: Decimal = Decimal("0.00")
     stock: int = 0
     category: str = Field(..., max_length=100)
-    is_favorite: bool = False
-    barcode: str = Field(..., max_length=100)
+    is_favorite: Optional[bool] = False
+    barcode: Optional[str] = Field(None, max_length=100)
     secondary_barcodes: Optional[List[str]] = Field(default_factory=list)
     brand: Optional[str] = Field(None, max_length=100)
     color: Optional[str] = Field(None, max_length=50)
     size: Optional[str] = Field(None, max_length=50)
     mrp: Optional[Decimal] = None
-    gst_percentage: Decimal = Decimal("18.00")
+    gst_percentage: Optional[Decimal] = Decimal("18.00")
     style_code: Optional[str] = Field(None, max_length=100)
     cost_price: Optional[Decimal] = None
     sku: Optional[str] = Field(None, max_length=100)
     hsn_code: Optional[str] = Field(None, max_length=15)
-    pricing_mode: str = "Fixed"
-    tracking_mode: str = "Standard"
+    pricing_mode: Optional[str] = "Fixed"
+    tracking_mode: Optional[str] = "Standard"
     variant_template_id: Optional[str] = Field(None, max_length=50)
-    weight_grams: Decimal = Decimal("0.00")
+    weight_grams: Optional[Decimal] = Decimal("0.00")
     attributes: Optional[Dict[str, Any]] = Field(default_factory=dict)
     primary_image_url: Optional[str] = Field(None, max_length=512)
     gallery_images: Optional[List[str]] = Field(default_factory=list)
@@ -74,14 +74,14 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: str
-    uuid: str
+    uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
-    is_active: bool
-    is_deleted: bool
-    version: int
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
+    is_active: Optional[bool] = True
+    is_deleted: Optional[bool] = False
+    version: Optional[int] = 1
 
     model_config = ConfigDict(from_attributes=True)
 
