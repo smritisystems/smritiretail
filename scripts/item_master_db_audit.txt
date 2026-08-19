@@ -1,0 +1,742 @@
+
+================================================================================
+DATABASE: smriti001
+================================================================================
+
+All tables (104): ['approval_workflow_logs', 'attribute_definitions', 'attribute_groups', 'barcode_layouts', 'barcode_providers', 'branches', 'cash_registers', 'category_attribute_group_mappings', 'commission_ledgers', 'commission_participants', 'commission_programs', 'commission_rules', 'companies', 'compliance_audit_logs', 'compliance_credentials', 'compliance_outboxes', 'control_companies', 'control_company_databases', 'control_psv_configs', 'control_users', 'coupons', 'customer_groups', 'customers', 'dashboard_widgets', 'dashboards', 'data_exchange_field_mappings', 'data_exchange_tasks', 'delivery_commission_settlements', 'dispatch_items', 'dispatches', 'document_series', 'eway_bills', 'government_services', 'identity_rules', 'integration_outbox_events', 'invoice_document_artifacts', 'invoice_profitability_ledgers', 'loyalty_members', 'loyalty_points_ledgers', 'loyalty_rules', 'loyalty_tiers', 'master_types', 'master_values', 'numbering_audit_logs', 'packing_slip_items', 'packing_slips', 'print_histories', 'print_profiles', 'print_templates', 'product_cost_valuations', 'product_identities', 'products', 'promotion_campaigns', 'promotion_redemptions', 'promotion_rules', 'psv_parties', 'psv_sku_tracking', 'psv_stock_balances', 'psv_stock_events', 'purchase_jurisdiction_configs', 'purchase_order_items', 'purchase_orders', 'purchase_receipt_items', 'purchase_receipts', 'purchase_reorder_configs', 'referral_programs', 'referral_relationships', 'referral_rewards', 'refresh_token_blacklist', 'report_definitions', 'report_saved_views', 'report_schedules', 'reverse_logistics_returns', 'roles', 'sales_invoice_items', 'sales_invoices', 'sales_order_items', 'sales_orders', 'sales_quotation_items', 'sales_quotations', 'sales_return_items', 'sales_returns', 'shifts', 'smriti_theme_variants', 'smriti_themes', 'smriti_workspace_profiles', 'stock_movements', 'stores', 'supplier_payments', 'suppliers', 'system_configs', 'tax_invoice_template_versions', 'tax_invoice_templates', 'terms_clauses', 'terms_defaults', 'terms_snapshots', 'transaction_cost_snapshots', 'user_branch_assignments', 'user_company_assignments', 'user_store_assignments', 'users', 'variant_templates', 'warehouses', 'workflow_events']
+
+--- TABLE: products (993 rows) ---
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  price                                         numeric                             nullable=NO
+  stock                                         integer                             nullable=NO
+  category                                      character varying(100)              nullable=NO
+  is_favorite                                   boolean                             nullable=YES
+  barcode                                       character varying(100)              nullable=NO
+  secondary_barcodes                            ARRAY                               nullable=YES
+  brand                                         character varying(100)              nullable=YES
+  color                                         character varying(50)               nullable=YES
+  size                                          character varying(50)               nullable=YES
+  mrp                                           numeric                             nullable=YES
+  gst_percentage                                numeric                             nullable=YES
+  style_code                                    character varying(100)              nullable=YES
+  cost_price                                    numeric                             nullable=YES
+  sku                                           character varying(100)              nullable=YES
+  hsn_code                                      character varying(15)               nullable=YES
+  pricing_mode                                  character varying(30)               nullable=YES
+  tracking_mode                                 character varying(30)               nullable=YES
+  variant_template_id                           character varying(50)               nullable=YES
+  weight_grams                                  numeric                             nullable=YES
+  attributes                                    jsonb                               nullable=YES
+  primary_image_url                             character varying(512)              nullable=YES
+  gallery_images                                ARRAY                               nullable=YES
+  reserved_stock                                numeric                             nullable=NO
+  category_code                                 character varying(50)               nullable=YES
+  cbm_m3                                        numeric                             nullable=YES
+  document_number                               character varying(80)               nullable=YES
+  size_scale_id                                 character varying(50)               nullable=YES
+  sourcing_mode_override                        character varying(30)               nullable=YES
+  tenant_id                                     character varying(50)               nullable=YES
+  workflow_status                               character varying(30)               nullable=YES
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+  SAMPLE COLS: ['code', 'name', 'price', 'stock', 'category', 'is_favorite', 'barcode', 'secondary_barcodes', 'brand', 'color', 'size', 'mrp', 'gst_percentage', 'style_code', 'cost_price', 'sku', 'hsn_code', 'pricing_mode', 'tracking_mode', 'variant_template_id', 'weight_grams', 'attributes', 'primary_image_url', 'gallery_images', 'reserved_stock', 'category_code', 'cbm_m3', 'document_number', 'size_scale_id', 'sourcing_mode_override', 'tenant_id', 'workflow_status', 'id', 'uuid', 'company_id', 'branch_id', 'created_at', 'modified_at', 'created_by', 'updated_by', 'is_active', 'is_deleted', 'deleted_at', 'deleted_by', 'version']
+  SAMPLE ROW: {'code': '7007007007011', 'name': 'BASIC - CH-01-A', 'price': '1899.00', 'stock': '100', 'category': 'Apparel', 'is_favorite': 'None', 'barcode': '7007007007011', 'secondary_barcodes': '[]', 'brand': 'TATTLY THREADS', 'color': 'MUSTARD', 'size': '37', 'mrp': '1899.00', 'gst_percentage': '5.00', 'style_code': 'CH-01-A', 'cost_price': '375.00'}
+
+--- TABLE: stock_movements (7 rows) ---
+  product_id                                    character varying(50)               nullable=NO
+  product_name                                  character varying(255)              nullable=NO
+  sku                                           character varying(50)               nullable=NO
+  quantity                                      numeric                             nullable=NO
+  movement_type                                 character varying(20)               nullable=NO
+  reference_doc_type                            character varying(50)               nullable=YES
+  reference_doc_id                              character varying(50)               nullable=YES
+  warehouse                                     character varying(100)              nullable=YES
+  bin                                           character varying(50)               nullable=YES
+  batch                                         character varying(50)               nullable=YES
+  serial                                        character varying(50)               nullable=YES
+  unit_cost                                     numeric                             nullable=YES
+  remarks                                       text                                nullable=YES
+  user                                          character varying(100)              nullable=YES
+  device                                        character varying(100)              nullable=YES
+  branch                                        character varying(100)              nullable=YES
+  source_module                                 character varying(50)               nullable=YES
+  approval                                      character varying(50)               nullable=YES
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+  SAMPLE COLS: ['product_id', 'product_name', 'sku', 'quantity', 'movement_type', 'reference_doc_type', 'reference_doc_id', 'warehouse', 'bin', 'batch', 'serial', 'unit_cost', 'remarks', 'user', 'device', 'branch', 'source_module', 'approval', 'id', 'uuid', 'company_id', 'branch_id', 'created_at', 'modified_at', 'created_by', 'updated_by', 'is_active', 'is_deleted', 'deleted_at', 'deleted_by', 'version']
+  SAMPLE ROW: {'product_id': 'prod-ch-01-a-cream-36', 'product_name': 'CH-01-A CREAM 36', 'sku': 'CH-01-A-CREAM-36', 'quantity': '10.00', 'movement_type': 'INWARD_GRN', 'reference_doc_type': 'PURCHASE_RECEIPT', 'reference_doc_id': 'po-AUD-dd880a', 'warehouse': 'None', 'bin': 'None', 'batch': 'None', 'serial': 'None', 'unit_cost': 'None', 'remarks': 'None', 'user': 'None', 'device': 'None'}
+
+--- TABLE: psv_stock_balances (1 rows) ---
+  id                                            character varying(50)               nullable=NO
+  company_code                                  character varying(50)               nullable=NO
+  psv_party_id                                  character varying(50)               nullable=NO
+  psv_store_id                                  character varying(50)               nullable=YES
+  sku                                           character varying(100)              nullable=NO
+  billed_qty                                    numeric                             nullable=NO
+  received_qty                                  numeric                             nullable=NO
+  sold_qty                                      numeric                             nullable=NO
+  returned_qty                                  numeric                             nullable=NO
+  transferred_qty                               numeric                             nullable=NO
+  current_balance                               numeric                             nullable=NO
+  last_event_id                                 character varying(50)               nullable=YES
+  last_updated_at                               timestamp with time zone            nullable=YES
+  SAMPLE COLS: ['id', 'company_code', 'psv_party_id', 'psv_store_id', 'sku', 'billed_qty', 'received_qty', 'sold_qty', 'returned_qty', 'transferred_qty', 'current_balance', 'last_event_id', 'last_updated_at']
+  SAMPLE ROW: {'id': 'psvb_90897791b77c4d36', 'company_code': '001', 'psv_party_id': 'PARTY-LOCAL-001', 'psv_store_id': 'None', 'sku': 'CH-01-A-CREAM-36', 'billed_qty': '0.0000', 'received_qty': '0.0000', 'sold_qty': '0.0000', 'returned_qty': '0.0000', 'transferred_qty': '0.0000', 'current_balance': '0.0000', 'last_event_id': 'psve_049a6cf29e0a427c', 'last_updated_at': '2026-08-17 03:18:22.352491+00:00'}
+
+--- TABLE: psv_stock_events (3 rows) ---
+  event_id                                      character varying(50)               nullable=NO
+  source_event_id                               character varying(100)              nullable=NO
+  correlation_id                                character varying(100)              nullable=NO
+  causation_id                                  character varying(100)              nullable=YES
+  event_schema_version                          character varying(20)               nullable=NO
+  company_code                                  character varying(50)               nullable=NO
+  source_database                               character varying(100)              nullable=NO
+  source_document_type                          character varying(50)               nullable=NO
+  source_document_id                            character varying(50)               nullable=NO
+  source_document_line_id                       character varying(50)               nullable=YES
+  psv_party_id                                  character varying(50)               nullable=NO
+  destination_type                              character varying(30)               nullable=YES
+  destination_id                                character varying(50)               nullable=YES
+  psv_store_id                                  character varying(50)               nullable=YES
+  sku                                           character varying(100)              nullable=NO
+  movement_type                                 character varying(30)               nullable=NO
+  quantity                                      numeric                             nullable=NO
+  source_event_created_at                       timestamp with time zone            nullable=NO
+  event_date                                    timestamp with time zone            nullable=NO
+  sync_status                                   character varying(20)               nullable=NO
+  created_at                                    timestamp with time zone            nullable=YES
+  SAMPLE COLS: ['event_id', 'source_event_id', 'correlation_id', 'causation_id', 'event_schema_version', 'company_code', 'source_database', 'source_document_type', 'source_document_id', 'source_document_line_id', 'psv_party_id', 'destination_type', 'destination_id', 'psv_store_id', 'sku', 'movement_type', 'quantity', 'source_event_created_at', 'event_date', 'sync_status', 'created_at']
+  SAMPLE ROW: {'event_id': 'psve_049a6cf29e0a427c', 'source_event_id': 'evt_local_001_bd0b79bf', 'correlation_id': 'corr_8d9c78f1e6194c4b', 'causation_id': 'None', 'event_schema_version': '1.0', 'company_code': '001', 'source_database': 'smriti001', 'source_document_type': 'INVOICE', 'source_document_id': 'INV-LOCAL-001', 'source_document_line_id': 'None', 'psv_party_id': 'PARTY-LOCAL-001', 'destination_type': 'RETAIL_STORE', 'destination_id': 'None', 'psv_store_id': 'None', 'sku': 'CH-01-A-CREAM-36'}
+
+--- TABLE: warehouses (0 rows) ---
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(200)              nullable=NO
+  is_transit                                    boolean                             nullable=YES
+  address                                       text                                nullable=YES
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+
+--- TABLE: purchase_order_items (0 rows) ---
+  order_id                                      character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=NO
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity                                      numeric                             nullable=NO
+  cost_price                                    numeric                             nullable=NO
+  gst_rate                                      numeric                             nullable=NO
+  tax_amount                                    numeric                             nullable=NO
+  line_total                                    numeric                             nullable=NO
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+
+--- TABLE: purchase_receipt_items (0 rows) ---
+  receipt_id                                    character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=NO
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity_ordered                              numeric                             nullable=YES
+  quantity_received                             numeric                             nullable=NO
+  cost_price                                    numeric                             nullable=NO
+  gst_rate                                      numeric                             nullable=NO
+  tax_amount                                    numeric                             nullable=NO
+  line_total                                    numeric                             nullable=NO
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+
+--- TABLE: sales_invoice_items (5409 rows) ---
+  id                                            integer                             nullable=NO
+  invoice_id                                    character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=YES
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity                                      numeric                             nullable=NO
+  price                                         numeric                             nullable=NO
+  hsn_code                                      character varying(15)               nullable=YES
+  gst_rate                                      numeric                             nullable=YES
+  tax_amount                                    numeric                             nullable=YES
+  total_amount                                  numeric                             nullable=NO
+  mrp                                           numeric                             nullable=YES
+  disc_pct                                      numeric                             nullable=YES
+  taxable_value                                 numeric                             nullable=YES
+  igst_amount                                   numeric                             nullable=YES
+  cgst_amount                                   numeric                             nullable=YES
+  sgst_amount                                   numeric                             nullable=YES
+  line_no                                       integer                             nullable=YES
+
+--- TABLE: sales_return_items (0 rows) ---
+  id                                            integer                             nullable=NO
+  return_id                                     character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=YES
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity                                      numeric                             nullable=NO
+  price                                         numeric                             nullable=NO
+  gst_rate                                      numeric                             nullable=YES
+  tax_amount                                    numeric                             nullable=YES
+  total_amount                                  numeric                             nullable=NO
+
+Item-related tables found in smriti001: ['products', 'stock_movements', 'psv_stock_balances', 'psv_stock_events', 'warehouses', 'purchase_order_items', 'purchase_receipt_items', 'sales_invoice_items', 'sales_return_items']
+
+========================================
+SALES INVOICE ITEMS - Sample Rows
+Columns: ['id', 'invoice_id', 'product_id', 'code', 'name', 'quantity', 'price', 'hsn_code', 'gst_rate', 'tax_amount', 'total_amount', 'mrp', 'disc_pct', 'taxable_value', 'igst_amount', 'cgst_amount', 'sgst_amount', 'line_no']
+  Row: {'id': '12223', 'invoice_id': 'inv-tt-test-intra', 'product_id': 'prod-ch-19-e-cream-37', 'code': 'CH-19-E-CREAM-37', 'name': 'CH-19-E CREAM 37', 'quantity': '1.0000', 'price': '899.28', 'hsn_code': '64041990', 'gst_rate': '5.00', 'tax_amount': '44.96', 'total_amount': '944.24', 'mrp': 'None', 'disc_pct': '0.00', 'taxable_value': 'None', 'igst_amount': '0.00', 'cgst_amount': '0.00', 'sgst_amount': '0.00', 'line_no': 'None'}
+  Row: {'id': '12224', 'invoice_id': 'inv-tt-test-intra', 'product_id': 'prod-ch-19-e-cream-38', 'code': 'CH-19-E-CREAM-38', 'name': 'CH-19-E CREAM 38', 'quantity': '2.0000', 'price': '899.28', 'hsn_code': '64041990', 'gst_rate': '5.00', 'tax_amount': '89.93', 'total_amount': '1888.49', 'mrp': 'None', 'disc_pct': '0.00', 'taxable_value': 'None', 'igst_amount': '0.00', 'cgst_amount': '0.00', 'sgst_amount': '0.00', 'line_no': 'None'}
+  Row: {'id': '12225', 'invoice_id': 'inv-tt-test-intra', 'product_id': 'prod-ch-19-e-cream-39', 'code': 'CH-19-E-CREAM-39', 'name': 'CH-19-E CREAM 39', 'quantity': '2.0000', 'price': '899.28', 'hsn_code': '64041990', 'gst_rate': '5.00', 'tax_amount': '89.93', 'total_amount': '1888.49', 'mrp': 'None', 'disc_pct': '0.00', 'taxable_value': 'None', 'igst_amount': '0.00', 'cgst_amount': '0.00', 'sgst_amount': '0.00', 'line_no': 'None'}
+  Row: {'id': '12226', 'invoice_id': 'inv-tt-test-intra', 'product_id': 'prod-ch-19-e-cream-40', 'code': 'CH-19-E-CREAM-40', 'name': 'CH-19-E CREAM 40', 'quantity': '1.0000', 'price': '899.28', 'hsn_code': '64041990', 'gst_rate': '5.00', 'tax_amount': '44.96', 'total_amount': '944.24', 'mrp': 'None', 'disc_pct': '0.00', 'taxable_value': 'None', 'igst_amount': '0.00', 'cgst_amount': '0.00', 'sgst_amount': '0.00', 'line_no': 'None'}
+  Row: {'id': '12227', 'invoice_id': 'inv-tt-test-intra', 'product_id': 'prod-ch-19-e-cream-41', 'code': 'CH-19-E-CREAM-41', 'name': 'CH-19-E CREAM 41', 'quantity': '1.0000', 'price': '899.28', 'hsn_code': '64041990', 'gst_rate': '5.00', 'tax_amount': '44.96', 'total_amount': '944.24', 'mrp': 'None', 'disc_pct': '0.00', 'taxable_value': 'None', 'igst_amount': '0.00', 'cgst_amount': '0.00', 'sgst_amount': '0.00', 'line_no': 'None'}
+
+========================================
+PRODUCTS - Sample Rows (first 3)
+Columns: ['code', 'name', 'price', 'stock', 'category', 'is_favorite', 'barcode', 'secondary_barcodes', 'brand', 'color', 'size', 'mrp', 'gst_percentage', 'style_code', 'cost_price', 'sku', 'hsn_code', 'pricing_mode', 'tracking_mode', 'variant_template_id', 'weight_grams', 'attributes', 'primary_image_url', 'gallery_images', 'reserved_stock', 'category_code', 'cbm_m3', 'document_number', 'size_scale_id', 'sourcing_mode_override', 'tenant_id', 'workflow_status', 'id', 'uuid', 'company_id', 'branch_id', 'created_at', 'modified_at', 'created_by', 'updated_by', 'is_active', 'is_deleted', 'deleted_at', 'deleted_by', 'version']
+  Row: {'code': '7007007007011', 'name': 'BASIC - CH-01-A', 'price': '1899.00', 'stock': '100', 'category': 'Apparel', 'is_favorite': 'None', 'barcode': '7007007007011', 'secondary_barcodes': '[]', 'brand': 'TATTLY THREADS', 'color': 'MUSTARD', 'size': '37', 'mrp': '1899.00', 'gst_percentage': '5.00', 'style_code': 'CH-01-A', 'cost_price': '375.00', 'sku': '7007007007011', 'hsn_code': '', 'pricing_mode': 'None', 'tracking_mode': 'None', 'variant_template_id': 'None', 'weight_grams': 'None', 'attributes': '{}', 'primary_image_url': 'None', 'gallery_images': '[]', 'reserved_stock': '0.0000', 'category_code': 'None', 'cbm_m3': 'None', 'document_number': 'None', 'size_scale_id': 'None', 'sourcing_mode_override': 'None', 'tenant_id': 'None', 'workflow_status': 'None', 'id': 'prod-tt-7007007007011', 'uuid': '949866f5-5a7a-4178-8205-858deb847ae1', 'company_id': 'COMP-001', 'branch_id': 'MAIN', 'created_at': '2026-08-15 12:19:17.289365+00:00', 'modified_at': '2026-08-15 12:19:17.289365+00:00', 'created_by': 'None', 'updated_by': 'None', 'is_active': 'True', 'is_deleted': 'False', 'deleted_at': 'None', 'deleted_by': 'None', 'version': 'None'}
+  Row: {'code': '7007007007012', 'name': 'BASIC - CH-01-A', 'price': '1899.00', 'stock': '100', 'category': 'Apparel', 'is_favorite': 'None', 'barcode': '7007007007012', 'secondary_barcodes': '[]', 'brand': 'TATTLY THREADS', 'color': 'MUSTARD', 'size': '38', 'mrp': '1899.00', 'gst_percentage': '5.00', 'style_code': 'CH-01-A', 'cost_price': '375.00', 'sku': '7007007007012', 'hsn_code': '', 'pricing_mode': 'None', 'tracking_mode': 'None', 'variant_template_id': 'None', 'weight_grams': 'None', 'attributes': '{}', 'primary_image_url': 'None', 'gallery_images': '[]', 'reserved_stock': '0.0000', 'category_code': 'None', 'cbm_m3': 'None', 'document_number': 'None', 'size_scale_id': 'None', 'sourcing_mode_override': 'None', 'tenant_id': 'None', 'workflow_status': 'None', 'id': 'prod-tt-7007007007012', 'uuid': 'bc394a08-b71a-419c-8f2d-724f0c527881', 'company_id': 'COMP-001', 'branch_id': 'MAIN', 'created_at': '2026-08-15 12:19:17.289365+00:00', 'modified_at': '2026-08-15 12:19:17.289365+00:00', 'created_by': 'None', 'updated_by': 'None', 'is_active': 'True', 'is_deleted': 'False', 'deleted_at': 'None', 'deleted_by': 'None', 'version': 'None'}
+  Row: {'code': '7007007007013', 'name': 'BASIC - CH-01-A', 'price': '1899.00', 'stock': '100', 'category': 'Apparel', 'is_favorite': 'None', 'barcode': '7007007007013', 'secondary_barcodes': '[]', 'brand': 'TATTLY THREADS', 'color': 'MUSTARD', 'size': '39', 'mrp': '1899.00', 'gst_percentage': '5.00', 'style_code': 'CH-01-A', 'cost_price': '375.00', 'sku': '7007007007013', 'hsn_code': '', 'pricing_mode': 'None', 'tracking_mode': 'None', 'variant_template_id': 'None', 'weight_grams': 'None', 'attributes': '{}', 'primary_image_url': 'None', 'gallery_images': '[]', 'reserved_stock': '0.0000', 'category_code': 'None', 'cbm_m3': 'None', 'document_number': 'None', 'size_scale_id': 'None', 'sourcing_mode_override': 'None', 'tenant_id': 'None', 'workflow_status': 'None', 'id': 'prod-tt-7007007007013', 'uuid': 'f663d579-60fe-4888-98de-6fab4b7b6a60', 'company_id': 'COMP-001', 'branch_id': 'MAIN', 'created_at': '2026-08-15 12:19:17.289365+00:00', 'modified_at': '2026-08-15 12:19:17.289365+00:00', 'created_by': 'None', 'updated_by': 'None', 'is_active': 'True', 'is_deleted': 'False', 'deleted_at': 'None', 'deleted_by': 'None', 'version': 'None'}
+
+========================================
+STOCK MOVEMENTS - Sample Rows
+Columns: ['product_id', 'product_name', 'sku', 'quantity', 'movement_type', 'reference_doc_type', 'reference_doc_id', 'warehouse', 'bin', 'batch', 'serial', 'unit_cost', 'remarks', 'user', 'device', 'branch', 'source_module', 'approval', 'id', 'uuid', 'company_id', 'branch_id', 'created_at', 'modified_at', 'created_by', 'updated_by', 'is_active', 'is_deleted', 'deleted_at', 'deleted_by', 'version']
+  Row: {'product_id': 'prod-ch-01-a-cream-36', 'product_name': 'CH-01-A CREAM 36', 'sku': 'CH-01-A-CREAM-36', 'quantity': '10.00', 'movement_type': 'INWARD_GRN', 'reference_doc_type': 'PURCHASE_RECEIPT', 'reference_doc_id': 'po-AUD-dd880a', 'warehouse': 'None', 'bin': 'None', 'batch': 'None', 'serial': 'None', 'unit_cost': 'None', 'remarks': 'None', 'user': 'None', 'device': 'None', 'branch': 'None', 'source_module': 'None', 'approval': 'None', 'id': 'sm-AUD-dd880a', 'uuid': '0df949b1-67c9-458d-ba61-ddfd3165159d', 'company_id': 'None', 'branch_id': 'None', 'created_at': 'None', 'modified_at': 'None', 'created_by': 'None', 'updated_by': 'None', 'is_active': 'None', 'is_deleted': 'None', 'deleted_at': 'None', 'deleted_by': 'None', 'version': 'None'}
+  Row: {'product_id': 'prod-ch-01-a-cream-36', 'product_name': 'CH-01-A CREAM 36', 'sku': 'CH-01-A-CREAM-36', 'quantity': '5.00', 'movement_type': 'INWARD_GRN', 'reference_doc_type': 'PURCHASE_RECEIPT', 'reference_doc_id': 'po-C001-f97f5d', 'warehouse': 'None', 'bin': 'None', 'batch': 'None', 'serial': 'None', 'unit_cost': 'None', 'remarks': 'None', 'user': 'None', 'device': 'None', 'branch': 'None', 'source_module': 'None', 'approval': 'None', 'id': 'sm-C001-f97f5d', 'uuid': '141b1d26-e09d-4326-8f0d-b19d6a15003b', 'company_id': 'None', 'branch_id': 'None', 'created_at': 'None', 'modified_at': 'None', 'created_by': 'None', 'updated_by': 'None', 'is_active': 'None', 'is_deleted': 'None', 'deleted_at': 'None', 'deleted_by': 'None', 'version': 'None'}
+  Row: {'product_id': 'prod-ch-01-a-cream-36', 'product_name': 'CH-01-A CREAM 36', 'sku': 'CH-01-A-CREAM-36', 'quantity': '-1.00', 'movement_type': 'OUT', 'reference_doc_type': 'Sales Invoice', 'reference_doc_id': 'IDEM-KEY-001', 'warehouse': 'Default Warehouse', 'bin': 'None', 'batch': 'None', 'serial': 'None', 'unit_cost': '500.00', 'remarks': 'Stock deducted for sales invoice: INV-IDEM-KEY-001', 'user': 'None', 'device': 'None', 'branch': 'None', 'source_module': 'Sales', 'approval': 'None', 'id': 'SM-1786944993-9b2512', 'uuid': '36239339-0e39-4326-9ce2-c481fed086f9', 'company_id': 'COMP-001', 'branch_id': 'MAIN', 'created_at': '2026-08-17 05:36:33.845460+00:00', 'modified_at': '2026-08-17 05:36:33.845464+00:00', 'created_by': 'None', 'updated_by': 'None', 'is_active': 'True', 'is_deleted': 'False', 'deleted_at': 'None', 'deleted_by': 'None', 'version': '1'}
+
+================================================================================
+DATABASE: smriti002
+================================================================================
+
+All tables (99): ['approval_workflow_logs', 'attribute_definitions', 'attribute_groups', 'barcode_layouts', 'barcode_providers', 'branches', 'cash_registers', 'category_attribute_group_mappings', 'commission_ledgers', 'commission_participants', 'commission_programs', 'commission_rules', 'companies', 'compliance_audit_logs', 'compliance_credentials', 'compliance_outboxes', 'control_companies', 'control_company_databases', 'control_psv_configs', 'control_users', 'coupons', 'customer_groups', 'customers', 'dashboard_widgets', 'dashboards', 'data_exchange_field_mappings', 'data_exchange_tasks', 'delivery_commission_settlements', 'dispatch_items', 'dispatches', 'document_series', 'government_services', 'identity_rules', 'integration_outbox_events', 'invoice_profitability_ledgers', 'loyalty_members', 'loyalty_points_ledgers', 'loyalty_rules', 'loyalty_tiers', 'master_types', 'master_values', 'numbering_audit_logs', 'packing_slip_items', 'packing_slips', 'print_histories', 'print_profiles', 'print_templates', 'product_cost_valuations', 'product_identities', 'products', 'promotion_campaigns', 'promotion_redemptions', 'promotion_rules', 'psv_parties', 'psv_sku_tracking', 'psv_stock_balances', 'psv_stock_events', 'purchase_jurisdiction_configs', 'purchase_order_items', 'purchase_orders', 'purchase_receipt_items', 'purchase_receipts', 'purchase_reorder_configs', 'referral_programs', 'referral_relationships', 'referral_rewards', 'refresh_token_blacklist', 'report_definitions', 'report_saved_views', 'report_schedules', 'reverse_logistics_returns', 'roles', 'sales_invoice_items', 'sales_invoices', 'sales_order_items', 'sales_orders', 'sales_quotation_items', 'sales_quotations', 'sales_return_items', 'sales_returns', 'shifts', 'smriti_theme_variants', 'smriti_themes', 'smriti_workspace_profiles', 'stock_movements', 'stores', 'supplier_payments', 'suppliers', 'terms_clauses', 'terms_defaults', 'terms_snapshots', 'transaction_cost_snapshots', 'user_branch_assignments', 'user_company_assignments', 'user_store_assignments', 'users', 'variant_templates', 'warehouses', 'workflow_events']
+
+--- TABLE: products (843 rows) ---
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  price                                         numeric                             nullable=NO
+  stock                                         integer                             nullable=NO
+  category                                      character varying(100)              nullable=NO
+  is_favorite                                   boolean                             nullable=YES
+  barcode                                       character varying(100)              nullable=NO
+  secondary_barcodes                            ARRAY                               nullable=YES
+  brand                                         character varying(100)              nullable=YES
+  color                                         character varying(50)               nullable=YES
+  size                                          character varying(50)               nullable=YES
+  mrp                                           numeric                             nullable=YES
+  gst_percentage                                numeric                             nullable=YES
+  style_code                                    character varying(100)              nullable=YES
+  cost_price                                    numeric                             nullable=YES
+  sku                                           character varying(100)              nullable=YES
+  hsn_code                                      character varying(15)               nullable=YES
+  pricing_mode                                  character varying(30)               nullable=YES
+  tracking_mode                                 character varying(30)               nullable=YES
+  variant_template_id                           character varying(50)               nullable=YES
+  weight_grams                                  numeric                             nullable=YES
+  attributes                                    jsonb                               nullable=YES
+  primary_image_url                             character varying(512)              nullable=YES
+  gallery_images                                ARRAY                               nullable=YES
+  reserved_stock                                numeric                             nullable=NO
+  category_code                                 character varying(50)               nullable=YES
+  cbm_m3                                        numeric                             nullable=YES
+  document_number                               character varying(80)               nullable=YES
+  size_scale_id                                 character varying(50)               nullable=YES
+  sourcing_mode_override                        character varying(30)               nullable=YES
+  tenant_id                                     character varying(50)               nullable=YES
+  workflow_status                               character varying(30)               nullable=YES
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+  SAMPLE COLS: ['code', 'name', 'price', 'stock', 'category', 'is_favorite', 'barcode', 'secondary_barcodes', 'brand', 'color', 'size', 'mrp', 'gst_percentage', 'style_code', 'cost_price', 'sku', 'hsn_code', 'pricing_mode', 'tracking_mode', 'variant_template_id', 'weight_grams', 'attributes', 'primary_image_url', 'gallery_images', 'reserved_stock', 'category_code', 'cbm_m3', 'document_number', 'size_scale_id', 'sourcing_mode_override', 'tenant_id', 'workflow_status', 'id', 'uuid', 'company_id', 'branch_id', 'created_at', 'modified_at', 'created_by', 'updated_by', 'is_active', 'is_deleted', 'deleted_at', 'deleted_by', 'version']
+  SAMPLE ROW: {'code': 'CH-01-A-CREAM-36', 'name': 'CH-01-A CREAM 36', 'price': '1000.00', 'stock': '100', 'category': 'Footwear', 'is_favorite': 'None', 'barcode': 'CH-01-A-CREAM-36', 'secondary_barcodes': '[]', 'brand': 'Tattly Threads', 'color': 'Cream', 'size': '36', 'mrp': '1000.00', 'gst_percentage': '18.00', 'style_code': 'CH-01-A', 'cost_price': '500.00'}
+
+--- TABLE: stock_movements (1 rows) ---
+  product_id                                    character varying(50)               nullable=NO
+  product_name                                  character varying(255)              nullable=NO
+  sku                                           character varying(50)               nullable=NO
+  quantity                                      numeric                             nullable=NO
+  movement_type                                 character varying(20)               nullable=NO
+  reference_doc_type                            character varying(50)               nullable=YES
+  reference_doc_id                              character varying(50)               nullable=YES
+  warehouse                                     character varying(100)              nullable=YES
+  bin                                           character varying(50)               nullable=YES
+  batch                                         character varying(50)               nullable=YES
+  serial                                        character varying(50)               nullable=YES
+  unit_cost                                     numeric                             nullable=YES
+  remarks                                       text                                nullable=YES
+  user                                          character varying(100)              nullable=YES
+  device                                        character varying(100)              nullable=YES
+  branch                                        character varying(100)              nullable=YES
+  source_module                                 character varying(50)               nullable=YES
+  approval                                      character varying(50)               nullable=YES
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+  SAMPLE COLS: ['product_id', 'product_name', 'sku', 'quantity', 'movement_type', 'reference_doc_type', 'reference_doc_id', 'warehouse', 'bin', 'batch', 'serial', 'unit_cost', 'remarks', 'user', 'device', 'branch', 'source_module', 'approval', 'id', 'uuid', 'company_id', 'branch_id', 'created_at', 'modified_at', 'created_by', 'updated_by', 'is_active', 'is_deleted', 'deleted_at', 'deleted_by', 'version']
+  SAMPLE ROW: {'product_id': 'prod-ch-01-a-cream-36', 'product_name': 'CH-01-A CREAM 36', 'sku': 'CH-01-A-CREAM-36', 'quantity': '8.00', 'movement_type': 'INWARD_GRN', 'reference_doc_type': 'PURCHASE_RECEIPT', 'reference_doc_id': 'po-C002-e20568', 'warehouse': 'None', 'bin': 'None', 'batch': 'None', 'serial': 'None', 'unit_cost': 'None', 'remarks': 'None', 'user': 'None', 'device': 'None'}
+
+--- TABLE: psv_stock_balances (1 rows) ---
+  id                                            character varying(50)               nullable=NO
+  company_code                                  character varying(50)               nullable=NO
+  psv_party_id                                  character varying(50)               nullable=NO
+  psv_store_id                                  character varying(50)               nullable=YES
+  sku                                           character varying(100)              nullable=NO
+  billed_qty                                    numeric                             nullable=NO
+  received_qty                                  numeric                             nullable=NO
+  sold_qty                                      numeric                             nullable=NO
+  returned_qty                                  numeric                             nullable=NO
+  transferred_qty                               numeric                             nullable=NO
+  current_balance                               numeric                             nullable=NO
+  last_event_id                                 character varying(50)               nullable=YES
+  last_updated_at                               timestamp with time zone            nullable=YES
+  SAMPLE COLS: ['id', 'company_code', 'psv_party_id', 'psv_store_id', 'sku', 'billed_qty', 'received_qty', 'sold_qty', 'returned_qty', 'transferred_qty', 'current_balance', 'last_event_id', 'last_updated_at']
+  SAMPLE ROW: {'id': 'psvb_65924d4947ec44bf', 'company_code': '002', 'psv_party_id': 'PARTY-LOCAL-002', 'psv_store_id': 'None', 'sku': 'CH-02-B-NAVY-38', 'billed_qty': '0.0000', 'received_qty': '0.0000', 'sold_qty': '0.0000', 'returned_qty': '0.0000', 'transferred_qty': '0.0000', 'current_balance': '0.0000', 'last_event_id': 'psve_3647d3b474f743f6', 'last_updated_at': '2026-08-17 03:18:22.572009+00:00'}
+
+--- TABLE: psv_stock_events (2 rows) ---
+  event_id                                      character varying(50)               nullable=NO
+  source_event_id                               character varying(100)              nullable=NO
+  correlation_id                                character varying(100)              nullable=NO
+  causation_id                                  character varying(100)              nullable=YES
+  event_schema_version                          character varying(20)               nullable=NO
+  company_code                                  character varying(50)               nullable=NO
+  source_database                               character varying(100)              nullable=NO
+  source_document_type                          character varying(50)               nullable=NO
+  source_document_id                            character varying(50)               nullable=NO
+  source_document_line_id                       character varying(50)               nullable=YES
+  psv_party_id                                  character varying(50)               nullable=NO
+  destination_type                              character varying(30)               nullable=YES
+  destination_id                                character varying(50)               nullable=YES
+  psv_store_id                                  character varying(50)               nullable=YES
+  sku                                           character varying(100)              nullable=NO
+  movement_type                                 character varying(30)               nullable=NO
+  quantity                                      numeric                             nullable=NO
+  source_event_created_at                       timestamp with time zone            nullable=NO
+  event_date                                    timestamp with time zone            nullable=NO
+  sync_status                                   character varying(20)               nullable=NO
+  created_at                                    timestamp with time zone            nullable=YES
+  SAMPLE COLS: ['event_id', 'source_event_id', 'correlation_id', 'causation_id', 'event_schema_version', 'company_code', 'source_database', 'source_document_type', 'source_document_id', 'source_document_line_id', 'psv_party_id', 'destination_type', 'destination_id', 'psv_store_id', 'sku', 'movement_type', 'quantity', 'source_event_created_at', 'event_date', 'sync_status', 'created_at']
+  SAMPLE ROW: {'event_id': 'psve_3647d3b474f743f6', 'source_event_id': 'evt_local_002_77bcdb7b', 'correlation_id': 'corr_77750878dd5d46b4', 'causation_id': 'None', 'event_schema_version': '1.0', 'company_code': '002', 'source_database': 'smriti002', 'source_document_type': 'INVOICE', 'source_document_id': 'INV-LOCAL-002', 'source_document_line_id': 'None', 'psv_party_id': 'PARTY-LOCAL-002', 'destination_type': 'RETAIL_STORE', 'destination_id': 'None', 'psv_store_id': 'None', 'sku': 'CH-02-B-NAVY-38'}
+
+--- TABLE: warehouses (0 rows) ---
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(200)              nullable=NO
+  is_transit                                    boolean                             nullable=YES
+  address                                       text                                nullable=YES
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+
+--- TABLE: purchase_order_items (0 rows) ---
+  order_id                                      character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=NO
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity                                      numeric                             nullable=NO
+  cost_price                                    numeric                             nullable=NO
+  gst_rate                                      numeric                             nullable=NO
+  tax_amount                                    numeric                             nullable=NO
+  line_total                                    numeric                             nullable=NO
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+
+--- TABLE: purchase_receipt_items (0 rows) ---
+  receipt_id                                    character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=NO
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity_ordered                              numeric                             nullable=YES
+  quantity_received                             numeric                             nullable=NO
+  cost_price                                    numeric                             nullable=NO
+  gst_rate                                      numeric                             nullable=NO
+  tax_amount                                    numeric                             nullable=NO
+  line_total                                    numeric                             nullable=NO
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+
+--- TABLE: sales_invoice_items (0 rows) ---
+  id                                            integer                             nullable=NO
+  invoice_id                                    character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=YES
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity                                      numeric                             nullable=NO
+  price                                         numeric                             nullable=NO
+  hsn_code                                      character varying(15)               nullable=YES
+  gst_rate                                      numeric                             nullable=YES
+  tax_amount                                    numeric                             nullable=YES
+  total_amount                                  numeric                             nullable=NO
+
+--- TABLE: sales_return_items (0 rows) ---
+  id                                            integer                             nullable=NO
+  return_id                                     character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=YES
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity                                      numeric                             nullable=NO
+  price                                         numeric                             nullable=NO
+  gst_rate                                      numeric                             nullable=YES
+  tax_amount                                    numeric                             nullable=YES
+  total_amount                                  numeric                             nullable=NO
+
+Item-related tables found in smriti002: ['products', 'stock_movements', 'psv_stock_balances', 'psv_stock_events', 'warehouses', 'purchase_order_items', 'purchase_receipt_items', 'sales_invoice_items', 'sales_return_items']
+
+================================================================================
+DATABASE: smritisys
+================================================================================
+
+All tables (287): ['alembic_version', 'apparel_matrix_variants', 'approval_workflow_logs', 'attribute_definitions', 'attribute_groups', 'audit_logs', 'bank_accounts', 'barcode_layouts', 'barcode_providers', 'blanket_purchase_agreement_lines', 'blanket_purchase_agreements', 'branches', 'cash_registers', 'category_attribute_group_mappings', 'chart_of_accounts', 'commission_ledgers', 'commission_participants', 'commission_programs', 'commission_rules', 'companies', 'company_database_registries', 'company_financial_years', 'company_tax_profiles', 'compliance_audit_logs', 'compliance_credentials', 'compliance_outboxes', 'consignment_partners', 'consignment_return_items', 'consignment_returns', 'consignment_sale_report_items', 'consignment_sale_reports', 'consignment_settlements', 'consignment_transfer_items', 'consignment_transfers', 'control_companies', 'control_company_databases', 'control_psv_configs', 'control_users', 'corporate_gstin_registry', 'cost_centers', 'cost_layer_ledger_entries', 'coupons', 'credit_notes', 'crm_campaigns', 'crm_customer_activities', 'crm_leads', 'crm_opportunities', 'crm_support_tickets', 'crm_ticket_comments', 'customer_addresses', 'customer_channel_preferences', 'customer_contacts', 'customer_credit_profiles', 'customer_groups', 'customer_tax_profiles', 'customers', 'dashboard_widgets', 'dashboards', 'data_exchange_field_mappings', 'data_exchange_tasks', 'database_profiles', 'delivery_commission_settlements', 'dispatch_approval_events', 'dispatch_items', 'dispatches', 'document_number_series', 'document_posting_profiles', 'document_series', 'document_workflows', 'eway_bills', 'financial_year', 'fiscal_periods', 'fulfillment_waves', 'government_services', 'gst_return_filings', 'gst_return_locks', 'gst_tax_settlements', 'identity_rules', 'integration_logs', 'integration_outbox_events', 'inventory_checkpoint_records', 'inventory_identity_records', 'inventory_ledger_entries', 'inventory_location_nodes', 'inventory_lock_records', 'inventory_snapshot_records', 'invoice_document_artifacts', 'invoice_profitability_ledgers', 'journal_ledger_entries', 'journal_vouchers', 'landed_cost_vouchers', 'legacy_pos_shifts', 'loyalty_members', 'loyalty_point_transactions', 'loyalty_points_ledgers', 'loyalty_rules', 'loyalty_tiers', 'master_types', 'master_values', 'module_audit_logs', 'module_states', 'numbering_audit_logs', 'organizations', 'packing_slip_items', 'packing_slips', 'pharma_batches', 'pick_list_items', 'pick_lists', 'platform_idempotency_records', 'pos_offline_sync_queue', 'pos_profiles', 'pos_sessions', 'pos_transaction_items', 'pos_transactions', 'pricing_groups', 'print_histories', 'print_profiles', 'print_templates', 'procurement_rfq_items', 'procurement_rfq_vendors', 'procurement_rfqs', 'procurement_tolerance_policies', 'product_barcodes', 'product_cost_valuations', 'product_identities', 'product_inventory_policies', 'product_tax_profiles', 'product_vendors', 'products', 'promotion_campaigns', 'promotion_redemptions', 'promotion_rules', 'psv_parties', 'psv_sku_tracking', 'psv_stock_balances', 'psv_stock_events', 'purchase_jurisdiction_configs', 'purchase_order_items', 'purchase_orders', 'purchase_receipt_items', 'purchase_receipts', 'purchase_reorder_configs', 'purchase_requisition_lines', 'purchase_requisitions', 'quality_inspection_items', 'quality_inspections', 'quotation_evaluations', 'referral_programs', 'referral_relationships', 'referral_rewards', 'refresh_token_blacklist', 'replenishment_items', 'replenishment_plans', 'report_definitions', 'report_saved_views', 'report_schedules', 'requisition_approval_policies', 'requisition_approvals', 'reservation_ledger_entries', 'reverse_logistics_returns', 'roles', 'sales_invoice_items', 'sales_invoice_payments', 'sales_invoices', 'sales_order_items', 'sales_orders', 'sales_payments', 'sales_quotation_items', 'sales_quotations', 'sales_return_items', 'sales_returns', 'scdm_channel_dispatch_lines', 'scdm_channel_dispatches', 'scdm_channel_locations', 'scdm_channel_stock_movements', 'scdm_claim_types', 'scdm_claims', 'scdm_sellout_import_lines', 'scdm_sellout_imports', 'scdm_settlement_lines', 'scdm_settlements', 'shifts', 'shipment_packages', 'size_conversions', 'size_scales', 'size_values', 'smriti_addresses', 'smriti_api_key_logs', 'smriti_api_key_permission_sets', 'smriti_api_keys', 'smriti_approval_actions', 'smriti_approval_assignments', 'smriti_approval_comments', 'smriti_approval_conditions', 'smriti_approval_delegations', 'smriti_approval_escalations', 'smriti_approval_histories', 'smriti_approval_matrices', 'smriti_approval_outbox', 'smriti_approval_policies', 'smriti_approval_requests', 'smriti_approval_steps', 'smriti_audit_log', 'smriti_bank_accounts', 'smriti_banks', 'smriti_branding', 'smriti_comm_channels', 'smriti_contacts', 'smriti_entity_registry', 'smriti_field_security_masks', 'smriti_menus', 'smriti_permission_set_permissions', 'smriti_permission_sets', 'smriti_permissions', 'smriti_report_templates', 'smriti_role_permission_sets', 'smriti_roles', 'smriti_security_audits', 'smriti_security_policies', 'smriti_service_accounts', 'smriti_settings', 'smriti_social_profiles', 'smriti_theme_variants', 'smriti_themes', 'smriti_user_assignments', 'smriti_user_roles', 'smriti_workspace_profiles', 'sre_compliance_decisions', 'sre_rule_engine', 'sre_statutory_ledger', 'stock_adjustments', 'stock_bin_assignments', 'stock_count_items', 'stock_counts', 'stock_dispatch_lines', 'stock_dispatches', 'stock_movements', 'stock_transfer_items', 'stock_transfer_shipments', 'stock_transfers', 'stores', 'supplier_addresses', 'supplier_bank_details', 'supplier_compliance_profiles', 'supplier_contacts', 'supplier_credit_profiles', 'supplier_debit_notes', 'supplier_documents', 'supplier_gst_registrations', 'supplier_logistics', 'supplier_payment_profiles', 'supplier_payments', 'supplier_scorecard_metrics', 'supplier_scorecards', 'supplier_tax_profiles', 'suppliers', 'sync_queue', 'system_bootstrap_states', 'system_configs', 'tally_configs', 'tax_invoice_template_versions', 'tax_invoice_templates', 'tds_entries', 'tenant_provision_journals', 'tenant_provision_profiles', 'tenant_settings', 'tenants', 'terms_clauses', 'terms_defaults', 'terms_snapshots', 'three_way_match_lines', 'three_way_matches', 'transaction_cost_snapshots', 'user_branch_assignments', 'user_company_assignments', 'user_store_assignments', 'users', 'v_scdm_stock_projection', 'variant_templates', 'vendor_contract_tiers', 'vendor_contracts', 'vendor_quotation_items', 'vendor_quotations', 'warehouse_bins', 'warehouse_zones', 'warehouses', 'workflow_events']
+
+--- TABLE: products (0 rows) ---
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  price                                         numeric                             nullable=NO
+  stock                                         integer                             nullable=NO
+  category                                      character varying(100)              nullable=NO
+  is_favorite                                   boolean                             nullable=YES
+  barcode                                       character varying(100)              nullable=NO
+  secondary_barcodes                            ARRAY                               nullable=YES
+  brand                                         character varying(100)              nullable=YES
+  color                                         character varying(50)               nullable=YES
+  size                                          character varying(50)               nullable=YES
+  mrp                                           numeric                             nullable=YES
+  gst_percentage                                numeric                             nullable=YES
+  style_code                                    character varying(100)              nullable=YES
+  cost_price                                    numeric                             nullable=YES
+  sku                                           character varying(100)              nullable=YES
+  hsn_code                                      character varying(15)               nullable=YES
+  pricing_mode                                  character varying(30)               nullable=YES
+  tracking_mode                                 character varying(30)               nullable=YES
+  variant_template_id                           character varying(50)               nullable=YES
+  weight_grams                                  numeric                             nullable=YES
+  attributes                                    jsonb                               nullable=YES
+  primary_image_url                             character varying(512)              nullable=YES
+  gallery_images                                ARRAY                               nullable=YES
+  reserved_stock                                numeric                             nullable=YES
+  category_code                                 character varying(50)               nullable=YES
+  cbm_m3                                        numeric                             nullable=YES
+  document_number                               character varying(80)               nullable=YES
+  size_scale_id                                 character varying(50)               nullable=YES
+  sourcing_mode_override                        character varying(30)               nullable=YES
+  tenant_id                                     character varying(50)               nullable=YES
+  workflow_status                               character varying(30)               nullable=YES
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+
+--- TABLE: product_barcodes (0 rows) ---
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  tenant_id                                     character varying(50)               nullable=YES
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+  workflow_status                               character varying(30)               nullable=YES
+  document_number                               character varying(80)               nullable=YES
+  product_id                                    character varying(50)               nullable=NO
+  barcode                                       character varying(100)              nullable=NO
+  is_primary                                    boolean                             nullable=NO
+
+--- TABLE: stock_movements (0 rows) ---
+  product_id                                    character varying(50)               nullable=NO
+  product_name                                  character varying(255)              nullable=NO
+  sku                                           character varying(50)               nullable=NO
+  quantity                                      numeric                             nullable=NO
+  movement_type                                 character varying(20)               nullable=NO
+  reference_doc_type                            character varying(50)               nullable=YES
+  reference_doc_id                              character varying(50)               nullable=YES
+  warehouse                                     character varying(100)              nullable=YES
+  bin                                           character varying(50)               nullable=YES
+  batch                                         character varying(50)               nullable=YES
+  serial                                        character varying(50)               nullable=YES
+  unit_cost                                     numeric                             nullable=YES
+  remarks                                       text                                nullable=YES
+  user                                          character varying(100)              nullable=YES
+  device                                        character varying(100)              nullable=YES
+  branch                                        character varying(100)              nullable=YES
+  source_module                                 character varying(50)               nullable=YES
+  approval                                      character varying(50)               nullable=YES
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+
+--- TABLE: psv_stock_balances (0 rows) ---
+  id                                            character varying(50)               nullable=NO
+  company_code                                  character varying(50)               nullable=NO
+  psv_party_id                                  character varying(50)               nullable=NO
+  psv_store_id                                  character varying(50)               nullable=YES
+  sku                                           character varying(100)              nullable=NO
+  billed_qty                                    numeric                             nullable=NO
+  received_qty                                  numeric                             nullable=NO
+  sold_qty                                      numeric                             nullable=NO
+  returned_qty                                  numeric                             nullable=NO
+  transferred_qty                               numeric                             nullable=NO
+  current_balance                               numeric                             nullable=NO
+  last_event_id                                 character varying(50)               nullable=YES
+  last_updated_at                               timestamp with time zone            nullable=YES
+
+--- TABLE: psv_stock_events (0 rows) ---
+  event_id                                      character varying(50)               nullable=NO
+  source_event_id                               character varying(100)              nullable=NO
+  correlation_id                                character varying(100)              nullable=NO
+  causation_id                                  character varying(100)              nullable=YES
+  event_schema_version                          character varying(20)               nullable=NO
+  company_code                                  character varying(50)               nullable=NO
+  source_database                               character varying(100)              nullable=NO
+  source_document_type                          character varying(50)               nullable=NO
+  source_document_id                            character varying(50)               nullable=NO
+  source_document_line_id                       character varying(50)               nullable=YES
+  psv_party_id                                  character varying(50)               nullable=NO
+  destination_type                              character varying(30)               nullable=YES
+  destination_id                                character varying(50)               nullable=YES
+  psv_store_id                                  character varying(50)               nullable=YES
+  sku                                           character varying(100)              nullable=NO
+  movement_type                                 character varying(30)               nullable=NO
+  quantity                                      numeric                             nullable=NO
+  source_event_created_at                       timestamp with time zone            nullable=NO
+  event_date                                    timestamp with time zone            nullable=NO
+  sync_status                                   character varying(20)               nullable=NO
+  created_at                                    timestamp with time zone            nullable=YES
+
+--- TABLE: warehouses (0 rows) ---
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(200)              nullable=NO
+  is_transit                                    boolean                             nullable=YES
+  address                                       text                                nullable=YES
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+
+--- TABLE: purchase_order_items (0 rows) ---
+  order_id                                      character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=NO
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity                                      numeric                             nullable=NO
+  cost_price                                    numeric                             nullable=NO
+  gst_rate                                      numeric                             nullable=NO
+  tax_amount                                    numeric                             nullable=NO
+  line_total                                    numeric                             nullable=NO
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+  tenant_id                                     character varying(50)               nullable=YES
+  is_manually_overridden                        boolean                             nullable=YES
+
+--- TABLE: purchase_receipt_items (0 rows) ---
+  receipt_id                                    character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=NO
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity_ordered                              numeric                             nullable=YES
+  quantity_received                             numeric                             nullable=NO
+  cost_price                                    numeric                             nullable=NO
+  gst_rate                                      numeric                             nullable=NO
+  tax_amount                                    numeric                             nullable=NO
+  line_total                                    numeric                             nullable=NO
+  id                                            character varying(50)               nullable=NO
+  uuid                                          character varying(36)               nullable=NO
+  company_id                                    character varying(50)               nullable=YES
+  branch_id                                     character varying(50)               nullable=YES
+  created_at                                    timestamp with time zone            nullable=YES
+  modified_at                                   timestamp with time zone            nullable=YES
+  created_by                                    character varying(100)              nullable=YES
+  updated_by                                    character varying(100)              nullable=YES
+  is_active                                     boolean                             nullable=YES
+  is_deleted                                    boolean                             nullable=YES
+  deleted_at                                    timestamp with time zone            nullable=YES
+  deleted_by                                    character varying(100)              nullable=YES
+  version                                       integer                             nullable=YES
+  tenant_id                                     character varying(50)               nullable=YES
+  ordered_quantity                              numeric                             nullable=YES
+  received_quantity                             numeric                             nullable=YES
+  accepted_quantity                             numeric                             nullable=YES
+  rejected_quantity                             numeric                             nullable=YES
+  shortage_quantity                             numeric                             nullable=YES
+  batch_number                                  character varying(100)              nullable=YES
+  serial_number                                 character varying(100)              nullable=YES
+  unit_cost                                     numeric                             nullable=YES
+
+--- TABLE: sales_invoice_items (0 rows) ---
+  id                                            integer                             nullable=NO
+  invoice_id                                    character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=YES
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity                                      numeric                             nullable=NO
+  price                                         numeric                             nullable=NO
+  hsn_code                                      character varying(15)               nullable=YES
+  gst_rate                                      numeric                             nullable=YES
+  tax_amount                                    numeric                             nullable=YES
+  total_amount                                  numeric                             nullable=NO
+  mrp                                           numeric                             nullable=YES
+  disc_pct                                      numeric                             nullable=YES
+  taxable_value                                 numeric                             nullable=YES
+  igst_amount                                   numeric                             nullable=YES
+  cgst_amount                                   numeric                             nullable=YES
+  sgst_amount                                   numeric                             nullable=YES
+  line_no                                       integer                             nullable=YES
+
+--- TABLE: sales_return_items (0 rows) ---
+  id                                            integer                             nullable=NO
+  return_id                                     character varying(50)               nullable=NO
+  product_id                                    character varying(50)               nullable=YES
+  code                                          character varying(50)               nullable=NO
+  name                                          character varying(255)              nullable=NO
+  quantity                                      numeric                             nullable=NO
+  price                                         numeric                             nullable=NO
+  gst_rate                                      numeric                             nullable=YES
+  tax_amount                                    numeric                             nullable=YES
+  total_amount                                  numeric                             nullable=NO
+
+Item-related tables found in smritisys: ['products', 'product_barcodes', 'stock_movements', 'psv_stock_balances', 'psv_stock_events', 'warehouses', 'purchase_order_items', 'purchase_receipt_items', 'sales_invoice_items', 'sales_return_items']
