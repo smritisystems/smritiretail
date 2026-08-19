@@ -15,18 +15,32 @@ Classification: Internal
 import asyncio
 import json
 from sqlalchemy import select
-from backend.app.db.session import async_session
-import backend.app.models.role
-import backend.app.models.auth
-import backend.app.models.tenant
-import backend.app.models.user_assignment
-import backend.app.models.company_database_registry
-from backend.app.models.auth import User, UserRole
-from backend.app.models.role import Role
-from backend.app.models.tenant import Company, Branch
-from backend.app.models.company_database_registry import CompanyDatabaseRegistry
-from backend.app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
-from backend.app.core.security import hash_password
+try:
+    from app.db.session import async_session
+    import app.models.role
+    import app.models.auth
+    import app.models.tenant
+    import app.models.user_assignment
+    import app.models.company_database_registry
+    from app.models.auth import User, UserRole
+    from app.models.role import Role
+    from app.models.tenant import Company, Branch
+    from app.models.company_database_registry import CompanyDatabaseRegistry
+    from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
+    from app.core.security import hash_password
+except ImportError:
+    from backend.app.db.session import async_session
+    import backend.app.models.role
+    import backend.app.models.auth
+    import backend.app.models.tenant
+    import backend.app.models.user_assignment
+    import backend.app.models.company_database_registry
+    from backend.app.models.auth import User, UserRole
+    from backend.app.models.role import Role
+    from backend.app.models.tenant import Company, Branch
+    from backend.app.models.company_database_registry import CompanyDatabaseRegistry
+    from backend.app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
+    from backend.app.core.security import hash_password
 
 
 async def seed():

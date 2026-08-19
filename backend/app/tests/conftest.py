@@ -34,6 +34,20 @@ def event_loop():
     yield loop
     loop.close()
 
+@pytest.fixture(scope="session", autouse=True)
+def restore_baseline_after_tests():
+    """Restores development baseline users and companies after pytest completes."""
+    yield
+    try:
+        try:
+            from app.db.seed_baseline_users import seed
+        except ImportError:
+            from backend.app.db.seed_baseline_users import seed
+        import asyncio
+        asyncio.run(seed())
+    except Exception as e:
+        print(f"[conftest] Post-test seed error: {e}")
+
 @pytest.fixture
 async def db_engine():
     engine = create_async_engine(settings.DATABASE_URL)
