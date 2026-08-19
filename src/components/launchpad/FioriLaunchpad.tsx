@@ -3,257 +3,432 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 4.0.0
  * Created      : 2026-08-16
- * Modified     : 2026-08-18
+ * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
-import React from 'react';
+import React from "react";
 
-interface FioriLaunchpadProps {
+export interface FioriLaunchpadProps {
   onSelectModule: (moduleId: string) => void;
 }
 
-interface TileData {
+export interface TileData {
   id: string;
   title: string;
   subtitle: string;
   icon: string;
-  metric?: string;
-  metricLabel?: string;
-  badgeType?: 'info' | 'warning' | 'success' | 'primary';
+  tag?: string;
+  badgeType?: "info" | "warning" | "success" | "primary";
   group: string;
 }
 
-const LAUNCHPAD_TILES: TileData[] = [
-  // Core Operations
+export const LAUNCHPAD_CATALOG: TileData[] = [
+  // 1. Retail Operations
   {
-    id: 'sales',
-    title: 'Sales Billing',
-    subtitle: 'Invoice creation, quick barcode entry & checkout',
-    icon: 'point_of_sale',
-    metric: '₹ 1,42,850',
-    metricLabel: "Today's Billing",
-    badgeType: 'success',
-    group: 'Retail Operations',
+    id: "pos",
+    title: "Billing Desk (POS)",
+    subtitle: "High-speed retail billing, cashier shift tracking & cash drawer reconciliation",
+    icon: "point_of_sale",
+    tag: "Core POS",
+    badgeType: "primary",
+    group: "Retail Operations",
   },
   {
-    id: 'pos',
-    title: 'POS Terminal',
-    subtitle: 'Touchscreen cashier mode & drawer reconciliation',
-    icon: 'receipt_long',
-    metric: '184',
-    metricLabel: 'Bills Issued',
-    badgeType: 'primary',
-    group: 'Retail Operations',
+    id: "sales",
+    title: "Sales Studio",
+    subtitle: "B2C retail billing, multi-tender transactions & invoice history register",
+    icon: "receipt_long",
+    tag: "Sales",
+    badgeType: "success",
+    group: "Retail Operations",
   },
   {
-    id: 'purchase',
-    title: 'Purchase Orders',
-    subtitle: 'Vendor PO creation, approval workflow & grid paste',
-    icon: 'shopping_cart',
-    metric: '3 Pending',
-    metricLabel: 'Approval Queue',
-    badgeType: 'warning',
-    group: 'Retail Operations',
+    id: "create-tax-invoice",
+    title: "Create Tax Invoice (B2B)",
+    subtitle: "Advanced B2B tax invoice generator with statutory reverse charge & GST rules",
+    icon: "post_add",
+    tag: "GST A4",
+    badgeType: "primary",
+    group: "Retail Operations",
   },
   {
-    id: 'grn',
-    title: 'Goods Receipt (GRN)',
-    subtitle: 'Inward inventory receiving, batch & expiry check',
-    icon: 'local_shipping',
-    metric: '12 Receipts',
-    metricLabel: 'This Week',
-    badgeType: 'info',
-    group: 'Retail Operations',
-  },
-
-  // Master Data & Inventory
-  {
-    id: 'item_master',
-    title: 'Item Master',
-    subtitle: 'Dynamic product catalog, HSN/GST rates & attributes',
-    icon: 'inventory_2',
-    metric: '4,892',
-    metricLabel: 'Active SKUs',
-    badgeType: 'primary',
-    group: 'Master Data & Stock',
+    id: "purchase",
+    title: "Purchase Studio",
+    subtitle: "Vendor purchase orders, goods receipt notes (GRN) & matrix grid paste",
+    icon: "shopping_cart",
+    tag: "Procurement",
+    badgeType: "info",
+    group: "Retail Operations",
   },
   {
-    id: 'barcode',
-    title: 'Barcode & Label Printing',
-    subtitle: 'Thermal label designer, EAN/UPC generator & batch printing',
-    icon: 'qr_code_scanner',
-    metric: 'Thermal Ready',
-    metricLabel: 'Print Engine',
-    badgeType: 'primary',
-    group: 'Master Data & Stock',
-  },
-  {
-    id: 'inventory',
-    title: 'Stock Ledger',
-    subtitle: 'Real-time stock movement, variance & batch tracking',
-    icon: 'warehouse',
-    metric: '14 Alerts',
-    metricLabel: 'Low Stock Items',
-    badgeType: 'warning',
-    group: 'Master Data & Stock',
-  },
-  {
-    id: 'suppliers',
-    title: 'Supplier Directory',
-    subtitle: 'Vendor profiles, GSTIN lookup & payment ledgers',
-    icon: 'storefront',
-    metric: '86 Vendors',
-    metricLabel: 'Active Suppliers',
-    badgeType: 'info',
-    group: 'Master Data & Stock',
-  },
-  {
-    id: 'crm',
-    title: 'Customer 360 & Loyalty',
-    subtitle: 'Customer ledger, loyalty points & purchase history',
-    icon: 'badge',
-    metric: '1,240',
-    metricLabel: 'Members Enrolled',
-    badgeType: 'success',
-    group: 'Master Data & Stock',
+    id: "profiles",
+    title: "POS Terminals & Counters",
+    subtitle: "Configure billing counter registers, cashier operator shifts & terminal locks",
+    icon: "manage_accounts",
+    tag: "Registers",
+    badgeType: "primary",
+    group: "Retail Operations",
   },
 
-  // Intelligence & System
+  // 2. Master Data & Stock
   {
-    id: 'reports',
-    title: 'Reports & Analytics',
-    subtitle: 'GST returns, daily sales summary & margin reports',
-    icon: 'analytics',
-    metric: 'FastAPI v1',
-    metricLabel: 'System of Record',
-    badgeType: 'primary',
-    group: 'System & Analytics',
+    id: "item-master",
+    title: "Item Master & Catalog",
+    subtitle: "Dynamic product catalogue, server pagination, HSN codes & GST tax slabs",
+    icon: "inventory_2",
+    tag: "Catalog",
+    badgeType: "primary",
+    group: "Master Data & Stock",
   },
   {
-    id: 'dev_tracker',
-    title: 'Dev Intelligence',
-    subtitle: 'Task tracker, API logs & system diagnostics',
-    icon: 'bug_report',
-    metric: 'v3.17.0',
-    metricLabel: 'System Build',
-    badgeType: 'info',
-    group: 'System & Analytics',
+    id: "barcode",
+    title: "Barcode Studio & Printing",
+    subtitle: "Thermal label designer, EAN/UPC barcode mapping & batch label printer",
+    icon: "qr_code_scanner",
+    tag: "Labels",
+    badgeType: "info",
+    group: "Master Data & Stock",
   },
   {
-    id: 'system',
-    title: 'System Governance',
-    subtitle: 'User roles, menu permissions & audit trail logs',
-    icon: 'admin_panel_settings',
-    metric: 'Protected',
-    metricLabel: 'RBAC Enforcement',
-    badgeType: 'success',
-    group: 'System & Analytics',
+    id: "stock-ledger",
+    title: "Stock Movement Ledger",
+    subtitle: "Real-time stock ledger movements, inward/outward logs & batch valuations",
+    icon: "inventory",
+    tag: "Inventory",
+    badgeType: "success",
+    group: "Master Data & Stock",
+  },
+  {
+    id: "supplier-mgmt",
+    title: "Supplier Directory",
+    subtitle: "Vendor master profiles, GSTIN validation, commercial terms & payable balances",
+    icon: "local_shipping",
+    tag: "Vendors",
+    badgeType: "info",
+    group: "Master Data & Stock",
+  },
+  {
+    id: "customer-master",
+    title: "Customer Master Directory",
+    subtitle: "Customer registry, GSTIN verification, credit limits & address directory",
+    icon: "contacts",
+    tag: "Directory",
+    badgeType: "info",
+    group: "Master Data & Stock",
+  },
+  {
+    id: "crm",
+    title: "CRM Studio (360°)",
+    subtitle: "Customer 360 profile, interaction history, credit limits & account statements",
+    icon: "groups",
+    tag: "CRM",
+    badgeType: "primary",
+    group: "Master Data & Stock",
+  },
+  {
+    id: "loyalty",
+    title: "Loyalty Studio",
+    subtitle: "Rewards points ledger, membership tier progression & coupon promotions",
+    icon: "stars",
+    tag: "Rewards",
+    badgeType: "success",
+    group: "Master Data & Stock",
+  },
+
+  // 3. Finance & Ledgers
+  {
+    id: "business-ledger",
+    title: "Business Accounts Ledger",
+    subtitle: "Double-entry business ledger, daily sales journal & accounts reconciliation",
+    icon: "account_balance_wallet",
+    tag: "Ledger",
+    badgeType: "primary",
+    group: "Finance & Ledgers",
+  },
+  {
+    id: "accounting-sync",
+    title: "Accounting Sync",
+    subtitle: "Automated general ledger posting & external ERP accounting synchronization",
+    icon: "sync_alt",
+    tag: "Sync Engine",
+    badgeType: "info",
+    group: "Finance & Ledgers",
+  },
+  {
+    id: "report-designer",
+    title: "Report Designer & Analytics",
+    subtitle: "Financial analytics, GST summary returns, margin reports & schedule triggers",
+    icon: "draw",
+    tag: "Analytics",
+    badgeType: "primary",
+    group: "Finance & Ledgers",
+  },
+
+  // 4. Documents & Print
+  {
+    id: "print-studio",
+    title: "Print Studio & Designer",
+    subtitle: "Thermal receipt & statutory A4 tax invoice template designer and styling",
+    icon: "print",
+    tag: "Templates",
+    badgeType: "primary",
+    group: "Documents & Print",
+  },
+  {
+    id: "print-history",
+    title: "Print History Logs",
+    subtitle: "Audit log of all printed tax invoices, thermal slips & reprint authorizations",
+    icon: "history",
+    tag: "Audit Trail",
+    badgeType: "info",
+    group: "Documents & Print",
+  },
+  {
+    id: "document-series",
+    title: "Numbering & Series Engine",
+    subtitle: "Statutory fiscal year document numbering prefixes, sequences & reset cycles",
+    icon: "tag",
+    tag: "Series",
+    badgeType: "primary",
+    group: "Documents & Print",
+  },
+  {
+    id: "terms-engine",
+    title: "Commercial Terms Engine",
+    subtitle: "Legal clauses, return policies, warranty disclaimers & jurisdiction notes",
+    icon: "gavel",
+    tag: "Legal",
+    badgeType: "info",
+    group: "Documents & Print",
+  },
+  {
+    id: "approval-matrix",
+    title: "Approval Matrix Engine",
+    subtitle: "Multi-tier signing authority rules, high-value thresholds & pending approvals",
+    icon: "fact_check",
+    tag: "Governance",
+    badgeType: "warning",
+    group: "Documents & Print",
+  },
+
+  // 5. Data & Config
+  {
+    id: "masters",
+    title: "System Master Management",
+    subtitle: "Dynamic lookups for departments, designations, bank accounts & payment modes",
+    icon: "database",
+    tag: "Masters",
+    badgeType: "primary",
+    group: "Data & Config",
+  },
+  {
+    id: "data-exchange",
+    title: "Data Exchange & Migration",
+    subtitle: "Universal CSV bulk migration, data validation pipeline & export engine",
+    icon: "swap_horiz",
+    tag: "ETL / CSV",
+    badgeType: "info",
+    group: "Data & Config",
+  },
+  {
+    id: "company-setup",
+    title: "Company Setup Wizard",
+    subtitle: "Interactive onboarding wizard for organization, branches & initial masters",
+    icon: "magic_button",
+    tag: "Setup",
+    badgeType: "primary",
+    group: "Data & Config",
+  },
+  {
+    id: "ufe",
+    title: "Field Explorer (UFE)",
+    subtitle: "Universal Field Explorer for dynamic entity schemas, validation & metadata",
+    icon: "search",
+    tag: "Schema",
+    badgeType: "info",
+    group: "Data & Config",
+  },
+  {
+    id: "formulas",
+    title: "KPI & Formula Registry",
+    subtitle: "Business formula definitions, gross margin calculators & KPI telemetry",
+    icon: "calculate",
+    tag: "Formulas",
+    badgeType: "info",
+    group: "Data & Config",
+  },
+  {
+    id: "psv",
+    title: "Channel Stock Visibility (PSV)",
+    subtitle: "Party stock visibility, partner sell-through analytics & channel cover weeks",
+    icon: "hub",
+    tag: "Distribution",
+    badgeType: "primary",
+    group: "Data & Config",
+  },
+
+  // 6. System & Operations
+  {
+    id: "staff-management",
+    title: "Staff & HR Management",
+    subtitle: "Employee directory, designation assignment, salary structures & credentials",
+    icon: "badge",
+    tag: "HR / Staff",
+    badgeType: "info",
+    group: "System & Operations",
+  },
+  {
+    id: "user-profile",
+    title: "My Profile Dashboard",
+    subtitle: "User preferences, security settings, password updates & active session details",
+    icon: "account_circle",
+    tag: "Account",
+    badgeType: "primary",
+    group: "System & Operations",
+  },
+  {
+    id: "audit-logs",
+    title: "Security & Audit Logs",
+    subtitle: "Immutable system activity audit logs, user login events & transaction traces",
+    icon: "policy",
+    tag: "Security",
+    badgeType: "warning",
+    group: "System & Operations",
+  },
+  {
+    id: "dev-tracker",
+    title: "Dev Intelligence Center",
+    subtitle: "Real-time API performance health, technical debt logs & build diagnostics",
+    icon: "monitoring",
+    tag: "DevOps",
+    badgeType: "info",
+    group: "System & Operations",
+  },
+  {
+    id: "wiki",
+    title: "SMRITI Gyan Kendra",
+    subtitle: "Built-in documentation hub, operator walkthroughs & statutory GST guides",
+    icon: "menu_book",
+    tag: "Wiki Docs",
+    badgeType: "primary",
+    group: "System & Operations",
+  },
+  {
+    id: "about-smriti",
+    title: "About SMRITI Retail OS",
+    subtitle: "Architectural constitution, software licensing, versioning & creator credits",
+    icon: "info",
+    tag: "v4.0.0",
+    badgeType: "primary",
+    group: "System & Operations",
+  },
+  {
+    id: "training-academy",
+    title: "Training Academy",
+    subtitle: "Interactive training simulations, cashier tutorials & certification modules",
+    icon: "school",
+    tag: "Academy",
+    badgeType: "info",
+    group: "System & Operations",
   },
 ];
 
 export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ onSelectModule }) => {
-  const groups = Array.from(new Set(LAUNCHPAD_TILES.map((t) => t.group)));
+  const groups = Array.from(new Set(LAUNCHPAD_CATALOG.map((t) => t.group)));
 
   return (
-    <div className="flex-1 bg-[#f8f9ff] overflow-y-auto p-4 md:p-6 space-y-6 select-none">
+    <div className="flex-1 bg-theme-surface-1 overflow-y-auto p-4 md:p-6 space-y-6 select-none custom-scrollbar">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#24389c] to-[#3f51b5] text-white p-5 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-indigo-800 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 border border-indigo-500/20">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight font-display">
             SMRITI Retail OS Launchpad
           </h1>
           <p className="text-xs md:text-sm text-indigo-100 mt-1 max-w-xl">
-            Unified application launcher and operational workspace for SMRITI Retail OS.
+            Unified operational launcher and workspace director for enterprise retail workflows.
           </p>
         </div>
 
-        {/* Quick KPI Summary Box */}
-        <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl backdrop-blur-xs border border-white/20 self-start md:self-auto">
+        {/* System Summary Badge Box */}
+        <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl backdrop-blur-xs border border-white/20 self-start md:self-auto font-mono">
           <div className="text-center px-3 border-r border-white/20">
-            <div className="text-xs text-indigo-200 uppercase font-semibold text-[10px]">Today Sales</div>
-            <div className="text-base font-bold text-white">₹ 1.42L</div>
+            <div className="text-indigo-200 uppercase font-semibold text-[10px]">Workspaces</div>
+            <div className="text-base font-bold text-white">{LAUNCHPAD_CATALOG.length}</div>
           </div>
           <div className="text-center px-3 border-r border-white/20">
-            <div className="text-xs text-indigo-200 uppercase font-semibold text-[10px]">Open Shift</div>
-            <div className="text-base font-bold text-[#abf4ac]">#412</div>
+            <div className="text-indigo-200 uppercase font-semibold text-[10px]">Architecture</div>
+            <div className="text-base font-bold text-emerald-300">FastAPI + PG</div>
           </div>
           <div className="text-center px-3">
-            <div className="text-xs text-indigo-200 uppercase font-semibold text-[10px]">System</div>
-            <div className="text-base font-bold text-white">v3.17.0</div>
+            <div className="text-indigo-200 uppercase font-semibold text-[10px]">Edition</div>
+            <div className="text-base font-bold text-white">Enterprise</div>
           </div>
         </div>
       </div>
 
       {/* Grouped Tiles */}
       {groups.map((groupName) => {
-        const tiles = LAUNCHPAD_TILES.filter((t) => t.group === groupName);
+        const tiles = LAUNCHPAD_CATALOG.filter((t) => t.group === groupName);
 
         return (
           <section key={groupName} className="space-y-3">
-            <div className="flex items-center justify-between border-b border-[#c5c5d4] pb-1.5">
-              <h2 className="text-sm font-bold text-[#3d425f] uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#3f51b5]" />
-                {groupName}
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+              <h2 className="text-xs font-bold text-theme-primary uppercase tracking-wider flex items-center gap-2 font-mono">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span>{groupName}</span>
               </h2>
-              <span className="text-xs text-[#757684] font-medium">{tiles.length} Workspaces</span>
+              <span className="text-[11px] text-theme-muted font-mono">{tiles.length} Workspaces</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
               {tiles.map((tile) => (
                 <button
                   key={tile.id}
                   type="button"
                   onClick={() => onSelectModule(tile.id)}
-                  className="group bg-white hover:bg-[#eff4ff] border border-[#c5c5d4] hover:border-[#3f51b5] rounded-xl p-4 text-left transition-all duration-200 hover:shadow-md flex flex-col justify-between cursor-pointer relative overflow-hidden"
+                  className="group bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider hover:border-blue-500 rounded-xl p-4 text-left transition-all duration-200 hover:shadow-md flex flex-col justify-between cursor-pointer relative overflow-hidden"
                 >
-                  {/* Decorative Subtle Accent */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-[#3f51b5] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {/* Subtle Top Accent */}
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
                   <div>
-                    {/* Icon & Title Header */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="w-10 h-10 rounded-xl bg-[#f8f9ff] group-hover:bg-[#3f51b5] text-[#24389c] group-hover:text-white flex items-center justify-center transition-colors shadow-xs">
-                        <span className="material-symbols-outlined text-[22px]">{tile.icon}</span>
+                    {/* Icon & Tag Header */}
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
+                      <div className="w-9 h-9 rounded-lg bg-blue-500/10 group-hover:bg-blue-600 text-blue-400 group-hover:text-white flex items-center justify-center transition-colors shadow-xs shrink-0 border border-blue-500/20">
+                        <span className="material-symbols-outlined text-[20px]">{tile.icon}</span>
                       </div>
 
-                      {tile.metric && (
-                        <div className="text-right">
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                              tile.badgeType === 'success'
-                                ? 'bg-[#abf4ac]/40 text-[#286b33] border border-[#286b33]/20'
-                                : tile.badgeType === 'warning'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                : 'bg-[#e5eeff] text-[#24389c] border border-[#3f51b5]/20'
-                            }`}
-                          >
-                            {tile.metric}
-                          </span>
-                          {tile.metricLabel && (
-                            <div className="text-[9px] text-[#757684] mt-0.5 font-medium">
-                              {tile.metricLabel}
-                            </div>
-                          )}
-                        </div>
+                      {tile.tag && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono border ${
+                            tile.badgeType === "success"
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : tile.badgeType === "warning"
+                              ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                              : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                          }`}
+                        >
+                          {tile.tag}
+                        </span>
                       )}
                     </div>
 
-                    <h3 className="font-bold text-sm text-[#0b1c30] group-hover:text-[#24389c] transition-colors mt-1">
+                    <h3 className="font-bold text-sm text-theme-primary group-hover:text-blue-400 transition-colors mt-1 font-display">
                       {tile.title}
                     </h3>
-                    <p className="text-xs text-[#454652] mt-1 leading-snug line-clamp-2">
+                    <p className="text-xs text-theme-muted mt-1 leading-snug line-clamp-2">
                       {tile.subtitle}
                     </p>
                   </div>
 
                   {/* Tile Footer Link Indicator */}
-                  <div className="mt-4 pt-2 border-t border-[#c5c5d4]/40 flex items-center justify-between text-xs text-[#3f51b5] font-semibold group-hover:translate-x-0.5 transition-transform">
+                  <div className="mt-3.5 pt-2 border-t border-theme-divider flex items-center justify-between text-[11px] text-blue-400 font-semibold group-hover:translate-x-0.5 transition-transform font-mono">
                     <span>Open Workspace</span>
-                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                   </div>
                 </button>
               ))}
