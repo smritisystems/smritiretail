@@ -64,6 +64,16 @@ def seed_control_plane_test_assignments():
             ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
+        # 0b. Seed roles with role-based permissions in smritisys
+        ctrl_cur.execute("""
+            INSERT INTO roles (id, uuid, name, permissions_json, is_system, is_active, is_deleted, created_at, modified_at)
+            VALUES 
+                ('role-sysadmin', %s, 'SYSADMIN', '["*"]', true, true, false, NOW(), NOW()),
+                ('role-manager', %s, 'MANAGER', '["*"]', true, true, false, NOW(), NOW()),
+                ('role-cashier', %s, 'CASHIER', '["pos.sell", "inventory.view", "reports.view"]', true, true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET permissions_json = EXCLUDED.permissions_json, is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())))
+
         # 1. Insert test users into smritisys.users (Control Plane auth table)
         users_data = [
             ("usr-super", "usr_super", "SYSADMIN", True),

@@ -167,3 +167,70 @@ async def test_barcode_printer_settings_and_test_print_isolation(comp001_manager
         tampered = {"Authorization": f"Bearer {comp001_manager_token}", "X-Company-Id": "COMP-002"}
         t_res = await client.get("/api/v1/barcode/printer-settings", headers=tampered)
         assert t_res.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_approval_matrix_anonymous_and_role_protection(comp001_user_token, comp001_manager_token):
+    """
+    Verify approval_matrix routes reject anonymous requests (401),
+    reject non-admin/manager mutations (403), and permit authorized manager access (200).
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Anonymous GET -> 401
+        res_anon_get = await client.get("/api/v1/approval-matrix/")
+        assert res_anon_get.status_code == 401, f"Expected 401 for anonymous GET, got {res_anon_get.status_code}"
+
+        # 2. Anonymous DELETE -> 401
+        res_anon_del = await client.delete("/api/v1/approval-matrix/AM-001")
+        assert res_anon_del.status_code == 401, f"Expected 401 for anonymous DELETE, got {res_anon_del.status_code}"
+
+        # 3. Anonymous POST -> 401
+        res_anon_post = await client.post("/api/v1/approval-matrix/", json={"name": "Test Matrix"})
+        assert res_anon_post.status_code == 401, f"Expected 401 for anonymous POST, got {res_anon_post.status_code}"
+
+        # 4. Cashier (non-admin/manager role) POST -> 403
+        cashier_headers = {"Authorization": f"Bearer {comp001_user_token}"}
+        res_cashier_post = await client.post("/api/v1/approval-matrix/", json={"name": "Test Matrix"}, headers=cashier_headers)
+        assert res_cashier_post.status_code == 403, f"Expected 403 for cashier mutation, got {res_cashier_post.status_code}"
+
+        # 5. Cashier DELETE -> 403
+        res_cashier_del = await client.delete("/api/v1/approval-matrix/AM-001", headers=cashier_headers)
+        assert res_cashier_del.status_code == 403, f"Expected 403 for cashier delete, got {res_cashier_del.status_code}"
+
+        # 6. Authenticated Manager GET -> 200
+        mgr_headers = {"Authorization": f"Bearer {comp001_manager_token}"}
+        res_mgr_get = await client.get("/api/v1/approval-matrix/", headers=mgr_headers)
+        assert res_mgr_get.status_code == 200, f"Expected 200 for manager GET, got {res_mgr_get.status_code}"
+        data = res_mgr_get.json()
+        assert isinstance(data, list)
+        assert len(data) >= 1
+
+
+@pytest.mark.asyncio
+async def test_ecom_reserve_and_portal_anonymous_protection(comp001_user_token):
+    """
+    Verify ecom reservation and customer portal endpoints reject anonymous requests (401)
+    and accept authenticated requests.
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Anonymous POST /ecom/orders/reserve -> 401
+        reserve_payload = {
+            "sku": "TEST-SKU-001",
+            "quantity": 2,
+            "ecom_order_id": "EXT-ORD-999"
+        }
+        res_anon_resv = await client.post("/api/v1/ecom/orders/reserve", json=reserve_payload)
+        assert res_anon_resv.status_code == 401, f"Expected 401 for anonymous stock reservation, got {res_anon_resv.status_code}"
+
+        # 2. Anonymous GET /ecom/portal/orders -> 401
+        res_anon_portal = await client.get("/api/v1/ecom/portal/orders?customer_phone=9876543210")
+        assert res_anon_portal.status_code == 401, f"Expected 401 for anonymous customer portal, got {res_anon_portal.status_code}"
+
+        # 3. Authenticated GET /ecom/portal/orders -> 200
+        auth_headers = {"Authorization": f"Bearer {comp001_user_token}"}
+        res_auth_portal = await client.get("/api/v1/ecom/portal/orders?customer_phone=9876543210", headers=auth_headers)
+        assert res_auth_portal.status_code == 200, f"Expected 200 for authenticated customer portal, got {res_auth_portal.status_code}"
+        assert res_auth_portal.json().get("success") is True
+

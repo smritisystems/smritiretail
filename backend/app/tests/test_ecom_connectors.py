@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.22.0
+Version      : 3.29.0
 Created      : 2026-08-17
-Modified     : 2026-08-17
+Modified     : 2026-08-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -18,11 +18,13 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.future import select
 
 from app.main import app
-from app.api.deps import get_db
+from app.api.deps import get_db, get_company_db
 from app.api.v1.ecom import get_ecom_company_session
 from app.models.tenant import Company, Branch
+from app.models.auth import User, UserRole
 from app.models.inventory import Product
 from app.models.outbox import IntegrationOutboxEvent
+from app.core.security import create_access_token
 from app.tests.conftest import clear_db
 
 
@@ -32,6 +34,7 @@ async def clean_database_fixture(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
     app.dependency_overrides[get_ecom_company_session] = _get_db
     try:
         yield
@@ -41,6 +44,7 @@ async def clean_database_fixture(db_session):
         except Exception:
             pass
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_company_db, None)
         app.dependency_overrides.pop(get_ecom_company_session, None)
 
 
@@ -54,6 +58,7 @@ async def _seed_company_and_product(db_session, suffix):
     prod = Product(
         id=f"prod-ec-{suffix}",
         code=f"SKU-EC-{suffix}",
+        sku=f"SKU-EC-{suffix}",
         name=f"Ecom Product {suffix}",
         category="Footwear",
         barcode=f"890{suffix}001",
@@ -144,14 +149,82 @@ async def test_woocommerce_webhook_processing_and_idempotency(db_session):
 
 @pytest.mark.asyncio
 async def test_customer_portal_orders_endpoint(db_session):
-    """Test customer portal order history endpoint."""
+    """Test customer portal order history endpoint with authentication."""
+    suffix = uuid.uuid4().hex[:6]
+    comp, br, _ = await _seed_company_and_product(db_session, suffix)
+    user = User(
+        id=f"user-{suffix}",
+        username=f"user_{suffix}",
+        hashed_password="fakehash",
+        role=UserRole.CASHIER,
+        company_id=comp.id,
+        branch_id=br.id,
+        is_active=True
+    )
+    db_session.add(user)
+    await db_session.commit()
+    token = create_access_token({
+        "sub": user.id,
+        "username": user.username,
+        "role": user.role.value,
+        "company_id": comp.id,
+        "branch_id": br.id
+    })
     headers = {
-        "X-Company-ID": "COMP-001",
-        "X-Company-Code": "001"
+        "Authorization": f"Bearer {token}"
     }
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Anonymous request -> 401
+        res_anon = await client.get("/api/v1/ecom/portal/orders?customer_phone=9876543210")
+        assert res_anon.status_code == 401, f"Expected 401 for anonymous portal request, got {res_anon.status_code}"
+
+        # Authenticated request -> 200
         res = await client.get("/api/v1/ecom/portal/orders?customer_phone=9876543210", headers=headers)
         assert res.status_code == 200
         data = res.json()
         assert data["success"] is True
         assert "orders" in data
+
+
+@pytest.mark.asyncio
+async def test_reserve_ecom_inventory_auth(db_session):
+    """Test reserve_ecom_inventory rejects anonymous and allows authenticated."""
+    suffix = uuid.uuid4().hex[:6]
+    comp, br, prod = await _seed_company_and_product(db_session, suffix)
+    user = User(
+        id=f"user-resv-{suffix}",
+        username=f"user_resv_{suffix}",
+        hashed_password="fakehash",
+        role=UserRole.CASHIER,
+        company_id=comp.id,
+        branch_id=br.id,
+        is_active=True
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    reserve_payload = {
+        "sku": prod.code,
+        "quantity": 2,
+        "ecom_order_id": f"ORD-RESV-{suffix}"
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Anonymous request -> 401
+        res_anon = await client.post("/api/v1/ecom/orders/reserve", json=reserve_payload)
+        assert res_anon.status_code == 401, f"Expected 401 for anonymous stock reservation, got {res_anon.status_code}"
+
+        # Authenticated request -> 200
+        token = create_access_token({
+            "sub": user.id,
+            "username": user.username,
+            "role": user.role.value,
+            "company_id": comp.id,
+            "branch_id": br.id
+        })
+        headers = {"Authorization": f"Bearer {token}"}
+        res_auth = await client.post("/api/v1/ecom/orders/reserve", json=reserve_payload, headers=headers)
+        assert res_auth.status_code == 200
+        data = res_auth.json()
+        assert data["success"] is True
+        assert data["sku"] == prod.code

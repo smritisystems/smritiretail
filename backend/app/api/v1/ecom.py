@@ -20,6 +20,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
+from ...api.deps import (
+    get_company_db,
+    get_current_user,
+    get_tenant_context,
+    require_role,
+    TenantContext,
+)
+from ...models.auth import User, UserRole
 from ...services.company_database_resolver import CompanyDatabaseResolver
 from ...services.ecom_reservation_service import EcomInventoryReservationService
 from ...services.outbox_service import OutboxService
@@ -103,10 +111,15 @@ async def get_ecom_channels_status():
     }
 
 
-@router.post("/ecom/orders/reserve")
+@router.post(
+    "/ecom/orders/reserve",
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
 async def reserve_ecom_inventory(
     req: EcomReserveStockRequest,
-    session: AsyncSession = Depends(get_ecom_company_session)
+    session: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Atomic Stock Reservation for eCommerce Orders inside Company Database.
@@ -322,7 +335,9 @@ async def handle_woocommerce_webhook(
 @router.get("/ecom/portal/orders")
 async def get_customer_portal_orders(
     customer_phone: Optional[str] = None,
-    session: AsyncSession = Depends(get_ecom_company_session)
+    session: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Customer Portal Order History & Status Endpoint.
