@@ -357,18 +357,29 @@ class InvoicePdfService:
         place_of_supply_display = format_place_of_supply(pos_state, is_interstate, customer_gstin, supplier_gstin=company_gstin)
 
         is_rcm = bool(getattr(invoice, "reverse_charge", False) or getattr(invoice, "is_reverse_charge", False) or meta.get("reverse_charge", False) or meta.get("is_reverse_charge", False))
-        reverse_charge_display = "Yes" if is_rcm else "No"
-
-        # Canonical Tattly Threads bank details (authoritative — never pull from DB for this company)
-        TATTLY_BANK_NAME    = "STATE BANK OF INDIA"
-        TATTLY_ACCOUNT_NO   = "43976711765"
-        TATTLY_IFSC_CODE    = "SBIN0030425"
-        TATTLY_BANK_BRANCH  = "WARDHMAN NAGAR NAGPUR"
-
-        bank_name  = TATTLY_BANK_NAME
-        account_no = TATTLY_ACCOUNT_NO
-        ifsc_code  = TATTLY_IFSC_CODE
-        bank_branch = TATTLY_BANK_BRANCH
+        # Dynamic Bank Details: Prefer model fields -> meta overrides -> environment variables -> fallback
+        bank_name = (
+            getattr(invoice, "bank_name", None)
+            or meta.get("bank_name")
+            or os.getenv("DEFAULT_BANK_NAME", "")
+        )
+        account_no = (
+            getattr(invoice, "account_no", None)
+            or meta.get("bank_account_no")
+            or meta.get("account_no")
+            or os.getenv("DEFAULT_BANK_ACCOUNT_NO", "")
+        )
+        ifsc_code = (
+            getattr(invoice, "ifsc_code", None)
+            or meta.get("bank_ifsc")
+            or meta.get("ifsc_code")
+            or os.getenv("DEFAULT_BANK_IFSC", "")
+        )
+        bank_branch = (
+            getattr(invoice, "bank_branch", None)
+            or meta.get("bank_branch")
+            or os.getenv("DEFAULT_BANK_BRANCH", "")
+        )
 
         company_web = meta.get("company_website", "www.tattlythreads.com")
         dispatch_email = meta.get("dispatch_email", "dispatch@tattlythreads.com")

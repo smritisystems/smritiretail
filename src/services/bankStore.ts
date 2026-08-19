@@ -25,18 +25,20 @@ export interface BankAccountRecord {
   isDefault?: boolean;
 }
 
-export const DEFAULT_SBI_BANK_ACCOUNT: BankAccountRecord = {
-  id: "bank-sbi-default",
-  bankName: "STATE BANK OF INDIA",
-  branch: "WARDHMAN NAGAR NAGPUR",
-  branchName: "WARDHMAN NAGAR NAGPUR",
-  accountName: "TATTLY THREADS",
-  accountNo: "43976711765",
-  accountNumber: "43976711765",
-  ifsc: "SBIN0030425",
-  ifscCode: "SBIN0030425",
+export const DEFAULT_BANK_ACCOUNT: BankAccountRecord = {
+  id: "bank-default",
+  bankName: "",
+  branch: "",
+  branchName: "",
+  accountName: "",
+  accountNo: "",
+  accountNumber: "",
+  ifsc: "",
+  ifscCode: "",
   isDefault: true
 };
+
+export const DEFAULT_SBI_BANK_ACCOUNT = DEFAULT_BANK_ACCOUNT;
 
 const STORAGE_KEY = "smriti_bank_accounts";
 

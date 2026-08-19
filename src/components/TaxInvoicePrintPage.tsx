@@ -76,11 +76,10 @@ const DEFAULT_HEADER_CONFIG: HeaderCustomizationConfig = {
   footerText: "Goods once sold will not be taken back without prior written approval. All disputes subject to Mumbai Jurisdiction.",
   headerAlignment: "left",
   showLogo: true,
-  eWayBillNo: "",
-  bankName: "STATE BANK OF INDIA",
-  bankAccountNo: "43976711765",
-  bankIfsc: "SBIN0030425",
-  bankBranch: "WARDHMAN NAGAR NAGPUR",
+  bankName: "",
+  bankAccountNo: "",
+  bankIfsc: "",
+  bankBranch: "",
 };
 
 const STORAGE_KEY = "smriti_print_header_config_tattly_threads";
@@ -680,7 +679,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
                       type="text"
                       value={headerConfig.bankName || ""}
                       onChange={(e) => updateHeaderConfig({ bankName: e.target.value })}
-                      placeholder="STATE BANK OF INDIA"
+                      placeholder="e.g. State Bank of India / HDFC Bank"
                       className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-medium text-xs focus:outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -690,7 +689,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
                       type="text"
                       value={headerConfig.bankAccountNo || ""}
                       onChange={(e) => updateHeaderConfig({ bankAccountNo: e.target.value })}
-                      placeholder="43976711765"
+                      placeholder="e.g. 50200012345678"
                       className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-medium text-xs focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
@@ -702,7 +701,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
                       type="text"
                       value={headerConfig.bankIfsc || ""}
                       onChange={(e) => updateHeaderConfig({ bankIfsc: e.target.value })}
-                      placeholder="SBIN0030425"
+                      placeholder="e.g. SBIN0001234"
                       className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-medium text-xs focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>
@@ -712,7 +711,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
                       type="text"
                       value={headerConfig.bankBranch || ""}
                       onChange={(e) => updateHeaderConfig({ bankBranch: e.target.value })}
-                      placeholder="WARDHMAN NAGAR NAGPUR"
+                      placeholder="e.g. Fort Branch Mumbai"
                       className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-medium text-xs focus:outline-none focus:border-indigo-500"
                     />
                   </div>

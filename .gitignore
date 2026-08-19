@@ -78,6 +78,8 @@ repo_commit_check.txt
 repo_commit_files.txt
 frontend_backend_route_audit.json
 frontend_backend_route_audit2.json
+*audit.txt
+*.audit.txt
 *.tmp
 *.bak
 desktop.ini

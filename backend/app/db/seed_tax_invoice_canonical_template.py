@@ -127,10 +127,10 @@ CANONICAL_LAYOUT_CONFIG = {
         "default_hsn": "64041990"
     },
     "bank_details_configuration": {
-        "bank_name": "STATE BANK OF INDIA",
-        "account_number": "43976711765",
-        "ifsc_code": "SBIN0030425",
-        "branch": "WARDHMAN NAGAR NAGPUR"
+        "bank_name": os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA"),
+        "account_number": os.getenv("DEFAULT_BANK_ACCOUNT_NO", ""),
+        "ifsc_code": os.getenv("DEFAULT_BANK_IFSC", ""),
+        "branch": os.getenv("DEFAULT_BANK_BRANCH", "")
     },
     "terms_configuration": {
         "terms_text": "Goods once sold will not be taken back without prior written approval. All disputes subject to Mumbai Jurisdiction."

@@ -70,10 +70,10 @@ SELLER_INFO = {
     "email": "accounts@tattlythreads.com",
     "dispatch_email": "dispatch@tattlythreads.com",
     "web": "www.tattlythreads.com",
-    "bank_name": "STATE BANK OF INDIA",
-    "account_no": "43976711765",
-    "ifsc": "SBIN0030425",
-    "branch": "WARDHMAN NAGAR NAGPUR"
+    "bank_name": os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA"),
+    "account_no": os.getenv("DEFAULT_BANK_ACCOUNT_NO", ""),
+    "ifsc": os.getenv("DEFAULT_BANK_IFSC", ""),
+    "branch": os.getenv("DEFAULT_BANK_BRANCH", "")
 }
 
 VERIFIED_SIS_PO_MAP = {
@@ -650,9 +650,9 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
             <span class="text-gray-500 font-mono font-bold uppercase block mb-1" style="font-size: 9px;">
               BANK DETAILS
             </span>
-            <p class="font-semibold text-gray-900" style="margin: 0 0 2px 0;">STATE BANK OF INDIA</p>
-            <p class="text-gray-600 font-mono" style="margin: 0 0 2px 0;">A/C No: 43976711765</p>
-            <p class="text-gray-600 font-mono" style="margin: 0;">IFSC: SBIN0030425 | Branch: WARDHMAN NAGAR NAGPUR</p>
+            <p class="font-semibold text-gray-900" style="margin: 0 0 2px 0;">{TATTLY['bank_name']}</p>
+            <p class="text-gray-600 font-mono" style="margin: 0 0 2px 0;">A/C No: {TATTLY['account_no']}</p>
+            <p class="text-gray-600 font-mono" style="margin: 0;">IFSC: {TATTLY['ifsc']} | Branch: {TATTLY['branch']}</p>
           </div>
 
           <div class="mb-2">
