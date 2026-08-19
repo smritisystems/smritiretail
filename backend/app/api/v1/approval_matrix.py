@@ -6,9 +6,10 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.29.0
 Created      : 2026-08-19
-Modified     : 2026-08-19
+Modified     : 2026-08-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+Classification: Internal
 """
 
 """
@@ -26,7 +27,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db
+from ...api.deps import (
+    get_company_db,
+    get_current_user,
+    get_tenant_context,
+    require_role,
+    TenantContext,
+)
+from ...models.auth import User, UserRole
 from ...core.logging import logger
 
 router = APIRouter()
@@ -84,7 +92,11 @@ async def _table_exists(db: AsyncSession, table_name: str) -> bool:
 # GET /api/v1/approval-matrix
 # ---------------------------------------------------------------------------
 @router.get("/", response_model=list[dict])
-async def list_approval_matrices(db: AsyncSession = Depends(get_db)) -> Any:
+async def list_approval_matrices(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> Any:
     """
     List all approval matrix rules.
     Falls back to built-in defaults if the DB table does not yet exist.
@@ -108,7 +120,12 @@ async def list_approval_matrices(db: AsyncSession = Depends(get_db)) -> Any:
 # GET /api/v1/approval-matrix/{matrix_id}
 # ---------------------------------------------------------------------------
 @router.get("/{matrix_id}", response_model=dict)
-async def get_approval_matrix(matrix_id: str, db: AsyncSession = Depends(get_db)) -> Any:
+async def get_approval_matrix(
+    matrix_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> Any:
     """Retrieve a single approval matrix rule by ID."""
     # Check defaults first (works even before table migration)
     for m in _DEFAULT_MATRICES:
@@ -131,8 +148,18 @@ async def get_approval_matrix(matrix_id: str, db: AsyncSession = Depends(get_db)
 # ---------------------------------------------------------------------------
 # POST /api/v1/approval-matrix
 # ---------------------------------------------------------------------------
-@router.post("/", response_model=dict, status_code=201)
-async def create_approval_matrix(payload: dict, db: AsyncSession = Depends(get_db)) -> Any:
+@router.post(
+    "/",
+    response_model=dict,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def create_approval_matrix(
+    payload: dict,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> Any:
     """
     Create a new approval matrix rule.
     Returns 501 if the persistence table has not yet been provisioned.
@@ -166,9 +193,17 @@ async def create_approval_matrix(payload: dict, db: AsyncSession = Depends(get_d
 # ---------------------------------------------------------------------------
 # PUT /api/v1/approval-matrix/{matrix_id}
 # ---------------------------------------------------------------------------
-@router.put("/{matrix_id}", response_model=dict)
+@router.put(
+    "/{matrix_id}",
+    response_model=dict,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
 async def update_approval_matrix(
-    matrix_id: str, payload: dict, db: AsyncSession = Depends(get_db)
+    matrix_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Update an existing approval matrix rule."""
     if not await _table_exists(db, "approval_matrices"):
@@ -196,8 +231,17 @@ async def update_approval_matrix(
 # ---------------------------------------------------------------------------
 # DELETE /api/v1/approval-matrix/{matrix_id}
 # ---------------------------------------------------------------------------
-@router.delete("/{matrix_id}", status_code=204)
-async def delete_approval_matrix(matrix_id: str, db: AsyncSession = Depends(get_db)) -> None:
+@router.delete(
+    "/{matrix_id}",
+    status_code=204,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def delete_approval_matrix(
+    matrix_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> None:
     """Delete an approval matrix rule by ID."""
     if not await _table_exists(db, "approval_matrices"):
         raise HTTPException(status_code=501, detail="Approval Matrix table not yet provisioned.")

@@ -23,14 +23,20 @@ from app.api.v1.auth import get_current_user
 router = APIRouter()
 
 @router.get("/themes", response_model=List[ThemeResponse])
-def get_active_themes(db: Session = Depends(get_db)):
+def get_active_themes(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Fetch all active system themes and visual variants from smriti_themes."""
     themes = db.query(SmritiTheme).options(joinedload(SmritiTheme.variants)).filter(SmritiTheme.is_active == True).all()
     return themes
 
 
 @router.get("/workspace-profiles", response_model=List[WorkspaceProfileResponse])
-def get_workspace_profiles(db: Session = Depends(get_db)):
+def get_workspace_profiles(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Fetch available AWE workspace profiles from smriti_workspace_profiles."""
     profiles = db.query(SmritiWorkspaceProfile).filter(SmritiWorkspaceProfile.is_active == True, SmritiWorkspaceProfile.is_deleted == False).all()
     return profiles
