@@ -38,6 +38,8 @@ from ...schemas.auth import (
 from ...schemas.masters_tier2 import CompanyResponse, BranchResponse
 from ...models.auth import User, UserRole
 from ...models.tenant import Company, Branch
+from ...models.company_database_registry import CompanyDatabaseRegistry
+from ...models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 
 router = APIRouter()
 
@@ -79,32 +81,123 @@ async def list_tenant_options(
 ):
     """
     Authenticated endpoint for tenant selection after login.
-    Returns companies and branches that the current user may access.
+    Returns companies and branches that the current user may access,
+    strictly filtered to companies having an active, READY database registry.
     """
     if current_user.role == UserRole.SYSADMIN:
-        q_companies = select(Company).where(Company.is_deleted.is_(False)).order_by(Company.name.asc())
-        q_branches = select(Branch).where(Branch.is_deleted.is_(False)).order_by(Branch.name.asc())
-    elif current_user.company_id:
-        q_companies = select(Company).where(
-            Company.id == current_user.company_id,
-            Company.is_deleted.is_(False),
-        ).order_by(Company.name.asc())
-        q_branches = select(Branch).where(
-            Branch.company_id == current_user.company_id,
-            Branch.is_deleted.is_(False),
-        ).order_by(Branch.name.asc())
-    else:
-        return {
-            "companies": [],
-            "branches": [],
-        }
+        # SYSADMIN has access to all registered ready companies
+        q_companies = (
+            select(Company)
+            .join(CompanyDatabaseRegistry, Company.id == CompanyDatabaseRegistry.company_id)
+            .where(
+                CompanyDatabaseRegistry.status == "READY",
+                Company.is_active.is_(True),
+                Company.is_deleted.is_(False),
+            )
+            .order_by(Company.name.asc())
+        )
+        companies = (await db.execute(q_companies)).scalars().all()
+        ready_comp_ids = [c.id for c in companies]
 
-    companies = (await db.execute(q_companies)).scalars().all()
-    branches = (await db.execute(q_branches)).scalars().all()
+        if ready_comp_ids:
+            q_branches = (
+                select(Branch)
+                .where(
+                    Branch.company_id.in_(ready_comp_ids),
+                    Branch.is_active.is_(True),
+                    Branch.is_deleted.is_(False),
+                )
+                .order_by(Branch.name.asc())
+            )
+            branches = (await db.execute(q_branches)).scalars().all()
+        else:
+            branches = []
+
+    else:
+        # Non-SYSADMIN: Check user_company_assignments first, fallback to user.company_id
+        assigned_comp_res = await db.execute(
+            select(UserCompanyAssignment.company_id).where(
+                UserCompanyAssignment.user_id == current_user.id,
+                UserCompanyAssignment.is_active.is_(True),
+                UserCompanyAssignment.is_deleted.is_(False),
+            )
+        )
+        assigned_comp_ids = list(assigned_comp_res.scalars().all())
+
+        if not assigned_comp_ids and current_user.company_id:
+            assigned_comp_ids = [current_user.company_id]
+
+        if not assigned_comp_ids:
+            return {"companies": [], "branches": []}
+
+        # Filter assigned companies to only those with a READY database registry
+        q_companies = (
+            select(Company)
+            .join(CompanyDatabaseRegistry, Company.id == CompanyDatabaseRegistry.company_id)
+            .where(
+                Company.id.in_(assigned_comp_ids),
+                CompanyDatabaseRegistry.status == "READY",
+                Company.is_active.is_(True),
+                Company.is_deleted.is_(False),
+            )
+            .order_by(Company.name.asc())
+        )
+        companies = (await db.execute(q_companies)).scalars().all()
+        ready_comp_ids = [c.id for c in companies]
+
+        if not ready_comp_ids:
+            return {"companies": [], "branches": []}
+
+        # Check assigned branches
+        assigned_br_res = await db.execute(
+            select(UserBranchAssignment.branch_id).where(
+                UserBranchAssignment.user_id == current_user.id,
+                UserBranchAssignment.company_id.in_(ready_comp_ids),
+                UserBranchAssignment.is_active.is_(True),
+                UserBranchAssignment.is_deleted.is_(False),
+            )
+        )
+        assigned_br_ids = list(assigned_br_res.scalars().all())
+
+        if assigned_br_ids:
+            q_branches = (
+                select(Branch)
+                .where(
+                    Branch.id.in_(assigned_br_ids),
+                    Branch.company_id.in_(ready_comp_ids),
+                    Branch.is_active.is_(True),
+                    Branch.is_deleted.is_(False),
+                )
+                .order_by(Branch.name.asc())
+            )
+        elif current_user.branch_id:
+            q_branches = (
+                select(Branch)
+                .where(
+                    Branch.id == current_user.branch_id,
+                    Branch.company_id.in_(ready_comp_ids),
+                    Branch.is_active.is_(True),
+                    Branch.is_deleted.is_(False),
+                )
+                .order_by(Branch.name.asc())
+            )
+        else:
+            q_branches = (
+                select(Branch)
+                .where(
+                    Branch.company_id.in_(ready_comp_ids),
+                    Branch.is_active.is_(True),
+                    Branch.is_deleted.is_(False),
+                )
+                .order_by(Branch.name.asc())
+            )
+        branches = (await db.execute(q_branches)).scalars().all()
+
     return {
         "companies": [CompanyResponse.from_orm_model(c) for c in companies],
         "branches": [BranchResponse.from_orm_model(b) for b in branches],
     }
+
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)

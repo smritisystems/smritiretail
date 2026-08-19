@@ -85,6 +85,7 @@ import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
 import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
+import { CompanySelectionScreen } from "./components/CompanySelectionScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
@@ -105,12 +106,16 @@ const AppContent: React.FC = () => {
   const { addNotification: addSystemNotification } = useNotifications();
   
   const [currentUser, setCurrentUser] = useState<{ role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string } | null>(null);
+  const [companyContextResolved, setCompanyContextResolved] = useState<boolean>(() => {
+    return Boolean(localStorage.getItem("smriti_company_id") && localStorage.getItem("smriti_jwt_token"));
+  });
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const checkAuth = async () => {
     const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
     if (!token) {
       setCurrentUser(null);
+      setCompanyContextResolved(false);
       setCheckingAuth(false);
       return;
     }
@@ -125,14 +130,21 @@ const AppContent: React.FC = () => {
           branchId: data.branch_id ?? undefined,
           passwordResetRequired: data.password_reset_required ?? false,
         });
+        if (data.company_id && localStorage.getItem("smriti_company_id")) {
+          setCompanyContextResolved(true);
+        } else {
+          setCompanyContextResolved(false);
+        }
       } else {
         setCurrentUser(null);
+        setCompanyContextResolved(false);
       }
     } catch {
       // apiFetchV1 throws on non-2xx (e.g. 401 expired) — clear token and treat as unauthenticated
       localStorage.removeItem("smriti_jwt_token");
       localStorage.removeItem("smriti_session_token");
       setCurrentUser(null);
+      setCompanyContextResolved(false);
     } finally {
       setCheckingAuth(false);
     }
@@ -144,13 +156,19 @@ const AppContent: React.FC = () => {
 
   const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
     setCurrentUser(user);
+    setCompanyContextResolved(false);
   };
 
   const handleLogout = () => {
     localStorage.removeItem("smriti_session_token");
     localStorage.removeItem("smriti_jwt_token");
+    localStorage.removeItem("smriti_company_id");
+    localStorage.removeItem("smriti_company_code");
     setCurrentUser(null);
+    setCompanyContextResolved(false);
   };
+
+
 
   useEffect(() => {
     if (!currentUser) return;
@@ -573,6 +591,20 @@ const AppContent: React.FC = () => {
     );
   }
 
+  if (currentUser && !companyContextResolved) {
+    return (
+      <CompanySelectionScreen
+        currentUser={currentUser}
+        onCompanySelected={(ctx) => {
+          setCurrentUser((prev) => prev ? { ...prev, companyId: ctx.companyId, branchId: ctx.branchId } : prev);
+          setCompanyContextResolved(true);
+          fetchSystemState();
+        }}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   if (currentUser && isSetupCompleted === null) {
     return (
       <div className="min-h-screen w-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -585,6 +617,7 @@ const AppContent: React.FC = () => {
       </div>
     );
   }
+
 
   // ROUTING BOUNDARY: If isSetupCompleted is false, the workspace has no configured company.
   // Do NOT auto-open the Setup Wizard — show a controlled empty state instead.

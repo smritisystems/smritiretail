@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 4.9.1
 Created      : 2026-08-17
-Modified     : 2026-08-17  (Font forensic constants added — Option A applied)
+Modified     : 2026-08-18  (Golden CSS externalized — single source of truth)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal / FROZEN IMMUTABLE SPECIFICATION
@@ -23,7 +23,13 @@ MARGIN GEOMETRY IS PROHIBITED BY SMRITI ARCHITECTURE GOVERNANCE LAW.
 """
 
 import hashlib
-from typing import Dict, Any, Final
+import json
+import re
+from pathlib import Path
+from typing import Dict, Final
+
+_GOLDEN_CSS_PATH: Final[Path] = Path(__file__).with_name("smrititaxinvoice_v1.golden.css")
+_INTEGRITY_JSON_PATH: Final[Path] = Path(__file__).with_name("smrititaxinvoice_v1.integrity.json")
 
 # Canonical Identifier Constants
 SMRITITAXINVOICE_TEMPLATE_CODE: Final[str] = "SMRITITAXINVOICE"
@@ -91,182 +97,71 @@ SMRITI_INTRASTATE_COLUMNS: Final[Dict[str, str]] = {
     "amount": "8.0%"
 }
 
-# Master Frozen CSS Tokens
-SMRITITAXINVOICE_CSS_FROZEN: Final[str] = """
-@page {
-  size: A4 portrait;
-  margin: 8mm 8mm 10mm 8mm;
-}
-* {
-  box-sizing: border-box;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: 8.5px;
-  line-height: 1.15;
-  color: #000000;
-  margin: 0;
-  padding: 0;
-  background: #ffffff;
-}
-.page-container {
-  width: 100%;
-  box-sizing: border-box;
-  page-break-after: always;
-  position: relative;
-  min-height: 275mm;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-.page-container:last-child {
-  page-break-after: avoid;
-}
-.watermark-cancelled {
-  position: absolute;
-  top: 40%;
-  left: 10%;
-  width: 80%;
-  text-align: center;
-  font-size: 72px;
-  font-weight: 900;
-  color: rgba(220, 38, 38, 0.18);
-  transform: rotate(-35deg);
-  pointer-events: none;
-  z-index: 1000;
-  border: 8px solid rgba(220, 38, 38, 0.18);
-  padding: 20px;
-  text-transform: uppercase;
-  letter-spacing: 12px;
-}
-.tax-invoice-header {
-  border: 1px solid #000000;
-  border-bottom: none;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 3px 6px;
-  background: #f8fafc;
-}
-.tax-invoice-title {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-.party-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border: 1px solid #000000;
-  border-top: none;
-  font-size: 8px;
-}
-.party-cell {
-  padding: 3px 5px;
-}
-.party-cell:first-child {
-  border-right: 1px solid #000000;
-}
-.party-title {
-  font-weight: 700;
-  text-decoration: underline;
-  margin-bottom: 2px;
-}
-.item-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid #000000;
-  border-top: none;
-  table-layout: fixed;
-  font-size: 8px;
-}
-.item-table th {
-  background: #f1f5f9;
-  border: 1px solid #000000;
-  border-top: none;
-  padding: 2px 2px;
-  font-weight: 700;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  height: 15px;
-}
-.item-table td {
-  border-left: 1px solid #000000;
-  border-right: 1px solid #000000;
-  border-top: none;
-  border-bottom: none;
-  padding: 1px 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  height: 11.25px;
-}
-.item-table tr.subtotal-row td {
-  border-top: 1px solid #000000;
-  border-bottom: 1px solid #000000;
-  font-weight: 700;
-  background: #f8fafc;
-  height: 13.5px;
-}
-.summary-container {
-  border: 1px solid #000000;
-  border-top: none;
-  display: grid;
-  grid-template-columns: 1fr 200px;
-}
-.summary-left {
-  border-right: 1px solid #000000;
-  padding: 4px;
-}
-.summary-right {
-  padding: 2px 4px;
-}
-.summary-line {
-  display: flex;
-  justify-content: space-between;
-  padding: 1px 0;
-}
-.summary-line.grand-total {
-  border-top: 1px solid #000000;
-  font-weight: 800;
-  font-size: 9.5px;
-  padding-top: 2px;
-  margin-top: 2px;
-}
-.gst-table {
-  width: 100%;
-  border-collapse: collapse;
-  border-top: 1px solid #000000;
-  font-size: 7.5px;
-  margin-top: 3px;
-}
-.gst-table th, .gst-table td {
-  border: 1px solid #000000;
-  padding: 1px 2px;
-  text-align: right;
-}
-.gst-table th {
-  background: #f8fafc;
-  text-align: center;
-}
-.footer-bar {
-  border: 1px solid #000000;
-  border-top: none;
-  padding: 2px 6px;
-  font-size: 7.5px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f8fafc;
-}
-"""
+def _read_golden_css_bytes() -> bytes:
+    if not _GOLDEN_CSS_PATH.is_file():
+        raise FileNotFoundError(
+            f"SMRITI-SECURITY-TAMPER: Golden CSS artifact missing at {_GOLDEN_CSS_PATH}"
+        )
+    return _GOLDEN_CSS_PATH.read_bytes()
+
+
+def _strip_css_author_header(raw: str) -> str:
+    """Remove the UADHP author comment block; return embeddable CSS only."""
+    return re.sub(r"^\s*/\*[\s\S]*?\*/\s*", "", raw, count=1).strip()
+
+
+def verify_golden_css_integrity() -> bool:
+    """Verify smrititaxinvoice_v1.golden.css against smrititaxinvoice_v1.integrity.json."""
+    css_bytes = _read_golden_css_bytes()
+    computed = hashlib.sha256(css_bytes).hexdigest()
+
+    if not _INTEGRITY_JSON_PATH.is_file():
+        raise FileNotFoundError(
+            f"SMRITI-SECURITY-TAMPER: Integrity manifest missing at {_INTEGRITY_JSON_PATH}"
+        )
+
+    manifest = json.loads(_INTEGRITY_JSON_PATH.read_text(encoding="utf-8"))
+    expected = manifest.get("sha256")
+    if computed != expected:
+        raise RuntimeError(
+            "SMRITI-SECURITY-TAMPER: SMRITITAXINVOICE golden CSS has been altered! "
+            f"Expected SHA256: {expected}, Computed: {computed}"
+        )
+    return True
+
+
+def load_golden_css(*, verify: bool = True) -> str:
+    """
+    Load canonical SMRITITAXINVOICE V1 visual CSS from the golden artifact file.
+    Do not duplicate these tokens elsewhere.
+    """
+    if verify:
+        verify_golden_css_integrity()
+    raw = _read_golden_css_bytes().decode("utf-8")
+    return _strip_css_author_header(raw)
+
+
+def build_colgroup(columns: Dict[str, str]) -> str:
+    """Build an HTML colgroup from frozen column width percentages."""
+    cols = "\n".join(f'              <col style="width: {width};">' for width in columns.values())
+    return f"""
+            <colgroup>
+{cols}
+            </colgroup>
+            """
+
+
+# Backward-compatible alias — always loaded from golden artifact, never inline.
+SMRITITAXINVOICE_CSS_FROZEN: Final[str] = load_golden_css()
+
 
 def compute_spec_sha256() -> str:
     """Computes SHA256 integrity hash of the frozen specification."""
-    content = f"{SMRITITAXINVOICE_TEMPLATE_CODE}|{SMRITITAXINVOICE_VERSION}|{SMRITI_A4_WIDTH_PT}|{SMRITI_A4_HEIGHT_PT}|{SMRITITAXINVOICE_CSS_FROZEN.strip()}"
+    css_hash = hashlib.sha256(_read_golden_css_bytes()).hexdigest()
+    content = (
+        f"{SMRITITAXINVOICE_TEMPLATE_CODE}|{SMRITITAXINVOICE_VERSION}|"
+        f"{SMRITI_A4_WIDTH_PT}|{SMRITI_A4_HEIGHT_PT}|{css_hash}"
+    )
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 SMRITITAXINVOICE_SHA256_INTEGRITY: Final[str] = compute_spec_sha256()
@@ -276,6 +171,7 @@ def verify_smrititaxinvoice_integrity() -> bool:
     Integrity verification function.
     Returns True if the spec is untampered, raises AssertionError otherwise.
     """
+    verify_golden_css_integrity()
     current_hash = compute_spec_sha256()
     if current_hash != SMRITITAXINVOICE_SHA256_INTEGRITY:
         raise RuntimeError(
