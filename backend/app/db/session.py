@@ -33,15 +33,25 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy import text
 from ..core.config import settings
 
+import sys
+import os
+from sqlalchemy.pool import NullPool
+
+def _is_testing() -> bool:
+    return "pytest" in sys.modules or os.getenv("TESTING") == "1"
+
 # ---------------------------------------------------------------------------
 # Control Plane Engine & Session Factory (smritisys)
 # ---------------------------------------------------------------------------
+_ctrl_engine_kwargs = {"echo": False, "pool_pre_ping": True}
+if _is_testing():
+    _ctrl_engine_kwargs["poolclass"] = NullPool
+else:
+    _ctrl_engine_kwargs.update({"pool_size": 10, "max_overflow": 20, "pool_recycle": 1800})
+
 engine: AsyncEngine = create_async_engine(
     settings.DATABASE_URL,
-    echo=False,
-    pool_size=10,
-    max_overflow=20,
-    pool_recycle=1800
+    **_ctrl_engine_kwargs
 )
 
 async_session = async_sessionmaker(
@@ -79,12 +89,15 @@ def get_company_async_engine(database_name: str, host: str = "localhost", port: 
     # Authoritative postgresql+asyncpg driver string
     company_db_url = f"postgresql+asyncpg://{user}:{password}@{db_host}:{db_port}/{db_clean}"
 
+    _comp_engine_kwargs = {"echo": False, "pool_pre_ping": True}
+    if _is_testing():
+        _comp_engine_kwargs["poolclass"] = NullPool
+    else:
+        _comp_engine_kwargs.update({"pool_size": 5, "max_overflow": 10, "pool_recycle": 1800})
+
     company_eng = create_async_engine(
         company_db_url,
-        echo=False,
-        pool_size=5,
-        max_overflow=10,
-        pool_recycle=1800
+        **_comp_engine_kwargs
     )
 
     _company_engines[db_clean] = company_eng
@@ -164,33 +177,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 # ---------------------------------------------------------------------------
-# FastAPI Dependency: get_company_db (Multi-Tenant Company DB Session)
+# Low-Level Session Generator by Database Name
 # ---------------------------------------------------------------------------
-async def get_company_db(
-    request: Optional[Request] = None,
-    x_company_id: Optional[str] = Header(None, alias="X-Company-Id"),
-    x_company_code: Optional[str] = Header(None, alias="X-Company-Code")
-) -> AsyncGenerator[AsyncSession, None]:
+async def get_session_by_db_name(database_name: str) -> AsyncGenerator[AsyncSession, None]:
     """
-    Authoritative SMRITI Multi-Tenant Database Resolver Dependency.
-    Extracts tenant target from:
-      1. Header X-Company-Id / X-Company-Code
-      2. Request State / Query params
-      3. Authoritative company_database_registries lookup
-    Yields an AsyncSession bound to the target company database (e.g. smriti001).
+    Low-level async session generator for a specified database name.
     """
-    target_comp = x_company_id or x_company_code
-
-    if not target_comp and request is not None:
-        # Check query parameters
-        target_comp = request.query_params.get("company_id") or request.query_params.get("company_code")
-        # Check request state if set by prior auth middleware
-        if not target_comp and hasattr(request.state, "company_id"):
-            target_comp = getattr(request.state, "company_id", None)
-
-    target_db_name = await resolve_company_database_name(target_comp)
-    session_factory = get_company_sessionmaker(target_db_name)
-
+    session_factory = get_company_sessionmaker(database_name)
     async with session_factory() as session:
         try:
             yield session

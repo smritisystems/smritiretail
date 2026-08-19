@@ -16,16 +16,16 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.22.0
+* Version    : 3.25.0
 * Created    : 2026-07-11
-* Modified   : 2026-08-13
+* Modified   : 2026-08-20
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
 import json
 from dataclasses import dataclass
-from typing import Callable, Tuple
+from typing import Callable, Tuple, AsyncGenerator, Optional
 from fastapi import Depends, HTTPException, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,9 +35,10 @@ from ..core.config import settings
 
 from ..db.session import (
     get_db as _get_db,
-    get_company_db as _get_company_db,
     get_company_async_engine,
-    get_company_sessionmaker
+    get_company_sessionmaker,
+    resolve_company_database_name,
+    get_session_by_db_name,
 )
 from ..models.auth import User, UserRole
 from ..models.role import Role
@@ -45,7 +46,6 @@ from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 from ..core.security import decode_token
 
 get_db = _get_db  # re-exported for router convenience
-get_company_db = _get_company_db  # re-exported multi-tenant company db dependency
 
 # OAuth2 Bearer scheme — token URL points at the login endpoint
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -139,9 +139,9 @@ async def get_tenant_context(
         target_company = "COMP-001"
     
     target_branch = header_branch if header_branch else current_user.branch_id
-    if not target_branch:
+    if not target_branch or target_branch == "BR-MAIN-001":
         # Default to main branch for company if unspecified
-        target_branch = "BR-MAIN-001" if target_company == "COMP-001" else f"BR-{target_company.replace('COMP-', '')}-MAIN"
+        target_branch = "BR-001" if target_company in ("COMP-001", "001") else f"BR-{target_company.replace('COMP-', '')}-MAIN"
 
     if current_user.role != UserRole.SYSADMIN:
         # Header Tampering Security Check
@@ -198,6 +198,25 @@ async def get_tenant_context(
         branch_id=target_branch,
     )
 
+
+# ---------------------------------------------------------------------------
+# get_company_db — Multi-Tenant Company Database Session Dependency
+# ---------------------------------------------------------------------------
+async def get_company_db(
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+) -> AsyncGenerator[AsyncSession, None]:
+    """
+    Authoritative SMRITI Multi-Tenant Company Database Dependency.
+    Extracts tenant target strictly from validated TenantContext (cryptographic JWT + assignment check).
+    Never trusts raw unvalidated client headers or query parameters.
+    """
+    target_db_name = await resolve_company_database_name(tenant_ctx.company_id)
+    session_factory = get_company_sessionmaker(target_db_name)
+    async with session_factory() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
 
 
 # ---------------------------------------------------------------------------

@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.25.0
 Created      : 2026-07-12
-Modified     : 2026-07-13
+Modified     : 2026-08-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.barcode import BarcodeLayout, PrintHistory
 from ...models.system import SystemConfig
@@ -61,13 +61,17 @@ def serialize_layout(l: BarcodeLayout) -> BarcodeLayoutResponse:
     response_model=List[BarcodeLayoutResponse],
 )
 async def list_layouts(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
-    List all active barcode thermal printer label layouts.
+    List all active barcode thermal printer label layouts for current company.
     """
-    q = select(BarcodeLayout).where(BarcodeLayout.is_deleted == False)
+    q = select(BarcodeLayout).where(
+        BarcodeLayout.company_id == tenant_ctx.company_id,
+        BarcodeLayout.is_deleted == False
+    )
     res = await db.execute(q)
     layouts = res.scalars().all()
     return [serialize_layout(l) for l in layouts]
@@ -81,15 +85,20 @@ async def list_layouts(
 )
 async def create_layout(
     req: BarcodeLayoutCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Create a new thermal printer barcode layout design template.
+    Create a new thermal printer barcode layout design template scoped to company.
     """
-    # If isDefault is true, reset other defaults
+    # If isDefault is true, reset other defaults within this company
     if req.isDefault:
-        q = select(BarcodeLayout).where(BarcodeLayout.is_default == True, BarcodeLayout.is_deleted == False)
+        q = select(BarcodeLayout).where(
+            BarcodeLayout.company_id == tenant_ctx.company_id,
+            BarcodeLayout.is_default == True,
+            BarcodeLayout.is_deleted == False
+        )
         res = await db.execute(q)
         defaults = res.scalars().all()
         for d in defaults:
@@ -108,6 +117,8 @@ async def create_layout(
         columns=req.columns or 1,
         is_default=req.isDefault or False,
         elements_json=json.dumps(elements_data),
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
         created_by=current_user.username,
         updated_by=current_user.username
     )
@@ -126,18 +137,20 @@ async def create_layout(
 async def update_layout(
     id: str,
     req: BarcodeLayoutUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
     Update a thermal printer label layout configuration.
     """
     layout = await db.get(BarcodeLayout, id)
-    if not layout or layout.is_deleted:
+    if not layout or layout.is_deleted or layout.company_id != tenant_ctx.company_id:
         raise HTTPException(status_code=404, detail="Barcode layout design not found.")
 
     if req.isDefault:
         q = select(BarcodeLayout).where(
+            BarcodeLayout.company_id == tenant_ctx.company_id,
             BarcodeLayout.is_default == True,
             BarcodeLayout.id != id,
             BarcodeLayout.is_deleted == False
@@ -185,14 +198,15 @@ async def update_layout(
 )
 async def delete_layout(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
     Soft delete a barcode label layout design.
     """
     layout = await db.get(BarcodeLayout, id)
-    if not layout or layout.is_deleted:
+    if not layout or layout.is_deleted or layout.company_id != tenant_ctx.company_id:
         raise HTTPException(status_code=404, detail="Barcode layout design not found.")
 
     layout.is_deleted = True
@@ -208,14 +222,15 @@ async def delete_layout(
 )
 async def print_labels(
     req: PrintRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
     Generate ZPL commands stream, record print history, and dispatch stream via raw TCP socket.
     """
     layout = await db.get(BarcodeLayout, req.layoutId)
-    if not layout or layout.is_deleted:
+    if not layout or layout.is_deleted or layout.company_id != tenant_ctx.company_id:
         raise HTTPException(status_code=404, detail="Barcode layout design not found.")
 
     elements = []
@@ -462,6 +477,8 @@ async def print_labels(
             barcode=item.get("barcode", prod_code),
             quantity=qty,
             status="Success",
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
             created_by=current_user.username,
             updated_by=current_user.username
         )
@@ -473,10 +490,7 @@ async def print_labels(
     
     if full_raw_stream_list:
         payload = "\n".join(full_raw_stream_list)
-        if getattr(req, "saveAsPrn", False):
-            # Bypass printer socket/port and generate script output
-            pass
-        else:
+        if not getattr(req, "saveAsPrn", False):
             try:
                 if connection_type == "USB":
                     if usb_target.upper().startswith("COM") or "/" in usb_target or "\\" in usb_target:
@@ -548,13 +562,17 @@ async def print_labels(
     response_model=List[PrintHistoryResponse],
 )
 async def list_print_history(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Fetch history logs of printed label batches.
+    Fetch history logs of printed label batches for current company.
     """
-    q = select(PrintHistory).where(PrintHistory.is_deleted == False).order_by(PrintHistory.created_at.desc()).limit(100)
+    q = select(PrintHistory).where(
+        PrintHistory.company_id == tenant_ctx.company_id,
+        PrintHistory.is_deleted == False
+    ).order_by(PrintHistory.created_at.desc()).limit(100)
     res = await db.execute(q)
     histories = res.scalars().all()
     

@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.1 (Phase 2 — Sales UPDATE/DELETE/CANCEL)
+Version      : 3.25.0
 Created      : 2026-07-11
-Modified     : 2026-07-15 (Phase 2)
+Modified     : 2026-08-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -16,7 +16,7 @@ from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_db, get_tenant_context, TenantContext, require_role
+from ...api.deps import get_company_db, get_tenant_context, TenantContext, require_role
 from ...models.auth import UserRole
 from ...schemas.sales import (
     SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
@@ -45,7 +45,7 @@ router = APIRouter()
 async def create_sales_invoice_contract(
     invoice_in: SalesInvoiceCreate,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a sales invoice — canonical contract URL with Idempotency-Key support."""
@@ -57,7 +57,7 @@ async def create_sales_invoice_contract(
 async def list_sales_invoices_contract(
     skip: int = Query(0, ge=0),
     limit: int = Query(1000, ge=1, le=5000),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List sales invoices — canonical contract URL."""
@@ -72,7 +72,7 @@ async def list_sales_invoices_contract(
 )
 async def get_sales_invoice_contract(
     invoice_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Get single sales invoice detail by ID under active tenant context."""
@@ -95,7 +95,7 @@ async def get_sales_invoice_contract(
 )
 async def get_sales_invoice_preview_contract(
     invoice_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Render authoritative GST Tax Invoice HTML from single Canonical TaxInvoiceRenderer."""
@@ -116,7 +116,7 @@ async def get_sales_invoice_preview_contract(
 )
 async def get_sales_invoice_print_contract(
     invoice_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Render canonical HTML invoice configured for automatic browser print."""
@@ -139,7 +139,7 @@ async def get_sales_invoice_print_contract(
 async def get_sales_invoice_reprint_contract(
     invoice_id: str,
     format: Optional[str] = "pdf",
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Retrieve immutable historical invoice document artifact by SHA256 integrity for reprinting."""
@@ -175,7 +175,7 @@ async def get_sales_invoice_reprint_contract(
 async def get_sales_invoice_pdf_stream(
     invoice_id: str,
     format: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Stream rendered Tax Invoice PDF document from single Canonical TaxInvoiceRenderer."""
@@ -209,7 +209,7 @@ async def get_sales_invoice_pdf_stream(
 )
 async def get_sales_invoice_download_attachment(
     invoice_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Download Tax Invoice PDF document as an attachment from single Canonical TaxInvoiceRenderer."""
@@ -244,7 +244,7 @@ async def get_sales_invoice_download_attachment(
 )
 async def create_sales_quotation(
     q_in: SalesQuotationCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     return await SalesService(db, tenant_ctx).create_sales_quotation(q_in)
@@ -253,7 +253,7 @@ async def create_sales_quotation(
 @router.get("/quotations", response_model=List[SalesQuotationResponse])
 @router.get("/quotations/", response_model=List[SalesQuotationResponse])
 async def list_sales_quotations(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     return await SalesService(db, tenant_ctx).list_sales_quotations()
@@ -262,7 +262,7 @@ async def list_sales_quotations(
 @router.get("/quotations/{quotation_id}", response_model=SalesQuotationResponse)
 async def get_sales_quotation(
     quotation_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     service = SalesService(db, tenant_ctx)
@@ -280,7 +280,7 @@ async def get_sales_quotation(
 async def update_sales_quotation(
     quotation_id: str,
     update_in: SalesQuotationUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Partial-update a sales quotation. MANAGER / SYSADMIN only."""
@@ -294,7 +294,7 @@ async def update_sales_quotation(
 )
 async def delete_sales_quotation(
     quotation_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Soft-delete a sales quotation. MANAGER / SYSADMIN only."""
@@ -318,7 +318,7 @@ async def delete_sales_quotation(
 )
 async def create_sales_order(
     so_in: SalesOrderCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     return await SalesService(db, tenant_ctx).create_sales_order(so_in)
@@ -327,7 +327,7 @@ async def create_sales_order(
 @router.get("/orders", response_model=List[SalesOrderResponse])
 @router.get("/orders/", response_model=List[SalesOrderResponse])
 async def list_sales_orders(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     return await SalesService(db, tenant_ctx).list_sales_orders()
@@ -336,7 +336,7 @@ async def list_sales_orders(
 @router.get("/orders/{order_id}", response_model=SalesOrderResponse)
 async def get_sales_order(
     order_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     service = SalesService(db, tenant_ctx)
@@ -354,7 +354,7 @@ async def get_sales_order(
 async def update_sales_order(
     order_id: str,
     update_in: SalesOrderUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Partial-update a sales order. MANAGER / SYSADMIN only."""
@@ -368,7 +368,7 @@ async def update_sales_order(
 )
 async def delete_sales_order(
     order_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Soft-delete a sales order. MANAGER / SYSADMIN only."""
@@ -392,7 +392,7 @@ async def delete_sales_order(
 )
 async def create_sales_return(
     sr_in: SalesReturnCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     return await SalesService(db, tenant_ctx).create_sales_return(sr_in)
@@ -401,7 +401,7 @@ async def create_sales_return(
 @router.get("/returns", response_model=List[SalesReturnResponse])
 @router.get("/returns/", response_model=List[SalesReturnResponse])
 async def list_sales_returns(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     return await SalesService(db, tenant_ctx).list_sales_returns()
@@ -410,7 +410,7 @@ async def list_sales_returns(
 @router.get("/returns/{return_id}", response_model=SalesReturnResponse)
 async def get_sales_return(
     return_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     service = SalesService(db, tenant_ctx)
@@ -428,7 +428,7 @@ async def get_sales_return(
 async def update_sales_return(
     return_id: str,
     update_in: SalesReturnUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Partial-update a sales return. MANAGER / SYSADMIN only."""
@@ -442,7 +442,7 @@ async def update_sales_return(
 )
 async def delete_sales_return(
     return_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Soft-delete a sales return. MANAGER / SYSADMIN only."""
@@ -459,7 +459,7 @@ async def delete_sales_return(
 async def update_sales_invoice(
     invoice_id: str,
     update_in: SalesInvoiceUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -477,7 +477,7 @@ async def update_sales_invoice(
 )
 async def cancel_sales_invoice(
     invoice_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -499,7 +499,7 @@ async def cancel_sales_invoice(
 )
 async def convert_quotation_to_invoice(
     quotation_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """
