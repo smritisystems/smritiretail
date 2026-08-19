@@ -3,7 +3,7 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 3.16.0
  * Created      : 2026-08-16
  * Modified     : 2026-08-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -322,7 +322,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     title: "About SMRITI Retail OS",
     subtitle: "Architectural constitution, software licensing, versioning & creator credits",
     icon: "info",
-    tag: "v4.0.0",
+    tag: "v3.16.0",
     badgeType: "primary",
     group: "System & Operations",
   },

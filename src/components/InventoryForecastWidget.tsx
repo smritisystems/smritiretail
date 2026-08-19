@@ -31,7 +31,8 @@ export const InventoryForecastWidget: React.FC = () => {
 
       const salesOrders = salesData?.orders ?? salesData ?? [];
       const purchaseOrders = purData?.orders ?? purData ?? [];
-      const products = prodData.map((p: any) => ({
+      const rawProducts = Array.isArray(prodData) ? prodData : (prodData?.items || []);
+      const products = rawProducts.map((p: any) => ({
         id: p.id,
         code: p.code,
         name: p.name,
