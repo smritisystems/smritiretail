@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, get_current_user, require_role
+from ...api.deps import get_company_db, get_tenant_context, TenantContext, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.barcode import BarcodeLayout, PrintHistory
 from ...models.system import SystemConfig
@@ -596,25 +596,14 @@ async def list_print_history(
     "/printer-settings",
 )
 async def get_printer_settings(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Fetch default thermal printer IP and port settings.
+    Fetch default thermal printer IP and port settings for current company.
     """
-    q = select(SystemConfig).where(SystemConfig.key == "printer_connection")
-    res = await db.execute(q)
-    obj = res.scalars().first()
-    
-    if not obj:
-        return {
-            "connection_type": "TCP",
-            "ip": "192.168.1.200",
-            "port": 9100,
-            "usb_target": "LPT1"
-        }
-        
-    return json.loads(obj.value)
+    return await PrinterService.get_configured_printer(db, company_id=tenant_ctx.company_id)
 
 
 @router.post(
@@ -623,13 +612,15 @@ async def get_printer_settings(
 )
 async def save_printer_settings(
     req: PrinterSettingsRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Update global default printer connection settings.
+    Update printer connection settings for current company.
     """
-    q = select(SystemConfig).where(SystemConfig.key == "printer_connection")
+    comp_key = f"printer_connection_{tenant_ctx.company_id}"
+    q = select(SystemConfig).where(SystemConfig.key == comp_key)
     res = await db.execute(q)
     obj = res.scalars().first()
     
@@ -645,7 +636,7 @@ async def save_printer_settings(
     else:
         obj = SystemConfig(
             id=f"cfg-{int(datetime.now(timezone.utc).timestamp())}",
-            key="printer_connection",
+            key=comp_key,
             value=val_json,
             category="Printing"
         )
@@ -669,14 +660,15 @@ from ...services.printer_service import PrinterService
     summary="Hardware-Independent Thermal Printer & Engine Diagnostics",
 )
 async def printer_diagnostics(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
     Hardware-Independent Diagnostics Endpoint for SMRITI Printing Subsystem.
     Evaluates Zebra ZPL, TSC TSPL, and ESC/POS Engines and checks printer connectivity.
     """
-    return await PrinterService.run_diagnostics(db)
+    return await PrinterService.run_diagnostics(db, company_id=tenant_ctx.company_id)
 
 
 @router.post(
@@ -686,7 +678,8 @@ async def printer_diagnostics(
 )
 async def test_print(
     req: Dict[str, Any] = Body(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -732,6 +725,8 @@ async def test_print(
         quantity=1,
         is_binary=is_binary,
         save_as_prn=save_as_prn,
-        override_target=target_override
+        override_target=target_override,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
     )
     return result

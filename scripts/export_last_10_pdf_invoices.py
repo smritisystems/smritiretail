@@ -328,7 +328,7 @@ def generate_statutory_a4_html(inv: dict) -> str:
                     <div><strong>E-Way Bill No:</strong> <span style="font-family: monospace;">{inv['eway_bill_no']}</span></div>
                     <div><strong>Reverse Charge:</strong> No</div>
                     <div><strong>Payment Mode:</strong> NEFT / Bank Transfer</div>
-                    <div><strong>Bank:</strong> HDFC Bank Ltd (A/C: 50200012345678, IFSC: HDFC0000001)</div>
+                    <div><strong>Bank:</strong> {os.getenv('DEFAULT_BANK_NAME', '')} (A/C: {os.getenv('DEFAULT_BANK_ACCOUNT', '')}, IFSC: {os.getenv('DEFAULT_BANK_IFSC', '')})</div>
                 </td>
             </tr>
         </table>

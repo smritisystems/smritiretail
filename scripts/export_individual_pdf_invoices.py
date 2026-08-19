@@ -216,13 +216,15 @@ def generate_individual_pdf_invoices():
         story.append(tot_table)
         story.append(Spacer(1, 15))
 
+        bank_name = os.getenv("DEFAULT_BANK_NAME", "")
+        bank_acc = os.getenv("DEFAULT_BANK_ACCOUNT", "")
+        bank_ifsc = os.getenv("DEFAULT_BANK_IFSC", "")
+        bank_branch = os.getenv("DEFAULT_BANK_BRANCH", "")
+        bank_str = f"Bank Name: {bank_name}<br/>Account No: {bank_acc} | IFSC: {bank_ifsc}<br/>Branch: {bank_branch}" if bank_acc else "Bank Details on file"
+
         # Bank Details & Signatory Table
         bank_info = Paragraph(
-            "<b>BANK DETAILS FOR REMITTANCE:</b><br/>"
-            "Bank Name: HDFC Bank Ltd<br/>"
-            "Account Name: Tattly Threads Limited<br/>"
-            "Account No: 50200012345678 | IFSC: HDFC0000123<br/>"
-            "Branch: Andheri East Industrial Estate, Mumbai",
+            f"<b>BANK DETAILS FOR REMITTANCE:</b><br/>{bank_str}",
             val_style
         )
         sign_info = Paragraph(
