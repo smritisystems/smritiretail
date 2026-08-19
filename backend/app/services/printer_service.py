@@ -157,11 +157,13 @@ class PrinterService:
         return bytes(buffer)
 
     @classmethod
-    async def get_configured_printer(cls, session: AsyncSession) -> Dict[str, Any]:
+    async def get_configured_printer(cls, session: AsyncSession, company_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Loads configured printer settings from SystemConfig or returns defaults.
+        Checks company-specific printer settings first before global fallback.
         """
-        q = select(SystemConfig).where(SystemConfig.key == "printer_connection")
+        keys = [f"printer_connection_{company_id}", "printer_connection"] if company_id else ["printer_connection"]
+        q = select(SystemConfig).where(SystemConfig.key.in_(keys)).order_by(SystemConfig.key.desc())
         res = await session.execute(q)
         obj = res.scalars().first()
         if obj and obj.value:
@@ -189,13 +191,15 @@ class PrinterService:
         quantity: int = 1,
         is_binary: bool = False,
         save_as_prn: bool = False,
-        override_target: Optional[Dict[str, Any]] = None
+        override_target: Optional[Dict[str, Any]] = None,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Production-safe payload dispatch with fault-isolation and PrintHistory logging.
         Never raises unhandled network exceptions that could compromise business state.
         """
-        cfg = override_target or await cls.get_configured_printer(session)
+        cfg = override_target or await cls.get_configured_printer(session, company_id=company_id)
         conn_type = cfg.get("connection_type", "TCP")
         printer_ip = cfg.get("ip", "192.168.1.200")
         printer_port = int(cfg.get("port", 9100))
@@ -215,6 +219,8 @@ class PrinterService:
                 quantity=quantity,
                 status="Success",
                 error_message="PRN Script Generated",
+                company_id=company_id,
+                branch_id=branch_id,
                 created_by=user_name,
                 updated_by=user_name
             )
@@ -280,6 +286,8 @@ class PrinterService:
             quantity=quantity,
             status="Success" if dispatch_success else "Failed",
             error_message=None if dispatch_success else f"Connection error: {error_msg}",
+            company_id=company_id,
+            branch_id=branch_id,
             created_by=user_name,
             updated_by=user_name
         )
@@ -296,11 +304,11 @@ class PrinterService:
         }
 
     @classmethod
-    async def run_diagnostics(cls, session: AsyncSession) -> Dict[str, Any]:
+    async def run_diagnostics(cls, session: AsyncSession, company_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Hardware-Independent Printer & Command Engine Diagnostics.
         """
-        cfg = await cls.get_configured_printer(session)
+        cfg = await cls.get_configured_printer(session, company_id=company_id)
         conn_type = cfg.get("connection_type", "TCP")
         target_info = f"{cfg.get('ip')}:{cfg.get('port')}" if conn_type == "TCP" else str(cfg.get("usb_target"))
 

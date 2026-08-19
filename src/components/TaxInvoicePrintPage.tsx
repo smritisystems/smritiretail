@@ -701,7 +701,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
                       type="text"
                       value={headerConfig.bankIfsc || ""}
                       onChange={(e) => updateHeaderConfig({ bankIfsc: e.target.value })}
-                      placeholder="e.g. SBIN0001234"
+                      placeholder="e.g. IFSC CODE"
                       className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-medium text-xs focus:outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>

@@ -133,3 +133,37 @@ async def test_barcode_layout_company_isolation(comp001_manager_token):
         # Clean up layout
         del_res = await client.delete(f"/api/v1/barcode/layouts/{layout_id}", headers=auth_headers)
         assert del_res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_barcode_printer_settings_and_test_print_isolation(comp001_manager_token):
+    """
+    Verify printer settings and test-print are isolated and routed via get_company_db.
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        auth_headers = {"Authorization": f"Bearer {comp001_manager_token}"}
+
+        # 1. Get printer settings
+        get_res = await client.get("/api/v1/barcode/printer-settings", headers=auth_headers)
+        assert get_res.status_code == 200
+        assert "connection_type" in get_res.json()
+
+        # 2. Diagnostics
+        diag_res = await client.get("/api/v1/barcode/diagnostics", headers=auth_headers)
+        assert diag_res.status_code == 200
+        assert "software_engines" in diag_res.json()
+
+        # 3. Test print with saveAsPrn=True (safe export mode)
+        print_res = await client.post(
+            "/api/v1/barcode/test-print",
+            json={"format": "ZPL", "saveAsPrn": True},
+            headers=auth_headers
+        )
+        assert print_res.status_code == 200
+        assert print_res.json().get("status") == "PRN_GENERATED"
+
+        # 4. Header tampering on printer settings rejected
+        tampered = {"Authorization": f"Bearer {comp001_manager_token}", "X-Company-Id": "COMP-002"}
+        t_res = await client.get("/api/v1/barcode/printer-settings", headers=tampered)
+        assert t_res.status_code == 403

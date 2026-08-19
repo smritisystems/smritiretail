@@ -100,7 +100,7 @@ async def test_staff_user_response_schema_verification(db_session):
     }
     payment_payload = {
         "frequency": "Monthly",
-        "bankDetails": "HDFC Bank, Acct: 501002930293, IFSC: HDFC0000123",
+        "bankDetails": "HDFC Bank, Acct: 501002930293, IFSC: TEST0000000",
         "upi": "staff@upi",
         "salaryEffectiveFrom": "2025-01-10",
         "commissionEffectiveFrom": "2025-01-10",
@@ -218,7 +218,7 @@ async def test_staff_user_response_schema_verification(db_session):
 
     # Verify structured sub-objects are fully parsed
     assert data["salary"]["fixedMonthly"] == 25000.0
-    assert data["payment"]["bankDetails"] == "HDFC Bank, Acct: 501002930293, IFSC: HDFC0000123"
+    assert data["payment"]["bankDetails"] == "HDFC Bank, Acct: 501002930293, IFSC: TEST0000000"
     assert data["payment"]["aadhaarNumber"] == "1234-5678-9012"
     assert data["payment"]["panNumber"] == "ABCDE1234F"
     assert data["payment"]["providentFundUan"] == "100293029301"
