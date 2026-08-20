@@ -644,7 +644,7 @@ const AppContent: React.FC = () => {
       onNavigateHome={() => setActiveTab("dashboard")}
       onLogout={handleLogout}
       userName={currentUser?.name || "Operator"}
-      userRole={currentUser?.role || "System Admin"}
+      userRole={currentUser?.role || "Operator"}
     >
       <div className="relative w-full h-full pb-13">
       {/* Toast Notification Stack */}

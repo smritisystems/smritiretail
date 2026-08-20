@@ -12,6 +12,8 @@
  * Classification: Internal
  */
 
+import { APP_VERSION } from "../../config/version.ts";
+
 export interface TileData {
   id: string;
   title: string;
@@ -121,6 +123,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Vendors",
     badgeType: "info",
     group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "customer-master",
@@ -130,6 +133,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Directory",
     badgeType: "info",
     group: "Master Data & Stock",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
   },
   {
     id: "crm",
@@ -139,6 +143,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "CRM",
     badgeType: "primary",
     group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "loyalty",
@@ -148,6 +153,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Rewards",
     badgeType: "success",
     group: "Master Data & Stock",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
   },
 
   // 3. Finance & Ledgers
@@ -159,6 +165,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Ledger",
     badgeType: "primary",
     group: "Finance & Ledgers",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "accounting-sync",
@@ -168,6 +175,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Sync Engine",
     badgeType: "info",
     group: "Finance & Ledgers",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "report-designer",
@@ -177,6 +185,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Analytics",
     badgeType: "primary",
     group: "Finance & Ledgers",
+    roles: ["MANAGER", "SYSADMIN"],
   },
 
   // 4. Documents & Print
@@ -188,6 +197,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Templates",
     badgeType: "primary",
     group: "Documents & Print",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "print-history",
@@ -197,6 +207,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Audit Trail",
     badgeType: "info",
     group: "Documents & Print",
+    roles: ["MANAGER", "SYSADMIN", "AUDITOR"],
   },
   {
     id: "document-series",
@@ -206,6 +217,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Series",
     badgeType: "primary",
     group: "Documents & Print",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "terms-engine",
@@ -215,6 +227,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Legal",
     badgeType: "info",
     group: "Documents & Print",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "approval-matrix",
@@ -224,6 +237,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Governance",
     badgeType: "warning",
     group: "Documents & Print",
+    roles: ["MANAGER", "SYSADMIN"],
   },
 
   // 5. Data & Config
@@ -235,6 +249,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Masters",
     badgeType: "primary",
     group: "Data & Config",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "data-exchange",
@@ -244,6 +259,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "ETL / CSV",
     badgeType: "info",
     group: "Data & Config",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "company-setup",
@@ -340,7 +356,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     title: "About SMRITI Retail OS",
     subtitle: "Architectural constitution, software licensing, versioning & creator credits",
     icon: "info",
-    tag: "v3.16.0",
+    tag: `v${APP_VERSION}`,
     badgeType: "primary",
     group: "System & Operations",
   },
@@ -356,16 +372,23 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
 ];
 
 /**
- * Filter catalog by user role.
- * SYSADMIN sees all tiles.
+ * Filter catalog by user role with strict deny-by-default semantics.
+ * - Missing/null/empty role -> only tiles with NO role restriction (tile.roles undefined or empty)
+ * - SYSADMIN / ADMIN -> sees all tiles
+ * - Specific role -> sees tiles explicitly allowing that role
  */
 export function getVisibleLaunchpadTiles(userRoleRaw?: string | null): TileData[] {
-  const userRole = (userRoleRaw || "SYSADMIN").toUpperCase().trim();
+  if (!userRoleRaw || typeof userRoleRaw !== "string" || !userRoleRaw.trim()) {
+    // Deny-by-default: anonymous / unassigned users only see unrestricted tiles (if any)
+    return LAUNCHPAD_CATALOG.filter((tile) => !tile.roles || tile.roles.length === 0);
+  }
+
+  const userRole = userRoleRaw.toUpperCase().trim();
   const isSysAdmin = userRole === "SYSADMIN" || userRole === "SYSTEM ADMIN" || userRole === "ADMIN";
   const isManager = userRole === "MANAGER" || userRole === "STORE MANAGER" || isSysAdmin;
 
   return LAUNCHPAD_CATALOG.filter((tile) => {
-    if (!tile.roles || isSysAdmin) return true;
+    if (!tile.roles || tile.roles.length === 0 || isSysAdmin) return true;
     return tile.roles.some((r) => r.toUpperCase() === userRole || (r === "MANAGER" && isManager));
   });
 }

@@ -116,6 +116,22 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     expect(sysAdminTiles.length).toBe(LAUNCHPAD_CATALOG.length);
   });
 
+  it("should deny access by default when user role is null, undefined, or empty", () => {
+    const nullRoleTiles = getVisibleLaunchpadTiles(null);
+    const undefinedRoleTiles = getVisibleLaunchpadTiles(undefined);
+    const emptyRoleTiles = getVisibleLaunchpadTiles("");
+
+    [nullRoleTiles, undefinedRoleTiles, emptyRoleTiles].forEach((tiles) => {
+      const ids = tiles.map((t) => t.id);
+      expect(ids).not.toContain("company-setup");
+      expect(ids).not.toContain("ufe");
+      expect(ids).not.toContain("dev-tracker");
+      expect(ids).not.toContain("staff-management");
+      expect(ids).not.toContain("approval-matrix");
+      expect(ids).not.toContain("audit-logs");
+    });
+  });
+
   it("should return quick actions filtered by role", () => {
     const cashierQA = getQuickActionTiles("CASHIER");
     expect(cashierQA.length).toBeGreaterThanOrEqual(4);

@@ -56,7 +56,7 @@ const LAUNCHPAD_ITEM: ContextualMenuItem = {
 };
 
 export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
-  const role = query.userRole || 'System Admin';
+  const role = query.userRole || 'Operator';
   const state = query.transactionState || 'DRAFT';
   const isDocumentActive = Boolean(query.documentId);
 

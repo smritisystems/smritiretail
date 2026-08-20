@@ -36,17 +36,10 @@ export {
 export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onSelectModule }) => {
   const { popOutExternalWindow } = useWorkspace();
   
-  const userRole = (currentUser?.role || "SYSADMIN").toUpperCase().trim();
-  const isSysAdmin = userRole === "SYSADMIN" || userRole === "SYSTEM ADMIN" || userRole === "ADMIN";
-  const isManager = userRole === "MANAGER" || userRole === "STORE MANAGER" || isSysAdmin;
-
-  // Filter tiles based on current user role
+  // Filter tiles strictly using the canonical helper (deny-by-default)
   const visibleTiles = useMemo(() => {
-    return LAUNCHPAD_CATALOG.filter((tile) => {
-      if (!tile.roles || isSysAdmin) return true;
-      return tile.roles.some((r) => r.toUpperCase() === userRole || (r === "MANAGER" && isManager));
-    });
-  }, [userRole, isSysAdmin, isManager]);
+    return getVisibleLaunchpadTiles(currentUser?.role);
+  }, [currentUser?.role]);
 
   const quickActions = useMemo(() => {
     return visibleTiles.filter((t) => t.isQuickAction);
@@ -77,7 +70,7 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
           </div>
           <div className="text-center px-3 border-r border-white/20">
             <div className="text-indigo-200 uppercase font-semibold text-[10px]">Role</div>
-            <div className="text-base font-bold text-emerald-300 font-sans">{currentUser?.role || "Admin"}</div>
+            <div className="text-base font-bold text-emerald-300 font-sans">{currentUser?.role || "Unassigned"}</div>
           </div>
           <div className="text-center px-3">
             <div className="text-indigo-200 uppercase font-semibold text-[10px]">Architecture</div>

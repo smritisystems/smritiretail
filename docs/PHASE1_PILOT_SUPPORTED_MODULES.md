@@ -103,3 +103,22 @@ The backend enforces fail-closed isolation across all Tier A routes: any request
 | **Scan Bar Query Envelope** | Product lookup now handles both direct arrays and paginated `{ items: [...] }` envelopes. | Verify barcode scan merges quantity on duplicate entries and displays clear toast on unknown SKUs. |
 | **Client-Side Ledger Pagination** | `LedgerScreen` currently uses 50-row client-side pagination. | Perform server-side `LIMIT/OFFSET` migration in Phase 3 if ledger table exceeds 10,000 records. |
 
+---
+
+## 6. Pilot Scope Freeze & Production Boundary (Effective: 2026-08-20 — v3.29.0)
+
+### 6.1. Frozen Scope Statement
+As of **2026-08-20 (Release v3.29.0)**, the commercial pilot feature scope is formally **FROZEN**. No new business modules, experimental features, or schema modifications may be added to the pilot deployment branch without formal RFC review.
+
+### 6.2. Supported Module Operational Boundary
+The 18 modules enumerated in **Section 2** represent the complete, hardened operational boundary for commercial pilot operations. All other 15 modules listed in **Section 3** remain strictly in **Preview / Staging** mode.
+
+### 6.3. Dual-Run Architecture Policy
+- `DocumentStudioScreen` and legacy `SalesStudioTab` / `PurchaseStudioTab` operate in an approved dual-run configuration.
+- Default pilot routing maintains proven studio paths while `DocumentStudioScreen` handles high-throughput grid operations.
+- Full cutover and deprecation of legacy studio paths is deferred to Phase 3.
+
+### 6.4. Mandatory Database Migration Head Requirement
+All pilot tenant databases (`smritisys`, `smriti001`, etc.) MUST be migrated through `alembic upgrade head` (minimum revision `v1337_backfill_variant_id` or higher) prior to transaction recording.
+
+
