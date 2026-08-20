@@ -333,6 +333,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["MANAGER", "SYSADMIN", "AUDITOR"],
   },
   {
+    id: "database-manager",
+    title: "Database Manager (DB Studio)",
+    subtitle: "Multi-tenant PostgreSQL schema browser, table data explorer, live telemetry & SQL console",
+    icon: "database",
+    tag: "DB Studio",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["SYSADMIN"],
+  },
+  {
     id: "dev-tracker",
     title: "Dev Intelligence Center",
     subtitle: "Real-time API performance health, technical debt logs & build diagnostics",

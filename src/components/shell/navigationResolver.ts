@@ -208,6 +208,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         contextIcon: 'admin_panel_settings',
         items: [
           LAUNCHPAD_ITEM,
+          { id: 'database-manager', title: 'Database Manager (DB Studio)', icon: 'storage' },
           { id: 'masters', title: 'System Master Registry', icon: 'tune' },
           { id: 'staff-management', title: 'Staff & Role Governance', icon: 'group' },
           { id: 'dev-tracker', title: 'Dev Intelligence Center', icon: 'bug_report' },
