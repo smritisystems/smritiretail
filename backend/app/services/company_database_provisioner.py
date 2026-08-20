@@ -88,7 +88,10 @@ class CompanyDatabaseProvisioner:
             "step": 6,
             "operation": "initialize_schema_plan",
             "target_database": database_name,
-            "schema_version": "3.16.0",
+            "schema_version": "3.29.0",
+            "alembic_required": True,
+            "alembic_migration_command": "alembic upgrade head",
+            "alembic_min_revision": "v1337_backfill_variant_id",
             "tables_planned": 45,
             "dry_run": self.dry_run,
             "executed": False
