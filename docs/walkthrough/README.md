@@ -133,6 +133,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-08-18 | invoicing | Master Tax Invoice Hardening & Subtle Watermark v4.9.5 — 3-State QR Engine, Centered Footer Branding, 80% Background Watermark, 86/86 Invoices 100% PASS | [Invoicing_MasterTaxInvoiceHardening_And_Watermark_v4.9.5.md](invoicing/Invoicing_MasterTaxInvoiceHardening_And_Watermark_v4.9.5.md) |
 | 2026-08-18 | foundation | SMRITI Login → Company Database Selector → Dashboard Flow v3.25.0 — Reconciled Tenant DB routing, /auth/tenants READY filter, Fiori CompanySelectionScreen, switch-context | [Login_Company_Selector_Flow_v3.25.0.md](foundation/Login_Company_Selector_Flow_v3.25.0.md) | [Plan](../implementation/foundation/Login_Company_Selector_Flow_Plan_v3.25.0.md) | Completed |
 | 2026-08-20 | security | Multi-Tenant DB Routing Hardening, Barcode Subsystem Isolation & Secret Sanitization v1.0 — Cryptographic JWT resolution, 100% router wiring, Barcode isolation, CI guard, Retroactive audit | [Multi_Tenant_Database_Routing_And_Secret_Hardening_v1.0.md](security/Multi_Tenant_Database_Routing_And_Secret_Hardening_v1.0.md) | — | Completed |
+| 2026-08-20 | foundation | Test Fixture Environment Dependency & Routing Fix v3.29.0 — Deterministic 20/20 test suite, explicit routing registry seeding, fail-fast test setup, partial unique index handling | [Foundation_Test_Fixture_Environment_Dependency_Fix_v3.29.0.md](foundation/Foundation_Test_Fixture_Environment_Dependency_Fix_v3.29.0.md) | [Plan](../implementation/README.md) | Completed |
+
 
 
 
