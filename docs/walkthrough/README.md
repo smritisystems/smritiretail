@@ -135,6 +135,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-08-20 | security | Multi-Tenant DB Routing Hardening, Barcode Subsystem Isolation & Secret Sanitization v1.0 — Cryptographic JWT resolution, 100% router wiring, Barcode isolation, CI guard, Retroactive audit | [Multi_Tenant_Database_Routing_And_Secret_Hardening_v1.0.md](security/Multi_Tenant_Database_Routing_And_Secret_Hardening_v1.0.md) | — | Completed |
 | 2026-08-20 | foundation | Test Fixture Environment Dependency & Routing Fix v3.29.0 — Deterministic 20/20 test suite, explicit routing registry seeding, fail-fast test setup, partial unique index handling | [Foundation_Test_Fixture_Environment_Dependency_Fix_v3.29.0.md](foundation/Foundation_Test_Fixture_Environment_Dependency_Fix_v3.29.0.md) | [Plan](../implementation/README.md) | Completed |
 | 2026-08-20 | foundation | UI/UX Duplication & Hardcode Remediation v3.29.0 — Credential elimination, canonical numberToIndianWords utility & 14-case parity tests, A4 template dedup, printer IP placeholder, single version source of truth | [Foundation_UIUX_Duplication_And_Hardcode_Remediation_v3.29.0.md](foundation/Foundation_UIUX_Duplication_And_Hardcode_Remediation_v3.29.0.md) | — | Completed |
+| 2026-08-20 | foundation | Commercial Pilot Origin-Gap Remediation & Field Readiness v3.29.0 — D1–D6 origin verification, deny-by-default RBAC, multi-DB Alembic HEAD, smoke results GO_SOFTWARE, Go-Live Runbook | [Foundation_Pilot_Origin_Gap_Hardening_And_Field_Readiness_v3.29.0.md](foundation/Foundation_Pilot_Origin_Gap_Hardening_And_Field_Readiness_v3.29.0.md) | — | Completed |
+
 
 
 
