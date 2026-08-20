@@ -100,9 +100,14 @@ def number_to_indian_words(num: float) -> str:
     if integer_part > 0:
         str_words += get_word_for_three_digits(integer_part)
 
-    result = str_words.strip()
-    if result:
-        result = result + " Rupees"
+    trimmed_rupees = str_words.strip()
+    rupee_unit = "Rupee" if int(abs(num)) == 1 else "Rupees"
+
+    if trimmed_rupees:
+        result = f"{trimmed_rupees} {rupee_unit}"
+    else:
+        result = "Zero Rupees"
+
     if paisa_part > 0:
         result += " and " + get_word_for_three_digits(paisa_part).strip() + " Paisa"
     result += " Only"

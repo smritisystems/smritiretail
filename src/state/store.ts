@@ -241,7 +241,7 @@ export function migrateUsersAndSeedOrganizationData() {
         userId: "usr-super",
         employeeId: "EMP-001",
         username: "super",
-        passwordHash: "whynothing", // Will be hashed in the self-healing block below
+        passwordHash: "", // Plaintext credentials prohibited; must be provisioned via secure auth setup
         role: "Admin",
         status: "Active",
         photo: "",

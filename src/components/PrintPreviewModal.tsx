@@ -37,6 +37,7 @@ import html2canvas from "html2canvas";
 import { usePrintEngine } from "../print_engine/print_store.tsx";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { getAvailableBankAccounts, DEFAULT_SBI_BANK_ACCOUNT } from "../services/bankStore.ts";
+import { APP_VERSION } from "../config/version.ts";
 
 // Mock datasets corresponding to various tabs
 const MOCK_TAB_DATA: Record<string, any> = {
@@ -828,7 +829,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
         title: `${activeTemplate?.name || "Retail Document"} - Cryptographically Signed`,
         subject: `Security Verification Hash: ${hashStr}`,
         author: activeAuth.name,
-        creator: `Smriti Retail OS v2.1.2`,
+        creator: `Smriti Retail OS v${APP_VERSION}`,
         keywords: `smriti, retail-os, signed-pdf, ${hashStr}, ${activeAuth.keyId}`
       });
       

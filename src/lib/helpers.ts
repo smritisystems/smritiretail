@@ -18,6 +18,7 @@
 import crypto from "crypto";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
 import { pool } from "../db/pool.js";
+import { FASTAPI_BASE_URL } from "../config/api.js";
 
 // ==========================================
 // SECURE PASSWORD HASHING (HREP COMPLIANT)
@@ -93,7 +94,7 @@ export async function allocateVoucherNumber(docType: string, context?: { branch?
     }
     const seriesId = dbRes.rows[0].id;
 
-    const pythonCoreHost = process.env.DATABASE_URL?.includes("@db:") ? "http://python-core:8000" : "http://localhost:8000";
+    const pythonCoreHost = FASTAPI_BASE_URL;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "X-Internal-Service-Key": process.env.INTERNAL_SERVICE_KEY || ""
@@ -211,7 +212,7 @@ export async function recordStockMovement(productId: any, productCode: any, prod
 
   // Dispatch stock movement to FastAPI backend
   try {
-    const pythonCoreHost = process.env.DATABASE_URL?.includes("@db:") ? "http://python-core:8000" : "http://localhost:8000";
+    const pythonCoreHost = FASTAPI_BASE_URL;
     const payload = {
       product_id: productId,
       product_name: productName,

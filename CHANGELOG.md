@@ -30,6 +30,14 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### [3.29.0] - 2026-08-20
 
+#### Security & Quality — UI/UX Duplication & Hardcode Remediation
+- **Hardcoded Credential Elimination**: Removed hardcoded plaintext passwords (`whynothing`) from `src/state/store.ts` and `src/db/init.ts`. Confirmed zero remaining occurrences in `src/`.
+- **Canonical Indian Currency Words Formatter**: Extracted `numberToIndianWords` into `src/utils/indianNumberWords.ts` and updated Python `number_to_indian_words` in `backend/app/services/invoice_pdf_service.py` to identically handle sub-rupee values (`0.50` -> `"Zero Rupees and Fifty Paisa Only"`) and singular/plural rupees (`1.00` -> `"One Rupee Only"`). Added matching 14-test parity suites in Vitest and Pytest.
+- **Invoice Template Decoupling**: Decoupled `TaxInvoiceA4.tsx` (dedicated statutory GST invoice) and `StandardInvoiceA4.tsx` (generic Print Studio design catalog), removing duplicate formatting code and dead imports.
+- **Dynamic Printer IP Configuration**: Removed hardcoded `192.168.1.200` initial state from `LabelPrintingSection.tsx`, converting it to an empty default that dynamically populates from `/api/v1/barcode/printer-settings` (`SystemConfig`).
+- **Single Source of Truth for Application Version**: Established `src/config/version.ts` exporting `APP_VERSION`, `APP_RELEASE_STAGE`, and `APP_VERSION_LABEL`. Replaced all hand-typed version strings across the UI (`LoginScreen.tsx`, `CompanySelectionScreen.tsx`, `layout_manager.tsx`, `DashboardTab.tsx`, `QuickReportsWidget.tsx`, `PrintPreviewModal.tsx`) and synchronized `package.json` to 3.29.0.
+- **Centralized API Target Host Configuration**: Created `src/config/api.ts` managing `FASTAPI_BASE_URL` with environment and Docker container network resolution, replacing duplicate fallback strings in `helpers.ts`.
+
 #### Testing & Infrastructure — Test Fixture Environment Dependency & Multi-Tenant Routing
 - **Deterministic 20/20 Test Suite**: Stabilized `test_e2e_tenant_security_and_routing.py`, `test_ecom_connectors.py`, and `test_company_control_center_security.py` across full multi-suite test runs.
 - **Explicit Routing Registry Seeding (RC2)**: Seeded `company_database_registries` with `COMP-001 -> smriti001` in conftest so dynamic database resolution (`CompanyDatabaseResolver`) functions out-of-the-box on fresh database migrations.

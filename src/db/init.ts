@@ -276,7 +276,7 @@ export async function seedDefaultUsers() {
         username: "super",
         email: "super@smritibooks.com",
         mobile: "9999999999",
-        password: "whynothing",
+        password: process.env.SUPER_ADMIN_PASSWORD || "",
         role: "SYSADMIN",
         fullName: "SYSTEM ADMINISTRATOR",
         displayName: "Super",

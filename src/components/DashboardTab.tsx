@@ -38,6 +38,7 @@ import {
   LineChart,
 } from "recharts";
 import { apiFetch, apiFetchV1 } from "../lib/apiFetch.ts";
+import { APP_VERSION } from "../config/version.ts";
 import { Product, Formula, PSVParty } from "../types";
 
 import { DrillableLink } from "./drilldown/DrillableLink.tsx";
@@ -112,7 +113,7 @@ const TrendSalesTooltip = ({ active, payload, label }: any) => {
         </div>
         <div className="mt-2.5 pt-2 border-t border-[#2a3a5c]/50 text-[10px] text-theme-muted font-mono flex items-center justify-between">
           <span>{isForecastPoint ? "SMRITI PROJECTION" : "SMRITI ENGINE"}</span>
-          <span>v2.1.2</span>
+          <span>v{APP_VERSION}</span>
         </div>
       </div>
     );
