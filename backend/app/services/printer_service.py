@@ -166,17 +166,36 @@ class PrinterService:
         q = select(SystemConfig).where(SystemConfig.key.in_(keys)).order_by(SystemConfig.key.desc())
         res = await session.execute(q)
         obj = res.scalars().first()
+        config_data = {}
         if obj and obj.value:
             try:
-                return json.loads(obj.value)
+                config_data = json.loads(obj.value)
             except Exception:
                 pass
+
+        # Check dispatch mode key
+        mode_keys = [f"print_dispatch_mode_{company_id}", "print_dispatch_mode"] if company_id else ["print_dispatch_mode"]
+        q_mode = select(SystemConfig).where(SystemConfig.key.in_(mode_keys)).order_by(SystemConfig.key.desc())
+        res_mode = await session.execute(q_mode)
+        mode_obj = res_mode.scalars().first()
+        dispatch_mode = "server_tcp"
+        if mode_obj and mode_obj.value:
+            try:
+                mode_val = json.loads(mode_obj.value) if (mode_obj.value.startswith('"') or mode_obj.value.startswith('{')) else mode_obj.value
+                if isinstance(mode_val, dict):
+                    dispatch_mode = mode_val.get("dispatch_mode", "server_tcp")
+                elif isinstance(mode_val, str):
+                    dispatch_mode = mode_val
+            except Exception:
+                dispatch_mode = mode_obj.value
+
         return {
-            "connection_type": "TCP",
-            "ip": "192.168.1.200",
-            "port": 9100,
-            "usb_target": "LPT1",
-            "timeout_sec": cls.DEFAULT_TIMEOUT_SEC
+            "connection_type": config_data.get("connection_type", "TCP"),
+            "ip": config_data.get("ip", "192.168.1.200"),
+            "port": int(config_data.get("port", 9100)),
+            "usb_target": config_data.get("usb_target", "LPT1"),
+            "timeout_sec": float(config_data.get("timeout_sec", cls.DEFAULT_TIMEOUT_SEC)),
+            "dispatch_mode": config_data.get("dispatch_mode", dispatch_mode)
         }
 
     @classmethod
@@ -191,15 +210,18 @@ class PrinterService:
         quantity: int = 1,
         is_binary: bool = False,
         save_as_prn: bool = False,
+        dispatch_mode: Optional[str] = None,
         override_target: Optional[Dict[str, Any]] = None,
         company_id: Optional[str] = None,
         branch_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Production-safe payload dispatch with fault-isolation and PrintHistory logging.
+        Supports 'server_tcp', 'prn', and 'qz_tray' modes.
         Never raises unhandled network exceptions that could compromise business state.
         """
         cfg = override_target or await cls.get_configured_printer(session, company_id=company_id)
+        active_mode = dispatch_mode or ("prn" if save_as_prn else cfg.get("dispatch_mode", "server_tcp"))
         conn_type = cfg.get("connection_type", "TCP")
         printer_ip = cfg.get("ip", "192.168.1.200")
         printer_port = int(cfg.get("port", 9100))
@@ -209,7 +231,7 @@ class PrinterService:
         raw_bytes = payload_data if is_binary else str(payload_data).encode("utf-8")
         target_str = f"USB:{usb_target}" if conn_type == "USB" else f"TCP:{printer_ip}:{printer_port}"
 
-        if save_as_prn:
+        if active_mode == "prn" or save_as_prn:
             history = PrintHistory(
                 id=f"prn-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:4]}",
                 user=user_name,
@@ -229,10 +251,42 @@ class PrinterService:
             return {
                 "success": True,
                 "status": "PRN_GENERATED",
+                "dispatch_mode": "prn",
                 "message": f"Generated PRN command stream ({len(raw_bytes)} bytes) successfully.",
                 "prn_content": payload_data if not is_binary else "<binary stream>",
                 "target": "FILE_EXPORT"
             }
+
+        if active_mode == "qz_tray":
+            job_id = f"prn-qz-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:4]}"
+            history = PrintHistory(
+                id=job_id,
+                user=user_name,
+                item_code=item_code,
+                item_name=item_name,
+                barcode=barcode or item_code,
+                quantity=quantity,
+                status="Pending",
+                error_message="Awaiting QZ Tray client execution",
+                company_id=company_id,
+                branch_id=branch_id,
+                created_by=user_name,
+                updated_by=user_name
+            )
+            session.add(history)
+            await session.commit()
+            return {
+                "success": True,
+                "status": "QUEUED_QZ_TRAY",
+                "dispatch_mode": "qz_tray",
+                "job_id": job_id,
+                "language": "escpos" if is_binary else "zpl",
+                "payload": payload_data if not is_binary else "<binary stream>",
+                "encoding": "base64" if is_binary else "utf-8",
+                "suggested_printer": None,
+                "message": "Print job queued for QZ Tray local dispatch."
+            }
+
 
         # Dispatch attempt
         dispatch_success = False

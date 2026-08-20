@@ -16,7 +16,7 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.api.deps import TenantContext, get_db, get_tenant_context
+from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context
 from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
@@ -35,6 +35,7 @@ async def override_db_and_tenant(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
     try:
         yield
     finally:
@@ -43,7 +44,9 @@ async def override_db_and_tenant(db_session):
         except Exception:
             pass
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_company_db, None)
         app.dependency_overrides.pop(get_tenant_context, None)
+
 
 
 async def _make_tenant(db_session, suffix):
@@ -127,6 +130,7 @@ async def test_print_labels_recording_history(db_session):
         columns=1,
         is_default=True,
         elements_json="[]",
+        company_id=comp.id,
         created_by="SYSADMIN",
         updated_by="SYSADMIN"
     )
@@ -187,6 +191,7 @@ async def test_print_labels_dynamic_placeholder_replacement(db_session):
         columns=1,
         is_default=False,
         elements_json=json.dumps(layout_data),
+        company_id=comp.id,
         created_by="SYSADMIN",
         updated_by="SYSADMIN"
     )
@@ -229,4 +234,165 @@ async def test_print_labels_dynamic_placeholder_replacement(db_session):
         assert diag_data["software_engines"]["tsc_tspl_engine"] == "VERIFIED"
         assert diag_data["software_engines"]["escpos_receipt_engine"] == "VERIFIED"
         assert "physical_device_status" in diag_data["hardware_communication"]
+
+
+@pytest.mark.asyncio
+async def test_print_labels_qz_tray_mode(db_session):
+    """Verify qz_tray mode returns payload, job_id, does not open socket, and sets status Pending."""
+    comp, br = await _make_tenant(db_session, "qz1")
+    manager = await _make_user(db_session, "mgr_qz", comp.id, br.id, role=UserRole.MANAGER)
+    headers = _bearer(manager, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    layout = BarcodeLayout(
+        id="lay-qz-test",
+        name="QZ Test Layout",
+        width_mm=50,
+        height_mm=25,
+        columns=1,
+        is_default=True,
+        elements_json="[]",
+        company_id=comp.id,
+        created_by="SYSADMIN",
+        updated_by="SYSADMIN"
+    )
+    db_session.add(layout)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        payload = {
+            "layoutId": "lay-qz-test",
+            "dispatch_mode": "qz_tray",
+            "items": [
+                {
+                    "code": "SKU-QZ-01",
+                    "name": "QZ T-Shirt",
+                    "barcode": "8901112223334",
+                    "price": "499.0",
+                    "mrp": "599.0",
+                    "qty": 2
+                }
+            ]
+        }
+        res = await client.post("/api/v1/barcode/print", json=payload, headers=headers)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["success"] is True
+        assert data["dispatch_mode"] == "qz_tray"
+        assert "job_id" in data
+        assert data["language"] == "zpl"
+        assert "^XA" in data["payload"]
+        assert "^XZ" in data["payload"]
+
+        # Verify PrintHistory is logged as Pending
+        res_history = await client.get("/api/v1/barcode/print-history", headers=headers)
+        assert res_history.status_code == 200
+        logs = res_history.json()
+        assert len(logs) >= 1
+        qz_log = next(l for l in logs if l["id"] == data["job_id"])
+        assert qz_log["status"] == "Pending"
+        assert qz_log["itemCode"] == "SKU-QZ-01"
+
+
+@pytest.mark.asyncio
+async def test_print_labels_prn_mode(db_session):
+    """Verify prn mode returns prn_content without opening socket."""
+    comp, br = await _make_tenant(db_session, "prn1")
+    manager = await _make_user(db_session, "mgr_prn", comp.id, br.id, role=UserRole.MANAGER)
+    headers = _bearer(manager, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    layout = BarcodeLayout(
+        id="lay-prn-test",
+        name="PRN Test Layout",
+        width_mm=50,
+        height_mm=25,
+        columns=1,
+        is_default=True,
+        elements_json="[]",
+        company_id=comp.id,
+        created_by="SYSADMIN",
+        updated_by="SYSADMIN"
+    )
+    db_session.add(layout)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        payload = {
+            "layoutId": "lay-prn-test",
+            "saveAsPrn": True,
+            "items": [
+                {
+                    "code": "SKU-PRN-01",
+                    "name": "PRN Denim",
+                    "barcode": "8904445556667",
+                    "price": "999.0",
+                    "mrp": "1299.0",
+                    "qty": 1
+                }
+            ]
+        }
+        res = await client.post("/api/v1/barcode/print", json=payload, headers=headers)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["success"] is True
+        assert data["dispatch_mode"] == "prn"
+        assert "^XA" in data["prn_content"]
+
+
+@pytest.mark.asyncio
+async def test_print_job_ack_endpoint_success_and_failure(db_session):
+    """Verify POST /api/v1/barcode/print-jobs/{job_id}/ack updates PrintHistory status idempotently."""
+    comp, br = await _make_tenant(db_session, "ack1")
+    manager = await _make_user(db_session, "mgr_ack", comp.id, br.id, role=UserRole.MANAGER)
+    headers = _bearer(manager, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    # Seed a Pending PrintHistory entry
+    job_id = f"prn-test-ack-{uuid.uuid4().hex[:6]}"
+    history = PrintHistory(
+        id=job_id,
+        user=manager.username,
+        item_code="SKU-ACK-01",
+        item_name="Ack Item",
+        barcode="8909998887776",
+        quantity=1,
+        status="Pending",
+        error_message="Awaiting QZ Tray client execution",
+        company_id=comp.id,
+        branch_id=br.id,
+        created_by=manager.username,
+        updated_by=manager.username
+    )
+    db_session.add(history)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Successful ACK
+        ack_payload = {
+            "success": True,
+            "printer_name": "Zebra ZD420 (Local USB)"
+        }
+        res = await client.post(f"/api/v1/barcode/print-jobs/{job_id}/ack", json=ack_payload, headers=headers)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["success"] is True
+        assert data["status"] == "Success"
+
+        # Verify DB updated
+        res_history = await client.get("/api/v1/barcode/print-history", headers=headers)
+        logs = res_history.json()
+        log = next(l for l in logs if l["id"] == job_id)
+        assert log["status"] == "Success"
+        assert "Zebra ZD420" in log["errorMessage"]
+
+        # 2. Idempotent double-ACK / update to failure
+        fail_ack = {
+            "success": False,
+            "error_message": "Paper out during batch print"
+        }
+        res_fail = await client.post(f"/api/v1/barcode/print-jobs/{job_id}/ack", json=fail_ack, headers=headers)
+        assert res_fail.status_code == 200
+        assert res_fail.json()["status"] == "Failed"
+
 

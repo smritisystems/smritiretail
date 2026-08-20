@@ -25,8 +25,9 @@ from ...models.barcode import BarcodeLayout, PrintHistory
 from ...models.system import SystemConfig
 from ...schemas.barcode import (
     BarcodeLayoutCreate, BarcodeLayoutUpdate, BarcodeLayoutResponse, PrintRequest,
-    PrintHistoryResponse, PrinterSettingsRequest
+    PrintHistoryResponse, PrinterSettingsRequest, PrintJobAckRequest
 )
+from ...services.printer_service import PrinterService
 
 router = APIRouter()
 
@@ -247,23 +248,19 @@ async def print_labels(
             pass
     
     # 1. Fetch Printer Connection parameters from SystemConfig
-    q_settings = select(SystemConfig).where(SystemConfig.key == "printer_connection")
-    res_settings = await db.execute(q_settings)
-    settings_obj = res_settings.scalars().first()
-    
-    connection_type = "TCP"
-    printer_ip = "192.168.1.200"
-    printer_port = 9100
-    usb_target = "LPT1"
-    if settings_obj:
-        try:
-            settings_val = json.loads(settings_obj.value)
-            connection_type = settings_val.get("connection_type", "TCP")
-            printer_ip = settings_val.get("ip", printer_ip)
-            printer_port = int(settings_val.get("port", printer_port))
-            usb_target = settings_val.get("usb_target", usb_target)
-        except Exception:
-            pass
+    configured_printer = await PrinterService.get_configured_printer(db, company_id=tenant_ctx.company_id)
+    connection_type = configured_printer.get("connection_type", "TCP")
+    printer_ip = configured_printer.get("ip", "192.168.1.200")
+    printer_port = int(configured_printer.get("port", 9100))
+    usb_target = configured_printer.get("usb_target", "LPT1")
+
+    # Determine dispatch mode: request override > company SystemConfig > default server_tcp
+    if getattr(req, "saveAsPrn", False):
+        active_dispatch_mode = "prn"
+    elif req.dispatch_mode or req.dispatchMode:
+        active_dispatch_mode = (req.dispatch_mode or req.dispatchMode).lower().strip()
+    else:
+        active_dispatch_mode = configured_printer.get("dispatch_mode", "server_tcp")
 
     full_raw_stream_list = []
     log_entries = []
@@ -295,19 +292,6 @@ async def print_labels(
 
             raw_stream = prn_template
             
-            # Pre-calculate common dates and formatting defaults
-            mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
-            mrp_val = item.get("mrp", item.get("price", 0.0))
-            try:
-                mrp_str = f"{int(float(mrp_val))}"
-            except Exception:
-                mrp_str = str(mrp_val)
-
-            brand_val = item.get("brand") or "SMRITI"
-            if not brand_val or brand_val == "SMRITI":
-                attrs = item.get("attributes") or {}
-                brand_val = attrs.get("brand") or "SMRITI"
-
             # 1. Apply primary system-derived placeholders
             raw_stream = raw_stream.replace("{mfg_date}", mfg_date)
             raw_stream = raw_stream.replace("{mrp}", mrp_str)
@@ -476,7 +460,8 @@ async def print_labels(
             item_name=prod_name,
             barcode=item.get("barcode", prod_code),
             quantity=qty,
-            status="Success",
+            status="Pending" if active_dispatch_mode == "qz_tray" else "Success",
+            error_message="Awaiting QZ Tray client execution" if active_dispatch_mode == "qz_tray" else None,
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
             created_by=current_user.username,
@@ -484,62 +469,80 @@ async def print_labels(
         )
         log_entries.append(history)
 
-    # 2. Dispatch to physical thermal printer if we have jobs
+    # 2. Dispatch handling according to active_dispatch_mode
     error_msg = None
-    print_status = "Success"
+    print_status = "Pending" if active_dispatch_mode == "qz_tray" else "Success"
     
-    if full_raw_stream_list:
+    if full_raw_stream_list and active_dispatch_mode == "server_tcp":
         payload = "\n".join(full_raw_stream_list)
-        if not getattr(req, "saveAsPrn", False):
-            try:
-                if connection_type == "USB":
-                    if usb_target.upper().startswith("COM") or "/" in usb_target or "\\" in usb_target:
-                        with open(usb_target, "wb") as f:
-                            f.write(payload.encode('utf-8'))
-                    else:
-                        try:
-                            import win32print
-                            hPrinter = win32print.OpenPrinter(usb_target)
-                            try:
-                                win32print.StartDocPrinter(hPrinter, 1, ("SMRITI Barcode Label", None, "RAW"))
-                                try:
-                                    win32print.StartPagePrinter(hPrinter)
-                                    win32print.WritePrinter(hPrinter, payload.encode('utf-8'))
-                                    win32print.EndPagePrinter(hPrinter)
-                                finally:
-                                    win32print.EndDocPrinter(hPrinter)
-                            finally:
-                                win32print.ClosePrinter(hPrinter)
-                        except ImportError:
-                            with open("simulated_printer_output.txt", "ab") as f:
-                                f.write(payload.encode('utf-8'))
-                            # Simulated USB print succeeds without throwing an exception in Docker/non-Windows environments.
+        try:
+            if connection_type == "USB":
+                if usb_target.upper().startswith("COM") or "/" in usb_target or "\\" in usb_target:
+                    with open(usb_target, "wb") as f:
+                        f.write(payload.encode('utf-8'))
                 else:
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                        s.settimeout(5.0)  # 5 seconds timeout
-                        s.connect((printer_ip, printer_port))
-                        s.sendall(payload.encode('utf-8'))
-            except Exception as e:
-                error_msg = str(e)
-                print_status = "Failed"
+                    try:
+                        import win32print
+                        hPrinter = win32print.OpenPrinter(usb_target)
+                        try:
+                            win32print.StartDocPrinter(hPrinter, 1, ("SMRITI Barcode Label", None, "RAW"))
+                            try:
+                                win32print.StartPagePrinter(hPrinter)
+                                win32print.WritePrinter(hPrinter, payload.encode('utf-8'))
+                                win32print.EndPagePrinter(hPrinter)
+                            finally:
+                                win32print.EndDocPrinter(hPrinter)
+                        finally:
+                            win32print.ClosePrinter(hPrinter)
+                    except ImportError:
+                        with open("simulated_printer_output.txt", "ab") as f:
+                            f.write(payload.encode('utf-8'))
+                        # Simulated USB print succeeds without throwing an exception in Docker/non-Windows environments.
+            else:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(5.0)  # 5 seconds timeout
+                    s.connect((printer_ip, printer_port))
+                    s.sendall(payload.encode('utf-8'))
+        except Exception as e:
+            error_msg = str(e)
+            print_status = "Failed"
 
     # Update statuses and write to DB
     for entry in log_entries:
-        if print_status == "Failed":
-            entry.status = "Failed"
-            entry.error_message = error_msg
-        elif getattr(req, "saveAsPrn", False):
+        if active_dispatch_mode == "server_tcp":
+            if print_status == "Failed":
+                entry.status = "Failed"
+                entry.error_message = error_msg
+        elif active_dispatch_mode == "prn":
             entry.status = "Success"
             entry.error_message = "PRN File Generated"
+        elif active_dispatch_mode == "qz_tray":
+            entry.status = "Pending"
+            entry.error_message = "Awaiting QZ Tray client execution"
         db.add(entry)
         
     await db.commit()
 
-    if getattr(req, "saveAsPrn", False):
+    if active_dispatch_mode == "prn":
         return {
             "success": True,
+            "dispatch_mode": "prn",
             "message": f"Generated PRN script for {len(full_raw_stream_list)} labels successfully.",
             "prn_content": "\n".join(full_raw_stream_list) if full_raw_stream_list else ""
+        }
+
+    if active_dispatch_mode == "qz_tray":
+        primary_job_id = log_entries[0].id if log_entries else f"prn-qz-{int(datetime.now(timezone.utc).timestamp())}"
+        return {
+            "success": True,
+            "dispatch_mode": "qz_tray",
+            "job_id": primary_job_id,
+            "job_ids": [e.id for e in log_entries],
+            "language": req.language or "zpl",
+            "payload": "\n".join(full_raw_stream_list) if full_raw_stream_list else "",
+            "encoding": "utf-8",
+            "suggested_printer": None,
+            "message": f"Generated {len(full_raw_stream_list)} labels for QZ Tray local dispatch."
         }
 
     target_str = f"USB port {usb_target}" if connection_type == "USB" else f"IP {printer_ip}:{printer_port}"
@@ -552,8 +555,52 @@ async def print_labels(
 
     return {
         "success": True,
+        "dispatch_mode": "server_tcp",
         "message": f"Printed {len(full_raw_stream_list)} labels successfully.",
         "printer": target_str
+    }
+
+
+@router.post(
+    "/print-jobs/{job_id}/ack",
+    summary="Acknowledge QZ Tray Local Print Execution",
+)
+async def ack_print_job(
+    job_id: str,
+    req: PrintJobAckRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Updates PrintHistory status from Pending to Success or Failed following QZ Tray execution.
+    Tenant-scoped and idempotent.
+    """
+    q = select(PrintHistory).where(
+        PrintHistory.id == job_id,
+        PrintHistory.company_id == tenant_ctx.company_id
+    )
+    res = await db.execute(q)
+    history = res.scalars().first()
+    if not history:
+        raise HTTPException(status_code=404, detail="Print job not found.")
+
+    history.status = "Success" if req.success else "Failed"
+    if req.success:
+        printer_info = req.printer_name or req.printerName or "QZ Tray"
+        history.error_message = f"Printed via QZ Tray ({printer_info})"
+    else:
+        history.error_message = req.error_message or req.errorMessage or "QZ Tray dispatch failed"
+
+    history.updated_at = datetime.now(timezone.utc)
+    history.updated_by = current_user.username
+    await db.commit()
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "status": history.status,
+        "message": f"Print job {job_id} status updated to {history.status}."
     }
 
 
@@ -601,7 +648,7 @@ async def get_printer_settings(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Fetch default thermal printer IP and port settings for current company.
+    Fetch default thermal printer IP, port, and dispatch mode settings for current company.
     """
     return await PrinterService.get_configured_printer(db, company_id=tenant_ctx.company_id)
 
@@ -617,19 +664,21 @@ async def save_printer_settings(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Update printer connection settings for current company.
+    Update printer connection settings and dispatch mode for current company.
     """
     comp_key = f"printer_connection_{tenant_ctx.company_id}"
     q = select(SystemConfig).where(SystemConfig.key == comp_key)
     res = await db.execute(q)
     obj = res.scalars().first()
     
-    val_json = json.dumps({
+    val_dict = {
         "connection_type": req.connection_type or "TCP",
         "ip": req.ip,
         "port": req.port,
-        "usb_target": req.usb_target
-    })
+        "usb_target": req.usb_target,
+        "dispatch_mode": req.print_dispatch_mode or "server_tcp"
+    }
+    val_json = json.dumps(val_dict)
     
     if obj:
         obj.value = val_json
@@ -642,17 +691,32 @@ async def save_printer_settings(
         )
         db.add(obj)
         
+    # Also update print_dispatch_mode key if provided
+    if req.print_dispatch_mode:
+        mode_key = f"print_dispatch_mode_{tenant_ctx.company_id}"
+        q_mode = select(SystemConfig).where(SystemConfig.key == mode_key)
+        res_mode = await db.execute(q_mode)
+        mode_obj = res_mode.scalars().first()
+        if mode_obj:
+            mode_obj.value = req.print_dispatch_mode
+        else:
+            mode_obj = SystemConfig(
+                id=f"cfg-mode-{int(datetime.now(timezone.utc).timestamp())}",
+                key=mode_key,
+                value=req.print_dispatch_mode,
+                category="Printing"
+            )
+            db.add(mode_obj)
+
     await db.commit()
     return {
         "success": True,
         "connection_type": req.connection_type,
         "ip": req.ip,
         "port": req.port,
-        "usb_target": req.usb_target
+        "usb_target": req.usb_target,
+        "print_dispatch_mode": req.print_dispatch_mode or "server_tcp"
     }
-
-
-from ...services.printer_service import PrinterService
 
 
 @router.get(
