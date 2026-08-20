@@ -266,7 +266,6 @@ export const CompanySelectionScreen: React.FC<CompanySelectionScreenProps> = ({
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <div className="text-xs font-semibold text-slate-200">{currentUser.name}</div>
-            <div className="text-[10px] font-mono text-blue-400 uppercase">{currentUser.role}</div>
           </div>
           <button
             onClick={onLogout}
