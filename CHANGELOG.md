@@ -28,6 +28,15 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.29.0] - 2026-08-20
+
+#### Testing & Infrastructure — Test Fixture Environment Dependency & Multi-Tenant Routing
+- **Deterministic 20/20 Test Suite**: Stabilized `test_e2e_tenant_security_and_routing.py`, `test_ecom_connectors.py`, and `test_company_control_center_security.py` across full multi-suite test runs.
+- **Explicit Routing Registry Seeding (RC2)**: Seeded `company_database_registries` with `COMP-001 -> smriti001` in conftest so dynamic database resolution (`CompanyDatabaseResolver`) functions out-of-the-box on fresh database migrations.
+- **Fail-Fast Fixture Execution (RC3)**: Replaced silent `try/except` fixture warning prints with immediate `pytest.fail()` calls to surface environmental and setup failures loudly.
+- **Compound and Partial Unique Index Handling**: Fixed fixture upsert statements for `user_company_assignments` (targeting `(user_id, company_id) WHERE (is_deleted = false)`), `roles`, and `branches` (preventing `branches_code_key` unique violations and `users_branch_id_fkey` foreign key failures).
+- **Cross-Test State Isolation**: Scoped control plane test fixture seeding to `function` level to prevent per-test teardown functions (`clear_db()`) from contaminating subsequent test authorization contexts.
+
 ### [3.26.0] - 2026-08-20
 
 #### Security — Multi-Tenant Database Routing & Credential Sanitization
