@@ -147,7 +147,7 @@ VERIFIED_SIS_PO_MAP = {
 # ==============================================================================
 def number_to_indian_words(num: float) -> str:
     if num == 0:
-        return "Zero"
+        return "Zero Rupees Only"
 
     single_digits = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
     double_digits = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]
@@ -182,13 +182,19 @@ def number_to_indian_words(num: float) -> str:
     if integer_part > 0:
         str_words += get_word_for_three_digits(integer_part)
 
-    result = str_words.strip()
-    if result:
-        result = result + " Rupees"
+    trimmed_rupees = str_words.strip()
+    rupee_unit = "Rupee" if int(abs(num)) == 1 else "Rupees"
+
+    if trimmed_rupees:
+        result = f"{trimmed_rupees} {rupee_unit}"
+    else:
+        result = "Zero Rupees"
+
     if paisa_part > 0:
         result += " and " + get_word_for_three_digits(paisa_part).strip() + " Paisa"
     result += " Only"
-    return result
+    import re as _re
+    return _re.sub(r' {2,}', ' ', result).strip()
 
 
 def generate_barcode_base64(val: str) -> str:

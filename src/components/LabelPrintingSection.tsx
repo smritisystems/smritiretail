@@ -84,7 +84,7 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
   
   // Printer config
   const [connectionType, setConnectionType] = useState<"TCP" | "USB">("TCP");
-  const [printerIp, setPrinterIp] = useState("192.168.1.200");
+  const [printerIp, setPrinterIp] = useState("");
   const [printerPort, setPrinterPort] = useState(9100);
   const [usbTarget, setUsbTarget] = useState("LPT1");
   const [savingSettings, setSavingSettings] = useState(false);
@@ -124,7 +124,7 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
     try {
       const res = await apiFetchV1("/barcode/printer-settings");
       setConnectionType(res.connection_type || "TCP");
-      setPrinterIp(res.ip || "192.168.1.200");
+      setPrinterIp(res.ip || "");
       setPrinterPort(res.port || 9100);
       setUsbTarget(res.usb_target || "LPT1");
     } catch (err) {

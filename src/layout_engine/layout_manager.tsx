@@ -48,6 +48,7 @@ import { useNotifications } from "../notifications/notification_store.tsx";
 import { NotificationCenter } from "../notifications/NotificationCenter.tsx";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { CompanySelector } from "../components/layout/CompanySelector.tsx";
+import { APP_VERSION } from "../config/version.ts";
 
 interface LayoutManagerProps {
   activeTab: string;
@@ -103,7 +104,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
                 LANE 01
               </span>
               <span className="text-[9px] bg-theme-surface-2 text-theme-muted border border-theme-divider rounded px-1.5 py-0.5 font-mono font-semibold">
-                SRLE v1.0
+                v{APP_VERSION}
               </span>
             </div>
           </div>

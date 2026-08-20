@@ -17,6 +17,7 @@
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { recordAuditAction } from "../lib/apiFetch";
+import { APP_VERSION } from "../config/version.ts";
 import { 
   Printer, 
   FileText, 
@@ -945,7 +946,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                     {/* Thermal Cut lines */}
                     <div className="text-center text-[8px] border-t border-dashed border-slate-400 pt-3 mt-4 text-slate-600">
                       <div>*** END OF SECURE PRINT ***</div>
-                      <div className="mt-1 font-sans">SMRITI Ledger Security v2.1.2</div>
+                      <div className="mt-1 font-sans">SMRITI Ledger Security v{APP_VERSION}</div>
                       <div className="mt-2 text-[6px] tracking-widest text-slate-400">===========================</div>
                     </div>
                   </div>

@@ -26,6 +26,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { APP_VERSION } from "../config/version.ts";
 
 export interface CompanyItem {
   id: string;
@@ -425,7 +426,7 @@ export const CompanySelectionScreen: React.FC<CompanySelectionScreenProps> = ({
           <ShieldCheck className="w-4 h-4 text-blue-500" />
           <span>SMRITI Platform Abstraction Layer • Tenant Isolation Active</span>
         </div>
-        <div>SMRITI Retail OS v3.16.0 Enterprise Production</div>
+        <div>SMRITI Retail OS v{APP_VERSION} Enterprise Production</div>
       </footer>
     </div>
   );

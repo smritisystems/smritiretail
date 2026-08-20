@@ -26,6 +26,7 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Shield, User, Lock, ArrowRight, AlertTriangle } from "lucide-react";
+import { APP_VERSION_LABEL } from "../config/version.ts";
 
 interface LoginScreenProps {
   onLoginSuccess: (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => void;
@@ -196,7 +197,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <Shield className="w-3.5 h-3.5 text-blue-500" />
             <span>AES-256 Auth Channel</span>
           </div>
-          <span>v2.1.2 Production</span>
+          <span>{APP_VERSION_LABEL}</span>
         </div>
       </motion.div>
     </div>
