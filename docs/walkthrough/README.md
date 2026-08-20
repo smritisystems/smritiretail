@@ -136,6 +136,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-08-20 | foundation | Test Fixture Environment Dependency & Routing Fix v3.29.0 — Deterministic 20/20 test suite, explicit routing registry seeding, fail-fast test setup, partial unique index handling | [Foundation_Test_Fixture_Environment_Dependency_Fix_v3.29.0.md](foundation/Foundation_Test_Fixture_Environment_Dependency_Fix_v3.29.0.md) | [Plan](../implementation/README.md) | Completed |
 | 2026-08-20 | foundation | UI/UX Duplication & Hardcode Remediation v3.29.0 — Credential elimination, canonical numberToIndianWords utility & 14-case parity tests, A4 template dedup, printer IP placeholder, single version source of truth | [Foundation_UIUX_Duplication_And_Hardcode_Remediation_v3.29.0.md](foundation/Foundation_UIUX_Duplication_And_Hardcode_Remediation_v3.29.0.md) | — | Completed |
 | 2026-08-20 | foundation | Commercial Pilot Origin-Gap Remediation & Field Readiness v3.29.0 — D1–D6 origin verification, deny-by-default RBAC, multi-DB Alembic HEAD, smoke results GO_SOFTWARE, Go-Live Runbook | [Foundation_Pilot_Origin_Gap_Hardening_And_Field_Readiness_v3.29.0.md](foundation/Foundation_Pilot_Origin_Gap_Hardening_And_Field_Readiness_v3.29.0.md) | — | Completed |
+| 2026-08-20 | print | Optional QZ Tray Print Dispatch (Spike + Hybrid) v3.29.0 — Hybrid tri-mode dispatch (server_tcp, qz_tray, prn), async print job ACK, feature-flagged frontend client | [Print_QZ_Tray_Dispatch_Spike_And_Hybrid_v3.29.0.md](print/Print_QZ_Tray_Dispatch_Spike_And_Hybrid_v3.29.0.md) | [Spike](../print/QZ_TRAY_SPIKE.md) | Completed |
+
 
 
 

@@ -59,6 +59,11 @@ class PrintRequest(BaseModel):
     layoutId: str = Field(..., alias="layoutId")
     items: List[Dict[str, Any]]
     saveAsPrn: Optional[bool] = Field(False, alias="saveAsPrn")
+    dispatch_mode: Optional[str] = Field(None, alias="dispatch_mode")
+    dispatchMode: Optional[str] = Field(None, alias="dispatchMode")
+    language: Optional[str] = Field("zpl", alias="language")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 from datetime import datetime
@@ -85,4 +90,16 @@ class PrinterSettingsRequest(BaseModel):
     ip: Optional[str] = None
     port: Optional[int] = None
     usb_target: Optional[str] = Field(None, alias="usb_target")
+    print_dispatch_mode: Optional[str] = Field(None, alias="print_dispatch_mode")
+
+
+class PrintJobAckRequest(BaseModel):
+    success: bool
+    error_message: Optional[str] = Field(None, alias="error_message")
+    errorMessage: Optional[str] = Field(None, alias="errorMessage")
+    printer_name: Optional[str] = Field(None, alias="printer_name")
+    printerName: Optional[str] = Field(None, alias="printerName")
+
+    model_config = ConfigDict(populate_by_name=True)
+
 

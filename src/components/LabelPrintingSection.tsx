@@ -20,6 +20,7 @@ import {
   Trash2, Sliders, Settings, List, Clipboard, Eye
 } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { isQzTrayEnabled, dispatchToQzTray } from "../utils/qzTrayClient";
 
 export interface BarcodeLayoutElement {
   type: "text" | "barcode";
@@ -82,12 +83,14 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
   const [previewIdx, setPreviewIdx] = useState(0);
   const [parsedHeaders, setParsedHeaders] = useState<string[]>([]);
   
-  // Printer config
+  // Printer config & dispatch mode
   const [connectionType, setConnectionType] = useState<"TCP" | "USB">("TCP");
   const [printerIp, setPrinterIp] = useState("");
   const [printerPort, setPrinterPort] = useState(9100);
   const [usbTarget, setUsbTarget] = useState("LPT1");
+  const [dispatchMode, setDispatchMode] = useState<"server_tcp" | "qz_tray">("server_tcp");
   const [savingSettings, setSavingSettings] = useState(false);
+  const qzEnabled = isQzTrayEnabled();
 
   // Custom PRN/ZPL script template creation state
   const [newTemplateName, setNewTemplateName] = useState("");
@@ -127,6 +130,9 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
       setPrinterIp(res.ip || "");
       setPrinterPort(res.port || 9100);
       setUsbTarget(res.usb_target || "LPT1");
+      if (res.dispatch_mode || res.print_dispatch_mode) {
+        setDispatchMode(res.dispatch_mode || res.print_dispatch_mode);
+      }
     } catch (err) {
       console.error("Failed to load printer settings:", err);
     }
@@ -154,7 +160,8 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
           connection_type: connectionType,
           ip: printerIp,
           port: printerPort,
-          usb_target: usbTarget
+          usb_target: usbTarget,
+          print_dispatch_mode: dispatchMode
         })
       });
       onNotification("Saved", "Printer settings updated successfully.", "success");
@@ -345,16 +352,36 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
       return;
     }
 
+    if (dispatchMode === "qz_tray" && !qzEnabled) {
+      onNotification(
+        "QZ Tray Disabled",
+        "QZ Tray browser dispatch is disabled by default. Enable VITE_ENABLE_QZ_TRAY=true in your environment or switch to Server TCP / PRN mode.",
+        "error"
+      );
+      return;
+    }
+
     setPrinting(true);
     try {
       const res = await apiFetchV1("/barcode/print", {
         method: "POST",
         body: JSON.stringify({
           layoutId: selectedLayoutId,
-          items: printItems
+          items: printItems,
+          dispatch_mode: dispatchMode
         })
       });
-      onNotification("Printing Completed", res.message || "Printed batch successfully.", "success");
+
+      if (res.dispatch_mode === "qz_tray") {
+        const qzRes = await dispatchToQzTray(res);
+        if (qzRes.success) {
+          onNotification("QZ Tray Print", qzRes.message || "Printed batch via QZ Tray.", "success");
+        } else {
+          onNotification("QZ Tray Error", qzRes.message || "Failed to dispatch to QZ Tray.", "error");
+        }
+      } else {
+        onNotification("Printing Completed", res.message || "Printed batch successfully.", "success");
+      }
       loadHistory();
     } catch (err: any) {
       onNotification("Printer Connection Error", err.message || "Printer is offline or connection refused.", "error");
@@ -449,25 +476,22 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
                 className="absolute flex flex-col items-center select-none"
                 style={{ top: `${y}px`, left: `${x}px` }}
               >
-                {/* Barcode line mock rendering */}
-                <div className="h-6 w-32 border-x border-b border-black flex justify-between px-1">
-                  {Array.from({ length: 15 }).map((_, idx) => (
-                    <div key={idx} className="h-full bg-black" style={{ width: idx % 3 === 0 ? "2px" : "1px" }}></div>
-                  ))}
+                <div className="h-6 w-28 bg-black flex items-center justify-center">
+                  <span className="text-[7px] text-white font-mono tracking-widest">{activeItem.barcode}</span>
                 </div>
-                <span className="text-[6px] font-mono tracking-widest leading-none mt-0.5">{activeItem.barcode}</span>
+                <span className="text-[6px] font-mono mt-0.5">{activeItem.barcode}</span>
               </div>
             );
           }
 
           return (
-            <div 
+            <span 
               key={i} 
-              className="absolute text-[8px] font-sans leading-none font-bold uppercase truncate"
-              style={{ top: `${y}px`, left: `${x}px`, maxWidth: `${w - x - 5}px` }}
+              className="absolute text-[8px] font-bold select-none leading-none truncate max-w-[90%]"
+              style={{ top: `${y}px`, left: `${x}px` }}
             >
               {text}
-            </div>
+            </span>
           );
         })}
       </div>
@@ -476,27 +500,19 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      {isReadOnly && (
-        <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl px-4 py-3 flex items-center space-x-2 text-amber-400 text-xs shadow-lg">
-          <span className="material-symbols-outlined text-[14px]">warning</span>
-          <span className="font-mono uppercase tracking-wider font-bold">Read-Only Mode:</span>
-          <span>Operating under a Read-Only Report User role. Layout design creations and deletions are restricted.</span>
-        </div>
-      )}
       
-      {/* 3-Step printing flow */}
+      {/* Top Workflow Action Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Step 1: Upload / CSV Worksheet */}
-        <div className="bg-theme-surface-1 border border-theme-divider p-5 rounded-2xl space-y-4">
-          <div className="flex items-center space-x-2 border-b border-theme-divider/50 pb-3">
-            <span className="h-6 w-6 rounded-full bg-blue-600/20 text-blue-400 font-mono text-xs font-bold flex items-center justify-center">1</span>
-            <h3 className="font-display font-bold text-xs text-theme-body uppercase">Load Spreadsheet Worksheet</h3>
-          </div>
-          
+        {/* Step 1: Raw worksheet data ingestion */}
+        <div className="bg-theme-surface-1 border border-theme-divider p-5 rounded-2xl space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
+            <div className="flex items-center space-x-2 border-b border-theme-divider/50 pb-3">
+              <span className="h-6 w-6 rounded-full bg-blue-600/20 text-blue-400 font-mono text-xs font-bold flex items-center justify-center">1</span>
+              <h3 className="font-display font-bold text-xs text-theme-body uppercase">Data Worksheet Ingestion</h3>
+            </div>
             <p className="text-[11px] text-theme-muted leading-relaxed">
-              Paste catalog worksheets directly from Microsoft Excel (comma or tab delimited). Ensure columns for SKU/Code, Item Name, and Barcode are present.
+              Paste delimited data from Excel/CSV. Columns: <code className="text-blue-300 font-mono">Code, Name, Barcode, Price, MRP, Size, Color, Qty</code>
             </p>
             <textarea
               rows={6}
@@ -572,14 +588,59 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
               </select>
             </div>
 
-            {/* Configured printer display */}
-            <div className="bg-theme-surface-2 p-3 border border-theme-divider rounded-xl space-y-1">
-              <div className="flex items-center space-x-1.5">
-                <Printer size={13} className="text-emerald-400 animate-pulse" />
-                <span className="text-xs font-bold text-white">TCP Thermal Printer</span>
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-mono text-theme-muted uppercase block">Dispatch Mode</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDispatchMode("server_tcp")}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all border ${
+                    dispatchMode === "server_tcp"
+                      ? "bg-emerald-600/20 border-emerald-500 text-emerald-300"
+                      : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-white"
+                  }`}
+                >
+                  Server TCP
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDispatchMode("qz_tray")}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all border ${
+                    dispatchMode === "qz_tray"
+                      ? "bg-indigo-600/20 border-indigo-500 text-indigo-300"
+                      : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-white"
+                  }`}
+                >
+                  QZ Tray (Local)
+                </button>
               </div>
-              <span className="text-[10px] font-mono text-theme-muted block">{printerIp}:{printerPort} (Raw port stream)</span>
             </div>
+
+            {/* Configured printer display */}
+            {dispatchMode === "server_tcp" ? (
+              <div className="bg-theme-surface-2 p-3 border border-theme-divider rounded-xl space-y-1">
+                <div className="flex items-center space-x-1.5">
+                  <Printer size={13} className="text-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold text-white">Server Direct Port</span>
+                </div>
+                <span className="text-[10px] font-mono text-theme-muted block">{connectionType === "USB" ? usbTarget : `${printerIp}:${printerPort} (Raw port stream)`}</span>
+              </div>
+            ) : (
+              <div className="bg-theme-surface-2 p-3 border border-theme-divider rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <Printer size={13} className="text-indigo-400 animate-pulse" />
+                    <span className="text-xs font-bold text-white">QZ Tray Client</span>
+                  </div>
+                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${qzEnabled ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-amber-950 text-amber-400 border border-amber-800"}`}>
+                    {qzEnabled ? "FLAG: ON" : "FLAG: OFF"}
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-theme-muted block">
+                  {qzEnabled ? "Local WebSocket dispatch (ws://localhost:8182)" : "Feature flag VITE_ENABLE_QZ_TRAY is disabled"}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex space-x-2">
@@ -669,6 +730,18 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
           </h4>
 
           <form onSubmit={handleSaveSettings} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[9px] font-mono text-theme-muted uppercase block">Dispatch Mode</label>
+              <select
+                value={dispatchMode}
+                onChange={e => setDispatchMode(e.target.value as "server_tcp" | "qz_tray")}
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+              >
+                <option value="server_tcp" className="bg-theme-surface-2 text-white">Server TCP / Port (Default)</option>
+                <option value="qz_tray" className="bg-theme-surface-2 text-white">QZ Tray (Local Browser Dispatch)</option>
+              </select>
+            </div>
+
             <div className="space-y-2">
               <label className="text-[9px] font-mono text-theme-muted uppercase block">Connection Type</label>
               <select
