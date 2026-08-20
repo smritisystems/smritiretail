@@ -65,21 +65,25 @@
 
 ## 4. Hardware & Manual Verification Watch Items
 
-| Item ID | Target | Verification Method | Status |
-|---|---|---|---|
-| HW-01 | Physical Thermal Barcode Printer | Live hardware dispatch over TCP port 9100 | **REQUIRES_HUMAN** (Verified via backend print mock / layout test) |
-| HW-02 | Cash Drawer Kick Pulse | RJ11 cash drawer trigger | **REQUIRES_HUMAN** (Verified via POS print slip trigger) |
+| Item ID | Target | Verification Method | Status | Notes |
+|---|---|---|---|---|
+| HW-01a | Barcode Printer Settings & Layout API | Automated Pytest / Router Test | **PASS** | `/api/v1/barcode/printer-settings` & `/api/v1/barcode/layouts` tenant isolation verified. |
+| HW-01b | Physical Thermal Barcode Printer | Live hardware dispatch over TCP port 9100 | **REQUIRES_HUMAN** | Field watch: verify on-site with physical Zebra/TSC thermal printer. |
+| HW-02a | Cash Drawer Software Trigger Hook | Automated POS receipt hook | **PASS** | POS print slip generator dispatches drawer kick ESC/POS sequence. |
+| HW-02b | Physical Cash Drawer Kick Pulse | RJ11 cash drawer trigger | **REQUIRES_HUMAN** | Field watch: verify on-site with physical RJ11 drawer connected to printer. |
 
 ---
 
 ## 5. Final Sign-Off Gate
 
 ```
-Pre-flight:       PASS
-Tier A Path:      PASS
-RBAC Checks:      PASS
-Database Head:    PASS
-Hardware Watch:   REQUIRES_HUMAN (Non-blocking for pilot software gate)
+Pre-flight:                 PASS
+Tier A Path:                PASS
+RBAC Checks:                PASS
+Database Head:              PASS
+Hardware Software Dispatch: PASS
+Hardware Physical Device:   REQUIRES_HUMAN (Field Watch on Staging/Store Station)
 
-OVERALL PILOT VERDICT: GO
+OVERALL PILOT VERDICT: GO_SOFTWARE (Ready for Staging / Field Hardware Pairing)
 ```
+

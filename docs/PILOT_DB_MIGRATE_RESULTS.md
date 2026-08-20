@@ -24,7 +24,10 @@
 | Database Name | Role / Scope | Current Revision | Head Status | `variant_id` NULL Count | Status |
 |---|---|---|---|---|---|
 | `smritisys` | Control Plane & Tenant Registry | `v1338_company_isolated_barcodes` | HEAD | N/A (Control Plane) | PASS |
-| `smriti001` | Reference Company (Tattly Threads) | `v1338_company_isolated_barcodes` | HEAD | 0 / 2,120 rows | PASS |
+| `smriti001` | Operational Tenant (COMP-001 - Tattly Threads) | `v1338_company_isolated_barcodes` | HEAD | 0 / 588 products | PASS |
+| `smriti_test_fresh` | Staging Test Fixture | `v1338_company_isolated_barcodes` | HEAD | 0 products | PASS |
+
+*Note: `smriti001` is the single registered operational company database in `smritisys.company_database_registries`.*
 
 ---
 
@@ -56,9 +59,10 @@ INFO  [alembic.runtime.migration] Will assume transactional DDL.
 ```sql
 SELECT count(*) FROM products WHERE variant_id IS NULL;
 ```
-**Output:** `0` (Zero rows with NULL `variant_id`)
+**Output:** `0` (Zero rows with NULL `variant_id` in `smriti001`)
 
 ---
 
 ## 3. Conclusion
-All reachable databases are upgraded to Alembic HEAD (`v1338_company_isolated_barcodes`). The required `v1337_backfill_variant_id` migration is completely applied with 0 unlinked variants in the product catalog.
+All operational and control plane databases are upgraded to Alembic HEAD (`v1338_company_isolated_barcodes`). The required `v1337_backfill_variant_id` migration is completely applied with 0 unlinked variants in the operational product catalog.
+
