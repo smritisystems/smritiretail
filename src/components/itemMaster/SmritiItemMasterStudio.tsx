@@ -59,7 +59,6 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
 }) => {
   const [rawText, setRawText] = useState<string>("");
   const [dynamicDefinitions, setDynamicDefinitions] = useState<AttributeDefinition[]>([]);
-  const [masterLookups, setMasterLookups] = useState<Record<string, string[]>>({});
   const [isLoadingMetadata, setIsLoadingMetadata] = useState<boolean>(true);
   const [detectedColumns, setDetectedColumns] = useState<ColumnMappingResult[]>([]);
   const [manualOverrides, setManualOverrides] = useState<Record<number, string>>({});
@@ -69,30 +68,15 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   const [skippedRowIndices, setSkippedRowIndices] = useState<Set<number>>(new Set());
   const [activeConflictRow, setActiveConflictRow] = useState<number | null>(null);
 
-  // ── 1. Audit & Load Canonical Backend Attribute Definitions & Master Lookups ──
+  // ── 1. Load Canonical Backend Attribute Definitions ───────────────────────
   useEffect(() => {
     let isMounted = true;
     const fetchMetadata = async () => {
       setIsLoadingMetadata(true);
       try {
-        const [defsRes, lookupsRes] = await Promise.allSettled([
-          apiFetchV1("/attributes/definitions"),
-          apiFetchV1("/master-lookups")
-        ]);
-
-        if (isMounted) {
-          if (defsRes.status === "fulfilled" && Array.isArray(defsRes.value)) {
-            setDynamicDefinitions(defsRes.value);
-          }
-          if (lookupsRes.status === "fulfilled" && Array.isArray(lookupsRes.value)) {
-            const lookupMap: Record<string, string[]> = {};
-            lookupsRes.value.forEach((item: any) => {
-              const typeKey = (item.lookup_type || item.type || "general").toLowerCase();
-              if (!lookupMap[typeKey]) lookupMap[typeKey] = [];
-              lookupMap[typeKey].push(item.name || item.value || item.code);
-            });
-            setMasterLookups(lookupMap);
-          }
+        const defs = await apiFetchV1("/attributes/definitions");
+        if (isMounted && Array.isArray(defs)) {
+          setDynamicDefinitions(defs);
         }
       } catch (err) {
         console.warn("[ItemMasterStudio] Metadata load notice:", err);
