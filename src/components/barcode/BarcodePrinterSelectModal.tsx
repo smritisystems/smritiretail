@@ -25,6 +25,7 @@ interface BarcodePrinterSelectModalProps {
 }
 
 const AVAILABLE_PRINTERS: PrinterTargetConfig[] = [
+  { name: "IMPACT by Honeywell IH-2 (300 dpi) - DPL", connectionType: "USB", isOnline: true, resolutionDpi: 300 },
   { name: "TSC TE244 Thermal Barcode Printer", connectionType: "USB", isOnline: true, resolutionDpi: 203 },
   { name: "Zebra ZD220 Direct Thermal Label", connectionType: "USB", isOnline: true, resolutionDpi: 203 },
   { name: "Citizen CL-S621 Network Printer", connectionType: "NETWORK", address: "192.168.1.180:9100", isOnline: true, resolutionDpi: 300 },
@@ -41,7 +42,7 @@ export const BarcodePrinterSelectModal: React.FC<BarcodePrinterSelectModalProps>
 }) => {
   const [selectedPrinter, setSelectedPrinter] = useState<string>(AVAILABLE_PRINTERS[0].name);
   const [selectedPort, setSelectedPort] = useState<PortType>(currentPort);
-  const [selectedDpi, setSelectedDpi] = useState<number>(203);
+  const [selectedDpi, setSelectedDpi] = useState<number>(AVAILABLE_PRINTERS[0].resolutionDpi);
 
   if (!isOpen) return null;
 
@@ -78,7 +79,7 @@ export const BarcodePrinterSelectModal: React.FC<BarcodePrinterSelectModalProps>
           {/* Printer list */}
           <div className="space-y-2">
             <label className="font-bold text-[#041632] uppercase tracking-wider text-[10px] block">
-              Available Printers
+              Available Windows &amp; Hardware Printers
             </label>
             <div className="space-y-1.5 border border-[#c5c6ce] rounded-lg p-2 max-h-48 overflow-y-auto bg-[#fbf8fb]">
               {AVAILABLE_PRINTERS.map((p) => {
@@ -159,8 +160,8 @@ export const BarcodePrinterSelectModal: React.FC<BarcodePrinterSelectModalProps>
                 onChange={e => setSelectedDpi(parseInt(e.target.value))}
                 className="w-full border border-[#c5c6ce] rounded p-1.5 bg-[#fbf8fb] font-semibold text-xs"
               >
+                <option value={300}>300 DPI (Honeywell / High Density)</option>
                 <option value={203}>203 DPI (Standard Retail)</option>
-                <option value={300}>300 DPI (High Density)</option>
                 <option value={600}>600 DPI (Ultra Precision)</option>
               </select>
             </div>
