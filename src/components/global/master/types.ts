@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 3.33.0
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -60,7 +60,7 @@ export interface MasterFormFieldDef<T = any> {
   colSpan?: 1 | 2;
   section?: string;
   description?: string;
-  disabled?: boolean | ((formState: any) => boolean);
+  disabled?: boolean | ((formState: any, isEdit?: boolean) => boolean);
   showWhen?: (formState: any) => boolean;
   validate?: (value: any, formState: any) => string | null;
   renderCustom?: (formState: any, onChange: (val: any) => void) => React.ReactNode;

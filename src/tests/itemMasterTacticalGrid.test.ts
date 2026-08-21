@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 3.33.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -20,6 +20,7 @@ import {
   ItemMasterGridRow
 } from "../components/itemMaster/types.ts";
 import { generateSkuCode } from "../services/skuGenerationEngine.ts";
+import { itemMasterConfig } from "../components/global/configs/itemMaster.config.tsx";
 
 describe("Item Master Tactical Grid (Smriti Prime Specification)", () => {
 
@@ -196,4 +197,71 @@ describe("Item Master Tactical Grid (Smriti Prime Specification)", () => {
     });
   });
 
+  describe("7. Edit Mode Immutability & Non-Editable SKU / Barcode Enforcement", () => {
+    it("should classify SKU and Barcode as non-editable in Edit mode while all other fields remain editable", () => {
+      const activeMode = "edit";
+      const isFieldNonEditable = (key: string, mode: string) => {
+        const isCode = key === "code" || key === "sku" || key === "stockNo";
+        const isBarcode = key === "barcode";
+        return mode === "edit" && (isCode || isBarcode);
+      };
+
+      // SKU and Barcode MUST be non-editable in edit mode
+      expect(isFieldNonEditable("code", activeMode)).toBe(true);
+      expect(isFieldNonEditable("sku", activeMode)).toBe(true);
+      expect(isFieldNonEditable("stockNo", activeMode)).toBe(true);
+      expect(isFieldNonEditable("barcode", activeMode)).toBe(true);
+
+      // Other fields MUST remain editable in edit mode
+      const editableKeys = [
+        "product", "name", "brand", "style", "shade", "size",
+        "itemDescription", "sellingPrice", "dealerPrice", "costPrice",
+        "mrp", "productTax", "hsnCode", "category", "subCategory", "uom",
+        "a1", "a2", "a3", "a4", "a5"
+      ];
+
+      editableKeys.forEach(k => {
+        expect(isFieldNonEditable(k, activeMode)).toBe(false);
+      });
+    });
+
+    it("should allow SKU and Barcode to be editable in Add mode", () => {
+      const activeMode = "add";
+      const isFieldNonEditable = (key: string, mode: string) => {
+        const isCode = key === "code" || key === "sku" || key === "stockNo";
+        const isBarcode = key === "barcode";
+        return mode === "edit" && (isCode || isBarcode);
+      };
+
+      expect(isFieldNonEditable("code", activeMode)).toBe(false);
+      expect(isFieldNonEditable("sku", activeMode)).toBe(false);
+      expect(isFieldNonEditable("stockNo", activeMode)).toBe(false);
+      expect(isFieldNonEditable("barcode", activeMode)).toBe(false);
+    });
+
+    it("should configure code and barcode as disabled in itemMasterConfig when isEdit is true", () => {
+      const codeField = itemMasterConfig.fields.find(f => f.name === "code");
+      const barcodeField = itemMasterConfig.fields.find(f => f.name === "barcode");
+      const nameField = itemMasterConfig.fields.find(f => f.name === "name");
+      const priceField = itemMasterConfig.fields.find(f => f.name === "price");
+
+      expect(codeField).toBeDefined();
+      expect(barcodeField).toBeDefined();
+      expect(nameField).toBeDefined();
+
+      // When editing (isEdit = true), code & barcode must be disabled
+      expect(typeof codeField?.disabled === "function" && codeField.disabled({}, true)).toBe(true);
+      expect(typeof barcodeField?.disabled === "function" && barcodeField.disabled({}, true)).toBe(true);
+
+      // When creating new (isEdit = false), code & barcode must NOT be disabled
+      expect(typeof codeField?.disabled === "function" && codeField.disabled({}, false)).toBe(false);
+      expect(typeof barcodeField?.disabled === "function" && barcodeField.disabled({}, false)).toBe(false);
+
+      // Other fields like name and price must not be disabled in edit mode
+      expect(nameField?.disabled).toBeUndefined();
+      expect(priceField?.disabled).toBeUndefined();
+    });
+  });
+
 });
+

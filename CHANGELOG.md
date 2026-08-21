@@ -28,6 +28,19 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.1.0] - 2026-08-21
+
+#### Inventory & Master Data — Non-Editable SKU & Barcode Enforcement
+- **Item Master Details Grid (`SmritiItemDetailsGrid.tsx`)**:
+  - Locked SKU (`code`, `sku`, `stockNo`) and Barcode (`barcode`) inputs as read-only with disabled cursor styling and helper tooltips in Edit Mode (`activeMode === "edit"`).
+  - Maintained full editability for all other attributes (Name, Brand, Style, Shade, Size, MRP, Sale Price, Cost Price, Tax Rate, HSN Code, UOM, and Dynamic Attributes a1–a9).
+  - Enforced read-only locking on Stock No and Barcode in Classic Single-Record inspector view.
+- **Global Master Form Drawer (`MasterFormDrawer.tsx` & `itemMaster.config.tsx`)**:
+  - Propagated `isEdit` boolean into field `disabled` callbacks across generic master entities.
+  - Disabled `code` and `barcode` editing in `itemMasterConfig` when modifying existing items.
+- **Unit Tests (`itemMasterTacticalGrid.test.ts`)**:
+  - Added Section 7 test suite asserting SKU/Barcode locking in Edit Mode and editability in Add Mode.
+
 ### [6.0.0] - 2026-08-21
 
 #### POS & Invoicing — ProPOS Unified Enterprise Billing Suite

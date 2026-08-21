@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.3.0
+ * Version      : 5.4.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -848,10 +848,10 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                         </td>
                         {visibleColumns.map((col, cIdx) => {
                           const isFrozen = cIdx < frozenCount;
-                          const isCode = col.key === "code" || col.key === "sku";
+                          const isCode = col.key === "code" || col.key === "sku" || col.key === "stockNo";
                           const isBarcode = col.key === "barcode";
                           const isImage = col.key === "imageName" || col.key === "image";
-                          const isNonEditableInEditMode = activeMode === "edit" && isCode;
+                          const isNonEditableInEditMode = activeMode === "edit" && (isCode || isBarcode);
                           const isDuplicateCode = isCode && (duplicatesInfo.duplicateCodes.has(rIdx) || duplicatesInfo.duplicateDbCodes.has(rIdx));
                           const isDuplicateBarcode = isBarcode && (duplicatesInfo.duplicateBarcodes.has(rIdx) || duplicatesInfo.duplicateDbBarcodes.has(rIdx));
                           const isDuplicate = isDuplicateCode || isDuplicateBarcode;
@@ -875,6 +875,11 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                 <input
                                   type="text"
                                   readOnly={isNonEditableInEditMode || activeMode === "delete"}
+                                  title={
+                                    isNonEditableInEditMode
+                                      ? "SKU and Barcode are permanent identifiers and cannot be edited for existing items."
+                                      : undefined
+                                  }
                                   value={val}
                                   onChange={e => handleCellChange(rIdx, col.key, e.target.value)}
                                   onBlur={e => handleCellBlur(rIdx, col.key, e.target.value)}
@@ -984,10 +989,11 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     readOnly={activeMode === "edit" || activeMode === "delete"}
+                    title={activeMode === "edit" ? "SKU is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.code || ""}
                     onChange={e => handleCellChange(classicRecordIndex, "code", e.target.value)}
                     className={`w-full p-2 border border-[#c6c6cd] rounded font-mono font-bold ${
-                      activeMode === "edit" ? "bg-[#e0e3e5] dark:bg-[#2d3133]" : "bg-white dark:bg-[#2d3133]"
+                      activeMode === "edit" ? "bg-[#e0e3e5] dark:bg-[#2d3133] cursor-not-allowed text-[#515f74] dark:text-[#bec6e0]" : "bg-white dark:bg-[#2d3133]"
                     }`}
                   />
                 </div>
@@ -995,9 +1001,13 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">Barcode (EAN-13)</label>
                   <input
                     type="text"
+                    readOnly={activeMode === "edit" || activeMode === "delete"}
+                    title={activeMode === "edit" ? "Barcode is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.barcode || ""}
                     onChange={e => handleCellChange(classicRecordIndex, "barcode", e.target.value)}
-                    className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-mono font-bold"
+                    className={`w-full p-2 border border-[#c6c6cd] rounded font-mono font-bold ${
+                      activeMode === "edit" ? "bg-[#e0e3e5] dark:bg-[#2d3133] cursor-not-allowed text-[#515f74] dark:text-[#bec6e0]" : "bg-white dark:bg-[#2d3133]"
+                    }`}
                   />
                 </div>
                 <div>
