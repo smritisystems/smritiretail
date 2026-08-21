@@ -28,6 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [5.6.0] - 2026-08-21
+
+#### Item Master & Platform — View Configuration, Excel Mapper & Alias Stabilization
+- **Persistent Alias Suppression Engine (`HeaderAliasRegistry.ts`)**:
+  - Implemented `REMOVED_ALIASES_STORAGE_KEY` blacklist to permanently suppress deleted default or custom aliases.
+  - Automatically un-blacklists aliases upon re-addition and provides per-attribute "Reset Defaults" action in Attribute Management Studio.
+- **Intelligent Delimiter Parsing & Normalized Header Extraction (`SmritiItemMasterStudio.tsx`, `HeaderMappingEngine.ts`)**:
+  - Support for multi-delimiters: Tabs (`\t`), Commas (CSV), Semicolons (`;`), and Multiple Spaces (`\s{2,}`).
+  - Integrated `normalizeHeader` in `isKnownHeader` and `detectHeaderRow` to accurately extract Row 1 as the true Header Row without false fallbacks to generic `Col 1` columns.
+- **Auto-Mapper Field Candidate Registry Alignment**:
+  - Fixed property lookup bug where `f.canonicalKey` evaluated to `undefined`, resolving the issue of dropdowns defaulting to `(Skip Column)` in red.
+  - Preselects target fields accurately (Barcode, Stock No, Product Name, Brand, Color, Size, MRP, Cost Price, Selling Price).
+- **View Configuration & Global Column Arrangement Engine (`SmritiViewConfiguration.tsx`)**:
+  - Dynamic attribute loading and custom label resolution from `/attributes/definitions`.
+  - Added double-click transfers between Available (Hidden) and Selected (Visible) lists.
+  - Added 4-way reordering controls (Move to Top, Move Up, Move Down, Move to Bottom).
+  - Added quick layout presets: Essential (8 cols), Standard (14 cols), and Full Catalog.
+  - Universal reactive event broadcast (`smriti_field_visibility_updated`) across all grids, spreadsheets, and operational reports.
+
 ### [5.5.0] - 2026-08-21
 
 #### Retail CRM & Customer Master — Retail Customer Catalogue & Advanced Search Suite
