@@ -29,6 +29,8 @@ import { SmritiProPosSalesReturnModal } from "./SmritiProPosSalesReturnModal.tsx
 import { SmritiProPosTaxInvoiceReceipt } from "./SmritiProPosTaxInvoiceReceipt.tsx";
 import { SmritiProPosPdtImportModal } from "./SmritiProPosPdtImportModal.tsx";
 import { SmritiCustomerBrowseModal } from "./SmritiCustomerBrowseModal.tsx";
+import { SmritiProPosHotkeysModal } from "./SmritiProPosHotkeysModal.tsx";
+import { SmritiProPosReprintModal } from "./SmritiProPosReprintModal.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { 
   Barcode, 
@@ -52,7 +54,11 @@ import {
   FileSpreadsheet,
   Calendar,
   Clock,
-  ChevronRight
+  ChevronRight,
+  FilePlus,
+  HelpCircle,
+  Calculator,
+  RefreshCw
 } from "lucide-react";
 
 interface SmritiProPosBillingTerminalProps {
@@ -62,6 +68,9 @@ interface SmritiProPosBillingTerminalProps {
 export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalProps> = ({
   onNotification
 }) => {
+  // --- POS Mode & Activity State ---
+  const [activeActivity, setActiveActivity] = useState<"BILLING" | "RETURN" | "RETURN_BLIND">("BILLING");
+
   // --- Header Group State ---
   const [billType, setBillType] = useState<"Product" | "Service">("Product");
   const [transactionType, setTransactionType] = useState<"Cash" | "Credit">("Cash");
@@ -85,6 +94,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
   const [salesStaff, setSalesStaff] = useState<string>("SM1");
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
+  const [showTotalsPanel, setShowTotalsPanel] = useState<boolean>(true);
 
   // --- Detail Group: Accepted Item Details Grid State ---
   const [cartItems, setCartItems] = useState<ProPosCartItem[]>([
@@ -136,6 +146,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [directDiscCode, setDirectDiscCode] = useState<string>("ILD");
   const [directDiscQty, setDirectDiscQty] = useState<string>("");
   const [directDiscPct, setDirectDiscPct] = useState<string>("10.00");
+  const [directDiscAmtInput, setDirectDiscAmtInput] = useState<string>("99.90");
   const [directStaff, setDirectStaff] = useState<string>("SM1");
 
   const directStockNoRef = useRef<HTMLInputElement | null>(null);
@@ -147,11 +158,37 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     return rate * qty;
   }, [directRate, directQty]);
 
-  const directDiscAmt = useMemo(() => {
-    const pct = parseFloat(directDiscPct) || 0;
-    return (directValue * pct) / 100;
-  }, [directValue, directDiscPct]);
+  // Handle Disc % input change
+  const handleDiscPctChange = (pctStr: string) => {
+    setDirectDiscPct(pctStr);
+    const pct = parseFloat(pctStr) || 0;
+    const computedAmt = (directValue * pct) / 100;
+    setDirectDiscAmtInput(computedAmt.toFixed(2));
+  };
 
+  // Handle Disc.Amt input change
+  const handleDiscAmtChange = (amtStr: string) => {
+    setDirectDiscAmtInput(amtStr);
+    const amt = parseFloat(amtStr) || 0;
+    if (directValue > 0) {
+      const computedPct = (amt / directValue) * 100;
+      setDirectDiscPct(computedPct.toFixed(2));
+    } else {
+      setDirectDiscPct("0.00");
+    }
+  };
+
+  const handleRateOrQtyChange = (newRate: string, newQty: string) => {
+    setDirectRate(newRate);
+    setDirectQty(newQty);
+    const r = parseFloat(newRate) || 0;
+    const q = parseFloat(newQty) || 0;
+    const val = r * q;
+    const pct = parseFloat(directDiscPct) || 0;
+    setDirectDiscAmtInput(((val * pct) / 100).toFixed(2));
+  };
+
+  const directDiscAmt = parseFloat(directDiscAmtInput) || 0;
   const directTotal = useMemo(() => {
     return Math.max(0, directValue - directDiscAmt);
   }, [directValue, directDiscAmt]);
@@ -165,9 +202,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [showLoyaltyModal, setShowLoyaltyModal] = useState<boolean>(false);
   const [showReturnModal, setShowReturnModal] = useState<boolean>(false);
+  const [showReturnBlindModal, setShowReturnBlindModal] = useState<boolean>(false);
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showCustomerBrowseModal, setShowCustomerBrowseModal] = useState<boolean>(false);
+  const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
+  const [showReprintModal, setShowReprintModal] = useState<boolean>(false);
 
   // Last Completed Invoice for Tax Printing
   const [lastCompletedBill, setLastCompletedBill] = useState<{
@@ -209,7 +249,30 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     return Math.round(raw * 100) / 100;
   }, [grossSalesValue, itemDiscountsTotal]);
 
-  // Stock No / Barcode Lookup on typing or scanning
+  // Create New Bill (Alt+1)
+  const handleNewBill = () => {
+    setCartItems([]);
+    setCustomer({
+      id: "cust-01",
+      code: "C01",
+      name: "Customer01 (Walk-in)",
+      phone: "9876543210",
+      loyaltyPoints: 1200,
+      loyaltyTier: "Gold",
+      creditLimit: 50000,
+      currentBalance: 0
+    });
+    setDirectStockNo("");
+    setDirectDescription("");
+    setDirectQty("1.00");
+    setDirectDiscPct("10.00");
+    setDirectDiscAmtInput("99.90");
+    setActiveActivity("BILLING");
+    directStockNoRef.current?.focus();
+    onNotification?.("New Bill Created", "Terminal reset for new billing transaction [Alt+1].", "info");
+  };
+
+  // Stock No / Barcode Lookup
   const handleDirectStockNoLookup = async (code: string) => {
     if (!code.trim()) return;
     const term = code.trim();
@@ -219,7 +282,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       if (resp && resp.items && resp.items.length > 0) {
         const p = resp.items[0];
         setDirectDescription(p.product_name || p.name || `Retail Item ${term}`);
-        setDirectRate((parseFloat(p.selling_price || p.mrp) || 999.00).toFixed(2));
+        const unitP = (parseFloat(p.selling_price || p.mrp) || 999.00).toFixed(2);
+        handleRateOrQtyChange(unitP, directQty);
         return;
       }
     } catch (e) {
@@ -231,7 +295,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     }
   };
 
-  // Accept Item from Direct Entry Grid into Item Details Grid (with repeated item clubbing support)
+  // Accept Item from Direct Entry Grid into Item Details Grid
   const handleAcceptDirectEntryItem = () => {
     if (!directStockNo.trim()) {
       onNotification?.("Stock No Required", "Please enter a Stock No or scan a barcode.", "error");
@@ -239,7 +303,6 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       return;
     }
 
-    // Mandatory customer check for Credit billing
     if (transactionType === "Credit" && (!customer.code || customer.code === "C01" && customer.name.includes("Walk-in"))) {
       onNotification?.("Customer Required", "Credit billing requires a registered customer account.", "error");
       setShowCustomerBrowseModal(true);
@@ -251,21 +314,19 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     const rate = parseFloat(directRate) || 999.00;
     const qty = parseFloat(directQty) || 1.00;
     const discPct = parseFloat(directDiscPct) || 10.00;
-    const discAmt = (rate * (discPct / 100));
+    const discAmt = parseFloat(directDiscAmtInput) || (rate * (discPct / 100));
     const taxable = rate - discAmt;
     const taxAmt = taxable * 0.05;
     const staff = directStaff || salesStaff;
 
-    // Check if item should be clubbed (same Stock No, Rate, Disc Code, Disc %, and Sales Staff)
     const existingIndex = cartItems.findIndex(
       it => (it.sku === stockCode || it.barcode === stockCode) &&
             it.unitPrice === rate &&
-            it.discountPct === discPct &&
+            Math.abs(it.discountAmt - discAmt) < 0.01 &&
             it.salesStaff === staff
     );
 
     if (existingIndex >= 0) {
-      // Club duplicated item quantities
       setCartItems(prev => {
         const next = [...prev];
         const cur = next[existingIndex];
@@ -280,7 +341,6 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       setSelectedRowIndex(existingIndex);
       onNotification?.("Item Clubbed", `Repeated item ${stockCode} clubbed (+${qty.toFixed(2)} qty).`, "info");
     } else {
-      // Append new accepted line item into Item Details Grid
       const newItem: ProPosCartItem = {
         id: `item-${Date.now()}`,
         itemNo: cartItems.length + 1,
@@ -303,14 +363,15 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
       setCartItems(prev => [...prev, newItem]);
       setSelectedRowIndex(cartItems.length);
-      onNotification?.("Item Accepted", `Stock ${stockCode} accepted into Item Details Grid.`, "success");
+      onNotification?.("Item Accepted", `Stock ${stockCode} accepted (₹${discAmt.toFixed(2)} Disc Amt).`, "success");
     }
 
-    // Clear direct entry inputs and focus back to Stock No
     setDirectStockNo("");
     setDirectDescription("");
     setDirectQty("1.00");
     setDirectDiscQty("");
+    setDirectDiscPct("10.00");
+    setDirectDiscAmtInput("99.90");
     directStockNoRef.current?.focus();
   };
 
@@ -403,13 +464,48 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     onNotification?.("Invoice Finalized", `Invoice ${generatedBillNo} generated successfully!`, "success");
   };
 
-  // Keyboard Shortcuts Handler (F2 Customer, F7 Exact Cash, F8 Settlement, F10 Settle & Print)
+  // --- Complete Global POS Keyboard Shortcuts (Alt+1, Alt+2, Alt+3, Alt+5, Alt+6, Alt+H, F2, F7, F8, F9, F10) ---
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
+      // Alt+1: Create a new bill
+      if (e.altKey && e.key === "1") {
+        e.preventDefault();
+        handleNewBill();
+      }
+      // Alt+2: Void / cancel a bill
+      else if (e.altKey && e.key === "2") {
+        e.preventDefault();
+        setShowCancelModal(true);
+      }
+      // Alt+3: Record sales return WITH reference
+      else if (e.altKey && e.key === "3") {
+        e.preventDefault();
+        setActiveActivity("RETURN");
+        setShowReturnModal(true);
+      }
+      // Alt+5: Record sales return WITHOUT reference
+      else if (e.altKey && e.key === "5") {
+        e.preventDefault();
+        setActiveActivity("RETURN_BLIND");
+        setShowReturnModal(true);
+      }
+      // Alt+6: Reprint a bill or sales return document
+      else if (e.altKey && e.key === "6") {
+        e.preventDefault();
+        setShowReprintModal(true);
+      }
+      // Alt+H: Hotkeys list
+      else if (e.altKey && (e.key === "h" || e.key === "H")) {
+        e.preventDefault();
+        setShowHotkeysModal(true);
+      }
+      // F2: Customer Browse
+      else if (e.key === "F2") {
         e.preventDefault();
         setShowCustomerBrowseModal(true);
-      } else if (e.key === "F7") {
+      }
+      // F7: Exact Cash
+      else if (e.key === "F7") {
         e.preventDefault();
         if (cartItems.length > 0) {
           handleSettlementSuccess({
@@ -422,10 +518,20 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             creditNote: 0
           }, 0);
         }
-      } else if (e.key === "F8") {
+      }
+      // F8: Settle modal
+      else if (e.key === "F8") {
         e.preventDefault();
         if (cartItems.length > 0) setShowSettlementModal(true);
-      } else if (e.key === "F10") {
+      }
+      // F9: Display / Toggle total values breakdown
+      else if (e.key === "F9") {
+        e.preventDefault();
+        setShowTotalsPanel(prev => !prev);
+        onNotification?.("Totals Toggled", "Bill totals panel toggled [F9].", "info");
+      }
+      // F10: Settle & Print
+      else if (e.key === "F10") {
         e.preventDefault();
         if (cartItems.length > 0) setShowSettlementModal(true);
       }
@@ -440,6 +546,119 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   return (
     <div className="h-full flex flex-col bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-hidden font-sans select-none">
       
+      {/* ========================================================================= */}
+      {/* 0. POS ACTIVITIES TOOLBAR RIBBON (Alt+1, Alt+2, Alt+3, Alt+5, Alt+6, etc.) */}
+      {/* ========================================================================= */}
+      <div className="bg-[#edeae1] dark:bg-[#131b2e] px-4 py-1.5 border-b border-[#c4c5d5] dark:border-[#444653] flex flex-wrap items-center justify-between gap-2 shrink-0">
+        
+        {/* Left: Standard POS Activities Buttons */}
+        <div className="flex items-center gap-1.5">
+          
+          {/* Alt+1: New Bill */}
+          <button
+            type="button"
+            onClick={handleNewBill}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs border ${
+              activeActivity === "BILLING"
+                ? "bg-[#00288e] text-white border-[#00288e]"
+                : "bg-white dark:bg-[#2d3133] border-[#c4c5d5] text-[#191c1d] dark:text-white hover:bg-[#f3f4f5]"
+            }`}
+            title="Create a new bill [Alt+1]"
+          >
+            <FilePlus size={13} />
+            <span>New Bill</span>
+            <kbd className="text-[10px] opacity-80 font-mono">[Alt+1]</kbd>
+          </button>
+
+          {/* Alt+2: Void / Cancel */}
+          <button
+            type="button"
+            onClick={() => setShowCancelModal(true)}
+            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#ba1a1a]/40 text-[#ba1a1a] hover:bg-[#ffdad6]/50 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            title="Void / cancel a bill [Alt+2]"
+          >
+            <ShieldAlert size={13} />
+            <span>Cancel Bill</span>
+            <kbd className="text-[10px] opacity-80 font-mono">[Alt+2]</kbd>
+          </button>
+
+          {/* Alt+3: Sales Return with Ref */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveActivity("RETURN");
+              setShowReturnModal(true);
+            }}
+            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            title="Record sales return with reference [Alt+3]"
+          >
+            <RotateCcw size={13} />
+            <span>Return (Ref)</span>
+            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+3]</kbd>
+          </button>
+
+          {/* Alt+5: Return without Ref */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveActivity("RETURN_BLIND");
+              setShowReturnModal(true);
+            }}
+            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            title="Record sales return without reference [Alt+5]"
+          >
+            <RotateCcw size={13} />
+            <span>Return w/o Ref</span>
+            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+5]</kbd>
+          </button>
+
+          {/* Alt+6: Reprint Document */}
+          <button
+            type="button"
+            onClick={() => setShowReprintModal(true)}
+            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            title="Reprint a bill or sales return document [Alt+6]"
+          >
+            <Printer size={13} />
+            <span>Reprint</span>
+            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+6]</kbd>
+          </button>
+
+        </div>
+
+        {/* Right: Totals Toggle (F9) and Hotkeys Reference (Alt+H) */}
+        <div className="flex items-center gap-1.5">
+          
+          <button
+            type="button"
+            onClick={() => setShowTotalsPanel(!showTotalsPanel)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs border ${
+              showTotalsPanel
+                ? "bg-[#dde1ff] text-[#00288e] border-[#00288e]"
+                : "bg-white dark:bg-[#2d3133] border-[#c4c5d5] text-[#565e74]"
+            }`}
+            title="Display total values in bill [F9]"
+          >
+            <Calculator size={13} />
+            <span>Bill Totals</span>
+            <kbd className="text-[10px] font-mono">[F9]</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowHotkeysModal(true)}
+            className="px-2.5 py-1 bg-[#00288e] text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs hover:bg-[#1e40af]"
+            title="Display list of hot keys [Alt+H]"
+          >
+            <HelpCircle size={13} />
+            <span>Hot Keys</span>
+            <kbd className="text-[10px] font-mono opacity-80">[Alt+H]</kbd>
+          </button>
+
+        </div>
+
+      </div>
+
       {/* ========================================================================= */}
       {/* 1. HEADER GROUP: Bill Type, Tx Type, Doc Prefix, Customer, Staff, PDT    */}
       {/* ========================================================================= */}
@@ -595,14 +814,6 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             <span>Hold</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowCancelModal(true)}
-            className="h-8 px-2.5 border border-[#ba1a1a]/30 rounded-lg bg-[#ffdad6] dark:bg-[#93000a]/20 text-[#ba1a1a] hover:bg-[#ffdad6]/80 transition text-xs font-bold flex items-center gap-1 shadow-2xs"
-          >
-            <ShieldAlert size={13} />
-            <span>Void</span>
-          </button>
         </div>
 
       </section>
@@ -671,7 +882,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
                         {item.discountPct.toFixed(2)}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold text-[#ba1a1a]">
                         {(item.discountAmt * item.qty).toFixed(2)}
                       </td>
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
@@ -724,7 +935,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             {/* Direct Entry Header Row (Exact Column Headers) */}
             <div className="grid grid-cols-12 text-[11px] font-bold text-[#444653] dark:text-[#bec6e0] border-b border-[#c4c5d5] dark:border-[#444653] py-1 px-1 bg-[#e4e1d7] dark:bg-[#1d202d] min-w-[1020px]">
               <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Stock No</div>
-              <div className="col-span-3 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</div>
+              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Rate</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Qty</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Value</div>
@@ -732,6 +943,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc Qty</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc. %</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc.Amt</div>
+              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Total</div>
             </div>
 
             {/* Direct Entry Interactive Inputs */}
@@ -758,7 +970,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               </div>
 
               {/* Item Description Input */}
-              <div className="col-span-3">
+              <div className="col-span-2">
                 <input
                   type="text"
                   value={directDescription}
@@ -774,7 +986,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 <input
                   type="text"
                   value={directRate}
-                  onChange={e => setDirectRate(e.target.value)}
+                  onChange={e => handleRateOrQtyChange(e.target.value, directQty)}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
                   className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
                 />
@@ -785,7 +997,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 <input
                   type="text"
                   value={directQty}
-                  onChange={e => setDirectQty(e.target.value)}
+                  onChange={e => handleRateOrQtyChange(directRate, e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
                   className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
                 />
@@ -825,14 +1037,37 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 />
               </div>
 
-              {/* Disc % */}
+              {/* Disc % Input (Updates Disc.Amt) */}
               <div className="col-span-1">
                 <input
                   type="text"
                   value={directDiscPct}
-                  onChange={e => setDirectDiscPct(e.target.value)}
+                  onChange={e => handleDiscPctChange(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
+                  placeholder="%"
                   className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
+                />
+              </div>
+
+              {/* Disc.Amt Input (Updates Disc. %) */}
+              <div className="col-span-1">
+                <input
+                  type="text"
+                  value={directDiscAmtInput}
+                  onChange={e => handleDiscAmtChange(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
+                  placeholder="₹ Amt"
+                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#00288e] rounded text-xs font-mono font-bold text-right text-[#ba1a1a] outline-none focus:ring-1 focus:ring-[#00288e]"
+                />
+              </div>
+
+              {/* Computed Net Total (Readonly) */}
+              <div className="col-span-1">
+                <input
+                  type="text"
+                  readOnly
+                  value={directTotal.toFixed(2)}
+                  className="w-full h-8 px-1.5 bg-[#e4e1d7] dark:bg-[#1d202d] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right text-[#191c1d] dark:text-white outline-none"
                 />
               </div>
 
@@ -855,69 +1090,71 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
         </div>
 
-        {/* Right Side: Exclusive Net Values Summary Panel (Shoper 9 Specification) */}
-        <div className="w-full md:w-64 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-xl p-3 flex flex-col gap-2 shrink-0 shadow-xs">
-          <div className="flex justify-between items-center pb-2 border-b border-[#c4c5d5] dark:border-[#444653]">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
-              Description
-            </span>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
-              Net Values
-            </span>
+        {/* Right Side: Exclusive Net Values Summary Panel (Shoper 9 Specification, Toggle with F9) */}
+        {showTotalsPanel && (
+          <div className="w-full md:w-64 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-xl p-3 flex flex-col gap-2 shrink-0 shadow-xs">
+            <div className="flex justify-between items-center pb-2 border-b border-[#c4c5d5] dark:border-[#444653]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+                Description
+              </span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+                Net Values
+              </span>
+            </div>
+
+            <div className="space-y-1.5 font-mono text-xs">
+              <div className="flex justify-between items-center">
+                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
+                  Sales
+                </span>
+                <span className="font-bold text-[#191c1d] dark:text-white">
+                  ₹{grossSalesValue.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a]">
+                  Discounts
+                </span>
+                <span className="font-bold text-[#ba1a1a]">
+                  -₹{itemDiscountsTotal.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
+                  Sales Tax
+                </span>
+                <span className="font-bold text-[#191c1d] dark:text-white">
+                  ₹{totalTaxAmount.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
+                  Addon-Gen
+                </span>
+                <span className="font-bold text-[#191c1d] dark:text-white">
+                  ₹0.00
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center pb-2 border-b border-[#eceef0] dark:border-[#444653]">
+                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a]">
+                  Dedns-Gen
+                </span>
+                <span className="font-bold text-[#ba1a1a]">
+                  -₹0.00
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center pt-1 text-sm font-bold text-[#00288e] dark:text-[#a8b8ff]">
+                <span>Net Payable</span>
+                <span className="text-base font-bold">₹{netPayableAmount.toFixed(2)}</span>
+              </div>
+            </div>
           </div>
-
-          <div className="space-y-1.5 font-mono text-xs">
-            <div className="flex justify-between items-center">
-              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
-                Sales
-              </span>
-              <span className="font-bold text-[#191c1d] dark:text-white">
-                ₹{grossSalesValue.toFixed(2)}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a]">
-                Discounts
-              </span>
-              <span className="font-bold text-[#ba1a1a]">
-                -₹{itemDiscountsTotal.toFixed(2)}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
-                Sales Tax
-              </span>
-              <span className="font-bold text-[#191c1d] dark:text-white">
-                ₹{totalTaxAmount.toFixed(2)}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
-                Addon-Gen
-              </span>
-              <span className="font-bold text-[#191c1d] dark:text-white">
-                ₹0.00
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center pb-2 border-b border-[#eceef0] dark:border-[#444653]">
-              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a]">
-                Dedns-Gen
-              </span>
-              <span className="font-bold text-[#ba1a1a]">
-                -₹0.00
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center pt-1 text-sm font-bold text-[#00288e] dark:text-[#a8b8ff]">
-              <span>Net Payable</span>
-              <span className="text-base font-bold">₹{netPayableAmount.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
+        )}
 
       </main>
 
@@ -969,7 +1206,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         {/* Shortcuts & Action Triggers */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-3">
           <span className="text-[11px] font-bold text-[#565e74] dark:text-[#bec6e0]">
-            ProPOS Billing Systems v6.0.0 — All shortcuts active [F2: Customer, F7: Cash, F8: Settle, F10: Print].
+            ProPOS Activities: [Alt+1: New Bill, Alt+2: Void, Alt+3: Return, Alt+5: Return w/o Ref, Alt+6: Reprint, Alt+H: Hotkeys, F7: Cash, F8: Settle].
           </span>
 
           <div className="flex items-center gap-2">
@@ -1021,6 +1258,21 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       {/* ========================================================================= */}
       {/* 4. MODALS & POPUPS (Customer Browse, PDT Import, Recall, Void, Settle)    */}
       {/* ========================================================================= */}
+      {showHotkeysModal && (
+        <SmritiProPosHotkeysModal
+          onClose={() => setShowHotkeysModal(false)}
+        />
+      )}
+
+      {showReprintModal && (
+        <SmritiProPosReprintModal
+          onReprintBill={(docType, docNo) => {
+            onNotification?.("Document Reprinted", `${docType} #${docNo} sent to thermal printer.`, "success");
+          }}
+          onClose={() => setShowReprintModal(false)}
+        />
+      )}
+
       {showCustomerBrowseModal && (
         <SmritiCustomerBrowseModal
           onSelectCustomer={(c) => {
