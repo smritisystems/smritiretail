@@ -28,7 +28,16 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
-### [3.29.0] - 2026-08-20
+### [3.29.0] - 2026-08-21
+
+#### Inventory & Catalog — Item Master Entry Tactical Grid Refactor (Smriti Prime Specification)
+- **Smriti Prime Three-Tab Catalog Workflow**: Refactored Item Master Entry to match the high-velocity tactical layout from `stitch_invoice_management_system` (`src/components/itemMaster/`):
+  - **Tab 1: View (`Alt+1`)** — Field Selection: Dual list (Unselected Fields ↔ Selected Fields) with transfer controls (`>`, `>>`, `<`, `<<`), reordering controls (`Move Up`, `Move Down`), and mandatory lock rules for `stockNo`, `product`, and `mrp`.
+  - **Tab 2: Common Fields (`Alt+2`)** — Batch Common Presets: Form controls for Brand, Category, Sub-Category, Tax Rate %, Supplier, Season, Department, and Status that auto-apply to item rows.
+  - **Tab 3: Item Details (`Alt+3`)** — Tactical Spreadsheet Grid: High-speed matrix table featuring customizable sticky frozen columns (0–6), inline cell editing, row indicators ("Row X of Y"), Auto-SKU generator, and "Paste from Excel" multi-column TSV clipboard parsing.
+- **Save Warning & Rights Confirmation Dialog**: Integrated `ItemMasterSaveWarningModal.tsx` displaying a clean confirmation dialog when creating unverified Brand/Category matrix combinations.
+- **Persistence & Backend Integration**: Saved field layout and common defaults to `localStorage`, directly persisting rows to FastAPI backend (`/api/v1/products/`) via `apiFetchV1`.
+- **Automated Test Coverage**: Added `src/tests/itemMasterTacticalGrid.test.ts` (10 tests) covering mandatory attributes, column reordering, common presets, TSV parsing, and payload transformation (all 23 test suites passing 100%).
 
 #### Database & Operations — SMRITI Database Manager & Studio (DB Studio)
 - **Multi-Tenant PostgreSQL Studio**: Introduced a dedicated, enterprise-grade Database Manager (`src/components/DatabaseManagerTab.tsx`) allowing `SYSADMIN` operators to switch between control plane and tenant databases (`smritisys`, `smriti001`, `smriti002`, `smriti_test_fresh`) with live size, table count, and row count telemetry.

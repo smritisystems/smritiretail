@@ -26,6 +26,8 @@ import { AttributeAnalyticsSection } from "./AttributeAnalyticsSection.tsx";
 import { BarcodeMappingSection } from "./BarcodeMappingSection.tsx";
 import { LabelPrintingSection } from "./LabelPrintingSection.tsx";
 
+import { ItemMasterEntryView } from "./itemMaster/ItemMasterEntryView.tsx";
+
 export interface ItemMasterTabProps {
   products?: Product[];
   onRefreshProducts?: () => Promise<void>;
@@ -48,6 +50,21 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     return {
       ...itemMasterConfig,
       subTabs: [
+        {
+          id: "item-entry",
+          label: "Item Master Entry (Prime)",
+          renderContent: (items: Product[], refetch: () => void) => (
+            <ItemMasterEntryView
+              existingProducts={items.length > 0 ? items : products}
+              currentUser={currentUser}
+              onNotification={handleNotify}
+              onRefreshProducts={async () => {
+                await handleRefresh();
+                refetch();
+              }}
+            />
+          )
+        },
         { id: "registry", label: "SKU Registry" },
         {
           id: "excel-grid",

@@ -24,6 +24,7 @@ import { HeaderMappingEngineResult, ColumnMappingResult } from "../lib/headerMap
 import { HeaderMappingPreviewModal } from "./HeaderMappingPreviewModal";
 import { HeaderAliasManagerModal } from "./HeaderAliasManagerModal";
 import { generateSkuCode, SkuConfigOptions, DEFAULT_SKU_CONFIG, SkuGenerationMode } from "../services/skuGenerationEngine.ts";
+import { serializeProductAttributes } from "../services/unifiedFieldCatalog.ts";
 
 interface ExcelGridEntrySectionProps {
   onRefreshProducts: () => Promise<void>;
@@ -171,10 +172,11 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     loadMetadata();
   }, []);
 
+  const activeDefinitions = definitions.filter(d => (d as any).isEnabled !== false && (d as any).is_enabled !== false);
   const activeGroup = groups.find(g => g.id === selectedGroupId);
   const activeAttrs = activeGroup 
-    ? activeGroup.attributeIds.map(aid => definitions.find(d => d.id === aid)).filter((d): d is AttributeDefinition => !!d)
-    : [];
+    ? activeGroup.attributeIds.map(aid => activeDefinitions.find(d => d.id === aid)).filter((d): d is AttributeDefinition => !!d)
+    : activeDefinitions;
 
   const createBlankRow = (): GridRow => ({
     code: "",
@@ -618,7 +620,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     const matrix = lines.map(line => line.split("\t"));
 
     const dynamicAttrsList = [
-      ...activeAttrs.map(a => ({ key: a.name, label: a.label })),
+      ...definitions.map(a => ({ key: a.name, label: a.label })),
       ...customAttrs.map(c => ({ key: c.key, label: c.label }))
     ];
     const allAvailableFields = getSmritiItemMasterFields(dynamicAttrsList);
@@ -697,15 +699,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
             brand: row.brand.trim() || "SMRITI",
             hsn_code: row.hsnCode.trim() || "61091000",
             primary_image_url: row.imageLink.trim() || undefined,
-            attributes: {
-              ...row.attributes,
-              ...(row.brand.trim() ? { brand: row.brand.trim() } : {}),
-              ...(row.category.trim() ? { category: row.category.trim() } : {}),
-              ...(row.subCategory.trim() ? { subCategory: row.subCategory.trim() } : {}),
-              ...(row.size.trim() ? { size: row.size.trim() } : {}),
-              ...(row.colour.trim() ? { colour: row.colour.trim() } : {}),
-              ...(row.uom.trim() ? { uom: row.uom.trim() } : {}),
-            },
+            attributes: serializeProductAttributes(row, definitions),
           };
 
           const response = await apiFetchV1("/products", {

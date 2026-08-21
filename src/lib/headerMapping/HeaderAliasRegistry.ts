@@ -191,8 +191,8 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     key: "upperMaterial",
     label: "UPPER MATERIAL",
     required: false,
-    aliases: ["upper material", "material", "upper", "fabric"],
-    description: "Shoe upper or garment material"
+    aliases: ["upper material", "upper", "shoe upper"],
+    description: "Footwear upper material"
   },
   {
     key: "outsole",
