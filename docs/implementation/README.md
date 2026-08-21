@@ -61,6 +61,4 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-08-21 | v5.4.0 | [Universal View Configuration as Global Schema & Visibility Control](./inventory/Implementation_Plan_Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md) | `/src/services/unifiedFieldCatalog.ts`, `/src/components/itemMaster/`, `/src/components/ReportDesignerTab.tsx` | Completed | [Walkthrough](../walkthrough/inventory/Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md) |
 | 2026-08-21 | v5.5.0 | [Retail Customer Catalogue & Advanced Search Workspace](./crm/Implementation_Plan_Retail_Customer_Catalogue_v5.5.0.md) | `/src/components/customer/`, `/src/components/CustomerMasterTab.tsx` | Completed | [Walkthrough](../walkthrough/crm/Retail_Customer_Catalogue_v5.5.0.md) |
 | 2026-08-21 | v5.6.0 | [View Configuration & Excel Mapping Engine Stabilization](./inventory/Implementation_Plan_ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md) | `/src/lib/headerMapping/`, `/src/services/unifiedFieldCatalog.ts`, `/src/components/itemMaster/` | Completed | [Walkthrough](../walkthrough/inventory/ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md) |
-
-
-
+| 2026-08-21 | v6.0.0 | [ProPOS Unified Enterprise Billing Suite](./pos/Implementation_Plan_ProPOS_Unified_Billing_Suite_v6.0.0.md) | `/src/components/billing/propos/`, `/src/components/PosTerminalTab.tsx`, `/src/components/AdvancedBillingEngine.tsx` | Completed | [Walkthrough](../walkthrough/pos/ProPOS_Unified_Billing_Suite_v6.0.0.md) |

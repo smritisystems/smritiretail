@@ -148,13 +148,4 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-08-21 | inventory | Universal View Configuration as Global Schema & Visibility Control v5.4.0 — Global field visibility registry, custom event broadcast, uniform column ordering across all grids and reports | [Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md](inventory/Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md) | [Plan](../implementation/inventory/Implementation_Plan_Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md) | Completed |
 | 2026-08-21 | crm | Retail Customer Catalogue & Advanced Search Workspace v5.5.0 — 3-tab catalogue (Form, Retail Details, Additional Details), Mailing Address sub-form, and Advanced Customer Search | [Retail_Customer_Catalogue_v5.5.0.md](crm/Retail_Customer_Catalogue_v5.5.0.md) | [Plan](../implementation/crm/Implementation_Plan_Retail_Customer_Catalogue_v5.5.0.md) | Completed |
 | 2026-08-21 | inventory | View Configuration, Excel Mapping & Alias Stabilization v5.6.0 — Multi-delimiter detection, normalized header detection, alias suppression blacklist, and 4-way column arrangement | [ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md](inventory/ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md) | [Plan](../implementation/inventory/Implementation_Plan_ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md) | Completed |
-
-
-
-
-
-
-
-
-
-
+| 2026-08-21 | pos | ProPOS Unified Enterprise Billing Suite v6.0.0 — Stitch High-Speed Terminal, Multi-Tender Settlement, Suspended Queue, Sales Returns, and EOD Z-Report Closeout | [ProPOS_Unified_Billing_Suite_v6.0.0.md](pos/ProPOS_Unified_Billing_Suite_v6.0.0.md) | [Plan](../implementation/pos/Implementation_Plan_ProPOS_Unified_Billing_Suite_v6.0.0.md) | Completed |

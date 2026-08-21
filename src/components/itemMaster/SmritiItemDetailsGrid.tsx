@@ -561,11 +561,13 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       }));
 
       // Commit to FastAPI transactional endpoint (PUT for existing, POST for new)
-      for (const row of gridRows) {
+      for (let i = 0; i < gridRows.length; i++) {
+        const row = gridRows[i];
+        const rowNum = i + 1;
         const prodPayload = {
-          code: row.code,
-          barcode: row.barcode || null,
-          name: row.name,
+          code: row.code ? String(row.code).trim() : "",
+          barcode: row.barcode && String(row.barcode).trim() ? String(row.barcode).trim() : null,
+          name: row.name ? String(row.name).trim() : "Untitled Product",
           primary_image_url: row.imageName || null,
           brand: row.brand || null,
           style_code: row.styleCode || null,
@@ -594,24 +596,37 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         const isExisting = row._id && !String(row._id).startsWith("new-") && !String(row._id).startsWith("row-");
         const matchedProduct = products.find(p => p.id === row._id || p.code === row.code);
 
-        if (isExisting || (activeMode === "edit" && matchedProduct?.id)) {
-          const targetId = matchedProduct?.id || row._id;
-          await apiFetchV1(`/products/${targetId}`, {
-            method: "PUT",
-            body: JSON.stringify(prodPayload)
-          });
-        } else {
-          await apiFetchV1("/products/", {
-            method: "POST",
-            body: JSON.stringify(prodPayload)
-          });
+        try {
+          if (isExisting || (activeMode === "edit" && matchedProduct?.id)) {
+            const targetId = matchedProduct?.id || row._id;
+            await apiFetchV1(`/products/${targetId}`, {
+              method: "PUT",
+              body: JSON.stringify(prodPayload)
+            });
+          } else {
+            await apiFetchV1("/products/", {
+              method: "POST",
+              body: JSON.stringify(prodPayload)
+            });
+          }
+        } catch (err: any) {
+          const rawMsg = err?.message || "Validation Error";
+          let friendlyMsg = rawMsg;
+          if (rawMsg.includes("code already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("code")) {
+            friendlyMsg = `Stock No "${row.code}" already exists in the database. Please provide a unique Stock No.`;
+          } else if (rawMsg.includes("barcode already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("barcode")) {
+            friendlyMsg = `Barcode "${row.barcode}" is already registered in the database for another item. Barcodes must be unique.`;
+          } else if (rawMsg.includes("401") || rawMsg.includes("Token") || rawMsg.includes("Unauthorized")) {
+            friendlyMsg = "Your user session has expired or requires login. Please re-authenticate.";
+          }
+          throw new Error(`Row #${rowNum} [${row.code || 'No Code'}]: ${friendlyMsg}`);
         }
       }
 
-      onNotification?.("Saved to Database", `Committed ${gridRows.length} items to PostgreSQL database.`, "success");
+      onNotification?.("Saved Successfully", `Successfully saved ${gridRows.length} item${gridRows.length > 1 ? 's' : ''} to database.`, "success");
       if (onRefreshProducts) await onRefreshProducts();
     } catch (err: any) {
-      onNotification?.("Commit Error", err.message || "Failed to commit items to database", "error");
+      onNotification?.("Unable to Save Items", err.message || "Failed to commit item records to database.", "error");
     } finally {
       setIsSaving(false);
     }

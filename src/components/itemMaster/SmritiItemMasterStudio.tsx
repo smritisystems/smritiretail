@@ -297,6 +297,7 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     setIsProcessing(true);
     let successCount = 0;
     let failCount = 0;
+    const errorDetails: string[] = [];
 
     try {
       for (const row of activeRows) {
@@ -340,21 +341,36 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
             body: JSON.stringify(productPayload)
           });
           successCount++;
-        } catch {
+        } catch (err: any) {
           failCount++;
+          const rawMsg = err?.message || "Validation Error";
+          let friendlyMsg = rawMsg;
+          if (rawMsg.includes("code already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("code")) {
+            friendlyMsg = `Stock No "${productPayload.code}" already exists in the database.`;
+          } else if (rawMsg.includes("barcode already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("barcode")) {
+            friendlyMsg = `Barcode "${productPayload.barcode}" is already registered in the database for another item.`;
+          } else if (rawMsg.includes("401") || rawMsg.includes("Token") || rawMsg.includes("Unauthorized")) {
+            friendlyMsg = "Your session has expired. Please log in again.";
+          }
+          errorDetails.push(`Row #${row.rowIndex} [${productPayload.code}]: ${friendlyMsg}`);
         }
       }
 
       if (successCount > 0) {
         onNotification?.(
           "Import Complete",
-          `Successfully saved ${successCount} products into SMRITI PostgreSQL Master.${failCount > 0 ? ` (${failCount} errors)` : ""}`,
+          `Successfully saved ${successCount} products into database.${failCount > 0 ? ` (${failCount} skipped due to duplicates: ${errorDetails.slice(0, 2).join(", ")})` : ""}`,
           "success"
         );
         await onRefreshProducts?.();
         setRawText("");
       } else {
-        onNotification?.("Import Failed", "Could not commit records to backend database.", "error");
+        const sampleErrors = errorDetails.slice(0, 3).join(" | ");
+        onNotification?.(
+          "Import Failed — Validation Conflict", 
+          `Unable to save ${failCount} items to database. Reasons: ${sampleErrors || "Items with matching Stock No or Barcode already exist in the database."}`, 
+          "error"
+        );
       }
     } catch (err: any) {
       onNotification?.("Import Exception", err.message || "An unexpected error occurred during database commit.", "error");
