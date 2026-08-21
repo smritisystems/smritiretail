@@ -59,6 +59,8 @@ import { DocumentSeriesTab } from "./components/DocumentSeriesTab.tsx";
 import { StaffManagementTab } from "./components/StaffManagementTab.tsx";
 import { UserProfileTab } from "./components/UserProfileTab.tsx";
 import { NotificationProvider, useNotifications } from "./notifications/notification_store.tsx";
+import { ActiveFieldProvider } from "./context/ActiveFieldContext.tsx";
+import { ContextualInspectorHUD } from "./components/drilldown/ContextualInspectorHUD.tsx";
 import { ContextProvider } from "./context-actions/ContextProvider.tsx";
 import { ContextRenderer } from "./context-actions/ContextRenderer.tsx";
 import { registerAllDefaultActions } from "./context-actions/providers/SMRITIModuleActions.ts";
@@ -460,16 +462,12 @@ const AppContent: React.FC = () => {
         );
       case "create-tax-invoice":
         return (
-          <AdvancedBillingEngine
-            cart={[]}
-            onClearCart={() => {}}
-            activeShift={shifts[0] || null}
-            activeProfile={profiles[0] || null}
-            onCheckoutSuccess={(bill) => {
-              fetchSystemState();
-            }}
+          <PosTerminalTab
+            products={products}
+            profiles={profiles}
+            shifts={shifts}
+            onRefreshData={fetchSystemState}
             onNotification={addNotification}
-            isStandaloneTab={true}
           />
         );
       case "purchase":
@@ -516,7 +514,13 @@ const AppContent: React.FC = () => {
       case "wiki":
         return <WikiTab onNotification={addNotification} />;
       case "barcode":
-        return <BarcodeStudioTab currentUser={currentUser} />;
+        return (
+          <BarcodeStudioTab
+            currentUser={currentUser}
+            products={products}
+            onNotification={addNotification}
+          />
+        );
       case "masters":
         return <MasterManagementTab onNotification={addNotification} />;
       case "document-series":
@@ -785,19 +789,22 @@ const App: React.FC = () => {
     <PrintProvider>
       <NotificationProvider>
         <DrillDownProvider>
-          <LayoutEngineProvider>
-            <WorkspaceProvider>
-              <ShortcutProvider>
-                <ContextProvider>
-                  <AppContent />
-                  <ContextRenderer />
-                  <GlobalSearch />
-                  <DrillDownSidePanel />
-                  <ShortcutPalette />
-                </ContextProvider>
-              </ShortcutProvider>
-            </WorkspaceProvider>
-          </LayoutEngineProvider>
+          <ActiveFieldProvider>
+            <LayoutEngineProvider>
+              <WorkspaceProvider>
+                <ShortcutProvider>
+                  <ContextProvider>
+                    <AppContent />
+                    <ContextRenderer />
+                    <GlobalSearch />
+                    <ContextualInspectorHUD />
+                    <DrillDownSidePanel />
+                    <ShortcutPalette />
+                  </ContextProvider>
+                </ShortcutProvider>
+              </WorkspaceProvider>
+            </LayoutEngineProvider>
+          </ActiveFieldProvider>
         </DrillDownProvider>
       </NotificationProvider>
     </PrintProvider>
