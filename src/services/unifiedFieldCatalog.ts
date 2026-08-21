@@ -53,18 +53,6 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     width: "120px"
   },
   {
-    id: "product",
-    key: "name",
-    label: "Product Name",
-    datatype: "text",
-    required: true,
-    aliases: ["product", "item name", "product name", "item description", "description", "title"],
-    active: true,
-    displayOrder: 2,
-    source: "core",
-    width: "160px"
-  },
-  {
     id: "barcode",
     key: "barcode",
     label: "Barcode",
@@ -72,9 +60,21 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     required: true,
     aliases: ["barcode", "ean", "ean code", "ean13", "upc", "upc code", "barcode no"],
     active: true,
-    displayOrder: 3,
+    displayOrder: 2,
     source: "core",
     width: "140px"
+  },
+  {
+    id: "product",
+    key: "name",
+    label: "Product Name",
+    datatype: "text",
+    required: true,
+    aliases: ["product", "item name", "product name", "item description", "description", "title"],
+    active: true,
+    displayOrder: 3,
+    source: "core",
+    width: "160px"
   },
   {
     id: "brand",

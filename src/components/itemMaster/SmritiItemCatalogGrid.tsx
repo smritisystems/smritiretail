@@ -223,7 +223,8 @@ export const SmritiItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                   className="rounded"
                 />
               </th>
-              <th className="p-3 font-mono font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">SKU / Code</th>
+              <th className="p-3 font-mono font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Stock No / SKU</th>
+              <th className="p-3 font-mono font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Barcode</th>
               <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Product Name</th>
               <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Category</th>
               <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] min-w-[280px]">Business Labels (Attributes)</th>
@@ -266,6 +267,9 @@ export const SmritiItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                     </td>
                     <td className="p-3 font-mono font-bold text-[#191c1e] dark:text-[#dae2fd]">
                       {p.code}
+                    </td>
+                    <td className="p-3 font-mono text-[11px] text-[#515f74] dark:text-[#bec6e0]">
+                      {p.barcode || "—"}
                     </td>
                     <td className="p-3 font-semibold text-[#191c1e] dark:text-white">
                       {p.name}
