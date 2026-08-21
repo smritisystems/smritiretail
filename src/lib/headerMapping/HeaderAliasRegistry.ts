@@ -207,7 +207,17 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     required: false,
     aliases: ["image link", "image url", "image", "image_link", "image_url", "photo", "picture"],
     description: "Primary product image URL or code"
-  }
+  },
+  // Generic Attribute Slots A1..A9
+  { key: "a1", label: "ATTRIBUTE 1 (A1)", required: false, aliases: ["a1", "attr 1", "attribute 1", "attribute1", "heels", "heel type"], description: "Dynamic Attribute slot 1" },
+  { key: "a2", label: "ATTRIBUTE 2 (A2)", required: false, aliases: ["a2", "attr 2", "attribute 2", "attribute2", "upper", "upper material", "shoe upper"], description: "Dynamic Attribute slot 2" },
+  { key: "a3", label: "ATTRIBUTE 3 (A3)", required: false, aliases: ["a3", "attr 3", "attribute 3", "attribute3", "outsole", "sole", "sole material"], description: "Dynamic Attribute slot 3" },
+  { key: "a4", label: "ATTRIBUTE 4 (A4)", required: false, aliases: ["a4", "attr 4", "attribute 4", "attribute4", "gender", "target gender", "section"], description: "Dynamic Attribute slot 4" },
+  { key: "a5", label: "ATTRIBUTE 5 (A5)", required: false, aliases: ["a5", "attr 5", "attribute 5", "attribute5", "vendor code", "vendor id", "supplier code"], description: "Dynamic Attribute slot 5" },
+  { key: "a6", label: "ATTRIBUTE 6 (A6)", required: false, aliases: ["a6", "attr 6", "attribute 6", "attribute6", "purchase class", "purchase classification"], description: "Dynamic Attribute slot 6" },
+  { key: "a7", label: "ATTRIBUTE 7 (A7)", required: false, aliases: ["a7", "attr 7", "attribute 7", "attribute7", "department", "dept", "division"], description: "Dynamic Attribute slot 7" },
+  { key: "a8", label: "ATTRIBUTE 8 (A8)", required: false, aliases: ["a8", "attr 8", "attribute 8", "attribute8", "merchandise category", "merchandise cat", "mc category"], description: "Dynamic Attribute slot 8" },
+  { key: "a9", label: "ATTRIBUTE 9 (A9)", required: false, aliases: ["a9", "attr 9", "attribute 9", "attribute9", "season", "fit", "pattern", "occasion"], description: "Dynamic Attribute slot 9" }
 ];
 
 const CUSTOM_ALIASES_STORAGE_KEY = "smriti_header_custom_aliases";
@@ -261,6 +271,37 @@ export function clearCustomAliases(): void {
   try {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(CUSTOM_ALIASES_STORAGE_KEY);
+    }
+  } catch {}
+}
+
+const CUSTOM_LABELS_STORAGE_KEY = "smriti_header_custom_labels";
+let inMemoryCustomLabels: Record<string, string> = {};
+
+export function getCustomFieldLabels(): Record<string, string> {
+  try {
+    if (typeof localStorage === "undefined") return inMemoryCustomLabels;
+    const raw = localStorage.getItem(CUSTOM_LABELS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch {
+    return inMemoryCustomLabels;
+  }
+}
+
+export function setCustomFieldLabel(fieldKey: string, customLabel: string): void {
+  if (!fieldKey) return;
+  const currentMap = getCustomFieldLabels();
+  if (customLabel.trim()) {
+    currentMap[fieldKey] = customLabel.trim();
+  } else {
+    delete currentMap[fieldKey];
+  }
+  inMemoryCustomLabels = currentMap;
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(CUSTOM_LABELS_STORAGE_KEY, JSON.stringify(currentMap));
     }
   } catch {}
 }

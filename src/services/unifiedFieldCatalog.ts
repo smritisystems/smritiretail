@@ -236,7 +236,17 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     displayOrder: 16,
     source: "core",
     width: "200px"
-  }
+  },
+  // Generic Dynamic Attribute Slots (A1..A9) configurable via Attribute Management
+  { id: "attr_a1", key: "a1", label: "Attribute 1 (A1)", datatype: "text", required: false, aliases: ["a1", "attr 1", "attribute 1", "attribute1", "heels", "heel type"], active: true, displayOrder: 17, source: "core", width: "120px" },
+  { id: "attr_a2", key: "a2", label: "Attribute 2 (A2)", datatype: "text", required: false, aliases: ["a2", "attr 2", "attribute 2", "attribute2", "upper", "upper material", "shoe upper"], active: true, displayOrder: 18, source: "core", width: "120px" },
+  { id: "attr_a3", key: "a3", label: "Attribute 3 (A3)", datatype: "text", required: false, aliases: ["a3", "attr 3", "attribute 3", "attribute3", "outsole", "sole", "sole material"], active: true, displayOrder: 19, source: "core", width: "120px" },
+  { id: "attr_a4", key: "a4", label: "Attribute 4 (A4)", datatype: "text", required: false, aliases: ["a4", "attr 4", "attribute 4", "attribute4", "gender", "target gender", "section"], active: true, displayOrder: 20, source: "core", width: "120px" },
+  { id: "attr_a5", key: "a5", label: "Attribute 5 (A5)", datatype: "text", required: false, aliases: ["a5", "attr 5", "attribute 5", "attribute5", "vendor code", "vendor id", "supplier code"], active: true, displayOrder: 21, source: "core", width: "120px" },
+  { id: "attr_a6", key: "a6", label: "Attribute 6 (A6)", datatype: "text", required: false, aliases: ["a6", "attr 6", "attribute 6", "attribute6", "purchase class", "purchase classification"], active: true, displayOrder: 22, source: "core", width: "120px" },
+  { id: "attr_a7", key: "a7", label: "Attribute 7 (A7)", datatype: "text", required: false, aliases: ["a7", "attr 7", "attribute 7", "attribute7", "department", "dept", "division"], active: true, displayOrder: 23, source: "core", width: "120px" },
+  { id: "attr_a8", key: "a8", label: "Attribute 8 (A8)", datatype: "text", required: false, aliases: ["a8", "attr 8", "attribute 8", "attribute8", "merchandise category", "merchandise cat", "mc category"], active: true, displayOrder: 24, source: "core", width: "120px" },
+  { id: "attr_a9", key: "a9", label: "Attribute 9 (A9)", datatype: "text", required: false, aliases: ["a9", "attr 9", "attribute 9", "attribute9", "season", "fit", "pattern", "occasion"], active: true, displayOrder: 25, source: "core", width: "120px" }
 ];
 
 /**
