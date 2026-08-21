@@ -24,6 +24,8 @@ export interface TileData {
   group: string;
   roles?: string[];
   isQuickAction?: boolean;
+  shortcut?: string;
+  accentColor?: string;
 }
 
 export const LAUNCHPAD_CATALOG: TileData[] = [
@@ -38,6 +40,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Retail Operations",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F1",
+    accentColor: "emerald",
   },
   {
     id: "sales",
@@ -59,6 +63,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Retail Operations",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F3",
+    accentColor: "indigo",
   },
   {
     id: "purchase",
@@ -92,6 +98,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F4",
+    accentColor: "purple",
   },
   {
     id: "barcode",
@@ -103,6 +111,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F5",
+    accentColor: "amber",
   },
   {
     id: "stock-ledger",
@@ -114,6 +124,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F6",
+    accentColor: "blue",
   },
   {
     id: "supplier-mgmt",

@@ -28,6 +28,19 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.3.0] - 2026-08-21
+
+#### UI / UX & Launchpad — Enterprise Look & Feel Modernization
+- **Fiori Launchpad Redesign (`FioriLaunchpad.tsx`)**:
+  - Replaced flat white workspace cards with category-accented cards (`border-l-4` color indicators for Retail Operations, Master Data, Finance, Administration, and Analytics).
+  - Enhanced card hover depth with subtle vertical lift (`hover:-translate-y-1`), elevated drop-shadow (`hover:shadow-md`), and category-matched animated forward arrows.
+  - Implemented real-time interactive search filtering directly within the hero banner to instantly isolate workspaces as operators type.
+- **Primary Quick Actions Bar (`launchpadCatalog.ts`)**:
+  - Color-coded quick action icons with rich background containers (Emerald for POS, Indigo for Tax Invoice, Purple for Item Master, Amber for Barcode, Blue for Stock Ledger).
+  - Added global keyboard hotkey badges (<kbd>F1</kbd>, <kbd>F3</kbd>, <kbd>F4</kbd>, <kbd>F5</kbd>, <kbd>F6</kbd>) with immediate keyboard shortcut routing.
+- **Hero Operational Banner**:
+  - Applied deep navy mesh gradient (`from-[#041632] via-[#0b254a] to-[#1b3a6b]`) with live store indicators (Store Status, Role Access, Backend Health, Active Workspace Count).
+
 ### [6.2.0] - 2026-08-21
 
 #### Barcode & Inventory — Industrial Logic Barcode Label Designer & Printing Modernization
