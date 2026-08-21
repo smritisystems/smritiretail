@@ -53,6 +53,7 @@ import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownBreadcrumbs.tsx";
 import { DrillDownSidePanel } from "./components/drilldown/DrillDownSidePanel.tsx";
 import { GlobalSearch } from "./components/drilldown/GlobalSearch.tsx";
+import { GlobalF2BrowseModal } from "./components/drilldown/GlobalF2BrowseModal.tsx";
 import { ApprovalMatrixTab } from "./components/ApprovalMatrixTab.tsx";
 import { QuickActionsMenu } from "./components/QuickActionsMenu.tsx";
 import { DocumentSeriesTab } from "./components/DocumentSeriesTab.tsx";
@@ -797,6 +798,7 @@ const App: React.FC = () => {
                     <AppContent />
                     <ContextRenderer />
                     <GlobalSearch />
+                    <GlobalF2BrowseModal />
                     <ContextualInspectorHUD />
                     <DrillDownSidePanel />
                     <ShortcutPalette />
