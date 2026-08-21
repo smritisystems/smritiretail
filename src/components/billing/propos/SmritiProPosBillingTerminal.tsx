@@ -111,6 +111,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       qty: 1.00,
       mrp: 999.00,
       unitPrice: 999.00,
+      discCode: "ILD",
+      discQty: 1.00,
       discountPct: 10.00,
       discountAmt: 99.90,
       taxPct: 5.00,
@@ -130,6 +132,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       qty: 1.00,
       mrp: 999.00,
       unitPrice: 999.00,
+      discCode: "ILD",
+      discQty: 1.00,
       discountPct: 10.00,
       discountAmt: 99.90,
       taxPct: 5.00,
@@ -144,7 +148,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [directRate, setDirectRate] = useState<string>("999.00");
   const [directQty, setDirectQty] = useState<string>("1.00");
   const [directDiscCode, setDirectDiscCode] = useState<string>("ILD");
-  const [directDiscQty, setDirectDiscQty] = useState<string>("");
+  const [directDiscQty, setDirectDiscQty] = useState<string>("1.00");
   const [directDiscPct, setDirectDiscPct] = useState<string>("10.00");
   const [directDiscAmtInput, setDirectDiscAmtInput] = useState<string>("99.90");
   const [directStaff, setDirectStaff] = useState<string>("SM1");
@@ -158,34 +162,66 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     return rate * qty;
   }, [directRate, directQty]);
 
-  // Handle Disc % input change
-  const handleDiscPctChange = (pctStr: string) => {
-    setDirectDiscPct(pctStr);
-    const pct = parseFloat(pctStr) || 0;
-    const computedAmt = (directValue * pct) / 100;
+  // Helper to determine effective discountable quantity (Disc Qty)
+  const getEffectiveDiscQty = (dQtyStr: string, totalQtyStr: string) => {
+    if (dQtyStr.trim() !== "") {
+      const parsed = parseFloat(dQtyStr);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    const totalQ = parseFloat(totalQtyStr) || 0;
+    return totalQ;
+  };
+
+  // Handle Disc Qty input change (triggers Disc.Amt recalculation based on Disc. %)
+  const handleDiscQtyChange = (dQtyStr: string) => {
+    setDirectDiscQty(dQtyStr);
+    const effDiscQ = getEffectiveDiscQty(dQtyStr, directQty);
+    const rate = parseFloat(directRate) || 0;
+    const pct = parseFloat(directDiscPct) || 0;
+    const computedAmt = (rate * effDiscQ * pct) / 100;
     setDirectDiscAmtInput(computedAmt.toFixed(2));
   };
 
-  // Handle Disc.Amt input change
+  // Handle Disc % input change (computes and updates Disc.Amt based on Disc Qty)
+  const handleDiscPctChange = (pctStr: string) => {
+    setDirectDiscPct(pctStr);
+    const pct = parseFloat(pctStr) || 0;
+    const rate = parseFloat(directRate) || 0;
+    const effDiscQ = getEffectiveDiscQty(directDiscQty, directQty);
+    const computedAmt = (rate * effDiscQ * pct) / 100;
+    setDirectDiscAmtInput(computedAmt.toFixed(2));
+  };
+
+  // Handle Disc.Amt input change (computes and updates Disc. % based on Disc Qty)
   const handleDiscAmtChange = (amtStr: string) => {
     setDirectDiscAmtInput(amtStr);
     const amt = parseFloat(amtStr) || 0;
-    if (directValue > 0) {
-      const computedPct = (amt / directValue) * 100;
+    const rate = parseFloat(directRate) || 0;
+    const effDiscQ = getEffectiveDiscQty(directDiscQty, directQty);
+    const baseVal = rate * effDiscQ;
+
+    if (baseVal > 0) {
+      const computedPct = (amt / baseVal) * 100;
       setDirectDiscPct(computedPct.toFixed(2));
     } else {
       setDirectDiscPct("0.00");
     }
   };
 
+  // Handle Rate or Qty changes
   const handleRateOrQtyChange = (newRate: string, newQty: string) => {
     setDirectRate(newRate);
     setDirectQty(newQty);
     const r = parseFloat(newRate) || 0;
-    const q = parseFloat(newQty) || 0;
-    const val = r * q;
+    // If discQty was previously matching the old qty, update it
+    let dQty = directDiscQty;
+    if (directDiscQty === "" || directDiscQty === directQty) {
+      dQty = newQty;
+      setDirectDiscQty(newQty);
+    }
+    const effDiscQ = getEffectiveDiscQty(dQty, newQty);
     const pct = parseFloat(directDiscPct) || 0;
-    setDirectDiscAmtInput(((val * pct) / 100).toFixed(2));
+    setDirectDiscAmtInput(((r * effDiscQ * pct) / 100).toFixed(2));
   };
 
   const directDiscAmt = parseFloat(directDiscAmtInput) || 0;
@@ -202,7 +238,6 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [showLoyaltyModal, setShowLoyaltyModal] = useState<boolean>(false);
   const [showReturnModal, setShowReturnModal] = useState<boolean>(false);
-  const [showReturnBlindModal, setShowReturnBlindModal] = useState<boolean>(false);
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showCustomerBrowseModal, setShowCustomerBrowseModal] = useState<boolean>(false);
@@ -242,7 +277,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const totalItemsCount = cartItems.length;
   const totalQuantity = useMemo(() => cartItems.reduce((acc, it) => acc + it.qty, 0), [cartItems]);
   const grossSalesValue = useMemo(() => cartItems.reduce((acc, it) => acc + (it.qty * it.unitPrice), 0), [cartItems]);
-  const itemDiscountsTotal = useMemo(() => cartItems.reduce((acc, it) => acc + (it.discountAmt * it.qty), 0), [cartItems]);
+  const itemDiscountsTotal = useMemo(() => cartItems.reduce((acc, it) => acc + it.discountAmt, 0), [cartItems]);
   const totalTaxAmount = useMemo(() => cartItems.reduce((acc, it) => acc + (it.taxAmt * it.qty), 0), [cartItems]);
   const netPayableAmount = useMemo(() => {
     const raw = grossSalesValue - itemDiscountsTotal;
@@ -265,6 +300,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     setDirectStockNo("");
     setDirectDescription("");
     setDirectQty("1.00");
+    setDirectDiscQty("1.00");
     setDirectDiscPct("10.00");
     setDirectDiscAmtInput("99.90");
     setActiveActivity("BILLING");
@@ -313,16 +349,18 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     const desc = directDescription.trim() || `regular straight Med Beige`;
     const rate = parseFloat(directRate) || 999.00;
     const qty = parseFloat(directQty) || 1.00;
+    const effDiscQ = getEffectiveDiscQty(directDiscQty, directQty);
     const discPct = parseFloat(directDiscPct) || 10.00;
-    const discAmt = parseFloat(directDiscAmtInput) || (rate * (discPct / 100));
-    const taxable = rate - discAmt;
-    const taxAmt = taxable * 0.05;
+    const discAmt = parseFloat(directDiscAmtInput) || ((rate * effDiscQ * discPct) / 100);
+    const taxable = (rate * qty) - discAmt;
+    const taxAmt = (taxable / qty) * 0.05;
     const staff = directStaff || salesStaff;
 
     const existingIndex = cartItems.findIndex(
       it => (it.sku === stockCode || it.barcode === stockCode) &&
             it.unitPrice === rate &&
-            Math.abs(it.discountAmt - discAmt) < 0.01 &&
+            Math.abs((it.discQty || 0) - effDiscQ) < 0.01 &&
+            Math.abs(it.discountPct - discPct) < 0.01 &&
             it.salesStaff === staff
     );
 
@@ -331,15 +369,19 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         const next = [...prev];
         const cur = next[existingIndex];
         const newQty = cur.qty + qty;
+        const newDiscQ = (cur.discQty || 0) + effDiscQ;
+        const newDiscAmt = (cur.unitPrice * newDiscQ * cur.discountPct) / 100;
         next[existingIndex] = {
           ...cur,
           qty: newQty,
-          lineTotal: (cur.unitPrice - cur.discountAmt) * newQty
+          discQty: newDiscQ,
+          discountAmt: newDiscAmt,
+          lineTotal: (cur.unitPrice * newQty) - newDiscAmt
         };
         return next;
       });
       setSelectedRowIndex(existingIndex);
-      onNotification?.("Item Clubbed", `Repeated item ${stockCode} clubbed (+${qty.toFixed(2)} qty).`, "info");
+      onNotification?.("Item Clubbed", `Repeated item ${stockCode} clubbed (+${qty.toFixed(2)} qty, ${effDiscQ.toFixed(2)} disc qty).`, "info");
     } else {
       const newItem: ProPosCartItem = {
         id: `item-${Date.now()}`,
@@ -354,22 +396,24 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         qty: qty,
         mrp: rate,
         unitPrice: rate,
+        discCode: directDiscCode || "ILD",
+        discQty: effDiscQ,
         discountPct: discPct,
         discountAmt: discAmt,
         taxPct: 5.00,
         taxAmt: taxAmt,
-        lineTotal: (rate - discAmt) * qty
+        lineTotal: (rate * qty) - discAmt
       };
 
       setCartItems(prev => [...prev, newItem]);
       setSelectedRowIndex(cartItems.length);
-      onNotification?.("Item Accepted", `Stock ${stockCode} accepted (₹${discAmt.toFixed(2)} Disc Amt).`, "success");
+      onNotification?.("Item Accepted", `Stock ${stockCode} accepted (${effDiscQ.toFixed(2)} Disc Qty, ₹${discAmt.toFixed(2)} Disc Amt).`, "success");
     }
 
     setDirectStockNo("");
     setDirectDescription("");
     setDirectQty("1.00");
-    setDirectDiscQty("");
+    setDirectDiscQty("1.00");
     setDirectDiscPct("10.00");
     setDirectDiscAmtInput("99.90");
     directStockNoRef.current?.focus();
@@ -390,6 +434,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       qty: it.qty || 1.00,
       mrp: it.mrp || 999.00,
       unitPrice: it.unitPrice || 999.00,
+      discCode: "ILD",
+      discQty: it.qty || 1.00,
       discountPct: it.discountPct || 10.00,
       discountAmt: it.discountAmt || 99.90,
       taxPct: it.taxPct || 5.00,
@@ -464,48 +510,33 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     onNotification?.("Invoice Finalized", `Invoice ${generatedBillNo} generated successfully!`, "success");
   };
 
-  // --- Complete Global POS Keyboard Shortcuts (Alt+1, Alt+2, Alt+3, Alt+5, Alt+6, Alt+H, F2, F7, F8, F9, F10) ---
+  // --- Complete Global POS Keyboard Shortcuts ---
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      // Alt+1: Create a new bill
       if (e.altKey && e.key === "1") {
         e.preventDefault();
         handleNewBill();
-      }
-      // Alt+2: Void / cancel a bill
-      else if (e.altKey && e.key === "2") {
+      } else if (e.altKey && e.key === "2") {
         e.preventDefault();
         setShowCancelModal(true);
-      }
-      // Alt+3: Record sales return WITH reference
-      else if (e.altKey && e.key === "3") {
+      } else if (e.altKey && e.key === "3") {
         e.preventDefault();
         setActiveActivity("RETURN");
         setShowReturnModal(true);
-      }
-      // Alt+5: Record sales return WITHOUT reference
-      else if (e.altKey && e.key === "5") {
+      } else if (e.altKey && e.key === "5") {
         e.preventDefault();
         setActiveActivity("RETURN_BLIND");
         setShowReturnModal(true);
-      }
-      // Alt+6: Reprint a bill or sales return document
-      else if (e.altKey && e.key === "6") {
+      } else if (e.altKey && e.key === "6") {
         e.preventDefault();
         setShowReprintModal(true);
-      }
-      // Alt+H: Hotkeys list
-      else if (e.altKey && (e.key === "h" || e.key === "H")) {
+      } else if (e.altKey && (e.key === "h" || e.key === "H")) {
         e.preventDefault();
         setShowHotkeysModal(true);
-      }
-      // F2: Customer Browse
-      else if (e.key === "F2") {
+      } else if (e.key === "F2") {
         e.preventDefault();
         setShowCustomerBrowseModal(true);
-      }
-      // F7: Exact Cash
-      else if (e.key === "F7") {
+      } else if (e.key === "F7") {
         e.preventDefault();
         if (cartItems.length > 0) {
           handleSettlementSuccess({
@@ -518,20 +549,14 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             creditNote: 0
           }, 0);
         }
-      }
-      // F8: Settle modal
-      else if (e.key === "F8") {
+      } else if (e.key === "F8") {
         e.preventDefault();
         if (cartItems.length > 0) setShowSettlementModal(true);
-      }
-      // F9: Display / Toggle total values breakdown
-      else if (e.key === "F9") {
+      } else if (e.key === "F9") {
         e.preventDefault();
         setShowTotalsPanel(prev => !prev);
         onNotification?.("Totals Toggled", "Bill totals panel toggled [F9].", "info");
-      }
-      // F10: Settle & Print
-      else if (e.key === "F10") {
+      } else if (e.key === "F10") {
         e.preventDefault();
         if (cartItems.length > 0) setShowSettlementModal(true);
       }
@@ -783,7 +808,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           </select>
         </div>
 
-        {/* Header Action Buttons (PDT Import, Recall, Hold, Void) */}
+        {/* Header Action Buttons (PDT Import, Recall, Hold) */}
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -874,16 +899,16 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                         {(item.unitPrice * item.qty).toFixed(2)}
                       </td>
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center">
-                        <span className="font-bold text-[10px]">ILD</span>
+                        <span className="font-bold text-[10px]">{item.discCode || "ILD"}</span>
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
-                        0.00
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold text-[#00288e] dark:text-[#a8b8ff]">
+                        {(item.discQty !== undefined ? item.discQty : item.qty).toFixed(2)}
                       </td>
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
                         {item.discountPct.toFixed(2)}
                       </td>
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold text-[#ba1a1a]">
-                        {(item.discountAmt * item.qty).toFixed(2)}
+                        {item.discountAmt.toFixed(2)}
                       </td>
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
                         {item.lineTotal.toFixed(2)}
@@ -940,7 +965,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Qty</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Value</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-center">Disc Code</div>
-              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc Qty</div>
+              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right text-[#00288e] dark:text-[#a8b8ff]">Disc Qty</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc. %</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc.Amt</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Total</div>
@@ -1021,19 +1046,22 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                   className="w-full h-8 px-1 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-[11px] font-bold outline-none focus:border-[#00288e]"
                 >
                   <option value="ILD">ILD</option>
+                  <option value="B2G1">B2G1</option>
                   <option value="SCHEME">SCHEME</option>
                   <option value="NONE">NONE</option>
                 </select>
               </div>
 
-              {/* Disc Qty */}
+              {/* Disc Qty Input (Drives Discount Eligible Units!) */}
               <div className="col-span-1">
                 <input
                   type="text"
                   value={directDiscQty}
-                  onChange={e => setDirectDiscQty(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono text-right outline-none focus:border-[#00288e]"
+                  onChange={e => handleDiscQtyChange(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
+                  placeholder="Disc Qty"
+                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border-2 border-[#00288e] rounded text-xs font-mono font-bold text-right text-[#00288e] dark:text-[#a8b8ff] outline-none"
+                  title="Quantity eligible for discount"
                 />
               </div>
 

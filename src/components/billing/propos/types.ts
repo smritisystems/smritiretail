@@ -25,6 +25,8 @@ export interface ProPosCartItem {
   qty: number;
   mrp: number;
   unitPrice: number;
+  discCode?: string;
+  discQty?: number;
   discountPct: number;
   discountAmt: number;
   taxPct: number;
@@ -72,80 +74,23 @@ export interface SuspendedBill {
   itemCount: number;
   totalQty: number;
   netAmount: number;
-  notes?: string;
 }
 
 export interface CancelledBillRecord {
   id: string;
   billNo: string;
-  originalDate: string;
+  date: string;
   customerName: string;
   amount: number;
   reasonCode: string;
-  reasonNotes: string;
+  reasonText: string;
   authorizedBy: string;
-  cancelledAt: string;
 }
 
 export interface ReturnItem {
-  sku: string;
-  name: string;
-  originalQty: number;
+  cartItem: ProPosCartItem;
   returnQty: number;
-  unitPrice: number;
-  refundAmount: number;
-  returnReason: string;
+  reasonCode: string;
   condition: "Good" | "Defective" | "Damaged";
-}
-
-export interface EodRegisterCloseout {
-  registerId: string;
-  shiftId: string;
-  openedAt: string;
-  closedAt: string;
-  cashierName: string;
-  openingFloat: number;
-  systemCash: number;
-  actualCash: number;
-  systemCard: number;
-  actualCard: number;
-  systemUpi: number;
-  actualUpi: number;
-  totalBills: number;
-  totalItemsSold: number;
-  grossSales: number;
-  discountsTotal: number;
-  netSales: number;
-  returnsTotal: number;
-  cashVariance: number;
-  status: "Balanced" | "Variance_Detected" | "Audit_Required";
-  remarks?: string;
-}
-
-export interface PromotionRule {
-  id: string;
-  name: string;
-  code: string;
-  type: "BUY_X_GET_Y" | "FLAT_DISCOUNT" | "PERCENT_DISCOUNT" | "BUNDLE_COMBO" | "HAPPY_HOURS";
-  description: string;
-  startDate: string;
-  endDate: string;
-  minBillAmount?: number;
-  minQuantity?: number;
-  discountValue: number;
-  applicableCategories?: string[];
-  isActive: boolean;
-  usageCount: number;
-}
-
-export interface CommissionRule {
-  id: string;
-  salesStaffCode: string;
-  staffName: string;
-  category: string;
-  tierMin: number;
-  tierMax: number;
-  commissionPct: number;
-  effectiveFrom: string;
-  isActive: boolean;
+  refundAmount: number;
 }
