@@ -1,0 +1,1109 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 6.0.0
+ * Created      : 2026-08-21
+ * Modified     : 2026-08-21
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Classification: Internal
+ */
+
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { 
+  ProPosCartItem, 
+  ProPosCustomer, 
+  ProPosTenderSplit, 
+  SuspendedBill, 
+  CancelledBillRecord,
+  ReturnItem 
+} from "./types.ts";
+import { SmritiProPosSettlementModal } from "./SmritiProPosSettlementModal.tsx";
+import { SmritiProPosRecallModal } from "./SmritiProPosRecallModal.tsx";
+import { SmritiProPosCancellationModal } from "./SmritiProPosCancellationModal.tsx";
+import { SmritiProPosLoyaltyLookupModal } from "./SmritiProPosLoyaltyLookupModal.tsx";
+import { SmritiProPosSalesReturnModal } from "./SmritiProPosSalesReturnModal.tsx";
+import { SmritiProPosTaxInvoiceReceipt } from "./SmritiProPosTaxInvoiceReceipt.tsx";
+import { SmritiProPosPdtImportModal } from "./SmritiProPosPdtImportModal.tsx";
+import { SmritiCustomerBrowseModal } from "./SmritiCustomerBrowseModal.tsx";
+import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { 
+  Barcode, 
+  Search, 
+  History, 
+  Award, 
+  Trash2, 
+  Plus, 
+  Minus, 
+  Printer, 
+  CheckCircle, 
+  AlertCircle, 
+  User, 
+  X,
+  RotateCcw,
+  ShieldAlert,
+  Pause,
+  Play,
+  CornerDownLeft,
+  UploadCloud,
+  FileSpreadsheet,
+  Calendar,
+  Clock,
+  ChevronRight
+} from "lucide-react";
+
+interface SmritiProPosBillingTerminalProps {
+  onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
+}
+
+export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalProps> = ({
+  onNotification
+}) => {
+  // --- Header Group State ---
+  const [billType, setBillType] = useState<"Product" | "Service">("Product");
+  const [transactionType, setTransactionType] = useState<"Cash" | "Credit">("Cash");
+  const [billDocPrefix, setBillDocPrefix] = useState<string>("INV");
+  const [billDocNumber, setBillDocNumber] = useState<string>("84920");
+  const [currentDateTime, setCurrentDateTime] = useState<string>(() => {
+    const d = new Date();
+    return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  });
+
+  const [customer, setCustomer] = useState<ProPosCustomer>({
+    id: "cust-01",
+    code: "C01",
+    name: "Customer01 (Walk-in)",
+    phone: "9876543210",
+    loyaltyPoints: 1200,
+    loyaltyTier: "Gold",
+    creditLimit: 50000,
+    currentBalance: 0
+  });
+
+  const [salesStaff, setSalesStaff] = useState<string>("SM1");
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
+
+  // --- Detail Group: Accepted Item Details Grid State ---
+  const [cartItems, setCartItems] = useState<ProPosCartItem[]>([
+    {
+      id: "item-init-1",
+      itemNo: 1,
+      sku: "8887462974641",
+      barcode: "8887462974641",
+      name: "regular straight Med Beige",
+      size: "32",
+      color: "Beige",
+      brand: "SMRITI",
+      salesStaff: "SM1",
+      qty: 1.00,
+      mrp: 999.00,
+      unitPrice: 999.00,
+      discountPct: 10.00,
+      discountAmt: 99.90,
+      taxPct: 5.00,
+      taxAmt: 42.81,
+      lineTotal: 899.10
+    },
+    {
+      id: "item-init-2",
+      itemNo: 2,
+      sku: "8887462974825",
+      barcode: "8887462974825",
+      name: "regular straight Med Beige",
+      size: "34",
+      color: "Beige",
+      brand: "SMRITI",
+      salesStaff: "SM1",
+      qty: 1.00,
+      mrp: 999.00,
+      unitPrice: 999.00,
+      discountPct: 10.00,
+      discountAmt: 99.90,
+      taxPct: 5.00,
+      taxAmt: 42.81,
+      lineTotal: 899.10
+    }
+  ]);
+
+  // --- Detail Group: Direct Entry Grid State ---
+  const [directStockNo, setDirectStockNo] = useState<string>("");
+  const [directDescription, setDirectDescription] = useState<string>("");
+  const [directRate, setDirectRate] = useState<string>("999.00");
+  const [directQty, setDirectQty] = useState<string>("1.00");
+  const [directDiscCode, setDirectDiscCode] = useState<string>("ILD");
+  const [directDiscQty, setDirectDiscQty] = useState<string>("");
+  const [directDiscPct, setDirectDiscPct] = useState<string>("10.00");
+  const [directStaff, setDirectStaff] = useState<string>("SM1");
+
+  const directStockNoRef = useRef<HTMLInputElement | null>(null);
+
+  // Direct Entry Computed Values
+  const directValue = useMemo(() => {
+    const rate = parseFloat(directRate) || 0;
+    const qty = parseFloat(directQty) || 0;
+    return rate * qty;
+  }, [directRate, directQty]);
+
+  const directDiscAmt = useMemo(() => {
+    const pct = parseFloat(directDiscPct) || 0;
+    return (directValue * pct) / 100;
+  }, [directValue, directDiscPct]);
+
+  const directTotal = useMemo(() => {
+    return Math.max(0, directValue - directDiscAmt);
+  }, [directValue, directDiscAmt]);
+
+  // --- Suspended Bills & Recalls State ---
+  const [suspendedBills, setSuspendedBills] = useState<SuspendedBill[]>([]);
+
+  // --- Modals State ---
+  const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
+  const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
+  const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
+  const [showLoyaltyModal, setShowLoyaltyModal] = useState<boolean>(false);
+  const [showReturnModal, setShowReturnModal] = useState<boolean>(false);
+  const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
+  const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
+  const [showCustomerBrowseModal, setShowCustomerBrowseModal] = useState<boolean>(false);
+
+  // Last Completed Invoice for Tax Printing
+  const [lastCompletedBill, setLastCompletedBill] = useState<{
+    billNo: string;
+    billDate: string;
+    customer: ProPosCustomer;
+    salesStaff: string;
+    items: ProPosCartItem[];
+    subTotal: number;
+    discountTotal: number;
+    taxTotal: number;
+    netPayable: number;
+    tenders?: ProPosTenderSplit;
+    changeDue?: number;
+  } | null>(null);
+
+  // Live timer for header clock
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const d = new Date();
+      setCurrentDateTime(`${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Focus direct entry input on mount
+  useEffect(() => {
+    directStockNoRef.current?.focus();
+  }, []);
+
+  // --- Footer Totals Calculations ---
+  const totalItemsCount = cartItems.length;
+  const totalQuantity = useMemo(() => cartItems.reduce((acc, it) => acc + it.qty, 0), [cartItems]);
+  const grossSalesValue = useMemo(() => cartItems.reduce((acc, it) => acc + (it.qty * it.unitPrice), 0), [cartItems]);
+  const itemDiscountsTotal = useMemo(() => cartItems.reduce((acc, it) => acc + (it.discountAmt * it.qty), 0), [cartItems]);
+  const totalTaxAmount = useMemo(() => cartItems.reduce((acc, it) => acc + (it.taxAmt * it.qty), 0), [cartItems]);
+  const netPayableAmount = useMemo(() => {
+    const raw = grossSalesValue - itemDiscountsTotal;
+    return Math.round(raw * 100) / 100;
+  }, [grossSalesValue, itemDiscountsTotal]);
+
+  // Stock No / Barcode Lookup on typing or scanning
+  const handleDirectStockNoLookup = async (code: string) => {
+    if (!code.trim()) return;
+    const term = code.trim();
+
+    try {
+      const resp = await apiFetchV1<any>(`/inventory/products?search=${encodeURIComponent(term)}&limit=1`);
+      if (resp && resp.items && resp.items.length > 0) {
+        const p = resp.items[0];
+        setDirectDescription(p.product_name || p.name || `Retail Item ${term}`);
+        setDirectRate((parseFloat(p.selling_price || p.mrp) || 999.00).toFixed(2));
+        return;
+      }
+    } catch (e) {
+      console.warn("Direct lookup fallback to auto-generated details", e);
+    }
+
+    if (!directDescription) {
+      setDirectDescription(`regular straight Med Beige`);
+    }
+  };
+
+  // Accept Item from Direct Entry Grid into Item Details Grid (with repeated item clubbing support)
+  const handleAcceptDirectEntryItem = () => {
+    if (!directStockNo.trim()) {
+      onNotification?.("Stock No Required", "Please enter a Stock No or scan a barcode.", "error");
+      directStockNoRef.current?.focus();
+      return;
+    }
+
+    // Mandatory customer check for Credit billing
+    if (transactionType === "Credit" && (!customer.code || customer.code === "C01" && customer.name.includes("Walk-in"))) {
+      onNotification?.("Customer Required", "Credit billing requires a registered customer account.", "error");
+      setShowCustomerBrowseModal(true);
+      return;
+    }
+
+    const stockCode = directStockNo.trim();
+    const desc = directDescription.trim() || `regular straight Med Beige`;
+    const rate = parseFloat(directRate) || 999.00;
+    const qty = parseFloat(directQty) || 1.00;
+    const discPct = parseFloat(directDiscPct) || 10.00;
+    const discAmt = (rate * (discPct / 100));
+    const taxable = rate - discAmt;
+    const taxAmt = taxable * 0.05;
+    const staff = directStaff || salesStaff;
+
+    // Check if item should be clubbed (same Stock No, Rate, Disc Code, Disc %, and Sales Staff)
+    const existingIndex = cartItems.findIndex(
+      it => (it.sku === stockCode || it.barcode === stockCode) &&
+            it.unitPrice === rate &&
+            it.discountPct === discPct &&
+            it.salesStaff === staff
+    );
+
+    if (existingIndex >= 0) {
+      // Club duplicated item quantities
+      setCartItems(prev => {
+        const next = [...prev];
+        const cur = next[existingIndex];
+        const newQty = cur.qty + qty;
+        next[existingIndex] = {
+          ...cur,
+          qty: newQty,
+          lineTotal: (cur.unitPrice - cur.discountAmt) * newQty
+        };
+        return next;
+      });
+      setSelectedRowIndex(existingIndex);
+      onNotification?.("Item Clubbed", `Repeated item ${stockCode} clubbed (+${qty.toFixed(2)} qty).`, "info");
+    } else {
+      // Append new accepted line item into Item Details Grid
+      const newItem: ProPosCartItem = {
+        id: `item-${Date.now()}`,
+        itemNo: cartItems.length + 1,
+        sku: stockCode,
+        barcode: stockCode,
+        name: desc,
+        size: "32",
+        color: "Beige",
+        brand: "SMRITI",
+        salesStaff: staff,
+        qty: qty,
+        mrp: rate,
+        unitPrice: rate,
+        discountPct: discPct,
+        discountAmt: discAmt,
+        taxPct: 5.00,
+        taxAmt: taxAmt,
+        lineTotal: (rate - discAmt) * qty
+      };
+
+      setCartItems(prev => [...prev, newItem]);
+      setSelectedRowIndex(cartItems.length);
+      onNotification?.("Item Accepted", `Stock ${stockCode} accepted into Item Details Grid.`, "success");
+    }
+
+    // Clear direct entry inputs and focus back to Stock No
+    setDirectStockNo("");
+    setDirectDescription("");
+    setDirectQty("1.00");
+    setDirectDiscQty("");
+    directStockNoRef.current?.focus();
+  };
+
+  // Import PDT Items callback
+  const handlePdtImportSuccess = (imported: Partial<ProPosCartItem>[]) => {
+    const converted: ProPosCartItem[] = imported.map((it, idx) => ({
+      id: `pdt-${Date.now()}-${idx}`,
+      itemNo: cartItems.length + idx + 1,
+      sku: it.sku || `SKU-${idx + 1}`,
+      barcode: it.barcode || it.sku || `SKU-${idx + 1}`,
+      name: it.name || `Imported Item ${it.sku}`,
+      size: it.size || "M",
+      color: it.color || "Standard",
+      brand: it.brand || "SMRITI",
+      salesStaff: salesStaff,
+      qty: it.qty || 1.00,
+      mrp: it.mrp || 999.00,
+      unitPrice: it.unitPrice || 999.00,
+      discountPct: it.discountPct || 10.00,
+      discountAmt: it.discountAmt || 99.90,
+      taxPct: it.taxPct || 5.00,
+      taxAmt: it.taxAmt || 42.81,
+      lineTotal: it.lineTotal || 899.10
+    }));
+
+    setCartItems(prev => [...prev, ...converted]);
+    onNotification?.("PDT Loaded", `Successfully imported ${converted.length} items from PDT.`, "success");
+  };
+
+  // Remove Item from Grid
+  const handleRemoveItem = (id: string) => {
+    setCartItems(prev => prev.filter(it => it.id !== id).map((it, idx) => ({ ...it, itemNo: idx + 1 })));
+  };
+
+  // Hold / Suspend Current Bill
+  const handleHoldBill = () => {
+    if (cartItems.length === 0) {
+      onNotification?.("Empty Cart", "No items to hold/suspend.", "error");
+      return;
+    }
+
+    const newSuspended: SuspendedBill = {
+      id: `susp-${Date.now()}`,
+      billNo: `SUSP-${Date.now().toString().slice(-4)}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      customer,
+      salesStaff,
+      items: cartItems,
+      itemCount: totalItemsCount,
+      totalQty: totalQuantity,
+      netAmount: netPayableAmount
+    };
+
+    setSuspendedBills(prev => [newSuspended, ...prev]);
+    setCartItems([]);
+    onNotification?.("Bill Suspended", `Bill ${newSuspended.billNo} suspended to queue.`, "info");
+  };
+
+  // Recall Bill
+  const handleRecallBill = (bill: SuspendedBill) => {
+    setCartItems(bill.items);
+    setCustomer(bill.customer);
+    setSalesStaff(bill.salesStaff);
+    setSuspendedBills(prev => prev.filter(b => b.id !== bill.id));
+    onNotification?.("Bill Restored", `Restored bill ${bill.billNo} to terminal.`, "success");
+  };
+
+  // Settlement Success
+  const handleSettlementSuccess = (tenders: ProPosTenderSplit, changeDue: number) => {
+    const generatedBillNo = `${billDocPrefix}-${billDocNumber}`;
+    const billRecord = {
+      billNo: generatedBillNo,
+      billDate: new Date().toISOString().slice(0, 10),
+      customer,
+      salesStaff,
+      items: cartItems,
+      subTotal: grossSalesValue,
+      discountTotal: itemDiscountsTotal,
+      taxTotal: totalTaxAmount,
+      netPayable: netPayableAmount,
+      tenders,
+      changeDue
+    };
+
+    setLastCompletedBill(billRecord);
+    setShowSettlementModal(false);
+    setShowReceiptModal(true);
+    setCartItems([]);
+    setBillDocNumber((prev) => (parseInt(prev) + 1).toString());
+    onNotification?.("Invoice Finalized", `Invoice ${generatedBillNo} generated successfully!`, "success");
+  };
+
+  // Keyboard Shortcuts Handler (F2 Customer, F7 Exact Cash, F8 Settlement, F10 Settle & Print)
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        setShowCustomerBrowseModal(true);
+      } else if (e.key === "F7") {
+        e.preventDefault();
+        if (cartItems.length > 0) {
+          handleSettlementSuccess({
+            cash: netPayableAmount,
+            card: 0,
+            upi: 0,
+            giftVoucher: 0,
+            loyaltyPointsRedeemed: 0,
+            loyaltyAmount: 0,
+            creditNote: 0
+          }, 0);
+        }
+      } else if (e.key === "F8") {
+        e.preventDefault();
+        if (cartItems.length > 0) setShowSettlementModal(true);
+      } else if (e.key === "F10") {
+        e.preventDefault();
+        if (cartItems.length > 0) setShowSettlementModal(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalShortcuts);
+    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
+  }, [cartItems, netPayableAmount, customer, salesStaff, billDocPrefix, billDocNumber]);
+
+  const emptyRowsCount = Math.max(0, 10 - cartItems.length);
+
+  return (
+    <div className="h-full flex flex-col bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-hidden font-sans select-none">
+      
+      {/* ========================================================================= */}
+      {/* 1. HEADER GROUP: Bill Type, Tx Type, Doc Prefix, Customer, Staff, PDT    */}
+      {/* ========================================================================= */}
+      <section className="bg-white dark:bg-[#131b2e] px-5 py-2.5 border-b border-[#c4c5d5] dark:border-[#444653] shrink-0 flex flex-wrap gap-3 items-end shadow-xs">
+        
+        {/* Bill Type (Product / Service) */}
+        <div className="flex flex-col gap-1 w-28">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+            Bill Type
+          </label>
+          <select
+            value={billType}
+            onChange={e => setBillType(e.target.value as any)}
+            className="border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] text-[#191c1e] dark:text-white outline-none focus:border-[#00288e]"
+          >
+            <option value="Product">Product</option>
+            <option value="Service">Service</option>
+          </select>
+        </div>
+
+        {/* Transaction Type (Cash / Credit) */}
+        <div className="flex flex-col gap-1 w-24">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+            Tx Type
+          </label>
+          <select
+            value={transactionType}
+            onChange={e => setTransactionType(e.target.value as any)}
+            className={`border rounded-lg px-2 h-8 text-xs font-bold outline-none ${
+              transactionType === "Credit"
+                ? "bg-[#dde1ff] text-[#00288e] border-[#00288e]"
+                : "bg-white dark:bg-[#191c1e] text-[#191c1e] dark:text-white border-[#c4c5d5]"
+            }`}
+          >
+            <option value="Cash">Cash</option>
+            <option value="Credit">Credit</option>
+          </select>
+        </div>
+
+        {/* Bill Doc Prefix & Number */}
+        <div className="flex flex-col gap-1 w-32">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+            Doc Prefix / No
+          </label>
+          <div className="flex gap-1">
+            <input
+              type="text"
+              value={billDocPrefix}
+              onChange={e => setBillDocPrefix(e.target.value)}
+              className="w-12 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-1 h-8 text-xs font-mono font-bold bg-[#f3f4f5] dark:bg-[#2d3133] text-center outline-none"
+            />
+            <input
+              type="text"
+              readOnly
+              value={billDocNumber}
+              className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-mono font-bold bg-[#f3f4f5] dark:bg-[#2d3133] text-[#00288e] dark:text-[#a8b8ff] outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Current Date & Time (Readonly) */}
+        <div className="flex flex-col gap-1 w-36">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+            Bill Date &amp; Time
+          </label>
+          <input
+            type="text"
+            readOnly
+            value={currentDateTime}
+            className="border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-[11px] font-mono bg-[#f3f4f5] dark:bg-[#2d3133] text-[#565e74] dark:text-[#bec6e0] outline-none"
+          />
+        </div>
+
+        {/* Customer Code & Name (with F2 Browse Window) */}
+        <div className="flex flex-col gap-1 flex-1 min-w-[240px]">
+          <div className="flex justify-between items-center">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+              Customer Code &amp; Name
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowCustomerBrowseModal(true)}
+              className="text-[10px] font-bold text-[#00288e] dark:text-[#a8b8ff] hover:underline flex items-center gap-0.5"
+            >
+              <span>[F2] Browse</span>
+            </button>
+          </div>
+          <div className="flex gap-1.5">
+            <input
+              type="text"
+              value={customer.code}
+              onChange={e => setCustomer(prev => ({ ...prev, code: e.target.value }))}
+              placeholder="Code..."
+              className="w-20 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-mono font-bold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
+            />
+            <input
+              type="text"
+              value={customer.name}
+              onChange={e => setCustomer(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Customer Name..."
+              className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2.5 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
+            />
+          </div>
+        </div>
+
+        {/* Sales Staff ID */}
+        <div className="flex flex-col gap-1 w-28">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+            Sales Staff
+          </label>
+          <select
+            value={salesStaff}
+            onChange={e => {
+              setSalesStaff(e.target.value);
+              setDirectStaff(e.target.value);
+            }}
+            className="border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
+          >
+            <option value="SM1">SM1</option>
+            <option value="SM2">SM2</option>
+            <option value="SM3">SM3</option>
+          </select>
+        </div>
+
+        {/* Header Action Buttons (PDT Import, Recall, Hold, Void) */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setShowPdtImportModal(true)}
+            className="h-8 px-2.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#2d3133] hover:bg-[#f3f4f5] transition text-xs font-bold flex items-center gap-1 shadow-2xs"
+            title="Import PDT File or Transaction"
+          >
+            <UploadCloud size={13} />
+            <span>Import</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowRecallModal(true)}
+            className="h-8 px-2.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white hover:brightness-105 transition text-xs font-bold flex items-center gap-1 shadow-2xs"
+          >
+            <History size={13} />
+            <span>Recall ({suspendedBills.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleHoldBill}
+            disabled={cartItems.length === 0}
+            className="h-8 px-2.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#2d3133] hover:bg-[#f3f4f5] transition text-xs font-bold flex items-center gap-1 shadow-2xs disabled:opacity-40"
+          >
+            <Pause size={13} />
+            <span>Hold</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowCancelModal(true)}
+            className="h-8 px-2.5 border border-[#ba1a1a]/30 rounded-lg bg-[#ffdad6] dark:bg-[#93000a]/20 text-[#ba1a1a] hover:bg-[#ffdad6]/80 transition text-xs font-bold flex items-center gap-1 shadow-2xs"
+          >
+            <ShieldAlert size={13} />
+            <span>Void</span>
+          </button>
+        </div>
+
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 2. DETAIL GROUP: Item Details Grid (Top) + Direct Entry Grid (Bottom)     */}
+      {/* ========================================================================= */}
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden p-3 gap-3">
+        
+        {/* Left Side: Dual-Grid Workspace (Item Details + Direct Entry) */}
+        <div className="flex-1 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-xl overflow-hidden flex flex-col shadow-xs">
+          
+          {/* Top: Item Details Grid (Accepted Items) */}
+          <div className="overflow-auto flex-1 bg-white dark:bg-[#131b2e]">
+            <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[1020px]">
+              <thead className="bg-[#edeae1] dark:bg-[#252836] sticky top-0 z-10 border-b border-[#c4c5d5] dark:border-[#444653] text-[11px] font-bold text-[#444653] dark:text-[#bec6e0]">
+                <tr className="h-8">
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] w-36">Stock No</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Rate</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Qty</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Value</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-24">Disc Code</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Disc Qty</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Disc. %</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Disc.Amt</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24 font-bold text-[#191c1d] dark:text-white">Total</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-24">SalesStaff</th>
+                  <th className="px-2 text-center w-10">Del</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133] font-mono text-[11px]">
+                {cartItems.map((item, idx) => {
+                  const isSelected = selectedRowIndex === idx;
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => setSelectedRowIndex(idx)}
+                      className={`h-7 cursor-pointer transition ${
+                        isSelected
+                          ? "bg-[#ffffcc] dark:bg-[#3a3a1a] text-black dark:text-yellow-200 font-semibold"
+                          : "hover:bg-[#f8f9fa] dark:hover:bg-[#1d222e]"
+                      }`}
+                    >
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] font-bold">
+                        {item.sku}
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] font-sans font-medium truncate max-w-[280px]">
+                        {item.name}
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                        {item.unitPrice.toFixed(2)}
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
+                        {item.qty.toFixed(2)}
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                        {(item.unitPrice * item.qty).toFixed(2)}
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center">
+                        <span className="font-bold text-[10px]">ILD</span>
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                        0.00
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                        {item.discountPct.toFixed(2)}
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                        {(item.discountAmt * item.qty).toFixed(2)}
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
+                        {item.lineTotal.toFixed(2)}
+                      </td>
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center">
+                        {item.salesStaff}
+                      </td>
+                      <td className="px-2 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveItem(item.id);
+                          }}
+                          className="text-[#ba1a1a] hover:bg-[#ffdad6] p-0.5 rounded transition"
+                          title="Remove Row"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {/* Empty Filler Rows */}
+                {Array.from({ length: emptyRowsCount }).map((_, i) => (
+                  <tr key={`empty-${i}`} className="h-7 border-b border-[#eceef0] dark:border-[#2d3133]">
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
+                    <td></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Bottom: Direct Entry Grid Header & Input Strip */}
+          <div className="border-t-2 border-[#a4a5b5] dark:border-[#5c5d6c] bg-[#edeae1] dark:bg-[#252836] shrink-0 shadow-sm">
+            
+            {/* Direct Entry Header Row (Exact Column Headers) */}
+            <div className="grid grid-cols-12 text-[11px] font-bold text-[#444653] dark:text-[#bec6e0] border-b border-[#c4c5d5] dark:border-[#444653] py-1 px-1 bg-[#e4e1d7] dark:bg-[#1d202d] min-w-[1020px]">
+              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Stock No</div>
+              <div className="col-span-3 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</div>
+              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Rate</div>
+              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Qty</div>
+              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Value</div>
+              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-center">Disc Code</div>
+              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc Qty</div>
+              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc. %</div>
+              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc.Amt</div>
+            </div>
+
+            {/* Direct Entry Interactive Inputs */}
+            <div className="grid grid-cols-12 p-1.5 gap-1.5 items-center bg-[#edeae1] dark:bg-[#252836] min-w-[1020px]">
+              
+              {/* Stock No Input */}
+              <div className="col-span-2">
+                <input
+                  ref={directStockNoRef}
+                  type="text"
+                  value={directStockNo}
+                  onChange={e => {
+                    setDirectStockNo(e.target.value);
+                    handleDirectStockNoLookup(e.target.value);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      handleAcceptDirectEntryItem();
+                    }
+                  }}
+                  placeholder="Scan / Stock No..."
+                  className="w-full h-8 px-2 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold outline-none focus:border-[#00288e] focus:ring-1 focus:ring-[#00288e]"
+                />
+              </div>
+
+              {/* Item Description Input */}
+              <div className="col-span-3">
+                <input
+                  type="text"
+                  value={directDescription}
+                  onChange={e => setDirectDescription(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
+                  placeholder="Item Description..."
+                  className="w-full h-8 px-2 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-sans outline-none focus:border-[#00288e]"
+                />
+              </div>
+
+              {/* Rate Input */}
+              <div className="col-span-1">
+                <input
+                  type="text"
+                  value={directRate}
+                  onChange={e => setDirectRate(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
+                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
+                />
+              </div>
+
+              {/* Qty Input */}
+              <div className="col-span-1">
+                <input
+                  type="text"
+                  value={directQty}
+                  onChange={e => setDirectQty(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
+                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
+                />
+              </div>
+
+              {/* Computed Value (Readonly) */}
+              <div className="col-span-1">
+                <input
+                  type="text"
+                  readOnly
+                  value={directValue.toFixed(2)}
+                  className="w-full h-8 px-1.5 bg-[#e4e1d7] dark:bg-[#1d202d] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono text-right text-gray-700 dark:text-gray-300 outline-none"
+                />
+              </div>
+
+              {/* Disc Code Select */}
+              <div className="col-span-1">
+                <select
+                  value={directDiscCode}
+                  onChange={e => setDirectDiscCode(e.target.value)}
+                  className="w-full h-8 px-1 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-[11px] font-bold outline-none focus:border-[#00288e]"
+                >
+                  <option value="ILD">ILD</option>
+                  <option value="SCHEME">SCHEME</option>
+                  <option value="NONE">NONE</option>
+                </select>
+              </div>
+
+              {/* Disc Qty */}
+              <div className="col-span-1">
+                <input
+                  type="text"
+                  value={directDiscQty}
+                  onChange={e => setDirectDiscQty(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono text-right outline-none focus:border-[#00288e]"
+                />
+              </div>
+
+              {/* Disc % */}
+              <div className="col-span-1">
+                <input
+                  type="text"
+                  value={directDiscPct}
+                  onChange={e => setDirectDiscPct(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
+                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
+                />
+              </div>
+
+              {/* Action: Accept Item */}
+              <div className="col-span-1 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleAcceptDirectEntryItem}
+                  className="w-full h-8 bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold rounded flex items-center justify-center gap-1 shadow-xs transition active:scale-95"
+                  title="Accept into Item Details Grid [Enter]"
+                >
+                  <CornerDownLeft size={13} />
+                  <span>Accept</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* Right Side: Exclusive Net Values Summary Panel (Shoper 9 Specification) */}
+        <div className="w-full md:w-64 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-xl p-3 flex flex-col gap-2 shrink-0 shadow-xs">
+          <div className="flex justify-between items-center pb-2 border-b border-[#c4c5d5] dark:border-[#444653]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+              Description
+            </span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+              Net Values
+            </span>
+          </div>
+
+          <div className="space-y-1.5 font-mono text-xs">
+            <div className="flex justify-between items-center">
+              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
+                Sales
+              </span>
+              <span className="font-bold text-[#191c1d] dark:text-white">
+                ₹{grossSalesValue.toFixed(2)}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a]">
+                Discounts
+              </span>
+              <span className="font-bold text-[#ba1a1a]">
+                -₹{itemDiscountsTotal.toFixed(2)}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
+                Sales Tax
+              </span>
+              <span className="font-bold text-[#191c1d] dark:text-white">
+                ₹{totalTaxAmount.toFixed(2)}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
+                Addon-Gen
+              </span>
+              <span className="font-bold text-[#191c1d] dark:text-white">
+                ₹0.00
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center pb-2 border-b border-[#eceef0] dark:border-[#444653]">
+              <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a]">
+                Dedns-Gen
+              </span>
+              <span className="font-bold text-[#ba1a1a]">
+                -₹0.00
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center pt-1 text-sm font-bold text-[#00288e] dark:text-[#a8b8ff]">
+              <span>Net Payable</span>
+              <span className="text-base font-bold">₹{netPayableAmount.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      {/* ========================================================================= */}
+      {/* 3. FOOTER GROUP: Totals Dashboard Ribbon + Shortcuts & Fast Tenders      */}
+      {/* ========================================================================= */}
+      <footer className="bg-white dark:bg-[#131b2e] border-t border-[#c4c5d5] dark:border-[#444653] shadow-lg flex flex-col p-3 w-full shrink-0 gap-2.5">
+        
+        {/* Totals KPI Dashboard Ribbon */}
+        <div className="grid grid-cols-2 md:grid-cols-9 gap-1 bg-[#f8f9fa] dark:bg-[#1d222e] border border-[#c4c5d5] dark:border-[#444653] rounded-xl overflow-hidden divide-x divide-[#c4c5d5] dark:divide-[#444653] text-center">
+          
+          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Total Items</span>
+            <span className="text-base font-mono font-bold text-[#191c1d] dark:text-white">{totalItemsCount}</span>
+          </div>
+
+          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Total Qty.</span>
+            <span className="text-base font-mono font-bold text-[#191c1d] dark:text-white">{totalQuantity.toFixed(2)}</span>
+          </div>
+
+          <div className="flex flex-col p-1.5 bg-white dark:bg-[#2d3133] col-span-2 text-right px-4 justify-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Sales Value</span>
+            <span className="text-lg font-mono font-bold text-[#191c1d] dark:text-white">₹{grossSalesValue.toFixed(2)}</span>
+          </div>
+
+          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#ba1a1a]">Item Disc</span>
+            <span className="text-sm font-mono font-bold text-[#ba1a1a]">-₹{itemDiscountsTotal.toFixed(2)}</span>
+          </div>
+
+          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Total Tax</span>
+            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">₹{totalTaxAmount.toFixed(2)}</span>
+          </div>
+
+          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Addons</span>
+            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">₹0.00</span>
+          </div>
+
+          <div className="flex flex-col p-1.5 bg-[#00288e] text-white col-span-2 text-right px-5 justify-center border-l-4 border-[#1e40af] shadow-inner">
+            <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Net Amount</span>
+            <span className="text-2xl font-mono font-bold tracking-tight">₹{netPayableAmount.toFixed(2)}</span>
+          </div>
+
+        </div>
+
+        {/* Shortcuts & Action Triggers */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-3">
+          <span className="text-[11px] font-bold text-[#565e74] dark:text-[#bec6e0]">
+            ProPOS Billing Systems v6.0.0 — All shortcuts active [F2: Customer, F7: Cash, F8: Settle, F10: Print].
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={cartItems.length === 0}
+              onClick={() => {
+                handleSettlementSuccess({
+                  cash: netPayableAmount,
+                  card: 0,
+                  upi: 0,
+                  giftVoucher: 0,
+                  loyaltyPointsRedeemed: 0,
+                  loyaltyAmount: 0,
+                  creditNote: 0
+                }, 0);
+              }}
+              className="bg-[#e7e8e9] dark:bg-[#2d3133] hover:bg-[#d9dadb] dark:hover:bg-[#3f465c] text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 disabled:opacity-40 active:scale-95"
+            >
+              <span className="text-[#00288e] dark:text-[#a8b8ff] font-mono">[F7]</span>
+              <span>Exact Cash</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={cartItems.length === 0}
+              onClick={() => setShowSettlementModal(true)}
+              className="bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white hover:brightness-105 text-xs font-bold px-5 py-2 rounded-xl transition flex items-center gap-1.5 disabled:opacity-40 active:scale-95 shadow-xs"
+            >
+              <span className="font-mono">[F8]</span>
+              <span>Settlement</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={cartItems.length === 0}
+              onClick={() => setShowSettlementModal(true)}
+              className="bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold px-6 py-2 rounded-xl transition flex items-center gap-2 shadow-md disabled:opacity-40 active:scale-95"
+            >
+              <Printer size={15} />
+              <span className="opacity-80 font-mono">[F10]</span>
+              <span>Print &amp; Pay</span>
+            </button>
+          </div>
+        </div>
+
+      </footer>
+
+      {/* ========================================================================= */}
+      {/* 4. MODALS & POPUPS (Customer Browse, PDT Import, Recall, Void, Settle)    */}
+      {/* ========================================================================= */}
+      {showCustomerBrowseModal && (
+        <SmritiCustomerBrowseModal
+          onSelectCustomer={(c) => {
+            setCustomer(c);
+            onNotification?.("Customer Selected", `${c.name} (${c.code}) loaded.`, "success");
+          }}
+          onClose={() => setShowCustomerBrowseModal(false)}
+        />
+      )}
+
+      {showPdtImportModal && (
+        <SmritiProPosPdtImportModal
+          onImportItems={handlePdtImportSuccess}
+          onClose={() => setShowPdtImportModal(false)}
+        />
+      )}
+
+      {showSettlementModal && (
+        <SmritiProPosSettlementModal
+          netAmount={netPayableAmount}
+          customer={customer}
+          onSettle={handleSettlementSuccess}
+          onClose={() => setShowSettlementModal(false)}
+        />
+      )}
+
+      {showRecallModal && (
+        <SmritiProPosRecallModal
+          suspendedBills={suspendedBills}
+          onRecallBill={handleRecallBill}
+          onDeleteSuspendedBill={(id) => setSuspendedBills(prev => prev.filter(b => b.id !== id))}
+          onClose={() => setShowRecallModal(false)}
+        />
+      )}
+
+      {showCancelModal && (
+        <SmritiProPosCancellationModal
+          onCancelBill={(rec) => {
+            onNotification?.("Invoice Cancelled", `Bill ${rec.billNo} voided successfully.`, "info");
+          }}
+          onClose={() => setShowCancelModal(false)}
+        />
+      )}
+
+      {showLoyaltyModal && (
+        <SmritiProPosLoyaltyLookupModal
+          currentCustomer={customer}
+          onSelectCustomer={(c) => setCustomer(c)}
+          onApplyLoyaltyPoints={(pts, amt) => {
+            onNotification?.("Loyalty Redeemed", `${pts} points (₹${amt}) applied to transaction.`, "success");
+          }}
+          onClose={() => setShowLoyaltyModal(false)}
+        />
+      )}
+
+      {showReturnModal && (
+        <SmritiProPosSalesReturnModal
+          onProcessReturn={(ret) => {
+            onNotification?.("Return Processed", `Credit Note for ₹${ret.totalRefund.toFixed(2)} generated.`, "success");
+          }}
+          onClose={() => setShowReturnModal(false)}
+        />
+      )}
+
+      {showReceiptModal && lastCompletedBill && (
+        <SmritiProPosTaxInvoiceReceipt
+          billNo={lastCompletedBill.billNo}
+          billDate={lastCompletedBill.billDate}
+          customer={lastCompletedBill.customer}
+          salesStaff={lastCompletedBill.salesStaff}
+          items={lastCompletedBill.items}
+          subTotal={lastCompletedBill.subTotal}
+          discountTotal={lastCompletedBill.discountTotal}
+          taxTotal={lastCompletedBill.taxTotal}
+          netPayable={lastCompletedBill.netPayable}
+          tenders={lastCompletedBill.tenders}
+          changeDue={lastCompletedBill.changeDue}
+          onClose={() => setShowReceiptModal(false)}
+        />
+      )}
+
+    </div>
+  );
+};
+
+export default SmritiProPosBillingTerminal;

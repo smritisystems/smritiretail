@@ -28,6 +28,33 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.0.0] - 2026-08-21
+
+#### POS & Invoicing — ProPOS Unified Enterprise Billing Suite
+- **ProPOS Billing Terminal (`SmritiProPosBillingTerminal.tsx`)**:
+  - Implemented high-speed retail checkout terminal based on Stitch ProPOS specifications.
+  - Rapid item scanning with quantity stepping, salesperson tagging, and live calculation summary.
+  - Keyboard shortcuts enabled: `[F7]` Exact Cash, `[F8]` Settlement, `[F10]` Settle & Print.
+- **Multi-Tender Settlement (`SmritiProPosSettlementModal.tsx`)**:
+  - Split tenders supported: Cash, Credit/Debit Card, UPI Dynamic QR, Gift Vouchers, Credit Notes, and Loyalty Rewards.
+  - Virtual 3x4 POS keypad with auto-balance calculation and instant change calculation.
+- **Queue Park & Recall (`SmritiProPosRecallModal.tsx`)**:
+  - Hold and recall suspended carts with full item, customer, and sales staff restoration.
+- **Invoice Cancellation & Void Audit (`SmritiProPosCancellationModal.tsx`)**:
+  - Void invoice workflow with mandatory reason code selection and manager PIN authorization.
+- **Loyalty Rewards & Tier Lookup (`SmritiProPosLoyaltyLookupModal.tsx`)**:
+  - Customer tier points lookup, redemption value conversion, and checkout balance deduction.
+- **Sales Return & Credit Note Engine (`SmritiProPosSalesReturnModal.tsx`)**:
+  - Referenced invoice return and blind manager-approved return workflows with item condition tags.
+- **End-of-Day (EOD) Z-Report & Drawer Audit (`SmritiProPosEodReportView.tsx`)**:
+  - Day-end closeout summary with system expected vs physical drawer count variance auditing.
+- **Daily Analytics & Shift Reports (`SmritiProPosDailyReportsDashboard.tsx`)**:
+  - Hourly rush-hour trends and cashier performance tracking.
+- **Promotion & Commission Engines (`SmritiProPosPromotionEngine.tsx`, `SmritiProPosCommissionBuilder.tsx`)**:
+  - Buy X Get Y, flat discount schemes, and tiered salesperson commission builders.
+- **Tax Invoice Receipt Engine (`SmritiProPosTaxInvoiceReceipt.tsx`)**:
+  - Clean thermal slip and A4/A5 laser invoice formatting.
+
 ### [5.6.0] - 2026-08-21
 
 #### Item Master & Platform — View Configuration, Excel Mapper & Alias Stabilization

@@ -90,17 +90,19 @@ class InventoryService:
         if existing_code.scalars().first():
             raise HTTPException(status_code=400, detail="Product with this code already exists")
 
-        # Check for duplicate barcode
-        existing_barcode = await self.db.execute(
-            select(Product).filter(
-                Product.barcode == product_in.barcode,
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
+        # Check for duplicate barcode (only if barcode is non-empty)
+        if product_in.barcode and str(product_in.barcode).strip():
+            clean_barcode = str(product_in.barcode).strip()
+            existing_barcode = await self.db.execute(
+                select(Product).filter(
+                    Product.barcode == clean_barcode,
+                    Product.is_deleted == False,
+                    Product.company_id == self.tenant_ctx.company_id,
+                    Product.branch_id == self.tenant_ctx.branch_id
+                )
             )
-        )
-        if existing_barcode.scalars().first():
-            raise HTTPException(status_code=400, detail="Product with this barcode already exists")
+            if existing_barcode.scalars().first():
+                raise HTTPException(status_code=400, detail="Product with this barcode already exists")
 
         prod_data = product_in.model_dump()
         if not prod_data.get("id"):

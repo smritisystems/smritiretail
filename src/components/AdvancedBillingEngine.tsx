@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.30.0
+ * Version      : 6.0.0
  * Created      : 2026-07-10
  * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -14,7 +14,7 @@
 
 import React from "react";
 import { Product, POSProfile, Shift, Bill } from "../types.ts";
-import { SmritiBillingTerminal } from "./billing/SmritiBillingTerminal.tsx";
+import { SmritiProPosWorkspace } from "./billing/propos/SmritiProPosWorkspace.tsx";
 
 export interface AdvancedCustomer {
   type: "Registered" | "Unregistered";
@@ -57,19 +57,8 @@ interface AdvancedBillingEngineProps {
   isStandaloneTab?: boolean;
 }
 
-export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
-  activeShift,
-  activeProfile,
-  onNotification,
-  isStandaloneTab = true
-}) => {
-  return (
-    <SmritiBillingTerminal
-      products={[]}
-      profiles={activeProfile ? [activeProfile] : []}
-      shifts={activeShift ? [activeShift] : []}
-      onNotification={onNotification}
-      isStandaloneTab={isStandaloneTab}
-    />
-  );
+export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = () => {
+  return <SmritiProPosWorkspace />;
 };
+
+export default AdvancedBillingEngine;
