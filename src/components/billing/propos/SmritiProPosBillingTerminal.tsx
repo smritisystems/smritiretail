@@ -513,6 +513,22 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   // --- Complete Global POS Keyboard Shortcuts ---
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      // Escape: Close open modals
+      if (e.key === "Escape") {
+        setShowHotkeysModal(false);
+        setShowReprintModal(false);
+        setShowCustomerBrowseModal(false);
+        setShowPdtImportModal(false);
+        setShowRecallModal(false);
+        setShowCancelModal(false);
+        setShowReturnModal(false);
+        setShowReturnBlindModal(false);
+        setShowSettlementModal(false);
+        setShowReceiptModal(false);
+        setShowLoyaltyModal(false);
+        return;
+      }
+
       if (e.altKey && e.key === "1") {
         e.preventDefault();
         handleNewBill();
@@ -532,7 +548,16 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         setShowReprintModal(true);
       } else if (e.altKey && (e.key === "h" || e.key === "H")) {
         e.preventDefault();
-        setShowHotkeysModal(true);
+        setShowHotkeysModal(prev => !prev);
+      } else if (e.altKey && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        handleHoldBill();
+      } else if (e.altKey && (e.key === "r" || e.key === "R")) {
+        e.preventDefault();
+        setShowRecallModal(true);
+      } else if (e.altKey && (e.key === "i" || e.key === "I")) {
+        e.preventDefault();
+        setShowPdtImportModal(true);
       } else if (e.key === "F2") {
         e.preventDefault();
         setShowCustomerBrowseModal(true);
@@ -548,17 +573,27 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             loyaltyAmount: 0,
             creditNote: 0
           }, 0);
+        } else {
+          onNotification?.("Empty Bill", "Please add items to bill before exact cash settlement [F7].", "error");
         }
       } else if (e.key === "F8") {
         e.preventDefault();
-        if (cartItems.length > 0) setShowSettlementModal(true);
+        if (cartItems.length > 0) {
+          setShowSettlementModal(true);
+        } else {
+          onNotification?.("Empty Bill", "Please add items to bill before opening settlement [F8].", "error");
+        }
       } else if (e.key === "F9") {
         e.preventDefault();
         setShowTotalsPanel(prev => !prev);
         onNotification?.("Totals Toggled", "Bill totals panel toggled [F9].", "info");
       } else if (e.key === "F10") {
         e.preventDefault();
-        if (cartItems.length > 0) setShowSettlementModal(true);
+        if (cartItems.length > 0) {
+          setShowSettlementModal(true);
+        } else {
+          onNotification?.("Empty Bill", "Please add items to bill before print & pay [F10].", "error");
+        }
       }
     };
 
