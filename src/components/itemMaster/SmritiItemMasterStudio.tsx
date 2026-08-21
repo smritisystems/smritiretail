@@ -307,7 +307,7 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
         };
 
         try {
-          await apiFetchV1("/inventory/products", {
+          await apiFetchV1("/products/", {
             method: "POST",
             body: JSON.stringify(productPayload)
           });

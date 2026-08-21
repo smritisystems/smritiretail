@@ -89,6 +89,18 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     width: "120px"
   },
   {
+    id: "imageName",
+    key: "imageName",
+    label: "Image Name",
+    datatype: "text",
+    required: false,
+    aliases: ["image", "image name", "image_name", "photo", "picture", "image file", "photo name", "img", "filename", "img name"],
+    active: true,
+    displayOrder: 5,
+    source: "core",
+    width: "130px"
+  },
+  {
     id: "category",
     key: "category",
     label: "Category",
@@ -396,4 +408,93 @@ export function serializeProductAttributes(
   if (itemData.uom) attributesPayload.uom = String(itemData.uom).trim();
 
   return attributesPayload;
+}
+
+const GLOBAL_COLUMN_ORDER_KEY = "smriti_global_attribute_column_order";
+const GLOBAL_FIELD_VISIBILITY_KEY = "smriti_global_field_visibility";
+
+/**
+ * Saves the global visible fields list and column arrangement across the entire application
+ */
+export function saveGlobalFieldVisibility(visibleKeys: string[]): void {
+  try {
+    localStorage.setItem(GLOBAL_FIELD_VISIBILITY_KEY, JSON.stringify(visibleKeys));
+    localStorage.setItem(GLOBAL_COLUMN_ORDER_KEY, JSON.stringify(visibleKeys));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("smriti_field_visibility_updated", { detail: { visibleKeys } }));
+    }
+  } catch (err) {
+    console.error("Failed to save global field visibility:", err);
+  }
+}
+
+/**
+ * Saves the custom arrangement of columns & attributes for all screens and reports
+ */
+export function saveGlobalColumnOrder(orderedKeys: string[]): void {
+  saveGlobalFieldVisibility(orderedKeys);
+}
+
+/**
+ * Retrieves the saved global visible fields list
+ */
+export function getGlobalFieldVisibility(): string[] | null {
+  try {
+    const raw = localStorage.getItem(GLOBAL_FIELD_VISIBILITY_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Retrieves the saved custom arrangement of columns & attributes
+ */
+export function getGlobalColumnOrder(): string[] | null {
+  return getGlobalFieldVisibility();
+}
+
+/**
+ * Checks if a specific field key is globally visible across all screens and reports
+ */
+export function isFieldGloballyVisible(fieldKey: string): boolean {
+  const visible = getGlobalFieldVisibility();
+  if (!visible || visible.length === 0) return true;
+  return visible.includes(fieldKey);
+}
+
+/**
+ * Returns all active catalog fields strictly filtered and sorted according to the saved global visibility and arrangement
+ */
+export function getOrderedFields(
+  dynamicDefinitions: AttributeDefinition[] = []
+): UnifiedItemField[] {
+  const fields = resolveItemMasterCatalog(dynamicDefinitions);
+  const savedVisible = getGlobalFieldVisibility();
+
+  if (!savedVisible || savedVisible.length === 0) {
+    return fields.sort((a, b) => a.displayOrder - b.displayOrder);
+  }
+
+  const orderMap = new Map<string, number>();
+  savedVisible.forEach((key, index) => orderMap.set(key, index));
+
+  // Filter out any field that has been deselected, then sort by the saved order
+  return fields
+    .filter(f => orderMap.has(f.key))
+    .sort((a, b) => {
+      const posA = orderMap.get(a.key) as number;
+      const posB = orderMap.get(b.key) as number;
+      return posA - posB;
+    });
+}
+
+/**
+ * Alias for getOrderedFields ensuring total global visibility enforcement
+ */
+export function getGloballyVisibleFields(
+  dynamicDefinitions: AttributeDefinition[] = []
+): UnifiedItemField[] {
+  return getOrderedFields(dynamicDefinitions);
 }

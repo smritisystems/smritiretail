@@ -12,7 +12,7 @@
  * Classification: Internal
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Package, 
   Settings, 
@@ -29,6 +29,7 @@ import { SmritiCommonFieldsSetup, CommonFieldsData } from "./SmritiCommonFieldsS
 import { SmritiViewConfiguration, ViewConfigState } from "./SmritiViewConfiguration.tsx";
 import { SmritiItemMasterStudio } from "./SmritiItemMasterStudio.tsx";
 import { SmritiAttributeManagementStudio } from "./SmritiAttributeManagementStudio.tsx";
+import { SmritiImagePathConfigStudio } from "./SmritiImagePathConfigStudio.tsx";
 import { VariantTemplateSection } from "../VariantTemplateSection.tsx";
 
 interface SmritiItemMasterWorkspaceProps {
@@ -39,7 +40,7 @@ interface SmritiItemMasterWorkspaceProps {
   onClose?: () => void;
 }
 
-type WorkspaceNavTab = "item_details" | "common_fields" | "view_config" | "imports" | "attributes" | "variants";
+type WorkspaceNavTab = "item_details" | "common_fields" | "view_config" | "imports" | "attributes" | "image_config" | "variants";
 
 export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps> = ({
   products = [],
@@ -189,6 +190,19 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
 
           <button
             type="button"
+            onClick={() => setActiveNav("image_config")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+              activeNav === "image_config"
+                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
+                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
+            }`}
+          >
+            <FileSpreadsheet size={15} />
+            <span>Image Path Config</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveNav("variants")}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition ${
               activeNav === "variants"
@@ -278,6 +292,7 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
                 { key: "code", label: "Stock No / SKU" },
                 { key: "barcode", label: "Barcode (EAN-13)" },
                 { key: "name", label: "Product Name" },
+                { key: "imageName", label: "Image Filename" },
                 { key: "brand", label: "Brand" },
                 { key: "styleCode", label: "Style Code" },
                 { key: "colour", label: "Color / Shade" },
@@ -320,6 +335,12 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
 
           {activeNav === "attributes" && (
             <SmritiAttributeManagementStudio
+              onNotification={handleNotify}
+            />
+          )}
+
+          {activeNav === "image_config" && (
+            <SmritiImagePathConfigStudio
               onNotification={handleNotify}
             />
           )}

@@ -12,7 +12,7 @@
  * Classification: Internal
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   Search, 
   Filter, 
@@ -26,6 +26,7 @@ import {
   Package
 } from "lucide-react";
 import { Product } from "../../types.ts";
+import { isFieldGloballyVisible } from "../../services/unifiedFieldCatalog.ts";
 
 interface SmritiItemCatalogGridProps {
   products: Product[];
@@ -40,10 +41,18 @@ export const SmritiItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   onNotification,
   onNavigateToPaste
 }) => {
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("" );
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
+
+  // Listen to global visibility changes
+  useEffect(() => {
+    const handleVisChange = () => setVisibilityVersion(v => v + 1);
+    window.addEventListener("smriti_field_visibility_updated", handleVisChange);
+    return () => window.removeEventListener("smriti_field_visibility_updated", handleVisChange);
+  }, []);
 
   // Extract unique categories
   const categories = useMemo(() => {
@@ -223,13 +232,13 @@ export const SmritiItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                   className="rounded"
                 />
               </th>
-              <th className="p-3 font-mono font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Stock No / SKU</th>
-              <th className="p-3 font-mono font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Barcode</th>
-              <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Product Name</th>
-              <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Category</th>
+              {isFieldGloballyVisible("code") && <th className="p-3 font-mono font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Stock No / SKU</th>}
+              {isFieldGloballyVisible("barcode") && <th className="p-3 font-mono font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Barcode</th>}
+              {isFieldGloballyVisible("name") && <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Product Name</th>}
+              {isFieldGloballyVisible("category") && <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Category</th>}
               <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] min-w-[280px]">Business Labels (Attributes)</th>
-              <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] text-right">MRP</th>
-              <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] text-right">Price</th>
+              {isFieldGloballyVisible("mrp") && <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] text-right">MRP</th>}
+              {isFieldGloballyVisible("price") && <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] text-right">Price</th>}
               <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Status</th>
             </tr>
           </thead>
@@ -265,41 +274,50 @@ export const SmritiItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                         className="rounded"
                       />
                     </td>
-                    <td className="p-3 font-mono font-bold text-[#191c1e] dark:text-[#dae2fd]">
-                      {p.code}
-                    </td>
-                    <td className="p-3 font-mono text-[11px] text-[#515f74] dark:text-[#bec6e0]">
-                      {p.barcode || "—"}
-                    </td>
-                    <td className="p-3 font-semibold text-[#191c1e] dark:text-white">
-                      {p.name}
-                    </td>
-                    <td className="p-3 text-[#515f74] dark:text-[#bec6e0]">
-                      {p.category || "Footwear"}
-                    </td>
+                    {isFieldGloballyVisible("code") && (
+                      <td className="p-3 font-mono font-bold text-[#191c1e] dark:text-[#dae2fd]">
+                        {p.code}
+                      </td>
+                    )}
+                    {isFieldGloballyVisible("barcode") && (
+                      <td className="p-3 font-mono text-[11px] text-[#515f74] dark:text-[#bec6e0]">
+                        {p.barcode || "—"}
+                      </td>
+                    )}
+                    {isFieldGloballyVisible("name") && (
+                      <td className="p-3 font-semibold text-[#191c1e] dark:text-white">
+                        {p.name}
+                      </td>
+                    )}
+                    {isFieldGloballyVisible("category") && (
+                      <td className="p-3 text-[#515f74] dark:text-[#bec6e0]">
+                        {p.category || "Footwear"}
+                      </td>
+                    )}
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1">
-                        {p.brand && (
+                        {p.brand && isFieldGloballyVisible("brand") && (
                           <span className="px-2 py-0.5 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] rounded text-[10px]">
                             Brand: <span className="font-bold">{p.brand}</span>
                           </span>
                         )}
-                        {attrEntries.slice(0, 3).map(([k, v], aIdx) => (
+                        {attrEntries.filter(([k]) => isFieldGloballyVisible(k)).slice(0, 3).map(([k, v], aIdx) => (
                           <span key={aIdx} className="px-2 py-0.5 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] rounded text-[10px]">
                             {k}: <span className="font-bold">{String(v)}</span>
                           </span>
                         ))}
-                        {attrEntries.length > 3 && (
-                          <span className="text-[10px] font-mono text-[#76777d]">+{attrEntries.length - 3}</span>
-                        )}
                       </div>
                     </td>
-                    <td className="p-3 text-right font-mono font-semibold">
-                      {Number(p.mrp || p.price || 0).toFixed(2)}
-                    </td>
-                    <td className="p-3 text-right font-mono font-bold text-[#0c9488]">
-                      {Number(p.price || 0).toFixed(2)}
-                    </td>
+                    {isFieldGloballyVisible("mrp") && (
+                      <td className="p-3 text-right font-mono font-semibold">
+                        {Number(p.mrp || p.price || 0).toFixed(2)}
+                      </td>
+                    )}
+                    {isFieldGloballyVisible("price") && (
+                      <td className="p-3 text-right font-mono font-bold text-[#0c9488]">
+                        {Number(p.price || 0).toFixed(2)}
+                      </td>
+                    )}
                     <td className="p-3">
                       <span className="flex items-center gap-1.5 text-[11px] text-[#0c9488] font-semibold">
                         <span className="w-2 h-2 rounded-full bg-[#0c9488]"></span>
