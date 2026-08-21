@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.7.0
+ * Version      : 5.0.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -12,20 +12,23 @@
  * Classification: Internal
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { 
   Package, 
-  Database, 
+  Settings, 
+  Settings2, 
   Layers, 
   ClipboardPaste, 
+  Database,
   Search, 
-  Bell, 
-  HelpCircle 
+  FileSpreadsheet
 } from "lucide-react";
-import { Product, AttributeDefinition, AttributeGroup } from "../../types.ts";
+import { Product } from "../../types.ts";
+import { SmritiItemDetailsGrid } from "./SmritiItemDetailsGrid.tsx";
+import { SmritiCommonFieldsSetup, CommonFieldsData } from "./SmritiCommonFieldsSetup.tsx";
+import { SmritiViewConfiguration, ViewConfigState } from "./SmritiViewConfiguration.tsx";
 import { SmritiItemMasterStudio } from "./SmritiItemMasterStudio.tsx";
 import { SmritiAttributeManagementStudio } from "./SmritiAttributeManagementStudio.tsx";
-import { SmritiItemCatalogGrid } from "./SmritiItemCatalogGrid.tsx";
 import { VariantTemplateSection } from "../VariantTemplateSection.tsx";
 
 interface SmritiItemMasterWorkspaceProps {
@@ -36,7 +39,7 @@ interface SmritiItemMasterWorkspaceProps {
   onClose?: () => void;
 }
 
-type WorkspaceNavTab = "items" | "imports" | "attributes" | "variants";
+type WorkspaceNavTab = "item_details" | "common_fields" | "view_config" | "imports" | "attributes" | "variants";
 
 export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps> = ({
   products = [],
@@ -45,123 +48,198 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
   currentUser,
   onClose
 }) => {
-  const [activeNav, setActiveNav] = useState<WorkspaceNavTab>("items");
-  const [globalSearch, setGlobalSearch] = useState<string>("");
+  const [activeNav, setActiveNav] = useState<WorkspaceNavTab>("item_details");
+  const [commonFields, setCommonFields] = useState<CommonFieldsData>({
+    category: "Footwear",
+    subCategory: "Formal",
+    brand: "SMRITI",
+    vendorCode: "VEND-101",
+    hsnCode: "6403",
+    gstPercentage: "18",
+    uom: "Pair",
+    purchaseClass: "A-Class",
+    department: "Men"
+  });
+
+  const [viewConfig, setViewConfig] = useState<ViewConfigState>({
+    viewMode: "grid",
+    visibleColumns: [
+      "code", "barcode", "name", "brand", "styleCode", "colour", "size",
+      "mrp", "price", "gst_percentage", "hsn_code",
+      "a1", "a2", "a3", "a4", "a5"
+    ],
+    frozenColumns: 2
+  });
 
   const handleNotify = onNotification || (() => {});
   const handleRefresh = onRefreshProducts || (async () => {});
 
+  // Global Alt+1, Alt+2, Alt+3 tab switching
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === "1") {
+        e.preventDefault();
+        setActiveNav("view_config");
+      } else if (e.altKey && e.key === "2") {
+        e.preventDefault();
+        setActiveNav("common_fields");
+      } else if (e.altKey && e.key === "3") {
+        e.preventDefault();
+        setActiveNav("item_details");
+      } else if (e.altKey && e.key === "4") {
+        e.preventDefault();
+        setActiveNav("imports");
+      } else if (e.altKey && e.key === "5") {
+        e.preventDefault();
+        setActiveNav("attributes");
+      }
+    };
+    window.addEventListener("keydown", handleGlobalShortcuts);
+    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
+  }, []);
+
   return (
     <div className="bg-[#f7f9fb] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] h-screen w-full overflow-hidden flex font-sans select-none antialiased">
       
-      {/* ── Left Fixed SideNavBar ────────────────────────────────────────── */}
-      <nav className="bg-[#131b2e] text-white w-[240px] h-screen border-r border-[#45464d] flex flex-col p-4 z-20 shrink-0 shadow-lg">
+      {/* ── Left SideNavBar Matching Itemmaster3 ─────────────────────────── */}
+      <nav className="bg-[#f1f3ff] dark:bg-[#131b2e] text-[#051a3e] dark:text-[#eff1f3] w-64 h-screen border-r border-[#c3c6d6] dark:border-[#434654] flex flex-col py-4 px-3 shrink-0 z-20 shadow-xs">
         
-        {/* Brand Header */}
-        <div className="mb-6 px-2">
-          <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            SMRITI
-          </h1>
-          <p className="text-[11px] text-[#bec6e0] font-medium mt-0.5 opacity-80">
-            Attribute &amp; Item Engine
+        {/* Brand Title */}
+        <div className="mb-6 px-3">
+          <h2 className="text-lg font-bold text-[#003d9b] dark:text-[#b2c5ff] tracking-tight flex items-center gap-2">
+            Item Master
+          </h2>
+          <p className="text-xs text-[#535f73] dark:text-[#bec6e0] font-medium mt-0.5">
+            Management System
           </p>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex-1 space-y-1.5">
+        {/* Primary Navigation Tabs */}
+        <div className="flex-1 space-y-1">
           <button
             type="button"
-            onClick={() => setActiveNav("items")}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition ${
-              activeNav === "items"
-                ? "bg-[#d5e3fd] text-[#0d1c2f] shadow-sm"
-                : "text-[#bec6e0] hover:bg-[#191c1e] hover:text-white"
+            onClick={() => setActiveNav("item_details")}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeNav === "item_details"
+                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
+                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
             }`}
           >
-            <Package size={16} />
-            <span>Item Master Catalog</span>
+            <Package size={17} />
+            <span>Item Details</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveNav("imports")}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition ${
-              activeNav === "imports"
-                ? "bg-[#d5e3fd] text-[#0d1c2f] shadow-sm"
-                : "text-[#bec6e0] hover:bg-[#191c1e] hover:text-white"
+            onClick={() => setActiveNav("common_fields")}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeNav === "common_fields"
+                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
+                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
             }`}
           >
-            <ClipboardPaste size={16} />
+            <Settings size={17} />
+            <span>Common Fields</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveNav("view_config")}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeNav === "view_config"
+                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
+                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
+            }`}
+          >
+            <Settings2 size={17} />
+            <span>View Configuration</span>
+          </button>
+
+          <div className="pt-2 pb-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#737685] px-3">
+              Tools &amp; Catalogs
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setActiveNav("imports")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+              activeNav === "imports"
+                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
+                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
+            }`}
+          >
+            <ClipboardPaste size={15} />
             <span>Imports &amp; Bulk Paste</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveNav("attributes")}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition ${
               activeNav === "attributes"
-                ? "bg-[#d5e3fd] text-[#0d1c2f] shadow-sm"
-                : "text-[#bec6e0] hover:bg-[#191c1e] hover:text-white"
+                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
+                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
             }`}
           >
-            <Database size={16} />
+            <Database size={15} />
             <span>Attributes Catalog</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveNav("variants")}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition ${
               activeNav === "variants"
-                ? "bg-[#d5e3fd] text-[#0d1c2f] shadow-sm"
-                : "text-[#bec6e0] hover:bg-[#191c1e] hover:text-white"
+                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
+                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
             }`}
           >
-            <Layers size={16} />
+            <Layers size={15} />
             <span>Variant Templates</span>
           </button>
         </div>
 
         {/* User Card at bottom */}
-        <div className="mt-auto border-t border-[#45464d] pt-3 px-1">
+        <div className="mt-auto border-t border-[#c3c6d6] dark:border-[#434654] pt-3 px-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#d5e3fd] text-[#0d1c2f] font-bold text-xs flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-[#dae2ff] text-[#001848] font-bold text-xs flex items-center justify-center">
               {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : "AD"}
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-bold text-white truncate">
-                {currentUser?.name || "Administrator"}
+              <p className="text-xs font-bold text-[#051a3e] dark:text-white truncate">
+                {currentUser?.name || "System Admin"}
               </p>
-              <p className="text-[10px] text-[#bec6e0] truncate">
-                {currentUser?.role || "System Admin"}
+              <p className="text-[10px] text-[#535f73] dark:text-[#bec6e0] truncate">
+                {currentUser?.role || "ERP-001"}
               </p>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* ── Main Canvas (Top Header + Dynamic View) ──────────────────────── */}
+      {/* ── Main Canvas (Top Header + Active Sub-Module) ──────────────────── */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
         
         {/* Top Header Bar */}
-        <header className="bg-white dark:bg-[#131b2e] h-14 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between px-6 shrink-0 shadow-xs z-10">
-          
+        <header className="bg-white dark:bg-[#131b2e] h-14 border-b border-[#c3c6d6] dark:border-[#434654] flex items-center justify-between px-6 shrink-0 shadow-xs z-10">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-[#191c1e] dark:text-white">
-              Attribute Management Engine
+            <span className="text-sm font-bold text-[#051a3e] dark:text-white">
+              Item Master Entry
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="px-2 py-0.5 bg-[#e0e3e5] dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] font-mono text-[10px] font-bold rounded">
-              {products.length} Products Active
+            <span className="px-2.5 py-0.5 bg-[#e9edff] dark:bg-[#1d3054] text-[#003d9b] dark:text-[#b2c5ff] font-mono text-[11px] font-bold rounded">
+              {products.length} Items Live
             </span>
 
             {onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1 border border-[#c6c6cd] text-xs font-semibold hover:bg-[#eceef0] rounded transition"
+                className="px-3 py-1 border border-[#c3c6d6] text-xs font-semibold hover:bg-[#eceef0] rounded transition"
               >
                 Close
               </button>
@@ -170,13 +248,64 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
         </header>
 
         {/* Dynamic Workspace Canvas */}
-        <main className="flex-1 overflow-hidden min-h-0 bg-[#f7f9fb] dark:bg-[#191c1e]">
-          {activeNav === "items" && (
-            <SmritiItemCatalogGrid
+        <main className="flex-1 overflow-hidden min-h-0 bg-[#faf9ff] dark:bg-[#191c1e]">
+          {activeNav === "item_details" && (
+            <SmritiItemDetailsGrid
               products={products}
+              commonFields={commonFields}
+              viewConfig={viewConfig}
               onRefreshProducts={handleRefresh}
               onNotification={handleNotify}
-              onNavigateToPaste={() => setActiveNav("imports")}
+              onNavigateToViewConfig={() => setActiveNav("view_config")}
+              onNavigateToCommonFields={() => setActiveNav("common_fields")}
+            />
+          )}
+
+          {activeNav === "common_fields" && (
+            <SmritiCommonFieldsSetup
+              initialValues={commonFields}
+              onSave={(values) => {
+                setCommonFields(values);
+                setActiveNav("item_details");
+              }}
+              onNotification={handleNotify}
+            />
+          )}
+
+          {activeNav === "view_config" && (
+            <SmritiViewConfiguration
+              availableFields={[
+                { key: "code", label: "Stock No / SKU" },
+                { key: "barcode", label: "Barcode (EAN-13)" },
+                { key: "name", label: "Product Name" },
+                { key: "brand", label: "Brand" },
+                { key: "styleCode", label: "Style Code" },
+                { key: "colour", label: "Color / Shade" },
+                { key: "size", label: "Size" },
+                { key: "category", label: "Category" },
+                { key: "subCategory", label: "Sub-Category" },
+                { key: "mrp", label: "MRP" },
+                { key: "price", label: "Selling Price" },
+                { key: "costPrice", label: "Cost Price" },
+                { key: "gst_percentage", label: "GST %" },
+                { key: "hsn_code", label: "HSN Code" },
+                { key: "uom", label: "UOM" },
+                { key: "a1", label: "Attribute 1 (A1)" },
+                { key: "a2", label: "Attribute 2 (A2)" },
+                { key: "a3", label: "Attribute 3 (A3)" },
+                { key: "a4", label: "Attribute 4 (A4)" },
+                { key: "a5", label: "Attribute 5 (A5)" },
+                { key: "a6", label: "Attribute 6 (A6)" },
+                { key: "a7", label: "Attribute 7 (A7)" },
+                { key: "a8", label: "Attribute 8 (A8)" },
+                { key: "a9", label: "Attribute 9 (A9)" }
+              ]}
+              currentConfig={viewConfig}
+              onSaveConfig={(cfg) => {
+                setViewConfig(cfg);
+                setActiveNav("item_details");
+              }}
+              onNotification={handleNotify}
             />
           )}
 
@@ -185,7 +314,7 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
               onRefreshProducts={handleRefresh}
               onNotification={handleNotify}
               currentUser={currentUser}
-              onCancel={() => setActiveNav("items")}
+              onCancel={() => setActiveNav("item_details")}
             />
           )}
 
