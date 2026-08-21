@@ -28,6 +28,24 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.2.0] - 2026-08-21
+
+#### Barcode & Inventory — Industrial Logic Barcode Label Designer & Printing Modernization
+- **Dual-Workspace Architecture (`TagLabelPrintingTab.tsx` & `BarcodeStudioTab.tsx`)**:
+  - Implemented 12-column industrial layout based on Stitch **Industrial Logic** design system.
+  - Divided workspace into **Tag & Barcode Printing Terminal** and **Barcode Script Generation & Compiler Studio**.
+- **Selection Criteria Range & Live Inspector**:
+  - 6-dimension range matrix (Stock No, Product, Brand, Style, Shade, Size) with instant F2 master product search browse.
+  - Selected Item Live Preview card with first (`|<<`), previous (`<`), next (`>`), and last (`>>|`) item navigation controls.
+- **Edit Quantity Details Modal (`EditQuantityDetailsModal.tsx`)**:
+  - High-density matrix modal allowing granular per-item `# Lbls` adjustment, batch fill shortcuts ("All = 1", "All = Stock", "Reset 0"), and real-time total label recalculation.
+- **Thermal Barcode Script Compiler (`BarcodeScriptGenerationView.tsx`)**:
+  - Monospaced code editor with line numbers, ZPL/TSPL macro token generation (`@@@field;dir;type;start;length@@@`), string slicing (From Left / From Right), and compiler status indicator.
+- **Thermal Printer Provisioning (`BarcodePrinterSelectModal.tsx`)**:
+  - Auto-detection and target provisioning modal for modern `.blf` script files and thermal printer selection (USB, Serial, Network TCP/IP, QZ Tray).
+- **Unit Test Suite (`tagLabelPrinting.test.ts`)**:
+  - Added 7 comprehensive test suites covering range filtering, batch/per-item quantities, and script token formatting.
+
 ### [6.1.0] - 2026-08-21
 
 #### Inventory & Master Data — Non-Editable SKU & Barcode Enforcement
