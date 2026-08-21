@@ -1,23 +1,19 @@
 /**
  * Project      : SMRITI Retail OS
- * Repository   : SMRITIRetailNX
- * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 5.5.0
  * Created      : 2026-07-13
- * Modified     : 2026-08-19
+ * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Target UI    : Customer Master Data (Global Master Screen Refactor)
+ * Target UI    : Retail Customer Catalogue (3-Tab Catalogue & Search Workspace)
  */
 
 import React from "react";
-import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
-import { customerMasterConfig } from "./global/configs/customerMaster.config.tsx";
-import { Customer } from "../types.ts";
+import { SmritiCustomerMasterWorkspace } from "./customer/SmritiCustomerMasterWorkspace.tsx";
 
 export interface CustomerMasterTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -26,10 +22,10 @@ export interface CustomerMasterTabProps {
 
 export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUser, onNotification }) => {
   return (
-    <MasterListScreen<Customer>
-      config={customerMasterConfig}
+    <SmritiCustomerMasterWorkspace
       currentUser={currentUser}
       onNotification={onNotification}
     />
   );
 };
+
