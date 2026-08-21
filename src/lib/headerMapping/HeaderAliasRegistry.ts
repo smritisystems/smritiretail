@@ -231,7 +231,9 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
 ];
 
 const CUSTOM_ALIASES_STORAGE_KEY = "smriti_header_custom_aliases";
+const REMOVED_ALIASES_STORAGE_KEY = "smriti_header_removed_aliases";
 let inMemoryCustomAliases: Record<string, string[]> = {};
+let inMemoryRemovedAliases: Record<string, string[]> = {};
 
 export function getCustomAliases(): Record<string, string[]> {
   try {
@@ -247,13 +249,42 @@ export function getCustomAliases(): Record<string, string[]> {
   }
 }
 
+export function getRemovedAliases(): Record<string, string[]> {
+  try {
+    if (typeof localStorage === "undefined") {
+      return inMemoryRemovedAliases;
+    }
+    const raw = localStorage.getItem(REMOVED_ALIASES_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch {
+    return inMemoryRemovedAliases;
+  }
+}
+
 export function addCustomAlias(fieldKey: string, alias: string): void {
   if (!fieldKey || !alias.trim()) return;
   const normalizedNewAlias = normalizeHeader(alias);
+  const rawTrimmed = alias.trim();
+
+  // 1. Remove from blacklist if previously deleted
+  const removedMap = getRemovedAliases();
+  if (removedMap[fieldKey]) {
+    removedMap[fieldKey] = removedMap[fieldKey].filter(a => a !== normalizedNewAlias && a !== rawTrimmed.toLowerCase());
+    inMemoryRemovedAliases = removedMap;
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(REMOVED_ALIASES_STORAGE_KEY, JSON.stringify(removedMap));
+      }
+    } catch {}
+  }
+
+  // 2. Add to custom aliases
   const currentMap = getCustomAliases();
   const existing = currentMap[fieldKey] || [];
-  if (!existing.includes(normalizedNewAlias)) {
-    currentMap[fieldKey] = [...existing, normalizedNewAlias];
+  if (!existing.includes(rawTrimmed)) {
+    currentMap[fieldKey] = [...existing, rawTrimmed];
     inMemoryCustomAliases = currentMap;
     try {
       if (typeof localStorage !== "undefined") {
@@ -264,23 +295,42 @@ export function addCustomAlias(fieldKey: string, alias: string): void {
 }
 
 export function removeCustomAlias(fieldKey: string, alias: string): void {
+  if (!fieldKey || !alias) return;
+  const norm = normalizeHeader(alias);
+  const raw = alias.trim().toLowerCase();
+
+  // 1. Remove from custom aliases if present
   const currentMap = getCustomAliases();
   const existing = currentMap[fieldKey] || [];
-  const filtered = existing.filter(a => a !== normalizeHeader(alias));
-  currentMap[fieldKey] = filtered;
+  currentMap[fieldKey] = existing.filter(a => a.trim().toLowerCase() !== raw && normalizeHeader(a) !== norm);
   inMemoryCustomAliases = currentMap;
   try {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(CUSTOM_ALIASES_STORAGE_KEY, JSON.stringify(currentMap));
     }
   } catch {}
+
+  // 2. Add to removed aliases blacklist so default/built-in aliases are also suppressed
+  const removedMap = getRemovedAliases();
+  const existingRemoved = removedMap[fieldKey] || [];
+  if (!existingRemoved.includes(norm) || !existingRemoved.includes(raw)) {
+    removedMap[fieldKey] = Array.from(new Set([...existingRemoved, norm, raw]));
+    inMemoryRemovedAliases = removedMap;
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(REMOVED_ALIASES_STORAGE_KEY, JSON.stringify(removedMap));
+      }
+    } catch {}
+  }
 }
 
 export function clearCustomAliases(): void {
   inMemoryCustomAliases = {};
+  inMemoryRemovedAliases = {};
   try {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(CUSTOM_ALIASES_STORAGE_KEY);
+      localStorage.removeItem(REMOVED_ALIASES_STORAGE_KEY);
     }
   } catch {}
 }
@@ -318,24 +368,30 @@ export function setCustomFieldLabel(fieldKey: string, customLabel: string): void
 
 export function getSmritiItemMasterFields(customAttrs: { key: string; label: string; aliases?: string[] }[] = []): SmritiFieldDefinition[] {
   const customAliasMap = getCustomAliases();
+  const removedAliasMap = getRemovedAliases();
 
   const baseFieldsWithCustomAliases = SMRITI_ITEM_MASTER_FIELDS.map(f => {
     const extraAliases = customAliasMap[f.key] || [];
-    if (extraAliases.length === 0) return f;
+    const removedForField = (removedAliasMap[f.key] || []).map(r => r.toLowerCase().trim());
+    const combined = Array.from(new Set([...f.aliases, ...extraAliases]));
+    const filtered = combined.filter(a => !removedForField.includes(a.toLowerCase().trim()) && !removedForField.includes(normalizeHeader(a)));
     return {
       ...f,
-      aliases: Array.from(new Set([...f.aliases, ...extraAliases]))
+      aliases: filtered
     };
   });
 
   const dynamicFields: SmritiFieldDefinition[] = customAttrs.map(attr => {
     const key = attr.key.startsWith("attr_") ? attr.key : `attr_${attr.key}`;
     const extraAliases = customAliasMap[key] || [];
+    const removedForField = (removedAliasMap[key] || []).map(r => r.toLowerCase().trim());
+    const combined = Array.from(new Set([attr.label, attr.key, ...(attr.aliases || []), ...extraAliases]));
+    const filtered = combined.filter(a => !removedForField.includes(a.toLowerCase().trim()) && !removedForField.includes(normalizeHeader(a)));
     return {
       key,
       label: attr.label.toUpperCase(),
       required: false,
-      aliases: Array.from(new Set([attr.label, attr.key, ...(attr.aliases || []), ...extraAliases])),
+      aliases: filtered,
       description: `Dynamic Item Attribute: ${attr.label}`
     };
   });

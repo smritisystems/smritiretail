@@ -284,12 +284,15 @@ export class HeaderMappingEngine {
     } catch {}
   }
 
-  public isKnownHeader(normalizedHeader: string): boolean {
-    if (!normalizedHeader) return false;
+  public isKnownHeader(rawHeader: string): boolean {
+    if (!rawHeader) return false;
+    const norm = normalizeHeader(rawHeader);
+    if (!norm) return false;
     return this.fields.some(f => 
-      f.key.toLowerCase() === normalizedHeader ||
-      normalizeHeader(f.label) === normalizedHeader ||
-      f.aliases.some(alias => normalizeHeader(alias) === normalizedHeader)
+      f.key.toLowerCase() === norm ||
+      normalizeHeader(f.key) === norm ||
+      normalizeHeader(f.label) === norm ||
+      (f.aliases || []).some(alias => normalizeHeader(alias) === norm)
     );
   }
 
@@ -303,8 +306,7 @@ export class HeaderMappingEngine {
       if (!row || row.length < 2) continue;
       let matches = 0;
       row.forEach(cell => {
-        const norm = normalizeHeader(cell);
-        if (norm && this.isKnownHeader(norm)) {
+        if (cell && this.isKnownHeader(cell)) {
           matches++;
         }
       });
@@ -315,7 +317,7 @@ export class HeaderMappingEngine {
       }
     }
 
-    const finalHeaderIdx = maxMatches >= 2 ? bestRowIdx : 0;
+    const finalHeaderIdx = maxMatches >= 1 ? bestRowIdx : 0;
     const headers = matrix[finalHeaderIdx] || [];
     const sampleRows = matrix.slice(finalHeaderIdx + 1, finalHeaderIdx + 4);
 

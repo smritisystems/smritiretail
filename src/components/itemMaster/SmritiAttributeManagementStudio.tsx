@@ -34,6 +34,8 @@ import {
   addCustomAlias, 
   removeCustomAlias, 
   getCustomAliases,
+  getRemovedAliases,
+  clearCustomAliases,
   setCustomFieldLabel,
   getCustomFieldLabels
 } from "../../lib/headerMapping/HeaderAliasRegistry.ts";
@@ -98,13 +100,21 @@ export const SmritiAttributeManagementStudio: React.FC<SmritiAttributeManagement
   const unifiedFields = useMemo(() => {
     const customLabels = getCustomFieldLabels();
     const customAliases = getCustomAliases();
+    const removedAliases = getRemovedAliases();
+
     return getUnifiedItemMasterFields(attributes).map(f => {
       const overriddenLabel = customLabels[f.key] || f.label;
       const extraAliases = customAliases[f.key] || [];
+      const removedForField = (removedAliases[f.key] || []).map(r => r.toLowerCase().trim());
+      const rawCombined = Array.from(new Set([...(f.aliases || []), ...extraAliases]));
+      const activeAliases = rawCombined.filter(
+        a => !removedForField.includes(a.toLowerCase().trim())
+      );
+
       return {
         ...f,
         label: overriddenLabel,
-        aliases: Array.from(new Set([...(f.aliases || []), ...extraAliases]))
+        aliases: activeAliases
       };
     });
   }, [attributes, aliasRefreshTrigger]);
@@ -369,21 +379,44 @@ export const SmritiAttributeManagementStudio: React.FC<SmritiAttributeManagement
 
                   {/* Alias Management */}
                   <div>
-                    <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">Recognized Spreadsheet Import Aliases</label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px]">
+                        Recognized Spreadsheet Import Aliases ({selectedField.aliases?.length || 0})
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const removedMap = getRemovedAliases();
+                          delete removedMap[selectedField.key];
+                          try {
+                            localStorage.setItem("smriti_header_removed_aliases", JSON.stringify(removedMap));
+                          } catch {}
+                          setAliasRefreshTrigger(prev => prev + 1);
+                          onNotification?.("Aliases Reset", `Restored default aliases for ${selectedField.label}`, "success");
+                        }}
+                        className="text-[10px] text-[#0052cc] dark:text-[#b2c5ff] hover:underline font-semibold"
+                      >
+                        Reset Defaults
+                      </button>
+                    </div>
                     <div className="flex flex-wrap gap-1.5 p-2.5 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded min-h-[60px]">
-                      {(selectedField.aliases || []).map((alias, idx) => (
-                        <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs font-mono">
-                          <span>{alias}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveAlias(selectedField.key, alias)}
-                            className="text-[#76777d] hover:text-red-600 font-bold ml-1"
-                            title="Remove Alias"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
+                      {(selectedField.aliases || []).length === 0 ? (
+                        <span className="text-[11px] text-[#76777d] italic">No aliases defined. Add aliases below.</span>
+                      ) : (
+                        (selectedField.aliases || []).map((alias, idx) => (
+                          <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs font-mono shadow-2xs">
+                            <span>{alias}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAlias(selectedField.key, alias)}
+                              className="text-[#76777d] hover:text-[#ba1a1a] hover:bg-[#ffdad6] rounded-full px-1 font-bold ml-1 transition"
+                              title={`Delete alias "${alias}"`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))
+                      )}
                     </div>
                   </div>
 
