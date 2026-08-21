@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.31.0
+ * Version      : 6.2.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -14,15 +14,15 @@
 
 import { Product } from "../../types.ts";
 
-export type PortType = "COM 1" | "USB" | "Network TCP/IP";
+export type PortType = "USB" | "COM 1" | "COM 2" | "COM 3" | "COM 4" | "LPT 1" | "Network TCP/IP" | "QZ Tray Thermal";
 
 export type LabelSourceOption =
   | "Manual Selection"
+  | "Against Masters"
+  | "Against Direct Scan"
   | "Against Purchase (PT File)"
   | "Against Transactions"
   | "Against Purchase Order"
-  | "Against Masters"
-  | "Against Direct Scan"
   | "Against PDT File";
 
 export type LabelQuantityMode = "Specified Quantity" | "Present Stock";
@@ -68,4 +68,24 @@ export interface LabelPrintSettings {
   sourceOption: LabelSourceOption;
   piPdtFileName: string;
   quantityMode: LabelQuantityMode;
+  targetPrinterName?: string;
+  ipAddress?: string;
+  portNumber?: number;
+}
+
+export interface ScriptFieldIdentification {
+  field: "Stock Number" | "Retail Price" | "Lot Code" | "Barcode" | "Product Name" | "Brand" | "Style" | "Size" | "Shade" | "Custom Text";
+  direction: "From Left" | "From Right";
+  startPosition: number;
+  numDigits: number;
+  textValue1: string;
+  textValue2: string;
+}
+
+export interface PrinterTargetConfig {
+  name: string;
+  connectionType: "USB" | "SERIAL" | "NETWORK" | "QZ_TRAY" | "SYSTEM_DEFAULT";
+  address?: string;
+  isOnline: boolean;
+  resolutionDpi: 203 | 300 | 600;
 }
