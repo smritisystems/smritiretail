@@ -15,6 +15,8 @@
 import { AttributeDefinition } from "../types.ts";
 import { SmritiFieldDefinition } from "../lib/headerMapping/types.ts";
 import { ItemMasterFieldDefinition } from "../components/itemMaster/types.ts";
+import { getCustomAliases, getRemovedAliases } from "../lib/headerMapping/HeaderAliasRegistry.ts";
+import { normalizeHeader } from "../lib/headerMapping/HeaderNormalizer.ts";
 
 export type FieldSource = "core" | "dynamic";
 
@@ -351,14 +353,26 @@ export function getUnifiedHeaderMappingFields(
   dynamicDefinitions: AttributeDefinition[] = []
 ): SmritiFieldDefinition[] {
   const catalog = resolveItemMasterCatalog(dynamicDefinitions);
+  const customAliasMap = getCustomAliases();
+  const removedAliasMap = getRemovedAliases();
 
-  return catalog.map(f => ({
-    key: f.source === "dynamic" ? `attr_${f.key}` : f.key,
-    label: f.label.toUpperCase(),
-    required: f.required,
-    aliases: f.aliases,
-    description: f.source === "dynamic" ? `Dynamic Item Attribute: ${f.label}` : `Standard Field: ${f.label}`
-  }));
+  return catalog.map(f => {
+    const key = f.source === "dynamic" ? `attr_${f.key}` : f.key;
+    const extraAliases = customAliasMap[key] || customAliasMap[f.key] || [];
+    const removedForField = (removedAliasMap[key] || removedAliasMap[f.key] || []).map(r => r.toLowerCase().trim());
+    const rawCombined = Array.from(new Set([...(f.aliases || []), ...extraAliases]));
+    const activeAliases = rawCombined.filter(
+      a => !removedForField.includes(a.toLowerCase().trim()) && !removedForField.includes(normalizeHeader(a))
+    );
+
+    return {
+      key,
+      label: f.label.toUpperCase(),
+      required: f.required,
+      aliases: activeAliases,
+      description: f.source === "dynamic" ? `Dynamic Item Attribute: ${f.label}` : `Standard Field: ${f.label}`
+    };
+  });
 }
 
 /**

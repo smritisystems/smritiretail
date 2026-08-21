@@ -106,7 +106,10 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
 
   const mappingEngine = useMemo<HeaderMappingEngine>(() => {
     const unifiedHeaderFields = getUnifiedHeaderMappingFields(dynamicDefinitions)
-      .filter(f => isFieldGloballyVisible(f.canonicalKey));
+      .filter(f => {
+        const cleanKey = f.key.replace(/^attr_/, "");
+        return isFieldGloballyVisible(cleanKey) || isFieldGloballyVisible(f.key);
+      });
     return new HeaderMappingEngine(unifiedHeaderFields);
   }, [dynamicDefinitions, visibilityVersion]);
 
