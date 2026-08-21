@@ -98,8 +98,14 @@ export const ALL_AVAILABLE_ITEM_FIELDS: ItemMasterFieldDefinition[] = [
   { id: "binLocation", key: "binLocation", label: "Bin Location", isMandatory: false, type: "text", width: "110px", aliases: ["Aisle", "Shelf", "Rack"] },
   { id: "altBarcode", key: "altBarcode", label: "Alt Barcode", isMandatory: false, type: "text", width: "140px", aliases: ["Secondary Barcode"] },
   { id: "season", key: "season", label: "Season", isMandatory: false, type: "text", width: "110px" },
-  { id: "vendorCode", key: "vendorCode", label: "Vendor Code", isMandatory: false, type: "text", width: "120px" },
-  { id: "purchaseClass", key: "purchaseClass", label: "Purchase Class", isMandatory: false, type: "text", width: "120px" },
+  { id: "vendorCode", key: "vendorCode", label: "Vendor Code", isMandatory: false, type: "text", width: "120px", aliases: ["Vendor ID", "Vendor No", "Supplier Code"] },
+  { id: "purchaseClass", key: "purchaseClass", label: "Purchase Class", isMandatory: false, type: "text", width: "120px", aliases: ["Purchase Classification", "Sourcing Class"] },
+  { id: "gender", key: "gender", label: "Gender", isMandatory: false, type: "select", width: "110px", options: ["Men", "Women", "Unisex", "Boys", "Girls", "Kids"], aliases: ["Target Gender", "Section"] },
+  { id: "department", key: "department", label: "Department", isMandatory: false, type: "text", width: "130px", aliases: ["Dept", "Division", "Department Name"] },
+  { id: "merchandiseCategory", key: "merchandiseCategory", label: "Merchandise Category", isMandatory: false, type: "text", width: "160px", aliases: ["Merchandise Cat", "MC Category", "Product Group"] },
+  { id: "heels", key: "heels", label: "Heels", isMandatory: false, type: "select", width: "110px", options: ["Flat", "Low Heel", "Mid Heel", "High Heel", "Wedge", "Block", "Stiletto", "None"], aliases: ["Heel Type", "Heel Height", "Heel Structure"] },
+  { id: "upperMaterial", key: "upperMaterial", label: "Upper Material", isMandatory: false, type: "text", width: "130px", aliases: ["Upper", "Shoe Upper", "Upper Fabric"] },
+  { id: "outsole", key: "outsole", label: "Outsole", isMandatory: false, type: "text", width: "130px", aliases: ["Sole", "Sole Material", "Bottom Sole", "Outsole Material"] },
 ];
 
 export const DEFAULT_INITIAL_SELECTED_FIELDS: string[] = [

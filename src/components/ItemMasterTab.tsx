@@ -27,6 +27,7 @@ import { BarcodeMappingSection } from "./BarcodeMappingSection.tsx";
 import { LabelPrintingSection } from "./LabelPrintingSection.tsx";
 
 import { ItemMasterEntryView } from "./itemMaster/ItemMasterEntryView.tsx";
+import { SmritiItemMasterStudio } from "./itemMaster/SmritiItemMasterStudio.tsx";
 
 export interface ItemMasterTabProps {
   products?: Product[];
@@ -62,6 +63,20 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 await handleRefresh();
                 refetch();
               }}
+            />
+          )
+        },
+        {
+          id: "bulk-studio",
+          label: "Bulk Paste Studio",
+          renderContent: (items: Product[], refetch: () => void) => (
+            <SmritiItemMasterStudio
+              onNotification={handleNotify}
+              onRefreshProducts={async () => {
+                await handleRefresh();
+                refetch();
+              }}
+              currentUser={currentUser}
             />
           )
         },

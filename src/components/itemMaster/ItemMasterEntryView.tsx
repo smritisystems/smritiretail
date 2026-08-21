@@ -25,6 +25,7 @@ import {
 import { FieldSelectionViewTab } from "./tabs/FieldSelectionViewTab.tsx";
 import { CommonFieldsTab } from "./tabs/CommonFieldsTab.tsx";
 import { ItemDetailsGridTab } from "./tabs/ItemDetailsGridTab.tsx";
+import { SmritiItemMasterStudio } from "./SmritiItemMasterStudio.tsx";
 import { ItemMasterSaveWarningModal } from "./modals/ItemMasterSaveWarningModal.tsx";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { Product, AttributeDefinition } from "../../types.ts";
@@ -318,6 +319,19 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
             <span>Item Details</span>
             <span className="text-[10px] opacity-70 font-mono font-normal">(Alt+3)</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("bulk_studio" as any)}
+            className={`px-4 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+              activeSubTab === ("bulk_studio" as any)
+                ? "bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-xs"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[14px]">table_chart</span>
+            <span>Bulk Paste Studio</span>
+          </button>
         </div>
       </div>
 
@@ -353,6 +367,15 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
             isSaving={isSaving}
             onNotification={onNotification}
             allAvailableFields={allAvailableFields}
+          />
+        )}
+
+        {(activeSubTab as string) === "bulk_studio" && (
+          <SmritiItemMasterStudio
+            onNotification={onNotification}
+            onRefreshProducts={onRefreshProducts}
+            currentUser={currentUser}
+            onCancel={() => setActiveSubTab("details")}
           />
         )}
       </div>
