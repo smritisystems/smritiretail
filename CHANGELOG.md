@@ -28,6 +28,22 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [5.5.0] - 2026-08-21
+
+#### Retail CRM & Customer Master — Retail Customer Catalogue & Advanced Search Suite
+- **Retail Customer Catalogue Architecture (`src/components/customer/SmritiCustomerMasterWorkspace.tsx`)**:
+  - Implemented 3-tab central customer account manager:
+    - **1. The "Form" Tab (`SmritiCustomerFormTab.tsx`)**: General details (Customer Code, Name, Price Group, Mail List summary), Classification (Religion, Ethnicity, Age Group, Profession, Customer Type), Profile notes & preferences, and Shoper environment parameters (Comp Code, Environment, Flat File Format, Delimiter, Buying/Selling factor).
+    - **2. The "Retail Details" Tab (`SmritiCustomerRetailDetailsTab.tsx`)**: Sub-Ordinate/dependant linkage, dependant list CRUD, Personal demographics (Gender radio, Date of Birth, Marital Status toggle, Anniversary date picker), and Loyalty Program details (ID, Code, Tier, Points Balance).
+    - **3. The "Additional Details" Tab (`SmritiCustomerAdditionalDetailsTab.tsx`)**: Payment category & terms, Credit limits & utilization progress bar, Transport & Logistics modes, Bank details, Retail/Dealer factors, Destination tax types, Transaction permission checkboxes (Allow Cash Bill, DC Gen, Credit Invoice, Misc Issue/Receipts), LST/CST numbers, and Tax Forms.
+- **Mailing Address Sub-Form Dialog (`SmritiCustomerMailingModal.tsx`)**:
+  - Multi-profile address dialog supporting Address lines 1 to 5, locality, city, state, postal code, zone, country, office/home/mobile/fax phone numbers, and emails 1 to 3.
+- **Advanced Customer Search Utility (`SmritiAdvancedCustomerSearchModal.tsx`)**:
+  - Dual-column search engine with general and multivariate demographic selection filters, instant matrix grid matching, and double-click / Enter key catalogue loading.
+- **Operational Ergonomics & Navigation**:
+  - Full keyboard shortcuts (<kbd>Alt+N</kbd> for New, <kbd>F2</kbd> / <kbd>Alt+S</kbd> for Search, <kbd>Ctrl+S</kbd> for Save, <kbd>Alt+D</kbd> for Delete, <kbd>Alt+1..3</kbd> for tab navigation).
+  - Previous / Next record browser with real-time record index counter and dirty-state notification.
+
 ### [5.4.0] - 2026-08-21
 
 #### UI Platform & Inventory — Universal View Configuration as Global Schema & Visibility Control

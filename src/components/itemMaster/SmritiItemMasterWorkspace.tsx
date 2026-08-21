@@ -288,33 +288,6 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
 
           {activeNav === "view_config" && (
             <SmritiViewConfiguration
-              availableFields={[
-                { key: "code", label: "Stock No / SKU" },
-                { key: "barcode", label: "Barcode (EAN-13)" },
-                { key: "name", label: "Product Name" },
-                { key: "imageName", label: "Image Filename" },
-                { key: "brand", label: "Brand" },
-                { key: "styleCode", label: "Style Code" },
-                { key: "colour", label: "Color / Shade" },
-                { key: "size", label: "Size" },
-                { key: "category", label: "Category" },
-                { key: "subCategory", label: "Sub-Category" },
-                { key: "mrp", label: "MRP" },
-                { key: "price", label: "Selling Price" },
-                { key: "costPrice", label: "Cost Price" },
-                { key: "gst_percentage", label: "GST %" },
-                { key: "hsn_code", label: "HSN Code" },
-                { key: "uom", label: "UOM" },
-                { key: "a1", label: "Attribute 1 (A1)" },
-                { key: "a2", label: "Attribute 2 (A2)" },
-                { key: "a3", label: "Attribute 3 (A3)" },
-                { key: "a4", label: "Attribute 4 (A4)" },
-                { key: "a5", label: "Attribute 5 (A5)" },
-                { key: "a6", label: "Attribute 6 (A6)" },
-                { key: "a7", label: "Attribute 7 (A7)" },
-                { key: "a8", label: "Attribute 8 (A8)" },
-                { key: "a9", label: "Attribute 9 (A9)" }
-              ]}
               currentConfig={viewConfig}
               onSaveConfig={(cfg) => {
                 setViewConfig(cfg);

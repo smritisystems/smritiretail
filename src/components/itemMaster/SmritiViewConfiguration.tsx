@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.0.0
+ * Version      : 5.5.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -12,8 +12,15 @@
  * Classification: Internal
  */
 
-import React, { useState } from "react";
-import { saveGlobalColumnOrder } from "../../services/unifiedFieldCatalog.ts";
+import React, { useState, useEffect, useMemo } from "react";
+import { 
+  saveGlobalColumnOrder, 
+  getGlobalFieldVisibility, 
+  getUnifiedItemMasterFields 
+} from "../../services/unifiedFieldCatalog.ts";
+import { getCustomFieldLabels } from "../../lib/headerMapping/HeaderAliasRegistry.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { AttributeDefinition } from "../../types.ts";
 import { 
   Settings2, 
   ChevronRight, 
@@ -22,11 +29,15 @@ import {
   ChevronsLeft, 
   ArrowUp, 
   ArrowDown, 
+  ArrowUpToLine,
+  ArrowDownToLine,
   Search, 
   Save, 
   RotateCcw,
   LayoutGrid,
-  FileText
+  FileText,
+  Sparkles,
+  Check
 } from "lucide-react";
 
 export interface ViewConfigState {
@@ -36,24 +47,74 @@ export interface ViewConfigState {
 }
 
 interface SmritiViewConfigurationProps {
-  availableFields: { key: string; label: string }[];
+  availableFields?: { key: string; label: string }[];
   currentConfig: ViewConfigState;
   onSaveConfig: (config: ViewConfigState) => void;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
 }
 
+const PRESET_ESSENTIAL = [
+  "code", "barcode", "name", "brand", "colour", "size", "mrp", "price"
+];
+
+const PRESET_STANDARD = [
+  "code", "barcode", "name", "brand", "styleCode", "colour", "size",
+  "category", "subCategory", "mrp", "price", "costPrice", "gst_percentage", "hsn_code"
+];
+
 export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = ({
-  availableFields,
+  availableFields: propAvailableFields,
   currentConfig,
   onSaveConfig,
   onNotification
 }) => {
+  const [dynamicDefinitions, setDynamicDefinitions] = useState<AttributeDefinition[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "classic">(currentConfig.viewMode || "grid");
   const [frozenColumns, setFrozenColumns] = useState<number>(currentConfig.frozenColumns ?? 2);
+
+  // Load dynamic attributes to ensure complete list of available fields
+  useEffect(() => {
+    let isMounted = true;
+    apiFetchV1("/attributes/definitions").then(defs => {
+      if (isMounted && Array.isArray(defs)) {
+        setDynamicDefinitions(defs);
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  // Complete list of all system fields (standard + dynamic) with custom labels
+  const allSystemFields = useMemo(() => {
+    const customLabels = getCustomFieldLabels();
+    const unified = getUnifiedItemMasterFields(dynamicDefinitions);
+    
+    if (unified && unified.length > 0) {
+      return unified.map(f => ({
+        key: f.key,
+        label: customLabels[f.key] || f.label
+      }));
+    }
+
+    if (propAvailableFields && propAvailableFields.length > 0) {
+      return propAvailableFields.map(f => ({
+        key: f.key,
+        label: customLabels[f.key] || f.label
+      }));
+    }
+
+    return [];
+  }, [dynamicDefinitions, propAvailableFields]);
+
+  // Active selected columns list
   const [selectedColumns, setSelectedColumns] = useState<string[]>(() => {
-    return currentConfig.visibleColumns && currentConfig.visibleColumns.length > 0
-      ? currentConfig.visibleColumns
-      : availableFields.slice(0, 10).map(f => f.key);
+    const globalVisible = getGlobalFieldVisibility();
+    if (globalVisible && globalVisible.length > 0) {
+      return globalVisible;
+    }
+    if (currentConfig.visibleColumns && currentConfig.visibleColumns.length > 0) {
+      return currentConfig.visibleColumns;
+    }
+    return PRESET_STANDARD;
   });
 
   const [searchAvailable, setSearchAvailable] = useState<string>("");
@@ -61,39 +122,70 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
   const [activeAvailableKey, setActiveAvailableKey] = useState<string | null>(null);
   const [activeSelectedKey, setActiveSelectedKey] = useState<string | null>(null);
 
+  // Sync selectedColumns if global visibility updates
+  useEffect(() => {
+    const globalVisible = getGlobalFieldVisibility();
+    if (globalVisible && globalVisible.length > 0) {
+      setSelectedColumns(globalVisible);
+    }
+  }, []);
+
   // Computed unselected fields
-  const unselectedFields = availableFields.filter(f => !selectedColumns.includes(f.key));
+  const unselectedFields = useMemo(() => {
+    return allSystemFields.filter(f => !selectedColumns.includes(f.key));
+  }, [allSystemFields, selectedColumns]);
 
-  const filteredAvailable = unselectedFields.filter(f => 
-    f.label.toLowerCase().includes(searchAvailable.toLowerCase()) ||
-    f.key.toLowerCase().includes(searchAvailable.toLowerCase())
-  );
-
-  const filteredSelected = selectedColumns
-    .map(key => availableFields.find(f => f.key === key) || { key, label: key })
-    .filter(f => 
-      f.label.toLowerCase().includes(searchSelected.toLowerCase()) ||
-      f.key.toLowerCase().includes(searchSelected.toLowerCase())
+  const filteredAvailable = useMemo(() => {
+    return unselectedFields.filter(f => 
+      f.label.toLowerCase().includes(searchAvailable.toLowerCase()) ||
+      f.key.toLowerCase().includes(searchAvailable.toLowerCase())
     );
+  }, [unselectedFields, searchAvailable]);
+
+  const filteredSelected = useMemo(() => {
+    const customLabels = getCustomFieldLabels();
+    return selectedColumns
+      .map(key => {
+        const found = allSystemFields.find(f => f.key === key);
+        return found ? { key: found.key, label: customLabels[found.key] || found.label } : { key, label: key.toUpperCase() };
+      })
+      .filter(f => 
+        f.label.toLowerCase().includes(searchSelected.toLowerCase()) ||
+        f.key.toLowerCase().includes(searchSelected.toLowerCase())
+      );
+  }, [selectedColumns, allSystemFields, searchSelected]);
+
+  // Actions
+  const handleAddColumn = (keyToAdd: string) => {
+    if (!keyToAdd || selectedColumns.includes(keyToAdd)) return;
+    setSelectedColumns(prev => [...prev, keyToAdd]);
+    setActiveAvailableKey(null);
+    setActiveSelectedKey(keyToAdd);
+  };
+
+  const handleRemoveColumn = (keyToRemove: string) => {
+    if (!keyToRemove) return;
+    if (selectedColumns.length <= 1) {
+      onNotification?.("Action Restricted", "At least one column must remain visible in the grid.", "error");
+      return;
+    }
+    setSelectedColumns(prev => prev.filter(k => k !== keyToRemove));
+    if (activeSelectedKey === keyToRemove) setActiveSelectedKey(null);
+  };
 
   const handleMoveRight = () => {
-    if (!activeAvailableKey) return;
-    setSelectedColumns(prev => [...prev, activeAvailableKey]);
-    setActiveAvailableKey(null);
+    if (activeAvailableKey) handleAddColumn(activeAvailableKey);
   };
 
   const handleMoveAllRight = () => {
-    setSelectedColumns(availableFields.map(f => f.key));
+    setSelectedColumns(allSystemFields.map(f => f.key));
   };
 
   const handleMoveLeft = () => {
-    if (!activeSelectedKey) return;
-    setSelectedColumns(prev => prev.filter(k => k !== activeSelectedKey));
-    setActiveSelectedKey(null);
+    if (activeSelectedKey) handleRemoveColumn(activeSelectedKey);
   };
 
   const handleMoveAllLeft = () => {
-    // Keep at least the code column
     setSelectedColumns(["code"]);
   };
 
@@ -119,6 +211,28 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
     setSelectedColumns(next);
   };
 
+  const handleMoveToTop = () => {
+    if (!activeSelectedKey) return;
+    const idx = selectedColumns.indexOf(activeSelectedKey);
+    if (idx <= 0) return;
+    const next = [activeSelectedKey, ...selectedColumns.filter(k => k !== activeSelectedKey)];
+    setSelectedColumns(next);
+  };
+
+  const handleMoveToBottom = () => {
+    if (!activeSelectedKey) return;
+    const idx = selectedColumns.indexOf(activeSelectedKey);
+    if (idx < 0 || idx >= selectedColumns.length - 1) return;
+    const next = [...selectedColumns.filter(k => k !== activeSelectedKey), activeSelectedKey];
+    setSelectedColumns(next);
+  };
+
+  const handleApplyPreset = (presetKeys: string[], presetName: string) => {
+    const validKeys = presetKeys.filter(k => allSystemFields.some(f => f.key === k));
+    setSelectedColumns(validKeys.length > 0 ? validKeys : presetKeys);
+    onNotification?.("Preset Applied", `Applied "${presetName}" column configuration. Click Save to commit globally.`, "info");
+  };
+
   const handleSave = () => {
     saveGlobalColumnOrder(selectedColumns);
     onSaveConfig({
@@ -126,7 +240,7 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
       visibleColumns: selectedColumns,
       frozenColumns
     });
-    onNotification?.("Configuration Saved", "Grid view columns and layout preferences updated across all grids and reports.", "success");
+    onNotification?.("Global Configuration Saved", `Grid column arrangement & visibility updated globally across all modules, grids, forms, and reports (${selectedColumns.length} columns active).`, "success");
   };
 
   return (
@@ -138,10 +252,10 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
           <div>
             <h1 className="text-xl font-bold text-[#003d9b] dark:text-[#b2c5ff] flex items-center gap-2">
               <Settings2 size={22} />
-              View Configuration
+              View Configuration &amp; Global Column Arrangement
             </h1>
             <p className="text-xs text-[#515f74] dark:text-[#bec6e0] mt-0.5">
-              Configure visible columns, ordering, and default entry presentation modes.
+              Control global field visibility, sequence order, and default entry presentation modes across all screens.
             </p>
           </div>
 
@@ -174,38 +288,90 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
           </div>
         </div>
 
-        {/* Frozen Columns Setting */}
-        <div className="bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-xl p-4 shadow-xs flex items-center justify-between">
-          <div>
-            <h3 className="text-xs font-bold text-[#191c1e] dark:text-white uppercase tracking-wider">Frozen Columns (Left Pinned)</h3>
-            <p className="text-[11px] text-[#76777d]">Lock left-side identifier columns when scrolling horizontally through item records.</p>
+        {/* Presets & Frozen Columns Settings */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* Quick Presets */}
+          <div className="bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-xl p-4 shadow-xs flex flex-col justify-between space-y-2">
+            <div>
+              <h3 className="text-xs font-bold text-[#191c1e] dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles size={13} className="text-[#0052cc] dark:text-[#b2c5ff]" />
+                Layout Presets
+              </h3>
+              <p className="text-[11px] text-[#76777d]">One-click configurations for common retail and inventory roles.</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(PRESET_ESSENTIAL, "Essential Retail (8 Cols)")}
+                className="px-2.5 py-1 bg-[#f2f4f6] dark:bg-[#191c1e] hover:bg-[#d5e3fd] text-xs font-bold rounded border border-[#c6c6cd] transition"
+              >
+                Essential (8)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(PRESET_STANDARD, "Standard Merchandising (14 Cols)")}
+                className="px-2.5 py-1 bg-[#f2f4f6] dark:bg-[#191c1e] hover:bg-[#d5e3fd] text-xs font-bold rounded border border-[#c6c6cd] transition"
+              >
+                Standard (14)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(allSystemFields.map(f => f.key), "Full Catalog (All Columns)")}
+                className="px-2.5 py-1 bg-[#f2f4f6] dark:bg-[#191c1e] hover:bg-[#d5e3fd] text-xs font-bold rounded border border-[#c6c6cd] transition"
+              >
+                All Fields ({allSystemFields.length})
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={0}
-              max={5}
-              value={frozenColumns}
-              onChange={e => setFrozenColumns(Number(e.target.value))}
-              className="w-16 h-8 px-2 border border-[#c6c6cd] dark:border-[#45464d] rounded text-center font-mono font-bold text-xs bg-[#f2f4f6] dark:bg-[#191c1e]"
-            />
-            <span className="text-xs text-[#515f74] dark:text-[#bec6e0] font-semibold">Columns</span>
+
+          {/* Frozen Columns Setting */}
+          <div className="bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-xl p-4 shadow-xs flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-bold text-[#191c1e] dark:text-white uppercase tracking-wider">Frozen Columns (Left Pinned)</h3>
+              <p className="text-[11px] text-[#76777d]">Lock left-side identifier columns when scrolling horizontally.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={5}
+                value={frozenColumns}
+                onChange={e => setFrozenColumns(Math.max(0, Math.min(5, Number(e.target.value) || 0)))}
+                className="w-16 h-8 px-2 border border-[#c6c6cd] dark:border-[#45464d] rounded text-center font-mono font-bold text-xs bg-[#f2f4f6] dark:bg-[#191c1e]"
+              />
+              <span className="text-xs text-[#515f74] dark:text-[#bec6e0] font-semibold">Columns</span>
+            </div>
           </div>
+
         </div>
 
         {/* Dual List Selector */}
         <div className="bg-white dark:bg-[#2d3133] rounded-xl border border-[#c6c6cd] dark:border-[#45464d] p-6 shadow-xs space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-[#191c1e] dark:text-white">Fields to Display &amp; Column Order</h3>
-            <p className="text-xs text-[#76777d]">Select available fields and reorder their position in the Item Details Grid.</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-sm font-bold text-[#191c1e] dark:text-white">Fields to Display &amp; Column Order</h3>
+              <p className="text-xs text-[#76777d]">
+                Double-click or use arrows to move fields. Rearrange the order on the right to set global column positions.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-bold font-mono">
+              <span className="text-[#0c9488] bg-[#dcfce7] dark:bg-[#166534]/40 px-2 py-0.5 rounded">
+                {selectedColumns.length} Visible
+              </span>
+              <span className="text-[#76777d] bg-[#f2f4f6] dark:bg-[#191c1e] px-2 py-0.5 rounded">
+                {unselectedFields.length} Hidden
+              </span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-11 gap-4 items-center h-[380px]">
+          <div className="grid grid-cols-1 md:grid-cols-11 gap-4 items-center h-[420px]">
             
-            {/* Left: Available Fields */}
+            {/* Left: Available Fields (Hidden/Unselected) */}
             <div className="md:col-span-5 h-full flex flex-col border border-[#c6c6cd] dark:border-[#45464d] rounded-lg bg-[#f7f9fb] dark:bg-[#191c1e] overflow-hidden">
               <div className="px-3 py-2 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] flex justify-between items-center text-xs font-bold">
-                <span>Available Fields</span>
+                <span>Available Fields (Hidden)</span>
                 <span className="font-mono bg-white dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px]">
                   {filteredAvailable.length}
                 </span>
@@ -223,20 +389,27 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
                 </div>
               </div>
               <ul className="flex-1 overflow-y-auto p-1 divide-y divide-[#eceef0] dark:divide-[#2d3133] text-xs">
-                {filteredAvailable.map(f => (
-                  <li
-                    key={f.key}
-                    onClick={() => setActiveAvailableKey(f.key)}
-                    className={`px-3 py-2 cursor-pointer rounded transition flex items-center justify-between ${
-                      activeAvailableKey === f.key
-                        ? "bg-[#d5e3fd] text-[#0d1c2f] font-bold"
-                        : "hover:bg-[#f2f4f6] dark:hover:bg-[#2d3133]"
-                    }`}
-                  >
-                    <span>{f.label}</span>
-                    <span className="font-mono text-[10px] text-[#76777d]">{f.key}</span>
-                  </li>
-                ))}
+                {filteredAvailable.length === 0 ? (
+                  <li className="p-4 text-center text-[#76777d] italic">No available fields.</li>
+                ) : (
+                  filteredAvailable.map(f => (
+                    <li
+                      key={f.key}
+                      onClick={() => setActiveAvailableKey(f.key)}
+                      onDoubleClick={() => handleAddColumn(f.key)}
+                      className={`px-3 py-2 cursor-pointer rounded transition flex items-center justify-between ${
+                        activeAvailableKey === f.key
+                          ? "bg-[#d5e3fd] text-[#0d1c2f] font-bold"
+                          : "hover:bg-[#f2f4f6] dark:hover:bg-[#2d3133]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{f.label}</span>
+                      </div>
+                      <span className="font-mono text-[10px] text-[#76777d]">{f.key}</span>
+                    </li>
+                  ))
+                )}
               </ul>
             </div>
 
@@ -247,7 +420,7 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
                 onClick={handleMoveRight}
                 disabled={!activeAvailableKey}
                 className="w-8 h-8 rounded bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#0052cc] hover:text-white flex items-center justify-center transition disabled:opacity-30 shadow-xs"
-                title="Add Selected"
+                title="Add Selected Column"
               >
                 <ChevronRight size={16} />
               </button>
@@ -255,7 +428,7 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
                 type="button"
                 onClick={handleMoveAllRight}
                 className="w-8 h-8 rounded bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#0052cc] hover:text-white flex items-center justify-center transition shadow-xs"
-                title="Add All"
+                title="Add All Columns"
               >
                 <ChevronsRight size={16} />
               </button>
@@ -264,7 +437,7 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
                 onClick={handleMoveLeft}
                 disabled={!activeSelectedKey}
                 className="w-8 h-8 rounded bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#0052cc] hover:text-white flex items-center justify-center transition disabled:opacity-30 shadow-xs"
-                title="Remove Selected"
+                title="Remove Selected Column"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -278,28 +451,46 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
               </button>
             </div>
 
-            {/* Right: Selected Columns */}
+            {/* Right: Selected Columns (Visible & Ordered) */}
             <div className="md:col-span-5 h-full flex flex-col border border-[#c6c6cd] dark:border-[#45464d] rounded-lg bg-[#f7f9fb] dark:bg-[#191c1e] overflow-hidden">
               <div className="px-3 py-2 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] flex justify-between items-center text-xs font-bold">
-                <span>Selected Columns ({selectedColumns.length})</span>
+                <span>Selected Fields to Display ({selectedColumns.length})</span>
                 <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleMoveToTop}
+                    disabled={!activeSelectedKey}
+                    className="p-1 hover:bg-[#eceef0] dark:hover:bg-[#2d3133] rounded disabled:opacity-30"
+                    title="Move to Top"
+                  >
+                    <ArrowUpToLine size={13} />
+                  </button>
                   <button
                     type="button"
                     onClick={handleMoveUp}
                     disabled={!activeSelectedKey}
-                    className="p-1 hover:bg-[#eceef0] rounded disabled:opacity-30"
+                    className="p-1 hover:bg-[#eceef0] dark:hover:bg-[#2d3133] rounded disabled:opacity-30"
                     title="Move Column Up"
                   >
-                    <ArrowUp size={14} />
+                    <ArrowUp size={13} />
                   </button>
                   <button
                     type="button"
                     onClick={handleMoveDown}
                     disabled={!activeSelectedKey}
-                    className="p-1 hover:bg-[#eceef0] rounded disabled:opacity-30"
+                    className="p-1 hover:bg-[#eceef0] dark:hover:bg-[#2d3133] rounded disabled:opacity-30"
                     title="Move Column Down"
                   >
-                    <ArrowDown size={14} />
+                    <ArrowDown size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMoveToBottom}
+                    disabled={!activeSelectedKey}
+                    className="p-1 hover:bg-[#eceef0] dark:hover:bg-[#2d3133] rounded disabled:opacity-30"
+                    title="Move to Bottom"
+                  >
+                    <ArrowDownToLine size={13} />
                   </button>
                 </div>
               </div>
@@ -320,6 +511,7 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
                   <li
                     key={f.key}
                     onClick={() => setActiveSelectedKey(f.key)}
+                    onDoubleClick={() => handleRemoveColumn(f.key)}
                     className={`px-3 py-2 cursor-pointer rounded transition flex items-center justify-between ${
                       activeSelectedKey === f.key
                         ? "bg-[#d5e3fd] text-[#0d1c2f] font-bold"
@@ -339,13 +531,16 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
           </div>
 
           {/* Action Footer */}
-          <div className="pt-4 border-t border-[#eceef0] dark:border-[#45464d] flex justify-end gap-3">
+          <div className="pt-4 border-t border-[#eceef0] dark:border-[#45464d] flex justify-between items-center">
+            <span className="text-[11px] text-[#515f74] dark:text-[#bec6e0]">
+              Changes will instantly synchronize all grids, catalogs, and operational reports.
+            </span>
             <button
               type="button"
               onClick={handleSave}
-              className="px-6 py-2 bg-[#0052cc] hover:bg-[#003d9b] text-white rounded font-bold text-xs transition flex items-center gap-1.5 shadow-xs"
+              className="px-6 py-2.5 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-xl font-bold text-xs transition flex items-center gap-2 shadow-xs"
             >
-              <Save size={14} />
+              <Save size={15} />
               Save View Configuration
             </button>
           </div>
