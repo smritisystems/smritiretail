@@ -314,11 +314,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     const term = code.trim();
 
     try {
-      const resp = await apiFetchV1<any>(`/inventory/products?search=${encodeURIComponent(term)}&limit=1`);
-      if (resp && resp.items && resp.items.length > 0) {
-        const p = resp.items[0];
+      const resp = await apiFetchV1<any>(`/products/search?q=${encodeURIComponent(term)}&limit=1`);
+      const items = Array.isArray(resp) ? resp : (resp?.items || []);
+      if (items.length > 0) {
+        const p = items[0];
         setDirectDescription(p.product_name || p.name || `Retail Item ${term}`);
-        const unitP = (parseFloat(p.selling_price || p.mrp) || 999.00).toFixed(2);
+        const unitP = (parseFloat(p.selling_price || p.mrp || p.price) || 999.00).toFixed(2);
         handleRateOrQtyChange(unitP, directQty);
         return;
       }
@@ -522,7 +523,6 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         setShowRecallModal(false);
         setShowCancelModal(false);
         setShowReturnModal(false);
-        setShowReturnBlindModal(false);
         setShowSettlementModal(false);
         setShowReceiptModal(false);
         setShowLoyaltyModal(false);
