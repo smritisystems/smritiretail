@@ -369,9 +369,10 @@ export const GlobalF2BrowseModal: React.FC = () => {
 
     const loadData = async () => {
       try {
-        const prodResp = await apiFetchV1<any>("/inventory/products?limit=100");
-        if (prodResp?.items && Array.isArray(prodResp.items)) {
-          setProductsList(prodResp.items.map(p => ({
+        const prodResp = await apiFetchV1<any>("/products?page_size=100");
+        const rawItems = Array.isArray(prodResp) ? prodResp : (prodResp?.items || []);
+        if (rawItems.length > 0) {
+          setProductsList(rawItems.map((p: any) => ({
             id: p.id || p.sku,
             sku: p.sku || p.code || p.barcode,
             barcode: p.barcode || p.sku,
