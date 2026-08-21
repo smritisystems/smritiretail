@@ -28,6 +28,34 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [5.4.0] - 2026-08-21
+
+#### UI Platform & Inventory — Universal View Configuration as Global Schema & Visibility Control
+- **Global Field Visibility & Ordering Engine (`unifiedFieldCatalog.ts`)**:
+  - `saveGlobalFieldVisibility` persists visible columns and sequence ordering across client state.
+  - `isFieldGloballyVisible` and `getGloballyVisibleFields` dynamically filter and sort catalog definitions.
+  - Reactive `smriti_field_visibility_updated` CustomEvent broadcasts layout changes across all active components and tabs with sub-millisecond overhead.
+- **Application-Wide Visibility Enforcement**:
+  - **Item Master Details Spreadsheet Grid (`SmritiItemDetailsGrid.tsx`)**: Reflects custom column sets and sequence in real time.
+  - **Item Catalog Search Browser (`SmritiItemCatalogGrid.tsx`)**: Dynamically hides unselected columns and sorts active ones.
+  - **Report Designer & Operational BI Hub (`ReportDesignerTab.tsx`)**: All ledger, sales, stock, and inventory report tables automatically conform to the active field visibility schema.
+- **Stock No & Barcode Real-Time Uniqueness Alerts**:
+  - `onBlur` cell alerts identifying duplicate Stock Nos and Barcodes against in-grid entries and database records with conflicting product names.
+  - Pre-save integrity blocker stopping duplicates before database insertion.
+
+### [5.3.0] - 2026-08-21
+
+#### Inventory & Catalog — Item Master Stitch Management System Architecture & Image Resolver
+- **Item Master Management System Suite (`Itemmaster3`)**: Integrated complete suite from `F:\SMRITI\Itemmaster3\stitch_item_master_management_system`:
+  - **Item Details Master Grid (`SmritiItemDetailsGrid.tsx`)**: High-density matrix grid and classic single-record view, inline Add/Duplicate/Delete row actions, `F1` keyboard shortcuts guide, and `F2` SKU/Barcode generator.
+  - **Common Fields Baseline Setup (`SmritiCommonFieldsSetup.tsx`)**: Session-level baseline presets (Category, Brand, Vendor, HSN, Tax %, UOM) that auto-fill all newly entered items.
+  - **Dual-List View Configuration (`SmritiViewConfiguration.tsx`)**: Dual-list column selector, order manager, and frozen column count selector (0–6).
+  - **Full CRUD Lifecycle Safeguards**: Mode selector for Adding, Editing (with non-editable greyed Stock No and Data Loading confirmation modal), and Deleting (with transaction protection guard preventing hard deletion of items with sales history).
+  - **Global Find & Replace Data Utility (`SmritiReplaceDataModal.tsx`)**: Global batch find and replace across all matrix columns and dynamic attributes.
+  - **Product Image Filename & Resolver Studio (`SmritiImagePathConfigStudio.tsx`)**: Operators only enter image filenames (`imageName`). Configured base paths for SMRITI Server (`/api/v1/products/images/`), Cloud CDN, and Local Network paths with interactive live resolution tester and hover thumbnail previews.
+  - **Barcode Positioned Adjacent to Stock No**: Core standard fields catalog updated to render `Barcode` directly next to `Stock No / SKU`.
+  - **PostgreSQL Persistence**: Fully connected to transactional FastAPI endpoint `POST /api/v1/products/`.
+
 ### [3.29.0] - 2026-08-21
 
 #### Inventory & Catalog — Item Master Entry Tactical Grid Refactor (Smriti Prime Specification)

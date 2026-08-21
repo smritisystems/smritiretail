@@ -58,6 +58,16 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     description: "Manufacturer or brand name"
   },
   {
+    key: "imageName",
+    label: "IMAGE NAME",
+    required: false,
+    aliases: [
+      "image", "image name", "image_name", "photo", "photo name", "picture",
+      "image file", "img", "filename", "product image", "sku image"
+    ],
+    description: "Product image filename (e.g. shoe-01.jpg)"
+  },
+  {
     key: "category",
     label: "CATEGORY",
     required: true,

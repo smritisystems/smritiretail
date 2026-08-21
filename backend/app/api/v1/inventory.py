@@ -206,6 +206,35 @@ async def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
     
     update_data = product_in.model_dump(exclude_unset=True)
+
+    # Enforce Stock No / Code uniqueness across other products
+    if update_data.get("code") and update_data["code"] != product.code:
+        existing_code = await db.execute(
+            select(Product).filter(
+                Product.code == update_data["code"],
+                Product.id != product_id,
+                Product.is_deleted == False,
+                Product.company_id == tenant_ctx.company_id,
+                Product.branch_id == tenant_ctx.branch_id
+            )
+        )
+        if existing_code.scalars().first():
+            raise HTTPException(status_code=400, detail=f"Stock No / SKU '{update_data['code']}' is already in use by another product")
+
+    # Enforce Barcode uniqueness across other products
+    if update_data.get("barcode") and update_data["barcode"] != product.barcode:
+        existing_barcode = await db.execute(
+            select(Product).filter(
+                Product.barcode == update_data["barcode"],
+                Product.id != product_id,
+                Product.is_deleted == False,
+                Product.company_id == tenant_ctx.company_id,
+                Product.branch_id == tenant_ctx.branch_id
+            )
+        )
+        if existing_barcode.scalars().first():
+            raise HTTPException(status_code=400, detail=f"Barcode '{update_data['barcode']}' is already in use by another product")
+
     return await repo.update(product, update_data)
 
 

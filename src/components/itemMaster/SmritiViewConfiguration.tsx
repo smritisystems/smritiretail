@@ -13,6 +13,7 @@
  */
 
 import React, { useState } from "react";
+import { saveGlobalColumnOrder } from "../../services/unifiedFieldCatalog.ts";
 import { 
   Settings2, 
   ChevronRight, 
@@ -119,12 +120,13 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
   };
 
   const handleSave = () => {
+    saveGlobalColumnOrder(selectedColumns);
     onSaveConfig({
       viewMode,
       visibleColumns: selectedColumns,
       frozenColumns
     });
-    onNotification?.("Configuration Saved", "Grid view columns and layout preferences updated.", "success");
+    onNotification?.("Configuration Saved", "Grid view columns and layout preferences updated across all grids and reports.", "success");
   };
 
   return (
