@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 3.33.0
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -210,14 +210,18 @@ export const itemMasterConfig: MasterConfig<Product> = {
       label: "SKU / Item Code",
       type: "text",
       required: true,
+      disabled: (_form, isEdit) => Boolean(isEdit),
       placeholder: "e.g. SHIRT-COTTON-001",
+      description: "Permanent SKU identifier (locked when modifying existing items)",
       colSpan: 1
     },
     {
       name: "barcode",
       label: "Barcode / EAN-13",
       type: "text",
+      disabled: (_form, isEdit) => Boolean(isEdit),
       placeholder: "Scan or enter barcode number",
+      description: "Permanent barcode identifier (locked when modifying existing items)",
       colSpan: 1
     },
     {
