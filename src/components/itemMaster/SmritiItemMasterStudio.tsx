@@ -28,6 +28,8 @@ import { HeaderMappingEngine } from "../../lib/headerMapping/HeaderMappingEngine
 import { ColumnMappingResult } from "../../lib/headerMapping/types.ts";
 import { 
   getUnifiedItemMasterFields, 
+  getGloballyVisibleFields,
+  isFieldGloballyVisible,
   getUnifiedHeaderMappingFields, 
   serializeProductAttributes,
   CORE_STANDARD_ITEM_FIELDS
@@ -67,6 +69,14 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   const [showOnlyErrors, setShowOnlyErrors] = useState<boolean>(false);
   const [skippedRowIndices, setSkippedRowIndices] = useState<Set<number>>(new Set());
   const [activeConflictRow, setActiveConflictRow] = useState<number | null>(null);
+  const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
+
+  // Listen to global visibility changes
+  useEffect(() => {
+    const handleVisChange = () => setVisibilityVersion(v => v + 1);
+    window.addEventListener("smriti_field_visibility_updated", handleVisChange);
+    return () => window.removeEventListener("smriti_field_visibility_updated", handleVisChange);
+  }, []);
 
   // ── 1. Load Canonical Backend Attribute Definitions ───────────────────────
   useEffect(() => {
@@ -89,23 +99,39 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     return () => { isMounted = false; };
   }, []);
 
-  // ── 2. Construct Canonical Unified Field Catalog & Mapping Engine ─────────
+  // ── 2. Construct Canonical Unified Field Catalog & Mapping Engine (Globally Synced) ─────────
   const unifiedItemFields = useMemo<ItemMasterFieldDefinition[]>(() => {
-    return getUnifiedItemMasterFields(dynamicDefinitions);
-  }, [dynamicDefinitions]);
+    return getGloballyVisibleFields(dynamicDefinitions);
+  }, [dynamicDefinitions, visibilityVersion]);
 
   const mappingEngine = useMemo<HeaderMappingEngine>(() => {
-    const unifiedHeaderFields = getUnifiedHeaderMappingFields(dynamicDefinitions);
+    const unifiedHeaderFields = getUnifiedHeaderMappingFields(dynamicDefinitions)
+      .filter(f => isFieldGloballyVisible(f.canonicalKey));
     return new HeaderMappingEngine(unifiedHeaderFields);
-  }, [dynamicDefinitions]);
+  }, [dynamicDefinitions, visibilityVersion]);
 
   // ── 3. Parse Raw Matrix from Textarea ─────────────────────────────────────
   const matrix = useMemo(() => {
     if (!rawText.trim()) return [];
-    return rawText
-      .trim()
-      .split(/\r\n|\n|\r/)
-      .map(line => line.split("\t"));
+    const lines = rawText.trim().split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+    if (lines.length === 0) return [];
+
+    const firstLine = lines[0];
+    const hasTabs = firstLine.includes("\t");
+    const hasCommas = !hasTabs && firstLine.includes(",");
+    const hasSemicolons = !hasTabs && !hasCommas && firstLine.includes(";");
+
+    return lines.map(line => {
+      if (hasTabs) {
+        return line.split("\t").map(c => c.trim());
+      } else if (hasCommas) {
+        return line.split(",").map(c => c.trim());
+      } else if (hasSemicolons) {
+        return line.split(";").map(c => c.trim());
+      } else {
+        return line.split(/\t+|\s{2,}/).map(c => c.trim());
+      }
+    });
   }, [rawText]);
 
   // ── 4. Detect Header Row & Extract Columns ────────────────────────────────
@@ -115,21 +141,20 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     }
 
     const detected = mappingEngine.detectHeaderRow(matrix);
-    const hasRecognized = detected.headers.some(h => mappingEngine.isKnownHeader(h.toLowerCase().trim()));
+    const hasRecognized = detected.headers.some(h => mappingEngine.isKnownHeader(h));
     
-    if (hasRecognized) {
+    if (hasRecognized && detected.headerRowIndex >= 0) {
       return {
         headerRowIndex: detected.headerRowIndex,
         headers: detected.headers,
         dataRows: matrix.slice(detected.headerRowIndex + 1)
       };
     } else {
-      const colCount = Math.max(...matrix.map(r => r.length), 1);
-      const generated = Array.from({ length: colCount }, (_, idx) => `Col ${idx + 1}`);
+      const firstRow = matrix[0] || [];
       return {
-        headerRowIndex: -1,
-        headers: generated,
-        dataRows: matrix
+        headerRowIndex: 0,
+        headers: firstRow,
+        dataRows: matrix.slice(1)
       };
     }
   }, [matrix, mappingEngine]);
