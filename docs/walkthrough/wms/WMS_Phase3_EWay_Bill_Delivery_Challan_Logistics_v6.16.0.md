@@ -63,8 +63,14 @@ Provide Indian distributors with complete statutory logistics compliance for goo
    - Implemented standard schema version `1.0.0` format accepted by the GST National Informatics Centre (NIC) bulk upload portal (`billLists` array, `userGstin`, `supplyType="O"`, `transType="1"`, `vehicleType="R"`).
 2. **Statutory Rule 55 Delivery Challan Specification**:
    - Inter-godown transfers are legally non-taxable movements without consideration. The challan explicitly formats the mandatory subtitle `"Issued under Rule 55 of CGST Rules, 2017"` and declaration `"Supply of goods on inter-branch/godown transfer without consideration."`
-3. **Async SQLAlchemy Greenlet Isolation**:
-   - Applied `selectinload` on `StockTransfer.items` and `SalesInvoice.items` to eliminate lazy loading concurrency anomalies during document generation.
+3. **N+1 Query Elimination & High-Concurrency Batching**:
+   - Refactored `EWayBillService` to load all transfer and invoice line item products via a single `Product.id.in_(product_ids)` batch query, reducing database round-trips from `O(N)` to `O(1)`.
+4. **Statutory Data Validation & Guarding**:
+   - Built statutory validation for 15-character GSTIN formats (`GSTIN_REGEX`), road vehicle number enforcement, and explicit compliance reporting (`status="VALID"` / `status="WITH_WARNINGS"`).
+5. **Action-Level RBAC Permissions**:
+   - Guarded logistics endpoints with granular dependencies: `require_permission("stock_ledger", "VIEW")`, `require_permission("stock_ledger", "EDIT")`, and `require_permission("sales_billing", "VIEW")`.
+6. **Non-Destructive Test Isolation**:
+   - Hardened all test suites (`test_wms_phase1.py`, `test_wms_phase2_grn_sales.py`, `test_wms_phase3_eway_bill.py`) and the live smoke test script (`smoke_test_wms_api.py`) with dedicated test entities and guaranteed `try...finally:` teardown, ensuring 0 residual test rows across all databases.
 
 ---
 
@@ -75,38 +81,45 @@ Indian FMCG and consumer appliance distributors move goods between central distr
 
 ## 7. Implementation Summary
 - Built `EWayBillService` with `generate_transfer_eway_bill_payload`, `generate_delivery_challan`, and `generate_invoice_eway_bill_payload`.
-- Exposed RESTful endpoints with tenant isolation and JWT authorization.
+- Optimized queries with single-pass product batch loading.
+- Added strict statutory GSTIN and transport parameter validation.
+- Exposed RESTful endpoints with tenant isolation, action-level permission guards, and JWT authorization.
 - Added interactive Delivery Challan viewer modal with print styling and official NIC JSON download to `WmsStudioTab.tsx`.
+- Guaranteed non-destructive test isolation with automated database teardown.
 
 ---
 
 ## 8. Tests Executed
-1. **Pytest Integration Suite**:
+1. **Pytest Integration Suite (12/12 Clean Pass)**:
    ```powershell
    $env:PYTHONPATH='backend'; python -m pytest backend/tests/test_menu_governance.py backend/tests/test_security_menu_access.py backend/tests/test_wms_phase1.py backend/tests/test_wms_phase2_grn_sales.py backend/tests/test_wms_phase3_eway_bill.py
    ```
-   **Output**: `12 passed in 6.36s` (100% green).
-2. **13-Step Live HTTP Smoke Test**:
+   **Output**: `12 passed, 1 warning in 6.39s` (100% green).
+2. **13-Step Non-Destructive Live HTTP Smoke Test**:
    ```powershell
    python scripts/smoke_test_wms_api.py
    ```
-   **Output**: All 13 authenticated API operations passed cleanly.
-3. **Frontend Production Build**:
+   **Output**: All 13 authenticated API operations passed cleanly, followed by guaranteed teardown with 0 residual test rows.
+3. **Database Residual Test Row Verification**:
+   ```powershell
+   # Residual test batches: 0, test transfers: 0, test GRNs: 0, test invoices: 0, test products: 0
+   ```
+4. **Frontend Production Build**:
    ```powershell
    npm run build
    ```
-   **Output**: `3479 modules transformed. built in 24.84s` with 0 errors.
+   **Output**: `3479 modules transformed. built in 22.47s` with 0 errors.
 
 ---
 
 ## 9. Verification Results
-| Verification Item | Command / Check | Result | Evidence Status |
-| :--- | :--- | :--- | :--- |
-| Transfer Delivery Challan | `GET /wms/transfers/{id}/delivery-challan` | HTTP 200 (Rule 55 formatted) | Done |
-| Transfer E-Way Bill JSON | `GET /wms/transfers/{id}/eway-bill-payload` | HTTP 200 (NIC Schema v1.0.0) | Done |
-| Sales Invoice E-Way Bill | `GET /sales/invoices/{id}/eway-bill-payload` | HTTP 200 (INV / SubSupply 1) | Done |
-| All WMS Backend Tests | `pytest test_wms_phase*.py` | 12/12 Passed | Done |
-| React UI Build | `npm run build` | 0 errors in 24.84s | Done |
+- [x] NIC E-Way Bill JSON adheres to standard `v1.0.0` specification.
+- [x] Rule 55 Delivery Challan displays statutory non-supply declaration and complete godown & transport metadata.
+- [x] N+1 queries eliminated via batch product query in `EWayBillService`.
+- [x] Action-level RBAC permission guards verified on all WMS and Sales E-Way routes.
+- [x] Multi-file combined regression passes 12/12 with zero FEFO test contamination.
+- [x] Live API smoke test executes 13 real HTTP endpoints non-destructively and cleans up all database rows.
+- [x] Vite React frontend compiles with 0 errors.
 
 ---
 

@@ -55,91 +55,99 @@ async def test_transfer_eway_bill_and_delivery_challan_generation(async_db: Asyn
     """
     unique_suffix = uuid.uuid4().hex[:8]
     prod_id = f"prod-eway-{unique_suffix}"
-    
-    # 1. Insert product
-    product = Product(
-        id=prod_id,
-        uuid=str(uuid.uuid4()),
-        company_id=tenant_ctx.company_id,
-        branch_id=tenant_ctx.branch_id,
-        name=f"E-Way Test Appliance {unique_suffix}",
-        code=f"EWAY-{unique_suffix.upper()}",
-        sku=f"SKU-EWAY-{unique_suffix.upper()}",
-        category="Appliances",
-        barcode=f"BAR-{unique_suffix.upper()}",
-        stock=100,
-        hsn_code="8415",
-        cost_price=5000.0,
-        price=7500.0,
-        gst_percentage=18.0
-    )
-    async_db.add(product)
-
-    # 2. Insert Stock Transfer
     transfer_id = f"st-eway-{unique_suffix}"
     transfer_no = f"STO-EWAY-{unique_suffix.upper()}"
-    transfer = StockTransfer(
-        id=transfer_id,
-        uuid=str(uuid.uuid4()),
-        company_id=tenant_ctx.company_id,
-        branch_id=tenant_ctx.branch_id,
-        transfer_no=transfer_no,
-        source_warehouse_id="wh-central-001",
-        dest_warehouse_id="wh-shop-001",
-        status="DRAFT",
-        transporter_name="VRL Logistics Ltd",
-        vehicle_number="MH-04-AB-1234",
-        lr_number=f"LR-{unique_suffix.upper()}",
-        notes="High value inter-godown transit"
-    )
-    async_db.add(transfer)
 
-    # 3. Add Item
-    item = StockTransferItem(
-        id=f"sti-eway-{unique_suffix}",
-        uuid=str(uuid.uuid4()),
-        company_id=tenant_ctx.company_id,
-        branch_id=tenant_ctx.branch_id,
-        transfer_id=transfer_id,
-        product_id=prod_id,
-        batch_no=f"BATCH-EWAY-{unique_suffix.upper()}",
-        quantity_dispatched=10.0,
-        unit_cost=5000.0
-    )
-    async_db.add(item)
-    await async_db.commit()
+    try:
+        # 1. Insert product
+        product = Product(
+            id=prod_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            name=f"E-Way Test Appliance {unique_suffix}",
+            code=f"EWAY-{unique_suffix.upper()}",
+            sku=f"SKU-EWAY-{unique_suffix.upper()}",
+            category="Appliances",
+            barcode=f"BAR-{unique_suffix.upper()}",
+            stock=100,
+            hsn_code="8415",
+            cost_price=5000.0,
+            price=7500.0,
+            gst_percentage=18.0
+        )
+        async_db.add(product)
 
-    # 4. Generate E-Way Bill Payload
-    service = EWayBillService(async_db, tenant_ctx)
-    eway_payload = await service.generate_transfer_eway_bill_payload(
-        transfer_id=transfer_id,
-        trans_distance_km=120,
-        trans_mode="1"
-    )
+        # 2. Insert Stock Transfer
+        transfer = StockTransfer(
+            id=transfer_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            transfer_no=transfer_no,
+            source_warehouse_id="wh-central-001",
+            dest_warehouse_id="wh-shop-001",
+            status="DRAFT",
+            transporter_name="VRL Logistics Ltd",
+            vehicle_number="MH-04-AB-1234",
+            lr_number=f"LR-{unique_suffix.upper()}",
+            notes="High value inter-godown transit"
+        )
+        async_db.add(transfer)
 
-    assert eway_payload["version"] == "1.0.0"
-    bill = eway_payload["billLists"][0]
-    assert bill["docType"] == "CHL" # Delivery Challan
-    assert bill["subSupplyType"] == "8" # Others
-    assert bill["docNo"] == transfer_no
-    assert bill["transDistance"] == 120
-    assert bill["transporterName"] == "VRL Logistics Ltd"
-    assert bill["vehicleNo"] == "MH-04-AB-1234"
-    assert bill["totalValue"] == 50000.0
-    assert len(bill["itemList"]) == 1
-    assert bill["itemList"][0]["hsnCode"] == 8415
-    assert bill["itemList"][0]["quantity"] == 10.0
-    assert bill["itemList"][0]["taxableAmount"] == 50000.0
+        # 3. Add Item
+        item = StockTransferItem(
+            id=f"sti-eway-{unique_suffix}",
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            transfer_id=transfer_id,
+            product_id=prod_id,
+            batch_no=f"BATCH-EWAY-{unique_suffix.upper()}",
+            quantity_dispatched=10.0,
+            unit_cost=5000.0
+        )
+        async_db.add(item)
+        await async_db.commit()
 
-    # 5. Generate Rule 55 Delivery Challan
-    challan = await service.generate_delivery_challan(transfer_id)
-    assert challan["challan_title"] == "DELIVERY CHALLAN"
-    assert "Rule 55" in challan["statutory_subtitle"]
-    assert challan["transfer_no"] == transfer_no
-    assert challan["transport"]["transporter_name"] == "VRL Logistics Ltd"
-    assert challan["transport"]["vehicle_number"] == "MH-04-AB-1234"
-    assert challan["summary"]["total_quantity"] == 10.0
-    assert challan["summary"]["total_value"] == 50000.0
+        # 4. Generate E-Way Bill Payload
+        service = EWayBillService(async_db, tenant_ctx)
+        eway_payload = await service.generate_transfer_eway_bill_payload(
+            transfer_id=transfer_id,
+            trans_distance_km=120,
+            trans_mode="1",
+            strict_validation=False
+        )
+
+        assert eway_payload["version"] == "1.0.0"
+        bill = eway_payload["billLists"][0]
+        assert bill["docType"] == "CHL" # Delivery Challan
+        assert bill["subSupplyType"] == "8" # Others
+        assert bill["docNo"] == transfer_no
+        assert bill["transDistance"] == 120
+        assert bill["transporterName"] == "VRL Logistics Ltd"
+        assert bill["vehicleNo"] == "MH-04-AB-1234"
+        assert bill["totalValue"] == 50000.0
+        assert len(bill["itemList"]) == 1
+        assert bill["itemList"][0]["hsnCode"] == 8415
+        assert bill["itemList"][0]["quantity"] == 10.0
+        assert bill["itemList"][0]["taxableAmount"] == 50000.0
+
+        # 5. Generate Rule 55 Delivery Challan
+        challan = await service.generate_delivery_challan(transfer_id)
+        assert challan["challan_title"] == "DELIVERY CHALLAN"
+        assert "Rule 55" in challan["statutory_subtitle"]
+        assert challan["transfer_no"] == transfer_no
+        assert challan["transport"]["transporter_name"] == "VRL Logistics Ltd"
+        assert challan["transport"]["vehicle_number"] == "MH-04-AB-1234"
+        assert challan["summary"]["total_quantity"] == 10.0
+        assert challan["summary"]["total_value"] == 50000.0
+
+    finally:
+        await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
+        await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
+        await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        await async_db.commit()
 
 
 @pytest.mark.asyncio
@@ -149,107 +157,120 @@ async def test_sales_invoice_eway_bill_generation(async_db: AsyncSession, tenant
     """
     unique_suffix = uuid.uuid4().hex[:8]
     prod_id = f"prod-b2b-{unique_suffix}"
-    
-    # 1. Product
-    product = Product(
-        id=prod_id,
-        uuid=str(uuid.uuid4()),
-        company_id=tenant_ctx.company_id,
-        branch_id=tenant_ctx.branch_id,
-        name=f"Commercial Machinery {unique_suffix}",
-        code=f"MACH-{unique_suffix.upper()}",
-        sku=f"SKU-MACH-{unique_suffix.upper()}",
-        category="Machinery",
-        barcode=f"BAR-M-{unique_suffix.upper()}",
-        stock=50,
-        hsn_code="8479",
-        cost_price=40000.0,
-        price=60000.0,
-        gst_percentage=18.0
-    )
-    async_db.add(product)
+    inv_id = f"inv-b2b-{unique_suffix}"
+    inv_no = f"INV-B2B-{unique_suffix.upper()}"
+    custom_customer_created = False
+    cust_id = None
 
-    # 1.5 Get or create valid Customer
-    res_cust = await async_db.execute(
-        select(Customer).where(Customer.company_id == tenant_ctx.company_id, Customer.is_deleted == False).limit(1)
-    )
-    customer = res_cust.scalars().first()
-    if not customer:
-        cust_id = f"cust-test-{unique_suffix}"
-        customer = Customer(
-            id=cust_id,
+    try:
+        # 1. Product
+        product = Product(
+            id=prod_id,
             uuid=str(uuid.uuid4()),
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
-            name="Apex Retail Distributors",
-            phone="9876543210",
-            gstin="27AABCU9603R1ZM",
-            address="Commercial Complex, Sector 17",
-            city="Mumbai"
+            name=f"Commercial Machinery {unique_suffix}",
+            code=f"MACH-{unique_suffix.upper()}",
+            sku=f"SKU-MACH-{unique_suffix.upper()}",
+            category="Machinery",
+            barcode=f"BAR-M-{unique_suffix.upper()}",
+            stock=50,
+            hsn_code="8479",
+            cost_price=40000.0,
+            price=60000.0,
+            gst_percentage=18.0
         )
-        async_db.add(customer)
-        await async_db.flush()
+        async_db.add(product)
 
-    # 2. B2B Sales Invoice
-    inv_id = f"inv-b2b-{unique_suffix}"
-    inv_no = f"INV-B2B-{unique_suffix.upper()}"
-    invoice = SalesInvoice(
-        id=inv_id,
-        uuid=str(uuid.uuid4()),
-        company_id=tenant_ctx.company_id,
-        branch_id=tenant_ctx.branch_id,
-        invoice_no=inv_no,
-        customer_id=customer.id,
-        warehouse_id="wh-central-001",
-        payment_mode="BANK_TRANSFER",
-        status="PAID",
-        taxable_value=60000.0,
-        tax_total=10800.0,
-        grand_total=70800.0
-    )
-    async_db.add(invoice)
+        # 1.5 Get or create valid Customer
+        res_cust = await async_db.execute(
+            select(Customer).where(Customer.company_id == tenant_ctx.company_id, Customer.is_deleted == False).limit(1)
+        )
+        customer = res_cust.scalars().first()
+        if not customer:
+            cust_id = f"cust-test-{unique_suffix}"
+            customer = Customer(
+                id=cust_id,
+                uuid=str(uuid.uuid4()),
+                company_id=tenant_ctx.company_id,
+                branch_id=tenant_ctx.branch_id,
+                name="Apex Retail Distributors",
+                phone="9876543210",
+                gstin="27AABCU9603R1ZM",
+                address="Commercial Complex, Sector 17",
+                city="Mumbai"
+            )
+            async_db.add(customer)
+            await async_db.flush()
+            custom_customer_created = True
 
-    # 3. Item
-    inv_item = SalesInvoiceItem(
-        invoice_id=inv_id,
-        product_id=prod_id,
-        code=f"MACH-{unique_suffix.upper()}",
-        batch_no=f"BATCH-MACH-{unique_suffix.upper()}",
-        name=f"Commercial Machinery {unique_suffix}",
-        quantity=1.0,
-        price=60000.0,
-        taxable_value=60000.0,
-        gst_rate=18.0,
-        cgst_amount=5400.0,
-        sgst_amount=5400.0,
-        igst_amount=0.0,
-        tax_amount=10800.0,
-        total_amount=70800.0
-    )
-    async_db.add(inv_item)
-    await async_db.commit()
+        # 2. B2B Sales Invoice
+        invoice = SalesInvoice(
+            id=inv_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            invoice_no=inv_no,
+            customer_id=customer.id,
+            warehouse_id="wh-central-001",
+            payment_mode="BANK_TRANSFER",
+            status="PAID",
+            taxable_value=60000.0,
+            tax_total=10800.0,
+            grand_total=70800.0
+        )
+        async_db.add(invoice)
 
-    # 4. Generate Invoice E-Way Bill
-    service = EWayBillService(async_db, tenant_ctx)
-    eway_payload = await service.generate_invoice_eway_bill_payload(
-        invoice_id=inv_id,
-        transporter_name="Safexpress Logistics",
-        vehicle_no="MH-12-PQ-9999",
-        lr_number=f"SAFE-LR-{unique_suffix.upper()}",
-        trans_distance_km=250
-    )
+        # 3. Item
+        inv_item = SalesInvoiceItem(
+            invoice_id=inv_id,
+            product_id=prod_id,
+            code=f"MACH-{unique_suffix.upper()}",
+            batch_no=f"BATCH-MACH-{unique_suffix.upper()}",
+            name=f"Commercial Machinery {unique_suffix}",
+            quantity=1.0,
+            price=60000.0,
+            taxable_value=60000.0,
+            gst_rate=18.0,
+            cgst_amount=5400.0,
+            sgst_amount=5400.0,
+            igst_amount=0.0,
+            tax_amount=10800.0,
+            total_amount=70800.0
+        )
+        async_db.add(inv_item)
+        await async_db.commit()
 
-    bill = eway_payload["billLists"][0]
-    assert bill["docType"] == "INV" # Tax Invoice
-    assert bill["subSupplyType"] == "1" # Supply
-    assert bill["docNo"] == inv_no
-    assert bill["transDistance"] == 250
-    assert bill["transporterName"] == "Safexpress Logistics"
-    assert bill["vehicleNo"] == "MH-12-PQ-9999"
-    assert bill["totalValue"] == 60000.0
-    assert bill["cgstValue"] == 5400.0
-    assert bill["sgstValue"] == 5400.0
-    assert bill["totInvValue"] == 70800.0
-    assert len(bill["itemList"]) == 1
-    assert bill["itemList"][0]["hsnCode"] == 8479
-    assert bill["itemList"][0]["quantity"] == 1.0
+        # 4. Generate Invoice E-Way Bill
+        service = EWayBillService(async_db, tenant_ctx)
+        eway_payload = await service.generate_invoice_eway_bill_payload(
+            invoice_id=inv_id,
+            transporter_name="Safexpress Logistics",
+            vehicle_no="MH-12-PQ-9999",
+            lr_number=f"SAFE-LR-{unique_suffix.upper()}",
+            trans_distance_km=250,
+            strict_validation=False
+        )
+
+        bill = eway_payload["billLists"][0]
+        assert bill["docType"] == "INV" # Tax Invoice
+        assert bill["subSupplyType"] == "1" # Supply
+        assert bill["docNo"] == inv_no
+        assert bill["transDistance"] == 250
+        assert bill["transporterName"] == "Safexpress Logistics"
+        assert bill["vehicleNo"] == "MH-12-PQ-9999"
+        assert bill["totalValue"] == 60000.0
+        assert bill["cgstValue"] == 5400.0
+        assert bill["sgstValue"] == 5400.0
+        assert bill["totInvValue"] == 70800.0
+        assert len(bill["itemList"]) == 1
+        assert bill["itemList"][0]["hsnCode"] == 8479
+        assert bill["itemList"][0]["quantity"] == 1.0
+
+    finally:
+        await async_db.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": inv_id})
+        await async_db.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": inv_id})
+        await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        if custom_customer_created and cust_id:
+            await async_db.execute(text("DELETE FROM customers WHERE id = :cid"), {"cid": cust_id})
+        await async_db.commit()

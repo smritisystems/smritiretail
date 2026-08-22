@@ -299,11 +299,15 @@ async def receive_transfer(
 
 # ─────────────────────────── E-Way Bill & Delivery Challan ───────────────────────────
 
-@router.get("/transfers/{transfer_id}/eway-bill-payload")
+@router.get(
+    "/transfers/{transfer_id}/eway-bill-payload",
+    dependencies=[Depends(require_permission("stock_ledger", "VIEW"))],
+)
 async def get_transfer_eway_bill_payload(
     transfer_id: str,
     distance_km: int = Query(50, ge=1, le=4000),
     trans_mode: str = Query("1"),
+    strict_validation: bool = Query(False),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
@@ -312,11 +316,15 @@ async def get_transfer_eway_bill_payload(
     return await service.generate_transfer_eway_bill_payload(
         transfer_id=transfer_id,
         trans_distance_km=distance_km,
-        trans_mode=trans_mode
+        trans_mode=trans_mode,
+        strict_validation=strict_validation
     )
 
 
-@router.get("/transfers/{transfer_id}/delivery-challan")
+@router.get(
+    "/transfers/{transfer_id}/delivery-challan",
+    dependencies=[Depends(require_permission("stock_ledger", "VIEW"))],
+)
 async def get_transfer_delivery_challan(
     transfer_id: str,
     db: AsyncSession = Depends(get_company_db),
@@ -327,8 +335,14 @@ async def get_transfer_delivery_challan(
     return await service.generate_delivery_challan(transfer_id)
 
 
-@router.post("/transfers/{transfer_id}/transporter")
-@router.put("/transfers/{transfer_id}/transporter")
+@router.post(
+    "/transfers/{transfer_id}/transporter",
+    dependencies=[Depends(require_permission("stock_ledger", "EDIT"))],
+)
+@router.put(
+    "/transfers/{transfer_id}/transporter",
+    dependencies=[Depends(require_permission("stock_ledger", "EDIT"))],
+)
 async def update_transfer_transporter(
     transfer_id: str,
     transporter_name: Optional[str] = Query(None),
