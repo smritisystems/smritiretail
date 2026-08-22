@@ -26,6 +26,7 @@ from ...schemas.sales import (
 )
 from ...repositories.sales import SalesInvoiceRepository
 from ...services.sales import SalesService
+from ...services.eway_bill_service import EWayBillService
 
 router = APIRouter()
 
@@ -518,3 +519,30 @@ async def convert_quotation_to_invoice(
     Sets quotation status to Converted and creates a new Draft invoice.
     """
     return await SalesService(db, tenant_ctx).convert_quotation_to_invoice(quotation_id)
+
+
+# ─────────────────────────── E-Way Bill Generation ───────────────────────────
+
+@router.get("/invoices/{invoice_id}/eway-bill-payload")
+@router.get("/{invoice_id}/eway-bill-payload")
+async def get_invoice_eway_bill_payload(
+    invoice_id: str,
+    transporter_name: Optional[str] = Query(None),
+    vehicle_no: Optional[str] = Query(None),
+    lr_number: Optional[str] = Query(None),
+    distance_km: int = Query(50, ge=1, le=4000),
+    trans_mode: str = Query("1"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Generate official GST NIC E-Way Bill JSON payload for B2B Sales Invoice."""
+    service = EWayBillService(db, tenant_ctx)
+    return await service.generate_invoice_eway_bill_payload(
+        invoice_id=invoice_id,
+        transporter_name=transporter_name,
+        vehicle_no=vehicle_no,
+        lr_number=lr_number,
+        trans_distance_km=distance_km,
+        trans_mode=trans_mode
+    )
+

@@ -251,14 +251,34 @@ def main():
     assert status == 201, f"Sales invoice creation failed with status {status}"
     print(f"   [OK] HTTP {status} -- Sales Invoice Created {inv_resp['invoice_no']} (Grand Total: INR {inv_resp['grand_total']}, Batch Allocated: {inv_resp['items'][0].get('batch_no')})")
 
-    # 10. Cancel Sales Invoice (Stock Reversal)
-    print(f"\n10. Calling DELETE /sales/invoices/{inv_id} (Stock Restoration)...")
+    # 10. Generate Transfer Delivery Challan (Rule 55)
+    print(f"\n10. Calling GET /wms/transfers/{transfer['id']}/delivery-challan (Rule 55)...")
+    status, challan_resp = http_get(f"{BASE_URL}/wms/transfers/{transfer['id']}/delivery-challan", token)
+    assert status == 200, f"Delivery challan failed with status {status}"
+    print(f"   [OK] HTTP {status} -- Challan {challan_resp['challan_no']} (From: {challan_resp['dispatch_from']['code']}, To: {challan_resp['dispatch_to']['code']}, Subtitle: {challan_resp['statutory_subtitle']})")
+
+    # 11. Generate Transfer E-Way Bill Payload
+    print(f"\n11. Calling GET /wms/transfers/{transfer['id']}/eway-bill-payload...")
+    status, eway_resp = http_get(f"{BASE_URL}/wms/transfers/{transfer['id']}/eway-bill-payload?trans_distance_km=120", token)
+    assert status == 200, f"Transfer E-Way bill payload failed with status {status}"
+    bill = eway_resp["billLists"][0]
+    print(f"   [OK] HTTP {status} -- E-Way Payload Doc: {bill['docNo']}, DocType: {bill['docType']}, SubSupply: {bill['subSupplyType']}, Vehicle: {bill['vehicleNo']}")
+
+    # 12. Generate Sales Invoice E-Way Bill Payload
+    print(f"\n12. Calling GET /sales/invoices/{inv_id}/eway-bill-payload...")
+    status, inv_eway_resp = http_get(f"{BASE_URL}/sales/invoices/{inv_id}/eway-bill-payload?trans_distance_km=45", token)
+    assert status == 200, f"Sales invoice E-Way bill payload failed with status {status}"
+    inv_bill = inv_eway_resp["billLists"][0]
+    print(f"   [OK] HTTP {status} -- Invoice E-Way Payload Doc: {inv_bill['docNo']}, Total Inv Value: INR {inv_bill['totInvValue']}, Items: {len(inv_bill['itemList'])}")
+
+    # 13. Cancel Sales Invoice (Stock Reversal)
+    print(f"\n13. Calling DELETE /sales/invoices/{inv_id} (Stock Restoration)...")
     status, del_resp = http_delete(f"{BASE_URL}/sales/invoices/{inv_id}", token)
     assert status == 200, f"Sales invoice cancellation failed with status {status}"
     print(f"   [OK] HTTP {status} -- Sales Invoice Cancelled & Batch Stock Restored: {del_resp.get('message')}")
 
     print("\n============================================================")
-    print("ALL 10 AUTHENTICATED WMS PHASE 1 & 2 API SMOKE TESTS COMPLETED SUCCESSFULLY!")
+    print("ALL 13 AUTHENTICATED WMS PHASE 1, 2 & 3 API SMOKE TESTS COMPLETED SUCCESSFULLY!")
     print("============================================================")
 
 if __name__ == "__main__":
