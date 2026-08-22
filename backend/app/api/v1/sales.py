@@ -523,8 +523,14 @@ async def convert_quotation_to_invoice(
 
 # ─────────────────────────── E-Way Bill Generation ───────────────────────────
 
-@router.get("/invoices/{invoice_id}/eway-bill-payload")
-@router.get("/{invoice_id}/eway-bill-payload")
+@router.get(
+    "/invoices/{invoice_id}/eway-bill-payload",
+    dependencies=[Depends(require_permission("sales_billing", "VIEW"))],
+)
+@router.get(
+    "/{invoice_id}/eway-bill-payload",
+    dependencies=[Depends(require_permission("sales_billing", "VIEW"))],
+)
 async def get_invoice_eway_bill_payload(
     invoice_id: str,
     transporter_name: Optional[str] = Query(None),
@@ -532,6 +538,7 @@ async def get_invoice_eway_bill_payload(
     lr_number: Optional[str] = Query(None),
     distance_km: int = Query(50, ge=1, le=4000),
     trans_mode: str = Query("1"),
+    strict_validation: bool = Query(False),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
@@ -543,6 +550,7 @@ async def get_invoice_eway_bill_payload(
         vehicle_no=vehicle_no,
         lr_number=lr_number,
         trans_distance_km=distance_km,
-        trans_mode=trans_mode
+        trans_mode=trans_mode,
+        strict_validation=strict_validation
     )
 

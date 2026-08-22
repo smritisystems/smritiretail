@@ -12,8 +12,9 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import re
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -24,6 +25,9 @@ from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.crm import Customer
 from ..models.tenant import Company
 from ..api.deps import TenantContext
+
+# Statutory Indian GSTIN validation pattern
+GSTIN_REGEX = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$")
 
 
 class EWayBillService:
@@ -45,15 +49,35 @@ class EWayBillService:
         )
         return res.scalar_one_or_none()
 
+    async def _batch_load_products(self, product_ids: List[str]) -> Dict[str, Product]:
+        """Batch load products in a single SQL query to prevent N+1 overhead."""
+        unique_ids = list(set(pid for pid in product_ids if pid))
+        if not unique_ids:
+            return {}
+        res = await self.db.execute(
+            select(Product).where(Product.id.in_(unique_ids))
+        )
+        return {p.id: p for p in res.scalars().all()}
+
+    def _validate_gstin(self, gstin: Optional[str], label: str = "GSTIN") -> Tuple[bool, Optional[str]]:
+        """Validate format of 15-character GSTIN."""
+        if not gstin or gstin == "URP":
+            return True, None # Unregistered Person
+        if not GSTIN_REGEX.match(gstin):
+            return False, f"Invalid {label} format '{gstin}'. Expected 15-character alphanumeric GSTIN."
+        return True, None
+
     async def generate_transfer_eway_bill_payload(
         self,
         transfer_id: str,
         trans_distance_km: int = 50,
         trans_mode: str = "1",
-        vehicle_type: str = "R"
+        vehicle_type: str = "R",
+        strict_validation: bool = False
     ) -> Dict[str, Any]:
         """
         Generate standard NIC GST E-Way Bill JSON payload for Inter-Godown Stock Transfer (Delivery Challan).
+        Batch queries products to guarantee high performance on multi-item consignments.
         """
         res = await self.db.execute(
             select(StockTransfer).where(
@@ -82,15 +106,29 @@ class EWayBillService:
         company_name = company.name if company else "SMRITI Enterprise"
         company_state_code = int(company_gstin[:2]) if company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit() else 27
 
+        warnings: List[str] = []
+        is_valid_gstin, gstin_err = self._validate_gstin(company_gstin, "Company GSTIN")
+        if not is_valid_gstin:
+            if strict_validation:
+                raise HTTPException(status_code=422, detail=gstin_err)
+            warnings.append(gstin_err)
+
+        if not transfer.vehicle_number and trans_mode == "1":
+            msg = "Missing vehicle number for Road Transport."
+            if strict_validation:
+                raise HTTPException(status_code=422, detail=msg)
+            warnings.append(msg)
+
+        # Batch load all products in a single query
+        product_ids = [it.product_id for it in transfer.items if it.product_id]
+        products_map = await self._batch_load_products(product_ids)
+
         items_payload = []
         total_taxable_value = 0.0
         item_no = 1
 
         for item in transfer.items:
-            prod_res = await self.db.execute(
-                select(Product).where(Product.id == item.product_id)
-            )
-            product = prod_res.scalar_one_or_none()
+            product = products_map.get(item.product_id)
             prod_name = product.name if product else f"Product {item.product_id}"
             raw_hsn = getattr(product, 'hsn_code', None) or getattr(product, 'hsn', '8471')
             hsn_code = int(raw_hsn) if raw_hsn and str(raw_hsn).isdigit() else 8471
@@ -118,6 +156,10 @@ class EWayBillService:
 
         eway_payload = {
             "version": "1.0.0",
+            "compliance": {
+                "status": "VALID" if not warnings else "WITH_WARNINGS",
+                "warnings": warnings
+            },
             "billLists": [
                 {
                     "userGstin": company_gstin,
@@ -167,6 +209,7 @@ class EWayBillService:
     async def generate_delivery_challan(self, transfer_id: str) -> Dict[str, Any]:
         """
         Generate statutory Delivery Challan (Rule 55 CGST Rules 2017) format for printing and records.
+        Batch queries products to eliminate N+1 latency.
         """
         res = await self.db.execute(
             select(StockTransfer).where(
@@ -191,15 +234,15 @@ class EWayBillService:
 
         company = await self._get_company()
 
+        product_ids = [it.product_id for it in transfer.items if it.product_id]
+        products_map = await self._batch_load_products(product_ids)
+
         items = []
         total_qty = 0.0
         total_val = 0.0
 
         for item in transfer.items:
-            prod_res = await self.db.execute(
-                select(Product).where(Product.id == item.product_id)
-            )
-            prod = prod_res.scalar_one_or_none()
+            prod = products_map.get(item.product_id)
             qty = float(item.quantity_dispatched)
             rate = float(item.unit_cost)
             amt = round(qty * rate, 2)
@@ -261,10 +304,12 @@ class EWayBillService:
         lr_number: Optional[str] = None,
         trans_distance_km: int = 50,
         trans_mode: str = "1",
-        vehicle_type: str = "R"
+        vehicle_type: str = "R",
+        strict_validation: bool = False
     ) -> Dict[str, Any]:
         """
         Generate standard NIC GST E-Way Bill JSON payload for B2B Sales Invoices.
+        Batch queries products to eliminate N+1 latency.
         """
         res = await self.db.execute(
             select(SalesInvoice).where(
@@ -293,14 +338,28 @@ class EWayBillService:
 
         is_inter_state = company_state_code != customer_state_code
 
+        warnings: List[str] = []
+        is_valid_gst, gst_err = self._validate_gstin(company_gstin, "Company GSTIN")
+        if not is_valid_gst:
+            if strict_validation:
+                raise HTTPException(status_code=422, detail=gst_err)
+            warnings.append(gst_err)
+
+        if customer_gstin != "URP":
+            is_valid_cgst, cgst_err = self._validate_gstin(customer_gstin, "Customer GSTIN")
+            if not is_valid_cgst:
+                if strict_validation:
+                    raise HTTPException(status_code=422, detail=cgst_err)
+                warnings.append(cgst_err)
+
+        product_ids = [it.product_id for it in invoice.items if it.product_id]
+        products_map = await self._batch_load_products(product_ids)
+
         items_payload = []
         item_no = 1
 
         for item in invoice.items:
-            prod_res = await self.db.execute(
-                select(Product).where(Product.id == item.product_id)
-            )
-            prod = prod_res.scalar_one_or_none()
+            prod = products_map.get(item.product_id)
             prod_name = item.name or (prod.name if prod else f"Product {item.product_id}")
             raw_hsn = getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', '8471')
             hsn_code = int(raw_hsn) if raw_hsn and str(raw_hsn).isdigit() else 8471
@@ -336,6 +395,10 @@ class EWayBillService:
 
         eway_payload = {
             "version": "1.0.0",
+            "compliance": {
+                "status": "VALID" if not warnings else "WITH_WARNINGS",
+                "warnings": warnings
+            },
             "billLists": [
                 {
                     "userGstin": company_gstin,
@@ -380,3 +443,4 @@ class EWayBillService:
             ]
         }
         return eway_payload
+
