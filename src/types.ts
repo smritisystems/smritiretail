@@ -814,4 +814,23 @@ export interface GoodsReceipt {
   }[];
 }
 
+export interface CustomerPriceGroup {
+  id: string;
+  code: string;
+  description: string;
+  paymentTerms: string;
+  creditDays: number;
+  destTaxType: "Local" | "Interstate" | "Export" | "SEZ (With Tax)" | "SEZ (Without Tax)" | "Exempt" | string;
+  creditLimit: number;
+  itemClassificationPriceFactorApplicable: boolean;
+  allowCreditInvoice: boolean;
+  allowCashInvoice: boolean;
+  taxExclusiveInvoice: boolean;
+  allowMiscIssue: boolean;
+  status?: "Active" | "Inactive";
+  createdAt?: string;
+  modifiedAt?: string;
+}
+
+
 

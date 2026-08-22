@@ -139,9 +139,9 @@ async def get_tenant_context(
         target_company = "COMP-001"
     
     target_branch = header_branch if header_branch else current_user.branch_id
-    if not target_branch or target_branch == "BR-MAIN-001":
+    if not target_branch or target_branch in ("BR-001", "MAIN", "DEFAULT"):
         # Default to main branch for company if unspecified
-        target_branch = "BR-001" if target_company in ("COMP-001", "001") else f"BR-{target_company.replace('COMP-', '')}-MAIN"
+        target_branch = "BR-MAIN-001" if target_company in ("COMP-001", "001") else f"BR-{target_company.replace('COMP-', '')}-MAIN"
 
     if current_user.role != UserRole.SYSADMIN:
         # Header Tampering Security Check

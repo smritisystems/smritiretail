@@ -153,3 +153,26 @@ export interface CustomerSearchFilterState {
   locality: string;
   email: string;
 }
+
+export interface CustomerPriceGroup {
+  id: string; // Group code or uuid e.g. "CPP"
+  code: string; // Code e.g. "CPP"
+  description: string; // Description e.g. "Platinum Privilege"
+  paymentTerms: string; // e.g. "PT", "Net 30", "Net 60", "Immediate"
+  creditDays: number; // e.g. 60
+  destTaxType: "Local" | "Interstate" | "Export" | "SEZ (With Tax)" | "SEZ (Without Tax)" | "Exempt" | string;
+  creditLimit: number; // e.g. 500000
+  itemClassificationPriceFactorApplicable: boolean;
+  
+  // Transactions Allowed
+  allowCreditInvoice: boolean;
+  allowCashInvoice: boolean;
+  taxExclusiveInvoice: boolean;
+  allowMiscIssue: boolean; // Allow Goods (Misc.,) Issue (Without Invoicing)
+
+  // Status & Audit
+  status?: "Active" | "Inactive";
+  createdAt?: string;
+  modifiedAt?: string;
+}
+

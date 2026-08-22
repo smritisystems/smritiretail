@@ -31,8 +31,7 @@ class CrmService:
             select(CustomerGroup).filter(
                 CustomerGroup.name == group_in.name,
                 CustomerGroup.is_deleted == False,
-                CustomerGroup.company_id == self.tenant_ctx.company_id,
-                CustomerGroup.branch_id == self.tenant_ctx.branch_id
+                (CustomerGroup.company_id == self.tenant_ctx.company_id) | (CustomerGroup.company_id.is_(None))
             )
         )
         if existing.scalars().first():
@@ -46,12 +45,17 @@ class CrmService:
         self.db.add(db_group)
         try:
             await self.db.commit()
-        except IntegrityError:
+        except IntegrityError as exc:
             await self.db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail="Customer group with this name already exists"
-            )
+            err_msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+            if "customer_groups_name_key" in err_msg or "name" in err_msg:
+                raise HTTPException(status_code=400, detail="Customer group with this name already exists")
+            elif "customer_groups_pkey" in err_msg or "id" in err_msg:
+                raise HTTPException(status_code=400, detail="Customer group with this ID already exists")
+            elif "branch_id" in err_msg or "company_id" in err_msg:
+                raise HTTPException(status_code=400, detail="Specified company or branch does not exist")
+            else:
+                raise HTTPException(status_code=400, detail="Customer group could not be created due to database integrity constraints")
         await self.db.refresh(db_group)
         return db_group
 
@@ -63,23 +67,25 @@ class CrmService:
                     Customer.mobile == customer_in.mobile,
                     Customer.is_deleted == False,
                     Customer.company_id == self.tenant_ctx.company_id,
-                    Customer.branch_id == self.tenant_ctx.branch_id
                 )
             )
             if existing_mobile.scalars().first():
                 raise HTTPException(status_code=400, detail="Customer with this mobile number already exists")
 
-        # Validate customer group exists
-        stmt = select(CustomerGroup).filter(
-            CustomerGroup.id == customer_in.customer_group_id,
-            CustomerGroup.is_deleted == False,
-            CustomerGroup.company_id == self.tenant_ctx.company_id,
-            CustomerGroup.branch_id == self.tenant_ctx.branch_id
-        )
-        res = await self.db.execute(stmt)
-        group = res.scalars().first()
-        if not group:
-            raise HTTPException(status_code=400, detail="Specified Customer Group does not exist")
+        # Validate customer group exists if specified
+        if customer_in.customer_group_id:
+            stmt = select(CustomerGroup).filter(
+                CustomerGroup.id == customer_in.customer_group_id,
+                CustomerGroup.is_deleted == False,
+            )
+            if self.tenant_ctx.company_id:
+                stmt = stmt.filter(
+                    (CustomerGroup.company_id == self.tenant_ctx.company_id) | (CustomerGroup.company_id.is_(None))
+                )
+            res = await self.db.execute(stmt)
+            group = res.scalars().first()
+            if not group:
+                raise HTTPException(status_code=400, detail="Specified Customer Group does not exist")
 
         cust_dict = customer_in.model_dump()
         if not cust_dict.get("code"):
@@ -95,12 +101,20 @@ class CrmService:
         self.db.add(db_customer)
         try:
             await self.db.commit()
-        except IntegrityError:
+        except IntegrityError as exc:
             await self.db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail="Customer with this mobile number or details already exists"
-            )
+            err_msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+            if "customers_pkey" in err_msg:
+                raise HTTPException(status_code=400, detail="Customer with this ID already exists")
+            elif "mobile" in err_msg:
+                raise HTTPException(status_code=400, detail="Customer with this mobile number already exists")
+            elif "customer_group_id" in err_msg:
+                raise HTTPException(status_code=400, detail="Specified Customer Group does not exist")
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Customer with this mobile number or details already exists"
+                )
         await self.db.refresh(db_customer)
         return db_customer
 
