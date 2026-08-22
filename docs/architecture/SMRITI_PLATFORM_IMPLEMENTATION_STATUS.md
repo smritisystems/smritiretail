@@ -80,14 +80,18 @@ Remaining architectural tracking items for future slices:
 - Multi-tier document approval hierarchy (`ApprovalPolicy`, `ApprovalRequest`, `ApprovalAction`) and unified communicator template dispatch audit ledgers (`CommunicatorTemplate`, `CommunicatorLog`) verified.
 - 81 multi-module tests passing.
 
-## Next Approved Slice: Slice 6 (Capability, Template, and Workspace Resolution)
+### Slice 6: Capability, Template, and Workspace Resolution (Verified)
+- Control plane platform capability catalog (`PlatformCapability`) and vertical workspace templates (`WorkspaceTemplate`) in `smritisys`, combined with dynamic tenant bindings (`TenantCapabilityBinding`) and personalized layout resolution (`UserWorkspaceConfig`) verified.
+- 85 multi-module tests passing.
+
+## Next Approved Slice: Slice 7 (Outbox and Analytics Plane)
 
 **Scope**:
-- Business industry capabilities resolution in control plane (`smritisys`).
-- Business workspace templates (Retail, Supermarket, Wholesale, Apparel, Pharmacy, Restaurant).
-- User and role workspace policy binding.
+- Transactional outbox event ledger (`outbox_events`) in tenant data plane (`smritiXXX`) ensuring zero dual-write failures.
+- Asynchronous stream publisher dispatching domain events to external analytics consumers.
+- Read-only analytical materialized view definitions and operational reporting views.
 
-Out of scope for Slice 6: PDT, Analytics plane, microservices decomposition, full metadata-driven UI generation.
+Out of scope for Slice 7: Heavy machine learning forecasting or analytical reporting against unpopulated test tables.
 
 ## Governance Rule
 
