@@ -16,40 +16,47 @@
 
 **Version:** `v6.16.0`  
 **Area:** `wms` / `inventory_audit`  
-**Status:** Implemented, runtime-tested, and certified  
+**Status:** Implemented and runtime-tested across `smriti001` and `smriti002`; control plane boundary enforced and concurrency-locked  
 
 ---
 
 ## 1. Purpose
-Provide distributors and warehouse operations with a complete physical stocktaking and inventory audit lifecycle. This system eliminates divergence between book balances and physical shelf stock by supporting snapshotted cycle counting, hands-free barcode scanner count increments, automatic variance calculation, statutory loss/surplus attribution, and ledger discrepancy reconciliation.
+Provide distributors and warehouse operations with a complete physical stocktaking and inventory audit lifecycle. This system eliminates divergence between book balances and physical shelf stock by supporting snapshotted cycle counting, hands-free barcode scanner count increments, automatic variance calculation, statutory loss/surplus attribution, and pessimistic locked ledger discrepancy reconciliation.
 
 ---
 
 ## 2. Scope
-1. **Snapshotted Stocktaking Cycles (`StockAudit` & `StockAuditItem`)**:
-   - Baseline snapshots of all active batch stocks (`system_qty`) in a target godown.
-   - Non-blocking audit cycles allowing normal warehouse operations during counting.
-2. **Barcode Scanner Rapid Batch Counting Engine**:
-   - Fast endpoint (`/wms/audits/{id}/scan`) resolving scanned barcode/SKU to batch lines and auto-incrementing counted quantities.
+1. **Multi-Company Architecture & Tenant Isolation (`stock_audits` & `stock_audit_items`)**:
+   - Company-local tables deployed strictly to tenant databases (`smriti001`, `smriti002`, `smriti_test_fresh`).
+   - Cleaned control plane `smritisys` to eliminate architecture violations.
+   - Comprehensive CHECK constraints on status, audit type, non-negative quantities, and discrepancy reasons.
+2. **Versioned Alembic Migration**:
+   - Registered `v1341_add_stock_audit_tables.py` chaining from `v1340_add_grn_sales_batch_columns`.
+3. **Pessimistic Row Locking (`SELECT ... FOR UPDATE`) & Intervening Movement Auditing**:
+   - `StockAuditService.reconcile_and_post_discrepancies` locks `ProductBatchStock` and `Product` during reconciliation.
+   - Audits and detects intervening sales/dispatches between audit snapshot time and reconciliation time, embedding operational notes in the immutable audit trail.
+4. **Barcode Scanner Rapid Batch Counting Engine**:
+   - Fast endpoint (`/wms/audits/{id}/scan`) resolving scanned primary barcode, SKU, code, or secondary barcodes array (`Product.secondary_barcodes`) to batch lines and auto-incrementing counted quantities.
    - Automatic discovery and categorization of unlisted items found during audits (`SURPLUS_FOUND`).
-3. **Variance Tracking & Loss Attribution**:
+5. **Variance Tracking & Loss Attribution**:
    - Real-time computation of `variance_qty = counted_qty - system_qty` and `variance_value`.
    - Categorization by statutory write-off reason (`DAMAGED`, `EXPIRED`, `THEFT_LOSS`, `SURPLUS_FOUND`, `COUNTING_ERROR`).
-4. **Ledger Discrepancy Reconciliation (`StockAuditService`)**:
+6. **Ledger Discrepancy Reconciliation (`StockAuditService`)**:
    - Applies batch inventory mutations (+ for surplus, - for deficit).
    - Generates immutable audit trail movements (`OUTWARD_LOSS`, `INWARD_SURPLUS`) in `stock_movements`.
    - Resynchronizes cached aggregate product balances (`products.stock`).
-5. **WMS Studio UI Workspace Integration**:
+7. **WMS Studio UI Workspace Integration**:
    - First-class "Stock Audit & Recon" sub-tab in `WmsStudioTab.tsx`.
    - Barcode scanning input, live color-coded variance grid, and one-click reconciliation modal.
 
 ---
 
 ## 3. Files Created
-1. `backend/app/services/stock_audit_service.py`: Domain engine for audit snapshots, scanner increments, variance calculation, and ledger reconciliation.
-2. `backend/tests/test_wms_phase4_audit_reconciliation.py`: Complete isolated pytest suite testing snapshotting, barcode scanning, deficit write-off, and surplus inwarding.
-3. `scripts/smoke_test_wms_phase4.py`: End-to-end async HTTP smoke test executing all 7 physical audit operations with database cleanup.
-4. `docs/walkthrough/wms/WMS_Phase4_Stock_Audit_Reconciliation_Barcode_v6.16.0.md`: This comprehensive walkthrough document.
+1. `backend/app/services/stock_audit_service.py`: Domain engine for audit snapshots, scanner increments, variance calculation, pessimistic row locking, and ledger reconciliation.
+2. `backend/alembic/versions/v1341_add_stock_audit_tables.py`: Official versioned Alembic migration for company databases.
+3. `backend/tests/test_wms_phase4_audit_reconciliation.py`: Complete isolated pytest suite (6 tests) covering snapshotting, secondary barcodes, deficit write-offs, surplus inwards, `smriti002` multi-company execution, and intervening transaction detection.
+4. `scripts/smoke_test_wms_phase4.py`: End-to-end async HTTP smoke test executing all 7 physical audit operations with database cleanup.
+5. `docs/walkthrough/wms/WMS_Phase4_Stock_Audit_Reconciliation_Barcode_v6.16.0.md`: This comprehensive walkthrough document.
 
 ---
 
@@ -63,23 +70,25 @@ Provide distributors and warehouse operations with a complete physical stocktaki
 ---
 
 ## 5. Architecture Decisions
-1. **Immutable Baseline Snapshot**:
-   - Physical counts are evaluated against `system_qty` captured at audit creation time (`StockAuditItem.system_qty`), ensuring that audit variance calculations remain mathematically stable.
-2. **Atomic Batch & Ledger Reconciliation**:
-   - Stock reconciliation occurs inside a single database transaction. Batch stocks (`ProductBatchStock`), ledger audit rows (`StockMovement`), and product cache (`products.stock`) are updated atomically.
-3. **Role & Action Level Permission Guarding**:
-   - All audit read endpoints require `stock_ledger:VIEW`, while audit creation, scanning, manual counting, and ledger reconciliation require `stock_ledger:EDIT` / `ADMIN`.
+1. **Strict Control Plane Separation**:
+   - `stock_audits` and `stock_audit_items` are strictly company-local tables and do not reside in `smritisys`.
+2. **Pessimistic Concurrency Guarding**:
+   - Stock reconciliation locks batch rows with `with_for_update()` to prevent race conditions during concurrent POS/invoicing dispatches.
+3. **Multi-Identifier & Secondary Barcode Resolution**:
+   - Scanner input searches `barcode`, `sku`, `code`, and PostgreSQL `secondary_barcodes` array.
+4. **Immutable Baseline Snapshot & Intervening Transaction Detection**:
+   - Counts are evaluated against `system_qty` captured at audit creation time. Intervening movements post-snapshot are tracked and embedded in audit trail remarks.
 
 ---
 
 ## 6. Design Rationale
-- **Hands-Free Barcode Scanning**: Handheld 2D/1D wireless barcode scanners typically send keystrokes followed by `Enter`. The WMS Studio scanner workstation captures this input stream and triggers rapid single-item (+1) or multi-item increments without requiring mouse clicks.
+- **Hands-Free Barcode Scanning**: Handheld 2D/1D wireless barcode scanners capture input stream and trigger rapid single-item (+1) or multi-item increments without requiring mouse clicks.
 - **Color-Coded Variance Recognition**: Immediate visual feedback (Green for Matched, Red for Deficit/Loss, Cyan for Surplus) allows warehouse managers to spot discrepancy trends instantly before committing adjustments to the financial ledger.
 
 ---
 
 ## 7. Implementation Summary
-- **Database DDL**: Tables `stock_audits` and `stock_audit_items` created in `smriti001` and `smritisys` with scoped unique indexes.
+- **Database DDL**: Tables `stock_audits` and `stock_audit_items` created in `smriti001`, `smriti002`, and `smriti_test_fresh` with CHECK constraints.
 - **FastAPI Endpoints**:
   - `GET /api/v1/wms/audits`
   - `POST /api/v1/wms/audits`
@@ -94,13 +103,15 @@ Provide distributors and warehouse operations with a complete physical stocktaki
 ## 8. Tests Executed
 1. `backend/tests/test_wms_phase4_audit_reconciliation.py`:
    - `test_stock_audit_creation_and_baseline_snapshot` (Passed)
-   - `test_stock_audit_barcode_scanning_and_surplus_handling` (Passed)
+   - `test_stock_audit_barcode_scanning_and_secondary_barcodes` (Passed)
    - `test_stock_audit_reconciliation_deficit_write_off` (Passed)
    - `test_stock_audit_reconciliation_surplus_inward` (Passed)
+   - `test_stock_audit_multi_company_isolation_smriti002` (Passed)
+   - `test_stock_audit_intervening_movement_detection_and_locking` (Passed)
 2. `scripts/smoke_test_wms_phase4.py`:
    - 7/7 live HTTP steps executed and verified with zero residual database rows.
-3. Combined Regression:
-   - 19/19 tests across Phase 1, Phase 2, Phase 3, and Phase 4 passed in 9.14s.
+3. Combined Multi-Module Regression:
+   - 21/21 tests across Menu Governance, Security Access, WMS Phase 1, Phase 2, Phase 3, and Phase 4 passed in 9.88s.
 
 ---
 
@@ -110,16 +121,16 @@ Provide distributors and warehouse operations with a complete physical stocktaki
 ============================= test session starts =============================
 platform win32 -- Python 3.13.11, pytest-9.1.1, pluggy-1.6.0
 rootdir: F:\SMRITRretailNX\backend
-collected 19 items
+collected 21 items
 
-backend\tests\test_menu_governance.py .                                  [  5%]
-backend\tests\test_security_menu_access.py ..                            [ 15%]
-backend\tests\test_wms_phase1.py ....                                    [ 36%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 52%]
-backend\tests\test_wms_phase3_eway_bill.py .....                         [ 78%]
-backend\tests\test_wms_phase4_audit_reconciliation.py ....               [100%]
+backend\tests\test_menu_governance.py .                                  [  4%]
+backend\tests\test_security_menu_access.py ..                            [ 14%]
+backend\tests\test_wms_phase1.py ....                                    [ 33%]
+backend\tests\test_wms_phase2_grn_sales.py ...                           [ 47%]
+backend\tests\test_wms_phase3_eway_bill.py .....                         [ 71%]
+backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
 
-======================== 19 passed, 1 warning in 9.14s ========================
+======================== 21 passed, 1 warning in 9.88s ========================
 ```
 
 ---

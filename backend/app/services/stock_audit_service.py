@@ -43,7 +43,12 @@ class StockAuditService:
         return f"AUD-{date_str}-{hex_suffix}"
 
     async def _sync_product_stock_cache(self, product_id: str):
-        """Resynchronize aggregate products.stock cache with sum of active batch quantities."""
+        """
+        Resynchronize aggregate products.stock cache with sum of active batch physical quantities.
+        Note: products.stock represents total physical on-hand quantity across all company batches
+        for high-performance catalog indexing. Granular availability (physical - reserved - damaged)
+        is resolved dynamically per-batch in ProductBatchStock.
+        """
         res = await self.db.execute(
             select(ProductBatchStock.quantity).where(
                 ProductBatchStock.company_id == self.tenant.company_id,
@@ -57,7 +62,7 @@ class StockAuditService:
             select(Product).where(
                 Product.company_id == self.tenant.company_id,
                 Product.id == product_id
-            )
+            ).with_for_update()
         )
         prod = prod_res.scalar_one_or_none()
         if prod:
@@ -244,9 +249,9 @@ class StockAuditService:
         batch_no: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Barcode scanner rapid counting action.
-        Resolves product by barcode/SKU, finds or adds batch line in audit,
-        and increments counted quantity.
+        Barcode scanner rapid counting action with secondary barcodes & batch disambiguation.
+        Resolves product by Primary Barcode, SKU, Code, or Secondary Barcode array,
+        finds or adds batch line in audit, and increments counted quantity.
         """
         audit = await self.get_stock_audit(audit_id)
         if not audit:
@@ -254,11 +259,14 @@ class StockAuditService:
         if audit.status == "COMPLETED":
             raise HTTPException(status_code=400, detail="Cannot scan into a completed stock audit.")
 
-        # Find product by barcode or SKU
+        # Find product by primary barcode, SKU, code, OR secondary barcodes array
         p_res = await self.db.execute(
             select(Product).where(
                 Product.company_id == self.tenant.company_id,
-                (Product.barcode == barcode_or_sku) | (Product.sku == barcode_or_sku) | (Product.code == barcode_or_sku),
+                (Product.barcode == barcode_or_sku)
+                | (Product.sku == barcode_or_sku)
+                | (Product.code == barcode_or_sku)
+                | (Product.secondary_barcodes.any(barcode_or_sku)),
                 Product.is_deleted == False
             )
         )
@@ -266,16 +274,18 @@ class StockAuditService:
         if not product:
             raise HTTPException(status_code=404, detail=f"Product with barcode/SKU '{barcode_or_sku}' not found.")
 
-        # Find matching item in audit
+        # Find matching items in audit for this product
+        candidate_items = [it for it in audit.items if it.product_id == product.id]
         matched_item = None
-        for it in audit.items:
-            if it.product_id == product.id:
-                if batch_no and it.batch_no == batch_no:
-                    matched_item = it
-                    break
-                elif not batch_no:
-                    matched_item = it
-                    break
+
+        if batch_no:
+            matched_item = next((it for it in candidate_items if it.batch_no == batch_no), None)
+        elif len(candidate_items) == 1:
+            matched_item = candidate_items[0]
+        elif len(candidate_items) > 1:
+            # Disambiguation heuristic: Prioritize batch with pending deficit (counted < system), or first batch
+            pending_items = [it for it in candidate_items if float(it.counted_qty) < float(it.system_qty)]
+            matched_item = pending_items[0] if pending_items else candidate_items[0]
 
         if matched_item:
             new_counted = float(matched_item.counted_qty) + qty_increment
@@ -286,7 +296,7 @@ class StockAuditService:
             matched_item.counted_qty = new_counted
             matched_item.variance_qty = var_qty
             matched_item.variance_value = round(var_qty * unit_cost, 2)
-            matched_item.discrepancy_reason = "MATCHED" if var_qty == 0 else ("DEFICIT" if var_qty < 0 else "SURPLUS_FOUND")
+            matched_item.discrepancy_reason = "MATCHED" if var_qty == 0 else ("DEFICIT_UNSPECIFIED" if var_qty < 0 else "SURPLUS_FOUND")
             await self.db.commit()
             item_ref = matched_item
         else:
@@ -333,9 +343,11 @@ class StockAuditService:
         user_identifier: str = "SYSADMIN"
     ) -> StockAudit:
         """
-        Finalize audit and apply physical inventory adjustments to the ledger.
-        - Deficits (< 0): Creates PHYSICAL_INVENTORY_WRITE_OFF movement and deducts batch stock.
-        - Surpluses (> 0): Creates PHYSICAL_INVENTORY_SURPLUS movement and increases batch stock.
+        Finalize audit with pessimistic row locking and intervening movement tracking.
+        - Locks active ProductBatchStock rows using SELECT ... FOR UPDATE.
+        - Audits intervening movements between snapshot date and reconciliation.
+        - Deficits (< 0): Creates OUTWARD_LOSS movement and deducts batch stock.
+        - Surpluses (> 0): Creates INWARD_SURPLUS movement and increases batch stock.
         - Resynchronizes products.stock.
         - Marks audit as COMPLETED.
         """
@@ -355,7 +367,7 @@ class StockAuditService:
 
             affected_product_ids.add(item.product_id)
 
-            # Query existing batch stock
+            # Query existing batch stock with pessimistic row lock (SELECT ... FOR UPDATE)
             bs_res = await self.db.execute(
                 select(ProductBatchStock).where(
                     ProductBatchStock.company_id == self.tenant.company_id,
@@ -363,9 +375,25 @@ class StockAuditService:
                     ProductBatchStock.product_id == item.product_id,
                     ProductBatchStock.batch_no == item.batch_no,
                     ProductBatchStock.is_deleted == False
-                )
+                ).with_for_update()
             )
             batch_stock = bs_res.scalar_one_or_none()
+
+            # Inspect intervening transactions between snapshot and reconciliation
+            sm_check = await self.db.execute(
+                select(StockMovement).where(
+                    StockMovement.company_id == self.tenant.company_id,
+                    StockMovement.product_id == item.product_id,
+                    StockMovement.warehouse_id == audit.warehouse_id,
+                    StockMovement.batch == item.batch_no,
+                    StockMovement.created_at >= audit.audit_date,
+                    StockMovement.reference_doc_type != "STOCK_AUDIT"
+                )
+            )
+            intervening_txns = sm_check.scalars().all()
+            intervening_note = ""
+            if intervening_txns:
+                intervening_note = f" [Note: {len(intervening_txns)} intervening transactions detected post-snapshot]"
 
             # Query product details for StockMovement
             p_res = await self.db.execute(select(Product).where(Product.id == item.product_id))
@@ -395,7 +423,7 @@ class StockAuditService:
                     unit_cost=float(item.unit_cost),
                     reference_doc_type="STOCK_AUDIT",
                     reference_doc_id=audit.audit_no,
-                    remarks=f"Audit Write-off: {item.discrepancy_reason or 'Stock Loss'}"
+                    remarks=f"Audit Write-off: {item.discrepancy_reason or 'Stock Loss'}{intervening_note}"
                 )
                 self.db.add(movement)
 
@@ -436,7 +464,7 @@ class StockAuditService:
                     unit_cost=float(item.unit_cost),
                     reference_doc_type="STOCK_AUDIT",
                     reference_doc_id=audit.audit_no,
-                    remarks=f"Audit Surplus Inward: {item.discrepancy_reason or 'Found Stock'}"
+                    remarks=f"Audit Surplus Inward: {item.discrepancy_reason or 'Found Stock'}{intervening_note}"
                 )
                 self.db.add(movement)
 
@@ -452,3 +480,4 @@ class StockAuditService:
         await self.db.commit()
 
         return await self.get_stock_audit(audit_id)
+
