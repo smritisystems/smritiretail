@@ -29,7 +29,11 @@ import {
   Calendar,
   Layers,
   ChevronRight,
-  Filter
+  Filter,
+  FileText,
+  Download,
+  Printer,
+  X
 } from "lucide-react";
 
 interface Godown {
@@ -118,6 +122,10 @@ export const WmsStudioTab: React.FC<{
   const [fefoWarehouseId, setFefoWarehouseId] = useState("");
   const [fefoQty, setFefoQty] = useState(10);
   const [fefoResults, setFefoResults] = useState<any[] | null>(null);
+
+  // E-Way Bill & Delivery Challan Modal State
+  const [viewingChallan, setViewingChallan] = useState<any | null>(null);
+  const [viewingEwayBill, setViewingEwayBill] = useState<any | null>(null);
 
   const fetchWmsData = async () => {
     setLoading(true);
@@ -293,6 +301,26 @@ export const WmsStudioTab: React.FC<{
     } catch (err: any) {
       setFefoResults(null);
       onNotification?.("FEFO Allocation Error", err.message || "Failed allocating stock", "error");
+    }
+  };
+
+  // Handle Delivery Challan View
+  const handleViewChallan = async (transferId: string) => {
+    try {
+      const data = await apiFetchV1<any>(`/wms/transfers/${transferId}/delivery-challan`);
+      setViewingChallan(data);
+    } catch (err: any) {
+      onNotification?.("Challan Error", err.message || "Failed loading delivery challan", "error");
+    }
+  };
+
+  // Handle E-Way Bill JSON View / Download
+  const handleViewEwayBill = async (transferId: string) => {
+    try {
+      const data = await apiFetchV1<any>(`/wms/transfers/${transferId}/eway-bill-payload`);
+      setViewingEwayBill(data);
+    } catch (err: any) {
+      onNotification?.("E-Way Bill Error", err.message || "Failed generating E-Way Bill payload", "error");
     }
   };
 
@@ -629,6 +657,22 @@ export const WmsStudioTab: React.FC<{
 
                         {/* Action buttons */}
                         <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleViewChallan(t.id)}
+                            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-hover text-indigo-400 border border-indigo-500/20 rounded text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all"
+                            title="View / Print Rule 55 Delivery Challan"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            Challan
+                          </button>
+                          <button
+                            onClick={() => handleViewEwayBill(t.id)}
+                            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-hover text-emerald-400 border border-emerald-500/20 rounded text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all"
+                            title="View / Export NIC GST E-Way Bill JSON"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            E-Way JSON
+                          </button>
                           {t.status === "DRAFT" && (
                             <button
                               onClick={() => handleDispatch(t.id)}
@@ -878,6 +922,183 @@ export const WmsStudioTab: React.FC<{
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Delivery Challan Modal (Rule 55 CGST Rules) */}
+        {viewingChallan && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2/50">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-theme-text-primary">
+                      {viewingChallan.challan_title || "DELIVERY CHALLAN"}
+                    </h3>
+                    <p className="text-[10px] text-theme-muted">{viewingChallan.statutory_subtitle}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print Challan
+                  </button>
+                  <button
+                    onClick={() => setViewingChallan(null)}
+                    className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-all cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-6 text-xs font-sans">
+                {/* Header info */}
+                <div className="grid grid-cols-2 gap-6 bg-theme-surface-2/40 p-4 rounded-xl border border-theme-divider">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-theme-muted">Consignor (Dispatch From)</div>
+                    <div className="text-sm font-bold text-theme-text-primary mt-1">{viewingChallan.company?.name}</div>
+                    <div className="text-theme-muted text-[11px] mt-0.5">{viewingChallan.dispatch_from?.name} ({viewingChallan.dispatch_from?.code})</div>
+                    <div className="text-theme-muted text-[11px]">{viewingChallan.dispatch_from?.address}</div>
+                    <div className="mt-2 text-indigo-400 font-mono text-[11px] font-semibold">GSTIN: {viewingChallan.company?.gstin}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-theme-muted">Consignee (Dispatch To)</div>
+                    <div className="text-sm font-bold text-theme-text-primary mt-1">{viewingChallan.dispatch_to?.name} ({viewingChallan.dispatch_to?.code})</div>
+                    <div className="text-theme-muted text-[11px] mt-0.5">{viewingChallan.dispatch_to?.address}</div>
+                    <div className="mt-2 text-theme-muted text-[11px]">
+                      Challan No: <strong className="text-theme-body font-mono">{viewingChallan.challan_no}</strong>
+                    </div>
+                    <div className="text-theme-muted text-[11px]">
+                      Date: <span className="text-theme-body font-mono">{viewingChallan.date}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Transport Info */}
+                <div className="bg-theme-surface-2/20 p-3 rounded-lg border border-theme-divider grid grid-cols-3 gap-3 font-mono text-[11px]">
+                  <div>
+                    <span className="text-theme-muted text-[10px] block">Transporter:</span>
+                    <span className="font-semibold text-theme-body">{viewingChallan.transport?.transporter_name || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-theme-muted text-[10px] block">Vehicle No:</span>
+                    <span className="font-semibold text-amber-400">{viewingChallan.transport?.vehicle_number || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-theme-muted text-[10px] block">LR / Docket No:</span>
+                    <span className="font-semibold text-theme-body">{viewingChallan.transport?.lr_number || "N/A"}</span>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-theme-divider text-[10px] uppercase font-bold text-theme-muted tracking-wider">
+                      <th className="py-2 px-2">#</th>
+                      <th className="py-2 px-2">Item Description</th>
+                      <th className="py-2 px-2 font-mono">HSN</th>
+                      <th className="py-2 px-2 font-mono">Batch No</th>
+                      <th className="py-2 px-2 text-right">Qty Dispatched</th>
+                      <th className="py-2 px-2 text-right">Unit Rate (₹)</th>
+                      <th className="py-2 px-2 text-right">Taxable Value (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-theme-divider text-xs">
+                    {viewingChallan.items?.map((it: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-theme-surface-2/30">
+                        <td className="py-2.5 px-2 text-theme-muted">{idx + 1}</td>
+                        <td className="py-2.5 px-2 font-semibold text-theme-body">{it.product_name}</td>
+                        <td className="py-2.5 px-2 font-mono text-theme-muted">{it.hsn}</td>
+                        <td className="py-2.5 px-2 font-mono text-indigo-400 font-bold">{it.batch_no}</td>
+                        <td className="py-2.5 px-2 text-right font-mono font-bold text-emerald-400">{it.quantity}</td>
+                        <td className="py-2.5 px-2 text-right font-mono">{it.rate.toFixed(2)}</td>
+                        <td className="py-2.5 px-2 text-right font-mono font-bold">{it.amount.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-theme-divider font-bold text-xs">
+                      <td colSpan={4} className="py-3 px-2 text-theme-muted uppercase tracking-wider text-[10px]">
+                        Total Consignment Summary
+                      </td>
+                      <td className="py-3 px-2 text-right font-mono text-emerald-400">
+                        {viewingChallan.summary?.total_quantity}
+                      </td>
+                      <td></td>
+                      <td className="py-3 px-2 text-right font-mono text-indigo-400 text-sm">
+                        ₹{viewingChallan.summary?.total_value.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+
+                {/* Statutory Non-Supply Declaration */}
+                <div className="p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/20 text-[11px] text-theme-muted space-y-1">
+                  <div className="font-bold text-indigo-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    Statutory Rule 55 Declaration
+                  </div>
+                  <p>{viewingChallan.declaration}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* E-Way Bill JSON Modal */}
+        {viewingEwayBill && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2/50">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <Download className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-theme-text-primary">
+                      NIC GST E-Way Bill JSON Payload
+                    </h3>
+                    <p className="text-[10px] text-theme-muted">Official Schema v1.0.0 for Bulk Upload on ewaybillgst.gov.in</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([JSON.stringify(viewingEwayBill, null, 2)], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `eway_bill_${viewingEwayBill.billLists?.[0]?.docNo || "payload"}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download JSON
+                  </button>
+                  <button
+                    onClick={() => setViewingEwayBill(null)}
+                    className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-all cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 overflow-y-auto">
+                <pre className="p-4 bg-theme-surface-2 rounded-xl text-[11px] font-mono text-emerald-400 border border-theme-divider overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(viewingEwayBill, null, 2)}
+                </pre>
+              </div>
             </div>
           </div>
         )}

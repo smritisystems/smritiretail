@@ -32,6 +32,7 @@ from ...schemas.wms import (
     StockTransferCreate, StockTransferResponse, StockTransferReceiptRequest
 )
 from ...services.inventory_wms_service import InventoryWmsService
+from ...services.eway_bill_service import EWayBillService
 
 router = APIRouter()
 
@@ -294,3 +295,70 @@ async def receive_transfer(
     res_re = await db.execute(q_re)
     reloaded = res_re.scalars().first()
     return StockTransferResponse.model_validate(reloaded)
+
+
+# ─────────────────────────── E-Way Bill & Delivery Challan ───────────────────────────
+
+@router.get("/transfers/{transfer_id}/eway-bill-payload")
+async def get_transfer_eway_bill_payload(
+    transfer_id: str,
+    distance_km: int = Query(50, ge=1, le=4000),
+    trans_mode: str = Query("1"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Generate official GST NIC E-Way Bill JSON payload for Inter-Godown Stock Transfer."""
+    service = EWayBillService(db, tenant_ctx)
+    return await service.generate_transfer_eway_bill_payload(
+        transfer_id=transfer_id,
+        trans_distance_km=distance_km,
+        trans_mode=trans_mode
+    )
+
+
+@router.get("/transfers/{transfer_id}/delivery-challan")
+async def get_transfer_delivery_challan(
+    transfer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Generate statutory Delivery Challan (Rule 55 CGST Rules 2017) for Inter-Godown Stock Transfer."""
+    service = EWayBillService(db, tenant_ctx)
+    return await service.generate_delivery_challan(transfer_id)
+
+
+@router.post("/transfers/{transfer_id}/transporter")
+@router.put("/transfers/{transfer_id}/transporter")
+async def update_transfer_transporter(
+    transfer_id: str,
+    transporter_name: Optional[str] = Query(None),
+    vehicle_number: Optional[str] = Query(None),
+    lr_number: Optional[str] = Query(None),
+    e_way_bill_no: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Update transporter logistics and E-Way Bill metadata on a stock transfer."""
+    q = select(StockTransfer).where(
+        StockTransfer.id == transfer_id,
+        StockTransfer.company_id == tenant_ctx.company_id,
+        StockTransfer.is_deleted == False
+    )
+    res = await db.execute(q)
+    st = res.scalars().first()
+    if not st:
+        raise HTTPException(status_code=404, detail="Stock transfer not found.")
+    
+    if transporter_name is not None:
+        st.transporter_name = transporter_name
+    if vehicle_number is not None:
+        st.vehicle_number = vehicle_number
+    if lr_number is not None:
+        st.lr_number = lr_number
+    if e_way_bill_no is not None:
+        st.e_way_bill_no = e_way_bill_no
+
+    await db.commit()
+    await db.refresh(st)
+    return StockTransferResponse.model_validate(st)
+
