@@ -23,7 +23,6 @@ import {
   ItemMasterFieldDefinition
 } from "./types.ts";
 import { FieldSelectionViewTab } from "./tabs/FieldSelectionViewTab.tsx";
-import { CommonFieldsTab } from "./tabs/CommonFieldsTab.tsx";
 import { ItemDetailsGridTab } from "./tabs/ItemDetailsGridTab.tsx";
 import { SmritiItemMasterStudio } from "./SmritiItemMasterStudio.tsx";
 import { ItemMasterSaveWarningModal } from "./modals/ItemMasterSaveWarningModal.tsx";
@@ -124,9 +123,6 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
         e.preventDefault();
         setActiveSubTab("view");
       } else if (e.altKey && e.key === "2") {
-        e.preventDefault();
-        setActiveSubTab("common");
-      } else if (e.altKey && e.key === "3") {
         e.preventDefault();
         setActiveSubTab("details");
       }
@@ -296,19 +292,6 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
 
           <button
             type="button"
-            onClick={() => setActiveSubTab("common")}
-            className={`px-4 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
-              activeSubTab === "common"
-                ? "bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-xs"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <span>Common Fields</span>
-            <span className="text-[10px] opacity-70 font-mono font-normal">(Alt+2)</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveSubTab("details")}
             className={`px-4 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
               activeSubTab === "details"
@@ -317,7 +300,7 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
             }`}
           >
             <span>Item Details</span>
-            <span className="text-[10px] opacity-70 font-mono font-normal">(Alt+3)</span>
+            <span className="text-[10px] opacity-70 font-mono font-normal">(Alt+2)</span>
           </button>
 
           <button
@@ -344,15 +327,6 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
             onCancel={() => setActiveSubTab("details")}
             onNotification={onNotification}
             allAvailableFields={allAvailableFields}
-          />
-        )}
-
-        {activeSubTab === "common" && (
-          <CommonFieldsTab
-            initialValues={commonFieldValues}
-            onSaveCommonFields={handleSaveCommonFields}
-            onNotification={onNotification}
-            onNavigateToDetails={() => setActiveSubTab("details")}
           />
         )}
 
