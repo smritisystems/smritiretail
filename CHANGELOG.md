@@ -28,6 +28,17 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.14.0] - 2026-08-22
+
+#### Security & Shell — Dual-Mode Contextual Inspector HUD (Zero Data on Login & Full Active Capabilities in Session)
+- **Dual-Mode HUD Architecture (`ContextualInspectorHUD.tsx`)**:
+  - **Login Screen Mode**: Displays a secure "SMRITI Security Portal • Authentication Required" banner with 0 business data, 0 invoice text, and 0 credentials exposure.
+  - **Authenticated Session Mode**: Activates all 18+ contextual master categories, live query inspections, and Ctrl+K search integration.
+- **Safe Authentication Input Tracking (`ActiveFieldContext.tsx`)**:
+  - Automatically isolates login/password fields to generic security category without value tracking or data query broadcasting.
+- **Full Operational Parity**:
+  - Zero features eliminated for logged-in operators (Ctrl+K Global Search, F2 Master Browse, DrillDown Side Panel, Shortcut Palette).
+
 ### [6.13.0] - 2026-08-22
 
 #### Security & Shell — Public Data Exposure Hardening & Bottom Workspace Taskbar Removal
