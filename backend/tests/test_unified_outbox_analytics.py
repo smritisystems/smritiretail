@@ -25,6 +25,7 @@ from app.db.session import get_company_sessionmaker
 from app.services.unified_outbox_analytics_service import UnifiedOutboxAnalyticsService
 from app.services.unified_sales_ledger_service import UnifiedSalesLedgerService
 from app.services.outbox_service import OutboxService
+from app.services.outbox_worker import OutboxQueueWorker
 from app.models.outbox import IntegrationOutboxEvent, OutboxEvent
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.inventory import Product, StockMovement
@@ -409,4 +410,55 @@ async def test_outbox_and_analytics_tenant_isolation():
         stmt = select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.aggregate_id == "TEST-APR-99")
         leaked = (await s2.execute(stmt)).scalar_one_or_none()
         assert leaked is None, "IntegrationOutboxEvent from smriti001 must not leak into smriti002!"
+
+
+@pytest.mark.asyncio
+async def test_outbox_queue_worker_multi_tenant_cycle():
+    """Verify OutboxQueueWorker processes batches across multiple company tenant databases."""
+    # 1. Stage events in both smriti001 and smriti002
+    session_001 = get_company_sessionmaker("smriti001")
+    session_002 = get_company_sessionmaker("smriti002")
+
+    async with session_001() as s1:
+        await UnifiedOutboxAnalyticsService.stage_outbox_event(
+            session=s1,
+            company_id="COMP-001",
+            event_type="STOCK_AUDIT_SYNC",
+            aggregate_type="STOCK_AUDIT",
+            aggregate_id="TEST-AUD-01",
+            target_channel="TEST_WORKER_CHANNEL",
+            payload={"audit_id": "aud_01"}
+        )
+        await s1.commit()
+
+    async with session_002() as s2:
+        await UnifiedOutboxAnalyticsService.stage_outbox_event(
+            session=s2,
+            company_id="COMP-002",
+            event_type="STOCK_AUDIT_SYNC",
+            aggregate_type="STOCK_AUDIT",
+            aggregate_id="TEST-AUD-02",
+            target_channel="TEST_WORKER_CHANNEL",
+            payload={"audit_id": "aud_02"}
+        )
+        await s2.commit()
+
+    # 2. Run worker cycle across both databases
+    dispatched_worker_events = []
+    async def mock_worker_adapter(evt):
+        dispatched_worker_events.append((evt.company_id, evt.aggregate_id))
+
+    cycle_results = await OutboxQueueWorker.run_worker_cycle(
+        company_databases=["smriti001", "smriti002"],
+        dispatcher_callback=mock_worker_adapter,
+        target_channel="TEST_WORKER_CHANNEL"
+    )
+
+    assert "smriti001" in cycle_results
+    assert "smriti002" in cycle_results
+    assert cycle_results["smriti001"]["dispatched_count"] >= 1
+    assert cycle_results["smriti002"]["dispatched_count"] >= 1
+    assert ("COMP-001", "TEST-AUD-01") in dispatched_worker_events
+    assert ("COMP-002", "TEST-AUD-02") in dispatched_worker_events
+
 
