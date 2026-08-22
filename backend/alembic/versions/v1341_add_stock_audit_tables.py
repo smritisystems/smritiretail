@@ -101,10 +101,19 @@ def upgrade():
         )
     )
     op.create_index('idx_stock_audit_items_audit', 'stock_audit_items', ['audit_id'])
+    op.create_index(
+        'uq_audit_item_product_batch_active',
+        'stock_audit_items',
+        ['audit_id', 'product_id', 'batch_no'],
+        unique=True,
+        postgresql_where=sa.text('is_deleted = false')
+    )
 
 
 def downgrade():
+    op.drop_index('uq_audit_item_product_batch_active', table_name='stock_audit_items')
     op.drop_index('idx_stock_audit_items_audit', table_name='stock_audit_items')
     op.drop_table('stock_audit_items')
     op.drop_index('uq_company_audit_no_active', table_name='stock_audits')
     op.drop_table('stock_audits')
+
