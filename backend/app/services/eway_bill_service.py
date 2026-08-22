@@ -30,9 +30,52 @@ from ..api.deps import TenantContext
 GSTIN_REGEX = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$")
 
 
+# Statutory Indian GST State Codes dictionary per GSTN master
+VALID_GST_STATE_CODES = {
+    "01": "Jammu and Kashmir",
+    "02": "Himachal Pradesh",
+    "03": "Punjab",
+    "04": "Chandigarh",
+    "05": "Uttarakhand",
+    "06": "Haryana",
+    "07": "Delhi",
+    "08": "Rajasthan",
+    "09": "Uttar Pradesh",
+    "10": "Bihar",
+    "11": "Sikkim",
+    "12": "Arunachal Pradesh",
+    "13": "Nagaland",
+    "14": "Manipur",
+    "15": "Mizoram",
+    "16": "Tripura",
+    "17": "Meghalaya",
+    "18": "Assam",
+    "19": "West Bengal",
+    "20": "Jharkhand",
+    "21": "Odisha",
+    "22": "Chhattisgarh",
+    "23": "Madhya Pradesh",
+    "24": "Gujarat",
+    "26": "Dadra and Nagar Haveli and Daman and Diu",
+    "27": "Maharashtra",
+    "29": "Karnataka",
+    "30": "Goa",
+    "31": "Lakshadweep",
+    "32": "Kerala",
+    "33": "Tamil Nadu",
+    "34": "Puducherry",
+    "35": "Andaman and Nicobar Islands",
+    "36": "Telangana",
+    "37": "Andhra Pradesh",
+    "38": "Ladakh",
+    "97": "Other Territory",
+    "99": "Centre Jurisdiction",
+}
+
+
 class EWayBillService:
     """
-    Engine for generating statutory GST NIC E-Way Bill JSON payloads
+    Engine for generating NIC-shaped GST E-Way Bill JSON payloads (v1.0.0 schema)
     and Rule 55 Delivery Challans for inter-godown transfers and B2B invoices.
     """
 
@@ -60,11 +103,14 @@ class EWayBillService:
         return {p.id: p for p in res.scalars().all()}
 
     def _validate_gstin(self, gstin: Optional[str], label: str = "GSTIN") -> Tuple[bool, Optional[str]]:
-        """Validate format of 15-character GSTIN."""
+        """Validate format of 15-character statutory GSTIN."""
         if not gstin or gstin == "URP":
             return True, None # Unregistered Person
         if not GSTIN_REGEX.match(gstin):
             return False, f"Invalid {label} format '{gstin}'. Expected 15-character alphanumeric GSTIN."
+        state_prefix = gstin[:2]
+        if state_prefix not in VALID_GST_STATE_CODES:
+            return False, f"Invalid State Code '{state_prefix}' in {label} '{gstin}'."
         return True, None
 
     async def generate_transfer_eway_bill_payload(
@@ -76,7 +122,7 @@ class EWayBillService:
         strict_validation: bool = False
     ) -> Dict[str, Any]:
         """
-        Generate standard NIC GST E-Way Bill JSON payload for Inter-Godown Stock Transfer (Delivery Challan).
+        Generate export-ready NIC GST E-Way Bill JSON payload for Inter-Godown Stock Transfer (Delivery Challan).
         Batch queries products to guarantee high performance on multi-item consignments.
         """
         res = await self.db.execute(
@@ -110,13 +156,13 @@ class EWayBillService:
         is_valid_gstin, gstin_err = self._validate_gstin(company_gstin, "Company GSTIN")
         if not is_valid_gstin:
             if strict_validation:
-                raise HTTPException(status_code=422, detail=gstin_err)
+                raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {gstin_err}")
             warnings.append(gstin_err)
 
         if not transfer.vehicle_number and trans_mode == "1":
             msg = "Missing vehicle number for Road Transport."
             if strict_validation:
-                raise HTTPException(status_code=422, detail=msg)
+                raise HTTPException(status_code=422, detail=f"SMRITI-STAT-004: {msg}")
             warnings.append(msg)
 
         # Batch load all products in a single query
@@ -130,8 +176,15 @@ class EWayBillService:
         for item in transfer.items:
             product = products_map.get(item.product_id)
             prod_name = product.name if product else f"Product {item.product_id}"
-            raw_hsn = getattr(product, 'hsn_code', None) or getattr(product, 'hsn', '8471')
-            hsn_code = int(raw_hsn) if raw_hsn and str(raw_hsn).isdigit() else 8471
+            raw_hsn = getattr(product, 'hsn_code', None) or getattr(product, 'hsn', None)
+            if not raw_hsn or not str(raw_hsn).strip().isdigit() or len(str(raw_hsn).strip()) not in (2, 4, 6, 8):
+                if strict_validation:
+                    raise HTTPException(status_code=422, detail=f"SMRITI-STAT-002: Product '{prod_name}' has missing or invalid statutory HSN code.")
+                hsn_code = 8471
+                warnings.append(f"Product '{prod_name}' missing HSN; defaulted to 8471.")
+            else:
+                hsn_code = int(str(raw_hsn).strip())
+
             unit_cost = float(item.unit_cost or 100.0)
             qty = float(item.quantity_dispatched or 1.0)
             taxable_amt = round(qty * unit_cost, 2)
@@ -154,11 +207,17 @@ class EWayBillService:
 
         doc_date = transfer.created_at.strftime("%d/%m/%Y") if transfer.created_at else datetime.now().strftime("%d/%m/%Y")
 
+        is_threshold_applicable = total_taxable_value >= 50000.0
+
         eway_payload = {
             "version": "1.0.0",
             "compliance": {
                 "status": "VALID" if not warnings else "WITH_WARNINGS",
-                "warnings": warnings
+                "warnings": warnings,
+                "mandatory_threshold_applicable": is_threshold_applicable,
+                "threshold_rule": "Rule 138 CGST Rules (Mandatory for consignment value >= ₹50,000)",
+                "schema_specification": "NIC GST E-Way Bill Bulk Upload JSON Schema v1.0.0",
+                "portal_integration_status": "EXPORT_READY"
             },
             "billLists": [
                 {
@@ -308,7 +367,7 @@ class EWayBillService:
         strict_validation: bool = False
     ) -> Dict[str, Any]:
         """
-        Generate standard NIC GST E-Way Bill JSON payload for B2B Sales Invoices.
+        Generate export-ready NIC GST E-Way Bill JSON payload for B2B Sales Invoices.
         Batch queries products to eliminate N+1 latency.
         """
         res = await self.db.execute(
@@ -342,14 +401,14 @@ class EWayBillService:
         is_valid_gst, gst_err = self._validate_gstin(company_gstin, "Company GSTIN")
         if not is_valid_gst:
             if strict_validation:
-                raise HTTPException(status_code=422, detail=gst_err)
+                raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {gst_err}")
             warnings.append(gst_err)
 
         if customer_gstin != "URP":
             is_valid_cgst, cgst_err = self._validate_gstin(customer_gstin, "Customer GSTIN")
             if not is_valid_cgst:
                 if strict_validation:
-                    raise HTTPException(status_code=422, detail=cgst_err)
+                    raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {cgst_err}")
                 warnings.append(cgst_err)
 
         product_ids = [it.product_id for it in invoice.items if it.product_id]
@@ -361,8 +420,15 @@ class EWayBillService:
         for item in invoice.items:
             prod = products_map.get(item.product_id)
             prod_name = item.name or (prod.name if prod else f"Product {item.product_id}")
-            raw_hsn = getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', '8471')
-            hsn_code = int(raw_hsn) if raw_hsn and str(raw_hsn).isdigit() else 8471
+            raw_hsn = getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', None)
+            if not raw_hsn or not str(raw_hsn).strip().isdigit() or len(str(raw_hsn).strip()) not in (2, 4, 6, 8):
+                if strict_validation:
+                    raise HTTPException(status_code=422, detail=f"SMRITI-STAT-002: Product '{prod_name}' has missing or invalid statutory HSN code.")
+                hsn_code = 8471
+                warnings.append(f"Product '{prod_name}' missing HSN; defaulted to 8471.")
+            else:
+                hsn_code = int(str(raw_hsn).strip())
+
             taxable_amt = float(getattr(item, 'taxable_value', None) or (item.price * item.quantity))
             gst_rate = float(item.gst_rate or 18.0)
 
@@ -393,11 +459,17 @@ class EWayBillService:
         igst_val = round(tax_tot, 2) if is_inter_state else 0.0
         taxable_tot = float(getattr(invoice, 'taxable_value', None) or (invoice.grand_total - invoice.tax_total))
 
+        is_threshold_applicable = float(invoice.grand_total) >= 50000.0
+
         eway_payload = {
             "version": "1.0.0",
             "compliance": {
                 "status": "VALID" if not warnings else "WITH_WARNINGS",
-                "warnings": warnings
+                "warnings": warnings,
+                "mandatory_threshold_applicable": is_threshold_applicable,
+                "threshold_rule": "Rule 138 CGST Rules (Mandatory for consignment value >= ₹50,000)",
+                "schema_specification": "NIC GST E-Way Bill Bulk Upload JSON Schema v1.0.0",
+                "portal_integration_status": "EXPORT_READY"
             },
             "billLists": [
                 {
@@ -443,4 +515,5 @@ class EWayBillService:
             ]
         }
         return eway_payload
+
 

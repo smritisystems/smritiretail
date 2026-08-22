@@ -16,12 +16,12 @@
 
 **Version:** `v6.16.0`  
 **Area:** `wms` / `logistics`  
-**Status:** Completed & Verified  
+**Status:** Implemented and runtime-tested; statutory NIC production integration pending  
 
 ---
 
 ## 1. Purpose
-Provide Indian distributors with complete statutory logistics compliance for goods movement across warehouses and retail customer dispatches. This includes automated Generation of standard NIC GST E-Way Bill JSON payloads (`ewaybillgst.gov.in` bulk upload schema v1.0.0) and Rule 55 Statutory Delivery Challans for non-supply inter-godown transfers and B2B sales dispatches.
+Provide Indian distributors with logistics compliance tooling for goods movement across warehouses and retail customer dispatches. This includes automated generation of export-ready NIC GST E-Way Bill JSON payloads (`ewaybillgst.gov.in` bulk upload schema v1.0.0) and Rule 55 Statutory Delivery Challans for non-supply inter-godown transfers and B2B sales dispatches.
 
 ---
 
@@ -113,13 +113,18 @@ Indian FMCG and consumer appliance distributors move goods between central distr
 ---
 
 ## 9. Verification Results
-- [x] NIC E-Way Bill JSON adheres to standard `v1.0.0` specification.
-- [x] Rule 55 Delivery Challan displays statutory non-supply declaration and complete godown & transport metadata.
-- [x] N+1 queries eliminated via batch product query in `EWayBillService`.
-- [x] Action-level RBAC permission guards verified on all WMS and Sales E-Way routes.
-- [x] Multi-file combined regression passes 12/12 with zero FEFO test contamination.
-- [x] Live API smoke test executes 13 real HTTP endpoints non-destructively and cleans up all database rows.
-- [x] Vite React frontend compiles with 0 errors.
+
+### Capability Verification Status (Per Governance Rules)
+
+| Capability / Surface | State | Evidence & Notes |
+| :--- | :--- | :--- |
+| **WMS Phase 3 Core Service Code** | `Done` | `EWayBillService` with batch loading, Rule 55 Delivery Challan, and NIC schema generator implemented in `backend/app/services/eway_bill_service.py`. |
+| **Combined Test Regression** | `Done` | 13/13 pytest passed in 6.63s with zero FEFO test contamination and zero residual database records. |
+| **Live API Smoke Test** | `Done` | 13 authenticated HTTP calls across live backend endpoints verified with guaranteed database teardown in `scripts/smoke_test_wms_api.py`. |
+| **Delivery Challan Rendering** | `Partially Verified` | Verified in browser UI preview and print styling; physical hardcopy print alignment subject to hardware printer drivers. |
+| **E-Way JSON Payload Generation** | `Partially Verified` | Generated JSON matches standard NIC bulk upload schema v1.0.0; validated with unit/integration tests and strict mode rejection rules. |
+| **Official NIC Sandbox Compliance** | `Unverified` | Direct API submission requires active NIC/GSP sandbox gateway credentials. Payloads are export-ready for portal upload. |
+| **Production Statutory Readiness** | `Partially Verified` | Strict statutory mode (`strict_validation=True`) validated to reject missing HSN or missing vehicle numbers. |
 
 ---
 
