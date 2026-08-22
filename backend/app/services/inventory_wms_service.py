@@ -20,6 +20,8 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from ..api.deps import TenantContext
 from ..models.inventory import (
@@ -289,43 +291,56 @@ class InventoryWmsService:
             idempotency_key=idempotency_key,
             notes=notes,
         )
-        self.db.add(transfer)
-        await self.db.flush()
+        try:
+            self.db.add(transfer)
+            await self.db.flush()
 
-        seen_items = set()
-        for it in items_in:
-            prod_id = it["product_id"]
-            batch = it["batch_no"]
-            qty = Decimal(str(it["quantity"]))
-            cost = Decimal(str(it.get("unit_cost", 0.0)))
+            seen_items = set()
+            for it in items_in:
+                prod_id = it["product_id"]
+                batch = it["batch_no"]
+                qty = Decimal(str(it["quantity"]))
+                cost = Decimal(str(it.get("unit_cost", 0.0)))
 
-            if qty <= 0:
-                raise HTTPException(status_code=400, detail=f"Transfer quantity for product {prod_id} must be positive.")
+                if qty <= 0:
+                    raise HTTPException(status_code=400, detail=f"Transfer quantity for product {prod_id} must be positive.")
 
-            item_key = f"{prod_id}:{batch}"
-            if item_key in seen_items:
-                raise HTTPException(status_code=400, detail=f"Duplicate product/batch entry in transfer: {item_key}.")
-            seen_items.add(item_key)
+                item_key = f"{prod_id}:{batch}"
+                if item_key in seen_items:
+                    raise HTTPException(status_code=400, detail=f"Duplicate product/batch entry in transfer: {item_key}.")
+                seen_items.add(item_key)
 
-            transfer_item = StockTransferItem(
-                id=f"sti-{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id,
-                transfer_id=transfer.id,
-                product_id=prod_id,
-                batch_no=batch,
-                quantity_dispatched=qty,
-                quantity_received=Decimal("0.0000"),
-                quantity_shortage=Decimal("0.0000"),
-                quantity_damaged=Decimal("0.0000"),
-                unit_cost=cost,
-                notes=it.get("notes"),
-            )
-            self.db.add(transfer_item)
+                transfer_item = StockTransferItem(
+                    id=f"sti-{uuid.uuid4().hex[:12]}",
+                    uuid=str(uuid.uuid4()),
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                    transfer_id=transfer.id,
+                    product_id=prod_id,
+                    batch_no=batch,
+                    quantity_dispatched=qty,
+                    quantity_received=Decimal("0.0000"),
+                    quantity_shortage=Decimal("0.0000"),
+                    quantity_damaged=Decimal("0.0000"),
+                    unit_cost=cost,
+                    notes=it.get("notes"),
+                )
+                self.db.add(transfer_item)
 
-        await self.db.flush()
-        return transfer
+            await self.db.flush()
+            return transfer
+        except IntegrityError:
+            if idempotency_key:
+                q_idem = select(StockTransfer).where(
+                    StockTransfer.company_id == self.tenant_ctx.company_id,
+                    StockTransfer.idempotency_key == idempotency_key,
+                    StockTransfer.is_deleted == False
+                )
+                res_idem = await self.db.execute(q_idem)
+                existing = res_idem.scalars().first()
+                if existing:
+                    return existing
+            raise
 
     async def dispatch_stock_transfer(self, transfer_id: str) -> StockTransfer:
         """
@@ -335,7 +350,7 @@ class InventoryWmsService:
             StockTransfer.id == transfer_id,
             StockTransfer.company_id == self.tenant_ctx.company_id,
             StockTransfer.is_deleted == False
-        ).with_for_update()
+        ).options(selectinload(StockTransfer.items)).with_for_update()
         res = await self.db.execute(q)
         transfer = res.scalars().first()
         if not transfer:
@@ -375,7 +390,7 @@ class InventoryWmsService:
             StockTransfer.id == transfer_id,
             StockTransfer.company_id == self.tenant_ctx.company_id,
             StockTransfer.is_deleted == False
-        ).with_for_update()
+        ).options(selectinload(StockTransfer.items)).with_for_update()
         res = await self.db.execute(q)
         transfer = res.scalars().first()
         if not transfer:
