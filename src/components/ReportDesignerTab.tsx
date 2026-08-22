@@ -256,17 +256,44 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     recordAuditAction("EXPORT", "reports", selectedReport?.id || "RPT-GEN", `Report exported: ${selectedReport?.title || "Standard Report"} (Format: ${format.toUpperCase()})`);
     showNotification("success", `Compiling dataset... generating SMRITI high-fidelity .${format.toLowerCase()} package.`);
     
-    // Simulate file download
     setTimeout(() => {
+      let content = "";
+      let mimeType = "text/plain";
+      const ext = format.toLowerCase();
+
+      if (ext === "csv" || ext === "tsv" || ext === "xlsx") {
+        const headers = ["Report Code", "Report Title", "Category", "Format", "Export Date", "Drill Level", "Filter"];
+        const row = [
+          selectedReport?.id || "",
+          `"${(selectedReport?.title || "").replace(/"/g, '""')}"`,
+          selectedReport?.category || "",
+          selectedReport?.format || "",
+          new Date().toISOString(),
+          drillLevel || "0",
+          `"${(drillFilter || "").replace(/"/g, '""')}"`
+        ];
+        const delimiter = ext === "tsv" ? "\t" : ",";
+        content = `${headers.join(delimiter)}\n${row.join(delimiter)}\n`;
+        mimeType = ext === "tsv" ? "text/tab-separated-values" : "text/csv";
+      } else {
+        content = JSON.stringify({
+          report: selectedReport,
+          timestamp: new Date().toISOString(),
+          drillLevel,
+          drillFilter
+        }, null, 2);
+        mimeType = "application/json";
+      }
+
       const element = document.createElement("a");
-      const file = new Blob([JSON.stringify({ report: selectedReport, timestamp: new Date().toISOString(), drillLevel, drillFilter }, null, 2)], { type: "text/plain" });
+      const file = new Blob([content], { type: mimeType });
       element.href = URL.createObjectURL(file);
-      element.download = `${selectedReport?.id || "RPT"}_Export.${format.toLowerCase()}`;
+      element.download = `${selectedReport?.id || "RPT"}_Export.${ext}`;
       document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
-      showNotification("success", `File download completed: ${selectedReport?.id}_Export.${format.toLowerCase()}`);
-    }, 1500);
+      showNotification("success", `File download completed: ${selectedReport?.id || "RPT"}_Export.${ext}`);
+    }, 500);
   };
 
   const handleShareReport = (e: React.FormEvent) => {
