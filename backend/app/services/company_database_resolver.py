@@ -76,42 +76,41 @@ class CompanyDatabaseResolver:
         """
 
         # 1. Connect READ-ONLY to Control Plane DB smritisys
+        db_user = os.getenv("POSTGRES_USER") or "postgres"
+        db_pass = os.getenv("POSTGRES_PASSWORD") or "postgres"
+        db_port = int(os.getenv("POSTGRES_PORT") or 5432)
+        ctrl_url = f"postgresql://{db_user}:{db_pass}@{DB_HOST}:{db_port}/smritisys"
+
         try:
-            conn = psycopg2.connect(CONTROL_PLANE_DB_URL)
+            conn = psycopg2.connect(ctrl_url)
             cur = conn.cursor()
-        except Exception as e:
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="SMRITI Control Plane database unavailable."
             )
 
         try:
-            # 2. Check if company exists in DB
+            # 2. Check if company exists in canonical companies table
             try:
-                cur.execute("SELECT is_active, name FROM companies WHERE id = %s;", (company_id,))
+                cur.execute("SELECT is_active, name FROM companies WHERE id = %s AND (is_deleted = false OR is_deleted IS NULL);", (company_id,))
                 company_row = cur.fetchone()
             except Exception:
                 conn.rollback()
                 company_row = None
 
             if not company_row:
-                if company_id in ("COMP-001", "COMPANY-001"):
-                    is_active = True
-                    company_name = "Tattly Threads"
-                    resolved_code = company_code
-                else:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Company '{company_id}' is unknown or not active."
-                    )
-            else:
-                is_active, company_name = company_row
-                if not is_active:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Company '{company_id}' is inactive or suspended."
-                    )
-                resolved_code = company_code
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Company '{company_id}' is unknown or not registered."
+                )
+
+            is_active, company_name = company_row
+            if not is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Company '{company_id}' is inactive or suspended."
+                )
 
             # 3. Verify User Assignment to Company or SYSADMIN Role
             is_sysadmin = False
@@ -168,14 +167,12 @@ class CompanyDatabaseResolver:
                 registry_row = None
 
             if not registry_row:
-                # Official Naming Standard: smriti<3-character-alphanumeric-code>
-                target_db = generate_company_database_name(resolved_code)
-                db_status = "READY"
-                host = "localhost"
-                port = 5432
-                version = "3.16.0"
-            else:
-                target_db, db_status, host, port, version = registry_row
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Company Database registry entry for '{company_id}' not found. Access denied."
+                )
+
+            target_db, db_status, host, port, version = registry_row
 
             # 5. Validate Database Naming Standard & READY Status
             if not validate_company_database_name(target_db):
@@ -191,11 +188,10 @@ class CompanyDatabaseResolver:
                 )
 
             resolved_host = DB_HOST if host in ("localhost", "127.0.0.1", "db") else host
-            target_connection_url = f"postgresql://postgres:postgres@{resolved_host}:{port}/{target_db}"
+            target_connection_url = f"postgresql://{db_user}:{db_pass}@{resolved_host}:{port or db_port}/{target_db}"
 
             return {
                 "company_id": company_id,
-                "company_code": str(resolved_code).strip().upper(),
                 "company_name": company_name,
                 "database_name": target_db,
                 "database_status": db_status,
