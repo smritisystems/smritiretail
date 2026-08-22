@@ -152,7 +152,7 @@ async def save_subject_menu_access(
             )
             VALUES (
                 :id, :tenant_id, :entity_id, 'smriti_permissions', :record_id, 'menu_access_matrix',
-                :old_val, :new_val, 'UPDATE', 'Security Menu Access Control Policy Update', 'Security Management Studio',
+                :old_val, :new_val, 'UPDATE', 'Security Menu Access Control Policy Update', 'SecurityStudio',
                 :changed_by, :changed_by_name, :changed_at, :sha256_hash
             )
         """),
@@ -269,7 +269,7 @@ async def update_security_configuration(
             )
             VALUES (
                 :id, :tenant_id, 'SYSTEM_SECURITY_POLICY', 'system_configs', 'sec_config', 'security_policies',
-                'CONFIG_V1', :new_val, 'UPDATE', 'Security Configuration & Housekeeping Update', 'Security Management Studio',
+                'CONFIG_V1', :new_val, 'UPDATE', 'Security Configuration & Housekeeping Update', 'SecurityStudio',
                 :changed_by, :changed_by_name, :changed_at, :sha256_hash
             )
         """),
