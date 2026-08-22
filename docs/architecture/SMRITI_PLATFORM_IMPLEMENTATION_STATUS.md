@@ -43,29 +43,32 @@ This document is the current implementation tracker for the frozen blueprint. Th
 
 ## Milestone 1: Routing Boundary
 
-**Status: Partially Verified, substantially hardened.**
+**Status: Partially Verified, hardened and baseline established.**
 
-Verified in the focused suite:
+Verified in the focused suite (63/63 passing tests):
 
-- missing company context is rejected;
-- demo company fallback is removed from the reviewed paths;
-- invalid database names are rejected before engine creation;
-- resolver output does not contain a connection URL;
-- company assignment and cross-company denial are tested;
-- canonical `CompanyDatabaseRegistry` is used by the reviewed registry service.
+- missing company context is rejected (`400 Bad Request`);
+- demo company fallback is completely removed;
+- invalid database names and unregistered valid-syntax names (`smritiABC`) are rejected by registry-backed engine creation;
+- resolver output does not contain credential-bearing connection URLs;
+- company assignment and cross-company denial are verified across non-admin roles;
+- canonical `CompanyDatabaseRegistry` is used by the control registry service;
+- duplicate control model definitions in `control_models.py` are retired and aliased to canonical models;
+- tenant header normalization (`001` and `COMP-001`) prevents false-positive authorization rejections.
 
-Remaining gates before declaring routing canonicalized:
+Remaining architectural tracking items for future slices:
+- run isolation tests against a dedicated ephemeral database rather than live local state;
+- enforce production credential startup guards in deployment environments.
 
-- make every company engine/session creation path registry-backed, not only name-pattern-backed;
-- remove or formally isolate active compatibility model paths;
-- define one lifecycle vocabulary for `READY` and `ACTIVE`;
-- prohibit production startup with default database credentials;
-- verify company-code and company-ID normalization consistently;
-- run isolation tests against an isolated test database rather than live local state.
+## Next Approved Slice: Slice 2 (Universal Party & Universal Item Foundations)
 
-## Next Approved Slice
+**Scope**:
+- Universal Party model (`parties`) with role/profile extensions (`customer_profiles`, `supplier_profiles`, `party_roles`) in tenant data planes (`smritiXXX`).
+- Universal Item model (`items`/`products`) with variant, barcode, and batch tracking foundations in tenant data planes (`smritiXXX`).
+- Backward-compatible adapters ensuring existing POS, Billing, Procurement, and WMS modules operate without regression.
+- Strict preservation of `stock_movements` as the sole authoritative stock ledger.
 
-Slice 2 may begin after the remaining routing gates are tracked and reviewed. Its scope is the Universal Party and Universal Item masters. It must not silently expand into PDT, Analytics, microservices, or full metadata-driven UI generation.
+Out of scope for Slice 2: PDT, Analytics plane, microservices decomposition, full metadata-driven UI generation, industry templates.
 
 ## Governance Rule
 
