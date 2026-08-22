@@ -100,7 +100,7 @@ interface AppNotification {
   id: string;
   title: string;
   message: string;
-  type: "success" | "error";
+  type: "success" | "error" | "info" | "warning";
 }
 
 const AppContent: React.FC = () => {
@@ -277,7 +277,7 @@ const AppContent: React.FC = () => {
   const addNotification = (
     title: string,
     message: string,
-    type: "success" | "error" = "success",
+    type: "success" | "error" | "info" | "warning" = "success",
   ) => {
     toastIdRef.current += 1;
     const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 10);

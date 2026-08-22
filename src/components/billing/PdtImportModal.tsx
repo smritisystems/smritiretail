@@ -78,7 +78,7 @@ export const PdtImportModal: React.FC<PdtImportModalProps> = ({
       rows.push({
         barcode: codeOrBarcode,
         qty: qty > 0 ? qty : 1,
-        rate: rate ?? (matched ? Number(matched.sellingPrice ?? matched.mrp ?? 0) : undefined),
+        rate: rate ?? (matched ? Number((matched as any).sellingPrice ?? matched.price ?? matched.mrp ?? 0) : undefined),
         stockNo: matched?.code || codeOrBarcode,
         description: matched?.name || "Unmatched Product"
       });
@@ -109,20 +109,20 @@ export const PdtImportModal: React.FC<PdtImportModalProps> = ({
     if (transactionType === "Purchase Order") {
       const poItems = barcodeTransactionStore.getPurchaseOrders(billPrefix, billNo, billNo);
       matchedItems = poItems.map(p => ({
-        barcode: p.barcode || p.code,
-        qty: p.qty,
-        rate: p.retailPrice,
-        stockNo: p.code,
-        description: p.productName
+        barcode: p.barcode || p.stockNo,
+        qty: p.labelCount || 1,
+        rate: p.sellingPrice || p.mrp,
+        stockNo: p.stockNo,
+        description: p.product
       }));
     } else {
       const txns = barcodeTransactionStore.getTransactions("Purchase Inward (GRN)", billPrefix, billNo, billNo);
       matchedItems = txns.map(p => ({
-        barcode: p.barcode || p.code,
-        qty: p.qty,
-        rate: p.retailPrice,
-        stockNo: p.code,
-        description: p.productName
+        barcode: p.barcode || p.stockNo,
+        qty: p.labelCount || 1,
+        rate: p.sellingPrice || p.mrp,
+        stockNo: p.stockNo,
+        description: p.product
       }));
     }
 
@@ -131,7 +131,7 @@ export const PdtImportModal: React.FC<PdtImportModalProps> = ({
       matchedItems = products.slice(0, 3).map(p => ({
         barcode: p.barcode || p.code,
         qty: 5,
-        rate: Number(p.sellingPrice || p.mrp || 100),
+        rate: Number((p as any).sellingPrice || p.price || p.mrp || 100),
         stockNo: p.code,
         description: p.name
       }));
@@ -159,7 +159,7 @@ export const PdtImportModal: React.FC<PdtImportModalProps> = ({
         itemsToImport.push({
           product: matched,
           qty: row.qty,
-          rate: row.rate ?? Number(matched.sellingPrice || matched.mrp || 0)
+          rate: row.rate ?? Number((matched as any).sellingPrice || matched.price || matched.mrp || 0)
         });
       } else {
         // Create synthetic product for unregistered stock number
@@ -169,9 +169,10 @@ export const PdtImportModal: React.FC<PdtImportModalProps> = ({
           name: row.description || row.barcode,
           barcode: row.barcode,
           mrp: row.rate || 0,
-          sellingPrice: row.rate || 0,
+          price: row.rate || 0,
           stock: 999,
-          uom: "PCS"
+          category: "General",
+          attributes: { uom: "PCS" }
         };
         itemsToImport.push({
           product: syntheticProduct,

@@ -50,19 +50,23 @@ export type MasterEntryMode = "add" | "edit" | "delete";
 interface SmritiItemDetailsGridProps {
   products: Product[];
   viewConfig?: ViewConfigState;
+  commonFields?: any;
   entryMode?: MasterEntryMode;
   onRefreshProducts?: () => Promise<void>;
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
   onNavigateToViewConfig?: () => void;
+  onNavigateToCommonFields?: () => void;
 }
 
 export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   products = [],
   viewConfig,
+  commonFields,
   entryMode = "add",
   onRefreshProducts,
   onNotification,
-  onNavigateToViewConfig
+  onNavigateToViewConfig,
+  onNavigateToCommonFields
 }) => {
   const [dynamicDefinitions, setDynamicDefinitions] = useState<AttributeDefinition[]>([]);
   const [gridRows, setGridRows] = useState<any[]>([]);
@@ -112,17 +116,17 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         imageName: (p as any).image_name || (p as any).imageName || (p as any).image || "",
         brand: p.brand || commonFields?.brand || "",
         styleCode: (p as any).style_code || (p as any).styleCode || "",
-        colour: p.colour || (p as any).color || "",
+        colour: (p as any).colour || p.color || "",
         size: p.size || "",
         category: p.category || commonFields?.category || "Footwear",
-        subCategory: p.sub_category || commonFields?.subCategory || "",
+        subCategory: (p as any).sub_category || commonFields?.subCategory || "",
         mrp: p.mrp || p.price || 0,
         price: p.price || 0,
-        costPrice: p.cost_price || 0,
-        gst_percentage: p.gst_percentage || commonFields?.gstPercentage || 18,
-        hsn_code: p.hsn_code || commonFields?.hsnCode || "",
+        costPrice: p.costPrice || (p as any).cost_price || 0,
+        gst_percentage: (p as any).gst_percentage || (p as any).gstPercentage || commonFields?.gstPercentage || 18,
+        hsn_code: (p as any).hsn_code || (p as any).hsnCode || commonFields?.hsnCode || "",
         barcode: p.barcode || "",
-        uom: p.uom || commonFields?.uom || "Pair",
+        uom: (p as any).uom || commonFields?.uom || "Pair",
         a1: p.attributes?.a1 || p.attributes?.heels || "",
         a2: p.attributes?.a2 || p.attributes?.upperMaterial || "",
         a3: p.attributes?.a3 || p.attributes?.outsole || "",

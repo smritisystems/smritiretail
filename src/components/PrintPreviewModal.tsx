@@ -129,7 +129,8 @@ const MOCK_TAB_DATA: Record<string, any> = {
 interface PrintPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  activeTabId: string;
+  activeTabId?: string;
+  data?: any;
 }
 
 interface PaperDimension {
@@ -404,7 +405,7 @@ const WATERMARK_PRESETS = [
   }
 ];
 
-export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, activeTabId }) => {
+export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, activeTabId = "pos", data }) => {
   const { 
     print, 
     templates,
@@ -485,7 +486,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
       const targetTabId = isSharedPrint && params.get("tab") ? params.get("tab")! : activeTabId;
       const baseKey = MOCK_TAB_DATA[targetTabId] ? targetTabId : "default";
       
-      let initData = JSON.parse(JSON.stringify(MOCK_TAB_DATA[baseKey]));
+      let initData = data ? JSON.parse(JSON.stringify(data)) : JSON.parse(JSON.stringify(MOCK_TAB_DATA[baseKey]));
       
       // Override document data from share payload if present
       const sharedDocData = params.get("docData");

@@ -60,7 +60,8 @@ export const SmritiCodeSelectionDialog: React.FC<SmritiCodeSelectionDialogProps>
       colour: includeColor ? currentRow.colour : undefined,
       size: includeSize ? currentRow.size : undefined
     }, {
-      separator: separator as any,
+      mode: "DERIVED",
+      delimiter: separator || "-",
       prefix: prefix
     });
     setCustomSku(newSku);

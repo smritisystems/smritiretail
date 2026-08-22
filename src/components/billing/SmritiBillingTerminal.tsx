@@ -16,7 +16,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Product, Customer, POSProfile, Shift } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
-import { getCustomers, initialCustomers } from "../../services/customerStore.ts";
+import { getCustomers, saveCustomers, initialCustomers } from "../../services/customerStore.ts";
 import { 
   searchBackendCustomers, 
   searchBackendProducts, 
@@ -216,7 +216,9 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
       mobile: (r as any).mobile || (r as any).phone || "",
       gstNumber: (r as any).gstNumber || (r as any).gst_number,
       customerGroupId: (r as any).customerGroupId || (r as any).customer_group_id || "CG-Retail",
-      status: (r as any).status || "Active"
+      status: (r as any).status || "Active",
+      outstanding: (r as any).outstanding || (r as any).outstanding_balance || 0,
+      createdDate: (r as any).createdDate || (r as any).created_at || new Date().toISOString().split("T")[0]
     };
 
     setHeaderState(prev => ({
@@ -227,7 +229,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
 
     setCustomerSearchInput(r.name);
     setShowCustomerDropdown(false);
-    onNotification?.("Customer Auto-Populated", `Auto-populated ${r.name} from backend.`, "info");
+    onNotification?.("Customer Auto-Populated", `Auto-populated ${r.name} from backend.`, "success");
   };
 
   const handleCustomerSearchChange = (val: string) => {
@@ -553,7 +555,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
   // Handle PDT Import Items
   const handleImportPdtItems = (imported: { product: Product; qty: number; rate?: number }[]) => {
     const newLines: BillingLineItem[] = imported.map((imp, idx) => {
-      const rate = imp.rate ?? Number(imp.product.sellingPrice || imp.product.mrp || 0);
+      const rate = imp.rate ?? Number((imp.product as any).sellingPrice || imp.product.price || imp.product.mrp || 0);
       const qty = imp.qty;
       const value = rate * qty;
       return {
@@ -631,7 +633,9 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
       name: newCustName.trim(),
       mobile: newCustMobile.trim() || "0000000000",
       gstNumber: newCustGstin.trim() || undefined,
-      status: "Active"
+      status: "Active",
+      outstanding: 0,
+      createdDate: new Date().toISOString().split("T")[0]
     };
     setCustomers(prev => [newCust, ...prev]);
     handleSelectCustomer(newCust);
@@ -805,7 +809,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                         e.preventDefault();
                         if (customerSuggestions.length > 0) {
                           const selected = customerSuggestions[customerSelectedIndex] || customerSuggestions[0];
-                          if (selected?.metadata) applyCustomerAutoPopulate(selected.metadata);
+                          if (selected?.metadata) applyCustomerAutoPopulate(selected.metadata as any);
                         } else if (filteredCustomers.length > 0) {
                           handleSelectCustomer(filteredCustomers[0]);
                         }
@@ -836,7 +840,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                     isLoading={isCustomerSearching}
                     onSelect={(opt) => {
                       if (opt.metadata) {
-                        applyCustomerAutoPopulate(opt.metadata);
+                        applyCustomerAutoPopulate(opt.metadata as any);
                       }
                     }}
                     onClose={() => setShowCustomerDropdown(false)}
@@ -1520,7 +1524,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
             ...directEntry,
             stockNo: product.code,
             itemDescription: product.name,
-            rate: String(product.sellingPrice || product.mrp || 0)
+            rate: String((product as any).sellingPrice || product.price || product.mrp || 0)
           });
           setShowProductSearchModal(false);
           directStockNoRef.current?.focus();

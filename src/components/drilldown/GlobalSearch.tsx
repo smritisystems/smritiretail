@@ -40,7 +40,6 @@ import {
   EntityContextType,
   getContextDescriptor,
   getEntityTabs,
-  prewarm as _prewarm,
 } from "../../services/globalContext/fieldContextRegistry.ts";
 import {
   useGlobalSearch,

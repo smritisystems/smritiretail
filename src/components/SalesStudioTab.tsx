@@ -510,13 +510,17 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           state: c.state || "",
           pincode: c.pincode || "",
           gstin: c.gst_number || c.gstin || "",
+          gstNumber: c.gst_number || c.gstin || "",
           customerGroup: c.customer_group_id || "General",
+          customerGroupId: c.customer_group_id || "CG-Retail",
           creditLimit: Number(c.credit_limit || 0),
           creditDays: Number(c.credit_days || 0),
           outstandingBalance: Number(c.outstanding_balance || 0),
+          outstanding: Number(c.outstanding_balance || 0),
           loyaltyPoints: Number(c.loyalty_points || 0),
           status: c.is_active ? "Active" : "Inactive",
-          createdAt: c.created_at || new Date().toISOString()
+          createdAt: c.created_at || new Date().toISOString(),
+          createdDate: (c.created_at || new Date().toISOString()).split("T")[0]
         }));
         setCustomers(mapped);
         saveCustomers(mapped);

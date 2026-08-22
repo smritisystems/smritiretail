@@ -17,7 +17,7 @@ import { SmritiCustomerMasterWorkspace } from "./customer/SmritiCustomerMasterWo
 
 export interface CustomerMasterTabProps {
   currentUser?: { role: string; name: string } | null;
-  onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }
 
 export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUser, onNotification }) => {

@@ -135,6 +135,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
       customerGroupId: "CG-Retail",
       outstanding: 0,
       status: "Active" as const,
+      createdDate: new Date().toISOString().split("T")[0],
       tags: ["Walk-In", "POS"]
     };
     saveCustomers([newCustomerRecord, ...currentFullList]);

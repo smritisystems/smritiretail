@@ -60,7 +60,7 @@ export const SmritiProPosSalesReturnModal: React.FC<SmritiProPosSalesReturnModal
   ]);
 
   const totalRefundValue = useMemo(() => {
-    return returnItems.reduce((acc, item) => acc + (item.returnQty * item.unitPrice), 0);
+    return returnItems.reduce((acc, item) => acc + (item.returnQty * (item.unitPrice ?? 0)), 0);
   }, [returnItems]);
 
   const totalReturnedQty = useMemo(() => {
@@ -70,12 +70,12 @@ export const SmritiProPosSalesReturnModal: React.FC<SmritiProPosSalesReturnModal
   const handleQtyChange = (index: number, qty: number) => {
     setReturnItems(prev => {
       const next = [...prev];
-      const maxAllowed = next[index].originalQty;
+      const maxAllowed = next[index].originalQty ?? 1;
       const validQty = Math.max(0, Math.min(maxAllowed, qty));
       next[index] = {
         ...next[index],
         returnQty: validQty,
-        refundAmount: validQty * next[index].unitPrice
+        refundAmount: validQty * (next[index].unitPrice ?? 0)
       };
       return next;
     });
@@ -284,7 +284,7 @@ export const SmritiProPosSalesReturnModal: React.FC<SmritiProPosSalesReturnModal
                             className="w-16 h-7 px-2 border border-[#ba1a1a] rounded-lg text-center font-mono font-bold text-xs bg-white dark:bg-[#191c1e] text-[#ba1a1a] outline-none"
                           />
                         </td>
-                        <td className="px-3 py-2 text-right font-mono">₹{item.unitPrice.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-mono">₹{(item.unitPrice ?? 0).toFixed(2)}</td>
                         <td className="px-3 py-2">
                           <select
                             disabled={!isReturning}

@@ -65,7 +65,7 @@ export const SmritiItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       if (selectedCategory !== "All" && p.category !== selectedCategory) return false;
-      if (selectedStatus === "Stable" && p.is_favorite === false) return true;
+      if (selectedStatus === "Stable" && ((p as any).is_favorite === false || p.isFavorite === false)) return true;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const inCode = (p.code || "").toLowerCase().includes(q);
@@ -112,7 +112,7 @@ export const SmritiItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
       p.brand || "",
       p.mrp || 0,
       p.price || 0,
-      p.gst_percentage || 18,
+      (p as any).gst_percentage ?? p.gstPercentage ?? 18,
       p.barcode || "",
       `"${Object.entries(p.attributes || {}).map(([k, v]) => `${k}:${v}`).join("; ")}"`
     ]);
