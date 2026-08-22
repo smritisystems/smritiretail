@@ -4,30 +4,45 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.0.0
+ * Version      : 6.7.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { ProPosCustomer } from "./types.ts";
-import { X, Search, UserPlus, Star, Award, Check, Phone, Mail, CreditCard } from "lucide-react";
+import { getCustomers, initialCustomers } from "../../../services/customerStore.ts";
+import { X, Search, UserPlus, Check } from "lucide-react";
 
 interface SmritiCustomerBrowseModalProps {
   onSelectCustomer: (cust: ProPosCustomer) => void;
   onClose: () => void;
 }
 
+const mapToProPosCustomers = (custs: any[]): ProPosCustomer[] => {
+  return custs.map((c, idx) => ({
+    id: c.id || `CUST-${idx + 1}`,
+    code: c.code || `C0${idx + 1}`,
+    name: c.name || "Customer",
+    phone: c.mobile || c.phone || "9876543210",
+    email: c.email,
+    loyaltyTier: c.loyaltyTier || "Gold",
+    loyaltyPoints: c.loyaltyPoints ?? 1200,
+    creditLimit: c.creditLimit ?? 50000,
+    currentBalance: c.currentBalance ?? 0
+  }));
+};
+
 const DEFAULT_CUSTOMERS: ProPosCustomer[] = [
   {
-    id: "cust-01",
+    id: "CUST-001",
     code: "C01",
-    name: "Customer01 (Walk-in)",
+    name: "Rahul Sharma",
     phone: "9876543210",
-    email: "customer01@retail.com",
+    email: "rahul.sharma@gmail.com",
     loyaltyTier: "Gold",
     loyaltyPoints: 1200,
     creditLimit: 50000,
@@ -73,8 +88,24 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
   onClose
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [customerList, setCustomerList] = useState<ProPosCustomer[]>(DEFAULT_CUSTOMERS);
-  const [selectedCustId, setSelectedCustId] = useState<string>(DEFAULT_CUSTOMERS[0].id);
+  const [customerList, setCustomerList] = useState<ProPosCustomer[]>(() => {
+    try {
+      const local = getCustomers();
+      if (local && local.length > 0) {
+        return mapToProPosCustomers(local);
+      }
+      if (initialCustomers && initialCustomers.length > 0) {
+        return mapToProPosCustomers(initialCustomers);
+      }
+    } catch {
+      // Fallback to default
+    }
+    return DEFAULT_CUSTOMERS;
+  });
+
+  const [selectedCustId, setSelectedCustId] = useState<string>(() => {
+    return customerList[0]?.id || "CUST-001";
+  });
 
   // New Customer On-the-Fly Form State
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
@@ -84,13 +115,18 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customerList;
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
     return customerList.filter(c =>
       c.code.toLowerCase().includes(q) ||
       c.name.toLowerCase().includes(q) ||
-      (c.phone && c.phone.includes(q))
+      (c.phone && c.phone.includes(q)) ||
+      c.id.toLowerCase().includes(q)
     );
   }, [customerList, searchQuery]);
+
+  const activeSelected = useMemo(() => {
+    return filteredCustomers.find(c => c.id === selectedCustId) || filteredCustomers[0] || customerList[0];
+  }, [filteredCustomers, customerList, selectedCustId]);
 
   const handleAddNewCustomer = () => {
     if (!newCustName.trim() || !newCustPhone.trim()) return;
@@ -111,9 +147,36 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
     onClose();
   };
 
-  const activeSelected = useMemo(() => {
-    return customerList.find(c => c.id === selectedCustId) || customerList[0];
-  }, [customerList, selectedCustId]);
+  // Keyboard navigation & Enter selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (activeSelected) {
+          onSelectCustomer(activeSelected);
+          onClose();
+        }
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const currentIndex = filteredCustomers.findIndex(c => c.id === selectedCustId);
+        if (currentIndex < filteredCustomers.length - 1) {
+          setSelectedCustId(filteredCustomers[currentIndex + 1].id);
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const currentIndex = filteredCustomers.findIndex(c => c.id === selectedCustId);
+        if (currentIndex > 0) {
+          setSelectedCustId(filteredCustomers[currentIndex - 1].id);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [filteredCustomers, selectedCustId, activeSelected, onSelectCustomer, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
@@ -151,6 +214,8 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
             <input
               type="text"
               autoFocus
+              name="browseCustomerSearch"
+              aria-label="Search customer"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search by Customer Code, Name, or Mobile No..."
@@ -228,11 +293,15 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
             </thead>
             <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
               {filteredCustomers.map(c => {
-                const isSelected = c.id === selectedCustId;
+                const isSelected = c.id === activeSelected?.id;
                 return (
                   <tr
                     key={c.id}
                     onClick={() => setSelectedCustId(c.id)}
+                    onDoubleClick={() => {
+                      onSelectCustomer(c);
+                      onClose();
+                    }}
                     className={`cursor-pointer transition ${
                       isSelected
                         ? "bg-[#ffffcc] dark:bg-[#3a3a1a] text-black dark:text-yellow-200 font-bold"
@@ -272,7 +341,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
         {/* Footer */}
         <div className="px-6 py-4 border-t border-[#c4c5d5] dark:border-[#444653] bg-[#f8f9fa] dark:bg-[#131b2e] flex justify-between items-center shrink-0">
           <span className="text-xs text-[#565e74] dark:text-[#bec6e0]">
-            Press <strong>[Enter]</strong> or double click to select customer.
+            Press <strong>[Enter]</strong> or <strong>double click</strong> to select customer.
           </span>
           <div className="flex gap-3">
             <button

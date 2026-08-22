@@ -809,15 +809,33 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           <div className="flex gap-1.5">
             <input
               type="text"
+              name="posCustomerCode"
+              aria-label="Customer Code"
+              data-f2-browse="customer"
               value={customer.code}
               onChange={e => setCustomer(prev => ({ ...prev, code: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === "F2") {
+                  e.preventDefault();
+                  setShowCustomerBrowseModal(true);
+                }
+              }}
               placeholder="Code..."
               className="w-20 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-mono font-bold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
             />
             <input
               type="text"
+              name="posCustomerName"
+              aria-label="Customer Name"
+              data-f2-browse="customer"
               value={customer.name}
               onChange={e => setCustomer(prev => ({ ...prev, name: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === "F2") {
+                  e.preventDefault();
+                  setShowCustomerBrowseModal(true);
+                }
+              }}
               placeholder="Customer Name..."
               className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2.5 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
             />

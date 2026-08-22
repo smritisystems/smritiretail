@@ -15,7 +15,8 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Product, Customer, POSProfile, Shift } from "../../types.ts";
-import { apiFetchV1 } from "../../lib/apiFetch.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { getCustomers, initialCustomers } from "../../services/customerStore.ts";
 import {
   BillingLineItem,
   BillType,
@@ -47,6 +48,7 @@ import {
 
 interface SmritiBillingTerminalProps {
   products?: Product[];
+  customers?: Customer[];
   profiles?: POSProfile[];
   shifts?: Shift[];
   currentUser?: { role: string; name: string; companyId?: string; branchId?: string } | null;
@@ -57,6 +59,7 @@ interface SmritiBillingTerminalProps {
 
 export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
   products = [],
+  customers: initialCustomersProp,
   currentUser,
   onRefreshData,
   onNotification,
@@ -126,7 +129,11 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
   ]);
 
   // Customers State & Customer Modals
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    if (initialCustomersProp && initialCustomersProp.length > 0) return initialCustomersProp;
+    const local = getCustomers();
+    return (local && local.length > 0) ? local : initialCustomers;
+  });
   const [customerSearchInput, setCustomerSearchInput] = useState<string>("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState<boolean>(false);
@@ -157,16 +164,45 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
   const fetchCustomers = async () => {
     try {
       const res = await apiFetchV1("/customers");
-      if (res && Array.isArray(res)) {
+      if (res && Array.isArray(res) && res.length > 0) {
         setCustomers(res);
+        return;
       }
     } catch {
-      // Demo fallback customers if offline
-      setCustomers([
-        { id: "CUST-001", name: "Acme Industrial Solutions Ltd.", mobile: "9876543210", email: "acme@example.com", status: "Active" },
-        { id: "CUST-002", name: "Apex Retail Mart", mobile: "9823456789", email: "apex@example.com", status: "Active" },
-        { id: "CUST-003", name: "Bharat Distributors Corp", mobile: "9911223344", email: "bharat@example.com", status: "Active" }
-      ]);
+      // Offline fallback
+    }
+    const local = getCustomers();
+    setCustomers(local && local.length > 0 ? local : initialCustomers);
+  };
+
+  const handleSelectCustomer = (c: Customer | null) => {
+    setHeaderState(prev => ({ ...prev, customer: c }));
+    if (c) {
+      setCustomerSearchInput(c.name);
+    }
+    setShowCustomerDropdown(false);
+  };
+
+  const handleCustomerSearchChange = (val: string) => {
+    setCustomerSearchInput(val);
+    setShowCustomerDropdown(true);
+
+    if (!val.trim()) {
+      setHeaderState(prev => ({ ...prev, customer: null }));
+      return;
+    }
+
+    const lower = val.trim().toLowerCase();
+    const exact = customers.find(c =>
+      c.name?.toLowerCase() === lower ||
+      (c.mobile && c.mobile === val.trim()) ||
+      c.id?.toLowerCase() === lower ||
+      (c.code && c.code.toLowerCase() === lower) ||
+      ((c as any).phone && (c as any).phone === val.trim())
+    );
+
+    if (exact) {
+      setHeaderState(prev => ({ ...prev, customer: exact }));
     }
   };
 
@@ -430,17 +466,17 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
 
   // Add Quick Customer
   const handleCreateCustomer = () => {
-    if (!newCustName) return;
+    if (!newCustName.trim()) return;
     const newCust: Customer = {
-      id: "CUST-" + Date.now(),
-      name: newCustName,
-      mobile: newCustMobile,
-      gstNumber: newCustGstin,
+      id: "CUST-" + Date.now().toString().slice(-4),
+      customerGroupId: "CG-Retail",
+      name: newCustName.trim(),
+      mobile: newCustMobile.trim() || "0000000000",
+      gstNumber: newCustGstin.trim() || undefined,
       status: "Active"
     };
-    setCustomers(prev => [...prev, newCust]);
-    setHeaderState(prev => ({ ...prev, customer: newCust }));
-    setCustomerSearchInput(newCust.name);
+    setCustomers(prev => [newCust, ...prev]);
+    handleSelectCustomer(newCust);
     setShowAddCustomerModal(false);
     setNewCustName("");
     setNewCustMobile("");
@@ -448,10 +484,17 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
     onNotification?.("Customer Added", `Customer ${newCust.name} selected.`, "success");
   };
 
-  const filteredCustomers = customers.filter(c => 
-    c.name.toLowerCase().includes(customerSearchInput.toLowerCase()) ||
-    (c.mobile && c.mobile.includes(customerSearchInput))
-  );
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearchInput.trim()) return customers;
+    const q = customerSearchInput.toLowerCase().trim();
+    return customers.filter(c => 
+      c.name?.toLowerCase().includes(q) ||
+      (c.mobile && c.mobile.includes(q)) ||
+      (c.id && c.id.toLowerCase().includes(q)) ||
+      (c.code && c.code.toLowerCase().includes(q)) ||
+      ((c as any).phone && (c as any).phone.includes(q))
+    );
+  }, [customers, customerSearchInput]);
 
   return (
     <div className="h-full flex flex-col bg-surface text-on-surface font-sans select-none overflow-hidden">
@@ -520,6 +563,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
               >
                 <option value="Product">Product</option>
                 <option value="Service">Service</option>
+                <option value="Both">Both (Hybrid)</option>
               </select>
             </div>
 
@@ -530,8 +574,9 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                 onChange={e => setHeaderState({ ...headerState, transaction: e.target.value as TransactionType })}
                 className="border border-outline-variant text-body-sm text-xs focus:border-secondary focus:ring-1 focus:ring-secondary rounded h-8 bg-surface px-2 font-medium"
               >
-                <option value="Credit">Credit</option>
-                <option value="Cash">Cash</option>
+                <option value="Credit">Credit Invoice</option>
+                <option value="Cash">Cash Invoice</option>
+                <option value="Retail">Retail Tax Bill</option>
               </select>
             </div>
 
@@ -541,12 +586,12 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                 type="text"
                 value={headerState.docPrefix}
                 onChange={e => setHeaderState({ ...headerState, docPrefix: e.target.value })}
-                className="bg-surface-container-low border border-outline-variant text-body-sm font-code-md text-xs font-bold text-on-surface-variant rounded h-8 px-2"
+                className="bg-surface-container-low border border-outline-variant text-body-sm font-code-md text-xs font-bold text-primary rounded h-8 px-2"
               />
             </div>
 
             <div className="flex flex-col gap-unit w-28">
-              <label className="font-label-caps text-[11px] text-on-surface-variant font-bold uppercase">Doc No.</label>
+              <label className="font-label-caps text-[11px] text-on-surface-variant font-bold uppercase">Doc No</label>
               <input
                 type="text"
                 value={headerState.docNo}
@@ -589,12 +634,24 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                   <input
                     ref={customerInputRef}
                     type="text"
+                    name="customerSearch"
+                    aria-label="Search customer (F2)"
+                    data-f2-browse="customer"
+                    data-context-type="customer"
+                    data-lookup="customer"
                     value={customerSearchInput}
-                    onChange={e => {
-                      setCustomerSearchInput(e.target.value);
-                      setShowCustomerDropdown(true);
-                    }}
+                    onChange={e => handleCustomerSearchChange(e.target.value)}
                     onFocus={() => setShowCustomerDropdown(true)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (filteredCustomers.length > 0) {
+                          handleSelectCustomer(filteredCustomers[0]);
+                        }
+                      } else if (e.key === "Escape") {
+                        setShowCustomerDropdown(false);
+                      }
+                    }}
                     placeholder="Search customer (F2)"
                     className="w-full border border-outline-variant text-body-sm text-xs focus:border-secondary focus:ring-1 focus:ring-secondary rounded h-8 pl-8 pr-2 bg-surface font-medium"
                   />
@@ -606,16 +663,12 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                       {filteredCustomers.map(c => (
                         <div
                           key={c.id}
-                          onClick={() => {
-                            setHeaderState({ ...headerState, customer: c });
-                            setCustomerSearchInput(c.name);
-                            setShowCustomerDropdown(false);
-                          }}
+                          onClick={() => handleSelectCustomer(c)}
                           className="px-3 py-2 hover:bg-secondary-fixed/50 cursor-pointer border-b border-outline-variant/30 text-xs flex justify-between items-center"
                         >
                           <div>
                             <p className="font-bold text-primary">{c.name}</p>
-                            <p className="text-[10px] text-on-surface-variant font-code-md">{c.mobile || "No Mobile"} • {c.id}</p>
+                            <p className="text-[10px] text-on-surface-variant font-code-md">{c.mobile || (c as any).phone || "No Mobile"} • {c.id || c.code}</p>
                           </div>
                           {c.gstNumber && (
                             <span className="font-code-md text-[10px] bg-surface-container-high px-1.5 py-0.5 rounded">
@@ -630,6 +683,8 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
 
                 <input
                   type="text"
+                  name="customerNameDisplay"
+                  aria-label="Customer Name Display"
                   value={headerState.customer?.name || "No Customer Selected"}
                   readOnly
                   placeholder="Customer Name Display"

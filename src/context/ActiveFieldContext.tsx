@@ -381,8 +381,25 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
       ? value 
       : (value.code || value.barcode || value.sku || value.name || value.id || "");
     
-    // Set native value
-    target.value = stringVal;
+    // Use prototype setter to properly update React's internal value tracker on controlled components
+    try {
+      const isInput = target instanceof HTMLInputElement;
+      const isTextArea = target instanceof HTMLTextAreaElement;
+      const proto = isInput 
+        ? window.HTMLInputElement.prototype 
+        : isTextArea 
+        ? window.HTMLTextAreaElement.prototype 
+        : Object.getPrototypeOf(target);
+      
+      const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+      if (descriptor && descriptor.set) {
+        descriptor.set.call(target, stringVal);
+      } else {
+        target.value = stringVal;
+      }
+    } catch {
+      target.value = stringVal;
+    }
     
     // Dispatch input & change events for React synthetic event listeners
     target.dispatchEvent(new Event("input", { bubbles: true }));
