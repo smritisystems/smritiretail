@@ -123,43 +123,43 @@ async def resolve_company_database_name(company_id_or_code: Optional[str]) -> st
     """
     Resolves the target company database name from company_id, company_code, or defaults.
     Queries company_database_registries in smritisys for authoritative routing.
+    Fails closed if the company is unverified, unregistered, or not in READY status.
     """
-    if not company_id_or_code:
-        return "smriti001"
+    candidate = str(company_id_or_code).strip() if company_id_or_code else "COMP-001"
 
-    candidate = str(company_id_or_code).strip()
+    # Query authoritative registry in smritisys
+    async with async_session() as ctrl_session:
+        stmt = text("""
+            SELECT database_name, status
+            FROM company_database_registries
+            WHERE company_id = :cid OR database_id = :cid OR company_id = :comp_code
+            LIMIT 1;
+        """)
+        res = await ctrl_session.execute(stmt, {
+            "cid": candidate,
+            "comp_code": f"COMP-{candidate}" if len(candidate) == 3 and candidate.isalnum() else candidate
+        })
+        row = res.fetchone()
+        if row:
+            db_name, db_status = row
+            if db_status != "READY":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Company Database for '{candidate}' is in status '{db_status}'. Access denied."
+                )
+            clean_db = str(db_name).strip().lower()
+            pattern = r"^smriti(?!000)(?!sys)[a-z0-9]{3}$"
+            if not re.match(pattern, clean_db):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid database name '{clean_db}' resolved. Violates official naming standard."
+                )
+            return clean_db
 
-    # Direct standard code matches
-    if candidate.upper() in ("001", "COMP-001", "COMPANY-001", "TATTLY", "TATTLY_THREADS"):
-        return "smriti001"
-    if candidate.upper() in ("002", "COMP-002", "COMPANY-002"):
-        return "smriti002"
-    if candidate.upper() in ("003", "COMP-003", "COMPANY-003"):
-        return "smriti003"
-
-    # Query registry in smritisys
-    try:
-        async with async_session() as ctrl_session:
-            stmt = text("""
-                SELECT database_name, status
-                FROM company_database_registries
-                WHERE company_id = :cid OR database_id = :cid
-                LIMIT 1;
-            """)
-            res = await ctrl_session.execute(stmt, {"cid": candidate})
-            row = res.fetchone()
-            if row:
-                db_name, db_status = row
-                if db_status == "READY":
-                    return str(db_name).strip().lower()
-    except Exception:
-        pass
-
-    # Fallback to standard 3-character format if matching [A-Z0-9]{3}
-    if len(candidate) == 3 and candidate.isalnum() and candidate.upper() not in ("000", "SYS"):
-        return f"smriti{candidate.upper()}".lower()
-
-    return "smriti001"
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=f"Company Database registry entry for '{candidate}' not found. Access denied."
+    )
 
 
 # ---------------------------------------------------------------------------
