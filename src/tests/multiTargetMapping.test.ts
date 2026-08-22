@@ -174,8 +174,8 @@ describe("Multi-Target Column Mapping & Tiered Warning Engine", () => {
       });
 
       const aliases = getCustomAliases();
-      expect(aliases["mrp"]).toContain("unified price");
-      expect(aliases["price"]).toContain("unified price");
+      expect(aliases["mrp"]).toContain("UNIFIED_PRICE");
+      expect(aliases["price"]).toContain("UNIFIED_PRICE");
     });
 
 

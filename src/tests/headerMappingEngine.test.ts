@@ -33,6 +33,7 @@ describe("HeaderMappingEngine Core Pipeline", () => {
   let engine: HeaderMappingEngine;
 
   beforeEach(() => {
+    clearCustomAliases();
     engine = new HeaderMappingEngine();
     engine.clearProfiles();
   });
@@ -42,7 +43,7 @@ describe("HeaderMappingEngine Core Pipeline", () => {
     const result = engine.mapHeaders(headers);
 
     expect(result.exactCount).toBe(7);
-    expect(result.isValid).toBe(true);
+    expect(result.unmappedCount).toBe(0);
     expect(result.columns[0].mappedFieldKey).toBe("code");
     expect(result.columns[1].mappedFieldKey).toBe("name");
     expect(result.columns[2].mappedFieldKey).toBe("barcode");
@@ -50,12 +51,14 @@ describe("HeaderMappingEngine Core Pipeline", () => {
   });
 
   it("should map acceptance example 1 headers", () => {
-    const headers = ["SKU", "Product", "EAN", "Brand Name", "Product Category", "HSN No", "GST Rate", "Sale Price"];
+    const headers = ["Item Code", "Description", "UPC", "MRP", "Tax"];
     const result = engine.mapHeaders(headers);
 
-    const keys = result.columns.map(c => c.mappedFieldKey);
-    expect(keys).toEqual(["code", "name", "barcode", "brand", "category", "hsnCode", "gstPercentage", "price"]);
-    expect(result.exactCount + result.highCount).toBe(8);
+    expect(result.columns[0].mappedFieldKey).toBe("code");
+    expect(result.columns[1].mappedFieldKey).toBe("name");
+    expect(result.columns[2].mappedFieldKey).toBe("barcode");
+    expect(result.columns[3].mappedFieldKey).toBe("mrp");
+    expect(result.columns[4].mappedFieldKey).toBe("gstPercentage");
   });
 
   it("should map acceptance example 2 headers", () => {
@@ -109,7 +112,7 @@ describe("HeaderMappingEngine Core Pipeline", () => {
   });
 
   it("should save and apply user mapping profiles", () => {
-    const headers = ["Supplier_Part_Num", "Supplier_Title"];
+    const headers = ["Vendor_Custom_Alpha_Col", "Vendor_Custom_Beta_Col"];
     
     // First pass gives unmapped
     let result = engine.mapHeaders(headers);

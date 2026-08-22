@@ -437,51 +437,44 @@ The agent must discover what needs updating based on the files it changed:
 # SMRITI Backend System-of-Record Policy
 
 **Status:** MANDATORY — applies to ALL agents, ALL sessions, ALL tasks.
-**Effective:** 2026-07-12
+**Effective:** 2026-07-12 (Updated 2026-08-22: Express Fully Retired)
 
-## Rule 1. FastAPI + Postgres Backend
-FastAPI + Postgres (`backend/app/`) is the system of record for all transactional data. Express (`server.ts`, `src/routes/*.ts`) and `db_store.json` are in feature freeze — no new business logic, routes, or data models may be added there, for any reason, until this policy is explicitly revised.
+## Rule 1. FastAPI + Postgres Sole Backend Architecture
+FastAPI + Postgres (`backend/app/`) is the sole, canonical backend system of record for all transactional data, APIs, authentication, compliance gateways, and business logic. Express (`server.ts`, `src/routes/*.ts`) has been completely decommissioned and deleted from the codebase.
 
-## Rule 2. Strangler-Fig Migration Order
-Migration proceeds module by module (strangler-fig), in this order: Reports → Inventory/Products → Auth → Sales/Purchase/POS. A module is not "migrated" until the frontend calls FastAPI directly for it via `src/lib/apiFetchV1.ts` AND the equivalent Express/db_store.json path for that data has been removed.
+## Rule 2. Strangler-Fig Migration Status: COMPLETE
+All application modules (Reports, Inventory, Products, Auth, Sales, Purchase, POS, CRM, Master Data) communicate directly with FastAPI via `src/lib/apiFetchV1.ts` (`/api/v1/*`). Express routes and in-memory JSON stores have been completely removed.
 
 ## Rule 3. AI and Analytical Capabilities
 Any AI/forecast/OCR/recommendation module under `backend/app/ai/` stays unimplemented (scaffolding only) until real transaction volume exists in Postgres to build it against. Do not build analytical features against seed/test data and present them as functional.
 
 ## Rule 4. Backend Capability Target
-Every new backend capability, from this point forward, goes into `backend/app/`, never into `server.ts` or `src/routes/*.ts`.
+Every new backend capability, endpoint, or data model resides exclusively in `backend/app/` (FastAPI + Postgres).
 
 ## Rule 5. Integration & Compliance Gateways (MANDATORY)
-All external government, banking, tax, and third-party integrations (GSTN, NIC, E-Way Bill, E-Invoice, Payment Gateways), including their credentials storage, audit logging, and background retry queue engines, must reside inside the FastAPI + Postgres backend (`backend/app/`). Express is in feature freeze and must never handle credentials decryption, queue scheduling, or external compliance gateway communication. It may only act as a proxy router to FastAPI compliance endpoints.
+All external government, banking, tax, and third-party integrations (GSTN, NIC, E-Way Bill, E-Invoice, Payment Gateways), including their credentials storage, audit logging, and background retry queue engines, reside inside the FastAPI + Postgres backend (`backend/app/`).
 
 ---
 
-# SMRITI Platform Abstraction Layer (PAL) — Permanent Governance Rules
+# SMRITI Platform Architecture & Communication Layer
 
 **Status:** MANDATORY — applies to ALL agents, ALL sessions, ALL tasks.
 
-## 1. SMRITI Architecture Dependency Rule
-Dependencies shall point inward only:
+## 1. SMRITI Architecture Hierarchy
 ```text
-UI (Frontend)
-    ↓
-Express API (Dev/Mock Routing Gateway)
-    ↓
-Platform Abstraction Layer (PAL Container & Interfaces)
-    ↓
-FastAPI + Postgres (Transactional System-of-Record Backend)
+React 18 + Vite (Frontend Client Layer - Port 3000)
+    ↓  (Reverse Proxy /api/v1 -> Backend)
+FastAPI Core + PostgreSQL (Transactional System-of-Record Backend - Port 8000)
 ```
-* No lower layer may reference a higher layer.
-* Business services shall remain framework-independent and database-agnostic.
+* Business services remain domain-driven, transactional, and database-backed in PostgreSQL.
 
 ## 2. API Communication Policy
-* Client applications must use `src/lib/apiFetch.ts` for Express API endpoints (`/api/*`) and `src/lib/apiFetchV1.ts` for FastAPI API endpoints (`/api/v1/*`).
-* Direct raw fetch or XMLHttpRequest calls are prohibited outside these helper modules.
-* Express serves as the layout routing host and dev mock server; FastAPI serves as the true transactional backend.
+* Client applications must use `src/lib/apiFetchV1.ts` for all API endpoints (`/api/v1/*`).
+* `src/lib/apiFetch.ts` serves as a backward-compatible alias forwarding directly to `apiFetchV1`.
+* Direct raw fetch or XMLHttpRequest calls outside these helper modules are prohibited.
 
 ## 3. Database Layer Independence
-* All transactional data (stock movements, shifts, invoices, purchase orders) must reside in PostgreSQL.
-* Express-level in-memory stores are for transient UI caching/migration fallback only and must not be used as transactional systems of record.
+* All transactional data (stock movements, shifts, invoices, purchase orders, customer records) resides in PostgreSQL.
 
 ---
 
