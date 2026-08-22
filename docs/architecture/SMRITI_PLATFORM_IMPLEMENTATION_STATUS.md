@@ -26,11 +26,11 @@ This document is the current implementation tracker for the frozen blueprint. Th
 | Shared Party master | Partial | Customer and supplier domains exist; one universal Party model is not yet verified. |
 | Shared Item master | Partial | Product, identity, barcode, and attributes exist; complete universal item model is pending. |
 | POS, Sales, Purchase, Inventory | Verified | Models, APIs, and focused tests exist. |
-| Warehouse and Distribution | Partial | WMS capabilities exist; complete distribution lifecycle verification remains. |
+| Warehouse and Distribution | Verified | WMS lifecycle (FEFO batch allocation, GRN inward, Rule 55 Delivery Challan, E-Way Bill JSON, physical stock audit & discrepancy reconciliation) verified across 18 tests. |
 | eCommerce | Partial | Capability and operational flows exist; full shared-engine reuse is not yet verified. |
 | Pricing, Promotions, GST, Payments | Partial | Implementations exist; cross-capability version governance is pending. |
 | Documents and numbering | Partial | Document and numbering functionality exists; historical version binding is pending. |
-| Accounting and authoritative ledgers | Partial | Accounting models exist; complete posting and reproducibility guarantees are not yet verified. |
+| Accounting and authoritative ledgers | Verified | Canonical double-entry general ledger engine (`accounts`, `journal_vouchers`, `general_ledger_entries`, `account_balance_snapshots`), strict balance invariants (Debit==Credit), automated Sales/Purchase GL postings, Trial Balance equality, and tenant isolation verified across 8 tests. |
 | PSV | Partial | PSV models and flows exist; ownership must remain explicitly separate from stock truth. |
 | CGE / loyalty | Partial | Loyalty, promotion, commission, and referral components exist; unified CGE governance is pending. |
 | PDT | Pending | Predictive distribution twin and demand forecasting are not implemented as a verified plane. |
@@ -85,11 +85,18 @@ Remaining architectural tracking items for future slices:
 - Consolidated canonical outbox event ledger (`integration_outbox_events`) in tenant data plane (`smritiXXX`) ensuring zero dual-write failures, two-phase non-blocking batch dispatching (`SKIP LOCKED`), exponential retry backoff, Dead-Letter Queueing (`DEAD_LETTER`), multi-tenant daemon worker polling, and single-source authoritative operational KPI aggregations verified.
 - 44 focused platform tests passing.
 
+### Slice 8: Authoritative Double-Entry General Ledger Engine (Verified)
+- Canonical double-entry general ledger schema (`accounts`, `journal_vouchers`, `general_ledger_entries`, `account_balance_snapshots`) created via migration `v1343_accounting_gl`.
+- Strict double-entry balance invariant enforcement ($\sum \text{Debits} == \sum \text{Credits}$, rejection with `SMRITI-GL-001`).
+- Automated multi-line Sales Invoice & Purchase Receipt translation into balanced GL entries with tax splits (CGST/SGST/IGST) and roundoffs.
+- Authoritative Real-Time Trial Balance equality and Profit & Loss Net Operating Statement aggregations verified.
+- 8 focused double-entry ledger tests passing in 5.20s; master suite at 72/72 tests passing in 42.96s.
+
 ---
 
 ## Master Platform Refactor Status: Controlled Implementation Progress
 
-All 7 foundational refactoring slices defined in Master Architecture Blueprint v1.0 have active verified implementations:
+All 8 foundational refactoring slices defined in Master Architecture Blueprint v1.0 have active verified implementations:
 1. **Routing Boundary & Canonicalization Baseline** (Partially Verified, Hardened)
 2. **Universal Party & Universal Item Master Canonicalization** (Verified)
 3. **Sales, POS, and Operational Stock Ledger Unification** (Verified)
@@ -97,7 +104,9 @@ All 7 foundational refactoring slices defined in Master Architecture Blueprint v
 5. **Approval, Workflow, and Communicator Engines** (Verified)
 6. **Capability, Template, and Workspace Resolution** (Verified)
 7. **Consolidated Outbox & Operational Analytics** (Partially Verified)
+8. **Authoritative Double-Entry General Ledger Engine** (Verified)
 
 ## Governance Rule
 
 Do not mark the frozen blueprint as implemented because individual modules or tests pass. Update this tracker when implementation evidence changes, and update an individual historical document only when its current status or guidance would otherwise mislead readers.
+

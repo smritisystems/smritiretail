@@ -127,4 +127,13 @@ from .outbox import (
     OutboxEvent,
 )
 
+# Canonical Authoritative Double-Entry Accounting Models (Slice 8)
+from .accounting import (
+    Account,
+    JournalVoucher,
+    GeneralLedgerEntry,
+    AccountBalanceSnapshot,
+)
+
+
 
