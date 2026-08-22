@@ -14,7 +14,8 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { ProPosCustomer } from "./types.ts";
-import { getCustomers, initialCustomers } from "../../../services/customerStore.ts";
+import { getCustomers, initialCustomers, saveCustomers, persistCustomerChange } from "../../../services/customerStore.ts";
+import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { X, Search, UserPlus, Check } from "lucide-react";
 
 interface SmritiCustomerBrowseModalProps {
@@ -36,53 +37,6 @@ const mapToProPosCustomers = (custs: any[]): ProPosCustomer[] => {
   }));
 };
 
-const DEFAULT_CUSTOMERS: ProPosCustomer[] = [
-  {
-    id: "CUST-001",
-    code: "C01",
-    name: "Rahul Sharma",
-    phone: "9876543210",
-    email: "rahul.sharma@gmail.com",
-    loyaltyTier: "Gold",
-    loyaltyPoints: 1200,
-    creditLimit: 50000,
-    currentBalance: 0
-  },
-  {
-    id: "cust-02",
-    code: "C02",
-    name: "Farida Jameel",
-    phone: "9822334455",
-    email: "farida@example.com",
-    loyaltyTier: "Platinum",
-    loyaltyPoints: 4500,
-    creditLimit: 100000,
-    currentBalance: 12500
-  },
-  {
-    id: "cust-03",
-    code: "C03",
-    name: "Rajesh Kumar",
-    phone: "9988776655",
-    email: "rajesh.k@example.com",
-    loyaltyTier: "Silver",
-    loyaltyPoints: 450,
-    creditLimit: 25000,
-    currentBalance: 0
-  },
-  {
-    id: "cust-04",
-    code: "C04",
-    name: "Priya Sharma",
-    phone: "9123456789",
-    email: "priya.sharma@example.com",
-    loyaltyTier: "Gold",
-    loyaltyPoints: 2300,
-    creditLimit: 75000,
-    currentBalance: 4200
-  }
-];
-
 export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps> = ({
   onSelectCustomer,
   onClose
@@ -94,24 +48,38 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
       if (local && local.length > 0) {
         return mapToProPosCustomers(local);
       }
-      if (initialCustomers && initialCustomers.length > 0) {
-        return mapToProPosCustomers(initialCustomers);
-      }
     } catch {
-      // Fallback to default
+      // Keep the browse view empty until live data is available.
     }
-    return DEFAULT_CUSTOMERS;
+    return [];
   });
 
+  // Fetch live customers from server on modal mount
+  useEffect(() => {
+    let isMounted = true;
+    apiFetchV1("/customers")
+      .then((res: any) => {
+        if (isMounted && Array.isArray(res) && res.length > 0) {
+          setCustomerList(mapToProPosCustomers(res));
+        }
+      })
+      .catch(() => {
+        // Keep local cache
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const [selectedCustId, setSelectedCustId] = useState<string>(() => {
-    return customerList[0]?.id || "CUST-001";
+    return customerList[0]?.id || "";
   });
 
   // New Customer On-the-Fly Form State
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [newCustName, setNewCustName] = useState<string>("");
   const [newCustPhone, setNewCustPhone] = useState<string>("");
-  const [newCustCode, setNewCustCode] = useState<string>(`C0${DEFAULT_CUSTOMERS.length + 1}`);
+  const [newCustCode, setNewCustCode] = useState<string>("C01");
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customerList;
@@ -131,9 +99,11 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
   const handleAddNewCustomer = () => {
     if (!newCustName.trim() || !newCustPhone.trim()) return;
 
+    const newId = `cust-${Date.now()}`;
+    const newCode = newCustCode || `C0${customerList.length + 1}`;
     const created: ProPosCustomer = {
-      id: `cust-${Date.now()}`,
-      code: newCustCode || `C0${customerList.length + 1}`,
+      id: newId,
+      code: newCode,
       name: newCustName.trim(),
       phone: newCustPhone.trim(),
       loyaltyTier: "Silver",
@@ -142,7 +112,23 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
       currentBalance: 0
     };
 
+    // Update local modal list
     setCustomerList(prev => [created, ...prev]);
+
+    // Persist to customer store and server
+    const currentFullList = getCustomers();
+    const newCustomerRecord = {
+      id: newId,
+      code: newCode,
+      name: newCustName.trim(),
+      mobile: newCustPhone.trim(),
+      customerGroupId: "CG-Retail",
+      outstanding: 0,
+      status: "Active" as const,
+      tags: ["Walk-In", "POS"]
+    };
+    saveCustomers([newCustomerRecord, ...currentFullList]);
+
     onSelectCustomer(created);
     onClose();
   };

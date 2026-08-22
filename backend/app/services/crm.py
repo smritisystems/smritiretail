@@ -37,8 +37,13 @@ class CrmService:
         if existing.scalars().first():
             raise HTTPException(status_code=400, detail="Customer group with this name already exists")
         
+        grp_dict = group_in.model_dump()
+        if not grp_dict.get("id"):
+            import uuid
+            grp_dict["id"] = f"cg-{uuid.uuid4().hex[:8]}"
+        
         db_group = CustomerGroup(
-            **group_in.model_dump(),
+            **grp_dict,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
         )
@@ -88,6 +93,9 @@ class CrmService:
                 raise HTTPException(status_code=400, detail="Specified Customer Group does not exist")
 
         cust_dict = customer_in.model_dump()
+        if not cust_dict.get("id"):
+            import uuid
+            cust_dict["id"] = f"cust-{uuid.uuid4().hex[:8]}"
         if not cust_dict.get("code"):
             import uuid
             cust_dict["code"] = f"CUST-{uuid.uuid4().hex[:8].upper()}"
