@@ -140,35 +140,36 @@ Additive DDL tables. If rollback is required, business operations proceed normal
 ---
 
 ## 14. Test Plan
-- Run `backend/tests/test_unified_outbox_analytics.py`.
-- Run full 89-test multi-module regression suite.
+- Run `backend/tests/test_unified_outbox_analytics.py` (Atomicity, Rollback, Callback Dispatcher, DLQ, Operational KPIs, Tenant Isolation).
+- Run full platform test suite (`test_routing_boundary_canonical.py` through `test_unified_outbox_analytics.py`).
 
 ---
 
 ## 15. Documentation Impact
 - Update `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
-- Generate Walkthrough `docs/walkthrough/foundation/Platform_Outbox_Analytics_Plane_v6.16.0.md`.
+- Update Walkthrough `docs/walkthrough/foundation/Platform_Outbox_Analytics_Plane_v6.16.0.md`.
 - Update `docs/walkthrough/README.md`.
 
 ---
 
 ## 16. Deployment Plan
-1. Apply DDL to tenant databases (`smriti001`, `smriti002`).
-2. Deploy backend service models.
-3. Validate automated test execution.
+1. Apply Alembic migration `v1342_canonical_outbox` to all tenant databases (`alembic -x db=smritiXXX upgrade head`).
+2. Deploy consolidated outbox models and domain services (`OutboxService`, `UnifiedOutboxAnalyticsService`).
+3. Validate automated test suite execution.
 
 ---
 
 ## 17. Status
-**Draft — Ready for Review & Execution**
+**Partially Verified — Canonical Outbox Consolidated, Alembic Migration Verified, Operational KPI Service Active**
 
 ---
 
 ## 18. Related ADRs
 - `ADR-001`: Multi-Company Database Architecture.
-- `ADR-012`: Transactional Outbox Pattern & Authoritative Analytics Plane.
+- `ADR-012`: Transactional Outbox Pattern & Authoritative Operational Analytics.
 
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Platform_Capability_Template_Workspace_v6.16.0.md`.
+- `docs/walkthrough/foundation/Platform_Outbox_Analytics_Plane_v6.16.0.md`.
+
