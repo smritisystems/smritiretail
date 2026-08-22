@@ -33,6 +33,8 @@ import { SmritiProPosHotkeysModal } from "./SmritiProPosHotkeysModal.tsx";
 import { SmritiProPosReprintModal } from "./SmritiProPosReprintModal.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../../utils/gstEngine.ts";
+import { searchBackendProducts, AutoPopulateProductResult } from "../../../services/autoPopulateService.ts";
+import { SmritiItemTypeaheadDropdown } from "../../common/SmritiItemTypeaheadDropdown.tsx";
 import { 
   Barcode, 
   Search, 
@@ -155,6 +157,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   ]);
 
   // --- Detail Group: Direct Entry Grid State ---
+  const [directBarcode, setDirectBarcode] = useState<string>("");
   const [directStockNo, setDirectStockNo] = useState<string>("");
   const [directDescription, setDirectDescription] = useState<string>("");
   const [directRate, setDirectRate] = useState<string>("999.00");
@@ -165,7 +168,57 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [directDiscAmtInput, setDirectDiscAmtInput] = useState<string>("99.90");
   const [directStaff, setDirectStaff] = useState<string>("SM1");
 
+  // Live Item Typeahead / Auto-Populate State
+  const [productSuggestions, setProductSuggestions] = useState<AutoPopulateProductResult[]>([]);
+  const [isProductSearchOpen, setIsProductSearchOpen] = useState<boolean>(false);
+  const [isProductSearching, setIsProductSearching] = useState<boolean>(false);
+  const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState<number>(0);
+  const [activeSearchField, setActiveSearchField] = useState<"stockNo" | "barcode">("stockNo");
+  const [selectedProductMeta, setSelectedProductMeta] = useState<AutoPopulateProductResult | null>(null);
+
   const directStockNoRef = useRef<HTMLInputElement | null>(null);
+  const directBarcodeRef = useRef<HTMLInputElement | null>(null);
+  const searchDebounceTimer = useRef<any>(null);
+
+  // Debounced Universal Product Lookup from Barcode or Stock No
+  const handleItemLiveSearch = (query: string, fieldType: "stockNo" | "barcode") => {
+    setActiveSearchField(fieldType);
+    if (!query.trim()) {
+      setProductSuggestions([]);
+      setIsProductSearchOpen(false);
+      return;
+    }
+
+    if (searchDebounceTimer.current) {
+      clearTimeout(searchDebounceTimer.current);
+    }
+
+    setIsProductSearching(true);
+    searchDebounceTimer.current = setTimeout(async () => {
+      try {
+        const results = await searchBackendProducts(query);
+        setProductSuggestions(results);
+        setIsProductSearchOpen(results.length > 0);
+        setSelectedSuggestionIdx(0);
+      } catch (err) {
+        console.warn("Item search failed", err);
+      } finally {
+        setIsProductSearching(false);
+      }
+    }, 150);
+  };
+
+  // Select Item from Dropdown / Autocomplete
+  const handleSelectProductSuggestion = (item: AutoPopulateProductResult) => {
+    setDirectStockNo(item.stockNo || item.code);
+    setDirectBarcode(item.barcode);
+    setDirectDescription(item.name);
+    const unitP = item.sellingPrice ? item.sellingPrice.toFixed(2) : (item.mrp || 999).toFixed(2);
+    handleRateOrQtyChange(unitP, directQty);
+    setSelectedProductMeta(item);
+    setIsProductSearchOpen(false);
+    onNotification?.("Item Identified", `${item.name} (Stock No: ${item.stockNo || item.code}, Barcode: ${item.barcode}) loaded.`, "info");
+  };
 
   // Direct Entry Computed Values
   const directValue = useMemo(() => {
@@ -366,10 +419,47 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     }
   };
 
+  // Keyboard navigation helper for Typeahead dropdown
+  const handleItemInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, fieldType: "stockNo" | "barcode") => {
+    if (isProductSearchOpen && productSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedSuggestionIdx(prev => (prev + 1) % productSuggestions.length);
+        return;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedSuggestionIdx(prev => (prev - 1 + productSuggestions.length) % productSuggestions.length);
+        return;
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const selected = productSuggestions[selectedSuggestionIdx];
+        if (selected) {
+          handleSelectProductSuggestion(selected);
+        } else {
+          handleAcceptDirectEntryItem();
+        }
+        return;
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setIsProductSearchOpen(false);
+        return;
+      }
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (productSuggestions.length === 1 && isProductSearchOpen) {
+        handleSelectProductSuggestion(productSuggestions[0]);
+      } else {
+        handleAcceptDirectEntryItem();
+      }
+    }
+  };
+
   // Accept Item from Direct Entry Grid into Item Details Grid
   const handleAcceptDirectEntryItem = () => {
-    if (!directStockNo.trim()) {
-      onNotification?.("Stock No Required", "Please enter a Stock No or scan a barcode.", "error");
+    if (!directStockNo.trim() && !directBarcode.trim()) {
+      onNotification?.("Stock No / Barcode Required", "Please enter a Stock No or scan a barcode.", "error");
       directStockNoRef.current?.focus();
       return;
     }
@@ -380,26 +470,28 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       return;
     }
 
-    const stockCode = directStockNo.trim();
-    const desc = directDescription.trim() || `regular straight Med Beige`;
-    const rate = parseFloat(directRate) || 999.00;
+    const stockCode = directStockNo.trim() || directBarcode.trim();
+    const barcodeCode = directBarcode.trim() || selectedProductMeta?.barcode || stockCode;
+    const desc = directDescription.trim() || selectedProductMeta?.name || `Retail Item ${stockCode}`;
+    const rate = parseFloat(directRate) || selectedProductMeta?.sellingPrice || 999.00;
     const qty = parseFloat(directQty) || 1.00;
     const effDiscQ = getEffectiveDiscQty(directDiscQty, directQty);
-    const discPct = parseFloat(directDiscPct) || 10.00;
+    const discPct = parseFloat(directDiscPct) || 0.00;
     const discAmt = parseFloat(directDiscAmtInput) || ((rate * effDiscQ * discPct) / 100);
     const staff = directStaff || salesStaff;
+    const gstRate = selectedProductMeta?.gstPercentage || 5.00;
 
     const gstCalc = calculateGST({
       unitPrice: rate,
       quantity: qty,
       discountAmount: discAmt,
-      gstRate: 5.00,
+      gstRate: gstRate,
       isTaxInclusive: !isB2B,
       isInterstate: isInterstate,
     });
 
     const existingIndex = cartItems.findIndex(
-      it => (it.sku === stockCode || it.barcode === stockCode) &&
+      it => (it.sku === stockCode || it.barcode === barcodeCode) &&
             it.unitPrice === rate &&
             Math.abs((it.discQty || 0) - effDiscQ) < 0.01 &&
             Math.abs(it.discountPct - discPct) < 0.01 &&
@@ -417,7 +509,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           unitPrice: cur.unitPrice,
           quantity: newQty,
           discountAmount: newDiscAmt,
-          gstRate: cur.taxPct || 5.00,
+          gstRate: cur.taxPct || gstRate,
           isTaxInclusive: !isB2B,
           isInterstate: isInterstate,
         });
@@ -442,20 +534,20 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         id: `item-${Date.now()}`,
         itemNo: cartItems.length + 1,
         sku: stockCode,
-        barcode: stockCode,
+        barcode: barcodeCode,
         name: desc,
-        size: "32",
-        color: "Beige",
-        brand: "SMRITI",
+        size: selectedProductMeta?.size || "32",
+        color: selectedProductMeta?.color || "Beige",
+        brand: selectedProductMeta?.brand || "SMRITI",
         salesStaff: staff,
         qty: qty,
-        mrp: rate,
+        mrp: selectedProductMeta?.mrp || rate,
         unitPrice: rate,
         discCode: directDiscCode || "ILD",
         discQty: effDiscQ,
         discountPct: discPct,
         discountAmt: discAmt,
-        taxPct: 5.00,
+        taxPct: gstRate,
         taxAmt: gstCalc.taxAmount,
         taxableValue: gstCalc.taxableValue,
         cgstAmount: gstCalc.cgstAmount,
@@ -467,16 +559,24 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
       setCartItems(prev => [...prev, newItem]);
       setSelectedRowIndex(cartItems.length);
-      onNotification?.("Item Accepted", `Stock ${stockCode} accepted (${effDiscQ.toFixed(2)} Disc Qty, ₹${discAmt.toFixed(2)} Disc Amt).`, "success");
+      onNotification?.("Item Accepted", `${desc} (${stockCode}) accepted (${effDiscQ.toFixed(2)} Disc Qty, ₹${discAmt.toFixed(2)} Disc Amt).`, "success");
     }
 
     setDirectStockNo("");
+    setDirectBarcode("");
     setDirectDescription("");
     setDirectQty("1.00");
     setDirectDiscQty("1.00");
-    setDirectDiscPct("10.00");
-    setDirectDiscAmtInput("99.90");
-    directStockNoRef.current?.focus();
+    setDirectDiscPct("0.00");
+    setDirectDiscAmtInput("0.00");
+    setSelectedProductMeta(null);
+    setIsProductSearchOpen(false);
+
+    if (activeSearchField === "barcode") {
+      directBarcodeRef.current?.focus();
+    } else {
+      directStockNoRef.current?.focus();
+    }
   };
 
   // Import PDT Items callback
@@ -1087,11 +1187,45 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           </div>
 
           {/* Bottom: Direct Entry Grid Header & Input Strip */}
-          <div className="border-t-2 border-[#a4a5b5] dark:border-[#5c5d6c] bg-[#edeae1] dark:bg-[#252836] shrink-0 shadow-sm">
+          <div className="border-t-2 border-[#a4a5b5] dark:border-[#5c5d6c] bg-[#edeae1] dark:bg-[#252836] shrink-0 shadow-sm relative">
             
+            {/* Live Selected Item Multi-Attribute Inspection Ribbon */}
+            {selectedProductMeta && (
+              <div className="bg-[#e8edff] dark:bg-[#1a233b] border-b border-[#c4c5d5] dark:border-[#3b4252] px-3 py-1 flex items-center justify-between text-[11px] font-sans">
+                <div className="flex items-center gap-3 overflow-x-auto text-[#00288e] dark:text-[#93c5fd]">
+                  <span className="font-bold flex items-center gap-1">
+                    <Barcode size={13} /> {selectedProductMeta.barcode}
+                  </span>
+                  <span>•</span>
+                  <span><strong>Stock/SKU:</strong> {selectedProductMeta.stockNo || selectedProductMeta.sku}</span>
+                  <span>•</span>
+                  <span><strong>Stock:</strong> <span className="font-bold font-mono">{selectedProductMeta.stockQty} {selectedProductMeta.uom}</span></span>
+                  <span>•</span>
+                  <span><strong>MRP:</strong> ₹{selectedProductMeta.mrp.toFixed(2)}</span>
+                  <span>•</span>
+                  <span><strong>Cost:</strong> ₹{selectedProductMeta.costPrice.toFixed(2)}</span>
+                  <span>•</span>
+                  <span><strong>Size/Color:</strong> {selectedProductMeta.size}/{selectedProductMeta.color}</span>
+                  <span>•</span>
+                  <span><strong>Brand:</strong> {selectedProductMeta.brand}</span>
+                  <span>•</span>
+                  <span><strong>HSN:</strong> {selectedProductMeta.hsnCode} ({selectedProductMeta.gstPercentage}%)</span>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setSelectedProductMeta(null)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs px-1"
+                  title="Dismiss inspector"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             {/* Direct Entry Header Row (Exact Column Headers) */}
             <div className="grid grid-cols-12 text-[11px] font-bold text-[#444653] dark:text-[#bec6e0] border-b border-[#c4c5d5] dark:border-[#444653] py-1 px-1 bg-[#e4e1d7] dark:bg-[#1d202d] min-w-[1020px]">
-              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Stock No</div>
+              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Barcode / Scan</div>
+              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Stock No / SKU</div>
               <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Rate</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Qty</div>
@@ -1099,31 +1233,63 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-center">Disc Code</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right text-[#00288e] dark:text-[#a8b8ff]">Disc Qty</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc. %</div>
-              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc.Amt</div>
-              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Total</div>
             </div>
 
             {/* Direct Entry Interactive Inputs */}
             <div className="grid grid-cols-12 p-1.5 gap-1.5 items-center bg-[#edeae1] dark:bg-[#252836] min-w-[1020px]">
               
-              {/* Stock No Input */}
-              <div className="col-span-2">
+              {/* Barcode No Input with Live Typeahead */}
+              <div className="col-span-2 relative">
+                <input
+                  ref={directBarcodeRef}
+                  type="text"
+                  value={directBarcode}
+                  onChange={e => {
+                    setDirectBarcode(e.target.value);
+                    handleItemLiveSearch(e.target.value, "barcode");
+                  }}
+                  onKeyDown={e => handleItemInputKeyDown(e, "barcode")}
+                  placeholder="Scan Barcode No..."
+                  className="w-full h-8 px-2 bg-white dark:bg-[#131b2e] border-2 border-blue-600/60 dark:border-blue-500/60 rounded text-xs font-mono font-bold outline-none focus:border-[#00288e] focus:ring-1 focus:ring-[#00288e]"
+                />
+                {activeSearchField === "barcode" && (
+                  <SmritiItemTypeaheadDropdown
+                    isOpen={isProductSearchOpen}
+                    items={productSuggestions}
+                    selectedIndex={selectedSuggestionIdx}
+                    onSelect={handleSelectProductSuggestion}
+                    onClose={() => setIsProductSearchOpen(false)}
+                    isLoading={isProductSearching}
+                    searchFieldType="barcode"
+                  />
+                )}
+              </div>
+
+              {/* Stock No / SKU Input with Live Typeahead */}
+              <div className="col-span-2 relative">
                 <input
                   ref={directStockNoRef}
                   type="text"
                   value={directStockNo}
                   onChange={e => {
                     setDirectStockNo(e.target.value);
-                    handleDirectStockNoLookup(e.target.value);
+                    handleItemLiveSearch(e.target.value, "stockNo");
                   }}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") {
-                      handleAcceptDirectEntryItem();
-                    }
-                  }}
-                  placeholder="Scan / Stock No..."
+                  onKeyDown={e => handleItemInputKeyDown(e, "stockNo")}
+                  placeholder="Stock No / SKU..."
                   className="w-full h-8 px-2 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold outline-none focus:border-[#00288e] focus:ring-1 focus:ring-[#00288e]"
                 />
+                {activeSearchField === "stockNo" && (
+                  <SmritiItemTypeaheadDropdown
+                    isOpen={isProductSearchOpen}
+                    items={productSuggestions}
+                    selectedIndex={selectedSuggestionIdx}
+                    onSelect={handleSelectProductSuggestion}
+                    onClose={() => setIsProductSearchOpen(false)}
+                    isLoading={isProductSearching}
+                    searchFieldType="stockNo"
+                  />
+                )}
               </div>
 
               {/* Item Description Input */}

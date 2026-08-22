@@ -28,6 +28,19 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.11.0] - 2026-08-22
+
+#### POS & Inventory — Dual-Field Item Auto-Search, Auto-Population & 14+ Attribute Inspection
+- **Universal Multi-Attribute Typeahead Overlay (`SmritiItemTypeaheadDropdown.tsx`)**:
+  - Reusable dropdown displaying **5 Key Identifiers** (Barcode, Stock No, Code, SKU, Name/Description), **6 Core Commercial Details** (MRP, Rate, Cost Price, Stock, Size, Color, GST%), and **6 Extended Tactical Attributes** (Brand, Category, HSN, Pricing Mode, Tracking Mode, Weight, Image Preview).
+  - Smooth keyboard navigation (Arrow Up/Down, Enter selection, Escape dismissal) with auto-scroll.
+- **Dual-Field Search Trigger & Synchronization**:
+  - Integrated interchangeable lookup across `Barcode / Scan` and `Stock No / SKU` in `SmritiProPosBillingTerminal.tsx` and `SmritiBillingTerminal.tsx`.
+  - Automatic synchronization of both identifiers and live line rate/description upon item selection.
+  - Added live Selected Item Multi-Attribute Inspection HUD banner across billing workspaces.
+- **Backend Search Expansion (`ProductRepository.search`)**:
+  - Extended multi-column SQL ILIKE search to include `sku`, `style_code`, `hsn_code`, `brand`, `category`, and JSONB `attributes`.
+
 ### [6.10.0] - 2026-08-22
 
 #### Sales & POS — Zero-Touch Automated GST & Customer Classification Engine
