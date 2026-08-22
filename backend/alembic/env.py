@@ -134,9 +134,19 @@ def include_object(object, name, type_, reflected, compare_to):
     return True
 
 
+def get_target_db_url() -> str:
+    x_args = context.get_x_argument(as_dictionary=True)
+    if "db_url" in x_args:
+        return x_args["db_url"]
+    if "db" in x_args:
+        db_name = x_args["db"]
+        return f"postgresql+asyncpg://postgres:postgres@localhost:5432/{db_name}"
+    return config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    url = get_target_db_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -159,7 +169,7 @@ def do_run_migrations(connection) -> None:
         context.run_migrations()
 
 async def run_async_migrations() -> None:
-    database_url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    database_url = get_target_db_url()
     connectable = create_async_engine(database_url)
 
     async with connectable.connect() as connection:
