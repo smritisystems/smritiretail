@@ -366,6 +366,8 @@ export const GlobalF2BrowseModal: React.FC = () => {
   // Load Data
   useEffect(() => {
     if (!isF2ModalOpen) return;
+    const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+    if (!token) return;
 
     const loadData = async () => {
       try {
@@ -612,7 +614,8 @@ export const GlobalF2BrowseModal: React.FC = () => {
     }
   };
 
-  if (!isF2ModalOpen) return null;
+  const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+  if (!isF2ModalOpen || !token) return null;
 
   return (
     <div 

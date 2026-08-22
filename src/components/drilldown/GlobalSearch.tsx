@@ -139,6 +139,9 @@ export const GlobalSearch: React.FC = () => {
   // Global keyboard shortcut (Ctrl+K to open)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+      if (!token) return;
+
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setSearchOpen(!searchOpen);
@@ -210,7 +213,8 @@ export const GlobalSearch: React.FC = () => {
     }
   };
 
-  if (!searchOpen) return null;
+  const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+  if (!searchOpen || !token) return null;
 
   return (
     <AnimatePresence>

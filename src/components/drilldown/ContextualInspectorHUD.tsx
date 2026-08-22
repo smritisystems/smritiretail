@@ -73,6 +73,12 @@ export const ContextualInspectorHUD: React.FC = () => {
     );
   }
 
+  // If not authenticated, NEVER render or show HUD or data
+  const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+  if (!token) {
+    return null;
+  }
+
   // If no input is focused and category is general, hide HUD
   if (!isInputFocused && category === "general") {
     return null;

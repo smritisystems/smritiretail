@@ -84,7 +84,6 @@ import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext.tsx
 import { FloatingWindowHost } from "./components/FloatingWindowHost.tsx";
 import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
-import { WorkspaceTaskbar } from "./components/WorkspaceTaskbar.tsx";
 import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
 import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
@@ -654,7 +653,7 @@ const AppContent: React.FC = () => {
       userName={currentUser?.name || "Operator"}
       userRole={currentUser?.role || "Operator"}
     >
-      <div className="relative w-full h-full pb-13">
+      <div className="relative w-full h-full">
       {/* Toast Notification Stack */}
       <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
         <AnimatePresence>
@@ -778,8 +777,13 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {/* SMRITI Workspace Taskbar - Only rendered when user is logged in */}
-      <WorkspaceTaskbar />
+      {/* Authenticated Global Drilldown & Context Overlays */}
+      <ContextRenderer />
+      <GlobalSearch />
+      <GlobalF2BrowseModal />
+      <ContextualInspectorHUD />
+      <DrillDownSidePanel />
+      <ShortcutPalette />
     </div>
     </AppShell>
   );
@@ -796,12 +800,6 @@ const App: React.FC = () => {
                 <ShortcutProvider>
                   <ContextProvider>
                     <AppContent />
-                    <ContextRenderer />
-                    <GlobalSearch />
-                    <GlobalF2BrowseModal />
-                    <ContextualInspectorHUD />
-                    <DrillDownSidePanel />
-                    <ShortcutPalette />
                   </ContextProvider>
                 </ShortcutProvider>
               </WorkspaceProvider>
