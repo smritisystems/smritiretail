@@ -49,9 +49,11 @@ const REGISTERED_APP_TABS = [
   "print-history",
   "terms-engine",
   "data-exchange",
+  "database-manager",
   "company-setup",
   "about-smriti",
   "dev-tracker",
+  "security-management",
   "audit-logs",
   "wiki",
   "training-academy"

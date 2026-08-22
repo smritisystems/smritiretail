@@ -11,12 +11,13 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import uuid
+import uuid, os
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..models.control.control_models import ControlCompany, ControlCompanyDatabase, ControlPSVConfig
+from ..models.company_database_registry import CompanyDatabaseRegistry
+from ..models.tenant import Company
 from ..db.provisioning import sanitize_company_db_name
 
 
@@ -24,36 +25,39 @@ class ControlDatabaseRegistryService:
     """
     Authoritative Database Registry Service in SmritiSys Control Plane.
     Resolves company business database connection metadata, verifies permissions,
-    and enforces immutable, collision-safe database connection mapping.
+    and enforces immutable, collision-safe database connection mapping using canonical CompanyDatabaseRegistry.
     """
 
     @staticmethod
-    def build_connection_url(db_meta: ControlCompanyDatabase) -> str:
+    def build_connection_url(db_meta: CompanyDatabaseRegistry) -> str:
         """
         Builds asyncpg connection URL from authoritative control registry metadata.
-        Never constructs URLs directly from unvalidated user input.
+        Uses environment configuration for secure credential binding.
         """
-        user = db_meta.db_user or "postgres"
-        host = db_meta.host or "localhost"
-        port = db_meta.port or 5432
+        user = os.getenv("POSTGRES_USER") or "postgres"
+        host = db_meta.host_reference if hasattr(db_meta, "host_reference") else getattr(db_meta, "host", "localhost")
+        port = db_meta.port_reference if hasattr(db_meta, "port_reference") else getattr(db_meta, "port", 5432)
         db_name = db_meta.database_name
-        # Fallback default password; production retrieves from encrypted_credentials
-        pwd = "postgres"
+        pwd = os.getenv("POSTGRES_PASSWORD") or "postgres"
         return f"postgresql+asyncpg://{user}:{pwd}@{host}:{port}/{db_name}"
 
     @classmethod
     async def get_company_database(
         cls,
         session: AsyncSession,
-        company_code: str
-    ) -> Optional[ControlCompanyDatabase]:
+        company_code_or_id: str
+    ) -> Optional[CompanyDatabaseRegistry]:
         """
-        Fetches active database registration for a company code from SmritiSys.
+        Fetches active/ready database registration for a company code or id from SmritiSys.
         """
-        clean_code = company_code.strip().upper()
-        stmt = select(ControlCompanyDatabase).where(
-            ControlCompanyDatabase.company_code == clean_code,
-            ControlCompanyDatabase.status == "ACTIVE"
+        clean_code = company_code_or_id.strip()
+        stmt = select(CompanyDatabaseRegistry).where(
+            or_(
+                CompanyDatabaseRegistry.company_id == clean_code,
+                CompanyDatabaseRegistry.database_id == clean_code,
+                CompanyDatabaseRegistry.company_id == f"COMP-{clean_code.upper()}"
+            ),
+            CompanyDatabaseRegistry.status == "READY"
         )
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
@@ -67,36 +71,40 @@ class ControlDatabaseRegistryService:
         host: str = "localhost",
         port: int = 5432,
         db_user: str = "postgres"
-    ) -> ControlCompanyDatabase:
+    ) -> CompanyDatabaseRegistry:
         """
         Registers a newly provisioned company database in SmritiSys.
-        Enforces collision-safe naming and uniqueness.
+        Enforces collision-safe naming and uniqueness on canonical CompanyDatabaseRegistry.
         """
         clean_code = company_code.strip().upper()
         sanitized_db_name = sanitize_company_db_name(clean_code)
 
         # Check existing registration
-        existing_stmt = select(ControlCompanyDatabase).where(
-            (ControlCompanyDatabase.company_code == clean_code) |
-            (ControlCompanyDatabase.database_name == sanitized_db_name)
+        existing_stmt = select(CompanyDatabaseRegistry).where(
+            or_(
+                CompanyDatabaseRegistry.company_id == company_id,
+                CompanyDatabaseRegistry.database_name == sanitized_db_name
+            )
         )
         existing = (await session.execute(existing_stmt)).scalar_one_or_none()
         if existing:
             return existing
 
-        db_reg = ControlCompanyDatabase(
-            id=f"cdb_{uuid.uuid4().hex[:12]}",
+        db_reg = CompanyDatabaseRegistry(
             company_id=company_id,
-            company_code=clean_code,
+            database_id=f"db_{clean_code.lower()}",
             database_name=sanitized_db_name,
-            database_type="POSTGRESQL",
-            host=host,
-            port=port,
-            db_user=db_user,
-            status="ACTIVE",
-            schema_version="1.0.0",
+            database_engine="postgresql",
+            host_reference=host,
+            port_reference=port,
+            status="READY",
+            schema_version="3.16.0",
+            region="ap-south-1",
             created_at=datetime.now(timezone.utc),
-            last_health_check=datetime.now(timezone.utc)
+            updated_at=datetime.now(timezone.utc),
+            last_health_check=datetime.now(timezone.utc),
+            provisioning_status="COMPLETED",
+            migration_status="UP_TO_DATE"
         )
         session.add(db_reg)
         await session.commit()

@@ -16,7 +16,7 @@ from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_company_db, get_tenant_context, TenantContext, require_role
+from ...api.deps import get_company_db, get_tenant_context, TenantContext, require_role, require_permission
 from ...models.auth import UserRole
 from ...schemas.sales import (
     SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
@@ -26,6 +26,7 @@ from ...schemas.sales import (
 )
 from ...repositories.sales import SalesInvoiceRepository
 from ...services.sales import SalesService
+from ...services.eway_bill_service import EWayBillService
 
 router = APIRouter()
 
@@ -40,7 +41,7 @@ router = APIRouter()
     response_model=SalesInvoiceResponse,
     status_code=201,
     summary="Create Sales Invoice (Contract URL)",
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
 )
 async def create_sales_invoice_contract(
     invoice_in: SalesInvoiceCreate,
@@ -234,13 +235,13 @@ async def get_sales_invoice_download_attachment(
     "/quotations",
     response_model=SalesQuotationResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
 )
 @router.post(
     "/quotations/",
     response_model=SalesQuotationResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
 )
 async def create_sales_quotation(
     q_in: SalesQuotationCreate,
@@ -275,7 +276,7 @@ async def get_sales_quotation(
 @router.put(
     "/quotations/{quotation_id}",
     response_model=SalesQuotationResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "EDIT"))],
 )
 async def update_sales_quotation(
     quotation_id: str,
@@ -283,21 +284,21 @@ async def update_sales_quotation(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Partial-update a sales quotation. MANAGER / SYSADMIN only."""
+    """Partial-update a sales quotation."""
     return await SalesService(db, tenant_ctx).update_sales_quotation(quotation_id, update_in)
 
 
 @router.delete(
     "/quotations/{quotation_id}",
     status_code=204,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "DELETE"))],
 )
 async def delete_sales_quotation(
     quotation_id: str,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Soft-delete a sales quotation. MANAGER / SYSADMIN only."""
+    """Soft-delete a sales quotation."""
     await SalesService(db, tenant_ctx).delete_sales_quotation(quotation_id)
     return Response(status_code=204)
 
@@ -308,20 +309,20 @@ async def delete_sales_quotation(
     "/orders",
     response_model=SalesOrderResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
 )
 @router.post(
     "/orders/",
     response_model=SalesOrderResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
 )
 async def create_sales_order(
-    so_in: SalesOrderCreate,
+    order_in: SalesOrderCreate,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    return await SalesService(db, tenant_ctx).create_sales_order(so_in)
+    return await SalesService(db, tenant_ctx).create_sales_order(order_in)
 
 
 @router.get("/orders", response_model=List[SalesOrderResponse])
@@ -340,8 +341,8 @@ async def get_sales_order(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     service = SalesService(db, tenant_ctx)
-    so, items = await service.get_sales_order(order_id)
-    resp = SalesOrderResponse.model_validate(so)
+    order, items = await service.get_sales_order(order_id)
+    resp = SalesOrderResponse.model_validate(order)
     resp.items = [SalesOrderItemResponse.model_validate(i) for i in items]
     return resp
 
@@ -349,7 +350,7 @@ async def get_sales_order(
 @router.put(
     "/orders/{order_id}",
     response_model=SalesOrderResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "EDIT"))],
 )
 async def update_sales_order(
     order_id: str,
@@ -357,21 +358,21 @@ async def update_sales_order(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Partial-update a sales order. MANAGER / SYSADMIN only."""
+    """Partial-update a sales order."""
     return await SalesService(db, tenant_ctx).update_sales_order(order_id, update_in)
 
 
 @router.delete(
     "/orders/{order_id}",
     status_code=204,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "DELETE"))],
 )
 async def delete_sales_order(
     order_id: str,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Soft-delete a sales order. MANAGER / SYSADMIN only."""
+    """Soft-delete a sales order."""
     await SalesService(db, tenant_ctx).delete_sales_order(order_id)
     return Response(status_code=204)
 
@@ -382,13 +383,13 @@ async def delete_sales_order(
     "/returns",
     response_model=SalesReturnResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "RETURN"))],
 )
 @router.post(
     "/returns/",
     response_model=SalesReturnResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "RETURN"))],
 )
 async def create_sales_return(
     sr_in: SalesReturnCreate,
@@ -423,7 +424,7 @@ async def get_sales_return(
 @router.put(
     "/returns/{return_id}",
     response_model=SalesReturnResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "EDIT"))],
 )
 async def update_sales_return(
     return_id: str,
@@ -431,26 +432,26 @@ async def update_sales_return(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Partial-update a sales return. MANAGER / SYSADMIN only."""
+    """Partial-update a sales return."""
     return await SalesService(db, tenant_ctx).update_sales_return(return_id, update_in)
 
 
 @router.delete(
     "/returns/{return_id}",
     status_code=204,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "DELETE"))],
 )
 async def delete_sales_return(
     return_id: str,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Soft-delete a sales return. MANAGER / SYSADMIN only."""
+    """Soft-delete a sales return."""
     await SalesService(db, tenant_ctx).delete_sales_return(return_id)
     return Response(status_code=204)
 
 
-# ─────────────────────────── Sales Invoice UPDATE / CANCEL ───────────────────────────
+# ─────────────────────────── Sales Invoice UPDATE / CANCEL / VOID ───────────────────────────
 
 @router.put("/{invoice_id}", response_model=SalesInvoiceResponse)
 @router.patch("/{invoice_id}", response_model=SalesInvoiceResponse)
@@ -473,7 +474,17 @@ async def update_sales_invoice(
 @router.delete(
     "/{invoice_id}",
     status_code=200,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("sales_billing", "VOID"))],
+)
+@router.delete(
+    "/invoices/{invoice_id}",
+    status_code=200,
+    dependencies=[Depends(require_permission("sales_billing", "VOID"))],
+)
+@router.post(
+    "/invoices/{invoice_id}/void",
+    status_code=200,
+    dependencies=[Depends(require_permission("sales_billing", "VOID"))],
 )
 async def cancel_sales_invoice(
     invoice_id: str,
@@ -508,3 +519,38 @@ async def convert_quotation_to_invoice(
     Sets quotation status to Converted and creates a new Draft invoice.
     """
     return await SalesService(db, tenant_ctx).convert_quotation_to_invoice(quotation_id)
+
+
+# ─────────────────────────── E-Way Bill Generation ───────────────────────────
+
+@router.get(
+    "/invoices/{invoice_id}/eway-bill-payload",
+    dependencies=[Depends(require_permission("sales_billing", "VIEW"))],
+)
+@router.get(
+    "/{invoice_id}/eway-bill-payload",
+    dependencies=[Depends(require_permission("sales_billing", "VIEW"))],
+)
+async def get_invoice_eway_bill_payload(
+    invoice_id: str,
+    transporter_name: Optional[str] = Query(None),
+    vehicle_no: Optional[str] = Query(None),
+    lr_number: Optional[str] = Query(None),
+    distance_km: int = Query(50, ge=1, le=4000),
+    trans_mode: str = Query("1"),
+    strict_validation: Optional[bool] = Query(None),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Generate official GST NIC E-Way Bill JSON payload for B2B Sales Invoice."""
+    service = EWayBillService(db, tenant_ctx)
+    return await service.generate_invoice_eway_bill_payload(
+        invoice_id=invoice_id,
+        transporter_name=transporter_name,
+        vehicle_no=vehicle_no,
+        lr_number=lr_number,
+        trans_distance_km=distance_km,
+        trans_mode=trans_mode,
+        strict_validation=strict_validation
+    )
+

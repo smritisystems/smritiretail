@@ -664,9 +664,9 @@ export const AboutSmritiTab: React.FC = () => {
                   <div className="bg-theme-surface-1 border border-theme-divider p-4 rounded-xl shadow-sm">
                     <h4 className="font-bold text-white mb-2">Backend & Sync Stack</h4>
                     <ul className="list-disc list-inside text-theme-muted space-y-1.5 font-mono text-[11px]">
-                      <li>FastAPI (Python) Core Backend</li>
-                      <li>Node.js / Express Gateway</li>
-                      <li>PostgreSQL 15 / 16 Pools</li>
+                      <li>FastAPI (Python) Async Backend</li>
+                      <li>Vite High-Performance Dev Server & Proxy</li>
+                      <li>PostgreSQL 15 / 16 Transactional DB</li>
                       <li>IndexedDB Client Caches</li>
                       <li>REST API / Operations Event Bus</li>
                     </ul>
@@ -826,9 +826,9 @@ export const AboutSmritiTab: React.FC = () => {
                         <td className="p-3">Core Python Async Backend</td>
                       </tr>
                       <tr>
-                        <td className="p-3 font-semibold text-white">Express</td>
+                        <td className="p-3 font-semibold text-white">Vite</td>
                         <td className="p-3">MIT</td>
-                        <td className="p-3">Gateway Router Compatibility</td>
+                        <td className="p-3">Next Generation Frontend Tooling</td>
                       </tr>
                       <tr>
                         <td className="p-3 font-semibold text-white">SQLAlchemy 2.0</td>

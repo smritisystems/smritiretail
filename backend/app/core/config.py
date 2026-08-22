@@ -157,9 +157,8 @@ class Settings(BaseSettings):
 
     # Multi-Database Platform Architecture v1.1 Configuration
     USE_MULTI_DB_ROUTER: bool = False
-    CONTROL_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiSys"
-    PSV_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiPSV"
-    ECOM_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiEcom"
+    # Statutory Compliance Configuration
+    STRICT_STATUTORY_MODE: bool = False
 
     model_config = {
         "env_file": ".env",
@@ -213,6 +212,12 @@ def load_settings() -> Settings:
     is_local_dev = env in {"development", "local", "test"} or (env == "" and Path(__file__).resolve().parents[4].joinpath(".git").exists())
     if is_local_dev and base_settings.DATABASE_URL.startswith("postgresql+asyncpg://"):
         base_settings.DATABASE_URL = _resolve_local_dev_postgres_url(base_settings.DATABASE_URL)
+
+    strict_env = os.getenv("STRICT_STATUTORY_MODE")
+    if strict_env is not None:
+        base_settings.STRICT_STATUTORY_MODE = strict_env.strip().lower() in ("true", "1", "yes")
+    elif env in {"production", "prod"}:
+        base_settings.STRICT_STATUTORY_MODE = True
 
     return base_settings
 

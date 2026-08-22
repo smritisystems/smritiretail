@@ -44,7 +44,12 @@ class OutboxService:
         payload: Dict[str, Any],
         correlation_id: Optional[str] = None,
         causation_id: Optional[str] = None,
-        event_schema_version: str = "1.0"
+        event_schema_version: str = "1.0",
+        event_type: Optional[str] = None,
+        aggregate_type: Optional[str] = None,
+        aggregate_id: Optional[str] = None,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None
     ) -> IntegrationOutboxEvent:
         """
         Records an outbox event in the originating business database transaction.
@@ -59,6 +64,11 @@ class OutboxService:
             source_event_id=source_event_id,
             correlation_id=correlation_id,
             causation_id=causation_id,
+            event_type=event_type or target_channel,
+            aggregate_type=aggregate_type,
+            aggregate_id=aggregate_id,
+            company_id=company_id,
+            branch_id=branch_id,
             event_schema_version=event_schema_version,
             target_channel=target_channel,
             payload_json=payload,
@@ -68,3 +78,4 @@ class OutboxService:
         )
         session.add(outbox_event)
         return outbox_event
+

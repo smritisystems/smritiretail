@@ -28,7 +28,357 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
-### [3.29.0] - 2026-08-20
+### [6.16.0] - 2026-08-22
+
+#### Warehouse & Logistics — WMS Phase 4: Physical Inventory Audit, Stock Discrepancy Reconciliation & Barcode Batch Counting
+- **Stock Audit Domain & Baseline Snapshotting Engine (`stock_audit_service.py`, `inventory.py`)**:
+  - Implemented `StockAudit` and `StockAuditItem` models in PostgreSQL (`smriti001` and `smritisys`) with scoped unique indexes.
+  - Snapshotting engine captures baseline on-hand batch quantities (`system_qty`), ensuring mathematical variance stability during counts without locking godown operations.
+- **Rapid Barcode Scanner Batch Counting (`POST /wms/audits/{id}/scan`)**:
+  - Auto-resolves scanned barcodes / SKUs to product batch lines and increments physical count (+1.0 or custom quantity) in real time.
+  - Automatically identifies unlisted items in warehouse and adds them as surplus lines (`SURPLUS_FOUND`).
+- **Variance Analysis & Statutory Loss Attribution**:
+  - Dynamic computation of `variance_qty = counted_qty - system_qty` and `variance_value`.
+  - Attribution reasons: `DAMAGED`, `EXPIRED`, `THEFT_LOSS`, `SURPLUS_FOUND`, `COUNTING_ERROR`.
+- **Atomic Ledger Reconciliation & Product Cache Sync**:
+  - Finalizing audit mutates `ProductBatchStock` quantities, generates audit ledger records in `StockMovement` (`OUTWARD_LOSS` / `INWARD_SURPLUS`), and resynchronizes aggregate `products.stock`.
+- **WMS Studio UI Workstation (`WmsStudioTab.tsx`)**:
+  - First-class "Stock Audit & Recon" sub-tab featuring godown audit creation, real-time barcode scanner input, color-coded variance grid, KPI cards, and 1-click ledger reconciliation.
+- **Verification & Test Coverage**:
+  - Added automated test suite `test_wms_phase4_audit_reconciliation.py` (4 tests) and live HTTP smoke test `smoke_test_wms_phase4.py` (7 steps). Full 19/19 multi-module pytest suite passed in 9.14s.
+
+#### Security & Access Control — Security Management: Menu Access Control & Security Configuration
+- **Menu Access Control Workspace (`SmritiMenuAccessControlView.tsx`)**:
+  - Unified User / Group / Node selector with browsing and company-wise scoping.
+  - Multi-level hierarchical expandable menu tree over existing `smriti_menus` PostgreSQL table.
+  - Fine-grained action operations matrix (`NEW`, `VOID`, `RETURN`, `VOID RETURN`, `ADD`, `EDIT`, `DELETE`, `VIEW`).
+- **Security Configuration Workspace (`SmritiSecurityConfigurationView.tsx`)**:
+  - 2-pane category inspector for Password Configuration (min/max length, uppercase, lowercase, numeric counts, history count, reset days, max invalid attempts) and Housekeeping policies (log retention days, country code, patch reminder, company-wise menu activation toggle, custom reports count, refresh interval).
+- **Backend Security Authority (`security.py`, `deps.py`)**:
+  - Endpoints `/api/v1/security/menu-access` and `/api/v1/security/config` backed by `smriti_permissions`, `system_configs`, and `smriti_audit_log`.
+  - Added action-level RBAC guard factory `require_permission(resource, action)` returning `SMRITI-AUTH-001` 403 Forbidden rejection when unauthorized.
+  - Zero duplicate tables or engines created — 100% database reuse.
+- **Verification & Testing**:
+  - Added unit test suite `securityMenuAccessControl.test.ts` (6 tests) and backend test `test_security_menu_access.py` (1 test).
+  - All 39 test suites passing (288/288 tests). Frontend built in 24.67s.
+
+### [6.15.0] - 2026-08-22
+
+#### CRM & Sales — Customer Flow, Policy Enforcement & Database Referential Integrity Hardening
+- **Backend Credit Limit & Credit Hold Enforcement (`crm.py`, `sales.py`)**:
+  - Implemented transactional credit validation in `CrmService.check_credit_limit`.
+  - Blocks invoicing and returns structured business errors `SMRITI-CREDIT-001` (credit limit exceeded) and `SMRITI-CREDIT-002` (credit hold active) when limits are breached.
+- **Canonical Walk-In / Cash Customer Resolution (`seed_customers.py`, `customerStore.ts`)**:
+  - Seeded canonical `CUST-WALKIN` entity ("Walk-In / Cash Customer") to ensure 100% foreign-key compliance for counter sales without unresolvable customer IDs.
+- **Automated Database Orphan Customer Reconciler (`reconcile_customers.py`)**:
+  - Created automated reconciliation script to scan all invoices in PostgreSQL and repair orphan references.
+- **Policy Enforcement Unit Test Suite (`customerPolicyEnforcement.test.ts`)**:
+  - Added 5 automated unit tests covering credit limit thresholds, warning percentages, credit hold policies, and Price Group tax inclusiveness.
+
+### [6.14.0] - 2026-08-22
+
+#### Security & Shell — Dual-Mode Contextual Inspector HUD (Zero Data on Login & Full Active Capabilities in Session)
+- **Dual-Mode HUD Architecture (`ContextualInspectorHUD.tsx`)**:
+  - **Login Screen Mode**: Displays a secure "SMRITI Security Portal • Authentication Required" banner with 0 business data, 0 invoice text, and 0 credentials exposure.
+  - **Authenticated Session Mode**: Activates all 18+ contextual master categories, live query inspections, and Ctrl+K search integration.
+- **Safe Authentication Input Tracking (`ActiveFieldContext.tsx`)**:
+  - Automatically isolates login/password fields to generic security category without value tracking or data query broadcasting.
+- **Full Operational Parity**:
+  - Zero features eliminated for logged-in operators (Ctrl+K Global Search, F2 Master Browse, DrillDown Side Panel, Shortcut Palette).
+
+### [6.13.0] - 2026-08-22
+
+#### Security & Shell — Public Data Exposure Hardening & Bottom Workspace Taskbar Removal
+- **Zero-Trust Auth Guards on Context Overlays**:
+  - Moved `ContextRenderer`, `GlobalSearch`, `GlobalF2BrowseModal`, `ContextualInspectorHUD`, `DrillDownSidePanel`, and `ShortcutPalette` inside `<AppShell>` inside the authenticated `AppContent` session.
+  - Injected direct token authentication guards (`smriti_jwt_token` / `smriti_session_token`) across `ContextualInspectorHUD`, `GlobalSearch`, `GlobalF2BrowseModal`, and `ActiveFieldContext`.
+  - Prevented unauthenticated visitors and login screen interactions from triggering the HUD popup, Global Search (Ctrl+K), or master browsing (F2).
+- **Workspace Canvas Streamlining**:
+  - Completely removed `WorkspaceTaskbar` and bottom `pb-13` padding from `src/App.tsx`.
+  - Maximized unobstructed vertical screen estate for POS and ERP workspaces.
+
+### [6.12.0] - 2026-08-22
+
+#### Inventory & Item Master — Decommissioning & Removal of "Common Fields Setup" Module
+- **Module Purge**: Permanently removed `SmritiCommonFieldsSetup.tsx` and `tabs/CommonFieldsTab.tsx`.
+- **Item Master Workspace Streamlining (`SmritiItemMasterWorkspace.tsx`)**:
+  - Removed "Common Fields" from the left navigation sidebar.
+  - Streamlined workflow directly to Item Details, View Configuration, Bulk Imports, Attributes Catalog, Image Path Config, and Variant Templates.
+  - Re-aligned global keyboard shortcuts (Alt+1 View Config, Alt+2 Item Details, Alt+3 Imports, Alt+4 Attributes, Alt+5 Image Config, Alt+6 Variants).
+- **Component Decoupling**:
+  - Decoupled `SmritiItemDetailsGrid.tsx` and `ItemMasterEntryView.tsx` from `CommonFieldsData` interface and props.
+  - Updated `SmritiKeyboardShortcutsModal.tsx` shortcut references.
+
+### [6.11.0] - 2026-08-22
+
+#### POS & Inventory — Dual-Field Item Auto-Search, Auto-Population & 14+ Attribute Inspection
+- **Universal Multi-Attribute Typeahead Overlay (`SmritiItemTypeaheadDropdown.tsx`)**:
+  - Reusable dropdown displaying **5 Key Identifiers** (Barcode, Stock No, Code, SKU, Name/Description), **6 Core Commercial Details** (MRP, Rate, Cost Price, Stock, Size, Color, GST%), and **6 Extended Tactical Attributes** (Brand, Category, HSN, Pricing Mode, Tracking Mode, Weight, Image Preview).
+  - Smooth keyboard navigation (Arrow Up/Down, Enter selection, Escape dismissal) with auto-scroll.
+- **Dual-Field Search Trigger & Synchronization**:
+  - Integrated interchangeable lookup across `Barcode / Scan` and `Stock No / SKU` in `SmritiProPosBillingTerminal.tsx` and `SmritiBillingTerminal.tsx`.
+  - Automatic synchronization of both identifiers and live line rate/description upon item selection.
+  - Added live Selected Item Multi-Attribute Inspection HUD banner across billing workspaces.
+- **Backend Search Expansion (`ProductRepository.search`)**:
+  - Extended multi-column SQL ILIKE search to include `sku`, `style_code`, `hsn_code`, `brand`, `category`, and JSONB `attributes`.
+
+### [6.10.0] - 2026-08-22
+
+#### Sales & POS — Zero-Touch Automated GST & Customer Classification Engine
+- **Centralized GST Engines (`backend/app/core/gst_engine.py` & `src/utils/gstEngine.ts`)**:
+  - Implemented automatic 2x2 matrix calculation: Registered (B2B) vs. Unregistered (B2C) across Intra-State (CGST+SGST) and Inter-State (IGST).
+  - High-precision decimal calculations with banker's rounding for Gross Total, Taxable Value, CGST, SGST, IGST, and Net Total.
+  - Automatic GSTIN regex validation and 2-digit State Code extraction with Indian state lookup directory.
+  - Deterministic statutory GSTR-1 classification (`B2B` Table 4A, `B2CL` Table 5A, `B2CS` Table 7).
+- **Backend Sales & Invoicing (`backend/app/services/sales.py`, `backend/app/schemas/sales.py`)**:
+  - Automatically derives store state vs. customer Place of Supply (POS) state code.
+  - Immutably persists `taxable_value`, `cgst_amount`, `sgst_amount`, `igst_amount`, and `line_total` on `sales_invoice_items`.
+- **ProPOS Billing Terminal Guardrails (`SmritiProPosBillingTerminal.tsx`, `SmritiCustomerBrowseModal.tsx`)**:
+  - Added live header `Tax Jurisdiction` badge showing `B2B` vs. `B2C` and `Intra-State (CGST+SGST)` vs. `Inter-State (IGST)` in real time.
+  - Automatic recalculation of line totals and tax splits upon customer selection.
+  - Locked tax rates and formulas to prevent cashier input errors.
+- **Thermal & Standard Print Receipt (`SmritiProPosTaxInvoiceReceipt.tsx`)**:
+  - Displays customer GSTIN and Place of Supply.
+  - Formats explicit GST Tax Analysis breakdown table (Taxable, CGST, SGST, IGST).
+
+### [6.9.0] - 2026-08-22
+
+#### CRM & Customer Master — Customer Price Group Master & Database Flow Integrity
+- **Customer Price Group Master Window (`SmritiCustomerPriceGroupModal.tsx`)**:
+  - Implemented authentic desktop ERP layout for managing Customer Price Groups.
+  - Fields: `Code`, `Description`, `Payment Terms`, `Credit Days`, `Dest-Wise Tax Type`, `Credit Limit`, `Item Classification-wise Price Factor Applicable`.
+  - `Transactions Allowed` Group Box: `Credit Invoice` (Alt+R), `Cash Invoice` (Alt+S), `Tax Exclusive Invoice` (Alt+T), `Misc. Issue` (Alt+M).
+  - Actions: `Ok` (Alt+O / Enter), `Cancel` (Alt+C), `Add` (Alt+A), `Edit` (Alt+E), `Delete` (Alt+D), `Exit` (Alt+X / Escape).
+  - Quick catalogue table drawer for instantaneous inspection and group selection.
+- **Customer Form Tab Integration (`SmritiCustomerFormTab.tsx`)**:
+  - Connected dynamic Price Group dropdown populated from store.
+  - Added inline `[...]` / `Manage Groups` launcher directly opening the configuration modal.
+- **PostgreSQL Database Flow Integrity (`seed_customers.py`)**:
+  - Seeded 4 canonical Customer Groups (`CG-Retail`, `CG-LargeRetail`, `CG-Branches`, `CG-Franchises`) and 7 canonical Customers (`CUST-001` .. `CUST-007`) in PostgreSQL with tenant isolation (`COMP-001` / `BR-MAIN-001`).
+  - Preserved historical invoice-linked customer ID `cust-rrl-192b561d` (Reliance Retail) across database and frontend store.
+- **Mock Fallback Removal**:
+  - Removed silent `DEFAULT_CUSTOMERS` fallback from `SmritiCustomerBrowseModal.tsx` and `SmritiBillingTerminal.tsx`, ensuring explicit empty state when database is empty.
+  - Connected live API fetch via `apiFetchV1("/customers")`.
+- **Backend Tenant Resolution & Error Handling (`deps.py`, `crm.py`, `schemas/crm.py`)**:
+  - Corrected branch mapping (`BR-MAIN-001`) and enhanced `IntegrityError` reporting in `CrmService`.
+  - Made schema IDs optional with automatic deterministic UUID generation.
+- **Automated Tests**:
+  - Added `customerPriceGroup.test.ts` (6/6 pass) and `customerFlowIntegrity.test.ts` (4/4 pass).
+  - All 34 vitest suites (258/258 tests) passing 100%.
+
+### [6.7.0] - 2026-08-22
+
+#### POS & Billing — Distributor Invoicing, Settlement & PDT Import Integration (Stitch UX)
+- **Distributor Invoicing Terminal (`SmritiBillingTerminal.tsx`)**:
+  - Implemented the authentic Stitch layout from `invoicing_smritisystems/code.html`.
+  - Header: `Bill Type`, `Transaction`, `Doc Prefix` (`D1DS13`), `Doc No.`, `Import`, `Recall`, `Customer` with `F2` search, Name display & `Add` button, `Sales Staff`.
+  - **F11 Direct Entry Row**: 11-column inline buffer (`Stock No` with F2 catalog lookup, `Description`, `Rate`, `Qty`, `Value`, `Disc Code`, `Disc Qty`, `Disc %`, `Disc Amt`, `Total`, `Staff`).
+  - **Main 12-Column Table**: Real-time line item grid with alternating row striping and row deletion.
+  - **Tabbed Footer**: `Transporter Details` (freight/courier breakdown), `Payment Details`, `AddOns & Deductions`, and `Document Remarks`.
+  - **Right Totals & Bottom Summary Bar**: 9 summary cells with large highlighted `Net Amount` display.
+- **Multi-Tender Settlement Studio (`SmritiInvoiceSettlementModal.tsx`)**:
+  - Implemented `invoice_settlement_smritisystems/code.html` split-view modal.
+  - Left: Invoice summary & dynamic multi-row payment entry table (`Cash`, `Credit Card`, `Debit Card`, `UPI`, `Cheque`, `Credit Note`).
+  - Right: Calculation breakdown card, cash denomination counter (`2000` to `Coins`), and action bar (`Cancel Esc`, `Hold F12`, `Complete Settlement F8/Enter`).
+- **PDT Import Dialog (`PdtImportModal.tsx`)**:
+  - Implemented `pdt_import_dialog/code.html` dual-mode radio toggle (`Import from File` vs `Import from Transaction`).
+- **Billing Suite Integration (`SmritiProPosWorkspace.tsx` & `PosTerminalTab.tsx`)**:
+  - Integrated `Distributor Invoicing` and `Speed POS Terminal` under one unified suite.
+
+### [6.6.0] - 2026-08-22
+
+#### Barcode & Inventory — Stitch Barcode Label Designer & Printer Replacement
+- **Complete Module Replacement (`TagLabelPrintingTab.tsx` & `BarcodeScriptGenerationView.tsx`)**:
+  - Fully replaced previous implementation with the authentic **Stitch Barcode Label Designer & Printer** module from `F:\SMRITI\barcode_label_designer_and_printer_Final\stitch_barcode_label_designer_and_printer`.
+  - Implemented the **Industrial Logic** design system tokens (Deep Navy `#041632`, Slate Blue `#3e5f90`, Soft Grey Surface `#fbf8fb`, High-Contrast Error `#ba1a1a`).
+- **Sidebar & Workflow Architecture**:
+  - 280px left sidebar housing Label Printing Parameters, Option Mode Selector (7 modes), and Quantity Summaries.
+  - Interactive top Selection/Ingestion Card (Manual, PT File, Transactions, PO, Masters, Direct Scan).
+  - Dedicated **Item Preview & Results Grid View** with real-time search filter, sort indicators, and instant inline `# Labels` number inputs.
+  - Persistent bottom action bar (`Clear`, `Exit`, `Print Current`, `Print All`).
+- **Barcode Script Designer & Compiler Studio**:
+  - Integrated dark-themed editor (`#1E1E1E`) with line numbers, fullscreen mode, macro token compiler, and export/load actions.
+
+### [6.5.0] - 2026-08-22
+
+#### Barcode & Inventory — Full Multi-Source Printing Engine (Transactions, PO, Masters by Date, Direct Scan)
+- **Against Transactions (`TagLabelPrintingTab.tsx` & `barcodeTransactionStore.ts`)**:
+  - Added support for filtering items across transaction types (`Purchase Inward (GRN)`, `Sales Return Inward`, `Stock Transfer Inward`, `POS Exchange`), Doc No prefix, and document number ranges.
+  - Manifest table displays transaction references, stock details, and transaction quantities.
+- **Against Purchase Orders (Cumulative PO Ingestion)**:
+  - Supports PO prefix, PO number ranges, and cumulative purchase order quantity aggregation per stock item.
+  - Locked `Specified Quantity` & `Present Stock` (quantities strictly bound to purchase orders).
+- **Against Masters with Period Date Filter & Unprinted Dialog**:
+  - Implemented Date Range filtering (`Date From` to `Date To`) on product master creation dates.
+  - Added 3-way modal confirmation dialog: `Yes` (Unprinted items only), `No` (All items in period), `Cancel` (Abort).
+- **Against Direct Scan with Auto-Print & Custom Count**:
+  - Autofocused barcode scanner input with instant SKU/Barcode catalog lookup.
+  - `Automatically Print One Label on Scan` toggle (default on) and custom `# Lbls` override.
+  - Real-time scanned items history log and instant thermal dispatch.
+- **Comprehensive Automated Tests (`tagLabelPrinting.test.ts`)**:
+  - Expanded test suite to 14 test cases covering all 6 source modes.
+
+### [6.4.0] - 2026-08-22
+
+#### Barcode & Inventory — Printing Against Purchase (PT File) & Sequential Manifest
+- **PT File Parser & Ingestion (`ptFileParser.ts`)**:
+  - Supports delimited text/CSV PT files with column mapping for SKU, Product, Brand, Style, Shade, Size, Purchase Qty, MRP, and Barcode.
+- **Purchase Transaction Manifest Table**:
+  - Integrated full manifest table with active row highlighting and 4-way sequential navigation (`|<<`, `<`, `>`, `>>|`).
+- **Quantity Policy & Spooling**:
+  - Enforced fixed purchase quantities from PT file, disabled manual overrides, and linked `Print` / `Print All` to exact purchase quantities.
+
+### [6.3.0] - 2026-08-21
+
+#### UI / UX & Launchpad — Enterprise Look & Feel Modernization
+- **Fiori Launchpad Redesign (`FioriLaunchpad.tsx`)**:
+  - Replaced flat white workspace cards with category-accented cards (`border-l-4` color indicators for Retail Operations, Master Data, Finance, Administration, and Analytics).
+  - Enhanced card hover depth with subtle vertical lift (`hover:-translate-y-1`), elevated drop-shadow (`hover:shadow-md`), and category-matched animated forward arrows.
+  - Implemented real-time interactive search filtering directly within the hero banner to instantly isolate workspaces as operators type.
+- **Primary Quick Actions Bar (`launchpadCatalog.ts`)**:
+  - Color-coded quick action icons with rich background containers (Emerald for POS, Indigo for Tax Invoice, Purple for Item Master, Amber for Barcode, Blue for Stock Ledger).
+  - Added global keyboard hotkey badges (<kbd>F1</kbd>, <kbd>F3</kbd>, <kbd>F4</kbd>, <kbd>F5</kbd>, <kbd>F6</kbd>) with immediate keyboard shortcut routing.
+- **Hero Operational Banner**:
+  - Applied deep navy mesh gradient (`from-[#041632] via-[#0b254a] to-[#1b3a6b]`) with live store indicators (Store Status, Role Access, Backend Health, Active Workspace Count).
+
+### [6.2.0] - 2026-08-21
+
+#### Barcode & Inventory — Industrial Logic Barcode Label Designer & Printing Modernization
+- **Dual-Workspace Architecture (`TagLabelPrintingTab.tsx` & `BarcodeStudioTab.tsx`)**:
+  - Implemented 12-column industrial layout based on Stitch **Industrial Logic** design system.
+  - Divided workspace into **Tag & Barcode Printing Terminal** and **Barcode Script Generation & Compiler Studio**.
+- **Selection Criteria Range & Live Inspector**:
+  - 6-dimension range matrix (Stock No, Product, Brand, Style, Shade, Size) with instant F2 master product search browse.
+  - Selected Item Live Preview card with first (`|<<`), previous (`<`), next (`>`), and last (`>>|`) item navigation controls.
+- **Edit Quantity Details Modal (`EditQuantityDetailsModal.tsx`)**:
+  - High-density matrix modal allowing granular per-item `# Lbls` adjustment, batch fill shortcuts ("All = 1", "All = Stock", "Reset 0"), and real-time total label recalculation.
+- **Thermal Barcode Script Compiler (`BarcodeScriptGenerationView.tsx`)**:
+  - Monospaced code editor with line numbers, ZPL/TSPL macro token generation (`@@@field;dir;type;start;length@@@`), string slicing (From Left / From Right), and compiler status indicator.
+- **Thermal Printer Provisioning (`BarcodePrinterSelectModal.tsx`)**:
+  - Auto-detection and target provisioning modal for modern `.blf` script files and thermal printer selection (USB, Serial, Network TCP/IP, QZ Tray).
+- **Unit Test Suite (`tagLabelPrinting.test.ts`)**:
+  - Added 7 comprehensive test suites covering range filtering, batch/per-item quantities, and script token formatting.
+
+### [6.1.0] - 2026-08-21
+
+#### Inventory & Master Data — Non-Editable SKU & Barcode Enforcement
+- **Item Master Details Grid (`SmritiItemDetailsGrid.tsx`)**:
+  - Locked SKU (`code`, `sku`, `stockNo`) and Barcode (`barcode`) inputs as read-only with disabled cursor styling and helper tooltips in Edit Mode (`activeMode === "edit"`).
+  - Maintained full editability for all other attributes (Name, Brand, Style, Shade, Size, MRP, Sale Price, Cost Price, Tax Rate, HSN Code, UOM, and Dynamic Attributes a1–a9).
+  - Enforced read-only locking on Stock No and Barcode in Classic Single-Record inspector view.
+- **Global Master Form Drawer (`MasterFormDrawer.tsx` & `itemMaster.config.tsx`)**:
+  - Propagated `isEdit` boolean into field `disabled` callbacks across generic master entities.
+  - Disabled `code` and `barcode` editing in `itemMasterConfig` when modifying existing items.
+- **Unit Tests (`itemMasterTacticalGrid.test.ts`)**:
+  - Added Section 7 test suite asserting SKU/Barcode locking in Edit Mode and editability in Add Mode.
+
+### [6.0.0] - 2026-08-21
+
+#### POS & Invoicing — ProPOS Unified Enterprise Billing Suite
+- **ProPOS Billing Terminal (`SmritiProPosBillingTerminal.tsx`)**:
+  - Implemented high-speed retail checkout terminal based on Stitch ProPOS specifications.
+  - Rapid item scanning with quantity stepping, salesperson tagging, and live calculation summary.
+  - Keyboard shortcuts enabled: `[F7]` Exact Cash, `[F8]` Settlement, `[F10]` Settle & Print.
+- **Multi-Tender Settlement (`SmritiProPosSettlementModal.tsx`)**:
+  - Split tenders supported: Cash, Credit/Debit Card, UPI Dynamic QR, Gift Vouchers, Credit Notes, and Loyalty Rewards.
+  - Virtual 3x4 POS keypad with auto-balance calculation and instant change calculation.
+- **Queue Park & Recall (`SmritiProPosRecallModal.tsx`)**:
+  - Hold and recall suspended carts with full item, customer, and sales staff restoration.
+- **Invoice Cancellation & Void Audit (`SmritiProPosCancellationModal.tsx`)**:
+  - Void invoice workflow with mandatory reason code selection and manager PIN authorization.
+- **Loyalty Rewards & Tier Lookup (`SmritiProPosLoyaltyLookupModal.tsx`)**:
+  - Customer tier points lookup, redemption value conversion, and checkout balance deduction.
+- **Sales Return & Credit Note Engine (`SmritiProPosSalesReturnModal.tsx`)**:
+  - Referenced invoice return and blind manager-approved return workflows with item condition tags.
+- **End-of-Day (EOD) Z-Report & Drawer Audit (`SmritiProPosEodReportView.tsx`)**:
+  - Day-end closeout summary with system expected vs physical drawer count variance auditing.
+- **Daily Analytics & Shift Reports (`SmritiProPosDailyReportsDashboard.tsx`)**:
+  - Hourly rush-hour trends and cashier performance tracking.
+- **Promotion & Commission Engines (`SmritiProPosPromotionEngine.tsx`, `SmritiProPosCommissionBuilder.tsx`)**:
+  - Buy X Get Y, flat discount schemes, and tiered salesperson commission builders.
+- **Tax Invoice Receipt Engine (`SmritiProPosTaxInvoiceReceipt.tsx`)**:
+  - Clean thermal slip and A4/A5 laser invoice formatting.
+
+### [5.6.0] - 2026-08-21
+
+#### Item Master & Platform — View Configuration, Excel Mapper & Alias Stabilization
+- **Persistent Alias Suppression Engine (`HeaderAliasRegistry.ts`)**:
+  - Implemented `REMOVED_ALIASES_STORAGE_KEY` blacklist to permanently suppress deleted default or custom aliases.
+  - Automatically un-blacklists aliases upon re-addition and provides per-attribute "Reset Defaults" action in Attribute Management Studio.
+- **Intelligent Delimiter Parsing & Normalized Header Extraction (`SmritiItemMasterStudio.tsx`, `HeaderMappingEngine.ts`)**:
+  - Support for multi-delimiters: Tabs (`\t`), Commas (CSV), Semicolons (`;`), and Multiple Spaces (`\s{2,}`).
+  - Integrated `normalizeHeader` in `isKnownHeader` and `detectHeaderRow` to accurately extract Row 1 as the true Header Row without false fallbacks to generic `Col 1` columns.
+- **Auto-Mapper Field Candidate Registry Alignment**:
+  - Fixed property lookup bug where `f.canonicalKey` evaluated to `undefined`, resolving the issue of dropdowns defaulting to `(Skip Column)` in red.
+  - Preselects target fields accurately (Barcode, Stock No, Product Name, Brand, Color, Size, MRP, Cost Price, Selling Price).
+- **View Configuration & Global Column Arrangement Engine (`SmritiViewConfiguration.tsx`)**:
+  - Dynamic attribute loading and custom label resolution from `/attributes/definitions`.
+  - Added double-click transfers between Available (Hidden) and Selected (Visible) lists.
+  - Added 4-way reordering controls (Move to Top, Move Up, Move Down, Move to Bottom).
+  - Added quick layout presets: Essential (8 cols), Standard (14 cols), and Full Catalog.
+  - Universal reactive event broadcast (`smriti_field_visibility_updated`) across all grids, spreadsheets, and operational reports.
+
+### [5.5.0] - 2026-08-21
+
+#### Retail CRM & Customer Master — Retail Customer Catalogue & Advanced Search Suite
+- **Retail Customer Catalogue Architecture (`src/components/customer/SmritiCustomerMasterWorkspace.tsx`)**:
+  - Implemented 3-tab central customer account manager:
+    - **1. The "Form" Tab (`SmritiCustomerFormTab.tsx`)**: General details (Customer Code, Name, Price Group, Mail List summary), Classification (Religion, Ethnicity, Age Group, Profession, Customer Type), Profile notes & preferences, and Shoper environment parameters (Comp Code, Environment, Flat File Format, Delimiter, Buying/Selling factor).
+    - **2. The "Retail Details" Tab (`SmritiCustomerRetailDetailsTab.tsx`)**: Sub-Ordinate/dependant linkage, dependant list CRUD, Personal demographics (Gender radio, Date of Birth, Marital Status toggle, Anniversary date picker), and Loyalty Program details (ID, Code, Tier, Points Balance).
+    - **3. The "Additional Details" Tab (`SmritiCustomerAdditionalDetailsTab.tsx`)**: Payment category & terms, Credit limits & utilization progress bar, Transport & Logistics modes, Bank details, Retail/Dealer factors, Destination tax types, Transaction permission checkboxes (Allow Cash Bill, DC Gen, Credit Invoice, Misc Issue/Receipts), LST/CST numbers, and Tax Forms.
+- **Mailing Address Sub-Form Dialog (`SmritiCustomerMailingModal.tsx`)**:
+  - Multi-profile address dialog supporting Address lines 1 to 5, locality, city, state, postal code, zone, country, office/home/mobile/fax phone numbers, and emails 1 to 3.
+- **Advanced Customer Search Utility (`SmritiAdvancedCustomerSearchModal.tsx`)**:
+  - Dual-column search engine with general and multivariate demographic selection filters, instant matrix grid matching, and double-click / Enter key catalogue loading.
+- **Operational Ergonomics & Navigation**:
+  - Full keyboard shortcuts (<kbd>Alt+N</kbd> for New, <kbd>F2</kbd> / <kbd>Alt+S</kbd> for Search, <kbd>Ctrl+S</kbd> for Save, <kbd>Alt+D</kbd> for Delete, <kbd>Alt+1..3</kbd> for tab navigation).
+  - Previous / Next record browser with real-time record index counter and dirty-state notification.
+
+### [5.4.0] - 2026-08-21
+
+#### UI Platform & Inventory — Universal View Configuration as Global Schema & Visibility Control
+- **Global Field Visibility & Ordering Engine (`unifiedFieldCatalog.ts`)**:
+  - `saveGlobalFieldVisibility` persists visible columns and sequence ordering across client state.
+  - `isFieldGloballyVisible` and `getGloballyVisibleFields` dynamically filter and sort catalog definitions.
+  - Reactive `smriti_field_visibility_updated` CustomEvent broadcasts layout changes across all active components and tabs with sub-millisecond overhead.
+- **Application-Wide Visibility Enforcement**:
+  - **Item Master Details Spreadsheet Grid (`SmritiItemDetailsGrid.tsx`)**: Reflects custom column sets and sequence in real time.
+  - **Item Catalog Search Browser (`SmritiItemCatalogGrid.tsx`)**: Dynamically hides unselected columns and sorts active ones.
+  - **Report Designer & Operational BI Hub (`ReportDesignerTab.tsx`)**: All ledger, sales, stock, and inventory report tables automatically conform to the active field visibility schema.
+- **Stock No & Barcode Real-Time Uniqueness Alerts**:
+  - `onBlur` cell alerts identifying duplicate Stock Nos and Barcodes against in-grid entries and database records with conflicting product names.
+  - Pre-save integrity blocker stopping duplicates before database insertion.
+
+### [5.3.0] - 2026-08-21
+
+#### Inventory & Catalog — Item Master Stitch Management System Architecture & Image Resolver
+- **Item Master Management System Suite (`Itemmaster3`)**: Integrated complete suite from `F:\SMRITI\Itemmaster3\stitch_item_master_management_system`:
+  - **Item Details Master Grid (`SmritiItemDetailsGrid.tsx`)**: High-density matrix grid and classic single-record view, inline Add/Duplicate/Delete row actions, `F1` keyboard shortcuts guide, and `F2` SKU/Barcode generator.
+  - **Common Fields Baseline Setup (`SmritiCommonFieldsSetup.tsx`)**: Session-level baseline presets (Category, Brand, Vendor, HSN, Tax %, UOM) that auto-fill all newly entered items.
+  - **Dual-List View Configuration (`SmritiViewConfiguration.tsx`)**: Dual-list column selector, order manager, and frozen column count selector (0–6).
+  - **Full CRUD Lifecycle Safeguards**: Mode selector for Adding, Editing (with non-editable greyed Stock No and Data Loading confirmation modal), and Deleting (with transaction protection guard preventing hard deletion of items with sales history).
+  - **Global Find & Replace Data Utility (`SmritiReplaceDataModal.tsx`)**: Global batch find and replace across all matrix columns and dynamic attributes.
+  - **Product Image Filename & Resolver Studio (`SmritiImagePathConfigStudio.tsx`)**: Operators only enter image filenames (`imageName`). Configured base paths for SMRITI Server (`/api/v1/products/images/`), Cloud CDN, and Local Network paths with interactive live resolution tester and hover thumbnail previews.
+  - **Barcode Positioned Adjacent to Stock No**: Core standard fields catalog updated to render `Barcode` directly next to `Stock No / SKU`.
+  - **PostgreSQL Persistence**: Fully connected to transactional FastAPI endpoint `POST /api/v1/products/`.
+
+### [3.29.0] - 2026-08-21
+
+#### Inventory & Catalog — Item Master Entry Tactical Grid Refactor (Smriti Prime Specification)
+- **Smriti Prime Three-Tab Catalog Workflow**: Refactored Item Master Entry to match the high-velocity tactical layout from `stitch_invoice_management_system` (`src/components/itemMaster/`):
+  - **Tab 1: View (`Alt+1`)** — Field Selection: Dual list (Unselected Fields ↔ Selected Fields) with transfer controls (`>`, `>>`, `<`, `<<`), reordering controls (`Move Up`, `Move Down`), and mandatory lock rules for `stockNo`, `product`, and `mrp`.
+  - **Tab 2: Common Fields (`Alt+2`)** — Batch Common Presets: Form controls for Brand, Category, Sub-Category, Tax Rate %, Supplier, Season, Department, and Status that auto-apply to item rows.
+  - **Tab 3: Item Details (`Alt+3`)** — Tactical Spreadsheet Grid: High-speed matrix table featuring customizable sticky frozen columns (0–6), inline cell editing, row indicators ("Row X of Y"), Auto-SKU generator, and "Paste from Excel" multi-column TSV clipboard parsing.
+- **Save Warning & Rights Confirmation Dialog**: Integrated `ItemMasterSaveWarningModal.tsx` displaying a clean confirmation dialog when creating unverified Brand/Category matrix combinations.
+- **Persistence & Backend Integration**: Saved field layout and common defaults to `localStorage`, directly persisting rows to FastAPI backend (`/api/v1/products/`) via `apiFetchV1`.
+- **Automated Test Coverage**: Added `src/tests/itemMasterTacticalGrid.test.ts` (10 tests) covering mandatory attributes, column reordering, common presets, TSV parsing, and payload transformation (all 23 test suites passing 100%).
+
+#### Database & Operations — SMRITI Database Manager & Studio (DB Studio)
+- **Multi-Tenant PostgreSQL Studio**: Introduced a dedicated, enterprise-grade Database Manager (`src/components/DatabaseManagerTab.tsx`) allowing `SYSADMIN` operators to switch between control plane and tenant databases (`smritisys`, `smriti001`, `smriti002`, `smriti_test_fresh`) with live size, table count, and row count telemetry.
+- **Table Data Grid & Column Schema Inspector**: Built an interactive paginated table data browser with column search, dynamic sorting, JSON row detail inspector drawer, and one-click CSV export, alongside a complete column schema and foreign key constraint viewer.
+- **Alembic Migration Version Tracking**: Added real-time tracking of current `alembic_version` versus head migration revision with sync status indicators.
+- **Safe Read-Only SQL Query Console**: Implemented an administrative SQL execution console (`POST /api/v1/database-manager/query`) supporting `SELECT`, `WITH`, and `EXPLAIN` statements with automatic execution time measurement and strict rejection of destructive DDL/DML operations.
+- **Strict Role Authorization**: Gated all backend endpoints and frontend launchpad tiles strictly to `SYSADMIN` with deny-by-default access for non-admin roles and zero exposure of database connection credentials.
 
 #### Printing & Hardware — Optional QZ Tray Print Dispatch (Spike + Hybrid)
 - **Hybrid Tri-Mode Dispatch Architecture**: Implemented support for `server_tcp` (default backend port 9100 socket transport), `qz_tray` (feature-flagged browser WebSocket dispatch), and `prn` (direct offline script download) in `backend/app/services/printer_service.py` and `backend/app/api/v1/barcode.py`.

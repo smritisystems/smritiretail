@@ -86,7 +86,7 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   return headers;
 }
 
-export async function apiFetchV1(endpoint: string, options: RequestInit = {}): Promise<any> {
+export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
   const companyCode = localStorage.getItem("smriti_company_code") || "001";
   const companyId = localStorage.getItem("smriti_company_id") || "COMP-001";
@@ -128,9 +128,11 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
           headers: _buildHeaders(newToken, companyCode, companyId, options)
         });
         if (retryResponse.ok) {
-          if (retryResponse.status === 204 || retryResponse.headers.get("content-length") === "0") return null;
+          if (retryResponse.status === 204 || retryResponse.headers.get("content-length") === "0") return null as unknown as T;
           const ct = retryResponse.headers.get("content-type") || "";
-          return ct.includes("text/plain") ? retryResponse.text() : retryResponse.json();
+          if (ct.includes("text/plain") || ct.includes("text/html")) return (await retryResponse.text()) as unknown as T;
+          if (ct.includes("application/pdf") || ct.includes("application/octet-stream")) return (await retryResponse.blob()) as unknown as T;
+          return (await retryResponse.json()) as unknown as T;
         }
         // Retry failed after refresh — fall through to throw
       } catch { /* fall through */ }
@@ -152,15 +154,21 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
   }
 
   if (response.status === 204 || response.headers.get("content-length") === "0") {
-    return null;
+    return null as unknown as T;
   }
 
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("text/plain")) {
-    return response.text();
+    return (await response.text()) as unknown as T;
+  }
+  if (contentType.includes("text/html")) {
+    return (await response.text()) as unknown as T;
+  }
+  if (contentType.includes("application/pdf") || contentType.includes("application/octet-stream")) {
+    return (await response.blob()) as unknown as T;
   }
 
-  return response.json();
+  return (await response.json()) as unknown as T;
 }
 
 export function isLocalMockToken(): boolean {

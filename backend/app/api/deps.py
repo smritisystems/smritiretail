@@ -42,6 +42,7 @@ from ..db.session import (
 )
 from ..models.auth import User, UserRole
 from ..models.role import Role
+from ..models.security import SmritiPermission
 from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 from ..core.security import decode_token
 
@@ -121,31 +122,47 @@ async def get_current_user(
 # ---------------------------------------------------------------------------
 # get_tenant_context — sourced from user context with assignment validation
 # ---------------------------------------------------------------------------
+
+
+def normalize_company_id(cid: Optional[str]) -> Optional[str]:
+    if not cid:
+        return None
+    c = str(cid).strip().upper()
+    if len(c) == 3 and c.isalnum() and c not in ("000", "SYS"):
+        return f"COMP-{c}"
+    return c
+
+
 async def get_tenant_context(
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(_get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantContext:
     """
     Extract tenant context from the authenticated user's JWT claims & validate assignments.
     Enforces header tampering checks against X-Company-Code and X-Branch-Code headers.
+    Normalizes company codes (e.g. '001' and 'COMP-001') before validation.
     """
     header_company_id = request.headers.get("x-company-id") or request.headers.get("X-Company-ID")
     header_company = header_company_id or request.headers.get("x-company-code") or request.headers.get("X-Company-Code")
     header_branch = request.headers.get("x-branch-code") or request.headers.get("X-Branch-Code")
 
-    target_company = header_company if header_company else current_user.company_id
-    if not target_company or target_company in ("001", "TATTLY", "comp-default", "tattly_threads", "default"):
-        target_company = "COMP-001"
+    raw_target = header_company if header_company else current_user.company_id
+    target_company = normalize_company_id(raw_target)
+    if not target_company:
+        raise HTTPException(
+            status_code=400,
+            detail="Tenant company context is required.",
+        )
     
     target_branch = header_branch if header_branch else current_user.branch_id
-    if not target_branch or target_branch == "BR-MAIN-001":
-        # Default to main branch for company if unspecified
-        target_branch = "BR-001" if target_company in ("COMP-001", "001") else f"BR-{target_company.replace('COMP-', '')}-MAIN"
+    if not target_branch or not str(target_branch).strip():
+        target_branch = "BR-001"
 
     if current_user.role != UserRole.SYSADMIN:
-        # Header Tampering Security Check
-        if header_company and header_company != current_user.company_id:
+        # Header Tampering Security Check with normalized company IDs
+        norm_user_company = normalize_company_id(current_user.company_id)
+        if header_company and normalize_company_id(header_company) != norm_user_company:
             raise HTTPException(
                 status_code=403,
                 detail=f"Header Tampering Forbidden: Access to company '{header_company}' is denied.",
@@ -275,3 +292,43 @@ async def verify_internal_service_key(
             status_code=403,
             detail="Forbidden: Invalid or missing internal service authorization."
         )
+
+
+# ---------------------------------------------------------------------------
+# require_permission — Granular Action-Level Security Guard Factory
+# ---------------------------------------------------------------------------
+def require_permission(resource: str, action: str) -> Callable:
+    """
+    FastAPI dependency factory enforcing granular action-level permissions.
+    Evaluates:
+    1. SYSADMIN role wildcard access ('*').
+    2. User-specific explicit grant or denial in 'smriti_permissions' (tenant scoped).
+    3. Assigned Role permissions in 'roles.permissions_json'.
+    4. Scoped standard role defaults (MANAGER allowlist, CASHIER scoped allowlist).
+    Raises 403 Forbidden with business error SMRITI-AUTH-001 if unauthorized.
+    """
+    async def _perm_guard(
+        current_user: User = Depends(get_current_user),
+        tenant: TenantContext = Depends(get_tenant_context),
+        db: AsyncSession = Depends(_get_db),
+    ) -> User:
+        from ..core.security_matrix import evaluate_action_permission
+
+        allowed = await evaluate_action_permission(
+            db=db,
+            current_user=current_user,
+            tenant=tenant,
+            resource=resource,
+            action=action
+        )
+        if allowed:
+            return current_user
+
+        raise HTTPException(
+            status_code=403,
+            detail=f"SMRITI-AUTH-001: Permission denied for operation '{action}' on '{resource}'. Required privilege missing."
+        )
+
+    return _perm_guard
+
+

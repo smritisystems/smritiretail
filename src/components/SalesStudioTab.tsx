@@ -496,14 +496,45 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   };
 
-  const fetchCustomers = () => {
+  const fetchCustomers = async () => {
     try {
+      const data = await apiFetchV1("/crm/customers?skip=0&limit=100");
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped = data.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          mobile: c.mobile || c.phone || "",
+          email: c.email || "",
+          address: c.address || "",
+          city: c.city || "",
+          state: c.state || "",
+          pincode: c.pincode || "",
+          gstin: c.gst_number || c.gstin || "",
+          gstNumber: c.gst_number || c.gstin || "",
+          customerGroup: c.customer_group_id || "General",
+          customerGroupId: c.customer_group_id || "CG-Retail",
+          creditLimit: Number(c.credit_limit || 0),
+          creditDays: Number(c.credit_days || 0),
+          outstandingBalance: Number(c.outstanding_balance || 0),
+          outstanding: Number(c.outstanding_balance || 0),
+          loyaltyPoints: Number(c.loyalty_points || 0),
+          status: c.is_active ? "Active" : "Inactive",
+          createdAt: c.created_at || new Date().toISOString(),
+          createdDate: (c.created_at || new Date().toISOString()).split("T")[0]
+        }));
+        setCustomers(mapped);
+        saveCustomers(mapped);
+      } else {
+        const custs = getCustomers();
+        setCustomers(custs);
+      }
+      const groups = getCustomerGroups();
+      setCustomerGroups(groups);
+    } catch (e) {
       const custs = getCustomers();
       const groups = getCustomerGroups();
       setCustomers(custs);
       setCustomerGroups(groups);
-    } catch (e) {
-      onNotification("Local Error", "Failed to load customer profiles.", "error");
     }
   };
 

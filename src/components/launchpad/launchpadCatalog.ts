@@ -24,6 +24,8 @@ export interface TileData {
   group: string;
   roles?: string[];
   isQuickAction?: boolean;
+  shortcut?: string;
+  accentColor?: string;
 }
 
 export const LAUNCHPAD_CATALOG: TileData[] = [
@@ -38,6 +40,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Retail Operations",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F1",
+    accentColor: "emerald",
   },
   {
     id: "sales",
@@ -59,6 +63,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Retail Operations",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F3",
+    accentColor: "indigo",
   },
   {
     id: "purchase",
@@ -92,6 +98,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F4",
+    accentColor: "purple",
   },
   {
     id: "barcode",
@@ -103,6 +111,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F5",
+    accentColor: "amber",
   },
   {
     id: "stock-ledger",
@@ -114,6 +124,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F6",
+    accentColor: "blue",
   },
   {
     id: "supplier-mgmt",
@@ -323,6 +335,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "System & Operations",
   },
   {
+    id: "security-management",
+    title: "Security Management (Menu Access)",
+    subtitle: "User, Group & Node menu access control, granular operations matrix & security policies",
+    icon: "admin_panel_settings",
+    tag: "Security",
+    badgeType: "warning",
+    group: "System & Operations",
+    roles: ["SYSADMIN", "MANAGER"],
+    isQuickAction: true,
+  },
+  {
     id: "audit-logs",
     title: "Security & Audit Logs",
     subtitle: "Immutable system activity audit logs, user login events & transaction traces",
@@ -331,6 +354,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     badgeType: "warning",
     group: "System & Operations",
     roles: ["MANAGER", "SYSADMIN", "AUDITOR"],
+  },
+  {
+    id: "database-manager",
+    title: "Database Manager (DB Studio)",
+    subtitle: "Multi-tenant PostgreSQL schema browser, table data explorer, live telemetry & SQL console",
+    icon: "database",
+    tag: "DB Studio",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["SYSADMIN"],
   },
   {
     id: "dev-tracker",

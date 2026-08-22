@@ -24,7 +24,7 @@ Founders
 Classification: Internal
 """
 
-from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text
+from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Date
 from ..db.base import BaseEntity
 
 
@@ -84,26 +84,27 @@ class PurchaseOrderItem(BaseEntity):
 
 class PurchaseReceipt(BaseEntity):
     """
-    A goods receipt note (GRN) — records stock physically received from a supplier.
+    A goods receipt note (GRN) — records stock physically received from a supplier into a designated godown.
     Linked to a PurchaseOrder (optional: a receipt can exist without a prior PO).
-    Receiving a receipt triggers stock increments on the linked products.
+    Receiving a receipt triggers atomic batch stock increments on the linked products.
     """
     __tablename__ = "purchase_receipts"
 
-    receipt_no  = Column(String(100), nullable=False, unique=True)
-    supplier_id = Column(String(50),  ForeignKey("suppliers.id",       ondelete="RESTRICT"), nullable=False)
-    order_id    = Column(String(50),  ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True)
-    status      = Column(String(20),  nullable=False, default="PENDING")
-    notes       = Column(Text,        nullable=True)
-    subtotal    = Column(Numeric(15, 2), nullable=False, default=0.00)
-    tax_total   = Column(Numeric(15, 2), nullable=False, default=0.00)
-    grand_total = Column(Numeric(15, 2), nullable=False, default=0.00)
+    receipt_no   = Column(String(100), nullable=False, unique=True)
+    supplier_id  = Column(String(50),  ForeignKey("suppliers.id",       ondelete="RESTRICT"), nullable=False)
+    order_id     = Column(String(50),  ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True)
+    warehouse_id = Column(String(50),  ForeignKey("warehouses.id",      ondelete="RESTRICT"), nullable=True)
+    status       = Column(String(20),  nullable=False, default="PENDING")
+    notes        = Column(Text,        nullable=True)
+    subtotal     = Column(Numeric(15, 2), nullable=False, default=0.00)
+    tax_total    = Column(Numeric(15, 2), nullable=False, default=0.00)
+    grand_total  = Column(Numeric(15, 2), nullable=False, default=0.00)
 
 
 class PurchaseReceiptItem(BaseEntity):
     """
     A line item within a purchase receipt (GRN).
-    quantity_received drives the stock update on the product.
+    Captures batch, manufacturing date, expiry date, MRP, and damaged quantities.
     """
     __tablename__ = "purchase_receipt_items"
 
@@ -111,8 +112,13 @@ class PurchaseReceiptItem(BaseEntity):
     product_id         = Column(String(50),   ForeignKey("products.id",          ondelete="RESTRICT"), nullable=False)
     code               = Column(String(50),   nullable=False)
     name               = Column(String(255),  nullable=False)
+    batch_no           = Column(String(100),  nullable=True)
+    mfg_date           = Column(Date,         nullable=True)
+    expiry_date        = Column(Date,         nullable=True)
+    mrp                = Column(Numeric(15, 2), nullable=True)
     quantity_ordered   = Column(Numeric(10, 2), nullable=True)   # from PO (informational)
     quantity_received  = Column(Numeric(10, 2), nullable=False)  # actual received — drives stock
+    quantity_damaged   = Column(Numeric(10, 2), nullable=False, default=0.00)
     cost_price         = Column(Numeric(15, 2), nullable=False)
     gst_rate           = Column(Numeric(5, 2),  nullable=False, default=18.00)
     tax_amount         = Column(Numeric(15, 2), nullable=False, default=0.00)

@@ -53,12 +53,15 @@ import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownBreadcrumbs.tsx";
 import { DrillDownSidePanel } from "./components/drilldown/DrillDownSidePanel.tsx";
 import { GlobalSearch } from "./components/drilldown/GlobalSearch.tsx";
+import { GlobalF2BrowseModal } from "./components/drilldown/GlobalF2BrowseModal.tsx";
 import { ApprovalMatrixTab } from "./components/ApprovalMatrixTab.tsx";
 import { QuickActionsMenu } from "./components/QuickActionsMenu.tsx";
 import { DocumentSeriesTab } from "./components/DocumentSeriesTab.tsx";
 import { StaffManagementTab } from "./components/StaffManagementTab.tsx";
 import { UserProfileTab } from "./components/UserProfileTab.tsx";
 import { NotificationProvider, useNotifications } from "./notifications/notification_store.tsx";
+import { ActiveFieldProvider } from "./context/ActiveFieldContext.tsx";
+import { ContextualInspectorHUD } from "./components/drilldown/ContextualInspectorHUD.tsx";
 import { ContextProvider } from "./context-actions/ContextProvider.tsx";
 import { ContextRenderer } from "./context-actions/ContextRenderer.tsx";
 import { registerAllDefaultActions } from "./context-actions/providers/SMRITIModuleActions.ts";
@@ -75,12 +78,13 @@ import { StockLedgerTab } from "./components/StockLedgerTab.tsx";
 import { AuditLogsTab } from "./components/AuditLogsTab.tsx";
 import { TermsEngineTab } from "./components/TermsEngineTab.tsx";
 import { DataExchangeTab } from "./components/DataExchangeTab.tsx";
+import { DatabaseManagerTab } from "./components/DatabaseManagerTab.tsx";
+import { WmsStudioTab } from "./components/wms/WmsStudioTab.tsx";
 import { useLayoutModuleRegistration } from "./components/SmritiBaseModule.tsx";
 import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext.tsx";
 import { FloatingWindowHost } from "./components/FloatingWindowHost.tsx";
 import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
-import { WorkspaceTaskbar } from "./components/WorkspaceTaskbar.tsx";
 import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
 import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
@@ -89,13 +93,14 @@ import { CompanySelectionScreen } from "./components/CompanySelectionScreen.tsx"
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
+import { SmritiSecurityManagementModal } from "./components/security/SmritiSecurityManagementModal.tsx";
 import { X } from "lucide-react";
 
 interface AppNotification {
   id: string;
   title: string;
   message: string;
-  type: "success" | "error";
+  type: "success" | "error" | "info" | "warning";
 }
 
 const AppContent: React.FC = () => {
@@ -272,7 +277,7 @@ const AppContent: React.FC = () => {
   const addNotification = (
     title: string,
     message: string,
-    type: "success" | "error" = "success",
+    type: "success" | "error" | "info" | "warning" = "success",
   ) => {
     toastIdRef.current += 1;
     const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 10);
@@ -402,6 +407,9 @@ const AppContent: React.FC = () => {
       settings: "profiles",
       about: "about-smriti",
       grn: "purchase",
+      security: "security-management",
+      security_management: "security-management",
+      menu_access: "security-management",
     };
     return map[id] || id;
   };
@@ -459,16 +467,12 @@ const AppContent: React.FC = () => {
         );
       case "create-tax-invoice":
         return (
-          <AdvancedBillingEngine
-            cart={[]}
-            onClearCart={() => {}}
-            activeShift={shifts[0] || null}
-            activeProfile={profiles[0] || null}
-            onCheckoutSuccess={(bill) => {
-              fetchSystemState();
-            }}
+          <PosTerminalTab
+            products={products}
+            profiles={profiles}
+            shifts={shifts}
+            onRefreshData={fetchSystemState}
             onNotification={addNotification}
-            isStandaloneTab={true}
           />
         );
       case "purchase":
@@ -515,7 +519,13 @@ const AppContent: React.FC = () => {
       case "wiki":
         return <WikiTab onNotification={addNotification} />;
       case "barcode":
-        return <BarcodeStudioTab currentUser={currentUser} />;
+        return (
+          <BarcodeStudioTab
+            currentUser={currentUser}
+            products={products}
+            onNotification={addNotification}
+          />
+        );
       case "masters":
         return <MasterManagementTab onNotification={addNotification} />;
       case "document-series":
@@ -547,6 +557,13 @@ const AppContent: React.FC = () => {
         return <TermsEngineTab />;
       case "data-exchange":
         return <DataExchangeTab onNotification={addNotification} />;
+      case "database-manager":
+        return <DatabaseManagerTab onNotification={addNotification} />;
+      case "wms":
+      case "wms-dashboard":
+      case "stock-transfers":
+      case "warehouse-management":
+        return <WmsStudioTab currentUser={currentUser} onNotification={addNotification} />;
       case "company-setup":
         return (
           <SetupWizardTab 
@@ -556,6 +573,27 @@ const AppContent: React.FC = () => {
               setActiveTab("dashboard");
             }} 
           />
+        );
+      case "security-management":
+      case "menu-access-control":
+        return (
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <SmritiSecurityManagementModal
+              isOpen={true}
+              onClose={() => setActiveTab("dashboard")}
+              initialTab="Manage Menu Access"
+            />
+          </div>
+        );
+      case "security-configuration":
+        return (
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <SmritiSecurityManagementModal
+              isOpen={true}
+              onClose={() => setActiveTab("dashboard")}
+              initialTab="Configuration"
+            />
+          </div>
         );
       default:
         return <div className="p-4 text-theme-muted font-mono text-xs">Tab {tabId} not found.</div>;
@@ -646,7 +684,7 @@ const AppContent: React.FC = () => {
       userName={currentUser?.name || "Operator"}
       userRole={currentUser?.role || "Operator"}
     >
-      <div className="relative w-full h-full pb-13">
+      <div className="relative w-full h-full">
       {/* Toast Notification Stack */}
       <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
         <AnimatePresence>
@@ -769,9 +807,6 @@ const AppContent: React.FC = () => {
           activeTabId={activeTab}
         />
       )}
-
-      {/* SMRITI Workspace Taskbar - Only rendered when user is logged in */}
-      <WorkspaceTaskbar />
     </div>
     </AppShell>
   );
@@ -782,19 +817,23 @@ const App: React.FC = () => {
     <PrintProvider>
       <NotificationProvider>
         <DrillDownProvider>
-          <LayoutEngineProvider>
-            <WorkspaceProvider>
-              <ShortcutProvider>
-                <ContextProvider>
-                  <AppContent />
-                  <ContextRenderer />
-                  <GlobalSearch />
-                  <DrillDownSidePanel />
-                  <ShortcutPalette />
-                </ContextProvider>
-              </ShortcutProvider>
-            </WorkspaceProvider>
-          </LayoutEngineProvider>
+          <ActiveFieldProvider>
+            <LayoutEngineProvider>
+              <WorkspaceProvider>
+                <ShortcutProvider>
+                  <ContextProvider>
+                    <AppContent />
+                    <ContextRenderer />
+                    <GlobalSearch />
+                    <GlobalF2BrowseModal />
+                    <ContextualInspectorHUD />
+                    <DrillDownSidePanel />
+                    <ShortcutPalette />
+                  </ContextProvider>
+                </ShortcutProvider>
+              </WorkspaceProvider>
+            </LayoutEngineProvider>
+          </ActiveFieldProvider>
         </DrillDownProvider>
       </NotificationProvider>
     </PrintProvider>

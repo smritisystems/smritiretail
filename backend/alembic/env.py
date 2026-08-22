@@ -124,13 +124,39 @@ def include_object(object, name, type_, reflected, compare_to):
             "sales_return_items",
             "purchase_reorder_configs",
             "purchase_jurisdiction_configs",
+            "product_batch_stocks",
+            "stock_transfers",
+            "stock_transfer_items",
+            "stock_audits",
+            "stock_audit_items",
+            "eway_bills",
         ]
     return True
 
 
+def get_target_db_url() -> str:
+    x_args = context.get_x_argument(as_dictionary=True)
+    if "db_url" in x_args:
+        return x_args["db_url"]
+    if "db" in x_args:
+        db_name = x_args["db"]
+        from urllib.parse import urlparse
+        import os
+        parsed = urlparse(settings.DATABASE_URL)
+        scheme = parsed.scheme or "postgresql+asyncpg"
+        user = os.getenv("POSTGRES_USER") or parsed.username
+        password = os.getenv("POSTGRES_PASSWORD") or parsed.password
+        host = os.getenv("POSTGRES_HOST") or parsed.hostname or "localhost"
+        port = int(os.getenv("POSTGRES_PORT") or parsed.port or 5432)
+        auth = f"{user}:{password}@" if (user and password) else (f"{user}@" if user else "")
+        return f"{scheme}://{auth}{host}:{port}/{db_name}"
+    return config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = settings.DATABASE_URL
+    url = get_target_db_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -153,7 +179,8 @@ def do_run_migrations(connection) -> None:
         context.run_migrations()
 
 async def run_async_migrations() -> None:
-    connectable = create_async_engine(settings.DATABASE_URL)
+    database_url = get_target_db_url()
+    connectable = create_async_engine(database_url)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

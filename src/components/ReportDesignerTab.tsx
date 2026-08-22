@@ -16,6 +16,7 @@
 
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { isFieldGloballyVisible } from "../services/unifiedFieldCatalog.ts";
 import { recordAuditAction } from "../lib/apiFetch";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -255,17 +256,44 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     recordAuditAction("EXPORT", "reports", selectedReport?.id || "RPT-GEN", `Report exported: ${selectedReport?.title || "Standard Report"} (Format: ${format.toUpperCase()})`);
     showNotification("success", `Compiling dataset... generating SMRITI high-fidelity .${format.toLowerCase()} package.`);
     
-    // Simulate file download
     setTimeout(() => {
+      let content = "";
+      let mimeType = "text/plain";
+      const ext = format.toLowerCase();
+
+      if (ext === "csv" || ext === "tsv" || ext === "xlsx") {
+        const headers = ["Report Code", "Report Title", "Category", "Format", "Export Date", "Drill Level", "Filter"];
+        const row = [
+          selectedReport?.id || "",
+          `"${(selectedReport?.title || "").replace(/"/g, '""')}"`,
+          selectedReport?.category || "",
+          selectedReport?.format || "",
+          new Date().toISOString(),
+          drillLevel || "0",
+          `"${(drillFilter || "").replace(/"/g, '""')}"`
+        ];
+        const delimiter = ext === "tsv" ? "\t" : ",";
+        content = `${headers.join(delimiter)}\n${row.join(delimiter)}\n`;
+        mimeType = ext === "tsv" ? "text/tab-separated-values" : "text/csv";
+      } else {
+        content = JSON.stringify({
+          report: selectedReport,
+          timestamp: new Date().toISOString(),
+          drillLevel,
+          drillFilter
+        }, null, 2);
+        mimeType = "application/json";
+      }
+
       const element = document.createElement("a");
-      const file = new Blob([JSON.stringify({ report: selectedReport, timestamp: new Date().toISOString(), drillLevel, drillFilter }, null, 2)], { type: "text/plain" });
+      const file = new Blob([content], { type: mimeType });
       element.href = URL.createObjectURL(file);
-      element.download = `${selectedReport?.id || "RPT"}_Export.${format.toLowerCase()}`;
+      element.download = `${selectedReport?.id || "RPT"}_Export.${ext}`;
       document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
-      showNotification("success", `File download completed: ${selectedReport?.id}_Export.${format.toLowerCase()}`);
-    }, 1500);
+      showNotification("success", `File download completed: ${selectedReport?.id || "RPT"}_Export.${ext}`);
+    }, 500);
   };
 
   const handleShareReport = (e: React.FormEvent) => {
@@ -1016,11 +1044,12 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                     <table className="w-full text-left">
                       <thead>
                         <tr className="bg-theme-surface-3/50 text-theme-muted uppercase font-mono border-b border-theme-divider">
-                          <th className="px-5 py-3">Product Name</th>
-                          <th className="px-5 py-3">Style Code</th>
+                          {isFieldGloballyVisible("name") && <th className="px-5 py-3">Product Name</th>}
+                          {isFieldGloballyVisible("code") && <th className="px-5 py-3">Stock No / SKU</th>}
+                          {isFieldGloballyVisible("styleCode") && <th className="px-5 py-3">Style Code</th>}
                           <th className="px-5 py-3 text-right">Quantity</th>
-                          <th className="px-5 py-3 text-right">Base Price</th>
-                          <th className="px-5 py-3 text-right">GST %</th>
+                          {isFieldGloballyVisible("price") && <th className="px-5 py-3 text-right">Base Price</th>}
+                          {isFieldGloballyVisible("gst_percentage") && <th className="px-5 py-3 text-right">GST %</th>}
                           <th className="px-5 py-3 text-right">Tax Value</th>
                           <th className="px-5 py-3 text-right">Gross Total (INR)</th>
                         </tr>
@@ -1030,6 +1059,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           ? stockValuationData.lines.map((line: any) => ({
                               name: line.name,
                               code: line.code,
+                              styleCode: line.style_code || "—",
                               qty: parseInt(line.stock),
                               base: `₹${parseFloat(line.cost_price).toFixed(0)}`,
                               gst: "18%",
@@ -1037,16 +1067,17 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                               gross: `₹${(parseFloat(line.stock_value) * 1.18).toFixed(0)}`
                             }))
                           : [
-                              { name: "SMRITI Classic Cotton T-Shirt", code: "TSH-COT-N-M", qty: 4, base: "₹677.12", gst: "18%", tax: "₹487.52", gross: "₹3,196" },
-                              { name: "SMRITI Heritage Hoodie", code: "SMR-HD-CH-L", qty: 2, base: "₹2,117.80", gst: "18%", tax: "₹762.40", gross: "₹4,998" }
+                              { name: "SMRITI Classic Cotton T-Shirt", code: "TSH-COT-N-M", styleCode: "TSH-01", qty: 4, base: "₹677.12", gst: "18%", tax: "₹487.52", gross: "₹3,196" },
+                              { name: "SMRITI Heritage Hoodie", code: "SMR-HD-CH-L", styleCode: "HD-02", qty: 2, base: "₹2,117.80", gst: "18%", tax: "₹762.40", gross: "₹4,998" }
                             ]
                         ).map((row: any, i: number) => (
                           <tr key={i} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
-                            <td className="px-5 py-3.5 font-bold text-theme-body">{row.name}</td>
-                            <td className="px-5 py-3.5 font-mono text-blue-400">{row.code}</td>
+                            {isFieldGloballyVisible("name") && <td className="px-5 py-3.5 font-bold text-theme-body">{row.name}</td>}
+                            {isFieldGloballyVisible("code") && <td className="px-5 py-3.5 font-mono text-blue-400">{row.code}</td>}
+                            {isFieldGloballyVisible("styleCode") && <td className="px-5 py-3.5 font-mono text-theme-muted">{row.styleCode}</td>}
                             <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.qty} Units</td>
-                            <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.base}</td>
-                            <td className="px-5 py-3.5 text-right font-mono text-theme-muted">{row.gst}</td>
+                            {isFieldGloballyVisible("price") && <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.base}</td>}
+                            {isFieldGloballyVisible("gst_percentage") && <td className="px-5 py-3.5 text-right font-mono text-theme-muted">{row.gst}</td>}
                             <td className="px-5 py-3.5 text-right font-mono text-rose-400">{row.tax}</td>
                             <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-400">{row.gross}</td>
                           </tr>

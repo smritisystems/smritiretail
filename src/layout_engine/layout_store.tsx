@@ -53,6 +53,7 @@ interface LayoutStoreContextType {
     category: string,
   ) => void;
   refreshLayout: () => void;
+  reloadResolvedMenus: () => Promise<void>;
   toggleFavorite: (workspaceId: string) => void;
   toggleGroupCollapse: (groupId: string) => void;
   addToRecentlyUsed: (workspaceId: string) => void;
@@ -200,6 +201,18 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Inventory & Sourcing",
     },
     {
+      id: "wms-dashboard",
+      label: "Warehouse & Batch Hub",
+      icon: "warehouse",
+      category: "Inventory & Sourcing",
+    },
+    {
+      id: "stock-transfers",
+      label: "Inter-Godown Transfers",
+      icon: "move_up",
+      category: "Inventory & Sourcing",
+    },
+    {
       id: "stock-ledger",
       label: "Stock Ledger",
       icon: "inventory",
@@ -306,10 +319,43 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
   // Force-render trigger
   const [, setTick] = useState(0);
 
-  // Load preferences on startup
+  // Load preferences on startup & subscribe to live security / menu events
   useEffect(() => {
     restorePreferences();
+
+    const handlePermissionsUpdated = () => {
+      reloadResolvedMenus();
+    };
+
+    window.addEventListener("smriti_menu_permissions_updated", handlePermissionsUpdated);
+    window.addEventListener("smriti_security_config_updated", handlePermissionsUpdated);
+
+    return () => {
+      window.removeEventListener("smriti_menu_permissions_updated", handlePermissionsUpdated);
+      window.removeEventListener("smriti_security_config_updated", handlePermissionsUpdated);
+    };
   }, []);
+
+  const reloadResolvedMenus = async () => {
+    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
+    if (token) {
+      try {
+        const res = await apiFetchV1("/menus/resolved");
+        if (Array.isArray(res)) {
+          const dynamicWorkspaces: WorkspaceConfig[] = res.map((m: any) => ({
+            id: (m.route || "").replace(/^\//, "") || m.id.replace(/^menu-/, ""),
+            label: m.title || m.label,
+            icon: m.icon || "grid_view",
+            category: m.module || "Operations",
+          }));
+          setRegisteredWorkspaces(dynamicWorkspaces);
+          refreshLayout();
+        }
+      } catch (err) {
+        console.warn("[MenuResolver] Failed to reload resolved menus", err);
+      }
+    }
+  };
 
   const restorePreferences = async () => {
     const local = localStorage.getItem("smriti_layout_preferences");
@@ -321,23 +367,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     }
 
     // Centralized Menu Resolver: Fetch resolved navigation tree from backend (only if authenticated)
-    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
-    if (token) {
-      try {
-        const res = await apiFetchV1("/menus/resolved");
-        if (Array.isArray(res) && res.length > 0) {
-          const dynamicWorkspaces: WorkspaceConfig[] = res.map((m: any) => ({
-            id: (m.route || "").replace(/^\//, "") || m.id.replace(/^menu-/, ""),
-            label: m.title || m.label,
-            icon: m.icon || "grid_view",
-            category: m.module || "Operations",
-          }));
-          setRegisteredWorkspaces(dynamicWorkspaces);
-        }
-      } catch (err) {
-        console.warn("[MenuResolver] Using offline degraded navigation fallback", err);
-      }
-    }
+    await reloadResolvedMenus();
   };
 
   const savePreferences = async (customPrefs?: Partial<LayoutPreferences>) => {
@@ -455,6 +485,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
         restorePreferences,
         registerWorkspace,
         refreshLayout,
+        reloadResolvedMenus,
         toggleFavorite,
         toggleGroupCollapse,
         addToRecentlyUsed,

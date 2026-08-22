@@ -75,3 +75,56 @@ from .tax_invoice_template import (
     InvoiceDocumentArtifact,
 )
 
+# Canonical Universal Party & Universal Item Master Models (Slice 2)
+from .party import (
+    Party,
+    PartyRole,
+    CustomerProfile,
+    SupplierProfile,
+)
+from .item_master import (
+    Item,
+    ItemVariant,
+    ItemBarcode,
+)
+
+# Canonical Pricing, Payment Ledger & Document Sequence Models (Slice 4)
+from .pricing import (
+    PriceBook,
+    PriceBookEntry,
+    CustomerPriceTier,
+)
+from .payment_ledger import (
+    PaymentTransaction,
+    PaymentAllocation,
+)
+from .numbering import (
+    DocumentSeries,
+    NumberingAuditLog,
+)
+
+# Canonical Approval & Communicator Models (Slice 5)
+from .approval import (
+    ApprovalPolicy,
+    ApprovalRequest,
+    ApprovalAction,
+)
+from .communicator import (
+    CommunicatorTemplate,
+    CommunicatorLog,
+)
+
+# Canonical Capability & Workspace Models (Slice 6)
+from .capability_template import (
+    PlatformCapability,
+    WorkspaceTemplate,
+    TenantCapabilityBinding,
+    UserWorkspaceConfig,
+)
+
+# Canonical Outbox Models (Slice 7)
+from .outbox import (
+    OutboxEvent,
+)
+
+

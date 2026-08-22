@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version      : 3.17.0
+* Version    : 3.17.0
 Created      : 2026-07-11
-Modified     : 2026-07-14
+Modified     : 2026-08-21
 Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -44,6 +44,7 @@ from .api.v1 import (
     changelog,
     company_control_center,
     crm,
+    database_manager,
     dev_tracker,
     docs,
     ecom,
@@ -61,12 +62,14 @@ from .api.v1 import (
     reports,
     roles,
     sales,
+    security,
     supplier_payment,
     system,
     terms,
     training,
     ui_control_plane,
     users,
+    wms,
     workflow,
 )
 from .core.config import settings
@@ -120,8 +123,9 @@ app.include_router(changelog.router, prefix=settings.API_V1_STR)
 app.include_router(dev_tracker.router, prefix=settings.API_V1_STR)
 app.include_router(auth.router,      prefix=settings.API_V1_STR + "/auth",          tags=["Authentication"])
 app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",         tags=["User Management"])
-app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])
-app.include_router(inventory.router, prefix=settings.API_V1_STR + "/products",       tags=["Inventory"])
+app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",          tags=["Inventory"])
+app.include_router(inventory.router, prefix=settings.API_V1_STR + "/products",           tags=["Inventory"])
+app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory/products", tags=["Inventory"])
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
 app.include_router(crm.router,       prefix=settings.API_V1_STR + "/crm",          tags=["CRM"])
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated — remove at v3.20.0
@@ -146,12 +150,16 @@ app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs"
 app.include_router(system.router,           prefix=settings.API_V1_STR,                     tags=["System"])
 app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
 app.include_router(menus.router,            prefix=settings.API_V1_STR + "/menus",         tags=["Menu Governance"])
+app.include_router(security.router,         prefix=settings.API_V1_STR + "/security",      tags=["Security Management"])
 app.include_router(ui_control_plane.router, prefix=settings.API_V1_STR + "/ui",            tags=["UI Control Plane"])
 app.include_router(training.router,         prefix=settings.API_V1_STR,                     tags=["Training Academy"])
 app.include_router(ecom.router,             prefix=settings.API_V1_STR,                     tags=["eCommerce / Omnichannel Engine"])
 app.include_router(company_control_center.router, prefix=settings.API_V1_STR, tags=["Company Control Center"])
+app.include_router(database_manager.router,       prefix=settings.API_V1_STR + "/database-manager", tags=["Database Manager"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 app.include_router(approval_matrix.router,  prefix=settings.API_V1_STR + "/approval-matrix", tags=["Approval Matrix"])
+app.include_router(wms.router,              prefix=settings.API_V1_STR + "/wms", tags=["Warehouse & Batch Management"])
+
 
 
 # 4. Standard Health Diagnostics Endpoints

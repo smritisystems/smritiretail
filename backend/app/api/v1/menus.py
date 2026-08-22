@@ -39,9 +39,16 @@ async def get_resolved_menus(
 ):
     """
     Centralized Menu Resolver.
-    Evaluates User -> TenantContext -> Role -> Capabilities -> smriti_menus table.
+    Evaluates User -> TenantContext -> Role -> smriti_permissions -> smriti_menus.
+    Filters individual items by action='VIEW' and applies parent-child cascade pruning.
     Produces the authoritative navigation tree for the logged-in user.
     """
+    from ...core.security_matrix import (
+        CANONICAL_34_MENU_MATRIX,
+        evaluate_action_permission,
+        prune_menu_tree_cascade,
+    )
+
     q = select(SmritiMenu).where(
         SmritiMenu.is_active == True,
         SmritiMenu.is_deleted == False,
@@ -50,24 +57,46 @@ async def get_resolved_menus(
     res = await db.execute(q)
     all_menus = res.scalars().all()
 
-    resolved: List[SmritiMenuResponse] = []
-
+    # Step 1: Filter menus matching company/branch tenant boundaries
+    scoped_menus: List[SmritiMenu] = []
     for m in all_menus:
-        # Check tenant/company/branch isolation override if present
         if m.company_id and m.company_id != tenant.company_id and current_user.role != UserRole.SYSADMIN:
             continue
         if m.branch_id and m.branch_id != tenant.branch_id and current_user.role != UserRole.SYSADMIN:
             continue
+        scoped_menus.append(m)
 
-        # Check role / capability restrictions
+    # If SYSADMIN, bypass permission checks and return all scoped menus
+    if current_user.role == UserRole.SYSADMIN:
+        return [SmritiMenuResponse.model_validate(m) for m in scoped_menus]
+
+    # Step 2: Determine raw visibility for each scoped menu
+    raw_visible_ids = set()
+    for m in scoped_menus:
         route_id = (m.route or "").lstrip("/")
         if route_id in ADMIN_RESTRICTED_MODULES:
             if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
                 continue
 
-        resolved.append(SmritiMenuResponse.model_validate(m))
+        spec = CANONICAL_34_MENU_MATRIX.get(m.id)
+        res_key = spec["resource"] if spec else m.id.replace("menu-", "").replace("-", "_")
+        base_code = spec["view_perm"] if spec else m.permission
 
-    return resolved
+        is_allowed = await evaluate_action_permission(
+            db=db,
+            current_user=current_user,
+            tenant=tenant,
+            resource=res_key,
+            action="VIEW",
+            baseline_perm_code=base_code,
+        )
+        if is_allowed:
+            raw_visible_ids.add(m.id)
+
+    # Step 3: Apply two-pass cascade pruning (removes empty parents and orphaned children)
+    pruned_menus = prune_menu_tree_cascade(scoped_menus, raw_visible_ids)
+
+    return [SmritiMenuResponse.model_validate(m) for m in pruned_menus]
 
 
 @router.get(

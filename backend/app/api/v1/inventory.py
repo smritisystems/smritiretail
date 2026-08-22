@@ -19,7 +19,10 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import TenantContext, get_company_db, get_tenant_context, require_role, verify_internal_service_key
+from ...api.deps import (
+    TenantContext, get_company_db, get_tenant_context,
+    get_current_user, require_role, require_permission, verify_internal_service_key
+)
 from ...models.auth import User, UserRole
 from ...models.inventory import Product, StockMovement
 from ...repositories.product import ProductRepository
@@ -41,7 +44,7 @@ router = APIRouter()
     "/",
     response_model=ProductResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("item_master", "ADD"))],
 )
 async def create_product(
     product_in: ProductCreate,
@@ -191,7 +194,7 @@ async def get_product(
 @router.put(
     "/{product_id}",
     response_model=ProductResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("item_master", "EDIT"))],
 )
 async def update_product(
     product_id: str,
@@ -199,25 +202,54 @@ async def update_product(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Update a product master. Requires MANAGER or SYSADMIN role."""
+    """Update a product master."""
     repo = ProductRepository(db, tenant_ctx)
     product = await repo.get(product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
     update_data = product_in.model_dump(exclude_unset=True)
+
+    # Enforce Stock No / Code uniqueness across other products
+    if update_data.get("code") and update_data["code"] != product.code:
+        existing_code = await db.execute(
+            select(Product).filter(
+                Product.code == update_data["code"],
+                Product.id != product_id,
+                Product.is_deleted == False,
+                Product.company_id == tenant_ctx.company_id,
+                Product.branch_id == tenant_ctx.branch_id
+            )
+        )
+        if existing_code.scalars().first():
+            raise HTTPException(status_code=400, detail=f"Stock No / SKU '{update_data['code']}' is already in use by another product")
+
+    # Enforce Barcode uniqueness across other products
+    if update_data.get("barcode") and update_data["barcode"] != product.barcode:
+        existing_barcode = await db.execute(
+            select(Product).filter(
+                Product.barcode == update_data["barcode"],
+                Product.id != product_id,
+                Product.is_deleted == False,
+                Product.company_id == tenant_ctx.company_id,
+                Product.branch_id == tenant_ctx.branch_id
+            )
+        )
+        if existing_barcode.scalars().first():
+            raise HTTPException(status_code=400, detail=f"Barcode '{update_data['barcode']}' is already in use by another product")
+
     return await repo.update(product, update_data)
 
 
 @router.delete(
     "/{product_id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("item_master", "DELETE"))],
 )
 async def delete_product(
     product_id: str,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
-    current_user: User = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN)),
+    current_user: User = Depends(get_current_user),
 ):
     """Soft delete a product by setting its is_deleted flag."""
     repo = ProductRepository(db, tenant_ctx)
