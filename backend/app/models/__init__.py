@@ -113,3 +113,12 @@ from .communicator import (
     CommunicatorTemplate,
     CommunicatorLog,
 )
+
+# Canonical Capability & Workspace Models (Slice 6)
+from .capability_template import (
+    PlatformCapability,
+    WorkspaceTemplate,
+    TenantCapabilityBinding,
+    UserWorkspaceConfig,
+)
+
