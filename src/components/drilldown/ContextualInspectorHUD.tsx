@@ -6,12 +6,12 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.2
+ * Version      : 6.14.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-22
  * Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Target UI    : Contextual Field Inspector HUD (Draggable, Minimizable, Hideable)
+ * Target UI    : Contextual Field Inspector HUD (Secure Login Portal & Authenticated Intelligence)
  */
 
 import React, { useState, useEffect } from "react";
@@ -33,12 +33,15 @@ export const ContextualInspectorHUD: React.FC = () => {
     }
   });
 
-  // Auto-expand HUD when focus moves to a contextual field (unless explicitly dismissed)
+  const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+  const isAuthenticated = Boolean(token);
+
+  // Auto-expand HUD when focus moves to a contextual field in an authenticated session
   useEffect(() => {
-    if (category !== "general" && !isHidden) {
+    if (category !== "general" && !isHidden && isAuthenticated) {
       setIsMinimized(false);
     }
-  }, [category, isHidden]);
+  }, [category, isHidden, isAuthenticated]);
 
   const handleHide = () => {
     setIsHidden(true);
@@ -64,7 +67,7 @@ export const ContextualInspectorHUD: React.FC = () => {
           type="button"
           onClick={handleUnhide}
           title="Show Contextual Field Assistant"
-          className="p-2 bg-[#24389c]/80 hover:bg-[#24389c] text-white rounded-full shadow-lg backdrop-blur transition-all flex items-center gap-1.5 text-[11px] font-semibold opacity-60 hover:opacity-100"
+          className="p-2 bg-[#24389c]/80 hover:bg-[#24389c] text-white rounded-full shadow-lg backdrop-blur transition-all flex items-center gap-1.5 text-[11px] font-semibold opacity-60 hover:opacity-100 cursor-pointer"
         >
           <span className="material-symbols-outlined text-[16px]">visibility</span>
           <span>Show Assistant</span>
@@ -73,19 +76,18 @@ export const ContextualInspectorHUD: React.FC = () => {
     );
   }
 
-  // If not authenticated, NEVER render or show HUD or data
-  const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-  if (!token) {
+  // If authenticated and no input is focused and category is general, hide HUD
+  if (isAuthenticated && !isInputFocused && category === "general") {
     return null;
   }
 
-  // If no input is focused and category is general, hide HUD
-  if (!isInputFocused && category === "general") {
+  // If on login screen (unauthenticated) and no input is focused, hide HUD
+  if (!isAuthenticated && !isInputFocused) {
     return null;
   }
 
   return (
-    <div className="fixed bottom-12 right-6 z-40 select-none font-sans pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-40 select-none font-sans pointer-events-none">
       <AnimatePresence>
         {!isMinimized ? (
           <motion.div
@@ -104,13 +106,14 @@ export const ContextualInspectorHUD: React.FC = () => {
                   drag_indicator
                 </span>
                 <span className="material-symbols-outlined text-[#24389c] text-[18px]">
-                  {category === "product" ? "barcode_scanner" :
+                  {!isAuthenticated ? "lock" :
+                   category === "product" ? "barcode_scanner" :
                    category === "customer" ? "person_search" :
                    category === "supplier" ? "local_shipping" :
                    category === "invoice" ? "receipt_long" : "info"}
                 </span>
                 <span className="text-xs font-bold text-[#0b1c30] truncate">
-                  {fieldLabel}
+                  {!isAuthenticated ? "SMRITI Security Portal" : fieldLabel}
                 </span>
               </div>
               
@@ -123,7 +126,7 @@ export const ContextualInspectorHUD: React.FC = () => {
                     setIsMinimized(true);
                   }}
                   title="Minimize to Floating Pill"
-                  className="p-1 text-[#757684] hover:text-[#0b1c30] hover:bg-slate-100 rounded-md transition-colors"
+                  className="p-1 text-[#757684] hover:text-[#0b1c30] hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px]">remove</span>
                 </button>
@@ -136,7 +139,7 @@ export const ContextualInspectorHUD: React.FC = () => {
                     handleHide();
                   }}
                   title="Hide Assistant"
-                  className="p-1 text-[#757684] hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                  className="p-1 text-[#757684] hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px]">close</span>
                 </button>
@@ -145,83 +148,104 @@ export const ContextualInspectorHUD: React.FC = () => {
 
             {/* Context Content */}
             <div className="py-2.5">
-              {category === "product" && (
+              {!isAuthenticated ? (
                 <div className="text-xs space-y-1.5">
-                  <div className="flex items-center justify-between text-[#565975]">
-                    <span>Target Entity:</span>
-                    <span className="font-semibold text-[#0b1c30] bg-slate-100 px-1.5 py-0.5 rounded">
-                      Product / Barcode
-                    </span>
+                  <div className="flex items-center gap-1.5 text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                    <span className="material-symbols-outlined text-[16px]">verified_user</span>
+                    <span className="font-semibold text-[11px]">System Ready • Authentication Required</span>
                   </div>
-                  {fieldValue ? (
-                    <div className="p-2 bg-indigo-50/70 rounded-lg border border-indigo-100 text-[11px]">
-                      <span className="text-indigo-900 font-medium block">Active Query:</span>
-                      <span className="font-mono text-indigo-700 font-bold truncate block">{fieldValue}</span>
+                  <p className="text-[11px] text-[#757684] leading-relaxed">
+                    Please log in with your credentials to access business records, tactical search, and contextual tools.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {category === "product" && (
+                    <div className="text-xs space-y-1.5">
+                      <div className="flex items-center justify-between text-[#565975]">
+                        <span>Target Entity:</span>
+                        <span className="font-semibold text-[#0b1c30] bg-slate-100 px-1.5 py-0.5 rounded">
+                          Product / Barcode
+                        </span>
+                      </div>
+                      {fieldValue ? (
+                        <div className="p-2 bg-indigo-50/70 rounded-lg border border-indigo-100 text-[11px]">
+                          <span className="text-indigo-900 font-medium block">Active Query:</span>
+                          <span className="font-mono text-indigo-700 font-bold truncate block">{fieldValue}</span>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-[#757684] italic">
+                          Scan or type barcode/SKU to inspect stock, MRP, tax rate, and variants.
+                        </p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-[11px] text-[#757684] italic">
-                      Scan or type barcode/SKU to inspect stock, MRP, tax rate, and variants.
-                    </p>
                   )}
-                </div>
-              )}
 
-              {category === "customer" && (
-                <div className="text-xs space-y-1.5">
-                  <div className="flex items-center justify-between text-[#565975]">
-                    <span>Target Entity:</span>
-                    <span className="font-semibold text-[#0b1c30] bg-slate-100 px-1.5 py-0.5 rounded">
-                      Customer / Client
-                    </span>
-                  </div>
-                  {fieldValue ? (
-                    <div className="p-2 bg-indigo-50/70 rounded-lg border border-indigo-100 text-[11px]">
-                      <span className="text-indigo-900 font-medium block">Active Query:</span>
-                      <span className="font-mono text-indigo-700 font-bold truncate block">{fieldValue}</span>
+                  {category === "customer" && (
+                    <div className="text-xs space-y-1.5">
+                      <div className="flex items-center justify-between text-[#565975]">
+                        <span>Target Entity:</span>
+                        <span className="font-semibold text-[#0b1c30] bg-slate-100 px-1.5 py-0.5 rounded">
+                          Customer / Client
+                        </span>
+                      </div>
+                      {fieldValue ? (
+                        <div className="p-2 bg-indigo-50/70 rounded-lg border border-indigo-100 text-[11px]">
+                          <span className="text-indigo-900 font-medium block">Active Query:</span>
+                          <span className="font-mono text-indigo-700 font-bold truncate block">{fieldValue}</span>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-[#757684] italic">
+                          Enter mobile number or name to inspect loyalty points and credit limits.
+                        </p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-[11px] text-[#757684] italic">
-                      Enter mobile number or name to inspect loyalty points and credit limits.
-                    </p>
                   )}
-                </div>
-              )}
 
-              {category === "supplier" && (
-                <div className="text-xs space-y-1.5">
-                  <p className="text-[11px] text-[#757684]">
-                    Supplier mode active. Search vendor details, GSTIN, and pending PO balances.
-                  </p>
-                </div>
-              )}
+                  {category === "supplier" && (
+                    <div className="text-xs space-y-1.5">
+                      <p className="text-[11px] text-[#757684]">
+                        Supplier mode active. Search vendor details, GSTIN, and pending PO balances.
+                      </p>
+                    </div>
+                  )}
 
-              {category === "invoice" && (
-                <div className="text-xs space-y-1.5">
-                  <p className="text-[11px] text-[#757684]">
-                    Invoice mode active. Search historical tax invoices, dates, and amounts.
-                  </p>
-                </div>
-              )}
+                  {category === "invoice" && (
+                    <div className="text-xs space-y-1.5">
+                      <p className="text-[11px] text-[#757684]">
+                        Invoice mode active. Search historical tax invoices, dates, and amounts.
+                      </p>
+                    </div>
+                  )}
 
-              {category === "general" && (
-                <div className="text-xs space-y-1.5">
-                  <p className="text-[11px] text-[#757684]">
-                    Global search assistant ready. Press Ctrl+K to search all entities.
-                  </p>
-                </div>
+                  {category === "general" && (
+                    <div className="text-xs space-y-1.5">
+                      <p className="text-[11px] text-[#757684]">
+                        Global search assistant ready. Press Ctrl+K to search all entities.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             {/* Quick Action Button */}
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              className="w-full py-1.5 bg-[#24389c] hover:bg-[#1b2b7b] text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
-            >
-              <span className="material-symbols-outlined text-[15px]">search</span>
-              <span>Search in {category === "product" ? "Product Catalog" : category === "customer" ? "Customer Directory" : "Global System"}</span>
-              <span className="text-[10px] font-mono bg-white/20 px-1 py-0.5 rounded">Ctrl+K</span>
-            </button>
+            {!isAuthenticated ? (
+              <div className="w-full py-1.5 bg-slate-100 text-slate-500 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 border border-slate-200 cursor-not-allowed">
+                <span className="material-symbols-outlined text-[15px]">lock</span>
+                <span>Sign In to Unlock System Search</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="w-full py-1.5 bg-[#24389c] hover:bg-[#1b2b7b] text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[15px]">search</span>
+                <span>Search in {category === "product" ? "Product Catalog" : category === "customer" ? "Customer Directory" : "Global System"}</span>
+                <span className="text-[10px] font-mono bg-white/20 px-1 py-0.5 rounded">Ctrl+K</span>
+              </button>
+            )}
           </motion.div>
         ) : (
           <motion.div
@@ -235,20 +259,21 @@ export const ContextualInspectorHUD: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsMinimized(false)}
-              className="flex items-center gap-2 outline-none"
+              className="flex items-center gap-2 outline-none cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">
-                {category === "product" ? "barcode_scanner" :
+                {!isAuthenticated ? "lock" :
+                 category === "product" ? "barcode_scanner" :
                  category === "customer" ? "person_search" : "info"}
               </span>
-              <span>{fieldLabel}</span>
+              <span>{!isAuthenticated ? "Security Ready" : fieldLabel}</span>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </button>
             <button
               type="button"
               onClick={handleHide}
               title="Hide Assistant"
-              className="p-1 text-white/70 hover:text-white rounded-full hover:bg-white/10 ml-1"
+              className="p-1 text-white/70 hover:text-white rounded-full hover:bg-white/10 ml-1 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[14px]">close</span>
             </button>

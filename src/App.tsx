@@ -776,14 +776,6 @@ const AppContent: React.FC = () => {
           activeTabId={activeTab}
         />
       )}
-
-      {/* Authenticated Global Drilldown & Context Overlays */}
-      <ContextRenderer />
-      <GlobalSearch />
-      <GlobalF2BrowseModal />
-      <ContextualInspectorHUD />
-      <DrillDownSidePanel />
-      <ShortcutPalette />
     </div>
     </AppShell>
   );
@@ -800,6 +792,12 @@ const App: React.FC = () => {
                 <ShortcutProvider>
                   <ContextProvider>
                     <AppContent />
+                    <ContextRenderer />
+                    <GlobalSearch />
+                    <GlobalF2BrowseModal />
+                    <ContextualInspectorHUD />
+                    <DrillDownSidePanel />
+                    <ShortcutPalette />
                   </ContextProvider>
                 </ShortcutProvider>
               </WorkspaceProvider>

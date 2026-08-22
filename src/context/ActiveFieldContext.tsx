@@ -302,24 +302,34 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Global DOM Focus and Input Tracking
   useEffect(() => {
     const handleFocusIn = (e: FocusEvent) => {
-      const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-      if (!token) return;
-
       const target = e.target as HTMLElement;
       if (!target) return;
 
       const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
       if (isInput) {
         lastFocusedInputRef.current = target as HTMLInputElement;
-        const { category: inferredCategory, label: inferredLabel } = inferFieldCategory(target);
-        const val = (target as HTMLInputElement).value || target.textContent || "";
+        const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
         
-        setCategory(inferredCategory);
-        setFieldLabel(inferredLabel);
-        setFieldName((target as HTMLInputElement).name || target.id || "active_input");
-        setFieldValue(val);
-        setActiveElement(target);
-        setIsInputFocused(true);
+        if (!token) {
+          // Public / Login Screen: Generic secure state with 0 data exposure
+          setCategory("general");
+          setFieldLabel("Authentication Portal");
+          setFieldName("auth_input");
+          setFieldValue("");
+          setActiveElement(target);
+          setIsInputFocused(true);
+        } else {
+          // Authenticated Session: Full Contextual Intelligence across all 18+ categories
+          const { category: inferredCategory, label: inferredLabel } = inferFieldCategory(target);
+          const val = (target as HTMLInputElement).value || target.textContent || "";
+          
+          setCategory(inferredCategory);
+          setFieldLabel(inferredLabel);
+          setFieldName((target as HTMLInputElement).name || target.id || "active_input");
+          setFieldValue(val);
+          setActiveElement(target);
+          setIsInputFocused(true);
+        }
       }
     };
 
@@ -335,7 +345,7 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     const handleInput = (e: Event) => {
       const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-      if (!token) return;
+      if (!token) return; // Do not track live values on unauthenticated login inputs
 
       const target = e.target as HTMLElement;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
