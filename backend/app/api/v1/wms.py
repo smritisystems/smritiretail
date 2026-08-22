@@ -1,0 +1,285 @@
+"""
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 6.16.0
+Created      : 2026-08-22
+Modified     : 2026-08-22
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal
+"""
+
+import uuid
+from typing import List, Optional
+from decimal import Decimal
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from ...api.deps import (
+    get_company_db, get_tenant_context, TenantContext,
+    require_role, require_permission
+)
+from ...models.auth import UserRole
+from ...models.inventory import Warehouse, ProductBatchStock, StockTransfer, StockTransferItem
+from ...schemas.wms import (
+    WarehouseCreate, WarehouseUpdate, WarehouseResponse,
+    ProductBatchStockResponse, BatchAllocationRequest, BatchAllocationItem,
+    StockTransferCreate, StockTransferResponse, StockTransferReceiptRequest
+)
+from ...services.inventory_wms_service import InventoryWmsService
+
+router = APIRouter()
+
+
+# ─────────────────────────── Warehouse Masters ───────────────────────────
+
+@router.get("/warehouses", response_model=List[WarehouseResponse])
+async def list_warehouses(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List all warehouses for the active company tenant."""
+    q = select(Warehouse).where(
+        Warehouse.company_id == tenant_ctx.company_id,
+        Warehouse.is_deleted == False
+    ).order_by(Warehouse.created_at.asc())
+    res = await db.execute(q)
+    return [WarehouseResponse.model_validate(w) for w in res.scalars().all()]
+
+
+@router.post("/warehouses", response_model=WarehouseResponse, status_code=201)
+async def create_warehouse(
+    req: WarehouseCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
+):
+    """Create a new warehouse / godown under the active company tenant."""
+    # Check scoped code uniqueness
+    q_exist = select(Warehouse).where(
+        Warehouse.company_id == tenant_ctx.company_id,
+        Warehouse.code == req.code,
+        Warehouse.is_deleted == False
+    )
+    res_exist = await db.execute(q_exist)
+    if res_exist.scalars().first():
+        raise HTTPException(status_code=400, detail=f"Warehouse code '{req.code}' already exists in this company.")
+
+    wh = Warehouse(
+        id=f"wh-{uuid.uuid4().hex[:12]}",
+        uuid=str(uuid.uuid4()),
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        code=req.code,
+        name=req.name,
+        is_transit=req.is_transit,
+        is_central_godown=req.is_central_godown,
+        address=req.address,
+        city=req.city,
+        state=req.state,
+        pincode=req.pincode,
+        contact_person=req.contact_person,
+        phone=req.phone,
+    )
+    db.add(wh)
+    await db.commit()
+    await db.refresh(wh)
+    return WarehouseResponse.model_validate(wh)
+
+
+@router.get("/warehouses/{warehouse_id}", response_model=WarehouseResponse)
+async def get_warehouse(
+    warehouse_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get warehouse details by ID."""
+    q = select(Warehouse).where(
+        Warehouse.id == warehouse_id,
+        Warehouse.company_id == tenant_ctx.company_id,
+        Warehouse.is_deleted == False
+    )
+    res = await db.execute(q)
+    wh = res.scalars().first()
+    if not wh:
+        raise HTTPException(status_code=404, detail="Warehouse not found.")
+    return WarehouseResponse.model_validate(wh)
+
+
+@router.put("/warehouses/{warehouse_id}", response_model=WarehouseResponse)
+async def update_warehouse(
+    warehouse_id: str,
+    req: WarehouseUpdate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
+):
+    """Update warehouse details."""
+    q = select(Warehouse).where(
+        Warehouse.id == warehouse_id,
+        Warehouse.company_id == tenant_ctx.company_id,
+        Warehouse.is_deleted == False
+    )
+    res = await db.execute(q)
+    wh = res.scalars().first()
+    if not wh:
+        raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+    update_data = req.model_dump(exclude_unset=True)
+    for k, v in update_data.items():
+        setattr(wh, k, v)
+
+    await db.commit()
+    await db.refresh(wh)
+    return WarehouseResponse.model_validate(wh)
+
+
+# ─────────────────────────── Batch Stock & FEFO ───────────────────────────
+
+@router.get("/batch-stocks", response_model=List[ProductBatchStockResponse])
+async def list_batch_stocks(
+    product_id: Optional[str] = Query(None),
+    warehouse_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List live batch stock records for active company."""
+    q = select(ProductBatchStock).where(
+        ProductBatchStock.company_id == tenant_ctx.company_id,
+        ProductBatchStock.is_deleted == False
+    )
+    if product_id:
+        q = q.where(ProductBatchStock.product_id == product_id)
+    if warehouse_id:
+        q = q.where(ProductBatchStock.warehouse_id == warehouse_id)
+
+    q = q.order_by(ProductBatchStock.expiry_date.asc().nulls_last())
+    res = await db.execute(q)
+    items = res.scalars().all()
+
+    resp = []
+    for it in items:
+        avail = Decimal(str(it.quantity)) - Decimal(str(it.reserved_quantity)) - Decimal(str(it.damaged_quantity))
+        dto = ProductBatchStockResponse.model_validate(it)
+        dto.available_quantity = avail
+        resp.append(dto)
+    return resp
+
+
+@router.post("/allocate-fefo", response_model=List[BatchAllocationItem])
+async def allocate_batches_fefo(
+    req: BatchAllocationRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Allocate product quantities from available batches using FEFO ordering."""
+    service = InventoryWmsService(db, tenant_ctx)
+    allocations = await service.allocate_stock_fefo(
+        product_id=req.product_id,
+        warehouse_id=req.warehouse_id,
+        requested_qty=req.quantity
+    )
+    return [BatchAllocationItem(**a) for a in allocations]
+
+
+# ─────────────────────────── Stock Transfer Orders (STO) ───────────────────────────
+
+@router.get("/transfers", response_model=List[StockTransferResponse])
+async def list_transfers(
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List all stock transfers for the company."""
+    q = select(StockTransfer).where(
+        StockTransfer.company_id == tenant_ctx.company_id,
+        StockTransfer.is_deleted == False
+    )
+    if status:
+        q = q.where(StockTransfer.status == status)
+
+    q = q.order_by(StockTransfer.created_at.desc())
+    res = await db.execute(q)
+    return [StockTransferResponse.model_validate(st) for st in res.scalars().all()]
+
+
+@router.post("/transfers", response_model=StockTransferResponse, status_code=201)
+async def create_transfer(
+    req: StockTransferCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    guard: Any = Depends(require_permission("stock_ledger", "ADD")),
+):
+    """Create a new Stock Transfer Order in DRAFT status."""
+    service = InventoryWmsService(db, tenant_ctx)
+    items_dict = [it.model_dump() for it in req.items]
+    transfer = await service.create_stock_transfer(
+        source_warehouse_id=req.source_warehouse_id,
+        dest_warehouse_id=req.dest_warehouse_id,
+        items_in=items_dict,
+        transporter_name=req.transporter_name,
+        lr_number=req.lr_number,
+        vehicle_number=req.vehicle_number,
+        e_way_bill_no=req.e_way_bill_no,
+        notes=req.notes,
+        idempotency_key=idempotency_key,
+    )
+    await db.commit()
+    await db.refresh(transfer)
+    return StockTransferResponse.model_validate(transfer)
+
+
+@router.get("/transfers/{transfer_id}", response_model=StockTransferResponse)
+async def get_transfer(
+    transfer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get stock transfer details with line items."""
+    q = select(StockTransfer).where(
+        StockTransfer.id == transfer_id,
+        StockTransfer.company_id == tenant_ctx.company_id,
+        StockTransfer.is_deleted == False
+    )
+    res = await db.execute(q)
+    st = res.scalars().first()
+    if not st:
+        raise HTTPException(status_code=404, detail="Stock transfer not found.")
+    return StockTransferResponse.model_validate(st)
+
+
+@router.post("/transfers/{transfer_id}/dispatch", response_model=StockTransferResponse)
+async def dispatch_transfer(
+    transfer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "ADD")),
+):
+    """Dispatch a stock transfer from the source warehouse into IN_TRANSIT."""
+    service = InventoryWmsService(db, tenant_ctx)
+    transfer = await service.dispatch_stock_transfer(transfer_id)
+    await db.commit()
+    await db.refresh(transfer)
+    return StockTransferResponse.model_validate(transfer)
+
+
+@router.post("/transfers/{transfer_id}/receive", response_model=StockTransferResponse)
+async def receive_transfer(
+    transfer_id: str,
+    req: StockTransferReceiptRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "ADD")),
+):
+    """Receive a stock transfer at the destination warehouse with shortage/damage reconciliation."""
+    service = InventoryWmsService(db, tenant_ctx)
+    receipt_items = [r.model_dump() for r in req.receipt_details]
+    transfer = await service.receive_stock_transfer(transfer_id, receipt_items)
+    await db.commit()
+    await db.refresh(transfer)
+    return StockTransferResponse.model_validate(transfer)

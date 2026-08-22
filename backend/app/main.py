@@ -69,6 +69,7 @@ from .api.v1 import (
     training,
     ui_control_plane,
     users,
+    wms,
     workflow,
 )
 from .core.config import settings
@@ -157,6 +158,8 @@ app.include_router(company_control_center.router, prefix=settings.API_V1_STR, ta
 app.include_router(database_manager.router,       prefix=settings.API_V1_STR + "/database-manager", tags=["Database Manager"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 app.include_router(approval_matrix.router,  prefix=settings.API_V1_STR + "/approval-matrix", tags=["Approval Matrix"])
+app.include_router(wms.router,              prefix=settings.API_V1_STR + "/wms", tags=["Warehouse & Batch Management"])
+
 
 
 # 4. Standard Health Diagnostics Endpoints
