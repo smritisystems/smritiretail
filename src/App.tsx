@@ -92,6 +92,7 @@ import { CompanySelectionScreen } from "./components/CompanySelectionScreen.tsx"
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
+import { SmritiSecurityManagementModal } from "./components/security/SmritiSecurityManagementModal.tsx";
 import { X } from "lucide-react";
 
 interface AppNotification {
@@ -405,6 +406,9 @@ const AppContent: React.FC = () => {
       settings: "profiles",
       about: "about-smriti",
       grn: "purchase",
+      security: "security-management",
+      security_management: "security-management",
+      menu_access: "security-management",
     };
     return map[id] || id;
   };
@@ -563,6 +567,27 @@ const AppContent: React.FC = () => {
               setActiveTab("dashboard");
             }} 
           />
+        );
+      case "security-management":
+      case "menu-access-control":
+        return (
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <SmritiSecurityManagementModal
+              isOpen={true}
+              onClose={() => setActiveTab("dashboard")}
+              initialTab="Manage Menu Access"
+            />
+          </div>
+        );
+      case "security-configuration":
+        return (
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <SmritiSecurityManagementModal
+              isOpen={true}
+              onClose={() => setActiveTab("dashboard")}
+              initialTab="Configuration"
+            />
+          </div>
         );
       default:
         return <div className="p-4 text-theme-muted font-mono text-xs">Tab {tabId} not found.</div>;
