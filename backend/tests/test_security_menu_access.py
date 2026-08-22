@@ -18,9 +18,9 @@ import json
 from unittest.mock import MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.auth import User, UserRole
-from backend.app.api.deps import TenantContext
-from backend.app.core.security_matrix import (
+from app.models.auth import User, UserRole
+from app.api.deps import TenantContext
+from app.core.security_matrix import (
     evaluate_action_permission,
     prune_menu_tree_cascade,
     CANONICAL_34_MENU_MATRIX,

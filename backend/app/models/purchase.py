@@ -25,6 +25,7 @@ Classification: Internal
 """
 
 from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Date
+from sqlalchemy.orm import relationship
 from ..db.base import BaseEntity
 
 
@@ -99,6 +100,10 @@ class PurchaseReceipt(BaseEntity):
     subtotal     = Column(Numeric(15, 2), nullable=False, default=0.00)
     tax_total    = Column(Numeric(15, 2), nullable=False, default=0.00)
     grand_total  = Column(Numeric(15, 2), nullable=False, default=0.00)
+
+    # Relationships
+    items = relationship("PurchaseReceiptItem", backref="receipt", cascade="all, delete-orphan")
+
 
 
 class PurchaseReceiptItem(BaseEntity):

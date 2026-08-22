@@ -251,16 +251,13 @@ async def test_wms_service_async_lifecycle():
     - transfer creation, dispatch, and receipt
     """
     import uuid
-    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-    from sqlalchemy.orm import sessionmaker
     from sqlalchemy import text
-    from backend.app.api.deps import TenantContext
-    from backend.app.services.inventory_wms_service import InventoryWmsService
-    from backend.app.models.inventory import Product, Warehouse
+    from app.api.deps import TenantContext
+    from app.services.inventory_wms_service import InventoryWmsService
+    from app.models.inventory import Product, Warehouse
+    from app.db.session import get_company_sessionmaker
 
-    async_db_url = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001"
-    engine = create_async_engine(async_db_url, echo=False)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session_factory = get_company_sessionmaker("smriti001")
 
     unique_suffix = uuid.uuid4().hex[:8]
     prod_id = f"prod-life-{unique_suffix}"
@@ -268,7 +265,7 @@ async def test_wms_service_async_lifecycle():
     batch_name_b = f"BATCH-SVC-B-{unique_suffix.upper()}"
     transfer_id = None
 
-    async with async_session() as session:
+    async with session_factory() as session:
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
         service = InventoryWmsService(session, tenant)
 
@@ -380,6 +377,4 @@ async def test_wms_service_async_lifecycle():
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
             await session.commit()
-    
-    await engine.dispose()
 

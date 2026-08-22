@@ -21,17 +21,17 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.future import select
 from sqlalchemy import text
 
-from backend.app.api.deps import TenantContext
-from backend.app.services.purchase import PurchaseService
-from backend.app.services.sales import SalesService
-from backend.app.services.inventory_wms_service import InventoryWmsService
-from backend.app.models.inventory import Product, ProductBatchStock
-from backend.app.models.purchase import Supplier
-from backend.app.models.crm import Customer, CustomerGroup
-from backend.app.schemas.purchase import PurchaseReceiptCreate, PurchaseReceiptItemCreate
-from backend.app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
+from app.api.deps import TenantContext
+from app.services.purchase import PurchaseService
+from app.services.sales import SalesService
+from app.services.inventory_wms_service import InventoryWmsService
+from app.models.inventory import Product, ProductBatchStock
+from app.models.purchase import Supplier
+from app.models.crm import Customer, CustomerGroup
+from app.schemas.purchase import PurchaseReceiptCreate, PurchaseReceiptItemCreate
+from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
+from app.db.session import get_company_sessionmaker
 
-ASYNC_DB_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001"
 
 @pytest.mark.asyncio
 async def test_grn_inward_batch_stock_creation():
@@ -39,8 +39,7 @@ async def test_grn_inward_batch_stock_creation():
     Test that creating a PurchaseReceipt (GRN) automatically inwards stock
     into ProductBatchStock with the exact batch number and expiry date.
     """
-    engine = create_async_engine(ASYNC_DB_URL, echo=False)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session_factory = get_company_sessionmaker("smriti001")
 
     unique_suffix = uuid.uuid4().hex[:8]
     prod_id = f"prod-grn-{unique_suffix}"
@@ -48,7 +47,7 @@ async def test_grn_inward_batch_stock_creation():
     receipt_no = f"GRN-TEST-{unique_suffix.upper()}"
     batch_no = f"BATCH-GRN-TEST-{unique_suffix.upper()}"
 
-    async with async_session() as session:
+    async with session_factory() as session:
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
         purchase_service = PurchaseService(session, tenant)
 
@@ -123,8 +122,6 @@ async def test_grn_inward_batch_stock_creation():
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
             await session.commit()
 
-    await engine.dispose()
-
 
 @pytest.mark.asyncio
 async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
@@ -132,8 +129,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
     Test that creating a SalesInvoice automatically selects batches via FEFO,
     deducts quantity atomically from ProductBatchStock, and restores stock on invoice cancellation.
     """
-    engine = create_async_engine(ASYNC_DB_URL, echo=False)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session_factory = get_company_sessionmaker("smriti001")
 
     unique_suffix = uuid.uuid4().hex[:8]
     prod_id = f"prod-test-{unique_suffix}"
@@ -144,7 +140,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
     batch_early = f"BATCH-EARLY-{unique_suffix[:4].upper()}"
     batch_late = f"BATCH-LATE-{unique_suffix[:4].upper()}"
 
-    async with async_session() as session:
+    async with session_factory() as session:
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
         sales_service = SalesService(session, tenant)
         wms_service = InventoryWmsService(session, tenant)
@@ -248,8 +244,6 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
             await session.commit()
 
-    await engine.dispose()
-
 
 @pytest.mark.asyncio
 async def test_retailer_credit_limit_enforcement():
@@ -257,14 +251,13 @@ async def test_retailer_credit_limit_enforcement():
     Test that B2B Sales Billing blocks invoices when a customer exceeds their Group Credit Limit.
     """
     from fastapi import HTTPException
-    engine = create_async_engine(ASYNC_DB_URL, echo=False)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session_factory = get_company_sessionmaker("smriti001")
 
     unique_suffix = uuid.uuid4().hex[:6]
     group_id = f"cg-test-{unique_suffix}"
     cust_id = f"cust-test-{unique_suffix}"
 
-    async with async_session() as session:
+    async with session_factory() as session:
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
         sales_service = SalesService(session, tenant)
 
@@ -364,6 +357,4 @@ async def test_retailer_credit_limit_enforcement():
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
             await session.commit()
-
-    await engine.dispose()
 

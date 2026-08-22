@@ -12,9 +12,16 @@ License      : Proprietary Commercial Software
 """
 
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
 from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
+
+# Ensure backend root is in sys.path
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 # Import our settings and base metadata
 from app.core.config import settings
