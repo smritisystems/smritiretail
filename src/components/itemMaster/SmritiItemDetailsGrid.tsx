@@ -43,31 +43,26 @@ import { SmritiReplaceDataModal } from "./SmritiReplaceDataModal.tsx";
 import { SmritiCodeSelectionDialog } from "./SmritiCodeSelectionDialog.tsx";
 import { SmritiKeyboardShortcutsModal } from "./SmritiKeyboardShortcutsModal.tsx";
 import { SmritiDataLoadingConfirmationModal } from "./SmritiDataLoadingConfirmationModal.tsx";
-import { CommonFieldsData } from "./SmritiCommonFieldsSetup.tsx";
 import { ViewConfigState } from "./SmritiViewConfiguration.tsx";
 
 export type MasterEntryMode = "add" | "edit" | "delete";
 
 interface SmritiItemDetailsGridProps {
   products: Product[];
-  commonFields?: CommonFieldsData;
   viewConfig?: ViewConfigState;
   entryMode?: MasterEntryMode;
   onRefreshProducts?: () => Promise<void>;
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
   onNavigateToViewConfig?: () => void;
-  onNavigateToCommonFields?: () => void;
 }
 
 export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   products = [],
-  commonFields,
   viewConfig,
   entryMode = "add",
   onRefreshProducts,
   onNotification,
-  onNavigateToViewConfig,
-  onNavigateToCommonFields
+  onNavigateToViewConfig
 }) => {
   const [dynamicDefinitions, setDynamicDefinitions] = useState<AttributeDefinition[]>([]);
   const [gridRows, setGridRows] = useState<any[]>([]);

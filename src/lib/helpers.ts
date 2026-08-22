@@ -76,6 +76,67 @@ export function calculateItemGstRate(category: string, price: number, defaultRat
   return (defaultRate !== undefined && [0, 5, 18, 40].includes(defaultRate)) ? defaultRate : 18;
 }
 
+export type SafeFallbackResult = {
+  allowed: boolean;
+  message: string;
+  suggestions?: string[];
+};
+
+export function buildSafeFallback(input: string | null | undefined): SafeFallbackResult {
+  const raw = typeof input === "string" ? input.trim() : "";
+
+  if (!raw) {
+    return {
+      allowed: false,
+      message: "I can help with safe alternatives and compliant guidance instead.",
+      suggestions: [
+        "Ask for a general explanation",
+        "Ask for a high-level design",
+        "Ask for a safe example that avoids restricted behavior"
+      ]
+    };
+  }
+
+  const normalized = raw.toLowerCase();
+  const blockedSignals = [
+    "bypass restriction",
+    "bypass policy",
+    "bypass policies",
+    "bypass safeguards",
+    "policy controls",
+    "circumvent policy",
+    "ignore safety rules",
+    "disable protections",
+    "remove moderation",
+    "override controls",
+    "override policy"
+  ];
+
+  const hits = blockedSignals.filter((signal) => normalized.includes(signal));
+
+  if (hits.length > 0) {
+    return {
+      allowed: false,
+      message: "I can’t assist with requests that try to bypass safeguards or override policy controls. I can help with a compliant alternative instead.",
+      suggestions: [
+        "Explain the underlying goal in a safe way",
+        "Give a compliant design pattern",
+        "Provide a neutral version that preserves the intent without violating the rules"
+      ]
+    };
+  }
+
+  return {
+    allowed: true,
+    message: "I can help with a compliant version of this request.",
+    suggestions: [
+      "Break the problem into smaller safe steps",
+      "Explain the trade-offs clearly",
+      "Show a minimal implementation that meets the requirement without violating safeguards"
+    ]
+  };
+}
+
 // ==========================================
 // UNIVERSAL DOCUMENT SERIES ENGINE
 // ==========================================
