@@ -16,7 +16,7 @@ from fastapi import HTTPException, status, Header, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.auth import User, UserRole
 from ..services.control_database_registry import ControlDatabaseRegistryService
-from ..models.control.control_models import ControlCompanyDatabase
+from ..models.company_database_registry import CompanyDatabaseRegistry
 
 
 async def verify_user_company_access(

@@ -35,7 +35,9 @@ def test_company_db_resolver_authorized_user():
     res = CompanyDatabaseResolver.resolve_company_database("usr_sysadmin", "COMP-001")
     assert res["company_id"] == "COMP-001"
     assert res["database_status"] == "READY"
-    assert "postgresql://" in res["connection_url"]
+    assert res["database_name"] == "smriti001"
+    assert "password" not in res
+    assert "connection_url" not in res
 
 def test_company_db_resolver_unauthorized_user():
     """Verify unauthorized user attempting company access is rejected with 403 Forbidden."""

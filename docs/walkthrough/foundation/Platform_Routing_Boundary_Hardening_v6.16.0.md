@@ -28,15 +28,20 @@ Execute Milestone 1 of the SMRITI Master Architecture Blueprint v1.0: Canonicali
 ---
 
 ## 3. Files Created
-- `backend/tests/test_routing_boundary_canonical.py`: 6 automated tests validating authorized routing, 403 on unassigned users, 403 on suspended companies, fail-closed rejection on unregistered entities, and regex naming validation.
+- `backend/tests/test_routing_boundary_canonical.py`: 11 automated tests validating authorized routing, zero credential leaks in payloads, non-admin cross-company tenant isolation, 403 on unassigned users, 403 on suspended companies, fail-closed rejection on missing/unregistered entities, engine cache validation, and regex naming validation.
 - `docs/implementation/foundation/Platform_Refactor_Controlled_Migration_Plan_v1.0.md`: Master 19-section implementation plan.
 - `docs/walkthrough/foundation/Platform_Routing_Boundary_Hardening_v6.16.0.md`: This 13-section walkthrough.
 
 ---
 
 ## 4. Files Modified
-- `backend/app/services/company_database_resolver.py`: Removed `"Tattly Threads"` demo fallback, enforced `companies` and `company_database_registries` lookup in `smritisys`, unified dynamic URL generation.
-- `backend/app/db/session.py`: Hardened `resolve_company_database_name` to fail closed if company database is unregistered or not in `READY` status.
+- `backend/app/services/company_database_resolver.py`: Removed credential-bearing connection URLs from returned payloads, removed `"Tattly Threads"` demo fallbacks, enforced `companies` and `company_database_registries` lookup in `smritisys`, rejected empty/missing company context.
+- `backend/app/db/session.py`: Hardened `resolve_company_database_name` to fail closed if company context is missing or database is not in `READY` status; hardened `get_company_async_engine` to reject unverified/arbitrary database names.
+- `backend/app/api/deps.py`: Hardened `get_tenant_context` to reject missing tenant company context without defaulting.
+- `backend/app/services/control_database_registry.py`: Migrated active usage from `ControlCompanyDatabase` to canonical `CompanyDatabaseRegistry` and aligned `READY`/`ACTIVE` status.
+- `backend/app/db/company_router.py`: Replaced `ControlCompanyDatabase` import with canonical `CompanyDatabaseRegistry`.
+- `backend/tests/test_get_company_db_wiring.py`: Updated `test_resolve_company_database_name` to verify fail-closed behavior on `None` input.
+- `backend/tests/test_multi_company_database_architecture.py`: Updated assertion to check clean database metadata without exposed connection URLs.
 - `docs/walkthrough/README.md`: Appended new walkthrough to master chronological table.
 
 ---
@@ -50,8 +55,10 @@ Execute Milestone 1 of the SMRITI Master Architecture Blueprint v1.0: Canonicali
    - Company: `Company` (`companies` in `smritisys`)
    - User: `User` (`users` in `smritisys`)
    - Database Routing: `CompanyDatabaseRegistry` (`company_database_registries` in `smritisys`)
-3. **Fail-Closed Routing Boundary**:
+3. **Fail-Closed & Zero Credential Leaks**:
    - All tenant database requests must resolve strictly against verified entries in `companies` and `company_database_registries` with status `READY`.
+   - Application payloads return sanitized database references; raw credential strings or database connection URLs are never exposed.
+   - Missing or unverified company context fails closed immediately (`400 Bad Request` or `403 Forbidden`).
    - Zero hardcoded demo fallbacks or arbitrary database name inputs are permitted.
 
 ---
@@ -63,24 +70,31 @@ A controlled migration protects live business data and continuous uptime by esta
 
 ## 7. Implementation Summary
 - **Universal Resolver**: `CompanyDatabaseResolver` connects to `smritisys` and enforces:
-  1. Company registration in `companies` (where `is_active=true` and `is_deleted=false`).
-  2. User authorization in `user_company_assignments` (or `SYSADMIN` role).
-  3. Database entry in `company_database_registries` with status `READY`.
-  4. Database naming conformity: `^smriti(?!000)(?!SYS)[A-Z0-9]{3}$`.
-- **Session Layer**: `resolve_company_database_name` in `session.py` delegates to `smritisys` registry lookup and fails closed if unverified.
+  1. Mandatory non-empty company context (`400 Bad Request` on empty/missing).
+  2. Company registration in `companies` (where `is_active=true` and `is_deleted=false`).
+  3. User authorization in `user_company_assignments` (or `SYSADMIN` role).
+  4. Database entry in `company_database_registries` with status `READY`.
+  5. Database naming conformity: `^smriti(?!000)(?!SYS)[A-Z0-9]{3}$`.
+  6. Zero credential leakage: Payload returns metadata only (`database_name`, `company_name`, `status`, `schema_version`).
+- **Session Layer**: `resolve_company_database_name` and `get_company_async_engine` in `session.py` delegate to `smritisys` registry lookup, reject arbitrary database names, and fail closed if unverified.
 
 ---
 
 ## 8. Tests Executed
 1. `backend/tests/test_routing_boundary_canonical.py`:
    - `test_authorized_user_reaches_assigned_database` (Passed)
+   - `test_zero_credential_exposure_in_resolver_response` (Passed)
    - `test_unauthorized_user_access_rejected_403` (Passed)
+   - `test_normal_assigned_user_cross_company_isolation` (Passed)
+   - `test_missing_or_empty_company_context_rejected_400` (Passed)
    - `test_unregistered_company_rejected_with_zero_demo_fallback` (Passed)
    - `test_suspended_company_database_access_denied_403` (Passed)
    - `test_resolver_rejects_arbitrary_database_names` (Passed)
+   - `test_engine_cache_rejects_unregistered_arbitrary_database_names` (Passed)
    - `test_session_resolver_fails_closed_on_unregistered_company` (Passed)
+   - `test_session_resolver_fails_closed_on_missing_company_context` (Passed)
 2. Full Multi-Module Regression:
-   - 56/56 automated tests across Routing Boundary, Runtime Routing, Naming Conventions, Engine Pooling, Provisioning, Menu Governance, Security Access, and WMS Phases 1–4 passed in 23.25s.
+   - 61/61 automated tests across Routing Boundary, Runtime Routing, Naming Conventions, Engine Pooling, Provisioning, Menu Governance, Security Access, and WMS Phases 1–4 passed in 18.08s.
 
 ---
 
@@ -93,22 +107,22 @@ rootdir: F:\SMRITRretailNX\backend
 configfile: pyproject.toml
 plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 56 items
+collected 61 items
 
-backend\tests\test_routing_boundary_canonical.py ......                  [ 10%]
-backend\tests\test_company_db_runtime_routing.py .......                 [ 23%]
-backend\tests\test_company_db_naming_convention.py ......                [ 33%]
-backend\tests\test_get_company_db_wiring.py .....                        [ 42%]
-backend\tests\test_multi_company_database_architecture.py ......         [ 53%]
-backend\tests\test_company_db_provisioning.py .....                      [ 62%]
-backend\tests\test_menu_governance.py .                                  [ 64%]
-backend\tests\test_security_menu_access.py ..                            [ 67%]
-backend\tests\test_wms_phase1.py ....                                    [ 75%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 80%]
-backend\tests\test_wms_phase3_eway_bill.py .....                         [ 89%]
+backend\tests\test_routing_boundary_canonical.py ...........             [ 18%]
+backend\tests\test_company_db_runtime_routing.py .......                 [ 29%]
+backend\tests\test_company_db_naming_convention.py ......                [ 39%]
+backend\tests\test_get_company_db_wiring.py .....                        [ 47%]
+backend\tests\test_multi_company_database_architecture.py ......         [ 57%]
+backend\tests\test_company_db_provisioning.py .....                      [ 65%]
+backend\tests\test_menu_governance.py .                                  [ 67%]
+backend\tests\test_security_menu_access.py ..                            [ 70%]
+backend\tests\test_wms_phase1.py ....                                    [ 77%]
+backend\tests\test_wms_phase2_grn_sales.py ...                           [ 81%]
+backend\tests\test_wms_phase3_eway_bill.py .....                         [ 90%]
 backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
 
-======================= 56 passed, 1 warning in 23.25s ========================
+======================= 61 passed, 1 warning in 18.08s ========================
 ```
 
 ---

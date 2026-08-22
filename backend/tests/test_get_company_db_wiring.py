@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import text
 from app.db.session import (
     get_company_async_engine,
@@ -36,7 +37,9 @@ async def test_resolve_company_database_name():
     assert await resolve_company_database_name("001") == "smriti001"
     assert await resolve_company_database_name("COMP-002") == "smriti002"
     assert await resolve_company_database_name("COMP-003") == "smriti003"
-    assert await resolve_company_database_name(None) == "smriti001"
+    with pytest.raises(HTTPException) as exc_info:
+        await resolve_company_database_name(None)
+    assert exc_info.value.status_code == 400
 
 
 @pytest.mark.asyncio

@@ -136,11 +136,14 @@ async def get_tenant_context(
     header_branch = request.headers.get("x-branch-code") or request.headers.get("X-Branch-Code")
 
     target_company = header_company if header_company else current_user.company_id
-    if not target_company or target_company in ("001", "TATTLY", "comp-default", "tattly_threads", "default"):
-        target_company = "COMP-001"
+    if not target_company or not str(target_company).strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Tenant company context is required.",
+        )
     
     target_branch = header_branch if header_branch else current_user.branch_id
-    if not target_branch or target_branch in ("DEFAULT",):
+    if not target_branch or not str(target_branch).strip():
         target_branch = "BR-001"
 
     if current_user.role != UserRole.SYSADMIN:

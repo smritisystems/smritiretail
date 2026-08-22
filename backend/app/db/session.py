@@ -75,8 +75,17 @@ def get_company_async_engine(database_name: str, host: str = "localhost", port: 
     """
     Retrieves or creates a cached AsyncEngine for a specific company database.
     Prevents connection pool proliferation and resource exhaustion.
+    Rejects arbitrary or unverified database names.
     """
     db_clean = str(database_name).strip().lower()
+    if not db_clean:
+        raise ValueError("Database name is required.")
+
+    if db_clean != "smritisys":
+        pattern = r"^smriti(?!000)(?!sys)[a-z0-9]{3}$"
+        if not re.match(pattern, db_clean):
+            raise ValueError(f"Invalid or unauthorized company database name: '{database_name}'")
+
     if db_clean in _company_engines:
         return _company_engines[db_clean]
 
@@ -123,9 +132,15 @@ async def resolve_company_database_name(company_id_or_code: Optional[str]) -> st
     """
     Resolves the target company database name from company_id, company_code, or defaults.
     Queries company_database_registries in smritisys for authoritative routing.
-    Fails closed if the company is unverified, unregistered, or not in READY status.
+    Fails closed if the company context is missing, unverified, unregistered, or not in READY status.
     """
-    candidate = str(company_id_or_code).strip() if company_id_or_code else "COMP-001"
+    if not company_id_or_code or not str(company_id_or_code).strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Company context is required for database resolution."
+        )
+
+    candidate = str(company_id_or_code).strip()
 
     # Query authoritative registry in smritisys
     async with async_session() as ctrl_session:

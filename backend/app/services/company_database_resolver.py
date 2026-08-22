@@ -69,11 +69,19 @@ class CompanyDatabaseResolver:
     """
 
     @staticmethod
-    def resolve_company_database(user_id: str, company_id: str, company_code: str = "001", user_role: Optional[Any] = None) -> dict:
+    def resolve_company_database(user_id: str, company_id: str, company_code: Optional[str] = None, user_role: Optional[Any] = None) -> dict:
         """
         Resolves dynamic database routing for a given user and company_id.
-        Fails closed on unauthorized access, suspended company, or invalid database registry.
+        Fails closed on unauthorized access, suspended company, missing company_id, or invalid database registry.
+        Never returns credential-bearing connection URLs in application payload.
         """
+        if not company_id or not str(company_id).strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Company identifier is required for database resolution."
+            )
+
+        clean_company_id = str(company_id).strip()
 
         # 1. Connect READ-ONLY to Control Plane DB smritisys
         db_user = os.getenv("POSTGRES_USER") or "postgres"
@@ -93,7 +101,7 @@ class CompanyDatabaseResolver:
         try:
             # 2. Check if company exists in canonical companies table
             try:
-                cur.execute("SELECT is_active, name FROM companies WHERE id = %s AND (is_deleted = false OR is_deleted IS NULL);", (company_id,))
+                cur.execute("SELECT is_active, name FROM companies WHERE id = %s AND (is_deleted = false OR is_deleted IS NULL);", (clean_company_id,))
                 company_row = cur.fetchone()
             except Exception:
                 conn.rollback()
@@ -102,14 +110,14 @@ class CompanyDatabaseResolver:
             if not company_row:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Company '{company_id}' is unknown or not registered."
+                    detail=f"Company '{clean_company_id}' is unknown or not registered."
                 )
 
             is_active, company_name = company_row
             if not is_active:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Company '{company_id}' is inactive or suspended."
+                    detail=f"Company '{clean_company_id}' is inactive or suspended."
                 )
 
             # 3. Verify User Assignment to Company or SYSADMIN Role
@@ -140,7 +148,7 @@ class CompanyDatabaseResolver:
                     cur.execute("""
                         SELECT 1 FROM user_company_assignments 
                         WHERE user_id = %s AND company_id = %s AND (is_active = true OR is_active IS NULL) AND (is_deleted = false OR is_deleted IS NULL);
-                    """, (user_id, company_id))
+                    """, (user_id, clean_company_id))
                     row = cur.fetchone()
                     if row:
                         assigned = True
@@ -151,7 +159,7 @@ class CompanyDatabaseResolver:
             if not assigned:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"User '{user_id}' is not authorized to access Company '{company_id}'."
+                    detail=f"User '{user_id}' is not authorized to access Company '{clean_company_id}'."
                 )
 
             # 4. Resolve Company Database Registry Entry
@@ -160,7 +168,7 @@ class CompanyDatabaseResolver:
                     SELECT database_name, status, host_reference, port_reference, schema_version
                     FROM company_database_registries
                     WHERE company_id = %s;
-                """, (company_id,))
+                """, (clean_company_id,))
                 registry_row = cur.fetchone()
             except Exception:
                 conn.rollback()
@@ -169,7 +177,7 @@ class CompanyDatabaseResolver:
             if not registry_row:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Company Database registry entry for '{company_id}' not found. Access denied."
+                    detail=f"Company Database registry entry for '{clean_company_id}' not found. Access denied."
                 )
 
             target_db, db_status, host, port, version = registry_row
@@ -184,21 +192,26 @@ class CompanyDatabaseResolver:
             if db_status != "READY":
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Company Database for '{company_id}' is in status '{db_status}'. Access denied."
+                    detail=f"Company Database for '{clean_company_id}' is in status '{db_status}'. Access denied."
                 )
 
-            resolved_host = DB_HOST if host in ("localhost", "127.0.0.1", "db") else host
-            target_connection_url = f"postgresql://{db_user}:{db_pass}@{resolved_host}:{port or db_port}/{target_db}"
+            # Validate company_code if explicitly provided
+            derived_code = target_db[6:].upper() if target_db.startswith("smriti") else target_db.upper()
+            if company_code and str(company_code).strip().upper() != derived_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Company code mismatch: expected '{derived_code}', got '{company_code}'."
+                )
 
             return {
-                "company_id": company_id,
+                "company_id": clean_company_id,
+                "company_code": derived_code,
                 "company_name": company_name,
                 "database_name": target_db,
                 "database_status": db_status,
                 "host": host,
                 "port": port,
-                "schema_version": version,
-                "connection_url": target_connection_url
+                "schema_version": version
             }
 
         finally:
