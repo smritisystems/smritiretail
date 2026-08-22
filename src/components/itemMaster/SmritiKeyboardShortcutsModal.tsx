@@ -31,10 +31,11 @@ export const SmritiKeyboardShortcutsModal: React.FC<SmritiKeyboardShortcutsModal
       title: "Tab Navigation",
       items: [
         { key: "Alt + 1", desc: "Open View Configuration Tab" },
-        { key: "Alt + 2", desc: "Open Common Fields Setup Tab" },
-        { key: "Alt + 3", desc: "Open Item Details Entry Tab" },
-        { key: "Alt + 4", desc: "Open Bulk Paste / Import Studio" },
-        { key: "Alt + 5", desc: "Open Attributes Catalog" }
+        { key: "Alt + 2", desc: "Open Item Details Entry Tab" },
+        { key: "Alt + 3", desc: "Open Bulk Paste / Import Studio" },
+        { key: "Alt + 4", desc: "Open Attributes Catalog" },
+        { key: "Alt + 5", desc: "Open Image Path Config" },
+        { key: "Alt + 6", desc: "Open Variant Templates" }
       ]
     },
     {

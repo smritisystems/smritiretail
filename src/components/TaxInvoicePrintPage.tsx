@@ -344,9 +344,31 @@ export const TaxInvoicePrintPage: React.FC = () => {
     }
   };
 
+  const openAuthenticatedDocument = async (endpoint: string, autoPrint = false) => {
+    const printWindow = window.open("about:blank", "_blank");
+    try {
+      const documentData = await apiFetchV1(endpoint);
+      const documentBlob = documentData instanceof Blob
+        ? documentData
+        : new Blob([documentData], { type: "text/html" });
+      const documentUrl = URL.createObjectURL(documentBlob);
+      if (printWindow) {
+        printWindow.location.href = documentUrl;
+        if (autoPrint) {
+          printWindow.addEventListener("load", () => printWindow.print(), { once: true });
+        }
+      } else {
+        window.open(documentUrl, "_blank");
+      }
+    } catch (err: any) {
+      printWindow?.close();
+      setError(`SMRITI-DATA-002: Unable to open the invoice document. (${err?.message || "Verify authentication and backend connection"})`);
+    }
+  };
+
   const handlePrint = () => {
     if (activeInvoiceId) {
-      window.open(`/api/v1/sales/invoices/${activeInvoiceId}/print`, "_blank");
+      void openAuthenticatedDocument(`/sales/invoices/${encodeURIComponent(activeInvoiceId)}/print`, true);
     } else {
       window.print();
     }
@@ -354,7 +376,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
   const handleExportPDF = () => {
     if (activeInvoiceId) {
-      window.open(`/api/v1/sales/invoices/${activeInvoiceId}/download`, "_blank");
+      void openAuthenticatedDocument(`/sales/invoices/${encodeURIComponent(activeInvoiceId)}/download`);
     } else {
       window.print();
     }
@@ -362,7 +384,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
   const handleReprint = () => {
     if (activeInvoiceId) {
-      window.open(`/api/v1/sales/invoices/${activeInvoiceId}/reprint`, "_blank");
+      void openAuthenticatedDocument(`/sales/invoices/${encodeURIComponent(activeInvoiceId)}/reprint`);
     }
   };
 

@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { Product } from "../../types.ts";
 import { SmritiItemDetailsGrid } from "./SmritiItemDetailsGrid.tsx";
-import { SmritiCommonFieldsSetup, CommonFieldsData } from "./SmritiCommonFieldsSetup.tsx";
 import { SmritiViewConfiguration, ViewConfigState } from "./SmritiViewConfiguration.tsx";
 import { SmritiItemMasterStudio } from "./SmritiItemMasterStudio.tsx";
 import { SmritiAttributeManagementStudio } from "./SmritiAttributeManagementStudio.tsx";
@@ -40,7 +39,7 @@ interface SmritiItemMasterWorkspaceProps {
   onClose?: () => void;
 }
 
-type WorkspaceNavTab = "item_details" | "common_fields" | "view_config" | "imports" | "attributes" | "image_config" | "variants";
+type WorkspaceNavTab = "item_details" | "view_config" | "imports" | "attributes" | "image_config" | "variants";
 
 export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps> = ({
   products = [],
@@ -50,17 +49,6 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
   onClose
 }) => {
   const [activeNav, setActiveNav] = useState<WorkspaceNavTab>("item_details");
-  const [commonFields, setCommonFields] = useState<CommonFieldsData>({
-    category: "Footwear",
-    subCategory: "Formal",
-    brand: "SMRITI",
-    vendorCode: "VEND-101",
-    hsnCode: "6403",
-    gstPercentage: "18",
-    uom: "Pair",
-    purchaseClass: "A-Class",
-    department: "Men"
-  });
 
   const [viewConfig, setViewConfig] = useState<ViewConfigState>({
     viewMode: "grid",
@@ -83,16 +71,19 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
         setActiveNav("view_config");
       } else if (e.altKey && e.key === "2") {
         e.preventDefault();
-        setActiveNav("common_fields");
+        setActiveNav("item_details");
       } else if (e.altKey && e.key === "3") {
         e.preventDefault();
-        setActiveNav("item_details");
+        setActiveNav("imports");
       } else if (e.altKey && e.key === "4") {
         e.preventDefault();
-        setActiveNav("imports");
+        setActiveNav("attributes");
       } else if (e.altKey && e.key === "5") {
         e.preventDefault();
-        setActiveNav("attributes");
+        setActiveNav("image_config");
+      } else if (e.altKey && e.key === "6") {
+        e.preventDefault();
+        setActiveNav("variants");
       }
     };
     window.addEventListener("keydown", handleGlobalShortcuts);
@@ -128,19 +119,6 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
           >
             <Package size={17} />
             <span>Item Details</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveNav("common_fields")}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-              activeNav === "common_fields"
-                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
-                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
-            }`}
-          >
-            <Settings size={17} />
-            <span>Common Fields</span>
           </button>
 
           <button
@@ -266,23 +244,10 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
           {activeNav === "item_details" && (
             <SmritiItemDetailsGrid
               products={products}
-              commonFields={commonFields}
               viewConfig={viewConfig}
               onRefreshProducts={handleRefresh}
               onNotification={handleNotify}
               onNavigateToViewConfig={() => setActiveNav("view_config")}
-              onNavigateToCommonFields={() => setActiveNav("common_fields")}
-            />
-          )}
-
-          {activeNav === "common_fields" && (
-            <SmritiCommonFieldsSetup
-              initialValues={commonFields}
-              onSave={(values) => {
-                setCommonFields(values);
-                setActiveNav("item_details");
-              }}
-              onNotification={handleNotify}
             />
           )}
 

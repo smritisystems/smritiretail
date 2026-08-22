@@ -130,7 +130,9 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
         if (retryResponse.ok) {
           if (retryResponse.status === 204 || retryResponse.headers.get("content-length") === "0") return null;
           const ct = retryResponse.headers.get("content-type") || "";
-          return ct.includes("text/plain") ? retryResponse.text() : retryResponse.json();
+          if (ct.includes("text/plain") || ct.includes("text/html")) return retryResponse.text();
+          if (ct.includes("application/pdf") || ct.includes("application/octet-stream")) return retryResponse.blob();
+          return retryResponse.json();
         }
         // Retry failed after refresh — fall through to throw
       } catch { /* fall through */ }
@@ -158,6 +160,12 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("text/plain")) {
     return response.text();
+  }
+  if (contentType.includes("text/html")) {
+    return response.text();
+  }
+  if (contentType.includes("application/pdf") || contentType.includes("application/octet-stream")) {
+    return response.blob();
   }
 
   return response.json();

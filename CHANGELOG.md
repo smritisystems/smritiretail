@@ -28,6 +28,18 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.12.0] - 2026-08-22
+
+#### Inventory & Item Master — Decommissioning & Removal of "Common Fields Setup" Module
+- **Module Purge**: Permanently removed `SmritiCommonFieldsSetup.tsx` and `tabs/CommonFieldsTab.tsx`.
+- **Item Master Workspace Streamlining (`SmritiItemMasterWorkspace.tsx`)**:
+  - Removed "Common Fields" from the left navigation sidebar.
+  - Streamlined workflow directly to Item Details, View Configuration, Bulk Imports, Attributes Catalog, Image Path Config, and Variant Templates.
+  - Re-aligned global keyboard shortcuts (Alt+1 View Config, Alt+2 Item Details, Alt+3 Imports, Alt+4 Attributes, Alt+5 Image Config, Alt+6 Variants).
+- **Component Decoupling**:
+  - Decoupled `SmritiItemDetailsGrid.tsx` and `ItemMasterEntryView.tsx` from `CommonFieldsData` interface and props.
+  - Updated `SmritiKeyboardShortcutsModal.tsx` shortcut references.
+
 ### [6.11.0] - 2026-08-22
 
 #### POS & Inventory — Dual-Field Item Auto-Search, Auto-Population & 14+ Attribute Inspection

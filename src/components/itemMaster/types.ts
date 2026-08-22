@@ -65,7 +65,7 @@ export interface ItemMasterGridRow {
   [key: string]: any;
 }
 
-export type ItemMasterActiveSubTab = "view" | "common" | "details";
+export type ItemMasterActiveSubTab = "view" | "details";
 
 export const DEFAULT_MANDATORY_FIELDS: ItemMasterFieldDefinition[] = [
   { id: "stockNo", key: "stockNo", label: "Stock No", isMandatory: true, type: "text", width: "120px" },
