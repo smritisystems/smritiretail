@@ -153,6 +153,18 @@ async def amend_purchase_order_contract(
 # ─────────────────────────── Purchase Receipts (GRN) ───────────────────────────
 
 @router.post(
+    "/receipts",
+    response_model=PurchaseReceiptResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
+    "/receipts/",
+    response_model=PurchaseReceiptResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
     "/purchase-receipts/",
     response_model=PurchaseReceiptResponse,
     status_code=201,
@@ -176,6 +188,14 @@ async def create_purchase_receipt(
 
 
 @router.get(
+    "/receipts",
+    response_model=List[PurchaseReceiptResponse],
+)
+@router.get(
+    "/receipts/",
+    response_model=List[PurchaseReceiptResponse],
+)
+@router.get(
     "/purchase-receipts/",
     response_model=List[PurchaseReceiptResponse],
 )
@@ -188,6 +208,10 @@ async def list_purchase_receipts(
     return await service.list_purchase_receipts()
 
 
+@router.get(
+    "/receipts/{receipt_id}",
+    response_model=PurchaseReceiptResponse,
+)
 @router.get(
     "/purchase-receipts/{receipt_id}",
     response_model=PurchaseReceiptResponse,
