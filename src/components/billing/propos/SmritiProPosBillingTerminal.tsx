@@ -32,6 +32,7 @@ import { SmritiCustomerBrowseModal } from "./SmritiCustomerBrowseModal.tsx";
 import { SmritiProPosHotkeysModal } from "./SmritiProPosHotkeysModal.tsx";
 import { SmritiProPosReprintModal } from "./SmritiProPosReprintModal.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../../utils/gstEngine.ts";
 import { 
   Barcode, 
   Search, 
@@ -91,6 +92,17 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     creditLimit: 50000,
     currentBalance: 0
   });
+
+  const storeStateCode = "27"; // Maharashtra store default
+
+  const gstAnalysis = useMemo(() => {
+    return parseAndValidateGSTIN(customer.gstin);
+  }, [customer.gstin]);
+
+  const isB2B = Boolean(customer.gstin && gstAnalysis.isValid);
+  const posStateCode = gstAnalysis.stateCode || customer.stateCode || storeStateCode;
+  const posStateName = gstAnalysis.stateName || customer.state || GST_STATE_MAP[posStateCode] || "Home State";
+  const isInterstate = storeStateCode !== posStateCode;
 
   const [salesStaff, setSalesStaff] = useState<string>("SM1");
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
@@ -278,11 +290,33 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const totalQuantity = useMemo(() => cartItems.reduce((acc, it) => acc + it.qty, 0), [cartItems]);
   const grossSalesValue = useMemo(() => cartItems.reduce((acc, it) => acc + (it.qty * it.unitPrice), 0), [cartItems]);
   const itemDiscountsTotal = useMemo(() => cartItems.reduce((acc, it) => acc + it.discountAmt, 0), [cartItems]);
-  const totalTaxAmount = useMemo(() => cartItems.reduce((acc, it) => acc + (it.taxAmt * it.qty), 0), [cartItems]);
+  const totalTaxAmount = useMemo(() => {
+    return cartItems.reduce((acc, it) => {
+      const gst = calculateGST({
+        unitPrice: it.unitPrice,
+        quantity: it.qty,
+        discountAmount: it.discountAmt,
+        gstRate: it.taxPct || 5.00,
+        isTaxInclusive: it.isTaxInclusive ?? !isB2B,
+        isInterstate: isInterstate,
+      });
+      return acc + gst.taxAmount;
+    }, 0);
+  }, [cartItems, isB2B, isInterstate]);
   const netPayableAmount = useMemo(() => {
-    const raw = grossSalesValue - itemDiscountsTotal;
+    const raw = cartItems.reduce((acc, it) => {
+      const gst = calculateGST({
+        unitPrice: it.unitPrice,
+        quantity: it.qty,
+        discountAmount: it.discountAmt,
+        gstRate: it.taxPct || 5.00,
+        isTaxInclusive: it.isTaxInclusive ?? !isB2B,
+        isInterstate: isInterstate,
+      });
+      return acc + gst.totalAmount;
+    }, 0);
     return Math.round(raw * 100) / 100;
-  }, [grossSalesValue, itemDiscountsTotal]);
+  }, [cartItems, isB2B, isInterstate]);
 
   // Create New Bill (Alt+1)
   const handleNewBill = () => {
@@ -353,9 +387,16 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     const effDiscQ = getEffectiveDiscQty(directDiscQty, directQty);
     const discPct = parseFloat(directDiscPct) || 10.00;
     const discAmt = parseFloat(directDiscAmtInput) || ((rate * effDiscQ * discPct) / 100);
-    const taxable = (rate * qty) - discAmt;
-    const taxAmt = (taxable / qty) * 0.05;
     const staff = directStaff || salesStaff;
+
+    const gstCalc = calculateGST({
+      unitPrice: rate,
+      quantity: qty,
+      discountAmount: discAmt,
+      gstRate: 5.00,
+      isTaxInclusive: !isB2B,
+      isInterstate: isInterstate,
+    });
 
     const existingIndex = cartItems.findIndex(
       it => (it.sku === stockCode || it.barcode === stockCode) &&
@@ -372,12 +413,25 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         const newQty = cur.qty + qty;
         const newDiscQ = (cur.discQty || 0) + effDiscQ;
         const newDiscAmt = (cur.unitPrice * newDiscQ * cur.discountPct) / 100;
+        const updatedGst = calculateGST({
+          unitPrice: cur.unitPrice,
+          quantity: newQty,
+          discountAmount: newDiscAmt,
+          gstRate: cur.taxPct || 5.00,
+          isTaxInclusive: !isB2B,
+          isInterstate: isInterstate,
+        });
         next[existingIndex] = {
           ...cur,
           qty: newQty,
           discQty: newDiscQ,
           discountAmt: newDiscAmt,
-          lineTotal: (cur.unitPrice * newQty) - newDiscAmt
+          taxAmt: updatedGst.taxAmount,
+          taxableValue: updatedGst.taxableValue,
+          cgstAmount: updatedGst.cgstAmount,
+          sgstAmount: updatedGst.sgstAmount,
+          igstAmount: updatedGst.igstAmount,
+          lineTotal: updatedGst.totalAmount
         };
         return next;
       });
@@ -402,8 +456,13 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         discountPct: discPct,
         discountAmt: discAmt,
         taxPct: 5.00,
-        taxAmt: taxAmt,
-        lineTotal: (rate * qty) - discAmt
+        taxAmt: gstCalc.taxAmount,
+        taxableValue: gstCalc.taxableValue,
+        cgstAmount: gstCalc.cgstAmount,
+        sgstAmount: gstCalc.sgstAmount,
+        igstAmount: gstCalc.igstAmount,
+        isTaxInclusive: !isB2B,
+        lineTotal: gstCalc.totalAmount
       };
 
       setCartItems(prev => [...prev, newItem]);
@@ -839,6 +898,26 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               placeholder="Customer Name..."
               className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2.5 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
             />
+          </div>
+        </div>
+
+        {/* Live Tax Classification Badge */}
+        <div className="flex flex-col gap-1 w-44">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+            Tax Jurisdiction
+          </label>
+          <div className={`h-8 px-2 rounded-lg border flex items-center justify-between text-[11px] font-bold ${
+            isB2B
+              ? "bg-[#dde1ff] border-[#00288e] text-[#00288e] dark:bg-[#1e293b] dark:border-[#3b82f6] dark:text-[#93c5fd]"
+              : "bg-[#dcfce7] border-[#16a34a] text-[#15803d] dark:bg-[#064e3b] dark:border-[#10b981] dark:text-[#6ee7b7]"
+          }`}>
+            <span className="flex items-center gap-1">
+              <span className={`w-1.5 h-1.5 rounded-full ${isB2B ? "bg-[#00288e] dark:bg-[#60a5fa]" : "bg-[#16a34a] dark:bg-[#34d399]"}`} />
+              {isB2B ? "B2B" : "B2C"}
+            </span>
+            <span className="font-mono text-[10px]">
+              {isInterstate ? `IGST (${posStateCode})` : `CGST+SGST (${posStateCode})`}
+            </span>
           </div>
         </div>
 

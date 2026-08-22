@@ -31,6 +31,11 @@ export interface ProPosCartItem {
   discountAmt: number;
   taxPct: number;
   taxAmt: number;
+  taxableValue?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
+  isTaxInclusive?: boolean;
   hsnCode?: string;
   lineTotal: number;
 }
@@ -47,6 +52,9 @@ export interface ProPosCustomer {
   currentBalance?: number;
   address?: string;
   gstin?: string;
+  state?: string;
+  stateCode?: string;
+  registrationType?: "REGISTERED" | "UNREGISTERED";
 }
 
 export interface ProPosTenderSplit {

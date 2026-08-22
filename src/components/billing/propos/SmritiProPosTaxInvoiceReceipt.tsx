@@ -110,9 +110,14 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
               <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
             {customer && (
-              <div className="col-span-2 pt-1">
-                <span>Customer: </span>
-                <strong>{customer.name}</strong> ({customer.phone || customer.code})
+              <div className="col-span-2 pt-1 border-t border-dotted border-gray-300 mt-1">
+                <div><span>Customer: </span><strong>{customer.name}</strong> ({customer.phone || customer.code})</div>
+                {customer.gstin && (
+                  <div className="text-[10px] text-gray-700">
+                    <span>GSTIN: </span><strong className="font-mono">{customer.gstin}</strong>
+                    {customer.state && <span className="ml-2">| POS: {customer.state} ({customer.stateCode || customer.gstin.slice(0, 2)})</span>}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -132,7 +137,7 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
                 <tr key={it.id || idx}>
                   <td className="py-1.5 pr-1">
                     <div className="font-bold">{it.name}</div>
-                    <div className="text-[9px] text-gray-600">SKU: {it.sku} {it.size ? `| Size: ${it.size}` : ''}</div>
+                    <div className="text-[9px] text-gray-600">SKU: {it.sku} {it.hsnCode ? `| HSN: ${it.hsnCode}` : ''}</div>
                   </td>
                   <td className="py-1.5 text-center font-bold">{it.qty}</td>
                   <td className="py-1.5 text-right">{it.unitPrice.toFixed(2)}</td>
@@ -141,6 +146,22 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
               ))}
             </tbody>
           </table>
+
+          {/* Tax Breakdown Table */}
+          <div className="border-t border-dashed border-gray-400 pt-2 pb-1">
+            <div className="text-[10px] font-bold uppercase text-gray-600 mb-1">GST Tax Analysis:</div>
+            <div className="grid grid-cols-4 text-[10px] text-gray-700 bg-gray-50 p-1 rounded font-mono">
+              <span>Taxable: ₹{(subTotal - discountTotal - (customer?.gstin ? 0 : taxTotal)).toFixed(2)}</span>
+              {customer?.gstin && customer.stateCode && customer.stateCode !== "27" ? (
+                <span className="col-span-3 text-right">IGST: ₹{taxTotal.toFixed(2)}</span>
+              ) : (
+                <>
+                  <span className="text-center">CGST: ₹{(taxTotal / 2).toFixed(2)}</span>
+                  <span className="col-span-2 text-right">SGST: ₹{(taxTotal / 2).toFixed(2)}</span>
+                </>
+              )}
+            </div>
+          </div>
 
           {/* Totals Section */}
           <div className="border-t border-dashed border-gray-400 pt-2 space-y-1 text-[11px]">
@@ -155,7 +176,7 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
               </div>
             )}
             <div className="flex justify-between text-gray-700">
-              <span>GST / Taxes:</span>
+              <span>Total Tax:</span>
               <span>₹{taxTotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm font-bold border-t border-gray-400 pt-1 text-black">
