@@ -24,6 +24,7 @@ import {
   AutoPopulateProductResult 
 } from "../../services/autoPopulateService.ts";
 import { SmritiTypeaheadDropdown, TypeaheadOption } from "../common/SmritiTypeaheadDropdown.tsx";
+import { SmritiItemTypeaheadDropdown } from "../common/SmritiItemTypeaheadDropdown.tsx";
 import {
   BillingLineItem,
   BillType,
@@ -90,6 +91,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
 
   // Direct Entry Row (F11) State
   const [directEntry, setDirectEntry] = useState<{
+    barcode: string;
     stockNo: string;
     itemDescription: string;
     rate: string;
@@ -99,6 +101,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
     discPercent: string;
     staff: string;
   }>({
+    barcode: "",
     stockNo: "",
     itemDescription: "",
     rate: "",
@@ -151,9 +154,12 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
   // Direct Entry Product Auto-Populate Search
   const [showProductDropdown, setShowProductDropdown] = useState<boolean>(false);
   const [isProductSearching, setIsProductSearching] = useState<boolean>(false);
-  const [productSuggestions, setProductSuggestions] = useState<TypeaheadOption[]>([]);
+  const [productSuggestions, setProductSuggestions] = useState<AutoPopulateProductResult[]>([]);
   const [productSelectedIndex, setProductSelectedIndex] = useState<number>(0);
+  const [activeItemSearchField, setActiveItemSearchField] = useState<"stockNo" | "barcode">("stockNo");
+  const [selectedItemProductMeta, setSelectedItemProductMeta] = useState<AutoPopulateProductResult | null>(null);
   const productDebounceRef = useRef<any>(null);
+  const directBarcodeRef = useRef<HTMLInputElement>(null);
 
   const [showAddCustomerModal, setShowAddCustomerModal] = useState<boolean>(false);
   const [newCustName, setNewCustName] = useState<string>("");
@@ -350,18 +356,28 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
 
   const applyProductAutoPopulate = (p: AutoPopulateProductResult | Product) => {
     const rateVal = String((p as any).sellingPrice || (p as any).mrp || 0);
+    const stockVal = (p as any).stockNo || (p as any).styleCode || (p as any).style_code || p.code || "";
+    const barcodeVal = p.barcode || (p as any).code || "";
     setDirectEntry(prev => ({
       ...prev,
-      stockNo: p.code || (p as any).sku || "",
+      stockNo: stockVal,
+      barcode: barcodeVal,
       itemDescription: p.name || (p as any).itemDescription || "",
       rate: rateVal
     }));
+    setSelectedItemProductMeta(p as AutoPopulateProductResult);
     setShowProductDropdown(false);
   };
 
-  // Handle Direct Entry Stock No Change & Real-Time Auto-Population
-  const handleStockNoChange = (val: string) => {
-    setDirectEntry(prev => ({ ...prev, stockNo: val }));
+  // Handle Direct Entry Barcode or Stock No Change & Real-Time Auto-Population
+  const handleItemSearchChange = (val: string, fieldType: "stockNo" | "barcode") => {
+    setActiveItemSearchField(fieldType);
+    if (fieldType === "barcode") {
+      setDirectEntry(prev => ({ ...prev, barcode: val }));
+    } else {
+      setDirectEntry(prev => ({ ...prev, stockNo: val }));
+    }
+
     if (!val.trim()) {
       setShowProductDropdown(false);
       setProductSuggestions([]);
@@ -375,23 +391,16 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
     productDebounceRef.current = setTimeout(async () => {
       try {
         const results = await searchBackendProducts(val, products);
-        const options: TypeaheadOption[] = results.map(p => ({
-          id: p.id,
-          title: p.name,
-          subtitle: `Code: ${p.code} • Barcode: ${p.barcode || "N/A"} • ${p.category}`,
-          badge: `₹${p.sellingPrice.toFixed(2)}`,
-          badgeColor: "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-cyan-200",
-          iconType: "product",
-          metadata: p
-        }));
-        setProductSuggestions(options);
+        setProductSuggestions(results);
         setProductSelectedIndex(0);
 
         // Immediate exact match check
         const clean = val.trim().toLowerCase();
         const exact = results.find(p =>
           p.code.toLowerCase() === clean ||
+          p.stockNo?.toLowerCase() === clean ||
           (p.barcode && p.barcode.toLowerCase() === clean) ||
+          p.sku?.toLowerCase() === clean ||
           p.id.toLowerCase() === clean
         );
         if (exact) {
@@ -403,12 +412,50 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
     }, 120);
   };
 
+  // Keyboard navigation for Item Typeahead in Distributor Invoicing
+  const handleItemInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, fieldType: "stockNo" | "barcode") => {
+    if (showProductDropdown && productSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setProductSelectedIndex(prev => (prev + 1) % productSuggestions.length);
+        return;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setProductSelectedIndex(prev => (prev - 1 + productSuggestions.length) % productSuggestions.length);
+        return;
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const selected = productSuggestions[productSelectedIndex];
+        if (selected) {
+          applyProductAutoPopulate(selected);
+        } else {
+          handleCommitDirectEntry();
+        }
+        return;
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowProductDropdown(false);
+        return;
+      }
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleCommitDirectEntry();
+    }
+  };
+
   // Commit Direct Entry Item to Table
   const handleCommitDirectEntry = () => {
-    if (!directEntry.stockNo && !directEntry.itemDescription) return;
+    if (!directEntry.stockNo && !directEntry.barcode && !directEntry.itemDescription) return;
 
-    const matched = products.find(p => p.code === directEntry.stockNo || p.barcode === directEntry.stockNo);
-    const rate = directRateNum > 0 ? directRateNum : Number(matched?.sellingPrice || matched?.mrp || 0);
+    const matched = products.find(p => 
+      p.code === directEntry.stockNo || 
+      p.barcode === directEntry.barcode || 
+      p.barcode === directEntry.stockNo
+    ) || selectedItemProductMeta;
+
+    const rate = directRateNum > 0 ? directRateNum : Number((matched as any)?.sellingPrice || (matched as any)?.mrp || 0);
     const qty = directQtyNum > 0 ? directQtyNum : 1;
     const value = rate * qty;
     const discAmt = directDiscAmt;
@@ -417,9 +464,9 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
     const newLine: BillingLineItem = {
       id: "item-" + Date.now() + "-" + Math.random(),
       sNo: items.length + 1,
-      stockNo: directEntry.stockNo || matched?.code || "SKU-GEN",
-      barcode: matched?.barcode || directEntry.stockNo,
-      itemDescription: directEntry.itemDescription || matched?.name || "Item " + (items.length + 1),
+      stockNo: directEntry.stockNo || (matched as any)?.stockNo || (matched as any)?.code || "SKU-GEN",
+      barcode: directEntry.barcode || (matched as any)?.barcode || directEntry.stockNo,
+      itemDescription: directEntry.itemDescription || (matched as any)?.name || "Item " + (items.length + 1),
       rate,
       qty,
       value,
@@ -429,18 +476,19 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
       discAmt,
       total,
       salesStaff: directEntry.staff,
-      productId: matched?.id,
-      hsnCode: matched?.hsnCode,
-      gstPercentage: matched?.gstPercentage || 18,
-      taxAmount: (total * (matched?.gstPercentage || 18)) / 100,
-      brand: matched?.brand,
-      size: matched?.size
+      productId: (matched as any)?.id,
+      hsnCode: (matched as any)?.hsnCode,
+      gstPercentage: (matched as any)?.gstPercentage || 18,
+      taxAmount: (total * ((matched as any)?.gstPercentage || 18)) / 100,
+      brand: (matched as any)?.brand,
+      size: (matched as any)?.size
     };
 
     setItems(prev => [...prev, newLine]);
 
     // Reset direct entry row
     setDirectEntry({
+      barcode: "",
       stockNo: "",
       itemDescription: "",
       rate: "",
@@ -450,8 +498,14 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
       discPercent: "",
       staff: directEntry.staff
     });
+    setSelectedItemProductMeta(null);
+    setShowProductDropdown(false);
 
-    directStockNoRef.current?.focus();
+    if (activeItemSearchField === "barcode") {
+      directBarcodeRef.current?.focus();
+    } else {
+      directStockNoRef.current?.focus();
+    }
     onNotification?.("Item Added", `${newLine.itemDescription} added to invoice.`, "success");
   };
 
@@ -833,63 +887,100 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
         <section className="flex-1 bg-surface-container-lowest border border-outline-variant rounded flex flex-col overflow-hidden min-h-[300px] shadow-xs">
           
           {/* Direct Entry Row (F11) */}
-          <div className="bg-surface-container-low border-b border-outline-variant p-2 flex gap-2 items-center shrink-0">
-            <span className="font-label-caps text-[11px] text-on-surface-variant bg-surface-variant px-2 py-1 rounded w-10 text-center font-bold">
-              F11
-            </span>
-
-            <div className="flex-1 grid grid-cols-[100px_1fr_80px_80px_100px_80px_80px_80px_100px_120px_120px_40px] gap-2">
-              <div className="relative">
-                <input
-                  ref={directStockNoRef}
-                  type="text"
-                  value={directEntry.stockNo}
-                  onChange={e => handleStockNoChange(e.target.value)}
-                  onFocus={() => {
-                    if (productSuggestions.length > 0) setShowProductDropdown(true);
-                  }}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") {
-                      if (showProductDropdown && productSuggestions.length > 0) {
-                        e.preventDefault();
-                        const selected = productSuggestions[productSelectedIndex] || productSuggestions[0];
-                        if (selected?.metadata) applyProductAutoPopulate(selected.metadata);
-                      } else {
-                        handleCommitDirectEntry();
-                      }
-                    } else if (e.key === "ArrowDown") {
-                      if (showProductDropdown && productSuggestions.length > 0) {
-                        e.preventDefault();
-                        setProductSelectedIndex(prev => (prev + 1) % productSuggestions.length);
-                      }
-                    } else if (e.key === "ArrowUp") {
-                      if (showProductDropdown && productSuggestions.length > 0) {
-                        e.preventDefault();
-                        setProductSelectedIndex(prev => (prev - 1 + productSuggestions.length) % productSuggestions.length);
-                      }
-                    } else if (e.key === "Escape") {
-                      setShowProductDropdown(false);
-                    } else if (e.key === "F2") {
-                      setShowProductSearchModal(true);
-                    }
-                  }}
-                  placeholder="Stock No"
-                  className="border border-outline-variant h-8 w-full text-xs font-code-md rounded px-2 bg-surface font-bold focus:border-secondary outline-none"
-                />
-                <SmritiTypeaheadDropdown
-                  isOpen={showProductDropdown && (productSuggestions.length > 0 || isProductSearching)}
-                  options={productSuggestions}
-                  selectedIndex={productSelectedIndex}
-                  isLoading={isProductSearching}
-                  onSelect={(opt) => {
-                    if (opt.metadata) {
-                      applyProductAutoPopulate(opt.metadata);
-                    }
-                  }}
-                  onClose={() => setShowProductDropdown(false)}
-                  emptyMessage="No matching products found in database"
-                />
+          <div className="bg-surface-container-low border-b border-outline-variant p-2 flex flex-col gap-1.5 shrink-0 relative">
+            
+            {/* Multi-attribute quick inspector ribbon */}
+            {selectedItemProductMeta && (
+              <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded px-2.5 py-1 text-[11px] flex items-center justify-between text-blue-900 dark:text-cyan-200">
+                <div className="flex items-center gap-3 overflow-x-auto">
+                  <span><strong>Barcode:</strong> {selectedItemProductMeta.barcode}</span>
+                  <span>•</span>
+                  <span><strong>Stock/SKU:</strong> {selectedItemProductMeta.stockNo || selectedItemProductMeta.sku}</span>
+                  <span>•</span>
+                  <span><strong>Stock:</strong> {selectedItemProductMeta.stockQty} {selectedItemProductMeta.uom}</span>
+                  <span>•</span>
+                  <span><strong>MRP:</strong> ₹{selectedItemProductMeta.mrp.toFixed(2)}</span>
+                  <span>•</span>
+                  <span><strong>Cost:</strong> ₹{selectedItemProductMeta.costPrice.toFixed(2)}</span>
+                  <span>•</span>
+                  <span><strong>Size/Color:</strong> {selectedItemProductMeta.size}/{selectedItemProductMeta.color}</span>
+                  <span>•</span>
+                  <span><strong>Brand:</strong> {selectedItemProductMeta.brand}</span>
+                  <span>•</span>
+                  <span><strong>HSN:</strong> {selectedItemProductMeta.hsnCode} ({selectedItemProductMeta.gstPercentage}%)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedItemProductMeta(null)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs px-1"
+                >
+                  ✕
+                </button>
               </div>
+            )}
+
+            <div className="flex gap-2 items-center">
+              <span className="font-label-caps text-[11px] text-on-surface-variant bg-surface-variant px-2 py-1 rounded w-10 text-center font-bold">
+                F11
+              </span>
+
+              <div className="flex-1 grid grid-cols-[120px_110px_1fr_80px_70px_80px_70px_70px_70px_90px_100px_40px] gap-2">
+                
+                {/* Barcode Field */}
+                <div className="relative">
+                  <input
+                    ref={directBarcodeRef}
+                    type="text"
+                    value={directEntry.barcode}
+                    onChange={e => handleItemSearchChange(e.target.value, "barcode")}
+                    onFocus={() => {
+                      setActiveItemSearchField("barcode");
+                      if (productSuggestions.length > 0) setShowProductDropdown(true);
+                    }}
+                    onKeyDown={e => handleItemInputKeyDown(e, "barcode")}
+                    placeholder="Scan Barcode"
+                    className="border-2 border-blue-500/70 h-8 w-full text-xs font-code-md rounded px-2 bg-surface font-bold focus:border-secondary outline-none"
+                  />
+                  {activeItemSearchField === "barcode" && (
+                    <SmritiItemTypeaheadDropdown
+                      isOpen={showProductDropdown && (productSuggestions.length > 0 || isProductSearching)}
+                      items={productSuggestions}
+                      selectedIndex={productSelectedIndex}
+                      isLoading={isProductSearching}
+                      onSelect={(opt) => applyProductAutoPopulate(opt)}
+                      onClose={() => setShowProductDropdown(false)}
+                      searchFieldType="barcode"
+                    />
+                  )}
+                </div>
+
+                {/* Stock No Field */}
+                <div className="relative">
+                  <input
+                    ref={directStockNoRef}
+                    type="text"
+                    value={directEntry.stockNo}
+                    onChange={e => handleItemSearchChange(e.target.value, "stockNo")}
+                    onFocus={() => {
+                      setActiveItemSearchField("stockNo");
+                      if (productSuggestions.length > 0) setShowProductDropdown(true);
+                    }}
+                    onKeyDown={e => handleItemInputKeyDown(e, "stockNo")}
+                    placeholder="Stock No / SKU"
+                    className="border border-outline-variant h-8 w-full text-xs font-code-md rounded px-2 bg-surface font-bold focus:border-secondary outline-none"
+                  />
+                  {activeItemSearchField === "stockNo" && (
+                    <SmritiItemTypeaheadDropdown
+                      isOpen={showProductDropdown && (productSuggestions.length > 0 || isProductSearching)}
+                      items={productSuggestions}
+                      selectedIndex={productSelectedIndex}
+                      isLoading={isProductSearching}
+                      onSelect={(opt) => applyProductAutoPopulate(opt)}
+                      onClose={() => setShowProductDropdown(false)}
+                      searchFieldType="stockNo"
+                    />
+                  )}
+                </div>
 
               <input
                 type="text"

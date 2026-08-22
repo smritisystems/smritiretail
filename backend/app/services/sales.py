@@ -650,7 +650,11 @@ class SalesService:
             .where(
                 SalesInvoice.id         == invoice_id,
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
-                SalesInvoice.branch_id  == self.tenant_ctx.branch_id,
+                SalesInvoice.branch_id.in_(
+                    [self.tenant_ctx.branch_id, "BR-MAIN-001", "MAIN", "BR-001"]
+                    if self.tenant_ctx.branch_id in ("BR-MAIN-001", "MAIN", "BR-001")
+                    else [self.tenant_ctx.branch_id]
+                ),
                 SalesInvoice.is_deleted == False,
             )
         )
@@ -660,7 +664,8 @@ class SalesService:
 
         # Apply scalar patches
         for attr in ("status", "customer_id", "date", "is_interstate",
-                     "eway_bill_no", "invoice_no"):
+                     "eway_bill_no", "invoice_no", "customer_name",
+                     "customer_gstin", "pos_state"):
             val = getattr(update_in, attr)
             if val is not None:
                 setattr(invoice, attr, val)

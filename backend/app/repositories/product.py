@@ -43,11 +43,17 @@ class ProductRepository(BaseRepository[Product]):
         stmt = select(Product).filter(Product.is_deleted == False)
         stmt = self._apply_tenant_filter(stmt)
         if q:
+            term = f"%{q.strip()}%"
             stmt = stmt.filter(
-                (Product.name.ilike(f"%{q}%")) |
-                (Product.code.ilike(f"%{q}%")) |
-                (Product.barcode.ilike(f"%{q}%")) |
-                (cast(Product.attributes, String).ilike(f"%{q}%"))
+                (Product.name.ilike(term)) |
+                (Product.code.ilike(term)) |
+                (Product.barcode.ilike(term)) |
+                (Product.sku.ilike(term)) |
+                (Product.style_code.ilike(term)) |
+                (Product.brand.ilike(term)) |
+                (Product.category.ilike(term)) |
+                (Product.hsn_code.ilike(term)) |
+                (cast(Product.attributes, String).ilike(term))
             )
         if category:
             stmt = stmt.filter(Product.category == category)

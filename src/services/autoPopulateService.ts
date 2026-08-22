@@ -41,21 +41,33 @@ export interface AutoPopulateCustomerResult {
 
 export interface AutoPopulateProductResult {
   id: string;
-  code: string;
+  // Key Identifiers
   barcode: string;
+  stockNo: string;
+  code: string;
+  sku: string;
   name: string;
   description: string;
-  sellingPrice: number;
+
+  // Initial 5–7 Important Related Details
   mrp: number;
+  sellingPrice: number;
   costPrice: number;
-  gstPercentage: number;
-  hsnCode: string;
-  category: string;
-  brand?: string;
+  stockQty: number;
   size?: string;
   color?: string;
+  gstPercentage: number;
+
+  // Additional 5–7 Relevant Item Details
+  brand?: string;
+  category: string;
+  hsnCode: string;
+  pricingMode?: string;
+  trackingMode?: string;
+  weightGrams?: number;
+  primaryImageUrl?: string;
+  secondaryBarcodes?: string[];
   uom: string;
-  stockQty?: number;
 }
 
 export interface AutoPopulateHsnResult {
@@ -151,7 +163,7 @@ function enrichCustomersWithPriceGroups(customers: any[]): AutoPopulateCustomerR
 }
 
 /**
- * Searches products/items from backend or local catalog as user types stock no, barcode, or name.
+ * Searches products/items from backend or local catalog as user types stock no, barcode, code, or sku.
  */
 export async function searchBackendProducts(query: string, localProducts: Product[] = []): Promise<AutoPopulateProductResult[]> {
   const cleanQ = query.trim();
@@ -168,6 +180,9 @@ export async function searchBackendProducts(query: string, localProducts: Produc
   const localMatched = localProducts.filter(p =>
     p.code?.toLowerCase().includes(lowerQ) ||
     p.barcode?.toLowerCase().includes(lowerQ) ||
+    p.sku?.toLowerCase().includes(lowerQ) ||
+    (p as any).style_code?.toLowerCase().includes(lowerQ) ||
+    (p as any).styleCode?.toLowerCase().includes(lowerQ) ||
     p.name?.toLowerCase().includes(lowerQ) ||
     p.category?.toLowerCase().includes(lowerQ) ||
     p.brand?.toLowerCase().includes(lowerQ)
@@ -195,23 +210,37 @@ export async function searchBackendProducts(query: string, localProducts: Produc
 }
 
 function mapToProductResult(p: any): AutoPopulateProductResult {
+  const stockNo = p.stockNo || p.styleCode || p.style_code || p.code || "";
+  const barcode = p.barcode || p.code || "";
+  const sku = p.sku || p.code || barcode;
+  const code = p.code || sku;
+  const name = p.name || p.itemDescription || p.description || "Product Item";
+  const desc = p.description || p.name || name;
+
   return {
     id: p.id || p.code,
-    code: p.code || p.sku || "",
-    barcode: p.barcode || p.code || "",
-    name: p.name || p.itemDescription || "Product Item",
-    description: p.description || p.name || "",
+    barcode,
+    stockNo,
+    code,
+    sku,
+    name,
+    description: desc,
     sellingPrice: Number(p.sellingPrice || p.price || p.rate || p.mrp || 0),
-    mrp: Number(p.mrp || p.sellingPrice || 0),
-    costPrice: Number(p.costPrice || p.purchasePrice || 0),
-    gstPercentage: Number(p.gstPercentage || p.gstRate || 18),
-    hsnCode: p.hsnCode || p.hsn || "6203",
-    category: p.category || "Apparel",
-    brand: p.brand,
-    size: p.size,
-    color: p.color,
-    uom: p.uom || "Pcs",
-    stockQty: Number(p.stockQty || p.stock || 0)
+    mrp: Number(p.mrp || p.sellingPrice || p.price || 0),
+    costPrice: Number(p.costPrice || p.cost_price || p.purchasePrice || 0),
+    stockQty: Number(p.stockQty || p.stock || p.availableStock || 0),
+    size: p.size || "Standard",
+    color: p.color || "Standard",
+    gstPercentage: Number(p.gstPercentage || p.gst_percentage || p.gstRate || 18),
+    brand: p.brand || "SMRITI",
+    category: p.category || "General",
+    hsnCode: p.hsnCode || p.hsn_code || "6203",
+    pricingMode: p.pricingMode || p.pricing_mode || "Fixed",
+    trackingMode: p.trackingMode || p.tracking_mode || "Standard",
+    weightGrams: Number(p.weightGrams || p.weight_grams || 0),
+    primaryImageUrl: p.primaryImageUrl || p.primary_image_url || p.imageUrl || undefined,
+    secondaryBarcodes: p.secondaryBarcodes || p.secondary_barcodes || [],
+    uom: p.uom || "Pcs"
   };
 }
 
