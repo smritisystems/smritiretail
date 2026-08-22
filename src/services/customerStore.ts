@@ -294,7 +294,8 @@ export const initialCustomers: Customer[] = [
     tags: ["Franchise", "Premium"],
   },
   {
-    id: "CUST-005",
+    id: "cust-rrl-192b561d",
+    code: "CUST-005",
     customerGroupId: "CG-LargeRetail",
     name: "Reliance Retail",
     mobile: "9822334455",

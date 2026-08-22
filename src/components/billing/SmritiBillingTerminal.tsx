@@ -164,15 +164,16 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
   const fetchCustomers = async () => {
     try {
       const res = await apiFetchV1("/customers");
-      if (res && Array.isArray(res) && res.length > 0) {
+      if (Array.isArray(res)) {
         setCustomers(res);
+        saveCustomers(res);
         return;
       }
     } catch {
       // Offline fallback
     }
     const local = getCustomers();
-    setCustomers(local && local.length > 0 ? local : initialCustomers);
+    setCustomers(local || []);
   };
 
   const handleSelectCustomer = (c: Customer | null) => {

@@ -43,7 +43,7 @@ class CustomerGroupBase(BaseModel):
     can_receive_discount: Optional[bool] = True
 
 class CustomerGroupCreate(CustomerGroupBase):
-    id: str = Field(..., max_length=50)
+    id: Optional[str] = Field(None, max_length=50)
 
 class CustomerGroupUpdate(BaseModel):
     name: Optional[str] = None
@@ -97,7 +97,7 @@ class CustomerBase(BaseModel):
     tags: List[str] = []
 
 class CustomerCreate(CustomerBase):
-    id: str = Field(..., max_length=50)
+    id: Optional[str] = Field(None, max_length=50)
 
 class CustomerUpdate(BaseModel):
     customer_group_id: Optional[str] = None
