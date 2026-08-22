@@ -274,3 +274,100 @@ async def test_sales_invoice_eway_bill_generation(async_db: AsyncSession, tenant
         if custom_customer_created and cust_id:
             await async_db.execute(text("DELETE FROM customers WHERE id = :cid"), {"cid": cust_id})
         await async_db.commit()
+
+
+@pytest.mark.asyncio
+async def test_strict_statutory_validation_rejections(async_db: AsyncSession, tenant_ctx: TenantContext):
+    """
+    Test that strict_validation=True properly rejects:
+    1. Products without valid HSN code (raises HTTP 422 SMRITI-STAT-002)
+    2. Road transport transfers without vehicle numbers (raises HTTP 422 SMRITI-STAT-004)
+    """
+    from fastapi import HTTPException
+    unique_suffix = uuid.uuid4().hex[:8]
+    prod_id = f"prod-nohsn-{unique_suffix}"
+    transfer_id = f"st-strict-{unique_suffix}"
+    transfer_no = f"STO-STRICT-{unique_suffix.upper()}"
+
+    try:
+        # 1. Insert product WITHOUT HSN code
+        product = Product(
+            id=prod_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            name=f"No-HSN Item {unique_suffix}",
+            code=f"NOHSN-{unique_suffix.upper()}",
+            sku=f"SKU-NOHSN-{unique_suffix.upper()}",
+            category="Appliances",
+            barcode=f"BAR-{unique_suffix.upper()}",
+            stock=10,
+            hsn_code=None, # Missing HSN
+            cost_price=1000.0,
+            price=1500.0,
+            gst_percentage=18.0
+        )
+        async_db.add(product)
+
+        # 2. Insert Stock Transfer without vehicle number
+        transfer = StockTransfer(
+            id=transfer_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            transfer_no=transfer_no,
+            source_warehouse_id="wh-central-001",
+            dest_warehouse_id="wh-shop-001",
+            status="DRAFT",
+            transporter_name=None,
+            vehicle_number=None, # Missing Vehicle Number
+            lr_number=None,
+        )
+        async_db.add(transfer)
+
+        # 3. Add Item
+        item = StockTransferItem(
+            id=f"sti-strict-{unique_suffix}",
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            transfer_id=transfer_id,
+            product_id=prod_id,
+            batch_no=f"BATCH-STRICT-{unique_suffix.upper()}",
+            quantity_dispatched=5.0,
+            unit_cost=1000.0
+        )
+        async_db.add(item)
+        await async_db.commit()
+
+        service = EWayBillService(async_db, tenant_ctx)
+
+        # Case A: Strict mode on missing vehicle number -> HTTPException 422
+        with pytest.raises(HTTPException) as exc_vehicle:
+            await service.generate_transfer_eway_bill_payload(
+                transfer_id=transfer_id,
+                trans_mode="1",
+                strict_validation=True
+            )
+        assert exc_vehicle.value.status_code == 422
+        assert "SMRITI-STAT-004" in exc_vehicle.value.detail
+
+        # Now fix vehicle number and assert missing HSN is rejected
+        transfer.vehicle_number = "MH-04-AB-9999"
+        await async_db.commit()
+
+        with pytest.raises(HTTPException) as exc_hsn:
+            await service.generate_transfer_eway_bill_payload(
+                transfer_id=transfer_id,
+                trans_mode="1",
+                strict_validation=True
+            )
+        assert exc_hsn.value.status_code == 422
+        assert "SMRITI-STAT-002" in exc_hsn.value.detail
+
+    finally:
+        await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
+        await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
+        await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        await async_db.commit()
+
