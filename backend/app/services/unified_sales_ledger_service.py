@@ -24,6 +24,7 @@ from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement, ProductBatchStock
 from ..models.crm import Customer
 from ..models.party import Party
+from .outbox_service import OutboxService
 
 
 def _quantize_currency(val: float | Decimal) -> Decimal:
@@ -198,6 +199,27 @@ class UnifiedSalesLedgerService:
         for smv_obj in stock_movements:
             session.add(smv_obj)
 
+        # 7. Stage Canonical Outbox Event atomically in the same transaction
+        await OutboxService.record_event(
+            session=session,
+            target_channel="SALES_INVOICE_PUBLISH",
+            payload={
+                "invoice_id": invoice_id,
+                "invoice_no": clean_inv_no,
+                "customer_id": customer_id,
+                "grand_total": float(grand_total),
+                "is_interstate": is_interstate,
+                "status": "Confirmed"
+            },
+            correlation_id=f"corr_inv_{invoice_id}",
+            causation_id=invoice_id,
+            event_type="SALES_INVOICE_CONFIRMED",
+            aggregate_type="SALES_INVOICE",
+            aggregate_id=invoice_id,
+            company_id=company_id,
+            branch_id=branch_id
+        )
+
         await session.commit()
         session.expire_all()
 
@@ -280,6 +302,26 @@ class UnifiedSalesLedgerService:
 
         inv_id = invoice.id
         invoice.status = "Cancelled"
+
+        # Stage Canonical Outbox Event for Cancellation in same transaction
+        await OutboxService.record_event(
+            session=session,
+            target_channel="SALES_INVOICE_PUBLISH",
+            payload={
+                "invoice_id": invoice.id,
+                "invoice_no": clean_inv_no,
+                "status": "Cancelled",
+                "reason": reason
+            },
+            correlation_id=f"corr_cancel_{invoice.id}",
+            causation_id=invoice.id,
+            event_type="SALES_INVOICE_CANCELLED",
+            aggregate_type="SALES_INVOICE",
+            aggregate_id=invoice.id,
+            company_id=company_id,
+            branch_id=branch_id
+        )
+
         await session.commit()
         session.expire_all()
 

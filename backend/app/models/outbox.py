@@ -44,6 +44,9 @@ class IntegrationOutboxEvent(Base):
     status = Column(String(30), nullable=False, default="PENDING", index=True)
     retry_count = Column(Integer, nullable=False, default=0)
     error_message = Column(Text, nullable=True)
+    last_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    next_attempt_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    claim_expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     dispatched_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -54,6 +57,7 @@ class IntegrationOutboxEvent(Base):
     __table_args__ = (
         Index("idx_outbox_channel_status", "target_channel", "status"),
         Index("idx_outbox_aggregate", "aggregate_type", "aggregate_id"),
+        Index("idx_outbox_retry_schedule", "status", "next_attempt_at"),
     )
 
 

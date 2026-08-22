@@ -18,24 +18,68 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import uuid
 import pytest
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from sqlalchemy import select, delete
 from app.db.session import get_company_sessionmaker
 from app.services.unified_outbox_analytics_service import UnifiedOutboxAnalyticsService
+from app.services.unified_sales_ledger_service import UnifiedSalesLedgerService
 from app.services.outbox_service import OutboxService
 from app.models.outbox import IntegrationOutboxEvent, OutboxEvent
-from app.models.sales import SalesInvoice
+from app.models.sales import SalesInvoice, SalesInvoiceItem
+from app.models.inventory import Product, StockMovement
+from app.models.crm import Customer
 
 
 @pytest.fixture(autouse=True)
 async def cleanup_outbox_test_data():
-    """Clean up test outbox events and test sales invoices before and after tests."""
+    """Clean up test outbox events, sales invoices, stock movements, and test products before and after tests."""
     for db in ["smriti001", "smriti002"]:
         session_factory = get_company_sessionmaker(db)
         async with session_factory() as session:
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.aggregate_id.like("TEST-%")))
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.correlation_id.like("TEST-%")))
+            await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.target_channel.like("TEST_%")))
+            await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%TEST-OUTBOX%")))
+            await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-OUTBOX-%")))
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-ATOMIC-%")))
+
+            # Ensure test customer exists
+            cust = (await session.execute(
+                select(Customer).where(Customer.id == "cust_outbox_test_01")
+            )).scalar_one_or_none()
+            if not cust:
+                session.add(Customer(
+                    id="cust_outbox_test_01",
+                    company_id="COMP-001",
+                    code="CUST-OBX-01",
+                    name="Outbox Test Customer",
+                    mobile="9820099887",
+                    status="Active",
+                    is_active=True,
+                    is_deleted=False
+                ))
+
+            # Ensure test product exists
+            prod = (await session.execute(
+                select(Product).where(Product.id == "prod_outbox_test_01")
+            )).scalar_one_or_none()
+            if not prod:
+                session.add(Product(
+                    id="prod_outbox_test_01",
+                    company_id="COMP-001",
+                    code="PROD-OBX-01",
+                    name="Outbox Test SKU",
+                    category="General",
+                    price=500.00,
+                    mrp=600.00,
+                    barcode="8901234567890",
+                    cost_price=300.00,
+                    stock=100,
+                    is_active=True,
+                    is_deleted=False
+                ))
+
             await session.commit()
     yield
     for db in ["smriti001", "smriti002"]:
@@ -43,60 +87,90 @@ async def cleanup_outbox_test_data():
         async with session_factory() as session:
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.aggregate_id.like("TEST-%")))
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.correlation_id.like("TEST-%")))
+            await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.target_channel.like("TEST_%")))
+            await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%TEST-OUTBOX%")))
+            await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-OUTBOX-%")))
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-ATOMIC-%")))
             await session.commit()
 
 
 @pytest.mark.asyncio
-async def test_real_domain_transaction_outbox_atomicity():
-    """Verify that domain entities and outbox events are written and committed in the exact same transaction."""
+async def test_real_domain_service_sales_invoice_outbox_atomicity():
+    """Verify that UnifiedSalesLedgerService.post_sales_invoice atomically writes invoice and outbox event."""
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
-        # 1. Create a business domain record
-        inv = SalesInvoice(
-            id=f"inv_{uuid.uuid4().hex[:12]}",
-            company_id="COMP-001",
-            branch_id="BR-001",
-            customer_id="cust_sales_test_01",
-            invoice_no="INV-TEST-ATOMIC-001",
-            customer_name="Atomic Customer",
-            tax_total=Decimal("180.00"),
-            grand_total=Decimal("1180.00"),
-            status="CONFIRMED"
-        )
-        session.add(inv)
-
-        # 2. Record outbox event via OutboxService in the SAME transaction (without committing yet)
-        outbox_evt = await OutboxService.record_event(
+        inv = await UnifiedSalesLedgerService.post_sales_invoice(
             session=session,
-            target_channel="SALES_INVOICE_PUBLISH",
-            payload={"invoice_id": inv.id, "grand_total": 1180.00, "customer": "Atomic Customer"},
-            correlation_id="TEST-CORR-001",
-            causation_id=inv.id,
-            event_type="SALES_INVOICE_CONFIRMED",
-            aggregate_type="SALES_INVOICE",
-            aggregate_id=inv.id,
-            company_id="COMP-001"
+            company_id="COMP-001",
+            invoice_no="INV-TEST-OUTBOX-001",
+            customer_id="cust_outbox_test_01",
+            items_data=[{
+                "product_id": "prod_outbox_test_01",
+                "code": "PROD-OBX-01",
+                "name": "Outbox Test SKU",
+                "quantity": 2,
+                "price": 500.00,
+                "gst_rate": 18.0
+            }]
         )
 
-        # 3. Single atomic commit
-        await session.commit()
+        assert inv is not None
+        assert inv.invoice_no == "INV-TEST-OUTBOX-001"
+        assert inv.grand_total == Decimal("1180.00")
 
-        # 4. Verify both exist in database
-        saved_inv = (await session.execute(
-            select(SalesInvoice).where(SalesInvoice.invoice_no == "INV-TEST-ATOMIC-001")
+        # Verify Canonical Outbox Event was staged and committed in the SAME transaction
+        outbox_evt = (await session.execute(
+            select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.aggregate_id == inv.id)
         )).scalar_one()
-        assert saved_inv is not None
-        assert saved_inv.grand_total == Decimal("1180.00")
 
-        saved_evt = (await session.execute(
-            select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.outbox_id == outbox_evt.outbox_id)
+        assert outbox_evt is not None
+        assert outbox_evt.status == "PENDING"
+        assert outbox_evt.event_type == "SALES_INVOICE_CONFIRMED"
+        assert outbox_evt.target_channel == "SALES_INVOICE_PUBLISH"
+        assert outbox_evt.payload_json["invoice_no"] == "INV-TEST-OUTBOX-001"
+        assert outbox_evt.payload_json["grand_total"] == 1180.00
+
+
+@pytest.mark.asyncio
+async def test_real_domain_service_sales_invoice_cancellation_outbox_atomicity():
+    """Verify that UnifiedSalesLedgerService.cancel_sales_invoice atomically stages cancellation outbox event."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        inv = await UnifiedSalesLedgerService.post_sales_invoice(
+            session=session,
+            company_id="COMP-001",
+            invoice_no="INV-TEST-OUTBOX-002",
+            customer_id="cust_outbox_test_01",
+            items_data=[{
+                "product_id": "prod_outbox_test_01",
+                "code": "PROD-OBX-01",
+                "name": "Outbox Test SKU",
+                "quantity": 1,
+                "price": 500.00,
+                "gst_rate": 18.0
+            }]
+        )
+
+        # Cancel the invoice
+        cancelled = await UnifiedSalesLedgerService.cancel_sales_invoice(
+            session=session,
+            company_id="COMP-001",
+            invoice_no="INV-TEST-OUTBOX-002",
+            reason="Customer cancelled order"
+        )
+        assert cancelled.status == "Cancelled"
+
+        # Verify cancellation event in outbox
+        cancel_evt = (await session.execute(
+            select(IntegrationOutboxEvent).where(
+                IntegrationOutboxEvent.aggregate_id == inv.id,
+                IntegrationOutboxEvent.event_type == "SALES_INVOICE_CANCELLED"
+            )
         )).scalar_one()
-        assert saved_evt is not None
-        assert saved_evt.status == "PENDING"
-        assert saved_evt.aggregate_id == inv.id
-        assert saved_evt.target_channel == "SALES_INVOICE_PUBLISH"
-        assert saved_evt.payload_json["grand_total"] == 1180.00
+
+        assert cancel_evt is not None
+        assert cancel_evt.status == "PENDING"
+        assert cancel_evt.payload_json["reason"] == "Customer cancelled order"
 
 
 @pytest.mark.asyncio
@@ -110,7 +184,7 @@ async def test_outbox_transaction_rollback_guarantee():
                 id=f"inv_{uuid.uuid4().hex[:12]}",
                 company_id="COMP-001",
                 branch_id="BR-001",
-                customer_id="cust_sales_test_01",
+                customer_id="cust_outbox_test_01",
                 invoice_no="INV-TEST-ATOMIC-ROLLBACK",
                 customer_name="Rollback Customer",
                 tax_total=Decimal("90.00"),
@@ -146,10 +220,9 @@ async def test_outbox_transaction_rollback_guarantee():
         assert evt_check is None, "Failed transaction must not leave orphaned outbox record!"
 
 
-
 @pytest.mark.asyncio
-async def test_outbox_dispatcher_with_external_adapter_and_retry_backoff():
-    """Verify outbox dispatcher executes external adapter callback, increments retries on failure, and moves to DLQ."""
+async def test_outbox_dispatcher_two_phase_claim_and_retry_backoff():
+    """Verify two-phase non-blocking claim, external callback dispatch, and exponential retry backoff."""
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
         # 1. Stage an event that will succeed
@@ -187,10 +260,12 @@ async def test_outbox_dispatcher_with_external_adapter_and_retry_backoff():
             limit=10,
             dispatcher_callback=mock_publisher,
             max_retries=3,
-            target_channel="TEST_DISPATCH_CHANNEL"
+            target_channel="TEST_DISPATCH_CHANNEL",
+            base_backoff_seconds=2
         )
 
-        assert res["dispatched_count"] >= 1
+        assert res["dispatched_count"] == 1
+        assert res["failed_count"] == 1
         assert evt_success.outbox_id in res["dispatched_event_ids"]
         assert evt_fail.outbox_id in res["failed_event_ids"]
 
@@ -206,7 +281,37 @@ async def test_outbox_dispatcher_with_external_adapter_and_retry_backoff():
         )).scalar_one()
         assert saved_fail.status == "FAILED"
         assert saved_fail.retry_count == 1
+        assert saved_fail.next_attempt_at is not None
         assert "503" in saved_fail.error_message
+
+        # 5. Immediate second dispatch poll must SKIP the failed event because next_attempt_at is in the future
+        res2 = await UnifiedOutboxAnalyticsService.dispatch_pending_outbox_events(
+            session=session,
+            limit=10,
+            dispatcher_callback=mock_publisher,
+            max_retries=3,
+            target_channel="TEST_DISPATCH_CHANNEL"
+        )
+        assert res2["dispatched_count"] == 0
+        assert res2["failed_count"] == 0
+
+        # 6. Simulate arrival of next_attempt_at by setting it to the past
+        saved_fail.next_attempt_at = datetime.now(timezone.utc) - timedelta(seconds=10)
+        await session.commit()
+
+        # Now mock publisher succeeds on retry
+        async def mock_publisher_retry_success(evt):
+            published_events.append(evt.outbox_id)
+
+        res3 = await UnifiedOutboxAnalyticsService.dispatch_pending_outbox_events(
+            session=session,
+            limit=10,
+            dispatcher_callback=mock_publisher_retry_success,
+            max_retries=3,
+            target_channel="TEST_DISPATCH_CHANNEL"
+        )
+        assert res3["dispatched_count"] == 1
+        assert evt_fail.outbox_id in res3["dispatched_event_ids"]
 
 
 @pytest.mark.asyncio
@@ -231,7 +336,7 @@ async def test_outbox_dead_letter_queue_transition():
         async def failing_publisher(evt):
             raise TimeoutError("Gateway Timeout")
 
-        # Dispatch with max_retries = 3 for TEST_DLQ_CHANNEL -> Should transition to DEAD_LETTER
+        # Dispatch with max_retries = 3 -> Should transition to DEAD_LETTER
         res = await UnifiedOutboxAnalyticsService.dispatch_pending_outbox_events(
             session=session,
             limit=10,
@@ -249,6 +354,18 @@ async def test_outbox_dead_letter_queue_transition():
         assert dlq_evt.status == "DEAD_LETTER"
         assert dlq_evt.retry_count == 3
 
+
+@pytest.mark.asyncio
+async def test_outbox_dispatcher_rejects_missing_callback():
+    """Verify dispatcher rejects invocation with missing callback to prevent false positive dispatch."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        with pytest.raises(ValueError, match="No dispatcher_callback configured"):
+            await UnifiedOutboxAnalyticsService.dispatch_pending_outbox_events(
+                session=session,
+                limit=10,
+                dispatcher_callback=None
+            )
 
 
 @pytest.mark.asyncio
@@ -292,3 +409,4 @@ async def test_outbox_and_analytics_tenant_isolation():
         stmt = select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.aggregate_id == "TEST-APR-99")
         leaked = (await s2.execute(stmt)).scalar_one_or_none()
         assert leaked is None, "IntegrationOutboxEvent from smriti001 must not leak into smriti002!"
+

@@ -57,10 +57,13 @@ Consolidating existing disparate outbox references into a unified model eliminat
 ---
 
 ## 7. Implementation Summary
-- **Transactional Staging**:
-  - `OutboxService.record_event()` and `stage_outbox_event()` register `IntegrationOutboxEvent` instances in `PENDING` state within the caller's active database transaction without premature commit.
-- **Locked Batch Dispatching & DLQ**:
-  - `dispatch_pending_outbox_events()` grabs batches of events with `with_for_update(skip_locked=True)`, executes external publisher callbacks, increments `retry_count` on failure, and transitions to `DEAD_LETTER` once `retry_count >= max_retries`.
+- **Real Domain Service Transactional Staging**:
+  - `UnifiedSalesLedgerService.post_sales_invoice()` and `UnifiedSalesLedgerService.cancel_sales_invoice()` automatically stage canonical `IntegrationOutboxEvent` instances in `PENDING` state via `OutboxService.record_event()` in the active database transaction prior to commit.
+- **Two-Phase Non-Blocking Batch Dispatching & DLQ**:
+  - **Phase 1 (Claim Batch)**: Selects eligible events (`PENDING`, retryable `FAILED` where `next_attempt_at <= now`, or expired `PROCESSING` claims) with `with_for_update(skip_locked=True)`, transitions status to `PROCESSING` with `claim_expires_at`, and commits immediately, releasing row locks.
+  - **Phase 2 (Publish)**: Executes `dispatcher_callback` outside database locks, preventing connection exhaustion and contention.
+  - **Phase 3 (Settle)**: Records `DISPATCHED` on success. On failure, increments `retry_count`, calculates exponential backoff (`next_attempt_at`), and transitions to `DEAD_LETTER` if `retry_count >= max_retries`.
+  - Rejects execution if `dispatcher_callback` is missing to prevent false-positive dispatch acknowledgments.
 - **Authoritative Operational KPI Service**:
   - `get_authoritative_operational_summary()` performs real-time SQL aggregations over confirmed invoices, payments, stock movements, and pending outbox queues.
 
@@ -68,14 +71,16 @@ Consolidating existing disparate outbox references into a unified model eliminat
 
 ## 8. Tests Executed
 1. `backend/tests/test_unified_outbox_analytics.py`:
-   - `test_real_domain_transaction_outbox_atomicity` (Passed)
+   - `test_real_domain_service_sales_invoice_outbox_atomicity` (Passed)
+   - `test_real_domain_service_sales_invoice_cancellation_outbox_atomicity` (Passed)
    - `test_outbox_transaction_rollback_guarantee` (Passed)
-   - `test_outbox_dispatcher_with_external_adapter_and_retry_backoff` (Passed)
+   - `test_outbox_dispatcher_two_phase_claim_and_retry_backoff` (Passed)
    - `test_outbox_dead_letter_queue_transition` (Passed)
+   - `test_outbox_dispatcher_rejects_missing_callback` (Passed)
    - `test_authoritative_operational_analytics_summary` (Passed)
    - `test_outbox_and_analytics_tenant_isolation` (Passed)
-2. Platform Regression Suite (41 tests):
-   - 41/41 automated tests passed in 26.24s across Routing Boundary, Universal Party/Item Masters, Sales/POS Ledger, Pricing/Payments, Approvals/Communicator, Capabilities/Workspaces, and Consolidated Outbox/Analytics.
+2. Focused Platform Test Suite (43 tests):
+   - 43/43 focused platform tests passed in 29.52s across Routing Boundary, Universal Party/Item Masters, Sales/POS Ledger, Pricing/Payments, Approvals/Communicator, Capabilities/Workspaces, and Consolidated Outbox/Analytics.
 
 ---
 
@@ -83,23 +88,24 @@ Consolidating existing disparate outbox references into a unified model eliminat
 
 ```text
 ============================= test session starts =============================
-platform win32 -- Python 3.13.11, pytest-9.1.1, pluggy-1.6.0
+platform win32 -- Python 3.13.11, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\netma\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
 rootdir: F:\SMRITRretailNX\backend
 configfile: pyproject.toml
 plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 41 items
+collecting ... collected 43 items
 
-tests/test_routing_boundary_canonical.py .............                  [ 31%]
-tests/test_universal_party_master.py ...                                [ 39%]
-tests/test_universal_item_master.py ...                                 [ 46%]
-tests/test_unified_sales_ledger.py ....                                 [ 56%]
-tests/test_unified_pricing_payment_engine.py ....                       [ 65%]
-tests/test_unified_approval_communicator.py ....                        [ 75%]
-tests/test_unified_workspace_capability.py ....                         [ 85%]
-tests/test_unified_outbox_analytics.py ......                           [100%]
+tests/test_routing_boundary_canonical.py .............                  [ 30%]
+tests/test_universal_party_master.py ...                                [ 37%]
+tests/test_universal_item_master.py ...                                 [ 44%]
+tests/test_unified_sales_ledger.py ....                                 [ 53%]
+tests/test_unified_pricing_payment_engine.py ....                       [ 62%]
+tests/test_unified_approval_communicator.py ....                        [ 72%]
+tests/test_unified_workspace_capability.py ....                         [ 81%]
+tests/test_unified_outbox_analytics.py ........                         [100%]
 
-============================= 41 passed in 26.24s =============================
+============================= 43 passed in 29.52s =============================
 ```
 
 ---
@@ -111,7 +117,7 @@ tests/test_unified_outbox_analytics.py ......                           [100%]
 
 ## 11. Future Work
 - Decoupled event consumption streaming into analytics read-replicas.
-- External webhook retry scheduling daemon.
+- External webhook retry scheduling background worker.
 
 ---
 
