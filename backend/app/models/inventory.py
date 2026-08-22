@@ -252,3 +252,49 @@ class StockTransferItem(BaseEntity):
 
     transfer = relationship("StockTransfer", back_populates="items")
 
+
+class StockAudit(BaseEntity):
+    __tablename__ = "stock_audits"
+
+    audit_no = Column(String(100), nullable=False)
+    warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False)
+    audit_date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    status = Column(String(30), nullable=False, default="DRAFT")  # DRAFT, IN_PROGRESS, COMPLETED, CANCELLED
+    audit_type = Column(String(30), nullable=False, default="CYCLE_COUNT")  # FULL, CYCLE_COUNT, SPOT_CHECK
+    notes = Column(Text, nullable=True)
+    reconciled_at = Column(DateTime(timezone=True), nullable=True)
+    reconciled_by = Column(String(100), nullable=True)
+
+    warehouse = relationship("Warehouse")
+    items = relationship("StockAuditItem", back_populates="audit", cascade="all, delete-orphan", lazy="selectin")
+
+    __table_args__ = (
+        Index(
+            "uq_company_audit_no_active",
+            "company_id",
+            "audit_no",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
+    )
+
+
+class StockAuditItem(BaseEntity):
+    __tablename__ = "stock_audit_items"
+
+    audit_id = Column(String(50), ForeignKey("stock_audits.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    batch_no = Column(String(100), nullable=False)
+    system_qty = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    counted_qty = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    variance_qty = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    unit_cost = Column(Numeric(15, 2), nullable=False, default=0.00)
+    variance_value = Column(Numeric(15, 2), nullable=False, default=0.00)
+    discrepancy_reason = Column(String(50), nullable=True)  # DAMAGED, EXPIRED, THEFT_LOSS, SURPLUS_FOUND, COUNTING_ERROR
+    is_reconciled = Column(Boolean, nullable=False, default=False)
+    notes = Column(Text, nullable=True)
+
+    audit = relationship("StockAudit", back_populates="items")
+    product = relationship("Product")
+
+

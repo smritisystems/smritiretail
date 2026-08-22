@@ -30,6 +30,23 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### [6.16.0] - 2026-08-22
 
+#### Warehouse & Logistics — WMS Phase 4: Physical Inventory Audit, Stock Discrepancy Reconciliation & Barcode Batch Counting
+- **Stock Audit Domain & Baseline Snapshotting Engine (`stock_audit_service.py`, `inventory.py`)**:
+  - Implemented `StockAudit` and `StockAuditItem` models in PostgreSQL (`smriti001` and `smritisys`) with scoped unique indexes.
+  - Snapshotting engine captures baseline on-hand batch quantities (`system_qty`), ensuring mathematical variance stability during counts without locking godown operations.
+- **Rapid Barcode Scanner Batch Counting (`POST /wms/audits/{id}/scan`)**:
+  - Auto-resolves scanned barcodes / SKUs to product batch lines and increments physical count (+1.0 or custom quantity) in real time.
+  - Automatically identifies unlisted items in warehouse and adds them as surplus lines (`SURPLUS_FOUND`).
+- **Variance Analysis & Statutory Loss Attribution**:
+  - Dynamic computation of `variance_qty = counted_qty - system_qty` and `variance_value`.
+  - Attribution reasons: `DAMAGED`, `EXPIRED`, `THEFT_LOSS`, `SURPLUS_FOUND`, `COUNTING_ERROR`.
+- **Atomic Ledger Reconciliation & Product Cache Sync**:
+  - Finalizing audit mutates `ProductBatchStock` quantities, generates audit ledger records in `StockMovement` (`OUTWARD_LOSS` / `INWARD_SURPLUS`), and resynchronizes aggregate `products.stock`.
+- **WMS Studio UI Workstation (`WmsStudioTab.tsx`)**:
+  - First-class "Stock Audit & Recon" sub-tab featuring godown audit creation, real-time barcode scanner input, color-coded variance grid, KPI cards, and 1-click ledger reconciliation.
+- **Verification & Test Coverage**:
+  - Added automated test suite `test_wms_phase4_audit_reconciliation.py` (4 tests) and live HTTP smoke test `smoke_test_wms_phase4.py` (7 steps). Full 19/19 multi-module pytest suite passed in 9.14s.
+
 #### Security & Access Control — Security Management: Menu Access Control & Security Configuration
 - **Menu Access Control Workspace (`SmritiMenuAccessControlView.tsx`)**:
   - Unified User / Group / Node selector with browsing and company-wise scoping.

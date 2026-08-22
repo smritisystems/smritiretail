@@ -151,3 +151,61 @@ class StockTransferResponse(BaseModel):
     created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Stock Audit Schemas ---
+class StockAuditItemResponse(BaseModel):
+    id: str
+    audit_id: str
+    product_id: str
+    batch_no: str
+    system_qty: Decimal
+    counted_qty: Decimal
+    variance_qty: Decimal
+    unit_cost: Decimal
+    variance_value: Decimal
+    discrepancy_reason: Optional[str] = None
+    is_reconciled: bool
+    notes: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StockAuditCreate(BaseModel):
+    warehouse_id: str
+    audit_type: str = "CYCLE_COUNT"
+    notes: Optional[str] = None
+
+
+class StockAuditCountItemRequest(BaseModel):
+    item_id: str
+    counted_qty: Decimal
+    discrepancy_reason: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class StockAuditBulkCountRequest(BaseModel):
+    counts: List[StockAuditCountItemRequest]
+
+
+class StockAuditBarcodeScanRequest(BaseModel):
+    barcode_or_sku: str
+    qty_increment: Optional[Decimal] = Decimal("1.0000")
+    batch_no: Optional[str] = None
+
+
+class StockAuditResponse(BaseModel):
+    id: str
+    audit_no: str
+    warehouse_id: str
+    audit_date: datetime
+    status: str
+    audit_type: str
+    notes: Optional[str] = None
+    reconciled_at: Optional[datetime] = None
+    reconciled_by: Optional[str] = None
+    items: List[StockAuditItemResponse] = []
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
