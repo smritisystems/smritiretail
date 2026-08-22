@@ -1068,14 +1068,15 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                 <option value="Staff B">Staff B</option>
               </select>
 
-              <button
-                type="button"
-                onClick={handleCommitDirectEntry}
-                className="h-8 bg-primary hover:bg-primary-container text-on-primary rounded flex items-center justify-center shadow-2xs"
-                title="Add Item (Enter)"
-              >
-                <Plus size={16} />
-              </button>
+                <button
+                  type="button"
+                  onClick={handleCommitDirectEntry}
+                  className="h-8 bg-primary hover:bg-primary-container text-on-primary rounded flex items-center justify-center shadow-2xs"
+                  title="Add Item (Enter)"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
             </div>
           </div>
 
