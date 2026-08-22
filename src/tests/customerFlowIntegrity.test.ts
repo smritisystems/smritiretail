@@ -86,6 +86,7 @@ describe("SMRITI — Customer Flow & Tenant Integrity Tests", () => {
   // TEST 1: Preserve Invoice-Linked Customer IDs
   it("TEST 1: should preserve all invoice-linked canonical IDs in customer master", () => {
     const canonicalIds = [
+      "CUST-WALKIN",
       "CUST-001",
       "CUST-002",
       "CUST-003",

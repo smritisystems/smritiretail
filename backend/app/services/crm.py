@@ -136,30 +136,40 @@ class CrmService:
         res = await self.db.execute(stmt)
         customer = res.scalars().first()
         if not customer:
+            if customer_id == "CUST-WALKIN":
+                return True
             raise HTTPException(status_code=404, detail="Customer not found")
         
         group_stmt = select(CustomerGroup).filter(
             CustomerGroup.id == customer.customer_group_id,
             CustomerGroup.is_deleted == False,
-            CustomerGroup.company_id == self.tenant_ctx.company_id,
-            CustomerGroup.branch_id == self.tenant_ctx.branch_id
         )
+        if self.tenant_ctx.company_id:
+            group_stmt = group_stmt.filter(
+                (CustomerGroup.company_id == self.tenant_ctx.company_id) | (CustomerGroup.company_id.is_(None))
+            )
         group_res = await self.db.execute(group_stmt)
         group = group_res.scalars().first()
         if not group:
             return True # No group limits
             
-        if group.unlimited_credit:
+        if getattr(group, "credit_hold", False):
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-CREDIT-002: Customer account is on credit hold. Invoicing blocked."
+            )
+
+        if getattr(group, "unlimited_credit", False):
             return True
             
         # Assert outstanding + new purchase is within limit
-        limit = float(group.credit_limit)
+        limit = float(getattr(group, "credit_limit", 0.0) or 0.0)
         current_outstanding = float(customer.outstanding or 0.0)
-        if current_outstanding + new_amount > limit:
-            if group.auto_block_sales:
+        if limit > 0 and (current_outstanding + new_amount > limit):
+            if getattr(group, "auto_block_sales", True):
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"Credit limit exceeded. Limit: {limit}, Current Outstanding: {current_outstanding}"
+                    detail=f"SMRITI-CREDIT-001: Customer credit limit of ₹{limit:,.2f} exceeded. Current Balance: ₹{current_outstanding:,.2f}, New Invoice: ₹{new_amount:,.2f}. Sales blocked."
                 )
             return False # Limit warning
         return True

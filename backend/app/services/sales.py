@@ -98,21 +98,26 @@ class SalesService:
                 company_state_code = extracted_comp_state
 
         # Resolve customer details & Place of Supply (POS)
+        resolved_customer_id = invoice_in.customer_id or "CUST-WALKIN"
         customer_gstin = invoice_in.customer_gstin
         customer_name = invoice_in.customer_name
         pos_state_name = invoice_in.pos_state
         pos_state_code = None
 
-        if invoice_in.customer_id:
+        if resolved_customer_id:
             try:
-                cust_res = await self.crm_service.get_customer(invoice_in.customer_id)
+                cust_res = await self.crm_service.get_customer(resolved_customer_id)
                 if cust_res:
                     if not customer_gstin:
                         customer_gstin = getattr(cust_res, "gst_number", None)
                     if not customer_name:
                         customer_name = getattr(cust_res, "name", None)
             except Exception:
-                pass
+                if resolved_customer_id == "CUST-WALKIN" and not customer_name:
+                    customer_name = "Walk-In / Cash Customer"
+
+        if not customer_name and resolved_customer_id == "CUST-WALKIN":
+            customer_name = "Walk-In / Cash Customer"
 
         is_registered_b2b = False
         if customer_gstin:
@@ -191,16 +196,16 @@ class SalesService:
             )
             invoice_items.append(db_item)
 
-        # 2. Check customer credit limit
-        if invoice_in.customer_id:
-            await self.crm_service.check_credit_limit(invoice_in.customer_id, float(calculated_grand_total))
+        # 2. Check customer credit limit & policy
+        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN":
+            await self.crm_service.check_credit_limit(resolved_customer_id, float(calculated_grand_total))
 
         # 3. Save Sales Invoice & items
         db_invoice = SalesInvoice(
             id=invoice_id,
             invoice_no=invoice_no,
             date=invoice_in.date,
-            customer_id=invoice_in.customer_id,
+            customer_id=resolved_customer_id,
             customer_name=customer_name,
             customer_gstin=customer_gstin,
             pos_state=pos_state_name,

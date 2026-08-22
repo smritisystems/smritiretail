@@ -135,6 +135,18 @@ CANONICAL_CUSTOMER_GROUPS = [
 
 CANONICAL_CUSTOMERS = [
     {
+        "id": "CUST-WALKIN",
+        "code": "CUST-WALKIN",
+        "customer_group_id": "CG-Retail",
+        "name": "Walk-In / Cash Customer",
+        "mobile": "9999999999",
+        "email": "cash@smritiretail.com",
+        "outstanding": Decimal("0.00"),
+        "status": "Active",
+        "created_date": date(2026, 7, 10),
+        "tags": ["Walk-In", "Cash", "B2C"],
+    },
+    {
         "id": "CUST-001",
         "code": "CUST-001",
         "customer_group_id": "CG-Retail",
