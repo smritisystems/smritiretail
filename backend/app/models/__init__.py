@@ -103,5 +103,13 @@ from .numbering import (
     NumberingAuditLog,
 )
 
-
-
+# Canonical Approval & Communicator Models (Slice 5)
+from .approval import (
+    ApprovalPolicy,
+    ApprovalRequest,
+    ApprovalAction,
+)
+from .communicator import (
+    CommunicatorTemplate,
+    CommunicatorLog,
+)
