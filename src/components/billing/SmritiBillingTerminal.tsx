@@ -17,6 +17,13 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Product, Customer, POSProfile, Shift } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { getCustomers, initialCustomers } from "../../services/customerStore.ts";
+import { 
+  searchBackendCustomers, 
+  searchBackendProducts, 
+  AutoPopulateCustomerResult, 
+  AutoPopulateProductResult 
+} from "../../services/autoPopulateService.ts";
+import { SmritiTypeaheadDropdown, TypeaheadOption } from "../common/SmritiTypeaheadDropdown.tsx";
 import {
   BillingLineItem,
   BillType,
@@ -128,7 +135,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
     }
   ]);
 
-  // Customers State & Customer Modals
+  // Customers State & Auto-Populate Search
   const [customers, setCustomers] = useState<Customer[]>(() => {
     if (initialCustomersProp && initialCustomersProp.length > 0) return initialCustomersProp;
     const local = getCustomers();
@@ -136,6 +143,18 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
   });
   const [customerSearchInput, setCustomerSearchInput] = useState<string>("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
+  const [isCustomerSearching, setIsCustomerSearching] = useState<boolean>(false);
+  const [customerSuggestions, setCustomerSuggestions] = useState<TypeaheadOption[]>([]);
+  const [customerSelectedIndex, setCustomerSelectedIndex] = useState<number>(0);
+  const customerDebounceRef = useRef<any>(null);
+
+  // Direct Entry Product Auto-Populate Search
+  const [showProductDropdown, setShowProductDropdown] = useState<boolean>(false);
+  const [isProductSearching, setIsProductSearching] = useState<boolean>(false);
+  const [productSuggestions, setProductSuggestions] = useState<TypeaheadOption[]>([]);
+  const [productSelectedIndex, setProductSelectedIndex] = useState<number>(0);
+  const productDebounceRef = useRef<any>(null);
+
   const [showAddCustomerModal, setShowAddCustomerModal] = useState<boolean>(false);
   const [newCustName, setNewCustName] = useState<string>("");
   const [newCustMobile, setNewCustMobile] = useState<string>("");
@@ -184,27 +203,70 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
     setShowCustomerDropdown(false);
   };
 
+  const applyCustomerAutoPopulate = (r: AutoPopulateCustomerResult | Customer) => {
+    const custObj: Customer = {
+      id: r.id,
+      name: r.name,
+      mobile: (r as any).mobile || (r as any).phone || "",
+      gstNumber: (r as any).gstNumber || (r as any).gst_number,
+      customerGroupId: (r as any).customerGroupId || (r as any).customer_group_id || "CG-Retail",
+      status: (r as any).status || "Active"
+    };
+
+    setHeaderState(prev => ({
+      ...prev,
+      customer: custObj,
+      transaction: (r as any).allowCreditInvoice !== false ? prev.transaction : "Cash"
+    }));
+
+    setCustomerSearchInput(r.name);
+    setShowCustomerDropdown(false);
+    onNotification?.("Customer Auto-Populated", `Auto-populated ${r.name} from backend.`, "info");
+  };
+
   const handleCustomerSearchChange = (val: string) => {
     setCustomerSearchInput(val);
     setShowCustomerDropdown(true);
 
     if (!val.trim()) {
       setHeaderState(prev => ({ ...prev, customer: null }));
+      setCustomerSuggestions([]);
       return;
     }
 
-    const lower = val.trim().toLowerCase();
-    const exact = customers.find(c =>
-      c.name?.toLowerCase() === lower ||
-      (c.mobile && c.mobile === val.trim()) ||
-      c.id?.toLowerCase() === lower ||
-      (c.code && c.code.toLowerCase() === lower) ||
-      ((c as any).phone && (c as any).phone === val.trim())
-    );
+    if (customerDebounceRef.current) clearTimeout(customerDebounceRef.current);
+    setIsCustomerSearching(true);
 
-    if (exact) {
-      setHeaderState(prev => ({ ...prev, customer: exact }));
-    }
+    customerDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchBackendCustomers(val);
+        const options: TypeaheadOption[] = results.map(r => ({
+          id: r.id,
+          title: r.name,
+          subtitle: `${r.mobile || "No Mobile"} • ${r.customerGroupId || "CG-Retail"}`,
+          badge: r.outstanding > 0 ? `Bal: ₹${r.outstanding}` : "Clear",
+          badgeColor: r.outstanding > 0 ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+          iconType: "customer",
+          metadata: r
+        }));
+        setCustomerSuggestions(options);
+        setCustomerSelectedIndex(0);
+
+        // Immediate exact match check
+        const clean = val.trim().toLowerCase();
+        const exact = results.find(r =>
+          r.name.toLowerCase() === clean ||
+          r.mobile === val.trim() ||
+          r.id.toLowerCase() === clean ||
+          r.code.toLowerCase() === clean
+        );
+        if (exact) {
+          applyCustomerAutoPopulate(exact);
+        }
+      } finally {
+        setIsCustomerSearching(false);
+      }
+    }, 150);
   };
 
   // Keyboard Shortcuts Listener
@@ -286,18 +348,59 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
     };
   }, [items, transporterRows, addonRows]);
 
-  // Handle Direct Entry Stock No Change & Autocomplete
+  const applyProductAutoPopulate = (p: AutoPopulateProductResult | Product) => {
+    const rateVal = String((p as any).sellingPrice || (p as any).mrp || 0);
+    setDirectEntry(prev => ({
+      ...prev,
+      stockNo: p.code || (p as any).sku || "",
+      itemDescription: p.name || (p as any).itemDescription || "",
+      rate: rateVal
+    }));
+    setShowProductDropdown(false);
+  };
+
+  // Handle Direct Entry Stock No Change & Real-Time Auto-Population
   const handleStockNoChange = (val: string) => {
     setDirectEntry(prev => ({ ...prev, stockNo: val }));
-    const matched = products.find(p => p.code === val || p.barcode === val || p.id === val);
-    if (matched) {
-      setDirectEntry(prev => ({
-        ...prev,
-        stockNo: matched.code,
-        itemDescription: matched.name,
-        rate: String(matched.sellingPrice || matched.mrp || 0)
-      }));
+    if (!val.trim()) {
+      setShowProductDropdown(false);
+      setProductSuggestions([]);
+      return;
     }
+
+    setShowProductDropdown(true);
+    if (productDebounceRef.current) clearTimeout(productDebounceRef.current);
+    setIsProductSearching(true);
+
+    productDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchBackendProducts(val, products);
+        const options: TypeaheadOption[] = results.map(p => ({
+          id: p.id,
+          title: p.name,
+          subtitle: `Code: ${p.code} • Barcode: ${p.barcode || "N/A"} • ${p.category}`,
+          badge: `₹${p.sellingPrice.toFixed(2)}`,
+          badgeColor: "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-cyan-200",
+          iconType: "product",
+          metadata: p
+        }));
+        setProductSuggestions(options);
+        setProductSelectedIndex(0);
+
+        // Immediate exact match check
+        const clean = val.trim().toLowerCase();
+        const exact = results.find(p =>
+          p.code.toLowerCase() === clean ||
+          (p.barcode && p.barcode.toLowerCase() === clean) ||
+          p.id.toLowerCase() === clean
+        );
+        if (exact) {
+          applyProductAutoPopulate(exact);
+        }
+      } finally {
+        setIsProductSearching(false);
+      }
+    }, 120);
   };
 
   // Commit Direct Entry Item to Table
@@ -646,8 +749,21 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                     onKeyDown={e => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        if (filteredCustomers.length > 0) {
+                        if (customerSuggestions.length > 0) {
+                          const selected = customerSuggestions[customerSelectedIndex] || customerSuggestions[0];
+                          if (selected?.metadata) applyCustomerAutoPopulate(selected.metadata);
+                        } else if (filteredCustomers.length > 0) {
                           handleSelectCustomer(filteredCustomers[0]);
+                        }
+                      } else if (e.key === "ArrowDown") {
+                        if (customerSuggestions.length > 0) {
+                          e.preventDefault();
+                          setCustomerSelectedIndex(prev => (prev + 1) % customerSuggestions.length);
+                        }
+                      } else if (e.key === "ArrowUp") {
+                        if (customerSuggestions.length > 0) {
+                          e.preventDefault();
+                          setCustomerSelectedIndex(prev => (prev - 1 + customerSuggestions.length) % customerSuggestions.length);
                         }
                       } else if (e.key === "Escape") {
                         setShowCustomerDropdown(false);
@@ -658,28 +774,20 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                   />
                   <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                   
-                  {/* Customer Autocomplete Dropdown */}
-                  {showCustomerDropdown && filteredCustomers.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-surface-container-lowest border border-outline-variant rounded-md shadow-xl z-40 max-h-48 overflow-y-auto">
-                      {filteredCustomers.map(c => (
-                        <div
-                          key={c.id}
-                          onClick={() => handleSelectCustomer(c)}
-                          className="px-3 py-2 hover:bg-secondary-fixed/50 cursor-pointer border-b border-outline-variant/30 text-xs flex justify-between items-center"
-                        >
-                          <div>
-                            <p className="font-bold text-primary">{c.name}</p>
-                            <p className="text-[10px] text-on-surface-variant font-code-md">{c.mobile || (c as any).phone || "No Mobile"} • {c.id || c.code}</p>
-                          </div>
-                          {c.gstNumber && (
-                            <span className="font-code-md text-[10px] bg-surface-container-high px-1.5 py-0.5 rounded">
-                              {c.gstNumber}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/* Real-Time Backend Customer Typeahead Dropdown */}
+                  <SmritiTypeaheadDropdown
+                    isOpen={showCustomerDropdown && (customerSuggestions.length > 0 || isCustomerSearching)}
+                    options={customerSuggestions}
+                    selectedIndex={customerSelectedIndex}
+                    isLoading={isCustomerSearching}
+                    onSelect={(opt) => {
+                      if (opt.metadata) {
+                        applyCustomerAutoPopulate(opt.metadata);
+                      }
+                    }}
+                    onClose={() => setShowCustomerDropdown(false)}
+                    emptyMessage="No matching customers found in database"
+                  />
                 </div>
 
                 <input
@@ -731,18 +839,57 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
             </span>
 
             <div className="flex-1 grid grid-cols-[100px_1fr_80px_80px_100px_80px_80px_80px_100px_120px_120px_40px] gap-2">
-              <input
-                ref={directStockNoRef}
-                type="text"
-                value={directEntry.stockNo}
-                onChange={e => handleStockNoChange(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") handleCommitDirectEntry();
-                  if (e.key === "F2") setShowProductSearchModal(true);
-                }}
-                placeholder="Stock No"
-                className="border border-outline-variant h-8 text-xs font-code-md rounded px-2 bg-surface font-bold focus:border-secondary outline-none"
-              />
+              <div className="relative">
+                <input
+                  ref={directStockNoRef}
+                  type="text"
+                  value={directEntry.stockNo}
+                  onChange={e => handleStockNoChange(e.target.value)}
+                  onFocus={() => {
+                    if (productSuggestions.length > 0) setShowProductDropdown(true);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      if (showProductDropdown && productSuggestions.length > 0) {
+                        e.preventDefault();
+                        const selected = productSuggestions[productSelectedIndex] || productSuggestions[0];
+                        if (selected?.metadata) applyProductAutoPopulate(selected.metadata);
+                      } else {
+                        handleCommitDirectEntry();
+                      }
+                    } else if (e.key === "ArrowDown") {
+                      if (showProductDropdown && productSuggestions.length > 0) {
+                        e.preventDefault();
+                        setProductSelectedIndex(prev => (prev + 1) % productSuggestions.length);
+                      }
+                    } else if (e.key === "ArrowUp") {
+                      if (showProductDropdown && productSuggestions.length > 0) {
+                        e.preventDefault();
+                        setProductSelectedIndex(prev => (prev - 1 + productSuggestions.length) % productSuggestions.length);
+                      }
+                    } else if (e.key === "Escape") {
+                      setShowProductDropdown(false);
+                    } else if (e.key === "F2") {
+                      setShowProductSearchModal(true);
+                    }
+                  }}
+                  placeholder="Stock No"
+                  className="border border-outline-variant h-8 w-full text-xs font-code-md rounded px-2 bg-surface font-bold focus:border-secondary outline-none"
+                />
+                <SmritiTypeaheadDropdown
+                  isOpen={showProductDropdown && (productSuggestions.length > 0 || isProductSearching)}
+                  options={productSuggestions}
+                  selectedIndex={productSelectedIndex}
+                  isLoading={isProductSearching}
+                  onSelect={(opt) => {
+                    if (opt.metadata) {
+                      applyProductAutoPopulate(opt.metadata);
+                    }
+                  }}
+                  onClose={() => setShowProductDropdown(false)}
+                  emptyMessage="No matching products found in database"
+                />
+              </div>
 
               <input
                 type="text"

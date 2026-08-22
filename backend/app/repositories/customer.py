@@ -31,9 +31,14 @@ class CustomerRepository(BaseRepository[Customer]):
         stmt = select(Customer).filter(Customer.is_deleted == False)
         stmt = self._apply_tenant_filter(stmt)
         if q:
+            clean_q = q.strip()
             stmt = stmt.filter(
-                (Customer.name.ilike(f"%{q}%")) |
-                (Customer.mobile.ilike(f"%{q}%"))
+                (Customer.name.ilike(f"%{clean_q}%")) |
+                (Customer.mobile.ilike(f"%{clean_q}%")) |
+                (Customer.code.ilike(f"%{clean_q}%")) |
+                (Customer.id.ilike(f"%{clean_q}%")) |
+                (Customer.email.ilike(f"%{clean_q}%")) |
+                (Customer.gst_number.ilike(f"%{clean_q}%"))
             )
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
