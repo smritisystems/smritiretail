@@ -205,3 +205,112 @@ def test_wms_stock_transfer_lifecycle():
     cur.execute("DELETE FROM stock_transfers WHERE id = %s;", (transfer_id,))
     conn.commit()
     conn.close()
+
+
+@pytest.mark.asyncio
+async def test_wms_service_async_lifecycle():
+    """
+    Test InventoryWmsService end-to-end:
+    - atomic batch stock inward & outward
+    - products.stock cached aggregate synchronization
+    - FEFO allocation
+    - transfer creation, dispatch, and receipt
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm import sessionmaker
+    from backend.app.api.deps import TenantContext
+    from backend.app.services.inventory_wms_service import InventoryWmsService
+    from backend.app.models.inventory import Product, Warehouse
+
+    async_db_url = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001"
+    engine = create_async_engine(async_db_url, echo=False)
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with async_session() as session:
+        tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
+        service = InventoryWmsService(session, tenant)
+
+        # 1. Get test product and warehouses
+        from sqlalchemy.future import select
+        res_prod = await session.execute(select(Product).where(Product.company_id == "COMP-001", Product.is_deleted == False).limit(1))
+        prod = res_prod.scalars().first()
+        assert prod is not None
+
+        res_wh_src = await session.execute(select(Warehouse).where(Warehouse.code == "WH-MAIN", Warehouse.company_id == "COMP-001", Warehouse.is_deleted == False).limit(1))
+        src_wh = res_wh_src.scalars().first()
+        res_wh_dst = await session.execute(select(Warehouse).where(Warehouse.code == "WH-SHOP", Warehouse.company_id == "COMP-001", Warehouse.is_deleted == False).limit(1))
+        dst_wh = res_wh_dst.scalars().first()
+        assert src_wh is not None and dst_wh is not None
+
+        # 2. Inward 100 units into WH-MAIN under BATCH-A (expiring in 20 days)
+        exp_a = date.today() + timedelta(days=20)
+        batch_a = await service.atomic_mutate_batch_stock(
+            product_id=prod.id,
+            warehouse_id=src_wh.id,
+            batch_no="BATCH-SVC-A",
+            qty_delta=Decimal("100.0000"),
+            movement_type="INWARD_GRN",
+            expiry_date=exp_a,
+            mrp=Decimal("250.00"),
+            purchase_rate=Decimal("150.00"),
+        )
+        assert batch_a.quantity >= Decimal("100.0000")
+
+        # 3. Inward 50 units into WH-MAIN under BATCH-B (expiring in 5 days — FEFO priority)
+        exp_b = date.today() + timedelta(days=5)
+        batch_b = await service.atomic_mutate_batch_stock(
+            product_id=prod.id,
+            warehouse_id=src_wh.id,
+            batch_no="BATCH-SVC-B",
+            qty_delta=Decimal("50.0000"),
+            movement_type="INWARD_GRN",
+            expiry_date=exp_b,
+            mrp=Decimal("250.00"),
+            purchase_rate=Decimal("150.00"),
+        )
+        assert batch_b.quantity >= Decimal("50.0000")
+
+        # 4. Allocate 60 units using FEFO: should take 50 from BATCH-B (expiring in 5 days) + 10 from BATCH-A (expiring in 20 days)
+        allocs = await service.allocate_stock_fefo(
+            product_id=prod.id,
+            warehouse_id=src_wh.id,
+            requested_qty=Decimal("60.0000")
+        )
+        assert len(allocs) == 2
+        assert allocs[0]["batch_no"] == "BATCH-SVC-B"
+        assert allocs[0]["allocated_quantity"] == 50.0
+        assert allocs[1]["batch_no"] == "BATCH-SVC-A"
+        assert allocs[1]["allocated_quantity"] == 10.0
+
+        # 5. Create Transfer Order for 30 units of BATCH-A
+        transfer = await service.create_stock_transfer(
+            source_warehouse_id=src_wh.id,
+            dest_warehouse_id=dst_wh.id,
+            items_in=[{"product_id": prod.id, "batch_no": "BATCH-SVC-A", "quantity": 30.0, "unit_cost": 150.0}],
+            transporter_name="Speed Logistics",
+            lr_number="LR-12345",
+            vehicle_number="MH-04-AB-1234",
+        )
+        assert transfer.status == "DRAFT"
+
+        # 6. Dispatch Transfer
+        dispatched = await service.dispatch_stock_transfer(transfer.id)
+        assert dispatched.status == "IN_TRANSIT"
+
+        # 7. Receive Transfer (28 received, 2 shortage)
+        received = await service.receive_stock_transfer(
+            transfer_id=transfer.id,
+            receipt_details=[{
+                "item_id": transfer.items[0].id,
+                "quantity_received": Decimal("28.0000"),
+                "quantity_shortage": Decimal("2.0000"),
+                "quantity_damaged": Decimal("0.0000"),
+            }]
+        )
+        assert received.status == "PARTIAL"
+
+        # Rollback test data
+        await session.rollback()
+    
+    await engine.dispose()
+

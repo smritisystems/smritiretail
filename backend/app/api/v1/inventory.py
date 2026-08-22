@@ -19,7 +19,10 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import TenantContext, get_company_db, get_tenant_context, require_role, require_permission, verify_internal_service_key
+from ...api.deps import (
+    TenantContext, get_company_db, get_tenant_context,
+    get_current_user, require_role, require_permission, verify_internal_service_key
+)
 from ...models.auth import User, UserRole
 from ...models.inventory import Product, StockMovement
 from ...repositories.product import ProductRepository

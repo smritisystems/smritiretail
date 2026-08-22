@@ -17,7 +17,16 @@ import uuid
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-COMPANY_DBS = ["smriti001", "smriti002", "smriti_test_fresh"]
+def get_company_databases():
+    try:
+        conn = psycopg2.connect("dbname=postgres user=postgres password=postgres host=localhost port=5432")
+        cur = conn.cursor()
+        cur.execute("SELECT datname FROM pg_database WHERE datname LIKE 'smriti%' AND datname != 'smritisys';")
+        dbs = [r[0] for r in cur.fetchall()]
+        conn.close()
+        return dbs
+    except Exception:
+        return ["smriti001", "smriti002", "smriti_test_fresh"]
 
 def migrate_company_database(db_name: str):
     print(f"\n============================================================")
@@ -196,9 +205,9 @@ def migrate_company_database(db_name: str):
     """)
 
     cur.execute("""
-        CREATE INDEX IF NOT EXISTS idx_stock_transfers_idempotency 
-        ON stock_transfers (idempotency_key) 
-        WHERE idempotency_key IS NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_company_transfer_idempotency_active 
+        ON stock_transfers (company_id, idempotency_key) 
+        WHERE idempotency_key IS NOT NULL AND is_deleted = false;
     """)
 
     # 5. Create stock_transfer_items table
@@ -271,7 +280,8 @@ def migrate_company_database(db_name: str):
 
 def main():
     print("Starting SMRITI WMS Phase 1 Database Migration across Company Data Planes...")
-    for db in COMPANY_DBS:
+    dbs = get_company_databases()
+    for db in dbs:
         try:
             migrate_company_database(db)
         except Exception as e:

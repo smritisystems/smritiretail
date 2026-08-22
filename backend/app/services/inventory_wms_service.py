@@ -243,6 +243,20 @@ class InventoryWmsService:
         if source_warehouse_id == dest_warehouse_id:
             raise HTTPException(status_code=400, detail="Source and destination warehouses cannot be the same.")
 
+        # Verify both warehouses exist and belong to active company tenant
+        q_wh = select(Warehouse).where(
+            Warehouse.id.in_([source_warehouse_id, dest_warehouse_id]),
+            Warehouse.company_id == self.tenant_ctx.company_id,
+            Warehouse.is_deleted == False
+        )
+        res_wh = await self.db.execute(q_wh)
+        whs = res_wh.scalars().all()
+        if len(whs) != 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Both source and destination warehouses must exist and belong to the active company tenant."
+            )
+
         if not items_in:
             raise HTTPException(status_code=400, detail="Stock transfer must contain at least one item.")
 
