@@ -28,6 +28,17 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.13.0] - 2026-08-22
+
+#### Security & Shell — Public Data Exposure Hardening & Bottom Workspace Taskbar Removal
+- **Zero-Trust Auth Guards on Context Overlays**:
+  - Moved `ContextRenderer`, `GlobalSearch`, `GlobalF2BrowseModal`, `ContextualInspectorHUD`, `DrillDownSidePanel`, and `ShortcutPalette` inside `<AppShell>` inside the authenticated `AppContent` session.
+  - Injected direct token authentication guards (`smriti_jwt_token` / `smriti_session_token`) across `ContextualInspectorHUD`, `GlobalSearch`, `GlobalF2BrowseModal`, and `ActiveFieldContext`.
+  - Prevented unauthenticated visitors and login screen interactions from triggering the HUD popup, Global Search (Ctrl+K), or master browsing (F2).
+- **Workspace Canvas Streamlining**:
+  - Completely removed `WorkspaceTaskbar` and bottom `pb-13` padding from `src/App.tsx`.
+  - Maximized unobstructed vertical screen estate for POS and ERP workspaces.
+
 ### [6.12.0] - 2026-08-22
 
 #### Inventory & Item Master — Decommissioning & Removal of "Common Fields Setup" Module

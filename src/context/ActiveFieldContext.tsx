@@ -302,6 +302,9 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Global DOM Focus and Input Tracking
   useEffect(() => {
     const handleFocusIn = (e: FocusEvent) => {
+      const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+      if (!token) return;
+
       const target = e.target as HTMLElement;
       if (!target) return;
 
@@ -331,6 +334,9 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
     const handleInput = (e: Event) => {
+      const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+      if (!token) return;
+
       const target = e.target as HTMLElement;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
         setFieldValue((target as HTMLInputElement).value || "");
@@ -339,6 +345,9 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     // Global Keydown Listener for F2
     const handleGlobalF2 = (e: KeyboardEvent) => {
+      const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+      if (!token) return;
+
       if (e.key === "F2") {
         const active = document.activeElement as HTMLElement;
         if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
