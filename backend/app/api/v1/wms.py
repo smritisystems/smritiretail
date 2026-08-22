@@ -18,6 +18,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from ...api.deps import (
     get_company_db, get_tenant_context, TenantContext,
@@ -198,7 +199,7 @@ async def list_transfers(
     q = select(StockTransfer).where(
         StockTransfer.company_id == tenant_ctx.company_id,
         StockTransfer.is_deleted == False
-    )
+    ).options(selectinload(StockTransfer.items))
     if status:
         q = q.where(StockTransfer.status == status)
 
@@ -230,8 +231,12 @@ async def create_transfer(
         idempotency_key=idempotency_key,
     )
     await db.commit()
-    await db.refresh(transfer)
-    return StockTransferResponse.model_validate(transfer)
+    
+    # Reload with items
+    q_re = select(StockTransfer).where(StockTransfer.id == transfer.id).options(selectinload(StockTransfer.items))
+    res_re = await db.execute(q_re)
+    reloaded = res_re.scalars().first()
+    return StockTransferResponse.model_validate(reloaded)
 
 
 @router.get("/transfers/{transfer_id}", response_model=StockTransferResponse)
@@ -245,7 +250,7 @@ async def get_transfer(
         StockTransfer.id == transfer_id,
         StockTransfer.company_id == tenant_ctx.company_id,
         StockTransfer.is_deleted == False
-    )
+    ).options(selectinload(StockTransfer.items))
     res = await db.execute(q)
     st = res.scalars().first()
     if not st:
@@ -264,8 +269,11 @@ async def dispatch_transfer(
     service = InventoryWmsService(db, tenant_ctx)
     transfer = await service.dispatch_stock_transfer(transfer_id)
     await db.commit()
-    await db.refresh(transfer)
-    return StockTransferResponse.model_validate(transfer)
+    
+    q_re = select(StockTransfer).where(StockTransfer.id == transfer.id).options(selectinload(StockTransfer.items))
+    res_re = await db.execute(q_re)
+    reloaded = res_re.scalars().first()
+    return StockTransferResponse.model_validate(reloaded)
 
 
 @router.post("/transfers/{transfer_id}/receive", response_model=StockTransferResponse)
@@ -281,5 +289,8 @@ async def receive_transfer(
     receipt_items = [r.model_dump() for r in req.receipt_details]
     transfer = await service.receive_stock_transfer(transfer_id, receipt_items)
     await db.commit()
-    await db.refresh(transfer)
-    return StockTransferResponse.model_validate(transfer)
+    
+    q_re = select(StockTransfer).where(StockTransfer.id == transfer.id).options(selectinload(StockTransfer.items))
+    res_re = await db.execute(q_re)
+    reloaded = res_re.scalars().first()
+    return StockTransferResponse.model_validate(reloaded)
