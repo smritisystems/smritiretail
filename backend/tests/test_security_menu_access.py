@@ -32,7 +32,7 @@ def test_security_menu_access_persistence_and_audit():
     assert menus_count >= 30, f"Expected >= 30 menus, got {menus_count}"
 
     # 2. Insert test permission row into smriti_permissions
-    test_scope = "User:002"
+    test_scope = "User:test_runner"
     cur.execute("DELETE FROM smriti_permissions WHERE scope = %s;", (test_scope,))
     
     cur.execute("""
@@ -40,7 +40,7 @@ def test_security_menu_access_persistence_and_audit():
             id, uuid, code, resource, action, scope, module, is_active, is_deleted, created_at, modified_at
         )
         VALUES (
-            'perm-test-001', 'uuid-test-001', 'User:002:sales_billing:VOID', 'sales_billing', 'VOID',
+            'perm-test-001', 'uuid-test-001', 'User:test_runner:sales_billing:VOID', 'sales_billing', 'VOID',
             %s, 'core', true, false, NOW(), NOW()
         );
     """, (test_scope,))
