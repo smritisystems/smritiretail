@@ -391,6 +391,14 @@ class StockAuditService:
             )
             batch_stock = bs_res.scalar_one_or_none()
 
+            # Query product details with pessimistic row lock (SELECT ... FOR UPDATE)
+            p_res = await self.db.execute(
+                select(Product).where(Product.id == item.product_id).with_for_update()
+            )
+            prod = p_res.scalar_one_or_none()
+            prod_name = prod.name if prod else item.product_id
+            prod_sku = prod.sku if (prod and prod.sku) else (prod.code if prod else item.product_id)
+
             # Inspect intervening transactions between snapshot and reconciliation
             sm_check = await self.db.execute(
                 select(StockMovement).where(
@@ -404,18 +412,18 @@ class StockAuditService:
             )
             intervening_txns = sm_check.scalars().all()
             intervening_note = ""
+            adj_qty = var_qty
+
             if intervening_txns:
-                intervening_note = f" [Note: {len(intervening_txns)} intervening transactions detected post-snapshot]"
+                net_inward = sum(float(m.quantity) for m in intervening_txns if m.movement_type in ("IN", "INWARD_GRN", "TRANSFER_IN", "INWARD_SURPLUS"))
+                net_outward = sum(float(m.quantity) for m in intervening_txns if m.movement_type in ("OUT", "TRANSFER_OUT", "OUTWARD_LOSS"))
+                net_intervening_delta = net_inward - net_outward
+                
+                intervening_note = f" [Note: {len(intervening_txns)} intervening transactions post-snapshot, net delta: {net_intervening_delta:+.2f}]"
 
-            # Query product details for StockMovement
-            p_res = await self.db.execute(select(Product).where(Product.id == item.product_id))
-            prod = p_res.scalar_one_or_none()
-            prod_name = prod.name if prod else item.product_id
-            prod_sku = prod.sku if (prod and prod.sku) else (prod.code if prod else item.product_id)
-
-            if var_qty < 0:
+            if adj_qty < 0:
                 # Stock deficit / loss
-                loss_qty = abs(var_qty)
+                loss_qty = abs(adj_qty)
                 if batch_stock:
                     batch_stock.quantity = max(0.0, float(batch_stock.quantity) - loss_qty)
                     batch_stock.last_counted_date = datetime.now(timezone.utc)
@@ -439,9 +447,9 @@ class StockAuditService:
                 )
                 self.db.add(movement)
 
-            elif var_qty > 0:
+            elif adj_qty > 0:
                 # Stock surplus / found stock
-                surplus_qty = var_qty
+                surplus_qty = adj_qty
                 if batch_stock:
                     batch_stock.quantity = float(batch_stock.quantity) + surplus_qty
                     batch_stock.last_counted_date = datetime.now(timezone.utc)

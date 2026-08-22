@@ -78,7 +78,10 @@ def upgrade():
     op.create_index('uq_company_wh_prod_batch_active', 'product_batch_stocks', ['company_id', 'warehouse_id', 'product_id', 'batch_no'], unique=True, postgresql_where=sa.text('is_deleted = false'))
     op.create_index('idx_batch_stock_expiry', 'product_batch_stocks', ['expiry_date'])
 
-    # 5. Create stock_transfers
+    # 5. Cleanly create stock_transfers and stock_transfer_items
+    conn.execute(sa.text("DROP TABLE IF EXISTS stock_transfer_items CASCADE;"))
+    conn.execute(sa.text("DROP TABLE IF EXISTS stock_transfers CASCADE;"))
+
     op.create_table(
         'stock_transfers',
         sa.Column('id', sa.String(length=50), primary_key=True),

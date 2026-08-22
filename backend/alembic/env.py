@@ -124,13 +124,19 @@ def include_object(object, name, type_, reflected, compare_to):
             "sales_return_items",
             "purchase_reorder_configs",
             "purchase_jurisdiction_configs",
+            "product_batch_stocks",
+            "stock_transfers",
+            "stock_transfer_items",
+            "stock_audits",
+            "stock_audit_items",
+            "eway_bills",
         ]
     return True
 
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = settings.DATABASE_URL
+    url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -153,7 +159,8 @@ def do_run_migrations(connection) -> None:
         context.run_migrations()
 
 async def run_async_migrations() -> None:
-    connectable = create_async_engine(settings.DATABASE_URL)
+    database_url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    connectable = create_async_engine(database_url)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
