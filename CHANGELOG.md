@@ -28,6 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.10.0] - 2026-08-22
+
+#### Sales & POS — Zero-Touch Automated GST & Customer Classification Engine
+- **Centralized GST Engines (`backend/app/core/gst_engine.py` & `src/utils/gstEngine.ts`)**:
+  - Implemented automatic 2x2 matrix calculation: Registered (B2B) vs. Unregistered (B2C) across Intra-State (CGST+SGST) and Inter-State (IGST).
+  - High-precision decimal calculations with banker's rounding for Gross Total, Taxable Value, CGST, SGST, IGST, and Net Total.
+  - Automatic GSTIN regex validation and 2-digit State Code extraction with Indian state lookup directory.
+  - Deterministic statutory GSTR-1 classification (`B2B` Table 4A, `B2CL` Table 5A, `B2CS` Table 7).
+- **Backend Sales & Invoicing (`backend/app/services/sales.py`, `backend/app/schemas/sales.py`)**:
+  - Automatically derives store state vs. customer Place of Supply (POS) state code.
+  - Immutably persists `taxable_value`, `cgst_amount`, `sgst_amount`, `igst_amount`, and `line_total` on `sales_invoice_items`.
+- **ProPOS Billing Terminal Guardrails (`SmritiProPosBillingTerminal.tsx`, `SmritiCustomerBrowseModal.tsx`)**:
+  - Added live header `Tax Jurisdiction` badge showing `B2B` vs. `B2C` and `Intra-State (CGST+SGST)` vs. `Inter-State (IGST)` in real time.
+  - Automatic recalculation of line totals and tax splits upon customer selection.
+  - Locked tax rates and formulas to prevent cashier input errors.
+- **Thermal & Standard Print Receipt (`SmritiProPosTaxInvoiceReceipt.tsx`)**:
+  - Displays customer GSTIN and Place of Supply.
+  - Formats explicit GST Tax Analysis breakdown table (Taxable, CGST, SGST, IGST).
+
 ### [6.9.0] - 2026-08-22
 
 #### CRM & Customer Master — Customer Price Group Master & Database Flow Integrity

@@ -18,23 +18,33 @@ import { getCustomers, initialCustomers, saveCustomers, persistCustomerChange } 
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { X, Search, UserPlus, Check } from "lucide-react";
 
+import { parseAndValidateGSTIN } from "../../../utils/gstEngine.ts";
+
 interface SmritiCustomerBrowseModalProps {
   onSelectCustomer: (cust: ProPosCustomer) => void;
   onClose: () => void;
 }
 
 const mapToProPosCustomers = (custs: any[]): ProPosCustomer[] => {
-  return custs.map((c, idx) => ({
-    id: c.id || `CUST-${idx + 1}`,
-    code: c.code || `C0${idx + 1}`,
-    name: c.name || "Customer",
-    phone: c.mobile || c.phone || "9876543210",
-    email: c.email,
-    loyaltyTier: c.loyaltyTier || "Gold",
-    loyaltyPoints: c.loyaltyPoints ?? 1200,
-    creditLimit: c.creditLimit ?? 50000,
-    currentBalance: c.currentBalance ?? 0
-  }));
+  return custs.map((c, idx) => {
+    const rawGst = c.gstin || c.gstNumber || c.gst_number || "";
+    const parsed = parseAndValidateGSTIN(rawGst);
+    return {
+      id: c.id || `CUST-${idx + 1}`,
+      code: c.code || `C0${idx + 1}`,
+      name: c.name || "Customer",
+      phone: c.mobile || c.phone || "9876543210",
+      email: c.email,
+      loyaltyTier: c.loyaltyTier || "Gold",
+      loyaltyPoints: c.loyaltyPoints ?? 1200,
+      creditLimit: c.creditLimit ?? 50000,
+      currentBalance: c.currentBalance ?? 0,
+      gstin: rawGst || undefined,
+      state: c.state || parsed.stateName || undefined,
+      stateCode: c.stateCode || parsed.stateCode || undefined,
+      registrationType: parsed.isValid ? "REGISTERED" : "UNREGISTERED",
+    };
+  });
 };
 
 export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps> = ({

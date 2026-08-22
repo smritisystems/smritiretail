@@ -29,6 +29,14 @@ from ..models.sales import (
     SalesReturn, SalesReturnItem,
 )
 from ..models.inventory import Product, StockMovement
+from ..models.tenant import Company
+from ..core.gst_engine import (
+    calculate_line_item_tax,
+    validate_gstin,
+    extract_state_code_from_gstin,
+    determine_gstr1_table,
+    GST_STATE_CODES,
+)
 from ..schemas.sales import (
     SalesInvoiceCreate,
     SalesInvoiceUpdate,
@@ -79,40 +87,107 @@ class SalesService:
         if existing_inv:
             return existing_inv
 
+        # Resolve company store state code
+        company_state_code = "27"  # Default Maharashtra
+        comp_stmt = select(Company).filter(Company.id == self.tenant_ctx.company_id, Company.is_deleted == False)
+        comp_res = await self.db.execute(comp_stmt)
+        company_obj = comp_res.scalars().first()
+        if company_obj and company_obj.gst_number:
+            extracted_comp_state = extract_state_code_from_gstin(company_obj.gst_number)
+            if extracted_comp_state:
+                company_state_code = extracted_comp_state
+
+        # Resolve customer details & Place of Supply (POS)
+        customer_gstin = invoice_in.customer_gstin
+        customer_name = invoice_in.customer_name
+        pos_state_name = invoice_in.pos_state
+        pos_state_code = None
+
+        if invoice_in.customer_id:
+            try:
+                cust_res = await self.crm_service.get_customer(invoice_in.customer_id)
+                if cust_res:
+                    if not customer_gstin:
+                        customer_gstin = getattr(cust_res, "gst_number", None)
+                    if not customer_name:
+                        customer_name = getattr(cust_res, "name", None)
+            except Exception:
+                pass
+
+        is_registered_b2b = False
+        if customer_gstin:
+            is_valid_gstin, st_code, st_name = validate_gstin(customer_gstin)
+            if is_valid_gstin and st_code:
+                is_registered_b2b = True
+                pos_state_code = st_code
+                pos_state_name = pos_state_name or st_name
+
+        if not pos_state_code:
+            # Fallback to store state if unregistered walk-in
+            pos_state_code = company_state_code
+            pos_state_name = pos_state_name or GST_STATE_CODES.get(company_state_code, "Home State")
+
+        # Determine inter-state jurisdiction
+        is_interstate = (company_state_code != pos_state_code)
+        if invoice_in.is_interstate is not None:
+            is_interstate = invoice_in.is_interstate
+
         # 1. Validate items and calculate totals
+        calculated_taxable_total = Decimal("0.00")
         calculated_tax_total = Decimal("0.00")
         calculated_grand_total = Decimal("0.00")
         invoice_items = []
 
-        for item in invoice_in.items:
+        for idx, item in enumerate(invoice_in.items, start=1):
             # Check stock
             available = await self.inventory_service.check_stock_availability(item.product_id, float(item.quantity))
             if not available:
                 raise HTTPException(status_code=400, detail=f"Insufficient stock for product ID: {item.product_id}")
 
-            # Calculations
-            quantity = item.quantity
-            price = item.price
-            gst_rate = item.gst_rate
+            quantity = Decimal(str(item.quantity))
+            unit_price = Decimal(str(item.price))
+            gst_rate = Decimal(str(item.gst_rate or "18.00"))
 
-            # Tax amount = quantity * price * (gst_rate / 100)
-            item_tax = quantity * price * (gst_rate / Decimal("100.00"))
-            # Total amount = (quantity * price) + item_tax
-            item_total = (quantity * price) + item_tax
+            # Determine whether line is tax-inclusive (default: True for B2C consumer MRP, False for B2B wholesale)
+            if item.is_tax_inclusive is not None:
+                is_inclusive = item.is_tax_inclusive
+            else:
+                is_inclusive = not is_registered_b2b
 
-            calculated_tax_total += item_tax
-            calculated_grand_total += item_total
+            # Compute discount amount if discount percentage is given
+            disc_pct = Decimal(str(item.disc_pct or "0.00"))
+            discount_amount = (unit_price * quantity * disc_pct / Decimal("100.00")) if disc_pct > 0 else Decimal("0.00")
+
+            tax_calc = calculate_line_item_tax(
+                unit_price=unit_price,
+                quantity=quantity,
+                discount_amount=discount_amount,
+                gst_rate=gst_rate,
+                is_tax_inclusive=is_inclusive,
+                is_interstate=is_interstate,
+            )
+
+            calculated_taxable_total += tax_calc["taxable_value"]
+            calculated_tax_total += tax_calc["tax_amount"]
+            calculated_grand_total += tax_calc["total_amount"]
 
             db_item = SalesInvoiceItem(
                 product_id=item.product_id,
                 code=item.code,
                 name=item.name,
                 quantity=quantity,
-                price=price,
+                price=unit_price,
                 hsn_code=item.hsn_code,
                 gst_rate=gst_rate,
-                tax_amount=item_tax,
-                total_amount=item_total
+                tax_amount=tax_calc["tax_amount"],
+                total_amount=tax_calc["total_amount"],
+                taxable_value=tax_calc["taxable_value"],
+                cgst_amount=tax_calc["cgst_amount"],
+                sgst_amount=tax_calc["sgst_amount"],
+                igst_amount=tax_calc["igst_amount"],
+                mrp=item.mrp or unit_price,
+                disc_pct=disc_pct,
+                line_no=item.line_no or idx,
             )
             invoice_items.append(db_item)
 
@@ -126,14 +201,22 @@ class SalesService:
             invoice_no=invoice_no,
             date=invoice_in.date,
             customer_id=invoice_in.customer_id,
+            customer_name=customer_name,
+            customer_gstin=customer_gstin,
+            pos_state=pos_state_name,
+            taxable_value=calculated_taxable_total,
             tax_total=calculated_tax_total,
             grand_total=calculated_grand_total,
-            is_interstate=invoice_in.is_interstate,
+            is_interstate=is_interstate,
+            payment_mode=invoice_in.payment_mode or "CASH",
+            billing_address=invoice_in.billing_address,
+            shipping_address=invoice_in.shipping_address,
+            rounding_amount=invoice_in.rounding_amount or Decimal("0.00"),
             eway_bill_no=invoice_in.eway_bill_no,
             status=invoice_in.status,
             items=invoice_items,
             company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
+            branch_id=self.tenant_ctx.branch_id,
         )
 
         # Deduct stock of products and record stock movements

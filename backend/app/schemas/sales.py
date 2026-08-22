@@ -29,6 +29,14 @@ class SalesInvoiceItemBase(BaseModel):
     gst_rate: Optional[Decimal] = Field(Decimal("18.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
     tax_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_amount", "taxAmount"))
     total_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("total_amount", "totalAmount"))
+    mrp: Optional[Decimal] = None
+    disc_pct: Optional[Decimal] = Field(None, validation_alias=AliasChoices("disc_pct", "discPct", "discountPct"))
+    taxable_value: Optional[Decimal] = Field(None, validation_alias=AliasChoices("taxable_value", "taxableValue"))
+    cgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("cgst_amount", "cgstAmount"))
+    sgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("sgst_amount", "sgstAmount"))
+    igst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("igst_amount", "igstAmount"))
+    is_tax_inclusive: Optional[bool] = Field(None, validation_alias=AliasChoices("is_tax_inclusive", "isTaxInclusive"))
+    line_no: Optional[int] = Field(None, validation_alias=AliasChoices("line_no", "lineNo"))
 
 class SalesInvoiceItemCreate(SalesInvoiceItemBase):
     pass
@@ -48,7 +56,15 @@ class SalesInvoiceBase(BaseModel):
     grand_total: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("grand_total", "grandTotal"))
     is_interstate: bool = Field(False, validation_alias=AliasChoices("is_interstate", "isInterstate"))
     eway_bill_no: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("eway_bill_no", "eWayBillNo", "ewayBillNo"))
+    payment_mode: Optional[str] = Field("CASH", validation_alias=AliasChoices("payment_mode", "paymentMode"))
     status: str = "Draft"
+    customer_name: Optional[str] = Field(None, validation_alias=AliasChoices("customer_name", "customerName"))
+    customer_gstin: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("customer_gstin", "customerGstin", "gstin"))
+    pos_state: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("pos_state", "posState"))
+    billing_address: Optional[str] = Field(None, validation_alias=AliasChoices("billing_address", "billingAddress"))
+    shipping_address: Optional[str] = Field(None, validation_alias=AliasChoices("shipping_address", "shippingAddress"))
+    taxable_value: Optional[Decimal] = Field(None, validation_alias=AliasChoices("taxable_value", "taxableValue"))
+    rounding_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("rounding_amount", "roundingAmount"))
 
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50)
@@ -62,7 +78,11 @@ class SalesInvoiceUpdate(BaseModel):
     grand_total: Optional[Decimal] = None
     is_interstate: Optional[bool] = None
     eway_bill_no: Optional[str] = Field(None, validation_alias=AliasChoices("eway_bill_no", "eWayBillNo", "ewayBillNo"))
+    payment_mode: Optional[str] = None
     status: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_gstin: Optional[str] = None
+    pos_state: Optional[str] = None
     items: Optional[List[SalesInvoiceItemCreate]] = None
 
 class SalesInvoiceResponse(SalesInvoiceBase):
