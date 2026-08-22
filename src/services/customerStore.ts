@@ -24,7 +24,95 @@
  */
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
-import { Customer, CustomerGroup, SalesInvoice, SalesReturn } from "../types";
+import { Customer, CustomerGroup, CustomerPriceGroup, SalesInvoice, SalesReturn } from "../types";
+
+export const initialCustomerPriceGroups: CustomerPriceGroup[] = [
+  {
+    id: "CPP",
+    code: "CPP",
+    description: "Platinum Privilege",
+    paymentTerms: "PT",
+    creditDays: 60,
+    destTaxType: "Local",
+    creditLimit: 500000,
+    itemClassificationPriceFactorApplicable: true,
+    allowCreditInvoice: true,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: false,
+    allowMiscIssue: false,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  },
+  {
+    id: "TI",
+    code: "TI",
+    description: "Tech Infotech Ltd",
+    paymentTerms: "Net 30",
+    creditDays: 30,
+    destTaxType: "Local",
+    creditLimit: 250000,
+    itemClassificationPriceFactorApplicable: false,
+    allowCreditInvoice: true,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: false,
+    allowMiscIssue: false,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  },
+  {
+    id: "VIP",
+    code: "VIP",
+    description: "Platinum Retail",
+    paymentTerms: "Immediate",
+    creditDays: 0,
+    destTaxType: "Local",
+    creditLimit: 50000,
+    itemClassificationPriceFactorApplicable: false,
+    allowCreditInvoice: true,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: false,
+    allowMiscIssue: false,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  },
+  {
+    id: "CORP",
+    code: "CORP",
+    description: "Standard Corporate",
+    paymentTerms: "Net 45",
+    creditDays: 45,
+    destTaxType: "Interstate",
+    creditLimit: 1000000,
+    itemClassificationPriceFactorApplicable: true,
+    allowCreditInvoice: true,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: true,
+    allowMiscIssue: true,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  },
+  {
+    id: "RETAIL",
+    code: "RETAIL",
+    description: "Walk-In Standard",
+    paymentTerms: "Immediate",
+    creditDays: 0,
+    destTaxType: "Local",
+    creditLimit: 0,
+    itemClassificationPriceFactorApplicable: false,
+    allowCreditInvoice: false,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: false,
+    allowMiscIssue: false,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  }
+];
 
 export const initialCustomerGroups: CustomerGroup[] = [
   {
@@ -557,10 +645,12 @@ export function getCustomers(): Customer[] {
 
 export function saveCustomers(customers: Customer[]) {
   localStorage.setItem("smriti_customers", JSON.stringify(customers));
-  try {
-    window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
-  } catch (e) {
-    console.error("Failed to dispatch smriti_customer_updated event:", e);
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+    } catch (e) {
+      console.error("Failed to dispatch smriti_customer_updated event:", e);
+    }
   }
   // Persist to server asynchronously
   customers.forEach(cust => persistCustomerChange(cust));
@@ -569,6 +659,59 @@ export function saveCustomers(customers: Customer[]) {
 export function saveCustomerGroups(groups: CustomerGroup[]) {
   localStorage.setItem("smriti_customer_groups", JSON.stringify(groups));
 }
+
+export function getCustomerPriceGroups(): CustomerPriceGroup[] {
+  const saved = localStorage.getItem("smriti_customer_price_groups");
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {
+      // Fallback
+    }
+  }
+  localStorage.setItem("smriti_customer_price_groups", JSON.stringify(initialCustomerPriceGroups));
+  return initialCustomerPriceGroups;
+}
+
+export function saveCustomerPriceGroups(groups: CustomerPriceGroup[]) {
+  localStorage.setItem("smriti_customer_price_groups", JSON.stringify(groups));
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("smriti_customer_price_groups_updated"));
+    } catch (e) {
+      console.error("Failed to dispatch smriti_customer_price_groups_updated event:", e);
+    }
+  }
+}
+
+
+export function addCustomerPriceGroup(group: CustomerPriceGroup): CustomerPriceGroup[] {
+  const list = getCustomerPriceGroups();
+  const existingIdx = list.findIndex(g => g.code.toUpperCase() === group.code.toUpperCase());
+  if (existingIdx >= 0) {
+    list[existingIdx] = { ...list[existingIdx], ...group, modifiedAt: new Date().toISOString() };
+  } else {
+    list.push({ ...group, createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString() });
+  }
+  saveCustomerPriceGroups(list);
+  return getCustomerPriceGroups();
+}
+
+export function updateCustomerPriceGroup(code: string, updates: Partial<CustomerPriceGroup>): CustomerPriceGroup[] {
+  const list = getCustomerPriceGroups();
+  const updated = list.map(g => g.code.toUpperCase() === code.toUpperCase() ? { ...g, ...updates, modifiedAt: new Date().toISOString() } : g);
+  saveCustomerPriceGroups(updated);
+  return getCustomerPriceGroups();
+}
+
+export function deleteCustomerPriceGroup(code: string): CustomerPriceGroup[] {
+  const list = getCustomerPriceGroups();
+  const filtered = list.filter(g => g.code.toUpperCase() !== code.toUpperCase());
+  saveCustomerPriceGroups(filtered);
+  return getCustomerPriceGroups();
+}
+
 
 export function updateCustomerStatus(
   customerId: string,

@@ -12,9 +12,11 @@
  * Classification: Internal
  */
 
-import React from "react";
-import { User, MapPin, Store, FileText, Tag, Layers, CheckSquare } from "lucide-react";
-import { RetailCustomerRecord } from "./types.ts";
+import React, { useState, useEffect } from "react";
+import { User, MapPin, Store, FileText, Tag, Layers, CheckSquare, Sliders } from "lucide-react";
+import { RetailCustomerRecord, CustomerPriceGroup } from "./types.ts";
+import { getCustomerPriceGroups } from "../../services/customerStore.ts";
+import { SmritiCustomerPriceGroupModal } from "./SmritiCustomerPriceGroupModal.tsx";
 
 interface SmritiCustomerFormTabProps {
   customer: RetailCustomerRecord;
@@ -28,15 +30,25 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
   onOpenMailingModal
 }) => {
   const primaryAddress = customer.mailingAddresses[0];
+  const [priceGroups, setPriceGroups] = useState<CustomerPriceGroup[]>(() => getCustomerPriceGroups());
+  const [showPriceGroupModal, setShowPriceGroupModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setPriceGroups(getCustomerPriceGroups());
+    };
+    window.addEventListener("smriti_customer_price_groups_updated", handleUpdate);
+    return () => window.removeEventListener("smriti_customer_price_groups_updated", handleUpdate);
+  }, []);
 
   return (
     <div className="space-y-5 text-xs">
       
       {/* 1. General Details & Classification in 2-column card layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
-        {/* General Details Section */}
-        <div className="bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] p-5 rounded-2xl shadow-xs space-y-4">
+        {/* Left Card: General Details */}
+        <div className="bg-white dark:bg-[#1e2224] border border-[#c6c6cd] dark:border-[#45464d] rounded-2xl p-4 shadow-xs space-y-3.5">
           <h3 className="text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] uppercase tracking-wider flex items-center gap-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-2.5">
             <User size={15} /> General Details
           </h3>
@@ -68,20 +80,64 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             </div>
 
             <div>
-              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
-                Customer Price Group
-              </label>
-              <select
-                value={customer.priceGroup}
-                onChange={e => onChange("priceGroup", e.target.value)}
-                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold outline-none focus:border-[#00355f]"
-              >
-                <option value="TI#Tech Infotech Ltd">TI#Tech Infotech Ltd</option>
-                <option value="VIP#Platinum Retail">VIP#Platinum Retail</option>
-                <option value="CORP#Standard Corporate">CORP#Standard Corporate</option>
-                <option value="RETAIL#Walk-In Standard">RETAIL#Walk-In Standard</option>
-              </select>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block">
+                  Customer Price Group
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPriceGroupModal(true)}
+                  className="text-[10px] text-[#00355f] dark:text-[#8ebdf9] font-bold hover:underline flex items-center gap-1"
+                >
+                  <Sliders size={11} /> Manage Groups
+                </button>
+              </div>
+              <div className="flex gap-1.5">
+                <select
+                  value={customer.priceGroup}
+                  onChange={e => onChange("priceGroup", e.target.value)}
+                  className="flex-1 p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold outline-none focus:border-[#00355f]"
+                >
+                  {priceGroups.map(pg => {
+                    const val = `${pg.code}#${pg.description}`;
+                    return (
+                      <option key={pg.code} value={val}>
+                        {pg.code} - {pg.description} ({pg.paymentTerms}, {pg.creditDays} Days)
+                      </option>
+                    );
+                  })}
+                  {/* Fallback legacy option */}
+                  {!priceGroups.some(pg => `${pg.code}#${pg.description}` === customer.priceGroup) && customer.priceGroup && (
+                    <option value={customer.priceGroup}>{customer.priceGroup}</option>
+                  )}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowPriceGroupModal(true)}
+                  className="px-2.5 py-1.5 bg-[#f2f4f6] dark:bg-[#2d3133] hover:bg-[#e1e4e8] dark:hover:bg-[#3d4246] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-[#00355f] dark:text-[#8ebdf9] font-bold text-xs shadow-2xs transition"
+                  title="Configure Customer Price Groups"
+                >
+                  [...]
+                </button>
+              </div>
             </div>
+
+            {/* Modal instance */}
+            <SmritiCustomerPriceGroupModal
+              isOpen={showPriceGroupModal}
+              onClose={() => setShowPriceGroupModal(false)}
+              selectedGroupCode={customer.priceGroup?.split("#")[0] || "CPP"}
+              onSelectGroup={(grp) => {
+                onChange("priceGroup", `${grp.code}#${grp.description}`);
+                onChange("paymentTerm", grp.paymentTerms);
+                onChange("creditDays", grp.creditDays);
+                onChange("creditLimit", grp.creditLimit);
+                onChange("destinationTaxType", grp.destTaxType);
+                onChange("allowCreditInvoice", grp.allowCreditInvoice);
+                onChange("allowCashBill", grp.allowCashInvoice);
+                onChange("allowMiscIssue", grp.allowMiscIssue);
+              }}
+            />
 
             {/* Mail List Info Box */}
             <div className="bg-[#f7f9fb] dark:bg-[#2d3133]/40 border border-[#c6c6cd] dark:border-[#45464d] p-3 rounded-xl flex items-center justify-between">
