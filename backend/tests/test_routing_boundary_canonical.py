@@ -24,18 +24,28 @@ from app.services.company_database_resolver import (
     validate_company_database_name,
     generate_company_database_name
 )
-from app.db.session import resolve_company_database_name
+from app.db.session import resolve_company_database_name, get_company_async_engine
 
 CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
 
 
 def test_authorized_user_reaches_assigned_database():
-    """Verify that an authorized user successfully reaches their assigned database."""
+    """Verify that an authorized user successfully reaches their assigned database without credential exposure."""
     res = CompanyDatabaseResolver.resolve_company_database("usr-admin", "COMP-001")
     assert res["company_id"] == "COMP-001"
     assert res["database_name"] == "smriti001"
     assert res["database_status"] == "READY"
-    assert "smriti001" in res["connection_url"]
+    assert "connection_url" not in res
+    assert "password" not in res
+
+
+def test_zero_credential_exposure_in_resolver_response():
+    """Verify that resolver response contains zero database passwords or raw connection strings."""
+    res = CompanyDatabaseResolver.resolve_company_database("usr-admin", "COMP-001")
+    for key in ("connection_url", "password", "db_password", "credentials"):
+        assert key not in res, f"Found sensitive key '{key}' in resolver response!"
+    for val in res.values():
+        assert "postgres:" not in str(val)
 
 
 def test_unauthorized_user_access_rejected_403():
@@ -44,6 +54,52 @@ def test_unauthorized_user_access_rejected_403():
         CompanyDatabaseResolver.resolve_company_database("usr_random_unassigned", "COMP-001")
     assert exc_info.value.status_code == 403
     assert "not authorized" in exc_info.value.detail.lower()
+
+
+def test_normal_assigned_user_cross_company_isolation():
+    """Verify that a normal non-admin user can reach their assigned company but is strictly denied other companies."""
+    conn = psycopg2.connect(CONTROL_PLANE_URL)
+    conn.autocommit = True
+    cur = conn.cursor()
+    try:
+        # Seed test user assigned strictly to COMP-001
+        cur.execute("""
+            INSERT INTO users (id, uuid, username, email, hashed_password, role, status, country, employment_type, is_active, is_deleted, created_at, modified_at)
+            VALUES ('usr-staff-isolation-test', 'uuid-staff-iso-1', 'staff_iso_test', 'staff_iso@example.com', 'hash', 'CASHIER', 'Active', 'India', 'Permanent', true, false, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING;
+        """)
+        cur.execute("""
+            INSERT INTO user_company_assignments (id, uuid, user_id, company_id, is_default, is_active, is_deleted)
+            VALUES ('uca-staff-iso-1', 'uuid-uca-iso-1', 'usr-staff-isolation-test', 'COMP-001', true, true, false)
+            ON CONFLICT (id) DO NOTHING;
+        """)
+
+        # 1. Allowed on assigned company COMP-001
+        res_assigned = CompanyDatabaseResolver.resolve_company_database("usr-staff-isolation-test", "COMP-001")
+        assert res_assigned["company_id"] == "COMP-001"
+        assert res_assigned["database_name"] == "smriti001"
+
+        # 2. Denied on unassigned company COMP-002 with 403
+        with pytest.raises(HTTPException) as exc_info:
+            CompanyDatabaseResolver.resolve_company_database("usr-staff-isolation-test", "COMP-002")
+        assert exc_info.value.status_code == 403
+        assert "not authorized" in exc_info.value.detail.lower()
+
+    finally:
+        cur.execute("DELETE FROM user_company_assignments WHERE id = 'uca-staff-iso-1';")
+        cur.execute("DELETE FROM users WHERE id = 'usr-staff-isolation-test';")
+        conn.close()
+
+
+def test_missing_or_empty_company_context_rejected_400():
+    """Verify that missing or empty company context is rejected with 400 Bad Request."""
+    with pytest.raises(HTTPException) as exc_info:
+        CompanyDatabaseResolver.resolve_company_database("usr-admin", "")
+    assert exc_info.value.status_code == 400
+
+    with pytest.raises(HTTPException) as exc_info2:
+        CompanyDatabaseResolver.resolve_company_database("usr-admin", None)
+    assert exc_info2.value.status_code == 400
 
 
 def test_unregistered_company_rejected_with_zero_demo_fallback():
@@ -60,7 +116,6 @@ def test_suspended_company_database_access_denied_403():
     conn.autocommit = True
     cur = conn.cursor()
     try:
-        # Seed temporary suspended company & registry entry
         cur.execute("""
             INSERT INTO companies (id, uuid, name, is_active, is_deleted)
             VALUES ('COMP-SUSP-TEST', 'uuid-susp-test', 'Suspended Co', true, false)
@@ -90,7 +145,7 @@ def test_suspended_company_database_access_denied_403():
 
 
 def test_resolver_rejects_arbitrary_database_names():
-    """Verify that resolver refuses arbitrary/invalid database strings."""
+    """Verify that resolver regex refuses arbitrary/invalid database strings."""
     assert not validate_company_database_name("arbitrary_db")
     assert not validate_company_database_name("smriti_invalid_name")
     assert not validate_company_database_name("smriti000")  # 000 reserved
@@ -101,6 +156,17 @@ def test_resolver_rejects_arbitrary_database_names():
     assert validate_company_database_name("smriti003")
 
 
+def test_engine_cache_rejects_unregistered_arbitrary_database_names():
+    """Verify that lower-level get_company_async_engine rejects invalid/arbitrary database names."""
+    with pytest.raises(ValueError) as exc:
+        get_company_async_engine("unauthorized_custom_db")
+    assert "invalid or unauthorized" in str(exc.value).lower()
+
+    with pytest.raises(ValueError) as exc2:
+        get_company_async_engine("smriti000")
+    assert "invalid or unauthorized" in str(exc2.value).lower()
+
+
 @pytest.mark.asyncio
 async def test_session_resolver_fails_closed_on_unregistered_company():
     """Verify that async resolve_company_database_name fails closed on unregistered company."""
@@ -108,3 +174,15 @@ async def test_session_resolver_fails_closed_on_unregistered_company():
         await resolve_company_database_name("COMP-UNKNOWN-RANDOM-888")
     assert exc_info.value.status_code == 403
     assert "not found" in exc_info.value.detail.lower() or "access denied" in exc_info.value.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_session_resolver_fails_closed_on_missing_company_context():
+    """Verify that async resolve_company_database_name rejects None or empty input."""
+    with pytest.raises(HTTPException) as exc_info:
+        await resolve_company_database_name(None)
+    assert exc_info.value.status_code == 400
+
+    with pytest.raises(HTTPException) as exc_info2:
+        await resolve_company_database_name("")
+    assert exc_info2.value.status_code == 400
