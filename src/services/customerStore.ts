@@ -249,6 +249,18 @@ export const initialCustomerGroups: CustomerGroup[] = [
 
 export const initialCustomers: Customer[] = [
   {
+    id: "CUST-WALKIN",
+    code: "CUST-WALKIN",
+    customerGroupId: "CG-Retail",
+    name: "Walk-In / Cash Customer",
+    mobile: "9999999999",
+    email: "cash@smritiretail.com",
+    outstanding: 0,
+    status: "Active",
+    createdDate: "2026-07-10",
+    tags: ["Walk-In", "Cash", "B2C"],
+  },
+  {
     id: "CUST-001",
     customerGroupId: "CG-Retail",
     name: "Rahul Sharma",
