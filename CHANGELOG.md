@@ -28,6 +28,31 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.9.0] - 2026-08-22
+
+#### CRM & Customer Master — Customer Price Group Master & Database Flow Integrity
+- **Customer Price Group Master Window (`SmritiCustomerPriceGroupModal.tsx`)**:
+  - Implemented authentic desktop ERP layout for managing Customer Price Groups.
+  - Fields: `Code`, `Description`, `Payment Terms`, `Credit Days`, `Dest-Wise Tax Type`, `Credit Limit`, `Item Classification-wise Price Factor Applicable`.
+  - `Transactions Allowed` Group Box: `Credit Invoice` (Alt+R), `Cash Invoice` (Alt+S), `Tax Exclusive Invoice` (Alt+T), `Misc. Issue` (Alt+M).
+  - Actions: `Ok` (Alt+O / Enter), `Cancel` (Alt+C), `Add` (Alt+A), `Edit` (Alt+E), `Delete` (Alt+D), `Exit` (Alt+X / Escape).
+  - Quick catalogue table drawer for instantaneous inspection and group selection.
+- **Customer Form Tab Integration (`SmritiCustomerFormTab.tsx`)**:
+  - Connected dynamic Price Group dropdown populated from store.
+  - Added inline `[...]` / `Manage Groups` launcher directly opening the configuration modal.
+- **PostgreSQL Database Flow Integrity (`seed_customers.py`)**:
+  - Seeded 4 canonical Customer Groups (`CG-Retail`, `CG-LargeRetail`, `CG-Branches`, `CG-Franchises`) and 7 canonical Customers (`CUST-001` .. `CUST-007`) in PostgreSQL with tenant isolation (`COMP-001` / `BR-MAIN-001`).
+  - Preserved historical invoice-linked customer ID `cust-rrl-192b561d` (Reliance Retail) across database and frontend store.
+- **Mock Fallback Removal**:
+  - Removed silent `DEFAULT_CUSTOMERS` fallback from `SmritiCustomerBrowseModal.tsx` and `SmritiBillingTerminal.tsx`, ensuring explicit empty state when database is empty.
+  - Connected live API fetch via `apiFetchV1("/customers")`.
+- **Backend Tenant Resolution & Error Handling (`deps.py`, `crm.py`, `schemas/crm.py`)**:
+  - Corrected branch mapping (`BR-MAIN-001`) and enhanced `IntegrityError` reporting in `CrmService`.
+  - Made schema IDs optional with automatic deterministic UUID generation.
+- **Automated Tests**:
+  - Added `customerPriceGroup.test.ts` (6/6 pass) and `customerFlowIntegrity.test.ts` (4/4 pass).
+  - All 34 vitest suites (258/258 tests) passing 100%.
+
 ### [6.7.0] - 2026-08-22
 
 #### POS & Billing — Distributor Invoicing, Settlement & PDT Import Integration (Stitch UX)

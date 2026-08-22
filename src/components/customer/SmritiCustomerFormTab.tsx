@@ -95,7 +95,21 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <div className="flex gap-1.5">
                 <select
                   value={customer.priceGroup}
-                  onChange={e => onChange("priceGroup", e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value;
+                    onChange("priceGroup", val);
+                    const code = val.split("#")[0];
+                    const grp = priceGroups.find(p => p.code === code);
+                    if (grp) {
+                      onChange("paymentTerm", grp.paymentTerms);
+                      onChange("creditDays", grp.creditDays);
+                      onChange("creditLimit", grp.creditLimit);
+                      onChange("destinationTaxType", grp.destTaxType);
+                      onChange("allowCreditInvoice", grp.allowCreditInvoice);
+                      onChange("allowCashBill", grp.allowCashInvoice);
+                      onChange("allowMiscIssue", grp.allowMiscIssue);
+                    }
+                  }}
                   className="flex-1 p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold outline-none focus:border-[#00355f]"
                 >
                   {priceGroups.map(pg => {

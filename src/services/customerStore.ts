@@ -566,29 +566,37 @@ export const initialSalesReturns: SalesReturn[] = [
 ];
 
 export function getSalesInvoices(): SalesInvoice[] {
-  const saved = localStorage.getItem("smriti_sales_invoices");
-  if (saved) {
-    return JSON.parse(saved);
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_sales_invoices");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    localStorage.setItem("smriti_sales_invoices", JSON.stringify(initialSalesInvoices));
   }
-  localStorage.setItem("smriti_sales_invoices", JSON.stringify(initialSalesInvoices));
   return initialSalesInvoices;
 }
 
 export function saveSalesInvoices(invoices: SalesInvoice[]) {
-  localStorage.setItem("smriti_sales_invoices", JSON.stringify(invoices));
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_sales_invoices", JSON.stringify(invoices));
+  }
 }
 
 export function getSalesReturns(): SalesReturn[] {
-  const saved = localStorage.getItem("smriti_sales_returns");
-  if (saved) {
-    return JSON.parse(saved);
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_sales_returns");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    localStorage.setItem("smriti_sales_returns", JSON.stringify(initialSalesReturns));
   }
-  localStorage.setItem("smriti_sales_returns", JSON.stringify(initialSalesReturns));
   return initialSalesReturns;
 }
 
 export function saveSalesReturns(returns: SalesReturn[]) {
-  localStorage.setItem("smriti_sales_returns", JSON.stringify(returns));
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_sales_returns", JSON.stringify(returns));
+  }
 }
 
 export function addSalesInvoice(inv: SalesInvoice) {
@@ -604,22 +612,26 @@ export function addSalesReturn(ret: SalesReturn) {
 }
 
 export function getCustomerGroups(): CustomerGroup[] {
-  const saved = localStorage.getItem("smriti_customer_groups");
-  if (saved) {
-    return JSON.parse(saved);
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_customer_groups");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    localStorage.setItem("smriti_customer_groups", JSON.stringify(initialCustomerGroups));
   }
-  localStorage.setItem("smriti_customer_groups", JSON.stringify(initialCustomerGroups));
   return initialCustomerGroups;
 }
 
 export function getCustomers(): Customer[] {
-  const saved = localStorage.getItem("smriti_customers");
-  let customersList: Customer[] = [];
-  if (saved) {
-    customersList = JSON.parse(saved);
-  } else {
-    localStorage.setItem("smriti_customers", JSON.stringify(initialCustomers));
-    customersList = initialCustomers;
+  let customersList: Customer[] = initialCustomers;
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_customers");
+    if (saved) {
+      customersList = JSON.parse(saved);
+    } else {
+      localStorage.setItem("smriti_customers", JSON.stringify(initialCustomers));
+      customersList = initialCustomers;
+    }
   }
 
   // Live-compute outstanding balances based on invoices and returns
@@ -645,8 +657,8 @@ export function getCustomers(): Customer[] {
 }
 
 export function saveCustomers(customers: Customer[]) {
-  localStorage.setItem("smriti_customers", JSON.stringify(customers));
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_customers", JSON.stringify(customers));
     try {
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
     } catch (e) {
@@ -658,26 +670,30 @@ export function saveCustomers(customers: Customer[]) {
 }
 
 export function saveCustomerGroups(groups: CustomerGroup[]) {
-  localStorage.setItem("smriti_customer_groups", JSON.stringify(groups));
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_customer_groups", JSON.stringify(groups));
+  }
 }
 
 export function getCustomerPriceGroups(): CustomerPriceGroup[] {
-  const saved = localStorage.getItem("smriti_customer_price_groups");
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch {
-      // Fallback
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_customer_price_groups");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        // Fallback
+      }
     }
+    localStorage.setItem("smriti_customer_price_groups", JSON.stringify(initialCustomerPriceGroups));
   }
-  localStorage.setItem("smriti_customer_price_groups", JSON.stringify(initialCustomerPriceGroups));
   return initialCustomerPriceGroups;
 }
 
 export function saveCustomerPriceGroups(groups: CustomerPriceGroup[]) {
-  localStorage.setItem("smriti_customer_price_groups", JSON.stringify(groups));
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_customer_price_groups", JSON.stringify(groups));
     try {
       window.dispatchEvent(new CustomEvent("smriti_customer_price_groups_updated"));
     } catch (e) {
