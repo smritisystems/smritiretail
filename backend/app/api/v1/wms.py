@@ -327,12 +327,16 @@ async def get_transfer_eway_bill_payload(
 )
 async def get_transfer_delivery_challan(
     transfer_id: str,
+    strict_validation: bool = Query(False),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Generate statutory Delivery Challan (Rule 55 CGST Rules 2017) for Inter-Godown Stock Transfer."""
     service = EWayBillService(db, tenant_ctx)
-    return await service.generate_delivery_challan(transfer_id)
+    return await service.generate_delivery_challan(
+        transfer_id=transfer_id,
+        strict_validation=strict_validation
+    )
 
 
 @router.post(

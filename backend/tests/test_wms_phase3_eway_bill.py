@@ -352,7 +352,7 @@ async def test_strict_statutory_validation_rejections(async_db: AsyncSession, te
         assert exc_vehicle.value.status_code == 422
         assert "SMRITI-STAT-004" in exc_vehicle.value.detail
 
-        # Now fix vehicle number and assert missing HSN is rejected
+        # Now fix vehicle number and assert missing HSN is rejected on E-Way payload
         transfer.vehicle_number = "MH-04-AB-9999"
         await async_db.commit()
 
@@ -365,9 +365,43 @@ async def test_strict_statutory_validation_rejections(async_db: AsyncSession, te
         assert exc_hsn.value.status_code == 422
         assert "SMRITI-STAT-002" in exc_hsn.value.detail
 
+        # Case B: Delivery Challan in strict mode also rejects missing HSN
+        with pytest.raises(HTTPException) as exc_dc_hsn:
+            await service.generate_delivery_challan(
+                transfer_id=transfer_id,
+                strict_validation=True
+            )
+        assert exc_dc_hsn.value.status_code == 422
+        assert "SMRITI-STAT-002" in exc_dc_hsn.value.detail
+
     finally:
         await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
         await async_db.commit()
+
+
+def test_gstin_checksum_algorithm_precision():
+    """
+    Verify statutory GSTN Luhn Mod 36 checksum calculation across valid and invalid GSTINs.
+    """
+    from app.services.eway_bill_service import compute_gstin_checksum, is_valid_gstin_checksum
+
+    # Valid Indian statutory GSTINs
+    assert is_valid_gstin_checksum("27AAXFT2508H1ZR") is True
+    assert is_valid_gstin_checksum("27AAACT2727Q1ZW") is True
+    assert is_valid_gstin_checksum("27AABCU9603R1ZN") is True
+    assert is_valid_gstin_checksum("07AAAAA0000A1Z4") is True
+    assert is_valid_gstin_checksum("29AAAAA0000A1ZY") is True
+    assert is_valid_gstin_checksum("33AAAAA0000A1Z9") is True
+
+    # Mutated check digits must return False
+    assert is_valid_gstin_checksum("27AAXFT2508H1ZX") is False
+    assert is_valid_gstin_checksum("27AAACT2727Q1ZX") is False
+    assert is_valid_gstin_checksum("27AABCU9603R1ZM") is False
+
+    # Checksum computation directly
+    assert compute_gstin_checksum("27AAXFT2508H1Z") == "R"
+    assert compute_gstin_checksum("27AAACT2727Q1Z") == "W"
+
 
