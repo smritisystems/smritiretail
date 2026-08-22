@@ -428,3 +428,80 @@ export function savePermissionsForSubject(
   }
 }
 
+export async function syncPermissionsWithBackend(
+  subjectType: "User" | "Group" | "Node",
+  subjectId: string,
+  companyCode: string = "All"
+): Promise<MenuItemPermission[]> {
+  try {
+    const res = await apiFetchV1(
+      `/security/menu-access?subject_type=${encodeURIComponent(subjectType)}&subject_id=${encodeURIComponent(subjectId)}&company_code=${encodeURIComponent(companyCode)}`
+    );
+    if (res && Array.isArray(res.permissions) && res.permissions.length > 0) {
+      const baseTree = getCanonicalMenuTree();
+      const permsMap = new Map<string, boolean>();
+      res.permissions.forEach((p: any) => {
+        permsMap.set(`${p.resource}:${p.action}`, Boolean(p.allowed));
+      });
+
+      const updatedTree = baseTree.map((parent) => ({
+        ...parent,
+        children: parent.children?.map((child) => {
+          const ops = { ...(child.allowedOperations || {}) };
+          child.supportedOperations?.forEach((op) => {
+            const key = `${child.menuId}:${op}`;
+            if (permsMap.has(key)) {
+              ops[op] = permsMap.get(key)!;
+            }
+          });
+          return { ...child, allowedOperations: ops };
+        }),
+      }));
+      savePermissionsForSubject(subjectType, subjectId, updatedTree);
+      return updatedTree;
+    }
+  } catch (err) {
+    console.warn("[SecurityStore] Fallback to local permissions", err);
+  }
+  return getPermissionsForSubject(subjectType, subjectId);
+}
+
+export async function persistPermissionsToBackend(
+  subjectType: "User" | "Group" | "Node",
+  subjectId: string,
+  companyCode: string,
+  tree: MenuItemPermission[]
+): Promise<boolean> {
+  savePermissionsForSubject(subjectType, subjectId, tree);
+  try {
+    const flatActions: any[] = [];
+    tree.forEach((parent) => {
+      parent.children?.forEach((child) => {
+        if (child.allowedOperations) {
+          Object.entries(child.allowedOperations).forEach(([op, allowed]) => {
+            flatActions.push({
+              resource: child.menuId,
+              action: op,
+              allowed: Boolean(allowed),
+            });
+          });
+        }
+      });
+    });
+    await apiFetchV1("/security/menu-access", {
+      method: "PUT",
+      body: JSON.stringify({
+        subject_type: subjectType,
+        subject_id: subjectId,
+        company_code: companyCode,
+        permissions: flatActions,
+      }),
+    });
+    return true;
+  } catch (err) {
+    console.warn("[SecurityStore] Backend sync error, cached locally", err);
+    return false;
+  }
+}
+
+

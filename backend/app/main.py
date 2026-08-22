@@ -62,6 +62,7 @@ from .api.v1 import (
     reports,
     roles,
     sales,
+    security,
     supplier_payment,
     system,
     terms,
@@ -148,6 +149,7 @@ app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs"
 app.include_router(system.router,           prefix=settings.API_V1_STR,                     tags=["System"])
 app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
 app.include_router(menus.router,            prefix=settings.API_V1_STR + "/menus",         tags=["Menu Governance"])
+app.include_router(security.router,         prefix=settings.API_V1_STR + "/security",      tags=["Security Management"])
 app.include_router(ui_control_plane.router, prefix=settings.API_V1_STR + "/ui",            tags=["UI Control Plane"])
 app.include_router(training.router,         prefix=settings.API_V1_STR,                     tags=["Training Academy"])
 app.include_router(ecom.router,             prefix=settings.API_V1_STR,                     tags=["eCommerce / Omnichannel Engine"])

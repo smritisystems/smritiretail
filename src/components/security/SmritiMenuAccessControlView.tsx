@@ -28,6 +28,8 @@ import {
   initialSecurityNodes,
   getPermissionsForSubject,
   savePermissionsForSubject,
+  syncPermissionsWithBackend,
+  persistPermissionsToBackend,
   getHousekeepingSecurityConfig,
 } from "../../services/securityManagementStore";
 
@@ -60,11 +62,22 @@ export const SmritiMenuAccessControlView: React.FC<SmritiMenuAccessControlViewPr
 
   const hkConfig = useMemo(() => getHousekeepingSecurityConfig(), []);
 
-  // Reload tree when subject type or subject ID changes
+  // Reload tree when subject type or subject ID changes (with backend synchronization)
   useEffect(() => {
     const loaded = getPermissionsForSubject(subjectType, selectedSubjectId);
     setMenuTree(loaded);
-  }, [subjectType, selectedSubjectId]);
+
+    let isMounted = true;
+    syncPermissionsWithBackend(subjectType, selectedSubjectId, companyCode).then((synced) => {
+      if (isMounted && synced) {
+        setMenuTree(synced);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [subjectType, selectedSubjectId, companyCode]);
 
   // Find active subject metadata
   const activeSubjectMeta = useMemo(() => {
@@ -167,8 +180,8 @@ export const SmritiMenuAccessControlView: React.FC<SmritiMenuAccessControlViewPr
     );
   };
 
-  const handleSave = () => {
-    savePermissionsForSubject(subjectType, selectedSubjectId, menuTree);
+  const handleSave = async () => {
+    await persistPermissionsToBackend(subjectType, selectedSubjectId, companyCode, menuTree);
     setSaveFeedback("Menu restrictions saved successfully.");
     setTimeout(() => setSaveFeedback(null), 3000);
   };
