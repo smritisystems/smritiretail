@@ -201,6 +201,18 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Inventory & Sourcing",
     },
     {
+      id: "wms-dashboard",
+      label: "Warehouse & Batch Hub",
+      icon: "warehouse",
+      category: "Inventory & Sourcing",
+    },
+    {
+      id: "stock-transfers",
+      label: "Inter-Godown Transfers",
+      icon: "move_up",
+      category: "Inventory & Sourcing",
+    },
+    {
       id: "stock-ledger",
       label: "Stock Ledger",
       icon: "inventory",
