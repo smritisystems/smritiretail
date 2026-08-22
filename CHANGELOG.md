@@ -28,6 +28,19 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.15.0] - 2026-08-22
+
+#### CRM & Sales — Customer Flow, Policy Enforcement & Database Referential Integrity Hardening
+- **Backend Credit Limit & Credit Hold Enforcement (`crm.py`, `sales.py`)**:
+  - Implemented transactional credit validation in `CrmService.check_credit_limit`.
+  - Blocks invoicing and returns structured business errors `SMRITI-CREDIT-001` (credit limit exceeded) and `SMRITI-CREDIT-002` (credit hold active) when limits are breached.
+- **Canonical Walk-In / Cash Customer Resolution (`seed_customers.py`, `customerStore.ts`)**:
+  - Seeded canonical `CUST-WALKIN` entity ("Walk-In / Cash Customer") to ensure 100% foreign-key compliance for counter sales without unresolvable customer IDs.
+- **Automated Database Orphan Customer Reconciler (`reconcile_customers.py`)**:
+  - Created automated reconciliation script to scan all invoices in PostgreSQL and repair orphan references.
+- **Policy Enforcement Unit Test Suite (`customerPolicyEnforcement.test.ts`)**:
+  - Added 5 automated unit tests covering credit limit thresholds, warning percentages, credit hold policies, and Price Group tax inclusiveness.
+
 ### [6.14.0] - 2026-08-22
 
 #### Security & Shell — Dual-Mode Contextual Inspector HUD (Zero Data on Login & Full Active Capabilities in Session)
