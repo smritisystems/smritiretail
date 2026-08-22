@@ -467,17 +467,28 @@ async def test_strict_statutory_mode_config_toggle(async_db: AsyncSession, tenan
 
         service = EWayBillService(async_db, tenant_ctx)
 
-        # 1. When STRICT_STATUTORY_MODE is False -> passes with warnings
+        # 1. When STRICT_STATUTORY_MODE is False -> passes with warnings if strict_validation=False/None
         settings.STRICT_STATUTORY_MODE = False
         payload_loose = await service.generate_transfer_eway_bill_payload(transfer_id=transfer_id)
         assert payload_loose["compliance"]["status"] == "WITH_WARNINGS"
 
-        # 2. When STRICT_STATUTORY_MODE is True -> raises HTTPException 422
+        # 1b. When STRICT_STATUTORY_MODE is False but strict_validation=True -> opt-in strict rejection
+        with pytest.raises(HTTPException) as exc_optin:
+            await service.generate_transfer_eway_bill_payload(transfer_id=transfer_id, strict_validation=True)
+        assert exc_optin.value.status_code == 422
+
+        # 2. When STRICT_STATUTORY_MODE is True -> raises HTTPException 422 even if strict_validation=False
         settings.STRICT_STATUTORY_MODE = True
         with pytest.raises(HTTPException) as exc_info:
             await service.generate_transfer_eway_bill_payload(transfer_id=transfer_id)
         assert exc_info.value.status_code == 422
         assert "SMRITI-STAT-002" in exc_info.value.detail
+
+        with pytest.raises(HTTPException) as exc_override:
+            # Client passing strict_validation=False in production cannot bypass statutory rules
+            await service.generate_transfer_eway_bill_payload(transfer_id=transfer_id, strict_validation=False)
+        assert exc_override.value.status_code == 422
+        assert "SMRITI-STAT-002" in exc_override.value.detail
 
     finally:
         settings.STRICT_STATUTORY_MODE = original_mode

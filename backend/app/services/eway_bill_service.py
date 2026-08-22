@@ -152,8 +152,9 @@ class EWayBillService:
         """
         Generate export-ready NIC GST E-Way Bill JSON payload for Inter-Godown Stock Transfer (Delivery Challan).
         Batch queries products to guarantee high performance on multi-item consignments.
+        Enforces non-overrideable strict validation in production mode.
         """
-        is_strict = strict_validation if strict_validation is not None else settings.STRICT_STATUTORY_MODE
+        is_strict = True if settings.STRICT_STATUTORY_MODE else bool(strict_validation)
 
         res = await self.db.execute(
             select(StockTransfer).where(
@@ -303,8 +304,9 @@ class EWayBillService:
         """
         Generate statutory Delivery Challan (Rule 55 CGST Rules 2017) format for printing and records.
         Batch queries products to eliminate N+1 latency.
+        Enforces non-overrideable strict validation in production mode.
         """
-        is_strict = strict_validation if strict_validation is not None else settings.STRICT_STATUTORY_MODE
+        is_strict = True if settings.STRICT_STATUTORY_MODE else bool(strict_validation)
 
         res = await self.db.execute(
             select(StockTransfer).where(
@@ -422,8 +424,9 @@ class EWayBillService:
         """
         Generate export-ready NIC GST E-Way Bill JSON payload for B2B Sales Invoices.
         Batch queries products to eliminate N+1 latency.
+        Enforces non-overrideable strict validation in production mode.
         """
-        is_strict = strict_validation if strict_validation is not None else settings.STRICT_STATUTORY_MODE
+        is_strict = True if settings.STRICT_STATUTORY_MODE else bool(strict_validation)
 
         res = await self.db.execute(
             select(SalesInvoice).where(
