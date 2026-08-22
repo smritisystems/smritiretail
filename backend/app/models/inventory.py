@@ -226,6 +226,13 @@ class StockTransfer(BaseEntity):
             unique=True,
             postgresql_where=text("is_deleted = false"),
         ),
+        Index(
+            "uq_company_transfer_idempotency_active",
+            "company_id",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("is_deleted = false AND idempotency_key IS NOT NULL"),
+        ),
     )
 
 
