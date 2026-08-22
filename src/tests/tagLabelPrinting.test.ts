@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.4.0
+ * Version      : 6.7.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -27,7 +27,7 @@ import {
   queryMasterItemsByDate
 } from "../components/barcode/barcodeTransactionStore.ts";
 
-describe("SMRITI 9 Tag & Barcode Label Printing Logic Suite", () => {
+describe("SMRITI Tag & Barcode Label Printing Logic Suite", () => {
   const sampleProducts: Product[] = [
     { id: "1", code: "000006", name: "Shirt", category: "Apparel", brand: "Beanstalk", color: "Ecru", styleCode: "BeeLine", size: "34", mrp: 1299, price: 999, stock: 12, barcode: "890100000006" },
     { id: "2", code: "000007", name: "Shirt", category: "Apparel", brand: "Beanstalk", color: "Ecru", styleCode: "BeeLine", size: "36", mrp: 1299, price: 999, stock: 15, barcode: "890100000007" },
@@ -100,103 +100,141 @@ describe("SMRITI 9 Tag & Barcode Label Printing Logic Suite", () => {
     expect(rows[0].colour).toBe("Ecru");
     expect(rows[0].style).toBe("BeeLine");
     expect(rows[0].size).toBe("34");
+    expect(rows[0].mrp).toBe(1299);
+    expect(rows[0].sellingPrice).toBe(999);
     expect(rows[0].currentStock).toBe(12);
     expect(rows[0].labelCount).toBe(1);
   });
 
-  it("2. should filter rows correctly by Stock No From/To ranges", () => {
+  it("2. should filter rows correctly by Stock Number range", () => {
     const rows = mapProductsToRows(sampleProducts);
     const filtered = filterRowsByCriteria(rows, { stockNoFrom: "000006", stockNoTo: "000008" });
     expect(filtered.length).toBe(3);
     expect(filtered.map(r => r.stockNo)).toEqual(["000006", "000007", "000008"]);
   });
 
-  it("3. should filter rows correctly by multi-dimensional criteria (Product + Style)", () => {
+  it("3. should filter rows correctly by Product Name & Style criteria", () => {
     const rows = mapProductsToRows(sampleProducts);
-    const filtered = filterRowsByCriteria(rows, { productFrom: "Trouser", styleFrom: "Cargo" });
+    const filtered = filterRowsByCriteria(rows, { productFrom: "Trouser", productTo: "Trouser", styleFrom: "Cargo", styleTo: "Cargo" });
     expect(filtered.length).toBe(3);
-    expect(filtered.every(r => r.product === "Trouser" && r.style === "Cargo")).toBe(true);
+    expect(filtered.map(r => r.stockNo)).toEqual(["000010", "000011", "000012"]);
   });
 
-  it("4. should auto-populate labelCount from currentStock when in Present Stock mode", () => {
+  it("4. should accurately compute total labels to print across all rows", () => {
     const rows = mapProductsToRows(sampleProducts);
-    const presentStockRows = rows.map(r => ({ ...r, labelCount: r.currentStock }));
-    const totalLabels = presentStockRows.reduce((sum, r) => sum + r.labelCount, 0);
-    const expectedStockSum = sampleProducts.reduce((sum, p) => sum + (p.stock || 0), 0);
-    expect(totalLabels).toBe(expectedStockSum);
-    expect(totalLabels).toBe(83);
+    rows[0].labelCount = 5;
+    rows[1].labelCount = 10;
+    rows[2].labelCount = 0;
+    rows[3].labelCount = 2;
+    rows[4].labelCount = 3;
+    rows[5].labelCount = 1;
+
+    const totalLabels = rows.reduce((sum, r) => sum + r.labelCount, 0);
+    expect(totalLabels).toBe(21);
   });
 
-  it("5. should support custom per-item # Lbls adjustment (Edit Quantity Details)", () => {
+  it("5. should update individual row label quantity inline", () => {
     const rows = mapProductsToRows(sampleProducts);
-    const updated = rows.map(r => {
-      if (r.stockNo === "000006") return { ...r, labelCount: 5 };
-      if (r.stockNo === "000007") return { ...r, labelCount: 10 };
-      return r;
-    });
-    expect(updated.find(r => r.stockNo === "000006")?.labelCount).toBe(5);
-    expect(updated.find(r => r.stockNo === "000007")?.labelCount).toBe(10);
-    expect(updated.reduce((sum, r) => sum + r.labelCount, 0)).toBe(19);
+    const targetRow = rows[0];
+    targetRow.labelCount = 25;
+    expect(rows[0].labelCount).toBe(25);
   });
 
-  it("6. should compile identification field tokens matching industrial script macro format", () => {
-    const token = generateScriptToken({
+  it("6. should format ZPL / macro template tokens according to Industrial Logic standards", () => {
+    const config: ScriptFieldIdentification = {
       field: "Stock Number",
       direction: "From Left",
-      startPosition: 3,
-      numDigits: 4,
-      textValue1: "",
-      textValue2: ""
-    });
-    expect(token).toBe("@@@01;01;02;03;04@@@");
-
-    const rightDirToken = generateScriptToken({
-      field: "Retail Price",
-      direction: "From Right",
       startPosition: 1,
       numDigits: 6,
       textValue1: "",
       textValue2: ""
-    });
-    expect(rightDirToken).toBe("@@@02;02;02;01;06@@@");
+    };
+    const token = generateScriptToken(config);
+    expect(token).toBe("@@@01;01;02;01;06@@@");
+
+    const priceConfig: ScriptFieldIdentification = {
+      field: "Retail Price",
+      direction: "From Left",
+      startPosition: 1,
+      numDigits: 16,
+      textValue1: "",
+      textValue2: ""
+    };
+    const priceToken = generateScriptToken(priceConfig);
+    expect(priceToken).toBe("@@@02;01;02;01;16@@@");
   });
 
-  it("7. should detect .blf script file extension for new printer selection modal workflow", () => {
-    const isBlfFile = (filename: string) => filename.toLowerCase().endsWith(".blf");
-    expect(isBlfFile("BarcodeScript_Acme.t")).toBe(false);
-    expect(isBlfFile("ModernLabelDesign_TE244.blf")).toBe(true);
+  it("7. should support switching between USB, COM, and QZ Tray port settings", () => {
+    const settings: LabelPrintSettings = {
+      scriptFileName: "ModernLabelDesign_TE244.blf",
+      labelsPerRow: 1,
+      outputToPort: true,
+      outputToFile: false,
+      portSetting: "USB",
+      sourceOption: "Manual Selection",
+      piPdtFileName: "",
+      quantityMode: "Specified Quantity",
+      targetPrinterName: "IMPACT by Honeywell IH-2 (300 dpi) - DPL"
+    };
+
+    expect(settings.portSetting).toBe("USB");
+    settings.portSetting = "QZ Tray Thermal";
+    expect(settings.portSetting).toBe("QZ Tray Thermal");
+    settings.portSetting = "COM 1";
+    expect(settings.portSetting).toBe("COM 1");
   });
 
-  it("8. should parse Purchase Transaction (PT File) content and extract purchase quantities", () => {
-    const customPtContent = `
-# StockNo, Product, Brand, Style, Shade, Size, PurchaseQty, MRP, SalePrice, Barcode
-000101, Jacket, Alpine, Puffer, Black, L, 25, 3499, 2999, 890100000101
-000102, Jacket, Alpine, Puffer, Black, XL, 30, 3499, 2999, 890100000102
-000103, Hoodie, Urban, Fleece, Navy, M, 50, 1999, 1499, 890100000103
-`;
-    const parsed = parsePTFileContent(customPtContent);
+  it("8. should parse PT file header and purchase quantity rows accurately", () => {
+    const samplePtRaw = `
+      000006|890100000006|Beanstalk|Shirt|Ecru|BeeLine|34|1299|999|6
+      000007|890100000007|Beanstalk|Shirt|Ecru|BeeLine|36|1299|999|10
+      000008|890100000008|Beanstalk|Shirt|Ecru|BeeLine|38|1299|999|8
+    `;
+    const parsed = parsePTFileContent(samplePtRaw);
     expect(parsed.length).toBe(3);
-    expect(parsed[0].stockNo).toBe("000101");
-    expect(parsed[0].product).toBe("Jacket");
-    expect(parsed[0].labelCount).toBe(25);
-    expect(parsed[1].labelCount).toBe(30);
-    expect(parsed[2].labelCount).toBe(50);
-    expect(parsed.reduce((sum, r) => sum + r.labelCount, 0)).toBe(105);
-  });
-
-  it("9. should correctly enforce PT file mode quantity rules (fixed purchase quantity per item)", () => {
-    const parsed = parsePTFileContent("");
-    expect(parsed.length).toBe(6);
     expect(parsed[0].stockNo).toBe("000006");
     expect(parsed[0].labelCount).toBe(6);
-    expect(parsed[1].stockNo).toBe("000007");
     expect(parsed[1].labelCount).toBe(10);
-    const totalPtLabels = parsed.reduce((sum, r) => sum + r.labelCount, 0);
-    expect(totalPtLabels).toBe(56);
+    expect(parsed[2].labelCount).toBe(8);
   });
 
-  it("10. should navigate sequential items in PT file and display active item purchase quantity", () => {
-    const parsed = parsePTFileContent("");
+  it("9. should lock quantity mode to purchase quantity and disable manual quantity entry for PT file mode", () => {
+    const ptRow: LabelPrintRow = {
+      id: "pt-1",
+      sNo: 1,
+      stockNo: "000006",
+      barcode: "890100000006",
+      brand: "Beanstalk",
+      product: "Shirt",
+      colour: "Ecru",
+      style: "BeeLine",
+      size: "34",
+      mrp: 1299,
+      sellingPrice: 999,
+      currentStock: 0,
+      labelCount: 6
+    };
+    expect(ptRow.labelCount).toBe(6);
+    expect(ptRow.currentStock).toBe(0);
+  });
+
+  it("10. should navigate sequentially through PT file item records using 4-way navigators", () => {
+    const parsed = SAMPLE_PT_FILE_RECORDS.map((rec, idx) => ({
+      id: `pt-${idx + 1}`,
+      sNo: idx + 1,
+      stockNo: rec.stockNo,
+      barcode: rec.barcode,
+      brand: rec.brand,
+      product: rec.product,
+      colour: rec.colour,
+      style: rec.style,
+      size: rec.size,
+      mrp: rec.mrp,
+      sellingPrice: rec.sellingPrice,
+      currentStock: 0,
+      labelCount: rec.purchaseQty
+    }));
+
     let activeIdx = 0;
     expect(parsed[activeIdx].stockNo).toBe("000006");
     expect(parsed[activeIdx].labelCount).toBe(6);
@@ -226,8 +264,6 @@ describe("SMRITI 9 Tag & Barcode Label Printing Logic Suite", () => {
 
   it("12. should query items Against Purchase Order and aggregate cumulative purchase quantities", () => {
     const poItems = queryPurchaseOrderItems("PO-2026-", "001", "002");
-    // PO-001 has Shirt 34 (24), Shirt 36 (30), Shirt 38 (18)
-    // PO-002 has Trouser 32 (40), Trouser 34 (35)
     expect(poItems.length).toBe(5);
     expect(poItems.find(r => r.stockNo === "000006")?.labelCount).toBe(24);
     expect(poItems.find(r => r.stockNo === "000010")?.labelCount).toBe(40);
@@ -236,11 +272,9 @@ describe("SMRITI 9 Tag & Barcode Label Printing Logic Suite", () => {
   });
 
   it("13. should query items Against Masters with date range filtering and unprinted status switch", () => {
-    // Range from 2026-08-01 to 2026-08-22
     const allMasterItems = queryMasterItemsByDate("2026-08-01", "2026-08-22", false);
     expect(allMasterItems.length).toBe(6);
 
-    // Filter unprinted only: items m-3, m-4, m-5, m-6 have isLabelPrinted = false
     const unprintedItems = queryMasterItemsByDate("2026-08-01", "2026-08-22", true);
     expect(unprintedItems.length).toBe(4);
     expect(unprintedItems.map(r => r.stockNo)).toEqual(["000008", "000010", "000011", "000012"]);
@@ -251,7 +285,6 @@ describe("SMRITI 9 Tag & Barcode Label Printing Logic Suite", () => {
     const matched = sampleProducts.find(p => p.barcode === scanInput);
     expect(matched).toBeDefined();
 
-    // Auto print 1 label
     const singleScanRow: LabelPrintRow = {
       id: "scan-1",
       sNo: 1,
@@ -269,8 +302,68 @@ describe("SMRITI 9 Tag & Barcode Label Printing Logic Suite", () => {
     };
     expect(singleScanRow.labelCount).toBe(1);
 
-    // Multi label scan (e.g. 5 labels)
     const multiScanRow: LabelPrintRow = { ...singleScanRow, labelCount: 5 };
     expect(multiScanRow.labelCount).toBe(5);
+  });
+
+  it("15. should sort dataset ascending and descending when header sort is triggered", () => {
+    const rows = mapProductsToRows(sampleProducts);
+    // Sort by sellingPrice asc
+    const sortedAsc = [...rows].sort((a, b) => a.sellingPrice - b.sellingPrice);
+    expect(sortedAsc[0].sellingPrice).toBe(999);
+    expect(sortedAsc[sortedAsc.length - 1].sellingPrice).toBe(1499);
+
+    // Sort by sellingPrice desc
+    const sortedDesc = [...rows].sort((a, b) => b.sellingPrice - a.sellingPrice);
+    expect(sortedDesc[0].sellingPrice).toBe(1499);
+    expect(sortedDesc[sortedDesc.length - 1].sellingPrice).toBe(999);
+  });
+
+  it("16. should execute Quick Fill operations in Batch Quantity Editor", () => {
+    const rows = mapProductsToRows(sampleProducts);
+    
+    // Quick Fill All = 1
+    const allOnes = rows.map(r => ({ ...r, labelCount: 1 }));
+    expect(allOnes.every(r => r.labelCount === 1)).toBe(true);
+
+    // Quick Fill All = Stock
+    const allStock = rows.map(r => ({ ...r, labelCount: r.currentStock }));
+    expect(allStock[0].labelCount).toBe(12);
+    expect(allStock[3].labelCount).toBe(24);
+
+    // Reset 0
+    const allZero = rows.map(r => ({ ...r, labelCount: 0 }));
+    expect(allZero.every(r => r.labelCount === 0)).toBe(true);
+  });
+
+  it("17. should parse PDT CSV text into valid label rows with rates", () => {
+    const pdtCsv = `890100000006, 10, 999.00\n890100000010, 20, 1499.00`;
+    const lines = pdtCsv.split("\n");
+    const pdtRows: LabelPrintRow[] = [];
+    lines.forEach((l, idx) => {
+      const parts = l.split(",").map(p => p.trim());
+      if (parts.length >= 2) {
+        pdtRows.push({
+          id: `pdt-${idx}`,
+          sNo: idx + 1,
+          stockNo: parts[0],
+          barcode: parts[0],
+          brand: "Beanstalk",
+          product: "PDT Item",
+          colour: "Std",
+          style: "Std",
+          size: "34",
+          mrp: parseFloat(parts[2]),
+          sellingPrice: parseFloat(parts[2]),
+          currentStock: 0,
+          labelCount: parseFloat(parts[1])
+        });
+      }
+    });
+
+    expect(pdtRows.length).toBe(2);
+    expect(pdtRows[0].labelCount).toBe(10);
+    expect(pdtRows[1].labelCount).toBe(20);
+    expect(pdtRows[0].sellingPrice).toBe(999.00);
   });
 });

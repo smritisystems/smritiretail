@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.0.0
+ * Version      : 6.7.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -24,8 +24,22 @@ interface PosTerminalTabProps {
   onNotification?: (title: string, msg: string, type: "success" | "error") => void;
 }
 
-export const PosTerminalTab: React.FC<PosTerminalTabProps> = () => {
-  return <SmritiProPosWorkspace />;
+export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
+  products = [],
+  profiles = [],
+  shifts = [],
+  onRefreshData,
+  onNotification
+}) => {
+  return (
+    <SmritiProPosWorkspace
+      products={products}
+      profiles={profiles}
+      shifts={shifts}
+      onRefreshData={onRefreshData}
+      onNotification={onNotification}
+    />
+  );
 };
 
 export default PosTerminalTab;

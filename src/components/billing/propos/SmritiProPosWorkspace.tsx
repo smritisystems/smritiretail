@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.0.0
+ * Version      : 6.7.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -18,8 +18,11 @@ import { SmritiProPosEodReportView } from "./SmritiProPosEodReportView.tsx";
 import { SmritiProPosDailyReportsDashboard } from "./SmritiProPosDailyReportsDashboard.tsx";
 import { SmritiProPosPromotionEngine } from "./SmritiProPosPromotionEngine.tsx";
 import { SmritiProPosCommissionBuilder } from "./SmritiProPosCommissionBuilder.tsx";
+import { SmritiBillingTerminal } from "../SmritiBillingTerminal.tsx";
+import { Product, POSProfile, Shift } from "../../../types.ts";
 import { 
   ShoppingCart, 
+  Receipt,
   BarChart3, 
   Sparkles, 
   Award, 
@@ -28,18 +31,32 @@ import {
   AlertCircle, 
   Info,
   Clock,
-  ShieldCheck,
-  RotateCcw
+  ShieldCheck
 } from "lucide-react";
 
-type ProPosActiveTab = "BILLING" | "EOD_Z_REPORT" | "DAILY_REPORTS" | "PROMOTIONS" | "COMMISSIONS";
+type ProPosActiveTab = "BILLING" | "INVOICING" | "EOD_Z_REPORT" | "DAILY_REPORTS" | "PROMOTIONS" | "COMMISSIONS";
 
-export const SmritiProPosWorkspace: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<ProPosActiveTab>("BILLING");
+interface SmritiProPosWorkspaceProps {
+  products?: Product[];
+  profiles?: POSProfile[];
+  shifts?: Shift[];
+  onRefreshData?: () => void;
+  onNotification?: (title: string, msg: string, type: "success" | "error") => void;
+}
+
+export const SmritiProPosWorkspace: React.FC<SmritiProPosWorkspaceProps> = ({
+  products = [],
+  profiles = [],
+  shifts = [],
+  onRefreshData,
+  onNotification
+}) => {
+  const [activeTab, setActiveTab] = useState<ProPosActiveTab>("INVOICING");
   const [toast, setToast] = useState<{ title: string; message: string; type: "success" | "error" | "info" } | null>(null);
 
   const showToast = (title: string, message: string, type: "success" | "error" | "info" = "info") => {
     setToast({ title, message, type });
+    onNotification?.(title, message, type === "error" ? "error" : "success");
     setTimeout(() => setToast(null), 4000);
   };
 
@@ -54,12 +71,25 @@ export const SmritiProPosWorkspace: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a] animate-pulse"></span>
             <h1 className="text-sm font-bold text-[#00288e] dark:text-[#a8b8ff] tracking-tight flex items-center gap-1.5">
-              <span>ProPOS Billing Studio</span>
-              <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">v6.0</span>
+              <span>Enterprise Billing Suite</span>
+              <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">v6.7</span>
             </h1>
           </div>
 
           <nav className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("INVOICING")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === "INVOICING"
+                  ? "bg-[#041632] text-white shadow-xs"
+                  : "text-[#565e74] dark:text-[#bec6e0] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
+              }`}
+            >
+              <Receipt size={14} />
+              <span>Distributor Invoicing</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab("BILLING")}
@@ -70,7 +100,7 @@ export const SmritiProPosWorkspace: React.FC = () => {
               }`}
             >
               <ShoppingCart size={14} />
-              <span>Billing Terminal</span>
+              <span>Speed POS Terminal</span>
             </button>
 
             <button
@@ -143,6 +173,13 @@ export const SmritiProPosWorkspace: React.FC = () => {
 
       {/* Main Workspace Active View */}
       <div className="flex-1 overflow-hidden relative">
+        {activeTab === "INVOICING" && (
+          <SmritiBillingTerminal
+            products={products}
+            onNotification={showToast}
+            onRefreshData={onRefreshData}
+          />
+        )}
         {activeTab === "BILLING" && (
           <SmritiProPosBillingTerminal onNotification={showToast} />
         )}
