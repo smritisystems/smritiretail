@@ -54,11 +54,15 @@ def upgrade():
             sa.Column('status', sa.String(length=30), server_default='PENDING', nullable=False),
             sa.Column('retry_count', sa.Integer(), server_default='0', nullable=False),
             sa.Column('error_message', sa.Text(), nullable=True),
+            sa.Column('last_attempt_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('next_attempt_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('claim_expires_at', sa.DateTime(timezone=True), nullable=True),
             sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('NOW()'), nullable=False),
             sa.Column('dispatched_at', sa.DateTime(timezone=True), nullable=True)
         )
         op.create_index('idx_outbox_channel_status', 'integration_outbox_events', ['target_channel', 'status'])
         op.create_index('idx_outbox_aggregate', 'integration_outbox_events', ['aggregate_type', 'aggregate_id'])
+        op.create_index('idx_outbox_retry_schedule', 'integration_outbox_events', ['status', 'next_attempt_at'])
     else:
         # Table exists: add missing columns safely
         existing_cols = [c['name'] for c in inspector.get_columns('integration_outbox_events')]
@@ -83,9 +87,22 @@ def upgrade():
         if 'error_message' not in existing_cols:
             op.add_column('integration_outbox_events', sa.Column('error_message', sa.Text(), nullable=True))
 
+        if 'last_attempt_at' not in existing_cols:
+            op.add_column('integration_outbox_events', sa.Column('last_attempt_at', sa.DateTime(timezone=True), nullable=True))
+
+        if 'next_attempt_at' not in existing_cols:
+            op.add_column('integration_outbox_events', sa.Column('next_attempt_at', sa.DateTime(timezone=True), nullable=True))
+            op.create_index('idx_outbox_next_attempt', 'integration_outbox_events', ['next_attempt_at'])
+
+        if 'claim_expires_at' not in existing_cols:
+            op.add_column('integration_outbox_events', sa.Column('claim_expires_at', sa.DateTime(timezone=True), nullable=True))
+            op.create_index('idx_outbox_claim_expires', 'integration_outbox_events', ['claim_expires_at'])
+
         existing_indexes = [i['name'] for i in inspector.get_indexes('integration_outbox_events')]
         if 'idx_outbox_aggregate' not in existing_indexes:
             op.create_index('idx_outbox_aggregate', 'integration_outbox_events', ['aggregate_type', 'aggregate_id'])
+        if 'idx_outbox_retry_schedule' not in existing_indexes:
+            op.create_index('idx_outbox_retry_schedule', 'integration_outbox_events', ['status', 'next_attempt_at'])
 
     # 2. Cleanup legacy/duplicate outbox_events table if present
     if 'outbox_events' in tables:
@@ -93,12 +110,22 @@ def upgrade():
 
 
 def downgrade():
+    """
+    Downgrade policy: Forward-only schema evolution.
+    Drops added columns and indexes.
+    """
     conn = op.get_bind()
     inspector = sa.inspect(conn)
     tables = inspector.get_table_names()
 
     if 'integration_outbox_events' in tables:
         existing_cols = [c['name'] for c in inspector.get_columns('integration_outbox_events')]
+        if 'claim_expires_at' in existing_cols:
+            op.drop_column('integration_outbox_events', 'claim_expires_at')
+        if 'next_attempt_at' in existing_cols:
+            op.drop_column('integration_outbox_events', 'next_attempt_at')
+        if 'last_attempt_at' in existing_cols:
+            op.drop_column('integration_outbox_events', 'last_attempt_at')
         if 'error_message' in existing_cols:
             op.drop_column('integration_outbox_events', 'error_message')
         if 'branch_id' in existing_cols:

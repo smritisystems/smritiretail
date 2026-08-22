@@ -14,7 +14,7 @@ Classification: Internal
 
 import uuid
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from sqlalchemy import select, and_, or_, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -85,20 +85,50 @@ class UnifiedOutboxAnalyticsService:
         dispatcher_callback=None,
         max_retries: int = 5,
         target_channel: Optional[str] = None,
-        event_type: Optional[str] = None
+        event_type: Optional[str] = None,
+        base_backoff_seconds: int = 2,
+        claim_timeout_seconds: int = 60
     ) -> Dict[str, Any]:
         """
-        Polls and dispatches pending outbox events using row-locking (SKIP LOCKED)
-        to prevent duplicate dispatch by concurrent workers.
-        Invokes dispatcher_callback for actual external publishing.
-        Updates status to DISPATCHED or increments retry_count / transitions to DEAD_LETTER.
+        Polls and dispatches pending and retryable outbox events using a resilient two-phase claim:
+        1. Phase 1 (Claim): Selects eligible events (PENDING, retryable FAILED with next_attempt_at <= now,
+           or timed-out PROCESSING claims) with SKIP LOCKED, marks them PROCESSING, and commits claim.
+        2. Phase 2 (Publish): Dispatches events via dispatcher_callback WITHOUT holding DB locks.
+        3. Phase 3 (Settle): Updates events to DISPATCHED or FAILED with exponential backoff / DEAD_LETTER.
         """
-        filters = [IntegrationOutboxEvent.status == "PENDING"]
+        if not dispatcher_callback:
+            raise ValueError("No dispatcher_callback configured. Refusing to mark outbox events as dispatched without publisher.")
+
+        now_utc = datetime.now(timezone.utc)
+        claim_expires_at = now_utc + timedelta(seconds=claim_timeout_seconds)
+
+        # Eligibility criteria:
+        # 1. status == 'PENDING'
+        # 2. status == 'FAILED' AND (next_attempt_at IS NULL OR next_attempt_at <= now)
+        # 3. status == 'PROCESSING' AND claim_expires_at <= now (zombie recovery)
+        eligibility_clause = or_(
+            IntegrationOutboxEvent.status == "PENDING",
+            and_(
+                IntegrationOutboxEvent.status == "FAILED",
+                or_(
+                    IntegrationOutboxEvent.next_attempt_at == None,
+                    IntegrationOutboxEvent.next_attempt_at <= now_utc
+                )
+            ),
+            and_(
+                IntegrationOutboxEvent.status == "PROCESSING",
+                IntegrationOutboxEvent.claim_expires_at != None,
+                IntegrationOutboxEvent.claim_expires_at <= now_utc
+            )
+        )
+
+        filters = [eligibility_clause]
         if target_channel:
             filters.append(IntegrationOutboxEvent.target_channel == target_channel)
         if event_type:
             filters.append(IntegrationOutboxEvent.event_type == event_type.strip().upper())
 
+        # Phase 1: Claim Batch
         stmt = (
             select(IntegrationOutboxEvent)
             .where(*filters)
@@ -106,44 +136,88 @@ class UnifiedOutboxAnalyticsService:
             .limit(limit)
             .with_for_update(skip_locked=True)
         )
-        events = (await session.execute(stmt)).scalars().all()
+        events = list((await session.execute(stmt)).scalars().all())
+        if not events:
+            return {
+                "dispatched_count": 0,
+                "failed_count": 0,
+                "dead_letter_count": 0,
+                "dispatched_event_ids": [],
+                "failed_event_ids": [],
+                "dead_letter_event_ids": [],
+                "processed_at": now_utc.isoformat()
+            }
 
-
-        dispatched_ids: List[str] = []
-        failed_ids: List[str] = []
-        dead_letter_ids: List[str] = []
-        now_utc = datetime.now(timezone.utc)
-
+        claimed_events_data = []
         for evt in events:
-            try:
-                if dispatcher_callback:
-                    await dispatcher_callback(evt)
+            evt.status = "PROCESSING"
+            evt.last_attempt_at = now_utc
+            evt.claim_expires_at = claim_expires_at
+            claimed_events_data.append((evt.outbox_id, evt.retry_count, evt))
 
-                evt.status = "DISPATCHED"
-                evt.dispatched_at = now_utc
-                evt.error_message = None
-                dispatched_ids.append(evt.outbox_id)
+        await session.commit()
+
+        # Phase 2: Publish Outside DB Lock
+        dispatched_ids: List[str] = []
+        failed_records: List[tuple[str, int, str]] = []
+        dead_letter_records: List[tuple[str, int, str]] = []
+
+        for outbox_id, current_retry_count, evt in claimed_events_data:
+            try:
+                await dispatcher_callback(evt)
+                dispatched_ids.append(outbox_id)
             except Exception as exc:
-                evt.retry_count += 1
-                evt.error_message = str(exc)
-                if evt.retry_count >= max_retries:
-                    evt.status = "DEAD_LETTER"
-                    dead_letter_ids.append(evt.outbox_id)
+                new_retry_count = current_retry_count + 1
+                if new_retry_count >= max_retries:
+                    dead_letter_records.append((outbox_id, new_retry_count, str(exc)))
                 else:
-                    evt.status = "FAILED"
-                    failed_ids.append(evt.outbox_id)
+                    failed_records.append((outbox_id, new_retry_count, str(exc)))
+
+        # Phase 3: Settle Results
+        settle_now = datetime.now(timezone.utc)
+        all_ids = dispatched_ids + [r[0] for r in failed_records] + [r[0] for r in dead_letter_records]
+        settle_stmt = select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.outbox_id.in_(all_ids))
+        settle_events = {e.outbox_id: e for e in (await session.execute(settle_stmt)).scalars().all()}
+
+        for outbox_id in dispatched_ids:
+            if outbox_id in settle_events:
+                se = settle_events[outbox_id]
+                se.status = "DISPATCHED"
+                se.dispatched_at = settle_now
+                se.claim_expires_at = None
+                se.error_message = None
+
+        for outbox_id, retry_cnt, err in failed_records:
+            if outbox_id in settle_events:
+                se = settle_events[outbox_id]
+                se.status = "FAILED"
+                se.retry_count = retry_cnt
+                se.error_message = err
+                se.claim_expires_at = None
+                backoff = base_backoff_seconds * (2 ** max(0, retry_cnt - 1))
+                se.next_attempt_at = settle_now + timedelta(seconds=backoff)
+
+        for outbox_id, retry_cnt, err in dead_letter_records:
+            if outbox_id in settle_events:
+                se = settle_events[outbox_id]
+                se.status = "DEAD_LETTER"
+                se.retry_count = retry_cnt
+                se.error_message = err
+                se.claim_expires_at = None
+                se.next_attempt_at = None
 
         await session.commit()
 
         return {
             "dispatched_count": len(dispatched_ids),
-            "failed_count": len(failed_ids),
-            "dead_letter_count": len(dead_letter_ids),
+            "failed_count": len(failed_records),
+            "dead_letter_count": len(dead_letter_records),
             "dispatched_event_ids": dispatched_ids,
-            "failed_event_ids": failed_ids,
-            "dead_letter_event_ids": dead_letter_ids,
-            "processed_at": now_utc.isoformat()
+            "failed_event_ids": [r[0] for r in failed_records],
+            "dead_letter_event_ids": [r[0] for r in dead_letter_records],
+            "processed_at": settle_now.isoformat()
         }
+
 
     # =========================================================================
     # 2. AUTHORITATIVE OPERATIONAL ANALYTICS PLANE

@@ -83,16 +83,16 @@ class CompanyDatabaseProvisioner:
         }
 
     def initialize_schema_plan(self, database_name: str) -> Dict[str, Any]:
-        """Step 6: Schema initialization plan (DRY_RUN only)."""
+        """Step 6: Schema initialization plan."""
         return {
             "step": 6,
             "operation": "initialize_schema_plan",
             "target_database": database_name,
-            "schema_version": "3.29.0",
+            "schema_version": "6.16.0",
             "alembic_required": True,
-            "alembic_migration_command": "alembic upgrade head",
-            "alembic_min_revision": "v1337_backfill_variant_id",
-            "tables_planned": 45,
+            "alembic_migration_command": f"alembic -x db={database_name} upgrade head",
+            "alembic_min_revision": "v1342_canonical_outbox",
+            "tables_planned": 46,
             "dry_run": self.dry_run,
             "executed": False
         }
