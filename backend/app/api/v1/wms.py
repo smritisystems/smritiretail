@@ -25,14 +25,17 @@ from ...api.deps import (
     require_role, require_permission
 )
 from ...models.auth import UserRole
-from ...models.inventory import Warehouse, ProductBatchStock, StockTransfer, StockTransferItem
+from ...models.inventory import Warehouse, ProductBatchStock, StockTransfer, StockTransferItem, StockAudit, StockAuditItem
 from ...schemas.wms import (
     WarehouseCreate, WarehouseUpdate, WarehouseResponse,
     ProductBatchStockResponse, BatchAllocationRequest, BatchAllocationItem,
-    StockTransferCreate, StockTransferResponse, StockTransferReceiptRequest
+    StockTransferCreate, StockTransferResponse, StockTransferReceiptRequest,
+    StockAuditCreate, StockAuditResponse, StockAuditItemResponse,
+    StockAuditCountItemRequest, StockAuditBulkCountRequest, StockAuditBarcodeScanRequest
 )
 from ...services.inventory_wms_service import InventoryWmsService
 from ...services.eway_bill_service import EWayBillService
+from ...services.stock_audit_service import StockAuditService
 
 router = APIRouter()
 
@@ -379,4 +382,123 @@ async def update_transfer_transporter(
     await db.commit()
     await db.refresh(st)
     return StockTransferResponse.model_validate(st)
+
+
+# ─────────────────────────── Physical Stock Audit & Reconciliation ───────────────────────────
+
+@router.get(
+    "/audits",
+    response_model=List[StockAuditResponse],
+    dependencies=[Depends(require_permission("stock_ledger", "VIEW"))],
+)
+async def list_stock_audits(
+    warehouse_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List physical stock audits for the company."""
+    service = StockAuditService(db, tenant_ctx)
+    audits = await service.list_stock_audits(warehouse_id=warehouse_id, status=status, limit=limit)
+    return [StockAuditResponse.model_validate(a) for a in audits]
+
+
+@router.post(
+    "/audits",
+    response_model=StockAuditResponse,
+    status_code=201,
+    dependencies=[Depends(require_permission("stock_ledger", "EDIT"))],
+)
+async def create_stock_audit(
+    req: StockAuditCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Initiate a new physical stock audit by snapshotting active batch balances."""
+    service = StockAuditService(db, tenant_ctx)
+    audit = await service.create_stock_audit(
+        warehouse_id=req.warehouse_id,
+        audit_type=req.audit_type,
+        notes=req.notes
+    )
+    return StockAuditResponse.model_validate(audit)
+
+
+@router.get(
+    "/audits/{audit_id}",
+    response_model=StockAuditResponse,
+    dependencies=[Depends(require_permission("stock_ledger", "VIEW"))],
+)
+async def get_stock_audit(
+    audit_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Fetch details and item variance list for a specific stock audit."""
+    service = StockAuditService(db, tenant_ctx)
+    audit = await service.get_stock_audit(audit_id)
+    if not audit:
+        raise HTTPException(status_code=404, detail=f"Stock audit {audit_id} not found.")
+    return StockAuditResponse.model_validate(audit)
+
+
+@router.post(
+    "/audits/{audit_id}/count",
+    response_model=StockAuditItemResponse,
+    dependencies=[Depends(require_permission("stock_ledger", "EDIT"))],
+)
+async def record_audit_item_count(
+    audit_id: str,
+    req: StockAuditCountItemRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Record physical count for a specific line item in a stock audit."""
+    service = StockAuditService(db, tenant_ctx)
+    item = await service.record_item_count(
+        audit_id=audit_id,
+        item_id=req.item_id,
+        counted_qty=float(req.counted_qty),
+        discrepancy_reason=req.discrepancy_reason,
+        notes=req.notes
+    )
+    return StockAuditItemResponse.model_validate(item)
+
+
+@router.post(
+    "/audits/{audit_id}/scan",
+    dependencies=[Depends(require_permission("stock_ledger", "EDIT"))],
+)
+async def scan_barcode_for_audit(
+    audit_id: str,
+    req: StockAuditBarcodeScanRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Rapid barcode scan action to increment counted quantity during physical audit."""
+    service = StockAuditService(db, tenant_ctx)
+    return await service.scan_barcode_increment(
+        audit_id=audit_id,
+        barcode_or_sku=req.barcode_or_sku,
+        qty_increment=float(req.qty_increment or 1.0),
+        batch_no=req.batch_no
+    )
+
+
+@router.post(
+    "/audits/{audit_id}/reconcile",
+    response_model=StockAuditResponse,
+    dependencies=[Depends(require_permission("stock_ledger", "EDIT"))],
+)
+async def reconcile_stock_audit(
+    audit_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Reconcile stock audit, post batch adjustments and ledger movements, and mark COMPLETED."""
+    service = StockAuditService(db, tenant_ctx)
+    audit = await service.reconcile_and_post_discrepancies(audit_id=audit_id)
+    return StockAuditResponse.model_validate(audit)
+
 

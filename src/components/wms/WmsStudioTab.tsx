@@ -33,6 +33,8 @@ import {
   FileText,
   Download,
   Printer,
+  ClipboardCheck,
+  ScanLine,
   X
 } from "lucide-react";
 
@@ -87,14 +89,45 @@ interface StockTransfer {
   items: StockTransferItem[];
 }
 
+interface StockAuditItem {
+  id: string;
+  audit_id: string;
+  product_id: string;
+  batch_no: string;
+  system_qty: number;
+  counted_qty: number;
+  variance_qty: number;
+  unit_cost: number;
+  variance_value: number;
+  discrepancy_reason?: string;
+  is_reconciled: boolean;
+  notes?: string;
+  product?: any;
+}
+
+interface StockAudit {
+  id: string;
+  audit_no: string;
+  warehouse_id: string;
+  audit_date: string;
+  status: "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  audit_type: string;
+  notes?: string;
+  reconciled_at?: string;
+  reconciled_by?: string;
+  items: StockAuditItem[];
+}
+
 export const WmsStudioTab: React.FC<{
   currentUser?: any;
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
 }> = ({ currentUser, onNotification }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"batches" | "transfers" | "inward" | "fefo">("batches");
+  const [activeSubTab, setActiveSubTab] = useState<"batches" | "transfers" | "inward" | "fefo" | "audit">("batches");
   const [warehouses, setWarehouses] = useState<Godown[]>([]);
   const [batchStocks, setBatchStocks] = useState<BatchStock[]>([]);
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
+  const [audits, setAudits] = useState<StockAudit[]>([]);
+  const [selectedAudit, setSelectedAudit] = useState<StockAudit | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>("ALL");
@@ -123,6 +156,14 @@ export const WmsStudioTab: React.FC<{
   const [fefoQty, setFefoQty] = useState(10);
   const [fefoResults, setFefoResults] = useState<any[] | null>(null);
 
+  // Stock Audit state
+  const [auditWarehouseId, setAuditWarehouseId] = useState("");
+  const [auditType, setAuditType] = useState("CYCLE_COUNT");
+  const [auditNotes, setAuditNotes] = useState("");
+  const [scanBarcodeInput, setScanBarcodeInput] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [isReconciling, setIsReconciling] = useState(false);
+
   // E-Way Bill & Delivery Challan Modal State
   const [viewingChallan, setViewingChallan] = useState<any | null>(null);
   const [viewingEwayBill, setViewingEwayBill] = useState<any | null>(null);
@@ -130,20 +171,23 @@ export const WmsStudioTab: React.FC<{
   const fetchWmsData = async () => {
     setLoading(true);
     try {
-      const [whRes, batchRes, transferRes] = await Promise.all([
+      const [whRes, batchRes, transferRes, auditRes] = await Promise.all([
         apiFetchV1<Godown[]>("/wms/warehouses"),
         apiFetchV1<BatchStock[]>("/wms/batch-stocks"),
         apiFetchV1<StockTransfer[]>("/wms/transfers"),
+        apiFetchV1<StockAudit[]>("/wms/audits").catch(() => []),
       ]);
       setWarehouses(whRes || []);
       setBatchStocks(batchRes || []);
       setTransfers(transferRes || []);
+      setAudits(auditRes || []);
 
       if (whRes && whRes.length > 0) {
         if (!sourceWh) setSourceWh(whRes[0].id);
         if (!destWh && whRes.length > 1) setDestWh(whRes[1].id);
         if (!grnWarehouseId) setGrnWarehouseId(whRes[0].id);
         if (!fefoWarehouseId) setFefoWarehouseId(whRes[0].id);
+        if (!auditWarehouseId) setAuditWarehouseId(whRes[0].id);
       }
     } catch (err: any) {
       onNotification?.("WMS Error", err.message || "Failed to load warehouse data", "error");
@@ -324,6 +368,103 @@ export const WmsStudioTab: React.FC<{
     }
   };
 
+  // Handle Physical Stock Audit Actions
+  const handleCreateAudit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auditWarehouseId) {
+      onNotification?.("Validation Error", "Please select a target warehouse for audit.", "error");
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = await apiFetchV1<StockAudit>("/wms/audits", {
+        method: "POST",
+        body: JSON.stringify({
+          warehouse_id: auditWarehouseId,
+          audit_type: auditType,
+          notes: auditNotes || undefined,
+        }),
+      });
+      onNotification?.("Stock Audit Initiated", `Audit ${res.audit_no} created with ${res.items?.length || 0} snapshotted batch lines.`, "success");
+      setSelectedAudit(res);
+      fetchWmsData();
+    } catch (err: any) {
+      onNotification?.("Audit Error", err.message || "Failed creating stock audit", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectAudit = async (auditId: string) => {
+    try {
+      setLoading(true);
+      const res = await apiFetchV1<StockAudit>(`/wms/audits/${auditId}`);
+      setSelectedAudit(res);
+    } catch (err: any) {
+      onNotification?.("Audit Error", err.message || "Failed loading audit details", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBarcodeScan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAudit || !scanBarcodeInput.trim()) return;
+    try {
+      setIsScanning(true);
+      const res = await apiFetchV1<any>(`/wms/audits/${selectedAudit.id}/scan`, {
+        method: "POST",
+        body: JSON.stringify({
+          barcode_or_sku: scanBarcodeInput.trim(),
+          qty_increment: 1.0,
+        }),
+      });
+      onNotification?.("Scan Counted", `Scanned ${res.product_name} (${res.batch_no}): Counted = ${res.counted_qty}, Variance = ${res.variance_qty}`, "success");
+      setScanBarcodeInput("");
+      handleSelectAudit(selectedAudit.id);
+    } catch (err: any) {
+      onNotification?.("Scan Error", err.message || "Barcode scan failed", "error");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleRecordCount = async (itemId: string, countedQty: number, discrepancyReason?: string) => {
+    if (!selectedAudit) return;
+    try {
+      await apiFetchV1(`/wms/audits/${selectedAudit.id}/count`, {
+        method: "POST",
+        body: JSON.stringify({
+          item_id: itemId,
+          counted_qty: countedQty,
+          discrepancy_reason: discrepancyReason || undefined,
+        }),
+      });
+      handleSelectAudit(selectedAudit.id);
+    } catch (err: any) {
+      onNotification?.("Count Update Error", err.message || "Failed updating item count", "error");
+    }
+  };
+
+  const handleReconcileAudit = async (auditId: string) => {
+    if (!confirm("Are you sure you want to reconcile this physical audit? This will post batch stock adjustments and write-off/surplus movements to the ledger.")) {
+      return;
+    }
+    try {
+      setIsReconciling(true);
+      const res = await apiFetchV1<StockAudit>(`/wms/audits/${auditId}/reconcile`, {
+        method: "POST",
+      });
+      onNotification?.("Reconciliation Complete", `Audit ${res.audit_no} finalized and ledger posted.`, "success");
+      setSelectedAudit(res);
+      fetchWmsData();
+    } catch (err: any) {
+      onNotification?.("Reconciliation Error", err.message || "Failed reconciling audit", "error");
+    } finally {
+      setIsReconciling(false);
+    }
+  };
+
   const getWarehouseName = (id: string) => {
     const wh = warehouses.find((w) => w.id === id);
     return wh ? `${wh.name} (${wh.code})` : id;
@@ -396,6 +537,22 @@ export const WmsStudioTab: React.FC<{
             >
               <Clock className="w-4 h-4" />
               FEFO Simulator
+            </button>
+            <button
+              onClick={() => {
+                setActiveSubTab("audit");
+                if (audits.length > 0 && !selectedAudit) {
+                  handleSelectAudit(audits[0].id);
+                }
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeSubTab === "audit"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-theme-muted hover:text-theme-body"
+              }`}
+            >
+              <ClipboardCheck className="w-4 h-4" />
+              Stock Audit & Recon
             </button>
           </div>
 
@@ -920,6 +1077,288 @@ export const WmsStudioTab: React.FC<{
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SUBTAB 5: PHYSICAL STOCK AUDIT & RECONCILIATION */}
+        {activeSubTab === "audit" && (
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* Left Column: Initiate Audit & History */}
+            <div className="space-y-6">
+              {/* Initiate Form */}
+              <div className="bg-theme-surface-1 p-5 rounded-xl border border-theme-divider space-y-4">
+                <div className="flex items-center space-x-2 border-b border-theme-divider pb-3">
+                  <ClipboardCheck className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-sm font-bold text-theme-text-primary">Initiate Godown Stock Audit</h3>
+                </div>
+
+                <form onSubmit={handleCreateAudit} className="space-y-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-theme-muted mb-1">Target Godown</label>
+                    <select
+                      value={auditWarehouseId}
+                      onChange={(e) => setAuditWarehouseId(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-indigo-500"
+                    >
+                      {warehouses.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.name} ({w.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-theme-muted mb-1">Audit Type</label>
+                    <select
+                      value={auditType}
+                      onChange={(e) => setAuditType(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="CYCLE_COUNT">Cycle Count (Active Stock)</option>
+                      <option value="FULL">Full Godown Stocktake</option>
+                      <option value="SPOT_CHECK">Spot Discrepancy Check</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-theme-muted mb-1">Audit Notes / Reason</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Q3 Physical Stocktake"
+                      value={auditNotes}
+                      onChange={(e) => setAuditNotes(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full mt-2 py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <ClipboardCheck className="w-4 h-4" />
+                    Snapshot Batch Baseline & Start Audit
+                  </button>
+                </form>
+              </div>
+
+              {/* Audit History List */}
+              <div className="bg-theme-surface-1 p-5 rounded-xl border border-theme-divider space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-theme-muted">Audit History & Cycles</h4>
+                {audits.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-theme-muted">No stock audits initiated yet.</div>
+                ) : (
+                  <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                    {audits.map((a) => (
+                      <div
+                        key={a.id}
+                        onClick={() => handleSelectAudit(a.id)}
+                        className={`p-3 rounded-lg border text-xs cursor-pointer transition-all ${
+                          selectedAudit?.id === a.id
+                            ? "bg-indigo-500/10 border-indigo-500 text-theme-text-primary"
+                            : "bg-theme-surface-2/60 border-theme-divider hover:border-theme-divider-hover text-theme-muted"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between font-mono">
+                          <span className="font-bold text-indigo-400">{a.audit_no}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              a.status === "COMPLETED"
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : "bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse"
+                            }`}
+                          >
+                            {a.status}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between text-[11px]">
+                          <span>{getWarehouseName(a.warehouse_id)}</span>
+                          <span>{new Date(a.audit_date).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column (2 spans): Active Audit Workspace */}
+            <div className="xl:col-span-2 space-y-6">
+              {selectedAudit ? (
+                <div className="bg-theme-surface-1 p-5 rounded-xl border border-theme-divider space-y-5">
+                  {/* Audit Header Info & Reconciliation Button */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-theme-divider">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 font-mono">
+                        <h3 className="text-base font-bold text-theme-text-primary">{selectedAudit.audit_no}</h3>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                            selectedAudit.status === "COMPLETED"
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                          }`}
+                        >
+                          {selectedAudit.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-theme-muted">
+                        Godown: <span className="text-theme-body font-medium">{getWarehouseName(selectedAudit.warehouse_id)}</span> • Type: {selectedAudit.audit_type}
+                      </p>
+                    </div>
+
+                    {selectedAudit.status !== "COMPLETED" && (
+                      <button
+                        onClick={() => handleReconcileAudit(selectedAudit.id)}
+                        disabled={isReconciling}
+                        className="py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        {isReconciling ? "Posting Ledger Adjustments..." : "Reconcile & Post Discrepancies"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Barcode Scanner Input */}
+                  {selectedAudit.status !== "COMPLETED" && (
+                    <form onSubmit={handleBarcodeScan} className="bg-theme-surface-2 p-3.5 rounded-xl border border-theme-divider flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        <ScanLine className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          placeholder="Scan Barcode / SKU / Product Code to increment count (+1)..."
+                          value={scanBarcodeInput}
+                          onChange={(e) => setScanBarcodeInput(e.target.value)}
+                          disabled={isScanning}
+                          className="w-full bg-transparent text-xs text-theme-body placeholder:text-theme-muted focus:outline-none font-mono"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isScanning || !scanBarcodeInput.trim()}
+                        className="py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer"
+                      >
+                        {isScanning ? "Scanning..." : "Count +1"}
+                      </button>
+                    </form>
+                  )}
+
+                  {/* Discrepancy KPI Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 bg-theme-surface-2/60 rounded-xl border border-theme-divider">
+                      <span className="text-[11px] text-theme-muted block">Items Audited</span>
+                      <span className="text-lg font-bold font-mono text-theme-text-primary">{selectedAudit.items?.length || 0}</span>
+                    </div>
+                    <div className="p-3 bg-theme-surface-2/60 rounded-xl border border-theme-divider">
+                      <span className="text-[11px] text-theme-muted block">Matched Stocks</span>
+                      <span className="text-lg font-bold font-mono text-emerald-400">
+                        {selectedAudit.items?.filter((it) => Number(it.variance_qty) === 0).length || 0}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-theme-surface-2/60 rounded-xl border border-theme-divider">
+                      <span className="text-[11px] text-theme-muted block">Deficit / Loss Lines</span>
+                      <span className="text-lg font-bold font-mono text-rose-400">
+                        {selectedAudit.items?.filter((it) => Number(it.variance_qty) < 0).length || 0}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-theme-surface-2/60 rounded-xl border border-theme-divider">
+                      <span className="text-[11px] text-theme-muted block">Surplus Lines</span>
+                      <span className="text-lg font-bold font-mono text-cyan-400">
+                        {selectedAudit.items?.filter((it) => Number(it.variance_qty) > 0).length || 0}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Variance Item Table */}
+                  <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider font-semibold">
+                          <th className="p-3">Product / Code</th>
+                          <th className="p-3">Batch No</th>
+                          <th className="p-3 text-right">System Qty</th>
+                          <th className="p-3 text-right">Counted Qty</th>
+                          <th className="p-3 text-right">Variance</th>
+                          <th className="p-3 text-right">Unit Cost</th>
+                          <th className="p-3">Discrepancy Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider font-mono">
+                        {selectedAudit.items?.map((it) => {
+                          const varQty = Number(it.variance_qty);
+                          return (
+                            <tr key={it.id} className="hover:bg-theme-surface-2/40 transition-colors">
+                              <td className="p-3 font-sans">
+                                <div className="font-bold text-theme-text-primary">{it.product?.name || it.product_id}</div>
+                                <div className="text-[10px] text-theme-muted font-mono">{it.product?.code || it.product_id}</div>
+                              </td>
+                              <td className="p-3 font-bold text-indigo-400">{it.batch_no}</td>
+                              <td className="p-3 text-right text-theme-body">{Number(it.system_qty).toFixed(2)}</td>
+                              <td className="p-3 text-right">
+                                {selectedAudit.status === "COMPLETED" ? (
+                                  <span className="font-bold text-theme-text-primary">{Number(it.counted_qty).toFixed(2)}</span>
+                                ) : (
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    defaultValue={it.counted_qty}
+                                    onBlur={(e) => handleRecordCount(it.id, Number(e.target.value), it.discrepancy_reason)}
+                                    className="w-20 bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-right text-xs text-theme-body focus:outline-none focus:border-indigo-500"
+                                  />
+                                )}
+                              </td>
+                              <td className="p-3 text-right font-bold">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[11px] ${
+                                    varQty === 0
+                                      ? "bg-emerald-500/10 text-emerald-400"
+                                      : varQty < 0
+                                      ? "bg-rose-500/10 text-rose-400"
+                                      : "bg-cyan-500/10 text-cyan-400"
+                                  }`}
+                                >
+                                  {varQty > 0 ? `+${varQty.toFixed(2)}` : varQty.toFixed(2)}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right text-theme-muted">₹{Number(it.unit_cost).toFixed(2)}</td>
+                              <td className="p-3 font-sans">
+                                {selectedAudit.status === "COMPLETED" ? (
+                                  <span className="text-[11px] text-theme-muted">{it.discrepancy_reason || "—"}</span>
+                                ) : (
+                                  <select
+                                    value={it.discrepancy_reason || ""}
+                                    onChange={(e) => handleRecordCount(it.id, Number(it.counted_qty), e.target.value)}
+                                    className="bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-[11px] text-theme-body focus:outline-none focus:border-indigo-500"
+                                  >
+                                    <option value="MATCHED">Matched</option>
+                                    <option value="DAMAGED">Damaged / Broken</option>
+                                    <option value="EXPIRED">Expired Spoilage</option>
+                                    <option value="THEFT_LOSS">Loss / Missing</option>
+                                    <option value="SURPLUS_FOUND">Surplus Found</option>
+                                    <option value="COUNTING_ERROR">Counting Adjustment</option>
+                                  </select>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-theme-surface-1 p-12 rounded-xl border border-theme-divider text-center space-y-3">
+                  <ClipboardCheck className="w-10 h-10 text-theme-muted mx-auto" />
+                  <h4 className="text-sm font-bold text-theme-text-primary">No Audit Selected</h4>
+                  <p className="text-xs text-theme-muted max-w-sm mx-auto">
+                    Select an existing audit cycle from the left list or initiate a new godown stock audit to start scanning.
+                  </p>
                 </div>
               )}
             </div>

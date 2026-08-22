@@ -296,9 +296,42 @@ async def test_retailer_credit_limit_enforcement():
             session.add(customer)
             await session.commit()
 
-            # 3. Fetch a product
-            res_prod = await session.execute(select(Product).where(Product.company_id == "COMP-001", Product.is_deleted == False).limit(1))
-            prod = res_prod.scalars().first()
+            prod_id = f"prod-cred-{unique_suffix}"
+            batch_no = f"BATCH-CRED-{unique_suffix.upper()}"
+
+            # 3. Create dedicated product with stock in wh-central-001
+            prod = Product(
+                id=prod_id,
+                uuid=str(uuid.uuid4()),
+                company_id="COMP-001",
+                branch_id="BR-001",
+                name=f"Credit Test Product {unique_suffix}",
+                code=f"CRED-{unique_suffix.upper()}",
+                sku=f"SKU-CRED-{unique_suffix.upper()}",
+                category="General",
+                barcode=f"BAR-CRED-{unique_suffix.upper()}",
+                stock=50,
+                reserved_stock=0.0000,
+                price=500.0,
+                cost_price=300.0,
+                gst_percentage=0.0
+            )
+            session.add(prod)
+
+            pb = ProductBatchStock(
+                id=f"pbs-cred-{unique_suffix}",
+                uuid=str(uuid.uuid4()),
+                company_id="COMP-001",
+                branch_id="BR-001",
+                warehouse_id="wh-central-001",
+                product_id=prod_id,
+                batch_no=batch_no,
+                quantity=50.0,
+                reserved_quantity=0.0,
+                damaged_quantity=0.0
+            )
+            session.add(pb)
+            await session.commit()
 
             # 4. Attempt to create an invoice of ₹5,000 (8000 + 5000 = 13000 > 10000 limit) -> Should raise HTTPException
             inv_id = f"inv-blocked-{unique_suffix}"
@@ -328,6 +361,8 @@ async def test_retailer_credit_limit_enforcement():
         finally:
             await session.execute(text("DELETE FROM customers WHERE id = :cid"), {"cid": cust_id})
             await session.execute(text("DELETE FROM customer_groups WHERE id = :gid"), {"gid": group_id})
+            await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
+            await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
             await session.commit()
 
     await engine.dispose()
