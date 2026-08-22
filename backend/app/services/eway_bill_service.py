@@ -28,6 +28,30 @@ from ..api.deps import TenantContext
 
 # Statutory Indian GSTIN validation pattern
 GSTIN_REGEX = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$")
+GSTIN_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def compute_gstin_checksum(gstin14: str) -> str:
+    """Calculate the 15th statutory check character using GSTN Luhn Mod 36 algorithm."""
+    total = 0
+    for i, ch in enumerate(gstin14.upper()):
+        cval = GSTIN_CHARS.index(ch)
+        factor = 1 if (i % 2 == 0) else 2
+        prod = cval * factor
+        quotient, remainder = divmod(prod, 36)
+        total += quotient + remainder
+    check_val = (36 - (total % 36)) % 36
+    return GSTIN_CHARS[check_val]
+
+
+def is_valid_gstin_checksum(gstin: str) -> bool:
+    """Verify statutory checksum digit on 15-character GSTIN."""
+    if not gstin or len(gstin) != 15:
+        return False
+    try:
+        return compute_gstin_checksum(gstin[:14]) == gstin[14].upper()
+    except (ValueError, KeyError, IndexError):
+        return False
 
 
 # Statutory Indian GST State Codes dictionary per GSTN master
@@ -103,7 +127,7 @@ class EWayBillService:
         return {p.id: p for p in res.scalars().all()}
 
     def _validate_gstin(self, gstin: Optional[str], label: str = "GSTIN") -> Tuple[bool, Optional[str]]:
-        """Validate format of 15-character statutory GSTIN."""
+        """Validate format, state code, and Mod 36 checksum of statutory GSTIN."""
         if not gstin or gstin == "URP":
             return True, None # Unregistered Person
         if not GSTIN_REGEX.match(gstin):
@@ -111,6 +135,9 @@ class EWayBillService:
         state_prefix = gstin[:2]
         if state_prefix not in VALID_GST_STATE_CODES:
             return False, f"Invalid State Code '{state_prefix}' in {label} '{gstin}'."
+        if not is_valid_gstin_checksum(gstin):
+            expected = compute_gstin_checksum(gstin[:14])
+            return False, f"Invalid {label} checksum in '{gstin}'. Expected check digit '{expected}', got '{gstin[14]}'."
         return True, None
 
     async def generate_transfer_eway_bill_payload(
@@ -148,7 +175,7 @@ class EWayBillService:
         dst_wh = dst_res.scalar_one_or_none()
 
         company = await self._get_company()
-        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "27AABCS1429B1Z") if company else "27AABCS1429B1Z"
+        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "27AAXFT2508H1ZR") if company else "27AAXFT2508H1ZR"
         company_name = company.name if company else "SMRITI Enterprise"
         company_state_code = int(company_gstin[:2]) if company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit() else 27
 
@@ -265,7 +292,11 @@ class EWayBillService:
         }
         return eway_payload
 
-    async def generate_delivery_challan(self, transfer_id: str) -> Dict[str, Any]:
+    async def generate_delivery_challan(
+        self,
+        transfer_id: str,
+        strict_validation: bool = False
+    ) -> Dict[str, Any]:
         """
         Generate statutory Delivery Challan (Rule 55 CGST Rules 2017) format for printing and records.
         Batch queries products to eliminate N+1 latency.
@@ -292,6 +323,14 @@ class EWayBillService:
         dst_wh = dst_res.scalar_one_or_none()
 
         company = await self._get_company()
+        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "27AAXFT2508H1ZR") if company else "27AAXFT2508H1ZR"
+
+        if strict_validation:
+            is_valid_gst, gst_err = self._validate_gstin(company_gstin, "Company GSTIN")
+            if not is_valid_gst:
+                raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {gst_err}")
+            if not src_wh or not (src_wh.address or src_wh.city) or not dst_wh or not (dst_wh.address or dst_wh.city):
+                raise HTTPException(status_code=422, detail="SMRITI-STAT-005: Source or destination godown is missing registered dispatch location.")
 
         product_ids = [it.product_id for it in transfer.items if it.product_id]
         products_map = await self._batch_load_products(product_ids)
@@ -302,6 +341,15 @@ class EWayBillService:
 
         for item in transfer.items:
             prod = products_map.get(item.product_id)
+            prod_name = prod.name if prod else item.product_id
+            raw_hsn = getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', None)
+            if not raw_hsn or not str(raw_hsn).strip().isdigit() or len(str(raw_hsn).strip()) not in (2, 4, 6, 8):
+                if strict_validation:
+                    raise HTTPException(status_code=422, detail=f"SMRITI-STAT-002: Product '{prod_name}' has missing or invalid statutory HSN code.")
+                hsn_str = "8471"
+            else:
+                hsn_str = str(raw_hsn).strip()
+
             qty = float(item.quantity_dispatched)
             rate = float(item.unit_cost)
             amt = round(qty * rate, 2)
@@ -310,8 +358,8 @@ class EWayBillService:
 
             items.append({
                 "product_id": item.product_id,
-                "product_name": prod.name if prod else item.product_id,
-                "hsn": getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', '8471'),
+                "product_name": prod_name,
+                "hsn": hsn_str,
                 "batch_no": item.batch_no,
                 "quantity": qty,
                 "rate": rate,
@@ -327,7 +375,7 @@ class EWayBillService:
             "date": transfer.created_at.strftime("%d-%b-%Y") if transfer.created_at else datetime.now().strftime("%d-%b-%Y"),
             "company": {
                 "name": company.name if company else "SMRITI Enterprise",
-                "gstin": (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "27AABCS1429B1Z") if company else "27AABCS1429B1Z",
+                "gstin": company_gstin,
                 "address": getattr(company, 'address', "Corporate Head Office") if company else "Corporate Head Office"
             },
             "dispatch_from": {
