@@ -632,7 +632,7 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
             )
         )
         audit_sm = sm_res.scalar_one()
-        assert "intervening transactions detected post-snapshot" in audit_sm.remarks
+        assert "intervening transactions post-snapshot" in audit_sm.remarks
 
     finally:
         if created_audit_id:

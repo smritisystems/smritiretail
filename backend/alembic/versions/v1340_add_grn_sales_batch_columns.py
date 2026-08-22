@@ -24,7 +24,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'v1340_add_grn_sales_batch_columns'
+revision = 'v1340_add_grn_sales_batches'
 down_revision = 'v1339_add_wms_phase1_tables'
 branch_labels = None
 depends_on = None
