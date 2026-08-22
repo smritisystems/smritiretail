@@ -335,6 +335,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "System & Operations",
   },
   {
+    id: "security-management",
+    title: "Security Management (Menu Access)",
+    subtitle: "User, Group & Node menu access control, granular operations matrix & security policies",
+    icon: "admin_panel_settings",
+    tag: "Security",
+    badgeType: "warning",
+    group: "System & Operations",
+    roles: ["SYSADMIN", "MANAGER"],
+    isQuickAction: true,
+  },
+  {
     id: "audit-logs",
     title: "Security & Audit Logs",
     subtitle: "Immutable system activity audit logs, user login events & transaction traces",

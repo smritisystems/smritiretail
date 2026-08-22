@@ -53,6 +53,7 @@ const REGISTERED_APP_TABS = [
   "company-setup",
   "about-smriti",
   "dev-tracker",
+  "security-management",
   "audit-logs",
   "wiki",
   "training-academy"
