@@ -60,15 +60,27 @@ Remaining architectural tracking items for future slices:
 - run isolation tests against a dedicated ephemeral database rather than live local state;
 - enforce production credential startup guards in deployment environments.
 
-## Next Approved Slice: Slice 2 (Universal Party & Universal Item Foundations)
+## Verified Slices
+
+### Slice 1: Routing Boundary & Identity Baseline (Partially Verified, Hardened)
+- Missing context rejected, zero credential leaks, registry-backed engine creation, tenant header normalization.
+
+### Slice 2: Universal Party Master & Universal Item Master Canonicalization (Verified)
+- Canonical `parties`, `party_roles`, `customer_profiles`, `supplier_profiles`, `items`, `item_variants`, and `item_barcodes` verified in tenant data planes (`smriti001`, `smriti002`).
+
+### Slice 3: Sales, POS, and Operational Stock Ledger Unification (Verified)
+- Atomic sales invoicing and stock debit posting to `stock_movements`, line-item tax snapshotting (`cgst_amount`, `sgst_amount`, `igst_amount`), batch stock decrements, and idempotent cancellation reversals (`RETURN_INWARD`) verified.
+- 73 multi-module tests passing.
+
+## Next Approved Slice: Slice 4 (Pricing, GST, Payments, and Document Engine Unification)
 
 **Scope**:
-- Universal Party model (`parties`) with role/profile extensions (`customer_profiles`, `supplier_profiles`, `party_roles`) in tenant data planes (`smritiXXX`).
-- Universal Item model (`items`/`products`) with variant, barcode, and batch tracking foundations in tenant data planes (`smritiXXX`).
-- Backward-compatible adapters ensuring existing POS, Billing, Procurement, and WMS modules operate without regression.
-- Strict preservation of `stock_movements` as the sole authoritative stock ledger.
+- Unified Pricing Engine with versioned price books, customer tier pricing, and promotional discount governance.
+- Formal GST Statutory Engine versioning and tax rule snapshots.
+- Multi-tender payment settlement ledger with transaction idempotency keys.
+- Canonical document numbering engine and template version binding.
 
-Out of scope for Slice 2: PDT, Analytics plane, microservices decomposition, full metadata-driven UI generation, industry templates.
+Out of scope for Slice 4: PDT, Analytics plane, microservices decomposition, full metadata-driven UI generation.
 
 ## Governance Rule
 
