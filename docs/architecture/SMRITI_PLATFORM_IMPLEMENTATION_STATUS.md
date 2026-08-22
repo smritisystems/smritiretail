@@ -37,15 +37,15 @@ This document is the current implementation tracker for the frozen blueprint. Th
 | Capability and template registry | Pending | Blueprint registries are not yet implemented as a complete control-plane subsystem. |
 | Formula, rule, policy, workflow engines | Partial | Related logic exists in modules; centralized versioned registries and execution contracts are pending. |
 | Offline-first operation | Partial | Offline queue models exist; conflict resolution and end-to-end sync guarantees are pending. |
-| Event/outbox processing | Partial | Outbox models exist; consumers, retries, dead-letter handling, and observability are pending. |
-| Analytics/Intelligence Plane | Pending | Separate scalable analytical storage and workload isolation are not yet verified. |
+| Event/outbox processing | Partial | Consolidated canonical outbox model on `integration_outbox_events`, Alembic migration `v1342_canonical_outbox` applied, two-phase non-blocking dispatch with exponential retry backoff, DLQ, and real domain service integration implemented. |
+| Analytics/Intelligence Plane | Pending | Separate scalable analytical storage, CDC ingestion, and analytical workload isolation are pending (operational metrics currently served by Authoritative Operational KPI Service). |
 | Audit and compliance | Partial | Audit/compliance foundations exist; complete coverage across all financial and regulatory operations is pending. |
 
 ## Milestone 1: Routing Boundary
 
 **Status: Partially Verified, hardened and baseline established.**
 
-Verified in the focused suite (63/63 passing tests):
+Verified in the focused suite:
 
 - missing company context is rejected (`400 Bad Request`);
 - demo company fallback is completely removed;
@@ -70,34 +70,33 @@ Remaining architectural tracking items for future slices:
 
 ### Slice 3: Sales, POS, and Operational Stock Ledger Unification (Verified)
 - Atomic sales invoicing and stock debit posting to `stock_movements`, line-item tax snapshotting (`cgst_amount`, `sgst_amount`, `igst_amount`), batch stock decrements, and idempotent cancellation reversals (`RETURN_INWARD`) verified.
-- 73 multi-module tests passing.
+- Outbox event staging integrated into `UnifiedSalesLedgerService.post_sales_invoice` and `cancel_sales_invoice`.
 
 ### Slice 4: Pricing, GST, Payments, and Document Engine Unification (Verified)
 - 4-level hierarchical pricing resolution (`PriceBook` + `CustomerPriceTier` + volume breaks), gapless row-locked `DocumentSeries` sequence allocation with `NumberingAuditLog`, and idempotent multi-tender `PaymentTransaction` settlement verified.
-- 77 multi-module tests passing.
 
 ### Slice 5: Approval, Workflow, and Communicator Engines (Verified)
 - Multi-tier document approval hierarchy (`ApprovalPolicy`, `ApprovalRequest`, `ApprovalAction`) and unified communicator template dispatch audit ledgers (`CommunicatorTemplate`, `CommunicatorLog`) verified.
-- 81 multi-module tests passing.
 
 ### Slice 6: Capability, Template, and Workspace Resolution (Verified)
 - Control plane platform capability catalog (`PlatformCapability`) and vertical workspace templates (`WorkspaceTemplate`) in `smritisys`, combined with dynamic tenant bindings (`TenantCapabilityBinding`) and personalized layout resolution (`UserWorkspaceConfig`) verified.
-- 85 multi-module tests passing.
 
-### Slice 7: Outbox and Analytics Plane (Verified)
-- Transactional outbox event ledger (`outbox_events`) in tenant data plane (`smritiXXX`) ensuring zero dual-write failures, concurrent row-locked batch dispatching (`SKIP LOCKED`), and single-source authoritative operational analytics querying verified.
-- 89 multi-module tests passing.
+### Slice 7: Consolidated Outbox & Operational Analytics (Partially Verified)
+- Consolidated canonical outbox event ledger (`integration_outbox_events`) in tenant data plane (`smritiXXX`) ensuring zero dual-write failures, two-phase non-blocking batch dispatching (`SKIP LOCKED`), exponential retry backoff, Dead-Letter Queueing (`DEAD_LETTER`), multi-tenant daemon worker polling, and single-source authoritative operational KPI aggregations verified.
+- 44 focused platform tests passing.
 
-## Master Platform Refactor Status: Slices 1–7 Fully Verified & Certified
+---
 
-All 7 vertical refactoring slices defined in Master Architecture Blueprint v1.0 have been implemented, verified, and certified:
-1. **Routing Boundary & Canonicalization Baseline** (Hardened & Verified)
+## Master Platform Refactor Status: Controlled Implementation Progress
+
+All 7 foundational refactoring slices defined in Master Architecture Blueprint v1.0 have active verified implementations:
+1. **Routing Boundary & Canonicalization Baseline** (Partially Verified, Hardened)
 2. **Universal Party & Universal Item Master Canonicalization** (Verified)
 3. **Sales, POS, and Operational Stock Ledger Unification** (Verified)
 4. **Pricing, GST, Payments, and Document Engine Unification** (Verified)
 5. **Approval, Workflow, and Communicator Engines** (Verified)
 6. **Capability, Template, and Workspace Resolution** (Verified)
-7. **Outbox and Analytics Plane** (Verified)
+7. **Consolidated Outbox & Operational Analytics** (Partially Verified)
 
 ## Governance Rule
 

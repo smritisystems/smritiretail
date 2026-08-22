@@ -79,8 +79,9 @@ Consolidating existing disparate outbox references into a unified model eliminat
    - `test_outbox_dispatcher_rejects_missing_callback` (Passed)
    - `test_authoritative_operational_analytics_summary` (Passed)
    - `test_outbox_and_analytics_tenant_isolation` (Passed)
-2. Focused Platform Test Suite (43 tests):
-   - 43/43 focused platform tests passed in 29.52s across Routing Boundary, Universal Party/Item Masters, Sales/POS Ledger, Pricing/Payments, Approvals/Communicator, Capabilities/Workspaces, and Consolidated Outbox/Analytics.
+   - `test_outbox_queue_worker_multi_tenant_cycle` (Passed)
+2. Focused Platform Test Suite (44 tests):
+   - 44/44 focused platform tests passed in 35.03s across Routing Boundary, Universal Party/Item Masters, Sales/POS Ledger, Pricing/Payments, Approvals/Communicator, Capabilities/Workspaces, and Consolidated Outbox/Analytics.
 
 ---
 
@@ -94,18 +95,18 @@ rootdir: F:\SMRITRretailNX\backend
 configfile: pyproject.toml
 plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collecting ... collected 43 items
+collecting ... collected 44 items
 
-tests/test_routing_boundary_canonical.py .............                  [ 30%]
-tests/test_universal_party_master.py ...                                [ 37%]
-tests/test_universal_item_master.py ...                                 [ 44%]
-tests/test_unified_sales_ledger.py ....                                 [ 53%]
-tests/test_unified_pricing_payment_engine.py ....                       [ 62%]
-tests/test_unified_approval_communicator.py ....                        [ 72%]
-tests/test_unified_workspace_capability.py ....                         [ 81%]
-tests/test_unified_outbox_analytics.py ........                         [100%]
+tests/test_routing_boundary_canonical.py .............                  [ 29%]
+tests/test_universal_party_master.py ...                                [ 36%]
+tests/test_universal_item_master.py ...                                 [ 43%]
+tests/test_unified_sales_ledger.py ....                                 [ 52%]
+tests/test_unified_pricing_payment_engine.py ....                       [ 61%]
+tests/test_unified_approval_communicator.py ....                        [ 70%]
+tests/test_unified_workspace_capability.py ....                         [ 79%]
+tests/test_unified_outbox_analytics.py .........                        [100%]
 
-============================= 43 passed in 29.52s =============================
+============================= 44 passed in 35.03s =============================
 ```
 
 ---
