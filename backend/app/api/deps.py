@@ -286,51 +286,26 @@ def require_permission(resource: str, action: str) -> Callable:
     FastAPI dependency factory enforcing granular action-level permissions.
     Evaluates:
     1. SYSADMIN role wildcard access ('*').
-    2. User-specific explicit grant or denial in 'smriti_permissions'.
+    2. User-specific explicit grant or denial in 'smriti_permissions' (tenant scoped).
     3. Assigned Role permissions in 'roles.permissions_json'.
-    4. Default MANAGER access.
+    4. Scoped standard role defaults (MANAGER allowlist, CASHIER scoped allowlist).
     Raises 403 Forbidden with business error SMRITI-AUTH-001 if unauthorized.
     """
     async def _perm_guard(
         current_user: User = Depends(get_current_user),
+        tenant: TenantContext = Depends(get_tenant_context),
         db: AsyncSession = Depends(_get_db),
     ) -> User:
-        if current_user.role == UserRole.SYSADMIN:
-            return current_user
+        from ..core.security_matrix import evaluate_action_permission
 
-        # 1. Check user-specific explicit override in smriti_permissions
-        user_scope = f"User:{current_user.id}"
-        q_user = select(SmritiPermission).where(
-            SmritiPermission.scope == user_scope,
-            SmritiPermission.resource == resource,
-            SmritiPermission.action == action,
-            SmritiPermission.is_deleted == False,
+        allowed = await evaluate_action_permission(
+            db=db,
+            current_user=current_user,
+            tenant=tenant,
+            resource=resource,
+            action=action
         )
-        res_user = await db.execute(q_user)
-        user_perm = res_user.scalars().first()
-        if user_perm is not None:
-            if user_perm.is_active:
-                return current_user
-            else:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"SMRITI-AUTH-001: Permission denied for operation '{action}' on '{resource}'."
-                )
-
-        # 2. Check role permissions
-        if current_user.role_id:
-            res_role = await db.execute(select(Role).where(Role.id == current_user.role_id, Role.is_deleted == False))
-            role_obj = res_role.scalars().first()
-            if role_obj and role_obj.permissions_json:
-                try:
-                    perms = json.loads(role_obj.permissions_json)
-                    if "*" in perms or f"{resource}.{action}" in perms or f"{resource}.*" in perms:
-                        return current_user
-                except Exception:
-                    pass
-
-        # 3. Default fallback for standard roles
-        if current_user.role == UserRole.MANAGER:
+        if allowed:
             return current_user
 
         raise HTTPException(
@@ -339,4 +314,5 @@ def require_permission(resource: str, action: str) -> Callable:
         )
 
     return _perm_guard
+
 

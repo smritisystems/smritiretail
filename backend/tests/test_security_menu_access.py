@@ -15,6 +15,16 @@
 import pytest
 import psycopg2
 import json
+from unittest.mock import MagicMock
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.app.models.auth import User, UserRole
+from backend.app.api.deps import TenantContext
+from backend.app.core.security_matrix import (
+    evaluate_action_permission,
+    prune_menu_tree_cascade,
+    CANONICAL_34_MENU_MATRIX,
+)
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 
@@ -58,3 +68,51 @@ def test_security_menu_access_persistence_and_audit():
     conn.commit()
     cur.close()
     conn.close()
+
+
+def test_cascade_pruning_algorithm():
+    """
+    Test 2-pass parent-child cascade pruning:
+    - If all children of menu-pos are denied VIEW, menu-pos is pruned.
+    - If 1 child of menu-pos is allowed VIEW, menu-pos is preserved.
+    - A child is pruned if its parent is not valid.
+    """
+    class MockMenu:
+        def __init__(self, mid, parent_id):
+            self.id = mid
+            self.parent_id = parent_id
+
+    mock_menus = [
+        MockMenu("menu-dashboard", None),
+        MockMenu("menu-pos", None),
+        MockMenu("menu-sales", "menu-pos"),
+        MockMenu("menu-customer-master", "menu-pos"),
+        MockMenu("menu-crm", "menu-pos"),
+        MockMenu("menu-inventory", None),
+        MockMenu("menu-item-master", "menu-inventory"),
+    ]
+
+    # Case A: Only dashboard and item-master visible
+    # menu-pos should be pruned because all its children (sales, customer-master, crm) are denied
+    # menu-inventory should be preserved because item-master is visible
+    raw_visible = {"menu-dashboard", "menu-inventory", "menu-item-master"}
+    result = prune_menu_tree_cascade(mock_menus, raw_visible)
+    result_ids = {m.id for m in result}
+
+    assert "menu-dashboard" in result_ids
+    assert "menu-inventory" in result_ids
+    assert "menu-item-master" in result_ids
+    assert "menu-pos" not in result_ids
+    assert "menu-sales" not in result_ids
+
+    # Case B: One POS child (sales) is visible
+    # menu-pos should now be preserved
+    raw_visible_b = {"menu-dashboard", "menu-pos", "menu-sales"}
+    result_b = prune_menu_tree_cascade(mock_menus, raw_visible_b)
+    result_b_ids = {m.id for m in result_b}
+
+    assert "menu-pos" in result_b_ids
+    assert "menu-sales" in result_b_ids
+    assert "menu-customer-master" not in result_b_ids
+    assert "menu-inventory" not in result_b_ids
+

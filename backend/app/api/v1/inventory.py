@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import TenantContext, get_company_db, get_tenant_context, require_role, verify_internal_service_key
+from ...api.deps import TenantContext, get_company_db, get_tenant_context, require_role, require_permission, verify_internal_service_key
 from ...models.auth import User, UserRole
 from ...models.inventory import Product, StockMovement
 from ...repositories.product import ProductRepository
@@ -41,7 +41,7 @@ router = APIRouter()
     "/",
     response_model=ProductResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("item_master", "ADD"))],
 )
 async def create_product(
     product_in: ProductCreate,
@@ -191,7 +191,7 @@ async def get_product(
 @router.put(
     "/{product_id}",
     response_model=ProductResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("item_master", "EDIT"))],
 )
 async def update_product(
     product_id: str,
@@ -199,7 +199,7 @@ async def update_product(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Update a product master. Requires MANAGER or SYSADMIN role."""
+    """Update a product master."""
     repo = ProductRepository(db, tenant_ctx)
     product = await repo.get(product_id)
     if not product:
@@ -240,13 +240,13 @@ async def update_product(
 
 @router.delete(
     "/{product_id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("item_master", "DELETE"))],
 )
 async def delete_product(
     product_id: str,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
-    current_user: User = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN)),
+    current_user: User = Depends(get_current_user),
 ):
     """Soft delete a product by setting its is_deleted flag."""
     repo = ProductRepository(db, tenant_ctx)
