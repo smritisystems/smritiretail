@@ -343,7 +343,8 @@ class StockAuditService:
         user_identifier: str = "SYSADMIN"
     ) -> StockAudit:
         """
-        Finalize audit with pessimistic row locking and intervening movement tracking.
+        Finalize audit with pessimistic row locking on audit header and batch stocks.
+        - Locks StockAudit header row using SELECT ... FOR UPDATE to serialize concurrent reconciliation requests.
         - Locks active ProductBatchStock rows using SELECT ... FOR UPDATE.
         - Audits intervening movements between snapshot date and reconciliation.
         - Deficits (< 0): Creates OUTWARD_LOSS movement and deducts batch stock.
@@ -351,7 +352,18 @@ class StockAuditService:
         - Resynchronizes products.stock.
         - Marks audit as COMPLETED.
         """
-        audit = await self.get_stock_audit(audit_id)
+        # Pessimistic row lock on the audit header itself
+        res = await self.db.execute(
+            select(StockAudit).where(
+                StockAudit.company_id == self.tenant.company_id,
+                StockAudit.id == audit_id,
+                StockAudit.is_deleted == False
+            ).options(
+                selectinload(StockAudit.items).selectinload(StockAuditItem.product),
+                selectinload(StockAudit.warehouse)
+            ).with_for_update()
+        )
+        audit = res.scalar_one_or_none()
         if not audit:
             raise HTTPException(status_code=404, detail=f"Stock audit {audit_id} not found.")
         if audit.status == "COMPLETED":
