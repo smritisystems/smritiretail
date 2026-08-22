@@ -116,7 +116,7 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
     a.href = url;
     a.download = "ModernLabelDesign_TE244.blf";
     a.click();
-    URL.revokeObjectURL(a);
+    URL.revokeObjectURL(url);
     onNotification?.("Script Saved", "Exported script to ModernLabelDesign_TE244.blf", "success");
   };
 

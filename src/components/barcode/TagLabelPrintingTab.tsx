@@ -1845,7 +1845,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                     a.href = url;
                     a.download = `Honeywell_IH2_Labels_${Date.now()}.prn`;
                     a.click();
-                    URL.revokeObjectURL(a);
+                    URL.revokeObjectURL(url);
                     onNotification?.("File Downloaded", "Downloaded raw PRN script for Honeywell IH-2.", "success");
                   }}
                   className="px-3 py-1.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded font-body-sm font-semibold flex items-center gap-1.5 text-on-surface"

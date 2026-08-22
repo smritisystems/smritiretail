@@ -21,7 +21,7 @@ import { Product } from "../types.ts";
 interface BarcodeStudioTabProps {
   currentUser?: { role: string; name: string } | null;
   products?: Product[];
-  onNotification?: (title: string, message: string, type: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
   onClose?: () => void;
 }
 

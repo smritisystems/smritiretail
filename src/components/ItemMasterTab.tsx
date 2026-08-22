@@ -21,7 +21,7 @@ import { SmritiItemMasterWorkspace } from "./itemMaster/SmritiItemMasterWorkspac
 export interface ItemMasterTabProps {
   products?: Product[];
   onRefreshProducts?: () => Promise<void>;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
   currentUser?: { role: string; name: string } | null;
   initialSubTab?: string;
   onClose?: () => void;

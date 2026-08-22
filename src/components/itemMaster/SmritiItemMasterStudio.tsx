@@ -32,7 +32,8 @@ import {
   isFieldGloballyVisible,
   getUnifiedHeaderMappingFields, 
   serializeProductAttributes,
-  CORE_STANDARD_ITEM_FIELDS
+  CORE_STANDARD_ITEM_FIELDS,
+  UnifiedItemField
 } from "../../services/unifiedFieldCatalog.ts";
 import { generateSkuCode } from "../../services/skuGenerationEngine.ts";
 import { AttributeDefinition, Product } from "../../types.ts";
@@ -100,7 +101,7 @@ export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   }, []);
 
   // ── 2. Construct Canonical Unified Field Catalog & Mapping Engine (Globally Synced) ─────────
-  const unifiedItemFields = useMemo<ItemMasterFieldDefinition[]>(() => {
+  const unifiedItemFields = useMemo<UnifiedItemField[]>(() => {
     return getGloballyVisibleFields(dynamicDefinitions);
   }, [dynamicDefinitions, visibilityVersion]);
 
@@ -572,7 +573,7 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
                               <option value="">(Skip Column)</option>
                               {unifiedItemFields.map(f => (
                                 <option key={f.id} value={f.key}>
-                                  {f.label}{f.isDynamic ? " [Dynamic]" : ""}
+                                  {f.label}{f.source === "dynamic" ? " [Dynamic]" : ""}
                                 </option>
                               ))}
                             </select>

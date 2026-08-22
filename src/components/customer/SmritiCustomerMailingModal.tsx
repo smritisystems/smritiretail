@@ -22,7 +22,7 @@ interface SmritiCustomerMailingModalProps {
   customerName: string;
   addresses: CustomerAddressEntry[];
   onSaveAddresses: (addresses: CustomerAddressEntry[]) => void;
-  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }
 
 export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProps> = ({

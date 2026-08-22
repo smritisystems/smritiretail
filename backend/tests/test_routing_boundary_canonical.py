@@ -29,6 +29,47 @@ from app.db.session import resolve_company_database_name, get_company_async_engi
 CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
 
 
+@pytest.fixture(autouse=True)
+def seed_routing_test_baseline():
+    """Ensure baseline companies and admin user exist in control plane."""
+    conn = psycopg2.connect(CONTROL_PLANE_URL)
+    conn.autocommit = True
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO users (id, uuid, username, email, hashed_password, role, status, country, employment_type, is_active, is_deleted, created_at, modified_at)
+            VALUES ('usr-admin', 'uuid-admin-routing', 'admin', 'admin@example.com', 'hash', 'SYSADMIN', 'Active', 'India', 'Permanent', true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET role = 'SYSADMIN', is_active = true, is_deleted = false;
+        """)
+        cur.execute("""
+            INSERT INTO companies (id, uuid, name, is_active, is_deleted)
+            VALUES ('COMP-001', 'uuid-comp-routing-1', 'Main Test Company', true, false)
+            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+        """)
+        cur.execute("""
+            INSERT INTO company_database_registries (company_id, database_id, database_name, status)
+            VALUES ('COMP-001', 'db-routing-1', 'smriti001', 'READY')
+            ON CONFLICT (company_id) DO UPDATE SET database_name = 'smriti001', status = 'READY';
+        """)
+        cur.execute("""
+            INSERT INTO user_company_assignments (id, uuid, user_id, company_id, is_default, is_active, is_deleted)
+            VALUES ('uca-admin-comp-001', 'uuid-uca-admin-1', 'usr-admin', 'COMP-001', true, true, false)
+            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+        """)
+        cur.execute("""
+            INSERT INTO companies (id, uuid, name, is_active, is_deleted)
+            VALUES ('COMP-002', 'uuid-comp-routing-2', 'Second Test Company', true, false)
+            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+        """)
+        cur.execute("""
+            INSERT INTO company_database_registries (company_id, database_id, database_name, status)
+            VALUES ('COMP-002', 'db-routing-2', 'smriti002', 'READY')
+            ON CONFLICT (company_id) DO UPDATE SET database_name = 'smriti002', status = 'READY';
+        """)
+    finally:
+        conn.close()
+
+
 def test_authorized_user_reaches_assigned_database():
     """Verify that an authorized user successfully reaches their assigned database without credential exposure."""
     res = CompanyDatabaseResolver.resolve_company_database("usr-admin", "COMP-001")

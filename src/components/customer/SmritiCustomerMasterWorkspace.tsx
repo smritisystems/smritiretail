@@ -275,7 +275,7 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
 
 export interface SmritiCustomerMasterWorkspaceProps {
   currentUser?: { role: string; name: string } | null;
-  onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }
 
 export const SmritiCustomerMasterWorkspace: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
