@@ -4,12 +4,13 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.2.0
+ * Version      : 6.6.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ * Source Module: Stitch Barcode Label Designer & Printer (Industrial Logic)
  */
 
 import React, { useState, useRef } from "react";
@@ -17,16 +18,15 @@ import {
   Code, 
   Save, 
   Upload, 
-  Sliders, 
-  Play, 
-  CheckCircle, 
   Maximize2, 
   Minimize2, 
   ArrowLeft, 
-  Sparkles,
   FileCode,
   Layers,
-  HelpCircle
+  LogOut,
+  Sparkles,
+  Sliders,
+  CheckCircle
 } from "lucide-react";
 import { ScriptFieldIdentification } from "./types.ts";
 
@@ -114,10 +114,10 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "BarcodeScript_SMRITI.t";
+    a.download = "ModernLabelDesign_TE244.blf";
     a.click();
     URL.revokeObjectURL(a);
-    onNotification?.("Script Saved", "Exported script to BarcodeScript_SMRITI.t", "success");
+    onNotification?.("Script Saved", "Exported script to ModernLabelDesign_TE244.blf", "success");
   };
 
   const handleLoadScriptFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,267 +136,296 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
   };
 
   return (
-    <div className={`h-full flex flex-col bg-[#fbf8fb] text-[#1b1b1e] font-sans select-none overflow-hidden ${
+    <div className={`h-full flex flex-col bg-surface text-on-surface font-sans select-none overflow-hidden ${
       isFullscreen ? "fixed inset-0 z-50 p-4 bg-slate-900" : ""
     }`}>
       
-      {/* Top Studio Header */}
-      <header className="h-12 border-b border-[#c5c6ce] bg-[#efedf0] flex justify-between items-center px-4 shrink-0 shadow-xs">
+      {/* Top Application Bar */}
+      <header className="h-14 border-b border-outline-variant bg-surface-container flex justify-between items-center px-margin-page shrink-0 shadow-xs z-20">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onBackToPrinting}
-            className="p-1.5 hover:bg-[#eae7ea] rounded text-[#041632] flex items-center gap-1 text-xs font-bold transition"
+            className="p-1.5 hover:bg-surface-variant rounded text-primary flex items-center gap-1.5 text-xs font-bold transition"
             title="Back to Tag Printing Terminal"
           >
             <ArrowLeft size={16} />
-            <span>Tag Printing Terminal</span>
+            <span>Back to Printing</span>
           </button>
-          <div className="h-4 w-px bg-[#c5c6ce]"></div>
-          <div className="flex items-center gap-2">
-            <FileCode size={18} className="text-[#3e5f90]" />
-            <h1 className="font-semibold text-sm text-[#041632]">Barcode Script Generation &amp; Compiler</h1>
-            <span className="text-[10px] bg-[#d7e2ff] text-[#041632] px-2 py-0.5 rounded font-mono font-bold">
-              ZPL / TSPL / EPL
-            </span>
+          <div className="h-4 w-px bg-outline-variant"></div>
+          <div className="flex items-center gap-2 text-primary font-bold font-title-sm text-title-sm">
+            <Code size={18} className="text-secondary" />
+            <span>Barcode Script Generation &amp; Compiler Studio</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 hover:bg-[#eae7ea] border border-[#c5c6ce] rounded text-[#44474d] transition"
-            title="Toggle Fullscreen Editor"
-          >
-            {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-          </button>
+          <span className="font-label-caps text-[11px] bg-secondary-fixed text-on-secondary-fixed px-3 py-1 rounded-full font-bold">
+            Industrial Script Compiler
+          </span>
         </div>
       </header>
 
-      {/* Main Studio Body: Editor (Left) + Config (Right) */}
-      <div className="flex-1 flex gap-4 p-4 overflow-hidden">
+      {/* Main Studio Frame: Left Code Editor + Right Configuration Panel */}
+      <main className="flex-1 flex flex-col lg:flex-row p-margin-page gap-stack-gap overflow-hidden bg-surface-container-lowest">
         
-        {/* Left: Code Editor Container */}
-        <div className="flex-1 bg-[#1e1e1e] text-[#d4d4d4] rounded-lg border border-[#303033] shadow-lg flex flex-col overflow-hidden">
+        {/* Left Column: Code Editor */}
+        <div className="flex-1 flex flex-col bg-surface border border-outline-variant rounded-lg overflow-hidden shadow-xs">
           
-          {/* Editor Sub-header */}
-          <div className="h-8 bg-[#252526] px-3 border-b border-[#303033] flex justify-between items-center text-xs text-[#8d939b] shrink-0 font-mono">
-            <div className="flex items-center gap-2">
-              <span className="text-[#d7e2ff] font-bold">BarcodeScript_Acme.t</span>
-              <span>•</span>
-              <span>{lines.length} lines</span>
+          {/* Editor Header Bar */}
+          <div className="bg-surface-container px-4 py-2.5 border-b border-outline-variant flex justify-between items-center shrink-0">
+            <div className="flex items-center gap-2 text-primary font-bold text-xs">
+              <FileCode size={16} className="text-secondary" />
+              <span>ModernLabelDesign_TE244.blf</span>
+              <span className="bg-secondary-fixed text-on-secondary-fixed text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">
+                BLF SCRIPT
+              </span>
             </div>
-            <div className="flex items-center gap-2 text-[11px]">
-              <span className="text-emerald-400">● Syntax Highlighting Active</span>
+            <div className="flex items-center gap-2 text-xs font-code-md text-on-surface-variant">
+              <span>{lines.length} lines</span>
+              <span>•</span>
+              <span>UTF-8</span>
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="p-1 hover:bg-surface-variant rounded text-on-surface ml-2"
+                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              >
+                {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              </button>
             </div>
           </div>
 
-          {/* Code Textarea with Line Numbers */}
-          <div className="flex-1 flex overflow-hidden font-mono text-xs">
+          {/* Dark VS Code Style Monospaced Editor */}
+          <div className="flex-1 relative bg-[#1E1E1E] text-[#D4D4D4] font-code-md text-code-md overflow-hidden flex">
             {/* Line Numbers Column */}
-            <div className="w-12 bg-[#1e1e1e] border-r border-[#333338] text-[#858585] text-right pr-2 py-3 select-none leading-relaxed">
+            <div className="w-12 bg-[#1E1E1E] border-r border-outline-variant/20 text-right pr-2.5 pt-4 select-none text-on-surface-variant/40 font-code-md text-[12px] leading-relaxed overflow-hidden">
               {lines.map((_, idx) => (
-                <div key={idx} className="h-5 leading-5">{idx + 1}</div>
+                <div key={idx}>{idx + 1}</div>
               ))}
             </div>
 
-            {/* Editable Text Area */}
-            <div className="flex-1 p-3 overflow-auto">
+            {/* Code Content Textarea with Macro Highlighting */}
+            <div className="flex-1 relative overflow-auto p-4 pt-4 leading-relaxed custom-scrollbar">
               <textarea
                 value={scriptContent}
                 onChange={e => setScriptContent(e.target.value)}
                 spellCheck={false}
-                className="w-full h-full bg-transparent text-[#9cdcfe] font-mono text-xs leading-5 outline-none resize-none border-none custom-scrollbar whitespace-pre"
+                className="w-full h-full bg-transparent text-[#D4D4D4] font-code-md text-xs leading-relaxed outline-none resize-none border-none selection:bg-secondary/40"
               />
             </div>
           </div>
 
-          {/* Editor Action Bar */}
-          <div className="p-2.5 bg-[#252526] border-t border-[#303033] flex justify-between items-center shrink-0">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 bg-[#333338] hover:bg-[#3e3e42] text-white rounded text-xs font-semibold flex items-center gap-1.5 transition"
-              >
-                <Upload size={14} />
-                Load Script
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".t,.prn,.zpl,.tspl,.txt"
-                className="hidden"
-                onChange={handleLoadScriptFile}
-              />
-              <button
-                type="button"
-                onClick={handleSaveScript}
-                className="px-4 py-1.5 bg-[#0052cc] hover:bg-[#003d9b] text-white rounded text-xs font-bold flex items-center gap-1.5 shadow transition"
-              >
-                <Save size={14} />
-                Save Changes
-              </button>
-            </div>
+          {/* Editor Action Footer */}
+          <div className="bg-surface-container px-4 py-3 border-t border-outline-variant flex justify-start gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-surface-container-highest hover:bg-surface-variant text-on-surface border border-outline-variant px-5 py-2 rounded-lg font-title-sm text-xs font-semibold transition-colors flex items-center gap-2 shadow-xs"
+            >
+              <Upload size={15} />
+              <span>Load Script</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".t,.blf,.prn,.zpl,.tspl,.txt"
+              className="hidden"
+              onChange={handleLoadScriptFile}
+            />
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onBackToPrinting}
-                className="px-3 py-1.5 text-[#ffb4ab] hover:bg-[#93000a]/20 border border-[#ba1a1a]/40 rounded text-xs font-semibold transition"
-              >
-                Exit
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleSaveScript}
+              className="bg-primary hover:bg-primary-container text-on-primary px-6 py-2 rounded-lg font-title-sm text-xs font-bold transition-colors shadow-md flex items-center gap-2"
+            >
+              <Save size={15} />
+              <span>Save Changes</span>
+            </button>
+
+            <div className="flex-1"></div>
+
+            <button
+              type="button"
+              onClick={onBackToPrinting}
+              className="text-error border border-error hover:bg-error-container hover:text-on-error-container px-4 py-2 rounded-lg font-title-sm text-xs font-medium transition-colors flex items-center gap-1.5"
+            >
+              <LogOut size={15} />
+              <span>Exit</span>
+            </button>
           </div>
+
         </div>
 
-        {/* Right Configuration Panel */}
-        <div className="w-80 flex flex-col gap-4 overflow-y-auto shrink-0 text-xs">
+        {/* Right Column: Configuration Panels (Identification & Values) */}
+        <div className="lg:w-80 shrink-0 flex flex-col gap-stack-gap overflow-y-auto">
           
           {/* Card 1: Identification Settings */}
-          <div className="bg-white border border-[#c5c6ce] rounded-lg p-4 shadow-xs space-y-3">
-            <h2 className="font-bold text-xs text-[#041632] uppercase tracking-wider flex items-center gap-1.5 border-b border-[#c5c6ce] pb-2">
-              <Sliders size={14} className="text-[#3e5f90]" />
-              Identification Settings
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 shadow-xs">
+            <h2 className="font-title-sm text-xs font-bold text-primary mb-3.5 flex items-center gap-2 border-b border-outline-variant pb-2 uppercase tracking-wider">
+              <Sliders size={16} className="text-secondary" />
+              <span>Identification</span>
             </h2>
 
-            <div>
-              <label className="block text-[#44474d] font-semibold text-[11px] mb-1">Field Selection</label>
-              <select
-                value={identConfig.field}
-                onChange={e => setIdentConfig({ ...identConfig, field: e.target.value as any })}
-                className="w-full bg-[#fbf8fb] border border-[#c5c6ce] rounded p-1.5 text-xs text-[#1b1b1e] outline-none focus:border-[#3e5f90]"
-              >
-                <option value="Stock Number">Stock Number</option>
-                <option value="Retail Price">Retail Price (MRP)</option>
-                <option value="Lot Code">Lot Code / Batch</option>
-                <option value="Barcode">Barcode (EAN-13)</option>
-                <option value="Product Name">Product Name</option>
-                <option value="Brand">Brand</option>
-                <option value="Style">Style</option>
-                <option value="Size">Size</option>
-                <option value="Shade">Shade / Colour</option>
-                <option value="Custom Text">Custom Text</option>
-              </select>
-            </div>
-
-            <div className="border border-[#c5c6ce] rounded p-2.5 bg-[#fbf8fb] space-y-1.5">
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#44474d]">
-                String to be taken
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="dir"
-                    checked={identConfig.direction === "From Left"}
-                    onChange={() => setIdentConfig({ ...identConfig, direction: "From Left" })}
-                    className="text-[#3e5f90]"
-                  />
-                  <span>From Left</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="dir"
-                    checked={identConfig.direction === "From Right"}
-                    onChange={() => setIdentConfig({ ...identConfig, direction: "From Right" })}
-                    className="text-[#3e5f90]"
-                  />
-                  <span>From Right</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-3">
               <div>
-                <label className="block text-[#44474d] font-semibold text-[11px] mb-1">Starting Position</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={identConfig.startPosition}
-                  onChange={e => setIdentConfig({ ...identConfig, startPosition: parseInt(e.target.value) || 1 })}
-                  className="w-full bg-[#fbf8fb] border border-[#c5c6ce] rounded p-1 text-xs text-right font-mono font-bold"
-                />
+                <label className="block font-body-sm text-xs font-semibold text-on-surface-variant mb-1">
+                  Field Selection
+                </label>
+                <select
+                  value={identConfig.field}
+                  onChange={e => setIdentConfig({ ...identConfig, field: e.target.value as any })}
+                  className="w-full bg-surface border border-outline-variant text-on-surface rounded focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors text-xs py-1.5 px-2.5 font-medium"
+                >
+                  <option value="Stock Number">Stock Number</option>
+                  <option value="Retail Price">Retail Price</option>
+                  <option value="Lot Code">Lot Code</option>
+                  <option value="Barcode">Barcode</option>
+                  <option value="Product Name">Product Name</option>
+                  <option value="Brand">Brand</option>
+                  <option value="Style">Style</option>
+                  <option value="Size">Size</option>
+                  <option value="Shade">Shade</option>
+                </select>
               </div>
-              <div>
-                <label className="block text-[#44474d] font-semibold text-[11px] mb-1">No. of Digits</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={identConfig.numDigits}
-                  onChange={e => setIdentConfig({ ...identConfig, numDigits: parseInt(e.target.value) || 1 })}
-                  className="w-full bg-[#fbf8fb] border border-[#c5c6ce] rounded p-1 text-xs text-right font-mono font-bold"
-                />
+
+              <div className="border border-outline-variant rounded p-2.5 bg-surface-container-low">
+                <label className="block font-label-caps text-[10px] text-on-surface-variant mb-1.5 uppercase tracking-wider">
+                  String to be taken
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="direction"
+                      checked={identConfig.direction === "From Right"}
+                      onChange={() => setIdentConfig({ ...identConfig, direction: "From Right" })}
+                      className="text-secondary focus:ring-secondary h-3.5 w-3.5"
+                    />
+                    <span className="text-xs text-on-surface">From Right</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="direction"
+                      checked={identConfig.direction === "From Left"}
+                      onChange={() => setIdentConfig({ ...identConfig, direction: "From Left" })}
+                      className="text-secondary focus:ring-secondary h-3.5 w-3.5"
+                    />
+                    <span className="text-xs text-on-surface">From Left</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-body-sm text-xs text-on-surface-variant mb-1">
+                    Starting Position
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={identConfig.startPosition}
+                    onChange={e => setIdentConfig({ ...identConfig, startPosition: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-surface border border-outline-variant text-on-surface rounded focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors font-code-md text-xs py-1.5 px-2.5 text-right font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-body-sm text-xs text-on-surface-variant mb-1">
+                    No. of Digits
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={identConfig.numDigits}
+                    onChange={e => setIdentConfig({ ...identConfig, numDigits: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-surface border border-outline-variant text-on-surface rounded focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors font-code-md text-xs py-1.5 px-2.5 text-right font-bold"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Card 2: Values & Macro Insertion */}
-          <div className="bg-white border border-[#c5c6ce] rounded-lg p-4 shadow-xs space-y-3">
-            <h2 className="font-bold text-xs text-[#041632] uppercase tracking-wider flex items-center gap-1.5 border-b border-[#c5c6ce] pb-2">
-              <Sparkles size={14} className="text-[#3e5f90]" />
-              Values &amp; Injection
+          {/* Card 2: Values */}
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 shadow-xs">
+            <h2 className="font-title-sm text-xs font-bold text-primary mb-3 flex items-center gap-2 border-b border-outline-variant pb-2 uppercase tracking-wider">
+              <Sparkles size={16} className="text-secondary" />
+              <span>Values</span>
             </h2>
 
-            <div>
-              <label className="block text-[#44474d] font-semibold text-[11px] mb-1">Enter Text Value 1</label>
-              <input
-                type="text"
-                value={identConfig.textValue1}
-                onChange={e => setIdentConfig({ ...identConfig, textValue1: e.target.value })}
-                placeholder="Prefix / Header text..."
-                className="w-full bg-[#fbf8fb] border border-[#c5c6ce] rounded p-1.5 text-xs"
-              />
+            <div className="flex flex-col gap-2.5">
+              <div>
+                <label className="block font-body-sm text-xs text-on-surface-variant mb-1">
+                  Enter Text Value 1
+                </label>
+                <input
+                  type="text"
+                  value={identConfig.textValue1}
+                  onChange={e => setIdentConfig({ ...identConfig, textValue1: e.target.value })}
+                  placeholder="e.g. SMRITI RETAIL"
+                  className="w-full bg-surface border border-outline-variant text-on-surface rounded focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors text-xs py-1.5 px-2.5"
+                />
+              </div>
+              <div>
+                <label className="block font-body-sm text-xs text-on-surface-variant mb-1">
+                  Enter Text Value 2
+                </label>
+                <input
+                  type="text"
+                  value={identConfig.textValue2}
+                  onChange={e => setIdentConfig({ ...identConfig, textValue2: e.target.value })}
+                  placeholder="e.g. MRP INCL OF TAXES"
+                  className="w-full bg-surface border border-outline-variant text-on-surface rounded focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors text-xs py-1.5 px-2.5"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[#44474d] font-semibold text-[11px] mb-1">Enter Text Value 2</label>
-              <input
-                type="text"
-                value={identConfig.textValue2}
-                onChange={e => setIdentConfig({ ...identConfig, textValue2: e.target.value })}
-                placeholder="Suffix / Static text..."
-                className="w-full bg-[#fbf8fb] border border-[#c5c6ce] rounded p-1.5 text-xs"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#c5c6ce]">
+            <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-outline-variant">
               <button
                 type="button"
                 onClick={handleClearValues}
-                className="px-3 py-1.5 border border-[#75777e] rounded text-[#041632] font-semibold hover:bg-[#eae7ea]"
+                className="bg-surface-container-highest hover:bg-surface-variant text-on-surface border border-outline-variant px-3.5 py-1.5 rounded font-body-sm text-xs font-semibold transition-colors"
               >
                 Clear
               </button>
               <button
                 type="button"
                 onClick={handleApplyToken}
-                className="px-4 py-1.5 bg-[#3e5f90] hover:bg-[#315384] text-white rounded font-bold shadow-xs"
+                className="bg-secondary hover:bg-opacity-90 text-on-secondary px-5 py-1.5 rounded font-body-sm text-xs font-bold transition-colors shadow-xs"
               >
-                Apply Token
+                Apply
               </button>
             </div>
           </div>
 
-          {/* Card 3: Compiler Status */}
-          <div className="mt-auto bg-[#efedf0] border border-[#c5c6ce] rounded-lg p-3 flex items-center gap-3">
+          {/* Status Info Card */}
+          <div className="mt-auto bg-surface-container-low border border-outline-variant rounded-lg p-3 flex items-center gap-3">
             <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
             </span>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#44474d]">Compiler Status</p>
-              <p className="font-semibold text-xs text-[#041632]">{compilerStatus}</p>
+              <p className="font-label-caps text-[10px] text-on-surface-variant uppercase">Status</p>
+              <p className="font-body-sm text-xs font-semibold text-on-surface truncate max-w-[200px]">{compilerStatus}</p>
             </div>
           </div>
 
         </div>
 
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-surface-container-low border-t border-outline-variant h-10 flex justify-between items-center px-margin-page z-30 font-label-caps text-[11px] shrink-0">
+        <div className="text-secondary font-bold">© 2026 SMRITI Retail OS • Industrial Logic</div>
+        <div className="flex gap-4 items-center text-on-surface-variant">
+          <span>Target Script: <strong>ModernLabelDesign_TE244.blf</strong></span>
+          <span>•</span>
+          <span>DPI: <strong>300 DPI</strong></span>
+        </div>
+      </footer>
 
     </div>
   );
 };
+
+export default BarcodeScriptGenerationView;

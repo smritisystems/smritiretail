@@ -4,12 +4,13 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.2.0
+ * Version      : 6.6.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ * Source Module: Stitch Barcode Label Designer & Printer (Industrial Logic)
  */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
@@ -20,35 +21,38 @@ import {
   LabelPrintSettings,
   SelectionCriteriaRange,
   PortType,
-  LabelSourceOption,
-  LabelQuantityMode
+  LabelSourceOption
 } from "./types.ts";
 import { EditQuantityDetailsModal } from "./EditQuantityDetailsModal.tsx";
 import { BarcodeScriptGenerationView } from "./BarcodeScriptGenerationView.tsx";
 import { BarcodePrinterSelectModal } from "./BarcodePrinterSelectModal.tsx";
 import { PurchaseProductBrowseModal } from "../purchase/PurchaseProductBrowseModal.tsx";
 import { ThermalBarcodeSvg } from "./ThermalBarcodeSvg.tsx";
+import { parsePTFileContent, SAMPLE_PT_FILE_RECORDS } from "./ptFileParser.ts";
+import { 
+  queryTransactionItems, 
+  queryPurchaseOrderItems, 
+  queryMasterItemsByDate
+} from "./barcodeTransactionStore.ts";
 import { 
   Printer, 
-  Search, 
-  FileText, 
-  Edit3, 
-  Code, 
   Sliders, 
   Layers, 
-  Check, 
+  Code, 
+  Download, 
+  Filter, 
+  Search, 
+  Info, 
+  HelpCircle, 
+  ArrowUpDown, 
+  UploadCloud, 
+  Zap, 
+  Edit3, 
+  FileSpreadsheet, 
   RotateCcw, 
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  FolderOpen,
-  Sparkles,
-  Download,
-  Copy,
-  Eye,
-  Info
+  LogOut, 
+  Eye, 
+  Copy 
 } from "lucide-react";
 
 interface TagLabelPrintingTabProps {
@@ -68,11 +72,11 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [gridRows, setGridRows] = useState<LabelPrintRow[]>([]);
   const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
-  const [uniformBatchQty, setUniformBatchQty] = useState<number>(1);
+  const [filterSearch, setFilterSearch] = useState<string>("");
 
   // Settings
   const [settings, setSettings] = useState<LabelPrintSettings>({
-    scriptFileName: "C:\\SMRITI\\Barcode\\BarcodeScript_Honeywell_IH2.blf",
+    scriptFileName: "C:\\SMRITI\\Barcode\\ModernLabelDesign_TE244.blf",
     labelsPerRow: 1,
     outputToPort: true,
     outputToFile: false,
@@ -83,10 +87,10 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     targetPrinterName: "IMPACT by Honeywell IH-2 (300 dpi) - DPL"
   });
 
-  // Selection Criteria Ranges
+  // 1. Selection Criteria Ranges (Manual Mode)
   const [criteria, setCriteria] = useState<SelectionCriteriaRange>({
-    stockNoFrom: "",
-    stockNoTo: "",
+    stockNoFrom: "000006",
+    stockNoTo: "000008",
     brandFrom: "",
     brandTo: "",
     productFrom: "",
@@ -99,6 +103,52 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     sizeTo: ""
   });
 
+  // 2. PT File State (Against Purchase PT File)
+  const [ptFileName, setPtFileName] = useState<string>("C:\\shoper9R13\\PT_20101005.pt");
+  const [ptRows, setPtRows] = useState<LabelPrintRow[]>(() => {
+    return SAMPLE_PT_FILE_RECORDS.map((rec, idx) => ({
+      id: `pt-row-${idx + 1}`,
+      sNo: idx + 1,
+      stockNo: rec.stockNo,
+      barcode: rec.barcode,
+      brand: rec.brand,
+      product: rec.product,
+      colour: rec.colour,
+      style: rec.style,
+      size: rec.size,
+      mrp: rec.mrp,
+      sellingPrice: rec.sellingPrice,
+      currentStock: 0,
+      labelCount: rec.purchaseQty
+    }));
+  });
+
+  // 3. Transactions State (Against Transactions)
+  const [txDocType, setTxDocType] = useState<string>("Purchase Inward (GRN)");
+  const [txDocPrefix, setTxDocPrefix] = useState<string>("GRN-24");
+  const [txDocFrom, setTxDocFrom] = useState<string>("0010");
+  const [txDocTo, setTxDocTo] = useState<string>("0015");
+  const [txRows, setTxRows] = useState<LabelPrintRow[]>(() => queryTransactionItems("Purchase Inward (GRN)", "GRN-2026-", "001", "010"));
+
+  // 4. Purchase Order State (Against Purchase Order)
+  const [poPrefix, setPoPrefix] = useState<string>("PO-2024");
+  const [poNoFrom, setPoNoFrom] = useState<string>("10050");
+  const [poNoTo, setPoNoTo] = useState<string>("10065");
+  const [poRows, setPoRows] = useState<LabelPrintRow[]>(() => queryPurchaseOrderItems("PO-2026-", "001", "005"));
+
+  // 5. Masters by Date State (Against Masters)
+  const [masterDateFrom, setMasterDateFrom] = useState<string>("2026-08-01");
+  const [masterDateTo, setMasterDateTo] = useState<string>("2026-08-22");
+  const [masterRows, setMasterRows] = useState<LabelPrintRow[]>(() => queryMasterItemsByDate("2026-08-01", "2026-08-22", false));
+  const [showMasterFilterDialog, setShowMasterFilterDialog] = useState<boolean>(false);
+
+  // 6. Direct Scan State (Against Direct Scan)
+  const [directScanInput, setDirectScanInput] = useState<string>("");
+  const [autoPrintOneLabel, setAutoPrintOneLabel] = useState<boolean>(true);
+  const [directScanLabelCount, setDirectScanLabelCount] = useState<number>(1);
+  const [scannedRows, setScannedRows] = useState<LabelPrintRow[]>([]);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+
   // Modals state
   const [isEditQtyModalOpen, setIsEditQtyModalOpen] = useState<boolean>(false);
   const [isPrinterSelectModalOpen, setIsPrinterSelectModalOpen] = useState<boolean>(false);
@@ -107,6 +157,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [showDispatchModal, setShowDispatchModal] = useState<boolean>(false);
   const [isSinglePrintMode, setIsSinglePrintMode] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const ptFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch products from backend if empty
   useEffect(() => {
@@ -126,7 +177,6 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         populateGrid(list);
       }
     } catch {
-      // Fallback to sample items
       const sampleList: Product[] = [
         { id: "1", code: "000006", name: "Shirt", category: "Apparel", brand: "Beanstalk", color: "Ecru", styleCode: "BeeLine", size: "34", mrp: 1299, price: 999, stock: 12, barcode: "890100000006" },
         { id: "2", code: "000007", name: "Shirt", category: "Apparel", brand: "Beanstalk", color: "Ecru", styleCode: "BeeLine", size: "36", mrp: 1299, price: 999, stock: 15, barcode: "890100000007" },
@@ -146,11 +196,11 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       sNo: idx + 1,
       stockNo: p.code || String(idx + 1).padStart(6, "0"),
       barcode: p.barcode || p.code || "",
-      brand: p.brand || "SMRITI",
+      brand: p.brand || "Beanstalk",
       product: p.name || p.category || "Item",
-      colour: p.color || "-",
-      style: p.styleCode || "-",
-      size: p.size || "-",
+      colour: p.color || "Ecru",
+      style: p.styleCode || "BeeLine",
+      size: p.size || "34",
       mrp: p.mrp || p.price || 0,
       sellingPrice: p.price || 0,
       currentStock: p.stock ?? 0,
@@ -160,15 +210,31 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     setGridRows(rows);
   };
 
-  // Distinct options for dropdown lists
+  // Distinct options for dropdown lists in Manual mode
   const uniqueBrands = useMemo(() => Array.from(new Set(products.map(p => p.brand).filter(Boolean))), [products]);
   const uniqueProducts = useMemo(() => Array.from(new Set(products.map(p => p.name || p.category).filter(Boolean))), [products]);
   const uniqueColours = useMemo(() => Array.from(new Set(products.map(p => p.color).filter(Boolean))), [products]);
   const uniqueStyles = useMemo(() => Array.from(new Set(products.map(p => p.styleCode).filter(Boolean))), [products]);
   const uniqueSizes = useMemo(() => Array.from(new Set(products.map(p => p.size).filter(Boolean))), [products]);
 
-  // Filtered rows matching selection criteria
-  const filteredRows = useMemo(() => {
+  // Mode Determinations
+  const isManualMode = settings.sourceOption === "Manual Selection";
+  const isPtFileMode = settings.sourceOption === "Against Purchase (PT File)";
+  const isTxMode = settings.sourceOption === "Against Transactions";
+  const isPoMode = settings.sourceOption === "Against Purchase Order";
+  const isMasterMode = settings.sourceOption === "Against Masters";
+  const isDirectScanMode = settings.sourceOption === "Against Direct Scan";
+
+  const isFixedQuantitySource = isPtFileMode || isTxMode || isPoMode;
+
+  // Active Dataset Resolution
+  const rawDataset: LabelPrintRow[] = useMemo(() => {
+    if (isPtFileMode) return ptRows;
+    if (isTxMode) return txRows;
+    if (isPoMode) return poRows;
+    if (isMasterMode) return masterRows;
+    if (isDirectScanMode) return scannedRows;
+
     return gridRows.filter(row => {
       if (criteria.stockNoFrom && row.stockNo < criteria.stockNoFrom) return false;
       if (criteria.stockNoTo && row.stockNo > criteria.stockNoTo) return false;
@@ -184,72 +250,168 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       if (criteria.sizeTo && row.size > criteria.sizeTo) return false;
       return true;
     });
-  }, [gridRows, criteria]);
+  }, [
+    isPtFileMode, isTxMode, isPoMode, isMasterMode, isDirectScanMode,
+    ptRows, txRows, poRows, masterRows, scannedRows,
+    gridRows, criteria
+  ]);
 
-  // Selected item for preview inspector
-  const currentSelectedItem: LabelPrintRow | undefined = filteredRows[selectedPreviewIndex] || filteredRows[0];
+  // Filtered by Search input
+  const activeDataset = useMemo(() => {
+    if (!filterSearch.trim()) return rawDataset;
+    const q = filterSearch.toLowerCase();
+    return rawDataset.filter(r =>
+      r.stockNo.toLowerCase().includes(q) ||
+      r.product.toLowerCase().includes(q) ||
+      r.brand.toLowerCase().includes(q) ||
+      r.style.toLowerCase().includes(q) ||
+      r.colour.toLowerCase().includes(q) ||
+      r.size.toLowerCase().includes(q) ||
+      r.barcode.toLowerCase().includes(q)
+    );
+  }, [rawDataset, filterSearch]);
 
-  // Active list of items to print based on single vs batch mode
-  const activePrintItems = useMemo(() => {
-    if (isSinglePrintMode && currentSelectedItem) {
-      return [{ ...currentSelectedItem, labelCount: Math.max(1, currentSelectedItem.labelCount) }];
-    }
-    return filteredRows.filter(r => r.labelCount > 0);
-  }, [isSinglePrintMode, currentSelectedItem, filteredRows]);
+  const currentSelectedItem: LabelPrintRow | undefined = activeDataset[selectedPreviewIndex] || activeDataset[0];
 
-  // Total labels in active print queue
-  const activePrintTotalLabels = useMemo(() => {
-    return activePrintItems.reduce((sum, r) => sum + r.labelCount, 0);
-  }, [activePrintItems]);
+  const totalLoadedItems = activeDataset.length;
+  const totalLabelsSum = useMemo(() => {
+    return activeDataset.reduce((sum, r) => sum + (Number(r.labelCount) || 0), 0);
+  }, [activeDataset]);
 
-  // Present Stock mode synchronization
-  useEffect(() => {
-    if (settings.quantityMode === "Present Stock") {
-      setGridRows(prev => prev.map(r => ({ ...r, labelCount: Math.max(0, r.currentStock) })));
-    }
-  }, [settings.quantityMode]);
-
-  // Summary counts
-  const totalRecords = filteredRows.length;
-  const currentStockSum = useMemo(() => filteredRows.reduce((sum, r) => sum + r.currentStock, 0), [filteredRows]);
-  const labelsToPrintSum = useMemo(() => filteredRows.reduce((sum, r) => sum + r.labelCount, 0), [filteredRows]);
-
-  // Apply batch uniform quantity
-  const handleBatchQtyChange = (qty: number) => {
-    const valid = isNaN(qty) ? 0 : Math.max(0, qty);
-    setUniformBatchQty(valid);
-    setGridRows(prev => prev.map(r => {
-      const isMatched = filteredRows.some(fr => fr.id === r.id);
-      return isMatched ? { ...r, labelCount: valid } : r;
-    }));
-  };
-
-  const handleOpenF2Browse = (target: "stockNoFrom" | "stockNoTo") => {
-    setF2BrowseTarget(target);
-    setIsF2BrowseModalOpen(true);
-  };
-
-  const handleSelectF2Product = (prod: Product) => {
-    if (f2BrowseTarget === "stockNoFrom") {
-      setCriteria(prev => ({ ...prev, stockNoFrom: prod.code || "" }));
+  // Inline Label Count Editor on the Results Grid
+  const handleInlineLabelChange = (rowId: string, count: number) => {
+    const val = isNaN(count) ? 0 : Math.max(0, count);
+    if (isPtFileMode) {
+      setPtRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
+    } else if (isTxMode) {
+      setTxRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
+    } else if (isPoMode) {
+      setPoRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
+    } else if (isMasterMode) {
+      setMasterRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
+    } else if (isDirectScanMode) {
+      setScannedRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
     } else {
-      setCriteria(prev => ({ ...prev, stockNoTo: prod.code || "" }));
+      setGridRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
     }
-    setIsF2BrowseModalOpen(false);
   };
 
-  // OK Button Click Handler
-  const handleOkButtonClick = () => {
-    setSelectedPreviewIndex(0);
+  // Load Results Handler (Primary Button in Selection Criteria Card)
+  const handleLoadResults = () => {
+    if (isTxMode) {
+      const results = queryTransactionItems(txDocType, txDocPrefix, txDocFrom, txDocTo);
+      setTxRows(results);
+      setSelectedPreviewIndex(0);
+      onNotification?.("Transactions Loaded", `Loaded ${results.length} items from ${txDocType} [${txDocPrefix}${txDocFrom}–${txDocTo}]`, "success");
+    } else if (isPoMode) {
+      const results = queryPurchaseOrderItems(poPrefix, poNoFrom, poNoTo);
+      setPoRows(results);
+      setSelectedPreviewIndex(0);
+      onNotification?.("Purchase Orders Loaded", `Loaded ${results.length} items from POs [${poPrefix}${poNoFrom}–${poNoTo}]`, "success");
+    } else if (isMasterMode) {
+      setShowMasterFilterDialog(true);
+      return;
+    } else {
+      setSelectedPreviewIndex(0);
+      onNotification?.("Results Loaded", `Loaded ${activeDataset.length} item(s) in grid.`, "success");
+    }
+
     if (settings.scriptFileName.toLowerCase().endsWith(".blf")) {
       setIsPrinterSelectModalOpen(true);
-    } else {
-      onNotification?.("Criteria Applied", `Loaded ${filteredRows.length} item(s) in preview.`, "success");
     }
   };
 
-  // Clear button handler
-  const handleClearAll = () => {
+  // Master Filter Dialog Responses (Yes / No / Cancel)
+  const handleMasterFilterResponse = (unprintedOnly: boolean) => {
+    setShowMasterFilterDialog(false);
+    const results = queryMasterItemsByDate(masterDateFrom, masterDateTo, unprintedOnly);
+    setMasterRows(results);
+    setSelectedPreviewIndex(0);
+    onNotification?.(
+      "Masters Loaded", 
+      `Loaded ${results.length} items from master file (${unprintedOnly ? "Unprinted only" : "All records in period"}).`, 
+      "success"
+    );
+    if (settings.scriptFileName.toLowerCase().endsWith(".blf")) {
+      setIsPrinterSelectModalOpen(true);
+    }
+  };
+
+  // Direct Scan Enter Handler
+  const handleDirectScanSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directScanInput.trim()) return;
+
+    const query = directScanInput.trim().toLowerCase();
+    const matchedProduct = products.find(p => 
+      p.code?.toLowerCase() === query || 
+      p.barcode?.toLowerCase() === query || 
+      p.id?.toLowerCase() === query
+    ) || {
+      id: `scanned-${Date.now()}`,
+      code: directScanInput.trim(),
+      name: `Direct Scanned Item (${directScanInput.trim()})`,
+      category: "General",
+      brand: "Beanstalk",
+      color: "Ecru",
+      styleCode: "BeeLine",
+      size: "34",
+      mrp: 999,
+      price: 799,
+      stock: 1,
+      barcode: directScanInput.trim()
+    };
+
+    const count = autoPrintOneLabel ? 1 : Math.max(1, directScanLabelCount);
+    const newScannedRow: LabelPrintRow = {
+      id: `scan-${Date.now()}`,
+      sNo: scannedRows.length + 1,
+      stockNo: matchedProduct.code || directScanInput.trim(),
+      barcode: matchedProduct.barcode || directScanInput.trim(),
+      brand: matchedProduct.brand || "Beanstalk",
+      product: matchedProduct.name || "Scanned Item",
+      colour: matchedProduct.color || "Ecru",
+      style: matchedProduct.styleCode || "BeeLine",
+      size: matchedProduct.size || "34",
+      mrp: matchedProduct.mrp || matchedProduct.price || 0,
+      sellingPrice: matchedProduct.price || 0,
+      currentStock: matchedProduct.stock || 0,
+      labelCount: count,
+      originalProduct: matchedProduct
+    };
+
+    setScannedRows(prev => [newScannedRow, ...prev]);
+    setSelectedPreviewIndex(0);
+    setDirectScanInput("");
+
+    if (autoPrintOneLabel) {
+      onNotification?.("Scan Registered", `Auto-queued 1 label for SKU ${newScannedRow.stockNo}`, "success");
+    } else {
+      onNotification?.("Scan Registered", `Queued ${count} labels for SKU ${newScannedRow.stockNo}`, "success");
+    }
+  };
+
+  // PT File Upload Handler
+  const handlePtFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPtFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        const parsed = parsePTFileContent(text);
+        setPtRows(parsed);
+        setSelectedPreviewIndex(0);
+        onNotification?.("PT File Loaded", `Loaded ${parsed.length} purchase records from ${file.name}`, "success");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Clear Session
+  const handleClear = () => {
     setCriteria({
       stockNoFrom: "",
       stockNoTo: "",
@@ -264,34 +426,46 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       sizeFrom: "",
       sizeTo: ""
     });
+    setFilterSearch("");
     setSelectedPreviewIndex(0);
-    setUniformBatchQty(1);
     setGridRows(prev => prev.map(r => ({ ...r, labelCount: 1 })));
+    setScannedRows([]);
     onNotification?.("Session Cleared", "Reset selection criteria and label quantities.", "success");
   };
 
-  // Print Single Item Trigger
-  const handlePrintSingle = () => {
+  // Print Current (Single Item)
+  const handlePrintCurrent = () => {
     if (!currentSelectedItem || currentSelectedItem.labelCount === 0) {
-      alert("Selected item has quantity 0. Please specify at least 1 label to print.");
+      alert("Selected item has label quantity 0. Please specify at least 1 label.");
       return;
     }
     setIsSinglePrintMode(true);
     setShowDispatchModal(true);
   };
 
-  // Print All Items Trigger
+  // Print All (Batch)
   const handlePrintAll = () => {
-    const validCount = filteredRows.filter(r => r.labelCount > 0);
+    const validCount = activeDataset.filter(r => r.labelCount > 0);
     if (validCount.length === 0) {
-      alert("No items in criteria have label quantity greater than 0 to print.");
+      alert("No items have label quantity greater than 0 to print.");
       return;
     }
     setIsSinglePrintMode(false);
     setShowDispatchModal(true);
   };
 
-  // Trigger Browser Print for Formatted Labels
+  const activePrintItems = useMemo(() => {
+    if (isSinglePrintMode && currentSelectedItem) {
+      return [{ ...currentSelectedItem, labelCount: Math.max(1, currentSelectedItem.labelCount) }];
+    }
+    return activeDataset.filter(r => r.labelCount > 0);
+  }, [isSinglePrintMode, currentSelectedItem, activeDataset]);
+
+  const activePrintTotalLabels = useMemo(() => {
+    return activePrintItems.reduce((sum, r) => sum + r.labelCount, 0);
+  }, [activePrintItems]);
+
+  // Browser Print Trigger
   const handleBrowserPrint = () => {
     setShowDispatchModal(false);
     setTimeout(() => {
@@ -302,7 +476,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
   // Generate Raw DPL / PRN Script for Honeywell IH-2
   const generateRawDplScript = () => {
-    let script = "\x02L\nD11\n"; // DPL Label format start
+    let script = "\x02L\nD11\n";
     activePrintItems.forEach(item => {
       for (let i = 0; i < item.labelCount; i++) {
         script += `191100000200020${item.brand}\n`;
@@ -310,40 +484,21 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         script += `191100000800020Shade: ${item.colour}  Size: ${item.size}\n`;
         script += `1e4202001100020${item.barcode || item.stockNo}\n`;
         script += `191100001500020MRP: Rs. ${item.mrp}  SP: Rs. ${item.sellingPrice}\n`;
-        script += "E\n"; // Print single label
+        script += "E\n";
       }
     });
     return script;
   };
 
-  const handleDownloadDplScript = () => {
-    const content = generateRawDplScript();
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Honeywell_IH2_Labels_${Date.now()}.prn`;
-    a.click();
-    URL.revokeObjectURL(a);
-    onNotification?.("File Downloaded", "Downloaded raw PRN script for Honeywell IH-2.", "success");
-  };
-
-  const handleCopyDplScript = () => {
-    navigator.clipboard.writeText(generateRawDplScript());
-    onNotification?.("Copied", "Copied raw DPL script commands to clipboard.", "success");
-  };
-
-  // Global F2 Keyboard Shortcut
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
-        e.preventDefault();
-        setIsEditQtyModalOpen(true);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  // Status text for bottom action bar
+  const bottomStatusText = useMemo(() => {
+    if (isPtFileMode) return "Ready to print labels based on purchase transaction records.";
+    if (isTxMode) return "Ready to print labels based on transaction records.";
+    if (isPoMode) return "Ready to print labels based on purchase order records.";
+    if (isMasterMode) return "Ready to print labels based on master file records.";
+    if (isDirectScanMode) return "Ready to print labels based on real-time scanner input.";
+    return "Ready to print labels based on manual selection.";
+  }, [isPtFileMode, isTxMode, isPoMode, isMasterMode, isDirectScanMode]);
 
   if (activeView === "designer") {
     return (
@@ -355,11 +510,11 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   }
 
   return (
-    <div className="bg-[#fbf8fb] text-[#1b1b1e] font-sans h-full flex flex-col antialiased select-none overflow-hidden">
+    <div className="bg-surface text-on-surface font-sans h-full flex flex-col antialiased select-none overflow-hidden">
       
       {/* 
-        Printable Barcode Container (Visible ONLY during window.print())
-        Formats each label cleanly as 50mm x 25mm thermal roll stickers
+        Thermal Label Printable Container (Visible ONLY during window.print())
+        Exact 50mm x 25mm thermal roll stickers
       */}
       <div id="smriti-barcode-printable-area" className="hidden print:block bg-white text-black font-sans">
         <style dangerouslySetInnerHTML={{ __html: `
@@ -401,7 +556,6 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
           const copies = Array.from({ length: Math.max(1, item.labelCount) });
           return copies.map((_, copyIdx) => (
             <div key={`${item.id}-copy-${copyIdx}`} className="thermal-label-page text-black bg-white">
-              {/* Brand & Price Header */}
               <div className="flex justify-between items-center border-b border-black/30 pb-0.5 leading-none">
                 <span className="font-extrabold text-[9px] uppercase tracking-wide truncate max-w-[28mm]">
                   {item.brand || "SMRITI RETAIL"}
@@ -411,13 +565,11 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 </span>
               </div>
 
-              {/* Product & Style Details */}
               <div className="text-[8px] font-semibold truncate leading-tight my-0.5">
                 <span>{item.product}</span>
                 <span className="text-[7.5px] text-gray-700 ml-1">({item.style})</span>
               </div>
 
-              {/* Barcode Graphic */}
               <div className="w-full flex justify-center py-0.5">
                 <ThermalBarcodeSvg
                   value={item.barcode || item.stockNo}
@@ -427,7 +579,6 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 />
               </div>
 
-              {/* Footer Attributes: Shade, Size & MRP */}
               <div className="flex justify-between items-center text-[7.5px] font-mono leading-none border-t border-black/30 pt-0.5">
                 <span>{item.colour} / S:{item.size}</span>
                 <span className="font-semibold text-[7px] text-gray-600">MRP: ₹{item.mrp}</span>
@@ -437,14 +588,14 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         })}
       </div>
 
-      {/* Top Application Bar */}
-      <header className="h-12 border-b border-[#c5c6ce] bg-[#efedf0] flex justify-between items-center px-4 shrink-0 shadow-xs print:hidden">
+      {/* Top Application Header Bar */}
+      <header className="h-14 border-b border-outline-variant bg-surface-container flex justify-between items-center px-margin-page shrink-0 shadow-xs z-20 print:hidden">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-[#041632] font-bold text-sm">
-            <Printer size={18} className="text-[#3e5f90]" />
+          <div className="flex items-center gap-2 text-primary font-bold font-title-sm text-title-sm">
+            <Printer size={20} className="text-secondary" />
             <span>Tag &amp; Barcode Label Printing</span>
-            <span className="text-[10px] bg-[#d7e2ff] text-[#041632] px-2 py-0.5 rounded font-mono font-bold ml-2">
-              SMRITI Professional Terminal
+            <span className="text-label-caps font-label-caps bg-primary-container text-on-primary-container px-2.5 py-0.5 rounded-full ml-2">
+              {settings.sourceOption}
             </span>
           </div>
         </div>
@@ -453,564 +604,748 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
           <button
             type="button"
             onClick={() => setIsPrinterSelectModalOpen(true)}
-            className="px-3 py-1.5 bg-white hover:bg-[#eae7ea] text-[#041632] border border-[#c5c6ce] rounded text-xs font-semibold flex items-center gap-1.5 transition shadow-xs"
+            className="px-3.5 py-1.5 bg-surface border border-outline-variant hover:bg-surface-variant text-on-surface rounded font-body-sm font-medium transition flex items-center gap-2 shadow-xs"
           >
-            <Printer size={14} className="text-[#3e5f90]" />
-            <span className="truncate max-w-[200px]">{settings.targetPrinterName || "Printer Config"}</span>
+            <Printer size={15} className="text-secondary" />
+            <span className="truncate max-w-[220px]">{settings.targetPrinterName || "Configure Printer"}</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveView("designer")}
-            className="px-3 py-1.5 bg-[#eae7ea] hover:bg-[#dbd9dc] text-[#041632] border border-[#c5c6ce] rounded text-xs font-semibold flex items-center gap-1.5 transition shadow-xs"
+            className="px-3.5 py-1.5 bg-primary text-on-primary hover:bg-primary-container rounded font-body-sm font-semibold transition flex items-center gap-2 shadow-xs"
           >
-            <Code size={14} className="text-[#3e5f90]" />
-            <span>Script Generation / Designer</span>
+            <Code size={15} />
+            <span>Barcode Script Designer</span>
           </button>
         </div>
       </header>
 
-      {/* Main Workspace Frame (12-Column Industrial Grid) */}
-      <main className="flex-1 p-4 overflow-y-auto bg-[#fbf8fb] print:hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* Main Workspace Frame: Left Sidebar + Main Content */}
+      <div className="flex-1 flex overflow-hidden print:hidden pb-16">
+        
+        {/* Left Sidebar: Fixed Width (280px), Scrollable Configuration */}
+        <aside className="w-72 bg-surface-container-low border-r border-outline-variant flex flex-col p-4 gap-4 overflow-y-auto shrink-0 z-10">
           
-          {/* Left Column (4 cols): Parameters, Option & Quantities */}
-          <div className="lg:col-span-4 flex flex-col gap-3.5">
-            
-            {/* 1. Label Printing Parameters Card */}
-            <section className="bg-white border border-[#c5c6ce] rounded-lg p-3.5 shadow-xs space-y-3">
-              <h2 className="text-xs font-bold text-[#041632] uppercase tracking-wider border-b border-[#c5c6ce] pb-1.5 flex items-center gap-1.5">
-                <Sliders size={14} className="text-[#3e5f90]" />
-                Label Printing Parameters
-              </h2>
+          {/* 1. Label Printing Parameters Card */}
+          <section className="bg-surface border border-outline-variant rounded-lg p-3.5 flex flex-col gap-3 shadow-xs border-t-2 border-t-secondary">
+            <h3 className="font-title-sm text-xs font-bold text-primary flex items-center gap-1.5 border-b border-surface-variant pb-1.5 uppercase tracking-wider">
+              <Sliders size={14} className="text-secondary" />
+              Label Printing Parameters
+            </h3>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-[#44474d] block">Script File Name</label>
-                <div className="flex">
+            <div className="flex flex-col gap-1">
+              <label className="font-label-caps text-[11px] text-on-surface-variant">Script File Name</label>
+              <div className="flex">
+                <input
+                  type="text"
+                  value={settings.scriptFileName}
+                  onChange={e => setSettings({ ...settings, scriptFileName: e.target.value })}
+                  className="flex-1 bg-surface border border-outline-variant border-r-0 rounded-l px-2.5 py-1 text-xs font-code-md text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-surface-variant border border-outline-variant rounded-r px-2 py-1 hover:bg-surface-dim transition-colors text-xs font-medium"
+                >
+                  Browse...
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".t,.blf,.prn,.zpl,.tspl,.txt"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) setSettings({ ...settings, scriptFileName: file.name });
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="font-label-caps text-[11px] text-on-surface-variant">Labels Per Row</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="8"
+                  value={settings.labelsPerRow}
+                  onChange={e => setSettings({ ...settings, labelsPerRow: parseInt(e.target.value) || 1 })}
+                  className="w-full bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md text-center focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-label-caps text-[11px] text-on-surface-variant">Target Port</label>
+                <select
+                  value={settings.portSetting}
+                  onChange={e => setSettings({ ...settings, portSetting: e.target.value as any })}
+                  className="w-full bg-surface border border-outline-variant rounded p-1 text-xs font-medium focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                >
+                  <option value="USB">USB</option>
+                  <option value="COM 1">COM 1</option>
+                  <option value="COM 2">COM 2</option>
+                  <option value="Network TCP/IP">Network TCP/IP</option>
+                  <option value="QZ Tray Thermal">QZ Tray</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 pt-1">
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-on-surface">
+                <input
+                  type="checkbox"
+                  checked={settings.outputToPort}
+                  onChange={e => setSettings({ ...settings, outputToPort: e.target.checked })}
+                  className="text-secondary focus:ring-secondary rounded h-3.5 w-3.5"
+                />
+                <span>Output to Port</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-on-surface">
+                <input
+                  type="checkbox"
+                  checked={settings.outputToFile}
+                  onChange={e => setSettings({ ...settings, outputToFile: e.target.checked })}
+                  className="text-secondary focus:ring-secondary rounded h-3.5 w-3.5"
+                />
+                <span>Output to File</span>
+              </label>
+            </div>
+          </section>
+
+          {/* 2. Source Option Card */}
+          <section className="bg-surface border border-outline-variant rounded-lg p-3.5 flex flex-col gap-2.5 shadow-xs border-t-2 border-t-primary">
+            <h3 className="font-title-sm text-xs font-bold text-primary flex items-center gap-1.5 border-b border-surface-variant pb-1.5 uppercase tracking-wider">
+              <Layers size={14} className="text-secondary" />
+              Option
+            </h3>
+
+            <div className="flex flex-col gap-1 text-xs">
+              {(
+                [
+                  "Manual Selection",
+                  "Against Masters",
+                  "Against Direct Scan",
+                  "Against Purchase (PT File)",
+                  "Against Transactions",
+                  "Against Purchase Order",
+                  "Against PDT File"
+                ] as LabelSourceOption[]
+              ).map(opt => (
+                <label
+                  key={opt}
+                  className={`flex items-center gap-2 cursor-pointer p-1.5 rounded transition ${
+                    settings.sourceOption === opt 
+                      ? "bg-secondary-fixed/40 text-primary font-bold" 
+                      : "hover:bg-surface-variant text-on-surface"
+                  }`}
+                >
                   <input
-                    type="text"
-                    value={settings.scriptFileName}
-                    onChange={e => setSettings({ ...settings, scriptFileName: e.target.value })}
-                    className="flex-1 border border-[#75777e] rounded-l px-2 py-1 text-xs font-mono bg-white outline-none focus:border-[#3e5f90]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="bg-[#efedf0] border-y border-r border-[#75777e] text-[#1b1b1e] px-2.5 rounded-r hover:bg-[#eae7ea] text-xs font-bold"
-                  >
-                    ...
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".t,.blf,.prn,.zpl,.tspl,.txt"
-                    className="hidden"
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) setSettings({ ...settings, scriptFileName: file.name });
+                    type="radio"
+                    name="sourceOption"
+                    checked={settings.sourceOption === opt}
+                    onChange={() => {
+                      setSettings({ ...settings, sourceOption: opt });
+                      setSelectedPreviewIndex(0);
                     }}
+                    className="text-secondary focus:ring-secondary h-3.5 w-3.5"
                   />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 items-center">
-                <div>
-                  <label className="text-[11px] font-semibold text-[#44474d] block mb-1">Labels Per Row</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="8"
-                    value={settings.labelsPerRow}
-                    onChange={e => setSettings({ ...settings, labelsPerRow: parseInt(e.target.value) || 1 })}
-                    className="w-full text-center border border-[#75777e] rounded py-1 text-xs font-mono font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-[#44474d] block mb-1">Target Port</label>
-                  <select
-                    value={settings.portSetting}
-                    onChange={e => setSettings({ ...settings, portSetting: e.target.value as any })}
-                    className="w-full border border-[#75777e] rounded p-1 text-xs font-semibold bg-white"
-                  >
-                    <option value="USB">USB Direct</option>
-                    <option value="COM 1">COM 1</option>
-                    <option value="COM 2">COM 2</option>
-                    <option value="Network TCP/IP">Network TCP/IP</option>
-                    <option value="QZ Tray Thermal">QZ Tray</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 pt-1">
-                <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.outputToPort}
-                    onChange={e => setSettings({ ...settings, outputToPort: e.target.checked })}
-                    className="text-[#3e5f90]"
-                  />
-                  <span>Output to Port</span>
+                  <span className="truncate">{opt}</span>
                 </label>
-                <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.outputToFile}
-                    onChange={e => setSettings({ ...settings, outputToFile: e.target.checked })}
-                    className="text-[#3e5f90]"
-                  />
-                  <span>Output to File</span>
-                </label>
-              </div>
-            </section>
+              ))}
+            </div>
+          </section>
 
-            {/* 2. Label Source Option Card */}
-            <section className="bg-white border border-[#c5c6ce] rounded-lg p-3.5 shadow-xs space-y-2 text-xs">
-              <h2 className="text-xs font-bold text-[#041632] uppercase tracking-wider border-b border-[#c5c6ce] pb-1.5 flex items-center gap-1.5">
-                <Layers size={14} className="text-[#3e5f90]" />
-                Option / Source
-              </h2>
+          {/* 3. Labels to Print Summary Card */}
+          <section className="bg-surface border border-outline-variant rounded-lg p-3.5 flex flex-col gap-2.5 shadow-xs border-t-2 border-t-secondary">
+            <h3 className="font-title-sm text-xs font-bold text-primary flex items-center gap-1.5 border-b border-surface-variant pb-1.5 uppercase tracking-wider">
+              <Printer size={14} className="text-secondary" />
+              Labels to Print
+            </h3>
 
-              <div className="grid grid-cols-2 gap-y-1.5 gap-x-2">
-                {(
-                  [
-                    "Manual Selection",
-                    "Against Masters",
-                    "Against Direct Scan",
-                    "Against Purchase (PT File)",
-                    "Against Transactions",
-                    "Against Purchase Order",
-                    "Against PDT File"
-                  ] as LabelSourceOption[]
-                ).map(opt => (
-                  <label key={opt} className="flex items-center gap-1.5 cursor-pointer font-medium">
-                    <input
-                      type="radio"
-                      name="sourceOption"
-                      checked={settings.sourceOption === opt}
-                      onChange={() => setSettings({ ...settings, sourceOption: opt })}
-                      className="text-[#3e5f90]"
-                    />
-                    <span className="text-[11px] truncate">{opt}</span>
-                  </label>
-                ))}
-              </div>
-            </section>
-
-            {/* 3. Labels to Print Summary Card */}
-            <section className="bg-white border border-[#c5c6ce] rounded-lg p-3.5 shadow-xs space-y-3 text-xs">
-              <h2 className="text-xs font-bold text-[#041632] uppercase tracking-wider border-b border-[#c5c6ce] pb-1.5 flex items-center gap-1.5">
-                <FileText size={14} className="text-[#3e5f90]" />
-                Print Quantities
-              </h2>
-
+            <div className="flex flex-col gap-2 text-xs">
               <div className="flex gap-4">
-                <label className="flex items-center gap-1.5 cursor-pointer font-medium">
+                <label
+                  className={`flex items-center gap-1.5 font-medium ${isFixedQuantitySource ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                  title={isFixedQuantitySource ? "This option is not available as we cannot specify a quantity in this case." : ""}
+                >
                   <input
                     type="radio"
                     name="qtyMode"
-                    checked={settings.quantityMode === "Specified Quantity"}
+                    disabled={isFixedQuantitySource}
+                    checked={!isFixedQuantitySource && settings.quantityMode === "Specified Quantity"}
                     onChange={() => setSettings({ ...settings, quantityMode: "Specified Quantity" })}
-                    className="text-[#3e5f90]"
+                    className="text-secondary"
                   />
                   <span>Specified Quantity</span>
                 </label>
-                <label className="flex items-center gap-1.5 cursor-pointer font-medium" title="Present Stock option (available at store branch)">
+                <label
+                  className="flex items-center gap-1.5 font-medium opacity-40 cursor-not-allowed"
+                  title="This option is not available in HO."
+                >
                   <input
                     type="radio"
                     name="qtyMode"
-                    checked={settings.quantityMode === "Present Stock"}
-                    onChange={() => setSettings({ ...settings, quantityMode: "Present Stock" })}
-                    className="text-[#3e5f90]"
+                    disabled={true}
+                    checked={false}
+                    className="text-secondary"
                   />
-                  <span>Present Stock</span>
+                  <span>Present Stock (N/A in HO)</span>
                 </label>
               </div>
 
-              <div className="space-y-2 pt-1">
-                <div className="flex justify-between items-center">
-                  <span className="text-[#44474d] text-xs">Total Records:</span>
-                  <input
-                    type="text"
-                    readOnly
-                    value={totalRecords}
-                    className="w-24 text-right bg-[#efedf0] border border-[#c5c6ce] rounded px-2 py-0.5 font-mono font-bold"
-                  />
-                </div>
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-on-surface-variant text-xs">Total Records:</span>
+                <input
+                  type="text"
+                  readOnly
+                  value={totalLoadedItems}
+                  className="w-24 text-right bg-surface-container border border-outline-variant rounded px-2 py-0.5 font-code-md font-bold text-on-surface text-xs"
+                />
+              </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-[#44474d] text-xs">Current Stock:</span>
-                  <input
-                    type="text"
-                    readOnly
-                    value={currentStockSum}
-                    className="w-24 text-right bg-[#efedf0] border border-[#c5c6ce] rounded px-2 py-0.5 font-mono font-bold"
-                  />
-                </div>
+              <div className="flex justify-between items-center">
+                <span className="text-on-surface-variant text-xs">Current Stock:</span>
+                <input
+                  type="text"
+                  readOnly
+                  disabled={isFixedQuantitySource}
+                  value={isFixedQuantitySource ? "N/A in HO" : activeDataset.reduce((s, r) => s + r.currentStock, 0)}
+                  className="w-24 text-right bg-surface-container border border-outline-variant rounded px-2 py-0.5 font-code-md text-on-surface-variant text-xs disabled:opacity-60"
+                />
+              </div>
 
-                <div className="flex justify-between items-center pt-1 border-t border-[#c5c6ce]">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[#041632] font-bold text-xs">Labels to Print:</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditQtyModalOpen(true)}
-                      title="Edit Quantity Details per item (F2)"
-                      className="p-0.5 text-[#3e5f90] hover:bg-[#d7e2ff] rounded"
-                    >
-                      <Edit3 size={13} />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-1.5">
+              <div className="flex justify-between items-center border-t border-outline-variant pt-2">
+                <span className="text-primary font-bold text-xs">Total Labels to Print:</span>
+                <div className="font-code-md font-bold text-secondary text-sm px-2 py-0.5 bg-secondary-fixed/50 rounded border border-secondary/30">
+                  {totalLabelsSum}
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </aside>
+
+        {/* Main Content Area: Top Selection Criteria + Bottom Results Grid */}
+        <main className="flex-1 flex flex-col p-margin-page gap-stack-gap overflow-y-auto bg-surface-container-lowest">
+          
+          {/* Top Card: Selection Criteria / Ingestion Panel */}
+          <section className="bg-surface border border-outline-variant rounded-lg p-4 flex flex-col gap-3 shadow-xs border-t-4 border-t-primary shrink-0">
+            <h3 className="font-title-sm text-sm font-bold text-primary border-b border-surface-variant pb-2 flex items-center gap-2">
+              <Filter size={16} className="text-secondary" />
+              <span>
+                {isPtFileMode && "Purchase Transaction (PT) File Selection"}
+                {isTxMode && "Transaction Selection Criteria"}
+                {isPoMode && "Purchase Order Selection Criteria"}
+                {isMasterMode && "Master Records Period Filter"}
+                {isDirectScanMode && "Direct Barcode Scanning Input"}
+                {isManualMode && "Selection Criteria"}
+              </span>
+            </h3>
+
+            {/* A. Manual Mode Criteria */}
+            {isManualMode && (
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center">
+                      <label className="font-label-caps text-on-surface-variant">Stock No From</label>
+                      <span className="text-[9px] font-code-md text-secondary font-bold cursor-pointer" onClick={() => { setF2BrowseTarget("stockNoFrom"); setIsF2BrowseModalOpen(true); }}>[F2 Browse]</span>
+                    </div>
                     <input
-                      type="number"
-                      min="0"
-                      value={uniformBatchQty}
-                      onChange={e => handleBatchQtyChange(parseInt(e.target.value) || 0)}
-                      title="Batch quantity (press F2 for detailed per-item editing)"
-                      className="w-24 text-right bg-[#d7e2ff] text-[#041632] border-2 border-[#3e5f90] rounded px-2 py-1 font-mono font-bold text-sm outline-none"
+                      type="text"
+                      value={criteria.stockNoFrom}
+                      onChange={e => setCriteria({ ...criteria, stockNoFrom: e.target.value })}
+                      placeholder="e.g. 000006"
+                      className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all"
                     />
                   </div>
+
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center">
+                      <label className="font-label-caps text-on-surface-variant">Stock No To</label>
+                      <span className="text-[9px] font-code-md text-secondary font-bold cursor-pointer" onClick={() => { setF2BrowseTarget("stockNoTo"); setIsF2BrowseModalOpen(true); }}>[F2 Browse]</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={criteria.stockNoTo}
+                      onChange={e => setCriteria({ ...criteria, stockNoTo: e.target.value })}
+                      placeholder="e.g. 000008"
+                      className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="font-label-caps text-on-surface-variant">Product Filter</label>
+                    <select
+                      value={criteria.productFrom}
+                      onChange={e => setCriteria({ ...criteria, productFrom: e.target.value, productTo: e.target.value })}
+                      className="w-full bg-surface border border-outline-variant rounded px-2.5 py-1.5 text-body-sm font-medium focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                    >
+                      <option value="">(All Products)</option>
+                      {uniqueProducts.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="flex">
+                    <button
+                      type="button"
+                      onClick={handleLoadResults}
+                      className="w-full bg-primary-container text-on-primary px-4 py-2 rounded font-body-sm font-medium hover:bg-primary transition-colors flex items-center justify-center gap-2 shadow-xs"
+                    >
+                      <Download size={16} />
+                      <span>Load Results</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-            </section>
+            )}
 
-          </div>
+            {/* B. PT File Ingestion */}
+            {isPtFileMode && (
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex flex-col gap-1 flex-1 min-w-[240px]">
+                  <label className="font-label-caps text-on-surface-variant">PT File Selection</label>
+                  <div className="flex">
+                    <input
+                      type="text"
+                      value={ptFileName}
+                      onChange={e => setPtFileName(e.target.value)}
+                      placeholder="Enter file name or select .pt file"
+                      className="flex-1 bg-surface border border-outline-variant border-r-0 rounded-l px-3 py-1.5 text-body-sm font-code-md text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => ptFileInputRef.current?.click()}
+                      className="bg-surface-variant border border-outline-variant rounded-r px-3 py-1.5 hover:bg-surface-dim transition-colors text-body-sm font-medium"
+                    >
+                      Browse...
+                    </button>
+                    <input
+                      ref={ptFileInputRef}
+                      type="file"
+                      accept=".pt,.txt,.csv,.tsv"
+                      className="hidden"
+                      onChange={handlePtFileUpload}
+                    />
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5">Select a valid purchase transaction file to load item quantities.</p>
+                </div>
+                <div className="flex shrink-0 pb-4">
+                  <button
+                    type="button"
+                    onClick={handleLoadResults}
+                    className="bg-primary-container text-on-primary px-5 py-2 rounded font-body-sm font-medium hover:bg-primary transition-colors flex items-center gap-2 shadow-xs"
+                  >
+                    <Download size={16} />
+                    <span>Load Results</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
-          {/* Right Column (8 cols): Criteria Range & Selected Item Preview */}
-          <div className="lg:col-span-8 flex flex-col gap-3.5">
+            {/* C. Transactions Ingestion */}
+            {isTxMode && (
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+                  <label className="font-label-caps text-on-surface-variant">Transaction Type</label>
+                  <select
+                    value={txDocType}
+                    onChange={e => setTxDocType(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-medium focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  >
+                    <option value="Purchase Inward (GRN)">Purchase Inward (GRN)</option>
+                    <option value="Sales Return Inward">Sales Return Inward</option>
+                    <option value="Stock Transfer Inward">Stock Transfer Inward</option>
+                    <option value="POS Exchange">POS Exchange</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                  <label className="font-label-caps text-on-surface-variant">Doc No Prefix</label>
+                  <input
+                    type="text"
+                    value={txDocPrefix}
+                    onChange={e => setTxDocPrefix(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md uppercase focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                  <label className="font-label-caps text-on-surface-variant">Doc No From</label>
+                  <input
+                    type="text"
+                    value={txDocFrom}
+                    onChange={e => setTxDocFrom(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                  <label className="font-label-caps text-on-surface-variant">Doc No To</label>
+                  <input
+                    type="text"
+                    value={txDocTo}
+                    onChange={e => setTxDocTo(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  />
+                </div>
+                <div className="flex shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleLoadResults}
+                    className="bg-primary-container text-on-primary px-5 py-2 rounded font-body-sm font-medium hover:bg-primary transition-colors flex items-center gap-2 shadow-xs"
+                  >
+                    <Download size={16} />
+                    <span>Load Results</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* D. Purchase Order Ingestion */}
+            {isPoMode && (
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                  <label className="font-label-caps text-on-surface-variant">PO Prefix</label>
+                  <input
+                    type="text"
+                    value={poPrefix}
+                    onChange={e => setPoPrefix(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md uppercase focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                  <label className="font-label-caps text-on-surface-variant">PO No From</label>
+                  <input
+                    type="text"
+                    value={poNoFrom}
+                    onChange={e => setPoNoFrom(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                  <label className="font-label-caps text-on-surface-variant">PO No To</label>
+                  <input
+                    type="text"
+                    value={poNoTo}
+                    onChange={e => setPoNoTo(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  />
+                </div>
+                <div className="flex shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleLoadResults}
+                    className="bg-primary-container text-on-primary px-5 py-2 rounded font-body-sm font-medium hover:bg-primary transition-colors flex items-center gap-2 shadow-xs"
+                  >
+                    <Download size={16} />
+                    <span>Load Results</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* E. Master Period Ingestion */}
+            {isMasterMode && (
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex flex-col gap-1 flex-1 min-w-[150px]">
+                  <label className="font-label-caps text-on-surface-variant">Date From</label>
+                  <input
+                    type="date"
+                    value={masterDateFrom}
+                    onChange={e => setMasterDateFrom(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 flex-1 min-w-[150px]">
+                  <label className="font-label-caps text-on-surface-variant">Date To</label>
+                  <input
+                    type="date"
+                    value={masterDateTo}
+                    onChange={e => setMasterDateTo(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded px-3 py-1.5 text-body-sm font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  />
+                </div>
+                <div className="flex shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleLoadResults}
+                    className="bg-primary-container text-on-primary px-5 py-2 rounded font-body-sm font-medium hover:bg-primary transition-colors flex items-center gap-2 shadow-xs"
+                  >
+                    <Download size={16} />
+                    <span>Load Results</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* F. Direct Scan Ingestion */}
+            {isDirectScanMode && (
+              <form onSubmit={handleDirectScanSubmit} className="flex flex-wrap items-end gap-4">
+                <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+                  <label className="font-label-caps text-on-surface-variant flex items-center gap-1">
+                    <Zap size={14} className="text-secondary" />
+                    <span>Stock No. / Barcode Scanner</span>
+                  </label>
+                  <input
+                    ref={scanInputRef}
+                    type="text"
+                    value={directScanInput}
+                    onChange={e => setDirectScanInput(e.target.value)}
+                    placeholder="Scan or enter Stock No..."
+                    className="w-full bg-surface border-2 border-secondary rounded px-3 py-1.5 text-body-sm font-code-md font-bold focus:ring-1 focus:ring-secondary outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-3 pb-2">
+                  <label className="flex items-center gap-1.5 cursor-pointer font-medium text-body-sm text-primary">
+                    <input
+                      type="checkbox"
+                      checked={autoPrintOneLabel}
+                      onChange={e => setAutoPrintOneLabel(e.target.checked)}
+                      className="text-secondary rounded"
+                    />
+                    <span>Automatically Print One Label on Scan</span>
+                  </label>
+                  {!autoPrintOneLabel && (
+                    <input
+                      type="number"
+                      min="1"
+                      value={directScanLabelCount}
+                      onChange={e => setDirectScanLabelCount(parseInt(e.target.value) || 1)}
+                      className="w-20 text-center bg-surface border border-outline-variant rounded py-1 text-body-sm font-code-md"
+                    />
+                  )}
+                </div>
+                <div className="flex shrink-0">
+                  <button
+                    type="submit"
+                    className="bg-primary text-on-primary px-5 py-2 rounded font-body-sm font-bold hover:bg-primary-container transition-colors shadow-xs"
+                  >
+                    Enter
+                  </button>
+                </div>
+              </form>
+            )}
+
+          </section>
+
+          {/* Bottom Card: Item Preview & Results Grid View (Full Stitch Data Grid) */}
+          <section className="bg-surface border border-outline-variant rounded-lg p-0 flex flex-col flex-1 shadow-sm overflow-hidden min-h-[300px]">
             
-            {/* Selection Criteria Range Card */}
-            <section className="bg-white border border-[#c5c6ce] rounded-lg p-4 shadow-xs text-xs space-y-2.5 flex-1">
-              <div className="grid grid-cols-[110px_1fr_1fr] gap-3 pb-1 border-b border-[#c5c6ce] text-[#041632] font-bold text-xs items-center">
-                <span>Selection Criteria</span>
-                <span className="text-center text-[10px] uppercase tracking-wider text-[#44474d]">From</span>
-                <span className="text-center text-[10px] uppercase tracking-wider text-[#44474d]">To</span>
-              </div>
-
-              {/* Row 1: Stock No with F2 Browse */}
-              <div className="grid grid-cols-[110px_1fr_1fr] gap-3 items-center">
-                <div className="flex items-center justify-between pr-2">
-                  <label className="font-bold text-[#041632]">Stock No.</label>
-                  <span className="text-[9px] bg-[#efedf0] px-1 rounded font-mono text-[#44474d]">F2</span>
-                </div>
-                <div className="flex">
+            {/* Data Grid Header Bar */}
+            <div className="bg-surface-container-low border-b border-outline-variant px-4 py-2 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-4 flex-1">
+                <span className="font-label-caps text-label-caps text-secondary font-bold shrink-0">
+                  Loaded Items ({totalLoadedItems})
+                </span>
+                <div className="relative flex-1 max-w-xs">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-outline" />
                   <input
                     type="text"
-                    value={criteria.stockNoFrom}
-                    onChange={e => setCriteria({ ...criteria, stockNoFrom: e.target.value })}
-                    placeholder="From SKU..."
-                    className="w-full border border-[#75777e] rounded-l px-2 py-1 font-mono bg-[#fbf8fb] focus:bg-white text-xs outline-none focus:border-[#3e5f90]"
+                    value={filterSearch}
+                    onChange={e => setFilterSearch(e.target.value)}
+                    placeholder="Filter results..."
+                    className="w-full pl-8 pr-3 py-1 bg-surface border border-outline-variant rounded text-body-sm focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all"
                   />
-                  <button
-                    type="button"
-                    onClick={() => handleOpenF2Browse("stockNoFrom")}
-                    title="Browse Product Masters (F2)"
-                    className="bg-[#efedf0] border-y border-r border-[#75777e] px-2 rounded-r hover:bg-[#eae7ea] font-mono text-[11px] font-bold"
-                  >
-                    F2
-                  </button>
-                </div>
-                <div className="flex">
-                  <input
-                    type="text"
-                    value={criteria.stockNoTo}
-                    onChange={e => setCriteria({ ...criteria, stockNoTo: e.target.value })}
-                    placeholder="To SKU..."
-                    className="w-full border border-[#75777e] rounded-l px-2 py-1 font-mono bg-[#fbf8fb] focus:bg-white text-xs outline-none focus:border-[#3e5f90]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleOpenF2Browse("stockNoTo")}
-                    title="Browse Product Masters (F2)"
-                    className="bg-[#efedf0] border-y border-r border-[#75777e] px-2 rounded-r hover:bg-[#eae7ea] font-mono text-[11px] font-bold"
-                  >
-                    F2
-                  </button>
                 </div>
               </div>
+              <span className="text-body-sm text-on-surface-variant ml-4 font-medium">Scroll to view all</span>
+            </div>
 
-              {/* Row 2: Product */}
-              <div className="grid grid-cols-[110px_1fr_1fr] gap-3 items-center">
-                <label className="font-semibold text-[#44474d]">Product</label>
-                <select
-                  value={criteria.productFrom}
-                  onChange={e => setCriteria({ ...criteria, productFrom: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Products)</option>
-                  {uniqueProducts.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-                <select
-                  value={criteria.productTo}
-                  onChange={e => setCriteria({ ...criteria, productTo: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Products)</option>
-                  {uniqueProducts.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
+            {/* Grid Table Container */}
+            <div className="flex-1 overflow-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse font-sans">
+                <thead className="sticky top-0 bg-surface-container-high z-10 shadow-xs">
+                  <tr className="border-b border-outline-variant">
+                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">
+                      <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                        <span>Stock No</span>
+                        <ArrowUpDown size={13} />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">
+                      <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                        <span>Product</span>
+                        <ArrowUpDown size={13} />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">
+                      <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                        <span>Brand</span>
+                        <ArrowUpDown size={13} />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">
+                      <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                        <span>Style</span>
+                        <ArrowUpDown size={13} />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">Shade</th>
+                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">Size</th>
+                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant w-28 bg-surface-container-high text-center"># Labels</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant bg-surface font-body-sm">
+                  {activeDataset.map((row, idx) => {
+                    const isSelected = selectedPreviewIndex === idx;
+                    return (
+                      <tr
+                        key={row.id}
+                        onClick={() => setSelectedPreviewIndex(idx)}
+                        className={`transition-colors cursor-pointer ${
+                          isSelected ? "bg-secondary-fixed/40 font-semibold" : "hover:bg-surface-container-low"
+                        }`}
+                      >
+                        <td className="px-3 py-2 font-code-md text-body-sm text-on-surface">{row.stockNo}</td>
+                        <td className="px-3 py-2 text-body-sm text-on-surface truncate max-w-[150px]" title={row.product}>{row.product}</td>
+                        <td className="px-3 py-2 text-body-sm text-on-surface">{row.brand}</td>
+                        <td className="px-3 py-2 text-body-sm text-on-surface">{row.style}</td>
+                        <td className="px-3 py-2 text-body-sm text-on-surface">{row.colour}</td>
+                        <td className="px-3 py-2 text-body-sm text-on-surface">{row.size}</td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.labelCount}
+                            onChange={e => handleInlineLabelChange(row.id, parseInt(e.target.value) || 0)}
+                            onClick={e => e.stopPropagation()}
+                            className="w-full bg-surface border border-outline-variant rounded px-2 py-1 text-body-sm font-code-md text-center focus:ring-1 focus:ring-secondary focus:border-secondary outline-none font-bold"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {activeDataset.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-on-surface-variant italic">
+                        No items match the current selection. Adjust criteria and click 'Load Results'.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-              {/* Row 3: Brand */}
-              <div className="grid grid-cols-[110px_1fr_1fr] gap-3 items-center">
-                <label className="font-semibold text-[#44474d]">Brand</label>
-                <select
-                  value={criteria.brandFrom}
-                  onChange={e => setCriteria({ ...criteria, brandFrom: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Brands)</option>
-                  {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-                <select
-                  value={criteria.brandTo}
-                  onChange={e => setCriteria({ ...criteria, brandTo: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Brands)</option>
-                  {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-
-              {/* Row 4: Style */}
-              <div className="grid grid-cols-[110px_1fr_1fr] gap-3 items-center">
-                <label className="font-semibold text-[#44474d]">Style</label>
-                <select
-                  value={criteria.styleFrom}
-                  onChange={e => setCriteria({ ...criteria, styleFrom: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Styles)</option>
-                  {uniqueStyles.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select
-                  value={criteria.styleTo}
-                  onChange={e => setCriteria({ ...criteria, styleTo: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Styles)</option>
-                  {uniqueStyles.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-
-              {/* Row 5: Shade */}
-              <div className="grid grid-cols-[110px_1fr_1fr] gap-3 items-center">
-                <label className="font-semibold text-[#44474d]">Shade / Colour</label>
-                <select
-                  value={criteria.colourFrom}
-                  onChange={e => setCriteria({ ...criteria, colourFrom: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Shades)</option>
-                  {uniqueColours.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <select
-                  value={criteria.colourTo}
-                  onChange={e => setCriteria({ ...criteria, colourTo: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Shades)</option>
-                  {uniqueColours.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-
-              {/* Row 6: Size */}
-              <div className="grid grid-cols-[110px_1fr_1fr] gap-3 items-center">
-                <label className="font-semibold text-[#44474d]">Size</label>
-                <select
-                  value={criteria.sizeFrom}
-                  onChange={e => setCriteria({ ...criteria, sizeFrom: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Sizes)</option>
-                  {uniqueSizes.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select
-                  value={criteria.sizeTo}
-                  onChange={e => setCriteria({ ...criteria, sizeTo: e.target.value })}
-                  className="border border-[#75777e] rounded p-1 bg-white"
-                >
-                  <option value="">(All Sizes)</option>
-                  {uniqueSizes.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            </section>
-
-            {/* Selected Item Preview Card */}
-            <section className="bg-white border border-[#c5c6ce] rounded-lg p-4 shadow-xs text-xs space-y-3">
-              <div className="flex justify-between items-center border-b border-[#c5c6ce] pb-2">
-                <h2 className="text-xs font-bold text-[#041632] uppercase tracking-wider flex items-center gap-1.5">
-                  <Eye size={14} className="text-[#3e5f90]" />
-                  Selected Item Preview
-                </h2>
-                <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-[#44474d]">
-                  <span>Item {filteredRows.length > 0 ? selectedPreviewIndex + 1 : 0} of {filteredRows.length}</span>
+            {/* Summary Footer Bar */}
+            <div className="p-4 bg-surface-container-low border-t border-outline-variant flex justify-between items-center shrink-0">
+              <span className="font-label-caps text-label-caps text-secondary font-bold shrink-0">
+                Loaded Items ({totalLoadedItems})
+              </span>
+              <div className="flex gap-6 items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-body-sm text-on-surface-variant">Current Stock:</span>
+                  <span className="font-code-md text-body-sm font-bold text-on-surface">
+                    {isFixedQuantitySource ? "N/A" : activeDataset.reduce((s, r) => s + r.currentStock, 0)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-body-sm text-on-surface-variant">Total Labels to Print:</span>
+                  <span className="font-code-md text-body-sm font-bold text-secondary text-sm">
+                    {totalLabelsSum}
+                  </span>
                 </div>
               </div>
+            </div>
 
-              {currentSelectedItem ? (
-                <div className="grid grid-cols-[110px_1fr] gap-y-2 gap-x-3 items-center">
-                  <label className="text-[10px] font-bold uppercase text-[#44474d]">Stock No.</label>
-                  <div className="p-1.5 px-3 bg-[#efedf0] rounded font-mono font-bold text-xs text-[#041632]">
-                    {currentSelectedItem.stockNo} {currentSelectedItem.barcode ? `• Barcode: ${currentSelectedItem.barcode}` : ""}
-                  </div>
+          </section>
 
-                  <label className="text-[10px] font-bold uppercase text-[#44474d]">Product</label>
-                  <div className="p-1.5 px-3 bg-[#efedf0] rounded font-semibold text-xs text-[#041632]">
-                    {currentSelectedItem.product}
-                  </div>
+        </main>
 
-                  <label className="text-[10px] font-bold uppercase text-[#44474d]">Brand</label>
-                  <div className="p-1.5 px-3 bg-[#efedf0] rounded font-semibold text-xs text-[#041632]">
-                    {currentSelectedItem.brand}
-                  </div>
+      </div>
 
-                  <label className="text-[10px] font-bold uppercase text-[#44474d]">Style</label>
-                  <div className="p-1.5 px-3 bg-[#efedf0] rounded font-semibold text-xs text-[#041632]">
-                    {currentSelectedItem.style}
-                  </div>
-
-                  <label className="text-[10px] font-bold uppercase text-[#44474d]">Shade &amp; Size</label>
-                  <div className="flex gap-3">
-                    <div className="p-1.5 px-3 bg-[#efedf0] rounded font-semibold text-xs text-[#041632] flex-1">
-                      {currentSelectedItem.colour}
-                    </div>
-                    <div className="p-1.5 px-3 bg-[#efedf0] rounded font-mono font-bold text-xs text-[#041632] w-24 text-center">
-                      Size: {currentSelectedItem.size}
-                    </div>
-                    <div className="p-1.5 px-3 bg-[#d7e2ff] border border-[#8393b5] rounded font-mono font-bold text-xs text-[#041632] w-28 text-center">
-                      # Lbls: {currentSelectedItem.labelCount}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-6 text-center text-[#75777e] italic">
-                  No items match the specified selection criteria.
-                </div>
-              )}
-            </section>
-
-          </div>
-
+      {/* Bottom Fixed Action Bar / Footer (Stitch Enterprise Specification) */}
+      <footer className="fixed bottom-0 right-0 left-0 h-16 bg-surface-container-highest border-t border-outline-variant flex justify-between items-center px-margin-page z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
+        <div className="flex items-center gap-2 text-on-surface-variant text-sm font-medium">
+          <Info size={16} className="text-secondary shrink-0" />
+          <span>{bottomStatusText}</span>
         </div>
-
-        {/* Sticky Action Bar */}
-        <div className="sticky bottom-0 bg-white border border-[#c5c6ce] rounded-lg p-3 mt-4 flex flex-wrap justify-between items-center shadow-lg gap-3 print:hidden">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleOkButtonClick}
-              className="bg-[#041632] hover:bg-[#1b2b48] text-white px-6 py-2 rounded text-xs font-bold transition shadow-sm"
-            >
-              OK
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsEditQtyModalOpen(true)}
-              className="bg-[#eae7ea] hover:bg-[#dbd9dc] text-[#041632] border border-[#c5c6ce] px-4 py-2 rounded text-xs font-semibold flex items-center gap-1.5 transition"
-            >
-              <Edit3 size={14} className="text-[#3e5f90]" />
-              <span>Edit Qty (F2)</span>
-            </button>
-          </div>
-
-          {/* Navigation Controls */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={selectedPreviewIndex <= 0}
-              onClick={() => setSelectedPreviewIndex(0)}
-              className="p-1.5 bg-[#efedf0] hover:bg-[#eae7ea] border border-[#c5c6ce] rounded disabled:opacity-30 transition"
-              title="First Item"
-            >
-              <ChevronsLeft size={16} />
-            </button>
-            <button
-              type="button"
-              disabled={selectedPreviewIndex <= 0}
-              onClick={() => setSelectedPreviewIndex(p => Math.max(0, p - 1))}
-              className="p-1.5 bg-[#efedf0] hover:bg-[#eae7ea] border border-[#c5c6ce] rounded disabled:opacity-30 transition"
-              title="Previous Item"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="font-mono text-xs font-bold px-3 py-1 bg-[#efedf0] border border-[#c5c6ce] rounded">
-              {filteredRows.length > 0 ? selectedPreviewIndex + 1 : 0} / {filteredRows.length}
-            </span>
-            <button
-              type="button"
-              disabled={selectedPreviewIndex >= filteredRows.length - 1}
-              onClick={() => setSelectedPreviewIndex(p => Math.min(filteredRows.length - 1, p + 1))}
-              className="p-1.5 bg-[#efedf0] hover:bg-[#eae7ea] border border-[#c5c6ce] rounded disabled:opacity-30 transition"
-              title="Next Item"
-            >
-              <ChevronRight size={16} />
-            </button>
-            <button
-              type="button"
-              disabled={selectedPreviewIndex >= filteredRows.length - 1}
-              onClick={() => setSelectedPreviewIndex(filteredRows.length - 1)}
-              className="p-1.5 bg-[#efedf0] hover:bg-[#eae7ea] border border-[#c5c6ce] rounded disabled:opacity-30 transition"
-              title="Last Item"
-            >
-              <ChevronsRight size={16} />
-            </button>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handlePrintSingle}
-              className="px-4 py-2 border border-[#75777e] hover:bg-[#eae7ea] text-[#041632] rounded text-xs font-semibold flex items-center gap-1.5 transition shadow-xs"
-            >
-              <Printer size={14} className="text-[#3e5f90]" />
-              Print Single ({currentSelectedItem?.labelCount || 1})
-            </button>
-            <button
-              type="button"
-              onClick={handlePrintAll}
-              className="px-5 py-2 bg-[#3e5f90] hover:bg-[#315384] text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
-            >
-              <Printer size={14} />
-              Print All ({labelsToPrintSum})
-            </button>
-            <button
-              type="button"
-              onClick={handleClearAll}
-              className="px-4 py-2 border border-[#ba1a1a] text-[#ba1a1a] hover:bg-[#ffdad6] rounded text-xs font-semibold flex items-center gap-1 transition"
-            >
-              <RotateCcw size={14} />
-              Clear
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-[#c5c6ce] hover:bg-[#eae7ea] text-[#1b1b1e] rounded text-xs font-semibold flex items-center gap-1 transition"
-            >
-              <LogOut size={14} />
-              Exit
-            </button>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer Hotkey & Status Bar */}
-      <footer className="bg-[#efedf0] border-t border-[#c5c6ce] h-8 flex justify-between items-center px-4 shrink-0 text-xs text-[#44474d] font-mono text-[11px] print:hidden">
-        <div className="flex items-center gap-4">
-          <span><strong className="text-[#041632]">F2</strong> Browse Stock / Edit Quantity</span>
-          <span>•</span>
-          <span>Target: <strong className="text-[#041632]">{settings.targetPrinterName}</strong></span>
-          <span>•</span>
-          <span>Port: <strong className="text-[#041632]">{settings.portSetting}</strong></span>
-        </div>
-        <div>
-          <span>{totalRecords} items matched ({labelsToPrintSum} labels in queue)</span>
+        
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleClear}
+            className="px-4 py-2 rounded border border-error text-error hover:bg-error-container transition-colors font-body-sm font-medium shadow-xs"
+          >
+            Clear
+          </button>
+          
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded bg-surface border border-outline-variant hover:bg-surface-variant text-on-surface transition-colors font-body-sm font-medium shadow-xs"
+          >
+            Exit
+          </button>
+          
+          <button
+            type="button"
+            onClick={handlePrintCurrent}
+            className="px-4 py-2 rounded bg-secondary-fixed/50 text-on-secondary-fixed hover:bg-secondary-fixed transition-colors font-body-sm font-medium shadow-xs"
+          >
+            Print Current ({currentSelectedItem?.labelCount || 1})
+          </button>
+          
+          <button
+            type="button"
+            onClick={handlePrintAll}
+            className="px-6 py-2 rounded bg-primary text-on-primary hover:bg-primary-container shadow-md transition-all font-body-sm font-bold flex items-center gap-2"
+          >
+            <Printer size={16} />
+            <span>Print All ({totalLabelsSum})</span>
+          </button>
         </div>
       </footer>
+
+      {/* Master Date Filter Dialog */}
+      {showMasterFilterDialog && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 select-none animate-in fade-in duration-150 font-sans">
+          <div className="bg-surface text-on-surface rounded-xl border border-outline-variant w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-5 py-3.5 bg-primary text-on-primary flex items-center gap-2 font-title-sm font-bold">
+              <HelpCircle size={18} className="text-amber-300" />
+              <span>Print Status Filter Confirmation</span>
+            </div>
+
+            <div className="p-6 space-y-3 bg-surface text-body-sm">
+              <p className="font-semibold text-sm leading-relaxed text-primary">
+                Do you want to display only those item details, entered in the date range ({masterDateFrom} to {masterDateTo}), for which labels are not printed?
+              </p>
+              <div className="text-body-sm text-on-surface-variant space-y-1 bg-surface-container-low p-3 rounded-lg border border-outline-variant">
+                <div>• <strong>Yes:</strong> Display only unprinted items entered in the period.</div>
+                <div>• <strong>No:</strong> Display all items entered in the period (irrespective of print status).</div>
+                <div>• <strong>Cancel:</strong> Abort selection process.</div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-outline-variant bg-surface-container flex justify-end gap-2 text-body-sm font-medium">
+              <button
+                type="button"
+                onClick={() => setShowMasterFilterDialog(false)}
+                className="px-4 py-1.5 border border-outline-variant rounded font-semibold text-on-surface hover:bg-surface-variant"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMasterFilterResponse(false)}
+                className="px-4 py-1.5 border border-secondary text-secondary bg-surface rounded font-bold hover:bg-secondary-fixed"
+              >
+                No (All Items)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMasterFilterResponse(true)}
+                className="px-5 py-1.5 bg-primary text-on-primary rounded font-bold hover:bg-primary-container"
+              >
+                Yes (Unprinted Only)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Quantity Details Modal */}
       <EditQuantityDetailsModal
         isOpen={isEditQtyModalOpen}
-        rows={filteredRows}
+        rows={activeDataset}
         onClose={() => setIsEditQtyModalOpen(false)}
         onSave={(updatedRows) => {
           setGridRows(prev => prev.map(r => {
@@ -1042,56 +1377,58 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         products={products}
         isOpen={isF2BrowseModalOpen}
         onClose={() => setIsF2BrowseModalOpen(false)}
-        onSelectProduct={handleSelectF2Product}
+        onSelectProduct={(prod) => {
+          if (f2BrowseTarget === "stockNoFrom") {
+            setCriteria(prev => ({ ...prev, stockNoFrom: prod.code || "" }));
+          } else {
+            setCriteria(prev => ({ ...prev, stockNoTo: prod.code || "" }));
+          }
+          setIsF2BrowseModalOpen(false);
+        }}
       />
 
-      {/* Visual Thermal Label Print Preview & Dispatch Modal */}
+      {/* Live Thermal Sticker Preview & Dispatch Modal */}
       {showDispatchModal && (
         <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 select-none animate-in fade-in duration-150 print:hidden font-sans">
-          <div className="bg-[#fbf8fb] text-[#1b1b1e] rounded-xl border border-[#c5c6ce] w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-surface text-on-surface rounded-xl border border-outline-variant w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
-            {/* Header */}
-            <div className="px-6 py-3.5 bg-[#041632] text-white flex justify-between items-center">
-              <span className="font-bold text-sm flex items-center gap-2">
-                <Printer size={16} />
-                Thermal Barcode Print Dispatch &amp; Live Preview
+            <div className="px-6 py-3.5 bg-primary text-on-primary flex justify-between items-center font-title-sm font-bold">
+              <span className="flex items-center gap-2">
+                <Printer size={18} />
+                Thermal Barcode Print Dispatch — [{settings.sourceOption}]
               </span>
-              <button type="button" onClick={() => setShowDispatchModal(false)} className="text-white hover:opacity-80">
+              <button type="button" onClick={() => setShowDispatchModal(false)} className="text-on-primary hover:opacity-80">
                 ✕
               </button>
             </div>
 
-            {/* Body */}
-            <div className="p-6 space-y-4 text-xs bg-white overflow-y-auto">
+            <div className="p-6 space-y-4 text-body-sm bg-surface overflow-y-auto">
               
-              {/* Target Printer Banner */}
-              <div className="bg-[#efedf0] p-3.5 rounded-lg border border-[#c5c6ce] flex justify-between items-center">
+              <div className="bg-surface-container p-3.5 rounded-lg border border-outline-variant flex justify-between items-center">
                 <div>
-                  <div className="font-bold text-sm text-[#041632] flex items-center gap-1.5">
-                    <Printer size={15} className="text-[#3e5f90]" />
+                  <div className="font-bold text-sm text-primary flex items-center gap-1.5">
+                    <Printer size={16} className="text-secondary" />
                     <span>{settings.targetPrinterName}</span>
                   </div>
-                  <div className="text-[11px] text-[#44474d] mt-0.5">
-                    Format: 50mm x 25mm Thermal Roll • Port: {settings.portSetting}
+                  <div className="text-[11px] text-on-surface-variant mt-0.5">
+                    Format: 50mm x 25mm Thermal Roll • Port: {settings.portSetting} • Mode: {settings.sourceOption}
                   </div>
                 </div>
-                <div className="bg-[#041632] text-white px-3.5 py-1.5 rounded-lg font-mono font-bold text-sm shadow-xs">
+                <div className="bg-primary text-on-primary px-3.5 py-1.5 rounded-lg font-code-md font-bold text-sm shadow-xs">
                   {activePrintTotalLabels} {activePrintTotalLabels === 1 ? "Label" : "Labels"}
                 </div>
               </div>
 
-              {/* Live Thermal Label Sticker Preview */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="font-bold text-[#041632] uppercase tracking-wider text-[10px]">
-                    Live Thermal Sticker Preview (Exact 50mm x 25mm Aspect Ratio)
+                  <span className="font-label-caps text-[10px] text-primary">
+                    Live Thermal Sticker Preview (50mm x 25mm Roll)
                   </span>
-                  <span className="text-[10px] font-mono text-[#75777e]">300 DPI Rendering</span>
+                  <span className="text-[10px] font-code-md text-on-surface-variant">300 DPI Rendering</span>
                 </div>
                 
                 {activePrintItems.length > 0 && (
-                  <div className="flex items-center justify-center p-4 bg-[#f5f3f6] border border-[#c5c6ce] rounded-lg">
-                    {/* Simulated 50mm x 25mm physical thermal label sticker */}
+                  <div className="flex items-center justify-center p-4 bg-surface-container-low border border-outline-variant rounded-lg">
                     <div className="w-[60mm] h-[30mm] bg-white text-black p-2 rounded shadow-md border border-gray-300 flex flex-col justify-between select-none">
                       <div className="flex justify-between items-center border-b border-black/30 pb-0.5 leading-none">
                         <span className="font-extrabold text-[9px] uppercase tracking-wide truncate max-w-[34mm]">
@@ -1125,46 +1462,56 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 )}
               </div>
 
-              {/* Print Manifest Items */}
-              <div className="max-h-36 overflow-y-auto border border-[#c5c6ce] rounded-lg bg-[#fbf8fb] p-2.5 space-y-1">
-                <span className="font-bold text-[#44474d] text-[11px] block">Batch Items in Print Queue:</span>
+              <div className="max-h-36 overflow-y-auto border border-outline-variant rounded-lg bg-surface-container-lowest p-2.5 space-y-1 font-code-md text-xs">
+                <span className="font-bold text-on-surface-variant text-[11px] block font-sans">
+                  Items in Print Queue:
+                </span>
                 {activePrintItems.map(r => (
-                  <div key={r.id} className="flex justify-between items-center py-1 border-b border-[#c5c6ce]/30 font-mono text-[11px]">
+                  <div key={r.id} className="flex justify-between items-center py-1 border-b border-outline-variant/30">
                     <span>{r.stockNo} - {r.product} ({r.colour}/{r.size})</span>
-                    <span className="font-bold text-[#041632] bg-[#d7e2ff] px-2 py-0.5 rounded">
+                    <span className="font-bold text-primary bg-secondary-fixed px-2 py-0.5 rounded">
                       {r.labelCount} {r.labelCount === 1 ? "label" : "labels"}
                     </span>
                   </div>
                 ))}
               </div>
 
-              {/* Instructions Tip */}
-              <div className="bg-[#e9edff] border border-[#8393b5]/40 rounded-lg p-3 flex items-start gap-2.5 text-[#041632]">
-                <Info size={16} className="text-[#3e5f90] shrink-0 mt-0.5" />
+              <div className="bg-secondary-fixed/30 border border-secondary/30 rounded-lg p-3 flex items-start gap-2.5 text-primary">
+                <Info size={16} className="text-secondary shrink-0 mt-0.5" />
                 <div className="text-[11px] leading-relaxed">
-                  <strong>Printing to Honeywell IH-2 (300 dpi):</strong> When clicking <strong>"Print from Browser"</strong>, make sure to select <strong>"IMPACT by Honeywell IH-2 (300 dpi) - DPL"</strong> in the browser printer destination and verify that "Pause Printing" is unchecked in Windows.
+                  <strong>Honeywell IH-2 (300 dpi):</strong> Click <strong>"Print from Browser"</strong> and select <strong>"IMPACT by Honeywell IH-2 (300 dpi) - DPL"</strong> in the destination list.
                 </div>
               </div>
 
             </div>
 
-            {/* Footer Actions */}
-            <div className="px-6 py-3.5 border-t border-[#c5c6ce] bg-[#efedf0] flex flex-wrap justify-between items-center gap-2">
+            <div className="px-6 py-3.5 border-t border-outline-variant bg-surface-container flex flex-wrap justify-between items-center gap-2">
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={handleDownloadDplScript}
-                  title="Download raw PRN/DPL script file"
-                  className="px-3 py-1.5 bg-white border border-[#c5c6ce] hover:bg-[#eae7ea] rounded text-xs font-semibold flex items-center gap-1.5 text-[#041632]"
+                  onClick={() => {
+                    const content = generateRawDplScript();
+                    const blob = new Blob([content], { type: "text/plain" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `Honeywell_IH2_Labels_${Date.now()}.prn`;
+                    a.click();
+                    URL.revokeObjectURL(a);
+                    onNotification?.("File Downloaded", "Downloaded raw PRN script for Honeywell IH-2.", "success");
+                  }}
+                  className="px-3 py-1.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded font-body-sm font-semibold flex items-center gap-1.5 text-on-surface"
                 >
                   <Download size={13} />
                   <span>Download PRN</span>
                 </button>
                 <button
                   type="button"
-                  onClick={handleCopyDplScript}
-                  title="Copy raw DPL commands"
-                  className="px-3 py-1.5 bg-white border border-[#c5c6ce] hover:bg-[#eae7ea] rounded text-xs font-semibold flex items-center gap-1.5 text-[#041632]"
+                  onClick={() => {
+                    navigator.clipboard.writeText(generateRawDplScript());
+                    onNotification?.("Copied", "Copied raw DPL script commands to clipboard.", "success");
+                  }}
+                  className="px-3 py-1.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded font-body-sm font-semibold flex items-center gap-1.5 text-on-surface"
                 >
                   <Copy size={13} />
                   <span>Copy DPL</span>
@@ -1175,16 +1522,16 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowDispatchModal(false)}
-                  className="px-4 py-1.5 border border-[#75777e] rounded text-[#041632] font-semibold hover:bg-[#eae7ea]"
+                  className="px-4 py-1.5 border border-outline-variant rounded text-on-surface font-semibold hover:bg-surface-variant"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleBrowserPrint}
-                  className="px-6 py-1.5 bg-[#041632] text-white rounded font-bold hover:bg-[#1b2b48] transition shadow flex items-center gap-1.5 text-xs"
+                  className="px-6 py-1.5 bg-primary text-on-primary rounded font-bold hover:bg-primary-container transition shadow-md flex items-center gap-2 font-body-sm"
                 >
-                  <Printer size={14} />
+                  <Printer size={15} />
                   Print from Browser ({activePrintTotalLabels})
                 </button>
               </div>
