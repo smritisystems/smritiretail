@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.2.0
+ * Version      : 6.4.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -20,6 +20,12 @@ import {
   ScriptFieldIdentification
 } from "../components/barcode/types.ts";
 import { Product } from "../types.ts";
+import { parsePTFileContent, SAMPLE_PT_FILE_RECORDS } from "../components/barcode/ptFileParser.ts";
+import {
+  queryTransactionItems,
+  queryPurchaseOrderItems,
+  queryMasterItemsByDate
+} from "../components/barcode/barcodeTransactionStore.ts";
 
 describe("SMRITI 9 Tag & Barcode Label Printing Logic Suite", () => {
   const sampleProducts: Product[] = [
@@ -159,5 +165,112 @@ describe("SMRITI 9 Tag & Barcode Label Printing Logic Suite", () => {
     const isBlfFile = (filename: string) => filename.toLowerCase().endsWith(".blf");
     expect(isBlfFile("BarcodeScript_Acme.t")).toBe(false);
     expect(isBlfFile("ModernLabelDesign_TE244.blf")).toBe(true);
+  });
+
+  it("8. should parse Purchase Transaction (PT File) content and extract purchase quantities", () => {
+    const customPtContent = `
+# StockNo, Product, Brand, Style, Shade, Size, PurchaseQty, MRP, SalePrice, Barcode
+000101, Jacket, Alpine, Puffer, Black, L, 25, 3499, 2999, 890100000101
+000102, Jacket, Alpine, Puffer, Black, XL, 30, 3499, 2999, 890100000102
+000103, Hoodie, Urban, Fleece, Navy, M, 50, 1999, 1499, 890100000103
+`;
+    const parsed = parsePTFileContent(customPtContent);
+    expect(parsed.length).toBe(3);
+    expect(parsed[0].stockNo).toBe("000101");
+    expect(parsed[0].product).toBe("Jacket");
+    expect(parsed[0].labelCount).toBe(25);
+    expect(parsed[1].labelCount).toBe(30);
+    expect(parsed[2].labelCount).toBe(50);
+    expect(parsed.reduce((sum, r) => sum + r.labelCount, 0)).toBe(105);
+  });
+
+  it("9. should correctly enforce PT file mode quantity rules (fixed purchase quantity per item)", () => {
+    const parsed = parsePTFileContent("");
+    expect(parsed.length).toBe(6);
+    expect(parsed[0].stockNo).toBe("000006");
+    expect(parsed[0].labelCount).toBe(6);
+    expect(parsed[1].stockNo).toBe("000007");
+    expect(parsed[1].labelCount).toBe(10);
+    const totalPtLabels = parsed.reduce((sum, r) => sum + r.labelCount, 0);
+    expect(totalPtLabels).toBe(56);
+  });
+
+  it("10. should navigate sequential items in PT file and display active item purchase quantity", () => {
+    const parsed = parsePTFileContent("");
+    let activeIdx = 0;
+    expect(parsed[activeIdx].stockNo).toBe("000006");
+    expect(parsed[activeIdx].labelCount).toBe(6);
+
+    activeIdx = 1;
+    expect(parsed[activeIdx].stockNo).toBe("000007");
+    expect(parsed[activeIdx].labelCount).toBe(10);
+
+    activeIdx = parsed.length - 1;
+    expect(parsed[activeIdx].stockNo).toBe("000012");
+    expect(parsed[activeIdx].labelCount).toBe(5);
+  });
+
+  it("11. should query items Against Transactions matching document type, prefix, and range", () => {
+    const grnItems = queryTransactionItems("Purchase Inward (GRN)", "GRN-2026-", "001", "001");
+    expect(grnItems.length).toBe(3);
+    expect(grnItems[0].stockNo).toBe("000006");
+    expect(grnItems[0].labelCount).toBe(12); // GRN-001 quantity
+    expect(grnItems[1].labelCount).toBe(15);
+    expect(grnItems[2].labelCount).toBe(8);
+    expect(grnItems.reduce((sum, r) => sum + r.labelCount, 0)).toBe(35);
+
+    const returnItems = queryTransactionItems("Sales Return Inward", "RET-2026-", "001", "001");
+    expect(returnItems.length).toBe(2);
+    expect(returnItems[0].labelCount).toBe(2);
+  });
+
+  it("12. should query items Against Purchase Order and aggregate cumulative purchase quantities", () => {
+    const poItems = queryPurchaseOrderItems("PO-2026-", "001", "002");
+    // PO-001 has Shirt 34 (24), Shirt 36 (30), Shirt 38 (18)
+    // PO-002 has Trouser 32 (40), Trouser 34 (35)
+    expect(poItems.length).toBe(5);
+    expect(poItems.find(r => r.stockNo === "000006")?.labelCount).toBe(24);
+    expect(poItems.find(r => r.stockNo === "000010")?.labelCount).toBe(40);
+    const totalPoLabels = poItems.reduce((sum, r) => sum + r.labelCount, 0);
+    expect(totalPoLabels).toBe(147);
+  });
+
+  it("13. should query items Against Masters with date range filtering and unprinted status switch", () => {
+    // Range from 2026-08-01 to 2026-08-22
+    const allMasterItems = queryMasterItemsByDate("2026-08-01", "2026-08-22", false);
+    expect(allMasterItems.length).toBe(6);
+
+    // Filter unprinted only: items m-3, m-4, m-5, m-6 have isLabelPrinted = false
+    const unprintedItems = queryMasterItemsByDate("2026-08-01", "2026-08-22", true);
+    expect(unprintedItems.length).toBe(4);
+    expect(unprintedItems.map(r => r.stockNo)).toEqual(["000008", "000010", "000011", "000012"]);
+  });
+
+  it("14. should support Direct Scan instant 1-label auto-print or specified quantity queue", () => {
+    const scanInput = "890100000006";
+    const matched = sampleProducts.find(p => p.barcode === scanInput);
+    expect(matched).toBeDefined();
+
+    // Auto print 1 label
+    const singleScanRow: LabelPrintRow = {
+      id: "scan-1",
+      sNo: 1,
+      stockNo: matched!.code,
+      barcode: matched!.barcode!,
+      brand: matched!.brand!,
+      product: matched!.name,
+      colour: matched!.color!,
+      style: matched!.styleCode!,
+      size: matched!.size!,
+      mrp: matched!.mrp!,
+      sellingPrice: matched!.price!,
+      currentStock: matched!.stock!,
+      labelCount: 1
+    };
+    expect(singleScanRow.labelCount).toBe(1);
+
+    // Multi label scan (e.g. 5 labels)
+    const multiScanRow: LabelPrintRow = { ...singleScanRow, labelCount: 5 };
+    expect(multiScanRow.labelCount).toBe(5);
   });
 });

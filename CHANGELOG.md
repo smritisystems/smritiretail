@@ -28,6 +28,49 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.6.0] - 2026-08-22
+
+#### Barcode & Inventory — Stitch Barcode Label Designer & Printer Replacement
+- **Complete Module Replacement (`TagLabelPrintingTab.tsx` & `BarcodeScriptGenerationView.tsx`)**:
+  - Fully replaced previous implementation with the authentic **Stitch Barcode Label Designer & Printer** module from `F:\SMRITI\barcode_label_designer_and_printer_Final\stitch_barcode_label_designer_and_printer`.
+  - Implemented the **Industrial Logic** design system tokens (Deep Navy `#041632`, Slate Blue `#3e5f90`, Soft Grey Surface `#fbf8fb`, High-Contrast Error `#ba1a1a`).
+- **Sidebar & Workflow Architecture**:
+  - 280px left sidebar housing Label Printing Parameters, Option Mode Selector (7 modes), and Quantity Summaries.
+  - Interactive top Selection/Ingestion Card (Manual, PT File, Transactions, PO, Masters, Direct Scan).
+  - Dedicated **Item Preview & Results Grid View** with real-time search filter, sort indicators, and instant inline `# Labels` number inputs.
+  - Persistent bottom action bar (`Clear`, `Exit`, `Print Current`, `Print All`).
+- **Barcode Script Designer & Compiler Studio**:
+  - Integrated dark-themed editor (`#1E1E1E`) with line numbers, fullscreen mode, macro token compiler, and export/load actions.
+
+### [6.5.0] - 2026-08-22
+
+#### Barcode & Inventory — Full Multi-Source Printing Engine (Transactions, PO, Masters by Date, Direct Scan)
+- **Against Transactions (`TagLabelPrintingTab.tsx` & `barcodeTransactionStore.ts`)**:
+  - Added support for filtering items across transaction types (`Purchase Inward (GRN)`, `Sales Return Inward`, `Stock Transfer Inward`, `POS Exchange`), Doc No prefix, and document number ranges.
+  - Manifest table displays transaction references, stock details, and transaction quantities.
+- **Against Purchase Orders (Cumulative PO Ingestion)**:
+  - Supports PO prefix, PO number ranges, and cumulative purchase order quantity aggregation per stock item.
+  - Locked `Specified Quantity` & `Present Stock` (quantities strictly bound to purchase orders).
+- **Against Masters with Period Date Filter & Unprinted Dialog**:
+  - Implemented Date Range filtering (`Date From` to `Date To`) on product master creation dates.
+  - Added 3-way modal confirmation dialog: `Yes` (Unprinted items only), `No` (All items in period), `Cancel` (Abort).
+- **Against Direct Scan with Auto-Print & Custom Count**:
+  - Autofocused barcode scanner input with instant SKU/Barcode catalog lookup.
+  - `Automatically Print One Label on Scan` toggle (default on) and custom `# Lbls` override.
+  - Real-time scanned items history log and instant thermal dispatch.
+- **Comprehensive Automated Tests (`tagLabelPrinting.test.ts`)**:
+  - Expanded test suite to 14 test cases covering all 6 source modes.
+
+### [6.4.0] - 2026-08-22
+
+#### Barcode & Inventory — Printing Against Purchase (PT File) & Sequential Manifest
+- **PT File Parser & Ingestion (`ptFileParser.ts`)**:
+  - Supports delimited text/CSV PT files with column mapping for SKU, Product, Brand, Style, Shade, Size, Purchase Qty, MRP, and Barcode.
+- **Purchase Transaction Manifest Table**:
+  - Integrated full manifest table with active row highlighting and 4-way sequential navigation (`|<<`, `<`, `>`, `>>|`).
+- **Quantity Policy & Spooling**:
+  - Enforced fixed purchase quantities from PT file, disabled manual overrides, and linked `Print` / `Print All` to exact purchase quantities.
+
 ### [6.3.0] - 2026-08-21
 
 #### UI / UX & Launchpad — Enterprise Look & Feel Modernization
