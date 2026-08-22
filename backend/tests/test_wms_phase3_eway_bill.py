@@ -405,3 +405,86 @@ def test_gstin_checksum_algorithm_precision():
     assert compute_gstin_checksum("27AAACT2727Q1Z") == "W"
 
 
+@pytest.mark.asyncio
+async def test_strict_statutory_mode_config_toggle(async_db: AsyncSession, tenant_ctx: TenantContext):
+    """
+    Verify that settings.STRICT_STATUTORY_MODE controls default strict validation behavior.
+    """
+    from app.core.config import settings
+    from fastapi import HTTPException
+    unique_suffix = uuid.uuid4().hex[:8]
+    prod_id = f"prod-cfg-{unique_suffix}"
+    transfer_id = f"st-cfg-{unique_suffix}"
+    transfer_no = f"STO-CFG-{unique_suffix.upper()}"
+
+    original_mode = settings.STRICT_STATUTORY_MODE
+    try:
+        # Insert product without HSN
+        product = Product(
+            id=prod_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            name=f"Config Test Item {unique_suffix}",
+            code=f"CFG-{unique_suffix.upper()}",
+            sku=f"SKU-CFG-{unique_suffix.upper()}",
+            category="Appliances",
+            barcode=f"BAR-CFG-{unique_suffix.upper()}",
+            stock=10,
+            hsn_code=None,
+            cost_price=1000.0,
+            price=1500.0,
+            gst_percentage=18.0
+        )
+        async_db.add(product)
+
+        transfer = StockTransfer(
+            id=transfer_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            transfer_no=transfer_no,
+            source_warehouse_id="wh-central-001",
+            dest_warehouse_id="wh-shop-001",
+            status="DRAFT",
+            vehicle_number="MH-04-TR-1000"
+        )
+        async_db.add(transfer)
+
+        item = StockTransferItem(
+            id=f"sti-cfg-{unique_suffix}",
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            transfer_id=transfer_id,
+            product_id=prod_id,
+            batch_no=f"BATCH-CFG-{unique_suffix.upper()}",
+            quantity_dispatched=2.0,
+            unit_cost=1000.0
+        )
+        async_db.add(item)
+        await async_db.commit()
+
+        service = EWayBillService(async_db, tenant_ctx)
+
+        # 1. When STRICT_STATUTORY_MODE is False -> passes with warnings
+        settings.STRICT_STATUTORY_MODE = False
+        payload_loose = await service.generate_transfer_eway_bill_payload(transfer_id=transfer_id)
+        assert payload_loose["compliance"]["status"] == "WITH_WARNINGS"
+
+        # 2. When STRICT_STATUTORY_MODE is True -> raises HTTPException 422
+        settings.STRICT_STATUTORY_MODE = True
+        with pytest.raises(HTTPException) as exc_info:
+            await service.generate_transfer_eway_bill_payload(transfer_id=transfer_id)
+        assert exc_info.value.status_code == 422
+        assert "SMRITI-STAT-002" in exc_info.value.detail
+
+    finally:
+        settings.STRICT_STATUTORY_MODE = original_mode
+        await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
+        await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
+        await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        await async_db.commit()
+
+
+

@@ -25,6 +25,7 @@ from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.crm import Customer
 from ..models.tenant import Company
 from ..api.deps import TenantContext
+from ..core.config import settings
 
 # Statutory Indian GSTIN validation pattern
 GSTIN_REGEX = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$")
@@ -146,12 +147,14 @@ class EWayBillService:
         trans_distance_km: int = 50,
         trans_mode: str = "1",
         vehicle_type: str = "R",
-        strict_validation: bool = False
+        strict_validation: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Generate export-ready NIC GST E-Way Bill JSON payload for Inter-Godown Stock Transfer (Delivery Challan).
         Batch queries products to guarantee high performance on multi-item consignments.
         """
+        is_strict = strict_validation if strict_validation is not None else settings.STRICT_STATUTORY_MODE
+
         res = await self.db.execute(
             select(StockTransfer).where(
                 StockTransfer.id == transfer_id,
@@ -182,13 +185,13 @@ class EWayBillService:
         warnings: List[str] = []
         is_valid_gstin, gstin_err = self._validate_gstin(company_gstin, "Company GSTIN")
         if not is_valid_gstin:
-            if strict_validation:
+            if is_strict:
                 raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {gstin_err}")
             warnings.append(gstin_err)
 
         if not transfer.vehicle_number and trans_mode == "1":
             msg = "Missing vehicle number for Road Transport."
-            if strict_validation:
+            if is_strict:
                 raise HTTPException(status_code=422, detail=f"SMRITI-STAT-004: {msg}")
             warnings.append(msg)
 
@@ -205,7 +208,7 @@ class EWayBillService:
             prod_name = product.name if product else f"Product {item.product_id}"
             raw_hsn = getattr(product, 'hsn_code', None) or getattr(product, 'hsn', None)
             if not raw_hsn or not str(raw_hsn).strip().isdigit() or len(str(raw_hsn).strip()) not in (2, 4, 6, 8):
-                if strict_validation:
+                if is_strict:
                     raise HTTPException(status_code=422, detail=f"SMRITI-STAT-002: Product '{prod_name}' has missing or invalid statutory HSN code.")
                 hsn_code = 8471
                 warnings.append(f"Product '{prod_name}' missing HSN; defaulted to 8471.")
@@ -295,12 +298,14 @@ class EWayBillService:
     async def generate_delivery_challan(
         self,
         transfer_id: str,
-        strict_validation: bool = False
+        strict_validation: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Generate statutory Delivery Challan (Rule 55 CGST Rules 2017) format for printing and records.
         Batch queries products to eliminate N+1 latency.
         """
+        is_strict = strict_validation if strict_validation is not None else settings.STRICT_STATUTORY_MODE
+
         res = await self.db.execute(
             select(StockTransfer).where(
                 StockTransfer.id == transfer_id,
@@ -325,7 +330,7 @@ class EWayBillService:
         company = await self._get_company()
         company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "27AAXFT2508H1ZR") if company else "27AAXFT2508H1ZR"
 
-        if strict_validation:
+        if is_strict:
             is_valid_gst, gst_err = self._validate_gstin(company_gstin, "Company GSTIN")
             if not is_valid_gst:
                 raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {gst_err}")
@@ -344,7 +349,7 @@ class EWayBillService:
             prod_name = prod.name if prod else item.product_id
             raw_hsn = getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', None)
             if not raw_hsn or not str(raw_hsn).strip().isdigit() or len(str(raw_hsn).strip()) not in (2, 4, 6, 8):
-                if strict_validation:
+                if is_strict:
                     raise HTTPException(status_code=422, detail=f"SMRITI-STAT-002: Product '{prod_name}' has missing or invalid statutory HSN code.")
                 hsn_str = "8471"
             else:
@@ -412,12 +417,14 @@ class EWayBillService:
         trans_distance_km: int = 50,
         trans_mode: str = "1",
         vehicle_type: str = "R",
-        strict_validation: bool = False
+        strict_validation: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Generate export-ready NIC GST E-Way Bill JSON payload for B2B Sales Invoices.
         Batch queries products to eliminate N+1 latency.
         """
+        is_strict = strict_validation if strict_validation is not None else settings.STRICT_STATUTORY_MODE
+
         res = await self.db.execute(
             select(SalesInvoice).where(
                 SalesInvoice.id == invoice_id,
@@ -448,14 +455,14 @@ class EWayBillService:
         warnings: List[str] = []
         is_valid_gst, gst_err = self._validate_gstin(company_gstin, "Company GSTIN")
         if not is_valid_gst:
-            if strict_validation:
+            if is_strict:
                 raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {gst_err}")
             warnings.append(gst_err)
 
         if customer_gstin != "URP":
             is_valid_cgst, cgst_err = self._validate_gstin(customer_gstin, "Customer GSTIN")
             if not is_valid_cgst:
-                if strict_validation:
+                if is_strict:
                     raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {cgst_err}")
                 warnings.append(cgst_err)
 
@@ -470,7 +477,7 @@ class EWayBillService:
             prod_name = item.name or (prod.name if prod else f"Product {item.product_id}")
             raw_hsn = getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', None)
             if not raw_hsn or not str(raw_hsn).strip().isdigit() or len(str(raw_hsn).strip()) not in (2, 4, 6, 8):
-                if strict_validation:
+                if is_strict:
                     raise HTTPException(status_code=422, detail=f"SMRITI-STAT-002: Product '{prod_name}' has missing or invalid statutory HSN code.")
                 hsn_code = 8471
                 warnings.append(f"Product '{prod_name}' missing HSN; defaulted to 8471.")
