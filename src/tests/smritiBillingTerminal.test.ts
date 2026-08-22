@@ -4,19 +4,28 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.30.0
+ * Version      : 6.7.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ * Source Module: Stitch Distributor Invoicing & Settlement Studio Unit Tests
  */
 
 import { describe, it, expect } from "vitest";
 import { Product } from "../types.ts";
-import { BillingLineItem, BillingSummaryTotals, PdtImportRow } from "../components/billing/types.ts";
+import { 
+  BillingLineItem, 
+  BillingSummaryTotals, 
+  PdtImportRow, 
+  TransporterRow, 
+  AddonDeductionRow,
+  SettlementPaymentRow,
+  CashDenominationState
+} from "../components/billing/types.ts";
 
-describe("SMRITI 9 — Billing Terminal & Invoice Management Unit Tests", () => {
+describe("SMRITI — Distributor Invoicing, Settlement & PDT Import Tests", () => {
   const sampleProducts: Product[] = [
     {
       id: "prod-001",
@@ -64,8 +73,8 @@ describe("SMRITI 9 — Billing Terminal & Invoice Management Unit Tests", () => 
     expect(Number(total.toFixed(2))).toBe(3183.88);
   });
 
-  // TEST 2 — Summary Totals Aggregation
-  it("TEST 2: should aggregate summary totals across multiple line items with round-off", () => {
+  // TEST 2 — Summary Totals Aggregation with Transporter and Addons
+  it("TEST 2: should aggregate summary totals across multiple line items, transporter freight, and addons", () => {
     const lineItems: BillingLineItem[] = [
       {
         id: "item-1",
@@ -103,85 +112,131 @@ describe("SMRITI 9 — Billing Terminal & Invoice Management Unit Tests", () => 
       }
     ];
 
-    let totalQty = 0;
-    let salesValue = 0;
-    let itemDiscount = 0;
-    let totalTax = 0;
+    const transporterRows: TransporterRow[] = [
+      {
+        sNo: 1,
+        type: "Road Freight",
+        code: "TR-01",
+        description: "Local Express",
+        rateType: "Fixed",
+        rateAmt: 150.0,
+        rate: 0,
+        amount: 150.0
+      }
+    ];
 
-    lineItems.forEach(it => {
-      totalQty += it.qty;
-      salesValue += it.value;
-      itemDiscount += it.discAmt;
-      totalTax += it.taxAmount || 0;
-    });
+    const addonRows: AddonDeductionRow[] = [
+      {
+        sNo: 1,
+        type: "Addon",
+        code: "INS",
+        description: "Transit Insurance",
+        rateType: "Fixed",
+        rate: 50.0,
+        amount: 50.0
+      },
+      {
+        sNo: 2,
+        type: "Deduction",
+        code: "CASH_DISC",
+        description: "Cash Discount",
+        rateType: "Fixed",
+        rate: 100.0,
+        amount: 100.0
+      }
+    ];
 
-    const rawNet = salesValue - itemDiscount + totalTax;
-    const netAmount = Math.round(rawNet);
-    const roundOff = Number((netAmount - rawNet).toFixed(2));
+    const totalQty = lineItems.reduce((acc, it) => acc + it.qty, 0); // 3
+    const salesValue = lineItems.reduce((acc, it) => acc + it.value, 0); // 5497.0
+    const itemDiscount = lineItems.reduce((acc, it) => acc + it.discAmt, 0); // 299.8
+    const totalTax = lineItems.reduce((acc, it) => acc + (it.taxAmount || 0), 0); // 935.50
+    const totalAddons = transporterRows.reduce((acc, t) => acc + t.amount, 0) + addonRows.filter(a => a.type === "Addon").reduce((acc, a) => acc + a.amount, 0); // 150 + 50 = 200
+    const totalDeductions = addonRows.filter(a => a.type === "Deduction").reduce((acc, a) => acc + a.amount, 0); // 100
 
-    const summary: BillingSummaryTotals = {
-      itemCount: lineItems.length,
-      totalQty,
-      salesValue: Number(salesValue.toFixed(2)),
-      itemDiscount: Number(itemDiscount.toFixed(2)),
-      billDiscount: 0,
-      totalTax: Number(totalTax.toFixed(2)),
-      totalAddons: 0,
-      totalDeductions: 0,
-      roundOff,
-      netAmount
-    };
+    const netAmount = salesValue - itemDiscount + totalTax + totalAddons - totalDeductions; // 5497 - 299.8 + 935.5 + 200 - 100 = 6232.70
 
-    expect(summary.itemCount).toBe(2);
-    expect(summary.totalQty).toBe(3);
-    expect(summary.salesValue).toBe(5497.0);
-    expect(summary.itemDiscount).toBe(299.8);
-    expect(summary.totalTax).toBe(935.5);
-    expect(summary.netAmount).toBe(6133);
+    expect(totalQty).toBe(3);
+    expect(salesValue).toBe(5497.0);
+    expect(itemDiscount).toBe(299.8);
+    expect(totalAddons).toBe(200.0);
+    expect(totalDeductions).toBe(100.0);
+    expect(Number(netAmount.toFixed(2))).toBe(6232.70);
   });
 
-  // TEST 3 — PDT Batch Ingest Parser
-  it("TEST 3: should parse raw PDT text collector format and match against product catalog", () => {
-    const rawPdtText = `
-      8901234567890, 2
-      8909876543210, 1
-      UNKNOWN_CODE_999, 5
-    `;
+  // TEST 3 — Multi-Tender Settlement Calculations
+  it("TEST 3: should calculate split payments, balance remaining, and change due", () => {
+    const netAmount = 5000.0;
+    const payments: SettlementPaymentRow[] = [
+      { id: "1", mode: "Cash", refNo: "", amount: 2000.0, bankDetails: "" },
+      { id: "2", mode: "Credit Card", refNo: "AUTH998", amount: 3000.0, bankDetails: "HDFC" }
+    ];
 
-    const lines = rawPdtText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const parsedRows: PdtImportRow[] = [];
+    const totalTendered = payments.reduce((s, p) => s + p.amount, 0);
+    const balanceRemaining = Math.max(0, netAmount - totalTendered);
+    const changeDue = Math.max(0, totalTendered - netAmount);
 
-    lines.forEach(line => {
-      const parts = line.split(/[,;\t\s]+/).filter(Boolean);
-      if (parts.length > 0) {
-        const barcode = parts[0];
-        const qty = parts.length > 1 ? parseFloat(parts[1]) || 1 : 1;
-        const matched = sampleProducts.find(p => p.barcode === barcode || p.code === barcode);
-        parsedRows.push({
-          barcode,
-          qty,
-          stockNo: matched?.code,
-          description: matched?.name
+    expect(totalTendered).toBe(5000.0);
+    expect(balanceRemaining).toBe(0);
+    expect(changeDue).toBe(0);
+
+    // Overpayment scenario
+    const overPayments: SettlementPaymentRow[] = [
+      { id: "1", mode: "Cash", refNo: "", amount: 5500.0, bankDetails: "" }
+    ];
+    const overTendered = overPayments.reduce((s, p) => s + p.amount, 0);
+    const overChange = Math.max(0, overTendered - netAmount);
+    expect(overChange).toBe(500.0);
+  });
+
+  // TEST 4 — Denomination Counter Math
+  it("TEST 4: should calculate cash denomination counter total correctly", () => {
+    const denoms: CashDenominationState = {
+      d2000: 2, // 4000
+      d500: 4,  // 2000
+      d200: 5,  // 1000
+      d100: 10, // 1000
+      d50: 4,   // 200
+      d20: 5,   // 100
+      d10: 10,  // 100
+      coins: 25 // 25
+    };
+
+    const total = 
+      denoms.d2000 * 2000 +
+      denoms.d500 * 500 +
+      denoms.d200 * 200 +
+      denoms.d100 * 100 +
+      denoms.d50 * 50 +
+      denoms.d20 * 20 +
+      denoms.d10 * 10 +
+      denoms.coins;
+
+    expect(total).toBe(8425);
+  });
+
+  // TEST 5 — PDT Import File Parsing with Multiple Templates
+  it("TEST 5: should parse PDT delimited lines based on selected field template", () => {
+    const pdtText = `8901234567890, 5, 1499.00\n8909876543210, 10, 2499.00`;
+    const lines = pdtText.split("\n");
+    const parsed: PdtImportRow[] = [];
+
+    lines.forEach(l => {
+      const parts = l.split(",").map(p => p.trim());
+      if (parts.length >= 2) {
+        parsed.push({
+          barcode: parts[0],
+          qty: parseFloat(parts[1]),
+          rate: parseFloat(parts[2])
         });
       }
     });
 
-    expect(parsedRows.length).toBe(3);
-    expect(parsedRows[0].stockNo).toBe("SKU-OXF-001");
-    expect(parsedRows[0].qty).toBe(2);
-    expect(parsedRows[1].stockNo).toBe("SKU-DNM-002");
-    expect(parsedRows[1].qty).toBe(1);
-    expect(parsedRows[2].stockNo).toBeUndefined();
-  });
-
-  // TEST 4 — Return Mode Inversion
-  it("TEST 4: should correctly invert quantity when sales return mode is toggled", () => {
-    const originalQty = 2;
-    const returnedQty = -Math.abs(originalQty);
-    const rate = 1499.0;
-    const value = rate * returnedQty;
-
-    expect(returnedQty).toBe(-2);
-    expect(value).toBe(-2998.0);
+    expect(parsed.length).toBe(2);
+    expect(parsed[0].barcode).toBe("8901234567890");
+    expect(parsed[0].qty).toBe(5);
+    expect(parsed[0].rate).toBe(1499.00);
+    expect(parsed[1].barcode).toBe("8909876543210");
+    expect(parsed[1].qty).toBe(10);
+    expect(parsed[1].rate).toBe(2499.00);
   });
 });

@@ -262,3 +262,9 @@ export function queryMasterItemsByDate(
     labelCount: 1
   }));
 }
+
+export const barcodeTransactionStore = {
+  getTransactions: queryTransactionItems,
+  getPurchaseOrders: queryPurchaseOrderItems,
+  getMasterItemsByDate: queryMasterItemsByDate
+};

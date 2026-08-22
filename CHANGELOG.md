@@ -28,6 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.7.0] - 2026-08-22
+
+#### POS & Billing — Distributor Invoicing, Settlement & PDT Import Integration (Stitch UX)
+- **Distributor Invoicing Terminal (`SmritiBillingTerminal.tsx`)**:
+  - Implemented the authentic Stitch layout from `invoicing_smritisystems/code.html`.
+  - Header: `Bill Type`, `Transaction`, `Doc Prefix` (`D1DS13`), `Doc No.`, `Import`, `Recall`, `Customer` with `F2` search, Name display & `Add` button, `Sales Staff`.
+  - **F11 Direct Entry Row**: 11-column inline buffer (`Stock No` with F2 catalog lookup, `Description`, `Rate`, `Qty`, `Value`, `Disc Code`, `Disc Qty`, `Disc %`, `Disc Amt`, `Total`, `Staff`).
+  - **Main 12-Column Table**: Real-time line item grid with alternating row striping and row deletion.
+  - **Tabbed Footer**: `Transporter Details` (freight/courier breakdown), `Payment Details`, `AddOns & Deductions`, and `Document Remarks`.
+  - **Right Totals & Bottom Summary Bar**: 9 summary cells with large highlighted `Net Amount` display.
+- **Multi-Tender Settlement Studio (`SmritiInvoiceSettlementModal.tsx`)**:
+  - Implemented `invoice_settlement_smritisystems/code.html` split-view modal.
+  - Left: Invoice summary & dynamic multi-row payment entry table (`Cash`, `Credit Card`, `Debit Card`, `UPI`, `Cheque`, `Credit Note`).
+  - Right: Calculation breakdown card, cash denomination counter (`2000` to `Coins`), and action bar (`Cancel Esc`, `Hold F12`, `Complete Settlement F8/Enter`).
+- **PDT Import Dialog (`PdtImportModal.tsx`)**:
+  - Implemented `pdt_import_dialog/code.html` dual-mode radio toggle (`Import from File` vs `Import from Transaction`).
+- **Billing Suite Integration (`SmritiProPosWorkspace.tsx` & `PosTerminalTab.tsx`)**:
+  - Integrated `Distributor Invoicing` and `Speed POS Terminal` under one unified suite.
+
 ### [6.6.0] - 2026-08-22
 
 #### Barcode & Inventory — Stitch Barcode Label Designer & Printer Replacement

@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.3.0
+ * Version      : 6.7.0
  * Created      : 2026-08-22
  * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -123,15 +123,42 @@ export function parsePTFileContent(content: string): LabelPrintRow[] {
     if (parts.length >= 2) {
       lineIdx++;
       const stockNo = parts[0] || String(lineIdx).padStart(6, "0");
-      const product = parts[1] || "Item";
-      const brand = parts[2] || "SMRITI";
-      const style = parts[3] || "-";
-      const colour = parts[4] || "-";
-      const size = parts[5] || "-";
-      const purchaseQty = parseInt(parts[6]) || 1;
-      const mrp = parseFloat(parts[7]) || 0;
-      const sellingPrice = parseFloat(parts[8]) || mrp;
-      const barcode = parts[9] || stockNo;
+
+      // Check if parts[1] is a numeric barcode (Format B: stockNo|barcode|brand|product|colour|style|size|mrp|sp|qty)
+      const isFormatB = parts.length >= 9 && /^\d{8,14}$/.test(parts[1]);
+
+      let product = "Item";
+      let brand = "SMRITI";
+      let style = "-";
+      let colour = "-";
+      let size = "-";
+      let purchaseQty = 1;
+      let mrp = 0;
+      let sellingPrice = 0;
+      let barcode = stockNo;
+
+      if (isFormatB) {
+        barcode = parts[1];
+        brand = parts[2] || "SMRITI";
+        product = parts[3] || "Item";
+        colour = parts[4] || "-";
+        style = parts[5] || "-";
+        size = parts[6] || "-";
+        mrp = parseFloat(parts[7]) || 0;
+        sellingPrice = parseFloat(parts[8]) || mrp;
+        purchaseQty = parseInt(parts[9]) || 1;
+      } else {
+        // Format A: stockNo|product|brand|style|colour|size|qty|mrp|sp|barcode
+        product = parts[1] || "Item";
+        brand = parts[2] || "SMRITI";
+        style = parts[3] || "-";
+        colour = parts[4] || "-";
+        size = parts[5] || "-";
+        purchaseQty = parseInt(parts[6]) || 1;
+        mrp = parseFloat(parts[7]) || 0;
+        sellingPrice = parseFloat(parts[8]) || mrp;
+        barcode = parts[9] || stockNo;
+      }
 
       rows.push({
         id: `pt-row-${lineIdx}`,

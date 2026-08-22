@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.6.0
+ * Version      : 6.7.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -45,6 +45,8 @@ import {
   Info, 
   HelpCircle, 
   ArrowUpDown, 
+  ArrowUp,
+  ArrowDown,
   UploadCloud, 
   Zap, 
   Edit3, 
@@ -52,7 +54,13 @@ import {
   RotateCcw, 
   LogOut, 
   Eye, 
-  Copy 
+  Copy,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  FileUp,
+  CheckCircle2
 } from "lucide-react";
 
 interface TagLabelPrintingTabProps {
@@ -73,6 +81,10 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [gridRows, setGridRows] = useState<LabelPrintRow[]>([]);
   const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
   const [filterSearch, setFilterSearch] = useState<string>("");
+  
+  // Table Column Sorting State
+  const [sortField, setSortField] = useState<keyof LabelPrintRow | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Settings
   const [settings, setSettings] = useState<LabelPrintSettings>({
@@ -149,6 +161,11 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [scannedRows, setScannedRows] = useState<LabelPrintRow[]>([]);
   const scanInputRef = useRef<HTMLInputElement>(null);
 
+  // 7. PDT File State (Against PDT File)
+  const [pdtFileName, setPdtFileName] = useState<string>("PDT_IMPORT_2026.csv");
+  const [pdtRows, setPdtRows] = useState<LabelPrintRow[]>([]);
+  const pdtFileInputRef = useRef<HTMLInputElement>(null);
+
   // Modals state
   const [isEditQtyModalOpen, setIsEditQtyModalOpen] = useState<boolean>(false);
   const [isPrinterSelectModalOpen, setIsPrinterSelectModalOpen] = useState<boolean>(false);
@@ -158,6 +175,30 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [isSinglePrintMode, setIsSinglePrintMode] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ptFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard Shortcuts Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F2 -> Product Browse
+      if (e.key === "F2") {
+        e.preventDefault();
+        setF2BrowseTarget("stockNoFrom");
+        setIsF2BrowseModalOpen(true);
+      }
+      // F11 -> Edit Quantities Modal
+      if (e.key === "F11") {
+        e.preventDefault();
+        setIsEditQtyModalOpen(true);
+      }
+      // F8 -> Print All
+      if (e.key === "F8") {
+        e.preventDefault();
+        handlePrintAll();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Fetch products from backend if empty
   useEffect(() => {
@@ -224,6 +265,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const isPoMode = settings.sourceOption === "Against Purchase Order";
   const isMasterMode = settings.sourceOption === "Against Masters";
   const isDirectScanMode = settings.sourceOption === "Against Direct Scan";
+  const isPdtFileMode = settings.sourceOption === "Against PDT File";
 
   const isFixedQuantitySource = isPtFileMode || isTxMode || isPoMode;
 
@@ -234,6 +276,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     if (isPoMode) return poRows;
     if (isMasterMode) return masterRows;
     if (isDirectScanMode) return scannedRows;
+    if (isPdtFileMode) return pdtRows;
 
     return gridRows.filter(row => {
       if (criteria.stockNoFrom && row.stockNo < criteria.stockNoFrom) return false;
@@ -251,25 +294,42 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       return true;
     });
   }, [
-    isPtFileMode, isTxMode, isPoMode, isMasterMode, isDirectScanMode,
-    ptRows, txRows, poRows, masterRows, scannedRows,
+    isPtFileMode, isTxMode, isPoMode, isMasterMode, isDirectScanMode, isPdtFileMode,
+    ptRows, txRows, poRows, masterRows, scannedRows, pdtRows,
     gridRows, criteria
   ]);
 
-  // Filtered by Search input
+  // Filtered by Search input & Sorted
   const activeDataset = useMemo(() => {
-    if (!filterSearch.trim()) return rawDataset;
-    const q = filterSearch.toLowerCase();
-    return rawDataset.filter(r =>
-      r.stockNo.toLowerCase().includes(q) ||
-      r.product.toLowerCase().includes(q) ||
-      r.brand.toLowerCase().includes(q) ||
-      r.style.toLowerCase().includes(q) ||
-      r.colour.toLowerCase().includes(q) ||
-      r.size.toLowerCase().includes(q) ||
-      r.barcode.toLowerCase().includes(q)
-    );
-  }, [rawDataset, filterSearch]);
+    let list = rawDataset;
+    if (filterSearch.trim()) {
+      const q = filterSearch.toLowerCase();
+      list = list.filter(r =>
+        r.stockNo.toLowerCase().includes(q) ||
+        r.product.toLowerCase().includes(q) ||
+        r.brand.toLowerCase().includes(q) ||
+        r.style.toLowerCase().includes(q) ||
+        r.colour.toLowerCase().includes(q) ||
+        r.size.toLowerCase().includes(q) ||
+        r.barcode.toLowerCase().includes(q)
+      );
+    }
+
+    if (sortField) {
+      list = [...list].sort((a, b) => {
+        const valA = a[sortField] ?? "";
+        const valB = b[sortField] ?? "";
+        if (typeof valA === "number" && typeof valB === "number") {
+          return sortDirection === "asc" ? valA - valB : valB - valA;
+        }
+        return sortDirection === "asc"
+          ? String(valA).localeCompare(String(valB))
+          : String(valB).localeCompare(String(valA));
+      });
+    }
+
+    return list;
+  }, [rawDataset, filterSearch, sortField, sortDirection]);
 
   const currentSelectedItem: LabelPrintRow | undefined = activeDataset[selectedPreviewIndex] || activeDataset[0];
 
@@ -277,6 +337,27 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const totalLabelsSum = useMemo(() => {
     return activeDataset.reduce((sum, r) => sum + (Number(r.labelCount) || 0), 0);
   }, [activeDataset]);
+
+  // Sort Toggle Handler
+  const handleSortToggle = (field: keyof LabelPrintRow) => {
+    if (sortField === field) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else {
+        setSortField(null);
+        setSortDirection("asc");
+      }
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  // 4-Way Item Navigator Handlers
+  const handleNavFirst = () => setSelectedPreviewIndex(0);
+  const handleNavPrev = () => setSelectedPreviewIndex(prev => Math.max(0, prev - 1));
+  const handleNavNext = () => setSelectedPreviewIndex(prev => Math.min(activeDataset.length - 1, prev + 1));
+  const handleNavLast = () => setSelectedPreviewIndex(Math.max(0, activeDataset.length - 1));
 
   // Inline Label Count Editor on the Results Grid
   const handleInlineLabelChange = (rowId: string, count: number) => {
@@ -291,6 +372,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       setMasterRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
     } else if (isDirectScanMode) {
       setScannedRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
+    } else if (isPdtFileMode) {
+      setPdtRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
     } else {
       setGridRows(prev => prev.map(r => r.id === rowId ? { ...r, labelCount: val } : r));
     }
@@ -311,6 +394,13 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     } else if (isMasterMode) {
       setShowMasterFilterDialog(true);
       return;
+    } else if (isPdtFileMode) {
+      if (pdtRows.length === 0) {
+        onNotification?.("PDT File Notice", "Please browse and select a PDT file to load records.", "error");
+        return;
+      }
+      setSelectedPreviewIndex(0);
+      onNotification?.("PDT Loaded", `Loaded ${pdtRows.length} items from PDT file.`, "success");
     } else {
       setSelectedPreviewIndex(0);
       onNotification?.("Results Loaded", `Loaded ${activeDataset.length} item(s) in grid.`, "success");
@@ -410,6 +500,52 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     reader.readAsText(file);
   };
 
+  // PDT File Upload Handler
+  const handlePdtFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPdtFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        const lines = text.split("\n").filter(l => l.trim().length > 0);
+        const rows: LabelPrintRow[] = [];
+        let sNo = 1;
+        lines.forEach((l, idx) => {
+          const parts = l.split(/[,;\t]/).map(p => p.trim());
+          if (parts.length >= 2) {
+            const barcode = parts[0];
+            const qty = parseFloat(parts[1]) || 1;
+            const rate = parseFloat(parts[2]) || 999;
+            const matched = products.find(p => p.barcode === barcode || p.code === barcode);
+
+            rows.push({
+              id: `pdt-row-${idx}`,
+              sNo: sNo++,
+              stockNo: matched?.code || barcode,
+              barcode: barcode,
+              brand: matched?.brand || "Beanstalk",
+              product: matched?.name || "PDT Item",
+              colour: matched?.color || "Standard",
+              style: matched?.styleCode || "Standard",
+              size: matched?.size || "Free",
+              mrp: matched?.mrp || rate,
+              sellingPrice: matched?.price || rate,
+              currentStock: matched?.stock || 0,
+              labelCount: qty
+            });
+          }
+        });
+        setPdtRows(rows);
+        setSelectedPreviewIndex(0);
+        onNotification?.("PDT File Loaded", `Parsed ${rows.length} records from ${file.name}`, "success");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   // Clear Session
   const handleClear = () => {
     setCriteria({
@@ -427,16 +563,19 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       sizeTo: ""
     });
     setFilterSearch("");
+    setSortField(null);
+    setSortDirection("asc");
     setSelectedPreviewIndex(0);
     setGridRows(prev => prev.map(r => ({ ...r, labelCount: 1 })));
     setScannedRows([]);
+    setPdtRows([]);
     onNotification?.("Session Cleared", "Reset selection criteria and label quantities.", "success");
   };
 
   // Print Current (Single Item)
   const handlePrintCurrent = () => {
-    if (!currentSelectedItem || currentSelectedItem.labelCount === 0) {
-      alert("Selected item has label quantity 0. Please specify at least 1 label.");
+    if (!currentSelectedItem) {
+      onNotification?.("No Item Selected", "Please select an item from the grid to print.", "error");
       return;
     }
     setIsSinglePrintMode(true);
@@ -447,7 +586,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const handlePrintAll = () => {
     const validCount = activeDataset.filter(r => r.labelCount > 0);
     if (validCount.length === 0) {
-      alert("No items have label quantity greater than 0 to print.");
+      onNotification?.("No Labels Specified", "No items have label quantity greater than 0 to print.", "error");
       return;
     }
     setIsSinglePrintMode(false);
@@ -497,8 +636,9 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     if (isPoMode) return "Ready to print labels based on purchase order records.";
     if (isMasterMode) return "Ready to print labels based on master file records.";
     if (isDirectScanMode) return "Ready to print labels based on real-time scanner input.";
+    if (isPdtFileMode) return "Ready to print labels based on portable data terminal records.";
     return "Ready to print labels based on manual selection.";
-  }, [isPtFileMode, isTxMode, isPoMode, isMasterMode, isDirectScanMode]);
+  }, [isPtFileMode, isTxMode, isPoMode, isMasterMode, isDirectScanMode, isPdtFileMode]);
 
   if (activeView === "designer") {
     return (
@@ -603,12 +743,24 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setIsEditQtyModalOpen(true)}
+            className="px-3.5 py-1.5 bg-surface border border-outline-variant hover:bg-surface-variant text-on-surface rounded font-body-sm font-semibold transition flex items-center gap-2 shadow-xs"
+            title="Open Batch Quantity Editor (F11)"
+          >
+            <Edit3 size={15} className="text-secondary" />
+            <span>Edit Quantities</span>
+            <span className="text-[10px] font-code-md text-on-surface-variant bg-surface-container px-1 rounded">[F11]</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsPrinterSelectModalOpen(true)}
             className="px-3.5 py-1.5 bg-surface border border-outline-variant hover:bg-surface-variant text-on-surface rounded font-body-sm font-medium transition flex items-center gap-2 shadow-xs"
           >
             <Printer size={15} className="text-secondary" />
-            <span className="truncate max-w-[220px]">{settings.targetPrinterName || "Configure Printer"}</span>
+            <span className="truncate max-w-[200px]">{settings.targetPrinterName || "Configure Printer"}</span>
           </button>
+
           <button
             type="button"
             onClick={() => setActiveView("designer")}
@@ -831,17 +983,65 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
           
           {/* Top Card: Selection Criteria / Ingestion Panel */}
           <section className="bg-surface border border-outline-variant rounded-lg p-4 flex flex-col gap-3 shadow-xs border-t-4 border-t-primary shrink-0">
-            <h3 className="font-title-sm text-sm font-bold text-primary border-b border-surface-variant pb-2 flex items-center gap-2">
-              <Filter size={16} className="text-secondary" />
-              <span>
-                {isPtFileMode && "Purchase Transaction (PT) File Selection"}
-                {isTxMode && "Transaction Selection Criteria"}
-                {isPoMode && "Purchase Order Selection Criteria"}
-                {isMasterMode && "Master Records Period Filter"}
-                {isDirectScanMode && "Direct Barcode Scanning Input"}
-                {isManualMode && "Selection Criteria"}
-              </span>
-            </h3>
+            <div className="flex justify-between items-center border-b border-surface-variant pb-2">
+              <h3 className="font-title-sm text-sm font-bold text-primary flex items-center gap-2">
+                <Filter size={16} className="text-secondary" />
+                <span>
+                  {isPtFileMode && "Purchase Transaction (PT) File Selection"}
+                  {isTxMode && "Transaction Selection Criteria"}
+                  {isPoMode && "Purchase Order Selection Criteria"}
+                  {isMasterMode && "Master Records Period Filter"}
+                  {isDirectScanMode && "Direct Barcode Scanning Input"}
+                  {isPdtFileMode && "PDT Ingestion File Selection"}
+                  {isManualMode && "Selection Criteria"}
+                </span>
+              </h3>
+
+              {/* 4-Way Record Navigator Bar */}
+              {totalLoadedItems > 0 && (
+                <div className="flex items-center gap-1 text-xs bg-surface-container-low px-2 py-1 rounded border border-outline-variant">
+                  <span className="text-on-surface-variant font-mono text-[11px] mr-2">
+                    Item {selectedPreviewIndex + 1} of {totalLoadedItems}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleNavFirst}
+                    disabled={selectedPreviewIndex === 0}
+                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                    title="First Record (|<<)"
+                  >
+                    <ChevronsLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNavPrev}
+                    disabled={selectedPreviewIndex === 0}
+                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                    title="Previous Record (<)"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNavNext}
+                    disabled={selectedPreviewIndex >= totalLoadedItems - 1}
+                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                    title="Next Record (>)"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNavLast}
+                    disabled={selectedPreviewIndex >= totalLoadedItems - 1}
+                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                    title="Last Record (>>|)"
+                  >
+                    <ChevronsRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* A. Manual Mode Criteria */}
             {isManualMode && (
@@ -1125,6 +1325,49 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
               </form>
             )}
 
+            {/* G. PDT Ingestion */}
+            {isPdtFileMode && (
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex flex-col gap-1 flex-1 min-w-[240px]">
+                  <label className="font-label-caps text-on-surface-variant">PDT Delimited File</label>
+                  <div className="flex">
+                    <input
+                      type="text"
+                      value={pdtFileName}
+                      onChange={e => setPdtFileName(e.target.value)}
+                      placeholder="Select .pdt or .csv file"
+                      className="flex-1 bg-surface border border-outline-variant border-r-0 rounded-l px-3 py-1.5 text-body-sm font-code-md text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => pdtFileInputRef.current?.click()}
+                      className="bg-surface-variant border border-outline-variant rounded-r px-3 py-1.5 hover:bg-surface-dim transition-colors text-body-sm font-medium"
+                    >
+                      Browse...
+                    </button>
+                    <input
+                      ref={pdtFileInputRef}
+                      type="file"
+                      accept=".pdt,.csv,.txt,.tsv"
+                      className="hidden"
+                      onChange={handlePdtFileUpload}
+                    />
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5">Ingest barcodes &amp; quantities directly from hand-held terminal exports.</p>
+                </div>
+                <div className="flex shrink-0 pb-4">
+                  <button
+                    type="button"
+                    onClick={handleLoadResults}
+                    className="bg-primary-container text-on-primary px-5 py-2 rounded font-body-sm font-medium hover:bg-primary transition-colors flex items-center gap-2 shadow-xs"
+                  >
+                    <Download size={16} />
+                    <span>Load Results</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
           </section>
 
           {/* Bottom Card: Item Preview & Results Grid View (Full Stitch Data Grid) */}
@@ -1147,7 +1390,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                   />
                 </div>
               </div>
-              <span className="text-body-sm text-on-surface-variant ml-4 font-medium">Scroll to view all</span>
+              <span className="text-body-sm text-on-surface-variant ml-4 font-medium">Click headers to sort • Click row to select</span>
             </div>
 
             {/* Grid Table Container */}
@@ -1155,33 +1398,94 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
               <table className="w-full text-left border-collapse font-sans">
                 <thead className="sticky top-0 bg-surface-container-high z-10 shadow-xs">
                   <tr className="border-b border-outline-variant">
-                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">
-                      <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                    <th 
+                      onClick={() => handleSortToggle("stockNo")}
+                      className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high cursor-pointer hover:text-primary transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-1">
                         <span>Stock No</span>
-                        <ArrowUpDown size={13} />
+                        {sortField === "stockNo" ? (
+                          sortDirection === "asc" ? <ArrowUp size={13} className="text-secondary font-bold" /> : <ArrowDown size={13} className="text-secondary font-bold" />
+                        ) : (
+                          <ArrowUpDown size={13} className="opacity-50" />
+                        )}
                       </div>
                     </th>
-                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">
-                      <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                    <th 
+                      onClick={() => handleSortToggle("product")}
+                      className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high cursor-pointer hover:text-primary transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-1">
                         <span>Product</span>
-                        <ArrowUpDown size={13} />
+                        {sortField === "product" ? (
+                          sortDirection === "asc" ? <ArrowUp size={13} className="text-secondary font-bold" /> : <ArrowDown size={13} className="text-secondary font-bold" />
+                        ) : (
+                          <ArrowUpDown size={13} className="opacity-50" />
+                        )}
                       </div>
                     </th>
-                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">
-                      <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                    <th 
+                      onClick={() => handleSortToggle("brand")}
+                      className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high cursor-pointer hover:text-primary transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-1">
                         <span>Brand</span>
-                        <ArrowUpDown size={13} />
+                        {sortField === "brand" ? (
+                          sortDirection === "asc" ? <ArrowUp size={13} className="text-secondary font-bold" /> : <ArrowDown size={13} className="text-secondary font-bold" />
+                        ) : (
+                          <ArrowUpDown size={13} className="opacity-50" />
+                        )}
                       </div>
                     </th>
-                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">
-                      <div className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
+                    <th 
+                      onClick={() => handleSortToggle("style")}
+                      className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high cursor-pointer hover:text-primary transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-1">
                         <span>Style</span>
-                        <ArrowUpDown size={13} />
+                        {sortField === "style" ? (
+                          sortDirection === "asc" ? <ArrowUp size={13} className="text-secondary font-bold" /> : <ArrowDown size={13} className="text-secondary font-bold" />
+                        ) : (
+                          <ArrowUpDown size={13} className="opacity-50" />
+                        )}
                       </div>
                     </th>
-                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">Shade</th>
-                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high">Size</th>
-                    <th className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant w-28 bg-surface-container-high text-center"># Labels</th>
+                    <th 
+                      onClick={() => handleSortToggle("colour")}
+                      className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high cursor-pointer hover:text-primary transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Shade</span>
+                        {sortField === "colour" && (sortDirection === "asc" ? <ArrowUp size={13} className="text-secondary" /> : <ArrowDown size={13} className="text-secondary" />)}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSortToggle("size")}
+                      className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high cursor-pointer hover:text-primary transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Size</span>
+                        {sortField === "size" && (sortDirection === "asc" ? <ArrowUp size={13} className="text-secondary" /> : <ArrowDown size={13} className="text-secondary" />)}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSortToggle("sellingPrice")}
+                      className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant bg-surface-container-high cursor-pointer hover:text-primary transition-colors select-none text-right"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Price</span>
+                        {sortField === "sellingPrice" && (sortDirection === "asc" ? <ArrowUp size={13} className="text-secondary" /> : <ArrowDown size={13} className="text-secondary" />)}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSortToggle("labelCount")}
+                      className="px-3 py-2 font-label-caps text-label-caps text-on-surface-variant w-28 bg-surface-container-high text-center cursor-pointer hover:text-primary transition-colors select-none"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span># Labels</span>
+                        {sortField === "labelCount" && (sortDirection === "asc" ? <ArrowUp size={13} className="text-secondary" /> : <ArrowDown size={13} className="text-secondary" />)}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant bg-surface font-body-sm">
@@ -1201,6 +1505,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                         <td className="px-3 py-2 text-body-sm text-on-surface">{row.style}</td>
                         <td className="px-3 py-2 text-body-sm text-on-surface">{row.colour}</td>
                         <td className="px-3 py-2 text-body-sm text-on-surface">{row.size}</td>
+                        <td className="px-3 py-2 text-right font-mono text-body-sm">₹{row.sellingPrice || row.mrp}</td>
                         <td className="px-3 py-2">
                           <input
                             type="number"
@@ -1216,7 +1521,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                   })}
                   {activeDataset.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-on-surface-variant italic">
+                      <td colSpan={8} className="p-8 text-center text-on-surface-variant italic">
                         No items match the current selection. Adjust criteria and click 'Load Results'.
                       </td>
                     </tr>
@@ -1227,9 +1532,16 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
             {/* Summary Footer Bar */}
             <div className="p-4 bg-surface-container-low border-t border-outline-variant flex justify-between items-center shrink-0">
-              <span className="font-label-caps text-label-caps text-secondary font-bold shrink-0">
-                Loaded Items ({totalLoadedItems})
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="font-label-caps text-label-caps text-secondary font-bold shrink-0">
+                  Loaded Items ({totalLoadedItems})
+                </span>
+                {currentSelectedItem && (
+                  <span className="text-xs text-on-surface-variant font-mono">
+                    • Selected: <strong>{currentSelectedItem.stockNo}</strong> ({currentSelectedItem.product} - {currentSelectedItem.colour}/{currentSelectedItem.size})
+                  </span>
+                )}
+              </div>
               <div className="flex gap-6 items-center">
                 <div className="flex items-center gap-2">
                   <span className="text-body-sm text-on-surface-variant">Current Stock:</span>
@@ -1264,6 +1576,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             type="button"
             onClick={handleClear}
             className="px-4 py-2 rounded border border-error text-error hover:bg-error-container transition-colors font-body-sm font-medium shadow-xs"
+            title="Reset selection criteria and quantities"
           >
             Clear
           </button>
@@ -1272,6 +1585,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             type="button"
             onClick={onClose}
             className="px-4 py-2 rounded bg-surface border border-outline-variant hover:bg-surface-variant text-on-surface transition-colors font-body-sm font-medium shadow-xs"
+            title="Exit Tag Printing"
           >
             Exit
           </button>
@@ -1280,6 +1594,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             type="button"
             onClick={handlePrintCurrent}
             className="px-4 py-2 rounded bg-secondary-fixed/50 text-on-secondary-fixed hover:bg-secondary-fixed transition-colors font-body-sm font-medium shadow-xs"
+            title="Print labels for current selected record"
           >
             Print Current ({currentSelectedItem?.labelCount || 1})
           </button>
@@ -1288,6 +1603,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             type="button"
             onClick={handlePrintAll}
             className="px-6 py-2 rounded bg-primary text-on-primary hover:bg-primary-container shadow-md transition-all font-body-sm font-bold flex items-center gap-2"
+            title="Print all items in queue (F8)"
           >
             <Printer size={16} />
             <span>Print All ({totalLabelsSum})</span>
@@ -1348,10 +1664,42 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         rows={activeDataset}
         onClose={() => setIsEditQtyModalOpen(false)}
         onSave={(updatedRows) => {
-          setGridRows(prev => prev.map(r => {
-            const found = updatedRows.find(ur => ur.id === r.id);
-            return found ? { ...r, labelCount: found.labelCount } : r;
-          }));
+          if (isPtFileMode) {
+            setPtRows(prev => prev.map(r => {
+              const found = updatedRows.find(ur => ur.id === r.id);
+              return found ? { ...r, labelCount: found.labelCount } : r;
+            }));
+          } else if (isTxMode) {
+            setTxRows(prev => prev.map(r => {
+              const found = updatedRows.find(ur => ur.id === r.id);
+              return found ? { ...r, labelCount: found.labelCount } : r;
+            }));
+          } else if (isPoMode) {
+            setPoRows(prev => prev.map(r => {
+              const found = updatedRows.find(ur => ur.id === r.id);
+              return found ? { ...r, labelCount: found.labelCount } : r;
+            }));
+          } else if (isMasterMode) {
+            setMasterRows(prev => prev.map(r => {
+              const found = updatedRows.find(ur => ur.id === r.id);
+              return found ? { ...r, labelCount: found.labelCount } : r;
+            }));
+          } else if (isDirectScanMode) {
+            setScannedRows(prev => prev.map(r => {
+              const found = updatedRows.find(ur => ur.id === r.id);
+              return found ? { ...r, labelCount: found.labelCount } : r;
+            }));
+          } else if (isPdtFileMode) {
+            setPdtRows(prev => prev.map(r => {
+              const found = updatedRows.find(ur => ur.id === r.id);
+              return found ? { ...r, labelCount: found.labelCount } : r;
+            }));
+          } else {
+            setGridRows(prev => prev.map(r => {
+              const found = updatedRows.find(ur => ur.id === r.id);
+              return found ? { ...r, labelCount: found.labelCount } : r;
+            }));
+          }
           onNotification?.("Quantities Updated", "Updated label print counts per item.", "success");
         }}
       />
@@ -1532,7 +1880,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                   className="px-6 py-1.5 bg-primary text-on-primary rounded font-bold hover:bg-primary-container transition shadow-md flex items-center gap-2 font-body-sm"
                 >
                   <Printer size={15} />
-                  Print from Browser ({activePrintTotalLabels})
+                  <span>Print from Browser ({activePrintTotalLabels})</span>
                 </button>
               </div>
             </div>

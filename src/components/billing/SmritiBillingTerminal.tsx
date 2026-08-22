@@ -4,12 +4,13 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.32.0
+ * Version      : 6.7.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ * Source Module: Stitch Distributor Invoicing Terminal
  */
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -18,20 +19,37 @@ import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import {
   BillingLineItem,
   BillType,
-  PaymentMode,
+  TransactionType,
   BillingHeaderState,
-  BillingSummaryTotals
+  BillingSummaryTotals,
+  TransporterRow,
+  AddonDeductionRow,
+  SettlementPaymentRow
 } from "./types.ts";
 import { ProductSearchBrowserModal } from "./ProductSearchBrowserModal.tsx";
 import { ItemBrowseOverlayModal } from "./ItemBrowseOverlayModal.tsx";
 import { PdtImportModal } from "./PdtImportModal.tsx";
+import { SmritiInvoiceSettlementModal } from "./SmritiInvoiceSettlementModal.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
+import { 
+  Download, 
+  History, 
+  Search, 
+  Plus, 
+  Trash2, 
+  X, 
+  FileText, 
+  Truck, 
+  CreditCard, 
+  Receipt,
+  UserPlus
+} from "lucide-react";
 
 interface SmritiBillingTerminalProps {
   products?: Product[];
   profiles?: POSProfile[];
   shifts?: Shift[];
-  currentUser?: { role: string; name: string } | null;
+  currentUser?: { role: string; name: string; companyId?: string; branchId?: string } | null;
   onRefreshData?: () => void;
   onNotification?: (title: string, message: string, type: "success" | "error") => void;
   isStandaloneTab?: boolean;
@@ -44,49 +62,96 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
   onNotification,
   isStandaloneTab = false
 }) => {
-  // Line items in current bill
+  // Main Line Items Table State
   const [items, setItems] = useState<BillingLineItem[]>([]);
-  const [selectedRowIndex, setSelectedRowIndex] = useState<number>(0);
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1);
 
-  // Header state
+  // Header State
   const [headerState, setHeaderState] = useState<BillingHeaderState>({
     billType: "Product",
-    paymentMode: "Cash",
-    billNo: "INV-" + Math.floor(100000 + Math.random() * 900000),
+    transaction: "Credit",
+    docPrefix: "D1DS13",
+    docNo: "1",
     billDate: new Date().toLocaleDateString("en-GB"),
     customer: null,
-    salesStaff: currentUser?.name || "Staff A",
-    counterPcs: "PCS12",
-    counterBatch: "252"
+    salesStaff: currentUser?.name || "EMP001 - John Doe",
+    remarks: ""
   });
 
-  // Customers state & Customer Quick Add Modal
+  // Direct Entry Row (F11) State
+  const [directEntry, setDirectEntry] = useState<{
+    stockNo: string;
+    itemDescription: string;
+    rate: string;
+    qty: string;
+    discCode: string;
+    discQty: string;
+    discPercent: string;
+    staff: string;
+  }>({
+    stockNo: "",
+    itemDescription: "",
+    rate: "",
+    qty: "1",
+    discCode: "",
+    discQty: "",
+    discPercent: "",
+    staff: currentUser?.name || "Staff A"
+  });
+
+  // Tabbed Details State (Footer Left Card)
+  const [activeFooterTab, setActiveFooterTab] = useState<"transporter" | "payment" | "addons">("transporter");
+  const [transporterRows, setTransporterRows] = useState<TransporterRow[]>([
+    {
+      sNo: 1,
+      type: "Road Freight",
+      code: "TR-01",
+      description: "Local Express Logistics",
+      rateType: "Fixed",
+      rateAmt: 0,
+      rate: 0,
+      amount: 0
+    }
+  ]);
+  const [addonRows, setAddonRows] = useState<AddonDeductionRow[]>([
+    {
+      sNo: 1,
+      type: "Addon",
+      code: "INS",
+      description: "Transit Insurance",
+      rateType: "Fixed",
+      rate: 0,
+      amount: 0
+    }
+  ]);
+
+  // Customers State & Customer Modals
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
-  const [newCustomerName, setNewCustomerName] = useState("");
-  const [newCustomerPhone, setNewCustomerPhone] = useState("");
-  const [newCustomerGstin, setNewCustomerGstin] = useState("");
+  const [customerSearchInput, setCustomerSearchInput] = useState<string>("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState<boolean>(false);
+  const [newCustName, setNewCustName] = useState<string>("");
+  const [newCustMobile, setNewCustMobile] = useState<string>("");
+  const [newCustGstin, setNewCustGstin] = useState<string>("");
 
-  // Modals state
-  const [showProductSearchModal, setShowProductSearchModal] = useState(false);
-  const [showItemBrowseModal, setShowItemBrowseModal] = useState(false);
-  const [showPdtImportModal, setShowPdtImportModal] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
+  // Modals State
+  const [showProductSearchModal, setShowProductSearchModal] = useState<boolean>(false);
+  const [showItemBrowseModal, setShowItemBrowseModal] = useState<boolean>(false);
+  const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
+  const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
+  const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  const [suspendedBills, setSuspendedBills] = useState<{ id: string; header: BillingHeaderState; items: BillingLineItem[]; date: string; netAmount: number }[]>([]);
   const [lastCompletedInvoice, setLastCompletedInvoice] = useState<any>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
-  // Secondary Bottom Scanner Bar state
-  const [scanInput, setScanInput] = useState("");
-  const [activeMirrorItem, setActiveMirrorItem] = useState<Partial<BillingLineItem>>({});
+  // References
+  const directStockNoRef = useRef<HTMLInputElement>(null);
+  const customerInputRef = useRef<HTMLInputElement>(null);
 
-  const scannerInputRef = useRef<HTMLInputElement>(null);
-  const gridContainerRef = useRef<HTMLDivElement>(null);
-
-  // Focus scanner on mount and when modal closes
+  // Focus direct entry row on mount & fetch customers
   useEffect(() => {
-    scannerInputRef.current?.focus();
     fetchCustomers();
+    directStockNoRef.current?.focus();
   }, []);
 
   const fetchCustomers = async () => {
@@ -96,11 +161,59 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
         setCustomers(res);
       }
     } catch {
-      // Fallback
+      // Demo fallback customers if offline
+      setCustomers([
+        { id: "CUST-001", name: "Acme Industrial Solutions Ltd.", mobile: "9876543210", email: "acme@example.com", status: "Active" },
+        { id: "CUST-002", name: "Apex Retail Mart", mobile: "9823456789", email: "apex@example.com", status: "Active" },
+        { id: "CUST-003", name: "Bharat Distributors Corp", mobile: "9911223344", email: "bharat@example.com", status: "Active" }
+      ]);
     }
   };
 
-  // Recompute live summary totals
+  // Keyboard Shortcuts Listener
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is inside a popup modal
+      if (showSettlementModal || showPdtImportModal || showProductSearchModal || showItemBrowseModal || showAddCustomerModal || showRecallModal || showPrintModal) {
+        return;
+      }
+
+      if (e.key === "F2") {
+        e.preventDefault();
+        if (document.activeElement === customerInputRef.current) {
+          setShowCustomerDropdown(true);
+        } else {
+          setShowProductSearchModal(true);
+        }
+      } else if (e.key === "F11") {
+        e.preventDefault();
+        directStockNoRef.current?.focus();
+      } else if (e.key === "F7" || e.key === "F8") {
+        e.preventDefault();
+        if (items.length > 0) {
+          setShowSettlementModal(true);
+        } else {
+          alert("Please add at least one item before opening settlement.");
+        }
+      } else if (e.key === "F12") {
+        e.preventDefault();
+        handleSuspendInvoice();
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [items, headerState, showSettlementModal, showPdtImportModal, showProductSearchModal, showItemBrowseModal, showAddCustomerModal, showRecallModal, showPrintModal]);
+
+  // Derived Direct Entry Calculations
+  const directRateNum = parseFloat(directEntry.rate) || 0;
+  const directQtyNum = parseFloat(directEntry.qty) || 0;
+  const directGrossValue = directRateNum * directQtyNum;
+  const directDiscPctNum = parseFloat(directEntry.discPercent) || 0;
+  const directDiscAmt = directDiscPctNum > 0 ? (directGrossValue * directDiscPctNum) / 100 : (parseFloat(directEntry.discQty) || 0);
+  const directLineTotal = Math.max(0, directGrossValue - directDiscAmt);
+
+  // Recompute Summary Totals
   const summaryTotals: BillingSummaryTotals = useMemo(() => {
     let itemCount = items.length;
     let totalQty = 0;
@@ -117,896 +230,1174 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
     });
 
     const billDiscount = 0;
-    const totalAddons = 0;
-    const totalDeductions = 0;
+    const totalAddons = transporterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0) + addonRows.filter(a => a.type === "Addon").reduce((s, a) => s + (Number(a.amount) || 0), 0);
+    const totalDeductions = addonRows.filter(a => a.type === "Deduction").reduce((s, a) => s + (Number(a.amount) || 0), 0);
     const rawNet = salesValue - itemDiscount - billDiscount + totalTax + totalAddons - totalDeductions;
-    const roundedNet = Math.round(rawNet);
-    const roundOff = Number((roundedNet - rawNet).toFixed(2));
+    const netAmount = Math.max(0, Math.round(rawNet * 100) / 100);
 
     return {
       itemCount,
       totalQty,
-      salesValue: Number(salesValue.toFixed(2)),
-      itemDiscount: Number(itemDiscount.toFixed(2)),
+      salesValue,
+      itemDiscount,
       billDiscount,
-      totalTax: Number(totalTax.toFixed(2)),
+      totalTax,
       totalAddons,
       totalDeductions,
-      roundOff,
-      netAmount: roundedNet
+      roundOff: 0,
+      netAmount
     };
-  }, [items]);
+  }, [items, transporterRows, addonRows]);
 
-  // Recalculate line item financials
-  const calculateLineItem = (
-    base: Partial<BillingLineItem>,
-    rate: number,
-    qty: number,
-    discPercent: number = 0,
-    discAmt: number = 0,
-    gstPct: number = 18
-  ): BillingLineItem => {
-    const value = Number((rate * qty).toFixed(2));
-    let calculatedDiscAmt = discAmt;
-    if (discPercent > 0) {
-      calculatedDiscAmt = Number(((value * discPercent) / 100).toFixed(2));
+  // Handle Direct Entry Stock No Change & Autocomplete
+  const handleStockNoChange = (val: string) => {
+    setDirectEntry(prev => ({ ...prev, stockNo: val }));
+    const matched = products.find(p => p.code === val || p.barcode === val || p.id === val);
+    if (matched) {
+      setDirectEntry(prev => ({
+        ...prev,
+        stockNo: matched.code,
+        itemDescription: matched.name,
+        rate: String(matched.sellingPrice || matched.mrp || 0)
+      }));
     }
-    const taxableValue = Math.max(0, value - calculatedDiscAmt);
-    const taxAmount = Number(((taxableValue * gstPct) / 100).toFixed(2));
-    const total = Number((taxableValue + taxAmount).toFixed(2));
+  };
 
-    return {
-      id: base.id || "item-" + Math.random().toString(36).substr(2, 9),
-      sNo: base.sNo || 1,
-      stockNo: base.stockNo || "",
-      barcode: base.barcode || "",
-      itemDescription: base.itemDescription || "",
+  // Commit Direct Entry Item to Table
+  const handleCommitDirectEntry = () => {
+    if (!directEntry.stockNo && !directEntry.itemDescription) return;
+
+    const matched = products.find(p => p.code === directEntry.stockNo || p.barcode === directEntry.stockNo);
+    const rate = directRateNum > 0 ? directRateNum : Number(matched?.sellingPrice || matched?.mrp || 0);
+    const qty = directQtyNum > 0 ? directQtyNum : 1;
+    const value = rate * qty;
+    const discAmt = directDiscAmt;
+    const total = value - discAmt;
+
+    const newLine: BillingLineItem = {
+      id: "item-" + Date.now() + "-" + Math.random(),
+      sNo: items.length + 1,
+      stockNo: directEntry.stockNo || matched?.code || "SKU-GEN",
+      barcode: matched?.barcode || directEntry.stockNo,
+      itemDescription: directEntry.itemDescription || matched?.name || "Item " + (items.length + 1),
       rate,
       qty,
       value,
-      discCode: base.discCode || "",
-      discQty: base.discQty || 0,
-      discPercent,
-      discAmt: calculatedDiscAmt,
+      discCode: directEntry.discCode,
+      discQty: parseFloat(directEntry.discQty) || 0,
+      discPercent: directDiscPctNum,
+      discAmt,
       total,
-      salesStaff: base.salesStaff || headerState.salesStaff,
-      productId: base.productId,
-      hsnCode: base.hsnCode || "61091000",
-      gstPercentage: gstPct,
-      taxAmount,
-      brand: base.brand,
-      color: base.color,
-      size: base.size,
-      attributes: base.attributes || {}
+      salesStaff: directEntry.staff,
+      productId: matched?.id,
+      hsnCode: matched?.hsnCode,
+      gstPercentage: matched?.gstPercentage || 18,
+      taxAmount: (total * (matched?.gstPercentage || 18)) / 100,
+      brand: matched?.brand,
+      size: matched?.size
     };
+
+    setItems(prev => [...prev, newLine]);
+
+    // Reset direct entry row
+    setDirectEntry({
+      stockNo: "",
+      itemDescription: "",
+      rate: "",
+      qty: "1",
+      discCode: "",
+      discQty: "",
+      discPercent: "",
+      staff: directEntry.staff
+    });
+
+    directStockNoRef.current?.focus();
+    onNotification?.("Item Added", `${newLine.itemDescription} added to invoice.`, "success");
   };
 
-  // Add Product to line items
-  const addProductToBill = (product: Product, quantityToAdd = 1) => {
-    const existingIndex = items.findIndex(
-      it => it.productId === product.id || (product.barcode && it.barcode === product.barcode) || it.stockNo === product.code
-    );
-
-    const rate = product.price || product.mrp || 0;
-    const gstPct = (product as any).gst_percentage || (product as any).gstPercentage || 18;
-
-    let updatedItems: BillingLineItem[];
-    if (existingIndex >= 0) {
-      const existing = items[existingIndex];
-      const newQty = existing.qty + quantityToAdd;
-      const updatedItem = calculateLineItem(
-        existing,
-        existing.rate,
-        newQty,
-        existing.discPercent,
-        existing.discAmt,
-        existing.gstPercentage
-      );
-      updatedItems = [...items];
-      updatedItems[existingIndex] = updatedItem;
-      setSelectedRowIndex(existingIndex);
-      setActiveMirrorItem(updatedItem);
-    } else {
-      const newItem = calculateLineItem(
-        {
-          sNo: items.length + 1,
-          stockNo: product.code,
-          barcode: product.barcode || product.code,
-          itemDescription: product.name,
-          productId: product.id,
-          brand: product.brand,
-          color: product.color,
-          size: product.size,
-          salesStaff: headerState.salesStaff,
-          attributes: product.attributes || {}
-        },
-        rate,
-        quantityToAdd,
-        0,
-        0,
-        gstPct
-      );
-      updatedItems = [...items, newItem];
-      setSelectedRowIndex(updatedItems.length - 1);
-      setActiveMirrorItem(newItem);
-    }
-
-    setItems(updatedItems);
-    setTimeout(() => {
-      if (gridContainerRef.current) {
-        gridContainerRef.current.scrollTop = gridContainerRef.current.scrollHeight;
-      }
-    }, 50);
+  // Remove Item
+  const handleRemoveItem = (id: string) => {
+    setItems(prev => prev.filter(it => it.id !== id).map((it, idx) => ({ ...it, sNo: idx + 1 })));
   };
 
-  // Handle Secondary Scanning Bar
-  const handleBarcodeScan = (e: React.FormEvent) => {
-    e.preventDefault();
-    const barcode = scanInput.trim();
-    if (!barcode) return;
-
-    const matched = products.find(
-      p => p.barcode?.toLowerCase() === barcode.toLowerCase() || p.code?.toLowerCase() === barcode.toLowerCase()
-    );
-
-    if (matched) {
-      addProductToBill(matched, 1);
-      setScanInput("");
-    } else {
-      if (onNotification) {
-        onNotification("Barcode Not Found", `Item with barcode "${barcode}" not in inventory catalog.`, "error");
-      }
-      setScanInput("");
-    }
-  };
-
-  // Handle New Bill (Alt+N)
-  const handleNewBill = () => {
-    setItems([]);
-    setSelectedRowIndex(0);
-    setActiveMirrorItem({});
-    setHeaderState(prev => ({
-      ...prev,
-      billNo: "INV-" + Math.floor(100000 + Math.random() * 900000),
-      billDate: new Date().toLocaleDateString("en-GB"),
-      customer: null
-    }));
-    scannerInputRef.current?.focus();
-    if (onNotification) {
-      onNotification("New Bill", "Ready for new invoice scanning.", "success");
-    }
-  };
-
-  // Handle Void Bill (Alt+V)
-  const handleVoidBill = () => {
-    if (items.length === 0) return;
-    if (window.confirm("Are you sure you want to VOID and discard current bill items?")) {
-      handleNewBill();
-      if (onNotification) {
-        onNotification("Bill Voided", "Current invoice lines cleared.", "error");
-      }
-    }
-  };
-
-  // Handle Return Mode (Alt+R)
-  const handleToggleReturn = () => {
-    if (items[selectedRowIndex]) {
-      const current = items[selectedRowIndex];
-      const newQty = current.qty > 0 ? -Math.abs(current.qty) : Math.abs(current.qty);
-      const updated = calculateLineItem(
-        current,
-        current.rate,
-        newQty,
-        current.discPercent,
-        current.discAmt,
-        current.gstPercentage
-      );
-      const copy = [...items];
-      copy[selectedRowIndex] = updated;
-      setItems(copy);
-      setActiveMirrorItem(updated);
-    }
-  };
-
-  // Save / Commit Invoice (F4 or Checkout)
-  const handleSaveInvoice = async () => {
+  // Suspend / Hold Invoice
+  const handleSuspendInvoice = () => {
     if (items.length === 0) {
-      if (onNotification) {
-        onNotification("Empty Bill", "Please scan or add at least one item before saving.", "error");
-      }
+      alert("No items to suspend.");
       return;
     }
-
-    setIsSaving(true);
-    try {
-      const payload = {
-        invoice_number: headerState.billNo,
-        customer_id: headerState.customer?.id,
-        customer_name: headerState.customer?.name || "Walk-in Customer",
-        customer_phone: headerState.customer?.phone || "",
-        payment_mode: headerState.paymentMode,
-        bill_type: headerState.billType,
-        total_amount: summaryTotals.netAmount,
-        subtotal: summaryTotals.salesValue,
-        tax_amount: summaryTotals.totalTax,
-        discount_amount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
-        round_off: summaryTotals.roundOff,
-        sales_staff: headerState.salesStaff,
-        items: items.map(it => ({
-          product_id: it.productId,
-          product_name: it.itemDescription,
-          barcode: it.barcode,
-          stock_no: it.stockNo,
-          quantity: it.qty,
-          unit_price: it.rate,
-          discount_amount: it.discAmt,
-          tax_percentage: it.gstPercentage,
-          tax_amount: it.taxAmount,
-          total_price: it.total
-        }))
-      };
-
-      const response = await apiFetchV1("/sales/invoices/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      setLastCompletedInvoice({
-        ...payload,
-        id: response?.id || headerState.billNo,
-        date: headerState.billDate
-      });
-
-      if (onNotification) {
-        onNotification("Invoice Saved", `Invoice ${headerState.billNo} saved successfully. Total: ₹${summaryTotals.netAmount}`, "success");
-      }
-
-      setShowPrintModal(true);
-      if (onRefreshData) onRefreshData();
-      handleNewBill();
-    } catch (err: any) {
-      if (onNotification) {
-        onNotification("Save Error", err.message || "Failed to persist invoice to server.", "error");
-      }
-    } finally {
-      setIsSaving(false);
-    }
+    const suspended = {
+      id: "HOLD-" + Date.now(),
+      header: { ...headerState },
+      items: [...items],
+      date: new Date().toLocaleTimeString(),
+      netAmount: summaryTotals.netAmount
+    };
+    setSuspendedBills(prev => [suspended, ...prev]);
+    setItems([]);
+    setHeaderState(prev => ({
+      ...prev,
+      docNo: String(parseInt(prev.docNo) + 1 || 2),
+      customer: null
+    }));
+    setCustomerSearchInput("");
+    onNotification?.("Invoice Suspended", `Bill ${suspended.header.docPrefix}-${suspended.header.docNo} held in queue.`, "success");
   };
 
-  // Keyboard shortcut handler
-  useEffect(() => {
-    const handleGlobalKeys = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === "n" || e.key === "N")) {
-        e.preventDefault();
-        handleNewBill();
-      } else if (e.altKey && (e.key === "v" || e.key === "V")) {
-        e.preventDefault();
-        handleVoidBill();
-      } else if (e.altKey && (e.key === "r" || e.key === "R")) {
-        e.preventDefault();
-        handleToggleReturn();
-      } else if (e.altKey && (e.key === "p" || e.key === "P")) {
-        e.preventDefault();
-        if (lastCompletedInvoice) setShowPrintModal(true);
-      } else if (e.altKey && (e.key === "s" || e.key === "S")) {
-        e.preventDefault();
-        setShowProductSearchModal(true);
-      } else if (e.altKey && (e.key === "d" || e.key === "D")) {
-        e.preventDefault();
-        setShowItemBrowseModal(true);
-      } else if (e.altKey && (e.key === "i" || e.key === "I")) {
-        e.preventDefault();
-        setShowPdtImportModal(true);
-      } else if (e.key === "F4") {
-        e.preventDefault();
-        handleSaveInvoice();
-      }
+  // Recall Suspended Invoice
+  const handleRecallInvoice = (suspended: any) => {
+    setHeaderState(suspended.header);
+    setItems(suspended.items);
+    if (suspended.header.customer) {
+      setCustomerSearchInput(suspended.header.customer.name);
+    }
+    setSuspendedBills(prev => prev.filter(b => b.id !== suspended.id));
+    setShowRecallModal(false);
+    onNotification?.("Invoice Recalled", `Restored bill ${suspended.header.docPrefix}-${suspended.header.docNo}`, "success");
+  };
+
+  // Handle PDT Import Items
+  const handleImportPdtItems = (imported: { product: Product; qty: number; rate?: number }[]) => {
+    const newLines: BillingLineItem[] = imported.map((imp, idx) => {
+      const rate = imp.rate ?? Number(imp.product.sellingPrice || imp.product.mrp || 0);
+      const qty = imp.qty;
+      const value = rate * qty;
+      return {
+        id: "pdt-item-" + Date.now() + "-" + idx,
+        sNo: items.length + idx + 1,
+        stockNo: imp.product.code || "SKU-PDT",
+        barcode: imp.product.barcode || imp.product.code,
+        itemDescription: imp.product.name,
+        rate,
+        qty,
+        value,
+        discCode: "",
+        discQty: 0,
+        discPercent: 0,
+        discAmt: 0,
+        total: value,
+        salesStaff: headerState.salesStaff,
+        productId: imp.product.id,
+        gstPercentage: imp.product.gstPercentage || 18,
+        taxAmount: (value * (imp.product.gstPercentage || 18)) / 100
+      };
+    });
+
+    setItems(prev => [...prev, ...newLines]);
+    onNotification?.("PDT Imported", `Imported ${newLines.length} items from PDT file.`, "success");
+  };
+
+  // Handle Settlement Completion
+  const handleCompleteSettlement = (payments: SettlementPaymentRow[], totalTendered: number, changeDue: number) => {
+    const completedInvoice = {
+      invoiceNumber: `${headerState.docPrefix}-${headerState.docNo}`,
+      date: headerState.billDate,
+      customerName: headerState.customer?.name || "Counter Cash Sale",
+      customerGstin: headerState.customer?.gstNumber || "",
+      items: items.map(it => ({
+        sku: it.stockNo,
+        description: it.itemDescription,
+        quantity: it.qty,
+        rate: it.rate,
+        discount: it.discAmt,
+        tax: it.taxAmount || 0,
+        amount: it.total
+      })),
+      subtotal: summaryTotals.salesValue,
+      discount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
+      tax: summaryTotals.totalTax,
+      total: summaryTotals.netAmount,
+      totalTendered,
+      changeDue,
+      paymentMode: payments.map(p => p.mode).join(", ")
     };
 
-    window.addEventListener("keydown", handleGlobalKeys);
-    return () => window.removeEventListener("keydown", handleGlobalKeys);
-  }, [items, selectedRowIndex, summaryTotals, lastCompletedInvoice]);
+    setLastCompletedInvoice(completedInvoice);
+    setShowSettlementModal(false);
+    setShowPrintModal(true);
+
+    // Reset for next invoice
+    setItems([]);
+    setHeaderState(prev => ({
+      ...prev,
+      docNo: String(parseInt(prev.docNo) + 1 || 2),
+      customer: null,
+      remarks: ""
+    }));
+    setCustomerSearchInput("");
+    onNotification?.("Settlement Complete", `Invoice ${completedInvoice.invoiceNumber} recorded successfully.`, "success");
+  };
+
+  // Add Quick Customer
+  const handleCreateCustomer = () => {
+    if (!newCustName) return;
+    const newCust: Customer = {
+      id: "CUST-" + Date.now(),
+      name: newCustName,
+      mobile: newCustMobile,
+      gstNumber: newCustGstin,
+      status: "Active"
+    };
+    setCustomers(prev => [...prev, newCust]);
+    setHeaderState(prev => ({ ...prev, customer: newCust }));
+    setCustomerSearchInput(newCust.name);
+    setShowAddCustomerModal(false);
+    setNewCustName("");
+    setNewCustMobile("");
+    setNewCustGstin("");
+    onNotification?.("Customer Added", `Customer ${newCust.name} selected.`, "success");
+  };
+
+  const filteredCustomers = customers.filter(c => 
+    c.name.toLowerCase().includes(customerSearchInput.toLowerCase()) ||
+    (c.mobile && c.mobile.includes(customerSearchInput))
+  );
 
   return (
-    <div className="bg-[#faf9ff] text-[#1a1b20] h-full flex flex-col font-sans overflow-hidden select-none">
-      {/* Top Navigation & Action Header */}
-      <header className="bg-white text-[#00296d] w-full top-0 z-20 border-b border-[#c4c6d4] flex justify-between items-center h-14 px-4 shrink-0 shadow-sm">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[24px] text-[#00296d]">point_of_sale</span>
-            <span className="font-bold text-base tracking-wide text-[#00296d]">Smriti Billing</span>
-            <span className="text-[10px] bg-[#e9edff] text-[#00296d] px-2 py-0.5 rounded font-mono font-bold uppercase">
-              Terminal SM-492
-            </span>
-          </div>
-
-          {/* Action Buttons */}
-          <nav className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={handleNewBill}
-              className="flex flex-col items-center justify-center w-14 h-11 rounded hover:bg-[#e8e7ed] transition-colors text-[#00296d] font-bold border-b-2 border-[#00296d] pb-0.5 group"
-              title="New Bill (Alt+N)"
-            >
-              <span className="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">add_box</span>
-              <span className="text-[9px] uppercase font-bold tracking-wider">New</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleVoidBill}
-              className="flex flex-col items-center justify-center w-14 h-11 rounded hover:bg-[#e8e7ed] transition-colors text-[#434652] group"
-              title="Void Bill (Alt+V)"
-            >
-              <span className="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform text-[#ba1a1a]">cancel</span>
-              <span className="text-[9px] uppercase font-bold tracking-wider">Void</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleToggleReturn}
-              className="flex flex-col items-center justify-center w-14 h-11 rounded hover:bg-[#e8e7ed] transition-colors text-[#434652] group"
-              title="Sales Return (Alt+R)"
-            >
-              <span className="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">keyboard_return</span>
-              <span className="text-[9px] uppercase font-bold tracking-wider">Return</span>
-            </button>
-
-            <div className="w-[1px] h-6 bg-[#c4c6d4] mx-1"></div>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (lastCompletedInvoice) setShowPrintModal(true);
-                else if (onNotification) onNotification("No Recent Bill", "Complete a bill first to reprint.", "error");
-              }}
-              className="flex flex-col items-center justify-center w-14 h-11 rounded hover:bg-[#e8e7ed] transition-colors text-[#434652] group"
-              title="Reprint Last Bill (Alt+P)"
-            >
-              <span className="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">print</span>
-              <span className="text-[9px] uppercase font-bold tracking-wider">Reprint</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowProductSearchModal(true)}
-              className="flex flex-col items-center justify-center w-16 h-11 rounded hover:bg-[#e8e7ed] transition-colors text-[#00296d] group"
-              title="Search Product Catalog (Alt+S)"
-            >
-              <span className="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">search</span>
-              <span className="text-[9px] uppercase font-bold tracking-wider">Search</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowItemBrowseModal(true)}
-              className="flex flex-col items-center justify-center w-16 h-11 rounded hover:bg-[#e8e7ed] transition-colors text-[#00296d] group"
-              title="Browse Attributes (Alt+D)"
-            >
-              <span className="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">filter_list</span>
-              <span className="text-[9px] uppercase font-bold tracking-wider">Browse</span>
-            </button>
-          </nav>
+    <div className="h-full flex flex-col bg-surface text-on-surface font-sans select-none overflow-hidden">
+      
+      {/* Top Application Bar */}
+      <header className="bg-surface text-primary font-headline-md w-full sticky top-0 z-30 border-b border-outline-variant flex justify-between items-center px-margin-page py-2 h-14 shrink-0 shadow-xs">
+        <div className="flex items-center gap-4">
+          <span className="font-headline-md text-base font-bold text-primary flex items-center gap-2">
+            <Receipt size={20} className="text-secondary" />
+            <span>smritiSystems Invoicing Terminal</span>
+          </span>
+          <span className="font-code-md text-xs bg-secondary-fixed text-on-secondary-fixed px-2.5 py-0.5 rounded-full font-bold">
+            Distributor Terminal
+          </span>
         </div>
 
-        {/* Right Info Header */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 text-xs text-[#434652]">
-            <span className="font-mono">{headerState.billDate} {new Date().toLocaleTimeString()}</span>
-            <div className="flex items-center gap-1 font-bold text-[#00296d]">
-              <span className="material-symbols-outlined text-[16px]">receipt_long</span>
-              <span>{headerState.billNo}</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowPdtImportModal(true)}
+            className="h-8 px-3 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded font-title-sm text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-2xs"
+            title="Import from PDT / File (Ctrl+I)"
+          >
+            <Download size={14} className="text-secondary" />
+            <span>Import</span>
+          </button>
 
           <button
             type="button"
-            onClick={handleSaveInvoice}
-            disabled={items.length === 0 || isSaving}
-            className="bg-[#00296d] hover:bg-[#003d9b] disabled:opacity-40 text-white px-4 py-1.5 rounded font-bold text-xs uppercase flex items-center gap-1.5 shadow-sm transition-colors"
+            onClick={() => setShowRecallModal(true)}
+            className="h-8 px-3 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded font-title-sm text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-2xs"
+            title="Recall Held Invoice (Ctrl+R)"
           >
-            <span className="material-symbols-outlined text-[16px]">payments</span>
-            {isSaving ? "Saving..." : "Checkout (F4)"}
+            <History size={14} className="text-secondary" />
+            <span>Recall ({suspendedBills.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (items.length > 0) setShowSettlementModal(true);
+              else alert("Add items before settlement.");
+            }}
+            className="h-8 px-4 bg-primary hover:bg-primary-container text-on-primary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
+          >
+            <CreditCard size={14} />
+            <span>Settlement (F8)</span>
           </button>
         </div>
       </header>
 
-      {/* Main Terminal Body */}
-      <main className="flex-1 flex flex-col h-full bg-[#f4f3f9] overflow-hidden">
-        {/* Top Input / Context Controls Section */}
-        <section className="bg-white p-2.5 border-b border-[#c4c6d4] shrink-0 flex flex-col gap-2 shadow-xs">
-          {/* Row 1: Bill Type, Payment Mode, Counters, Import, Recall */}
-          <div className="flex flex-wrap items-center gap-4 justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-bold text-[#434652]">Bill Type</label>
-                <select
-                  value={headerState.billType}
-                  onChange={(e) => setHeaderState({ ...headerState, billType: e.target.value as BillType })}
-                  className="border border-[#737685] rounded bg-white px-2 py-1 text-xs font-semibold focus:border-[#00296d] focus:ring-1 focus:ring-[#00296d] h-7"
-                >
-                  <option value="Product">Product</option>
-                  <option value="Service">Service</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-bold text-[#434652]">Pay Mode</label>
-                <select
-                  value={headerState.paymentMode}
-                  onChange={(e) => setHeaderState({ ...headerState, paymentMode: e.target.value as PaymentMode })}
-                  className="border border-[#737685] rounded bg-white px-2 py-1 text-xs text-[#00296d] font-bold focus:border-[#00296d] focus:ring-1 focus:ring-[#00296d] h-7"
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Credit">Credit</option>
-                  <option value="UPI">UPI</option>
-                  <option value="Card">Card</option>
-                  <option value="Split">Split</option>
-                </select>
-              </div>
+      {/* Main Invoicing Canvas */}
+      <div className="flex-1 flex flex-col p-stack-gap gap-stack-gap overflow-y-auto max-w-container-max-width mx-auto w-full">
+        
+        {/* HEADER SECTION */}
+        <section className="bg-surface-container-lowest border border-outline-variant rounded p-3.5 flex flex-col gap-stack-gap shadow-xs">
+          
+          {/* Row 1: Bill Type, Transaction, Doc Prefix, Doc No, Action Buttons */}
+          <div className="flex flex-wrap items-end gap-gutter">
+            <div className="flex flex-col gap-unit w-44">
+              <label className="font-label-caps text-[11px] text-on-surface-variant font-bold uppercase">Bill Type</label>
+              <select
+                value={headerState.billType}
+                onChange={e => setHeaderState({ ...headerState, billType: e.target.value as BillType })}
+                className="border border-outline-variant text-body-sm text-xs focus:border-secondary focus:ring-1 focus:ring-secondary rounded h-8 bg-surface px-2 font-medium"
+              >
+                <option value="Product">Product</option>
+                <option value="Service">Service</option>
+              </select>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-unit w-44">
+              <label className="font-label-caps text-[11px] text-on-surface-variant font-bold uppercase">Transaction</label>
+              <select
+                value={headerState.transaction}
+                onChange={e => setHeaderState({ ...headerState, transaction: e.target.value as TransactionType })}
+                className="border border-outline-variant text-body-sm text-xs focus:border-secondary focus:ring-1 focus:ring-secondary rounded h-8 bg-surface px-2 font-medium"
+              >
+                <option value="Credit">Credit</option>
+                <option value="Cash">Cash</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-unit w-32">
+              <label className="font-label-caps text-[11px] text-on-surface-variant font-bold uppercase">Doc Prefix</label>
               <input
                 type="text"
-                readOnly
-                value={headerState.counterPcs}
-                className="border border-[#c4c6d4] rounded bg-[#e8e7ed] px-2 py-1 text-xs font-mono font-bold text-center w-20 h-7"
+                value={headerState.docPrefix}
+                onChange={e => setHeaderState({ ...headerState, docPrefix: e.target.value })}
+                className="bg-surface-container-low border border-outline-variant text-body-sm font-code-md text-xs font-bold text-on-surface-variant rounded h-8 px-2"
               />
+            </div>
+
+            <div className="flex flex-col gap-unit w-28">
+              <label className="font-label-caps text-[11px] text-on-surface-variant font-bold uppercase">Doc No.</label>
               <input
                 type="text"
-                readOnly
-                value={headerState.counterBatch}
-                className="border border-[#c4c6d4] rounded bg-[#e8e7ed] px-2 py-1 text-xs font-mono font-bold text-center w-16 h-7"
+                value={headerState.docNo}
+                onChange={e => setHeaderState({ ...headerState, docNo: e.target.value })}
+                className="bg-surface-container-low border border-outline-variant text-body-sm font-code-md text-xs font-bold text-on-surface-variant rounded h-8 px-2"
               />
+            </div>
+
+            <div className="flex gap-2 ml-auto">
               <button
                 type="button"
                 onClick={() => setShowPdtImportModal(true)}
-                className="bg-[#e9edff] border border-[#00296d] text-[#00296d] text-[10px] font-bold uppercase px-3 py-1 rounded hover:bg-[#cdddff] transition-colors flex items-center gap-1 h-7"
+                className="h-8 px-3 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded font-title-sm text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-2xs"
               >
-                <span className="material-symbols-outlined text-[14px]">cloud_upload</span>
-                Import PDT
+                <Download size={13} className="text-secondary" />
+                <span>Import</span>
               </button>
+
               <button
                 type="button"
-                onClick={() => {
-                  if (onNotification) onNotification("Recall Bills", "No suspended bills in local queue.", "success");
-                }}
-                className="bg-[#faf9ff] border border-[#737685] text-[#434652] text-[10px] font-bold uppercase px-3 py-1 rounded hover:bg-[#e8e7ed] transition-colors h-7"
+                onClick={() => setShowRecallModal(true)}
+                className="h-8 px-3 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded font-title-sm text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-2xs"
               >
-                Recall
+                <History size={13} className="text-secondary" />
+                <span>Recall</span>
               </button>
             </div>
           </div>
 
-          {/* Row 2: Customer Selector & Sales Staff */}
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Customer Search & Select */}
-            <div className="flex items-center gap-2 flex-1 max-w-lg">
-              <label className="text-xs font-bold text-[#434652] w-16">Customer</label>
-              <div className="flex flex-1 items-center">
+          {/* Row 2: Customer F2 search, Display, Add button, Sales Staff */}
+          <div className="flex flex-wrap items-end gap-gutter">
+            
+            {/* Customer Search & Quick Add */}
+            <div className="flex flex-col gap-unit flex-1 relative">
+              <label className="font-label-caps text-[11px] text-on-surface-variant font-bold uppercase">
+                Customer <span className="text-error">*</span>
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    ref={customerInputRef}
+                    type="text"
+                    value={customerSearchInput}
+                    onChange={e => {
+                      setCustomerSearchInput(e.target.value);
+                      setShowCustomerDropdown(true);
+                    }}
+                    onFocus={() => setShowCustomerDropdown(true)}
+                    placeholder="Search customer (F2)"
+                    className="w-full border border-outline-variant text-body-sm text-xs focus:border-secondary focus:ring-1 focus:ring-secondary rounded h-8 pl-8 pr-2 bg-surface font-medium"
+                  />
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                  
+                  {/* Customer Autocomplete Dropdown */}
+                  {showCustomerDropdown && filteredCustomers.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-surface-container-lowest border border-outline-variant rounded-md shadow-xl z-40 max-h-48 overflow-y-auto">
+                      {filteredCustomers.map(c => (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setHeaderState({ ...headerState, customer: c });
+                            setCustomerSearchInput(c.name);
+                            setShowCustomerDropdown(false);
+                          }}
+                          className="px-3 py-2 hover:bg-secondary-fixed/50 cursor-pointer border-b border-outline-variant/30 text-xs flex justify-between items-center"
+                        >
+                          <div>
+                            <p className="font-bold text-primary">{c.name}</p>
+                            <p className="text-[10px] text-on-surface-variant font-code-md">{c.mobile || "No Mobile"} • {c.id}</p>
+                          </div>
+                          {c.gstNumber && (
+                            <span className="font-code-md text-[10px] bg-surface-container-high px-1.5 py-0.5 rounded">
+                              {c.gstNumber}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <input
                   type="text"
-                  placeholder="Search customer by name or phone..."
-                  value={headerState.customer ? `${headerState.customer.name} (${headerState.customer.phone})` : customerSearchQuery}
-                  onChange={(e) => {
-                    setHeaderState({ ...headerState, customer: null });
-                    setCustomerSearchQuery(e.target.value);
-                  }}
-                  data-context-type="customer"
-                  aria-label="Customer Search Input"
-                  name="customer_search"
-                  className="border border-[#737685] rounded-l bg-white px-2 py-1 text-xs focus:border-[#00296d] focus:ring-1 focus:ring-[#00296d] flex-1 h-7 outline-none font-medium"
+                  value={headerState.customer?.name || "No Customer Selected"}
+                  readOnly
+                  placeholder="Customer Name Display"
+                  className="flex-1 bg-surface-container-low border border-outline-variant text-body-sm text-xs font-semibold text-primary rounded h-8 px-2.5 truncate"
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowAddCustomerModal(true)}
-                  className="bg-[#e8e7ed] border-y border-r border-[#737685] text-[#1a1b20] px-3 h-7 rounded-r hover:bg-[#c4c6d4] text-xs font-bold transition-colors"
+                  className="h-8 px-3.5 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded font-title-sm text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
                 >
-                  + Add
+                  <UserPlus size={13} className="text-secondary" />
+                  <span>Add</span>
                 </button>
               </div>
             </div>
 
             {/* Sales Staff */}
-            <div className="flex items-center gap-2 flex-1 max-w-xs">
-              <label className="text-xs font-bold text-[#434652] w-20">Sales Staff</label>
+            <div className="flex flex-col gap-unit w-64">
+              <label className="font-label-caps text-[11px] text-on-surface-variant font-bold uppercase">Sales Staff</label>
               <select
                 value={headerState.salesStaff}
-                onChange={(e) => setHeaderState({ ...headerState, salesStaff: e.target.value })}
-                className="border border-[#737685] rounded bg-white px-2 py-1 text-xs focus:border-[#00296d] focus:ring-1 focus:ring-[#00296d] flex-1 h-7 font-medium"
+                onChange={e => setHeaderState({ ...headerState, salesStaff: e.target.value })}
+                className="border border-outline-variant text-body-sm text-xs focus:border-secondary focus:ring-1 focus:ring-secondary rounded h-8 bg-surface px-2 font-medium"
               >
-                <option value="Staff A">Staff A (Main Counter)</option>
-                <option value="Staff B">Staff B (Floor Executive)</option>
-                <option value="Cashier">Cashier</option>
-                {currentUser?.name && <option value={currentUser.name}>{currentUser.name}</option>}
+                <option value="EMP001 - John Doe">EMP001 - John Doe</option>
+                <option value="EMP002 - Jane Smith">EMP002 - Jane Smith</option>
+                <option value="EMP003 - Rahul Sharma">EMP003 - Rahul Sharma</option>
               </select>
             </div>
+
           </div>
+
         </section>
 
-        {/* Middle Split Pane: Tactical Item Grid + Right Summary Panel */}
-        <section className="flex-1 flex overflow-hidden">
-          {/* Left/Main: Grid */}
-          <div className="flex-1 flex flex-col bg-white overflow-hidden border-r border-[#c4c6d4]">
-            {/* Table Header */}
-            <div className="bg-[#e8e7ed] border-b border-[#c4c6d4] flex text-[10px] font-bold uppercase tracking-wider text-[#434652] sticky top-0 shrink-0 select-none">
-              <div className="w-10 px-1 py-1.5 border-r border-[#c4c6d4] text-center shrink-0">S No.</div>
-              <div className="w-24 px-2 py-1.5 border-r border-[#c4c6d4] shrink-0">Stock No</div>
-              <div className="flex-1 px-2 py-1.5 border-r border-[#c4c6d4] min-w-[140px]">Item Description</div>
-              <div className="w-20 px-2 py-1.5 border-r border-[#c4c6d4] text-right shrink-0">Rate</div>
-              <div className="w-16 px-2 py-1.5 border-r border-[#c4c6d4] text-right shrink-0">Qty</div>
-              <div className="w-24 px-2 py-1.5 border-r border-[#c4c6d4] text-right shrink-0">Value</div>
-              <div className="w-16 px-1 py-1.5 border-r border-[#c4c6d4] shrink-0 text-center">Disc Code</div>
-              <div className="w-16 px-1 py-1.5 border-r border-[#c4c6d4] text-right shrink-0">Disc Qty</div>
-              <div className="w-14 px-1 py-1.5 border-r border-[#c4c6d4] text-right shrink-0">Disc. %</div>
-              <div className="w-20 px-2 py-1.5 border-r border-[#c4c6d4] text-right shrink-0">Disc.Amt</div>
-              <div className="w-24 px-2 py-1.5 border-r border-[#c4c6d4] text-right shrink-0 font-bold">Total</div>
-              <div className="w-20 px-2 py-1.5 shrink-0">SalesStaff</div>
-            </div>
+        {/* DETAIL SECTION (MAIN WORKSPACE) */}
+        <section className="flex-1 bg-surface-container-lowest border border-outline-variant rounded flex flex-col overflow-hidden min-h-[300px] shadow-xs">
+          
+          {/* Direct Entry Row (F11) */}
+          <div className="bg-surface-container-low border-b border-outline-variant p-2 flex gap-2 items-center shrink-0">
+            <span className="font-label-caps text-[11px] text-on-surface-variant bg-surface-variant px-2 py-1 rounded w-10 text-center font-bold">
+              F11
+            </span>
 
-            {/* Table Body (Scrollable) */}
-            <div ref={gridContainerRef} className="flex-1 overflow-y-auto custom-scrollbar bg-white">
-              {items.map((item, idx) => {
-                const isSelected = idx === selectedRowIndex;
-                return (
-                  <div
+            <div className="flex-1 grid grid-cols-[100px_1fr_80px_80px_100px_80px_80px_80px_100px_120px_120px_40px] gap-2">
+              <input
+                ref={directStockNoRef}
+                type="text"
+                value={directEntry.stockNo}
+                onChange={e => handleStockNoChange(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") handleCommitDirectEntry();
+                  if (e.key === "F2") setShowProductSearchModal(true);
+                }}
+                placeholder="Stock No"
+                className="border border-outline-variant h-8 text-xs font-code-md rounded px-2 bg-surface font-bold focus:border-secondary outline-none"
+              />
+
+              <input
+                type="text"
+                value={directEntry.itemDescription}
+                onChange={e => setDirectEntry({ ...directEntry, itemDescription: e.target.value })}
+                onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
+                placeholder="Item Description"
+                className="border border-outline-variant h-8 text-xs rounded px-2 bg-surface font-medium focus:border-secondary outline-none"
+              />
+
+              <input
+                type="number"
+                step="0.01"
+                value={directEntry.rate}
+                onChange={e => setDirectEntry({ ...directEntry, rate: e.target.value })}
+                onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
+                placeholder="Rate"
+                className="border border-outline-variant h-8 text-xs font-code-md rounded px-2 text-right bg-surface font-bold focus:border-secondary outline-none"
+              />
+
+              <input
+                type="number"
+                min="1"
+                value={directEntry.qty}
+                onChange={e => setDirectEntry({ ...directEntry, qty: e.target.value })}
+                onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
+                placeholder="Qty"
+                className="border border-outline-variant h-8 text-xs font-code-md rounded px-2 text-right bg-surface font-bold focus:border-secondary outline-none"
+              />
+
+              <input
+                type="text"
+                value={directGrossValue > 0 ? directGrossValue.toFixed(2) : ""}
+                readOnly
+                placeholder="Value"
+                className="bg-surface-variant border border-outline-variant h-8 text-xs font-code-md rounded px-2 text-right font-bold text-on-surface"
+              />
+
+              <input
+                type="text"
+                value={directEntry.discCode}
+                onChange={e => setDirectEntry({ ...directEntry, discCode: e.target.value })}
+                placeholder="Disc Code"
+                className="border border-outline-variant h-8 text-xs font-code-md rounded px-2 bg-surface focus:border-secondary outline-none"
+              />
+
+              <input
+                type="number"
+                value={directEntry.discQty}
+                onChange={e => setDirectEntry({ ...directEntry, discQty: e.target.value })}
+                placeholder="Disc Qty"
+                className="border border-outline-variant h-8 text-xs font-code-md rounded px-2 text-right bg-surface focus:border-secondary outline-none"
+              />
+
+              <input
+                type="number"
+                value={directEntry.discPercent}
+                onChange={e => setDirectEntry({ ...directEntry, discPercent: e.target.value })}
+                placeholder="Disc %"
+                className="border border-outline-variant h-8 text-xs font-code-md rounded px-2 text-right bg-surface focus:border-secondary outline-none"
+              />
+
+              <input
+                type="text"
+                value={directDiscAmt > 0 ? directDiscAmt.toFixed(2) : ""}
+                readOnly
+                placeholder="Disc Amt"
+                className="bg-surface-variant border border-outline-variant h-8 text-xs font-code-md rounded px-2 text-right font-bold text-on-surface"
+              />
+
+              <input
+                type="text"
+                value={directLineTotal > 0 ? directLineTotal.toFixed(2) : ""}
+                readOnly
+                placeholder="Total"
+                className="bg-surface-variant border border-outline-variant h-8 text-xs font-code-md rounded px-2 text-right font-bold text-primary"
+              />
+
+              <select
+                value={directEntry.staff}
+                onChange={e => setDirectEntry({ ...directEntry, staff: e.target.value })}
+                className="border border-outline-variant h-8 text-xs rounded px-1 bg-surface"
+              >
+                <option value="Staff A">Staff A</option>
+                <option value="Staff B">Staff B</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={handleCommitDirectEntry}
+                className="h-8 bg-primary hover:bg-primary-container text-on-primary rounded flex items-center justify-center shadow-2xs"
+                title="Add Item (Enter)"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Main Line Items Table */}
+          <div className="flex-1 overflow-x-auto overflow-y-auto">
+            <table className="w-full text-left border-collapse min-w-[1100px]">
+              <thead className="bg-surface-container-high sticky top-0 z-10 border-b border-outline-variant font-label-caps text-[11px] text-on-surface-variant font-bold">
+                <tr>
+                  <th className="px-3 py-2 w-12 border-r border-outline-variant text-center">S.No</th>
+                  <th className="px-3 py-2 w-28 border-r border-outline-variant">Stock No</th>
+                  <th className="px-3 py-2 border-r border-outline-variant">Item Description</th>
+                  <th className="px-3 py-2 w-24 text-right border-r border-outline-variant">Rate</th>
+                  <th className="px-3 py-2 w-20 text-right border-r border-outline-variant">Qty</th>
+                  <th className="px-3 py-2 w-24 text-right border-r border-outline-variant">Value</th>
+                  <th className="px-3 py-2 w-24 border-r border-outline-variant">Disc Code</th>
+                  <th className="px-3 py-2 w-20 text-right border-r border-outline-variant">Disc Qty</th>
+                  <th className="px-3 py-2 w-20 text-right border-r border-outline-variant">Disc %</th>
+                  <th className="px-3 py-2 w-24 text-right border-r border-outline-variant">Disc Amt</th>
+                  <th className="px-3 py-2 w-28 text-right border-r border-outline-variant">Total</th>
+                  <th className="px-3 py-2 w-28 border-r border-outline-variant">Staff</th>
+                  <th className="px-2 py-2 w-10 text-center"></th>
+                </tr>
+              </thead>
+              <tbody className="font-body-sm text-xs divide-y divide-outline-variant/40">
+                {items.map((item, idx) => (
+                  <tr
                     key={item.id}
-                    onClick={() => {
-                      setSelectedRowIndex(idx);
-                      setActiveMirrorItem(item);
-                    }}
-                    className={`flex border-b border-[#e2e2e8] text-xs h-7 items-center cursor-pointer transition-colors ${
-                      isSelected
-                        ? "bg-[#cdddff] text-[#00296d] font-semibold border-l-4 border-l-[#00296d]"
-                        : "hover:bg-[#f4f3f9] text-[#1a1b20]"
+                    onClick={() => setSelectedRowIndex(idx)}
+                    className={`transition-colors ${
+                      selectedRowIndex === idx
+                        ? "bg-secondary-fixed/40 font-semibold"
+                        : "hover:bg-surface-container-low"
                     }`}
                   >
-                    <div className="w-10 px-1 text-center shrink-0 text-[#737685] font-mono">{idx + 1}</div>
-                    <div className="w-24 px-2 border-l border-[#c4c6d4]/50 shrink-0 font-mono font-bold truncate">{item.stockNo}</div>
-                    <div className="flex-1 px-2 border-l border-[#c4c6d4]/50 min-w-[140px] truncate font-medium">{item.itemDescription}</div>
-                    <div className="w-20 px-2 border-l border-[#c4c6d4]/50 text-right shrink-0 font-mono">{item.rate.toFixed(2)}</div>
-                    <div className="w-16 px-1 border-l border-[#c4c6d4]/50 text-right shrink-0 font-mono">
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.qty}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value) || 1;
-                          const updated = calculateLineItem(item, item.rate, val, item.discPercent, item.discAmt, item.gstPercentage);
-                          const copy = [...items];
-                          copy[idx] = updated;
-                          setItems(copy);
-                          setActiveMirrorItem(updated);
+                    <td className="px-3 py-2 text-center border-r border-outline-variant bg-surface-container-low font-code-md">
+                      {item.sNo}
+                    </td>
+                    <td className="px-3 py-2 border-r border-outline-variant font-code-md font-bold text-primary">
+                      {item.stockNo}
+                    </td>
+                    <td className="px-3 py-2 border-r border-outline-variant truncate max-w-xs font-medium">
+                      {item.itemDescription}
+                    </td>
+                    <td className="px-3 py-2 text-right border-r border-outline-variant font-code-md">
+                      {Number(item.rate).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 text-right border-r border-outline-variant font-code-md font-bold">
+                      {item.qty}
+                    </td>
+                    <td className="px-3 py-2 text-right border-r border-outline-variant font-code-md">
+                      {Number(item.value).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 border-r border-outline-variant font-code-md text-on-surface-variant">
+                      {item.discCode || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-right border-r border-outline-variant font-code-md">
+                      {item.discQty || "0"}
+                    </td>
+                    <td className="px-3 py-2 text-right border-r border-outline-variant font-code-md">
+                      {item.discPercent ? `${item.discPercent}%` : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-right border-r border-outline-variant font-code-md">
+                      {item.discAmt > 0 ? item.discAmt.toFixed(2) : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-right border-r border-outline-variant font-code-md font-bold text-primary">
+                      {Number(item.total).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 border-r border-outline-variant truncate max-w-[100px] text-on-surface-variant">
+                      {item.salesStaff}
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleRemoveItem(item.id);
                         }}
-                        className="w-full text-right bg-transparent border-none p-0 focus:ring-0 font-mono font-bold"
-                      />
-                    </div>
-                    <div className="w-24 px-2 border-l border-[#c4c6d4]/50 text-right shrink-0 font-mono">{item.value.toFixed(2)}</div>
-                    <div className="w-16 px-1 border-l border-[#c4c6d4]/50 text-center shrink-0 font-mono text-[10px]">{item.discCode || "-"}</div>
-                    <div className="w-16 px-1 border-l border-[#c4c6d4]/50 text-right shrink-0 font-mono">{item.discQty}</div>
-                    <div className="w-14 px-1 border-l border-[#c4c6d4]/50 text-right shrink-0 font-mono">{item.discPercent}%</div>
-                    <div className="w-20 px-2 border-l border-[#c4c6d4]/50 text-right shrink-0 font-mono text-amber-800">{item.discAmt.toFixed(2)}</div>
-                    <div className="w-24 px-2 border-l border-[#c4c6d4]/50 text-right shrink-0 font-mono font-bold text-[#00296d]">{item.total.toFixed(2)}</div>
-                    <div className="w-20 px-2 border-l border-[#c4c6d4]/50 shrink-0 truncate text-[11px]">{item.salesStaff}</div>
-                  </div>
-                );
-              })}
+                        className="text-on-surface-variant hover:text-error transition-colors p-1"
+                        title="Delete Row"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
 
-              {/* Empty Rows Padding to simulate high-throughput spreadsheet */}
-              {Array.from({ length: Math.max(0, 14 - items.length) }).map((_, i) => (
-                <div key={"empty-" + i} className="flex border-b border-[#e2e2e8]/60 text-xs h-7 items-center bg-white/40">
-                  <div className="w-10 px-1 text-center shrink-0 text-[#c4c6d4] font-mono">{items.length + i + 1}</div>
-                  <div className="w-24 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
-                  <div className="flex-1 border-l border-[#c4c6d4]/30 min-w-[140px] h-full"></div>
-                  <div className="w-20 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
-                  <div className="w-16 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
-                  <div className="w-24 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
-                  <div className="w-16 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
-                  <div className="w-16 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
-                  <div className="w-14 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
-                  <div className="w-20 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
-                  <div className="w-24 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
-                  <div className="w-20 border-l border-[#c4c6d4]/30 shrink-0 h-full"></div>
+                {/* Empty placeholders if rows < 5 */}
+                {Array.from({ length: Math.max(0, 5 - items.length) }).map((_, i) => (
+                  <tr key={"empty-" + i} className="border-b border-outline-variant/30">
+                    <td className="px-3 py-2 text-center border-r border-outline-variant bg-surface-container-low text-on-surface-variant/40 font-code-md">
+                      {items.length + i + 1}
+                    </td>
+                    <td colSpan={12} className="px-3 py-2 text-on-surface-variant/20 italic"></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+
+        {/* FOOTER SECTION */}
+        <section className="flex flex-col gap-stack-gap shrink-0">
+          <div className="flex flex-col lg:flex-row gap-gutter">
+            
+            {/* Left Tabbed Details (Transporter / Payment / AddOns) */}
+            <div className="flex-1 bg-surface-container-lowest border border-outline-variant rounded flex flex-col shadow-xs overflow-hidden">
+              <div className="flex border-b border-outline-variant bg-surface-container-low font-label-caps text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setActiveFooterTab("transporter")}
+                  className={`px-4 py-2 border-r border-outline-variant font-bold transition-colors ${
+                    activeFooterTab === "transporter"
+                      ? "bg-surface-container-lowest text-primary border-t-2 border-t-primary"
+                      : "text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
+                >
+                  Transporter Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveFooterTab("payment")}
+                  className={`px-4 py-2 border-r border-outline-variant font-bold transition-colors ${
+                    activeFooterTab === "payment"
+                      ? "bg-surface-container-lowest text-primary border-t-2 border-t-primary"
+                      : "text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
+                >
+                  Payment Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveFooterTab("addons")}
+                  className={`px-4 py-2 border-r border-outline-variant font-bold transition-colors ${
+                    activeFooterTab === "addons"
+                      ? "bg-surface-container-lowest text-primary border-t-2 border-t-primary"
+                      : "text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
+                >
+                  AddOns And Deductions
+                </button>
+              </div>
+
+              {/* Tab 1: Transporter Details */}
+              {activeFooterTab === "transporter" && (
+                <div className="p-2 overflow-x-auto flex-1 max-h-36">
+                  <table className="w-full text-left border border-outline-variant text-xs">
+                    <thead className="bg-surface-container-high border-b border-outline-variant font-label-caps text-[10px] text-on-surface-variant font-bold">
+                      <tr>
+                        <th className="px-2 py-1 w-10 border-r border-outline-variant">S.No</th>
+                        <th className="px-2 py-1 w-28 border-r border-outline-variant">Type</th>
+                        <th className="px-2 py-1 w-20 border-r border-outline-variant">Code</th>
+                        <th className="px-2 py-1 border-r border-outline-variant">Description</th>
+                        <th className="px-2 py-1 w-24 border-r border-outline-variant">(Fixed/Variable)</th>
+                        <th className="px-2 py-1 w-20 border-r border-outline-variant text-right">Rate/Amt</th>
+                        <th className="px-2 py-1 w-20 border-r border-outline-variant text-right">Rate</th>
+                        <th className="px-2 py-1 w-24 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-code-md text-xs text-on-surface-variant">
+                      {transporterRows.map((t, idx) => (
+                        <tr key={idx} className="border-b border-outline-variant">
+                          <td className="px-2 py-1 border-r border-outline-variant text-center bg-surface-container-low">{t.sNo}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant">
+                            <input
+                              type="text"
+                              value={t.type}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setTransporterRows(prev => prev.map((r, i) => i === idx ? { ...r, type: val } : r));
+                              }}
+                              className="w-full bg-transparent border-none p-0 text-xs font-sans outline-none"
+                            />
+                          </td>
+                          <td className="px-2 py-1 border-r border-outline-variant">{t.code}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant">{t.description}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant">{t.rateType}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant text-right">{t.rateAmt}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant text-right">{t.rate}</td>
+                          <td className="px-2 py-1 text-right font-bold text-primary">
+                            <input
+                              type="number"
+                              value={t.amount || ""}
+                              placeholder="0.00"
+                              onChange={e => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setTransporterRows(prev => prev.map((r, i) => i === idx ? { ...r, amount: val } : r));
+                              }}
+                              className="w-full bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-right font-code-md text-xs font-bold outline-none"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
+              )}
+
+              {/* Tab 2: Payment Details */}
+              {activeFooterTab === "payment" && (
+                <div className="p-3 flex-1 flex flex-col justify-center items-center gap-2 max-h-36 bg-surface-container-low">
+                  <p className="text-xs text-on-surface-variant font-medium">Payment Mode: <strong>{headerState.transaction}</strong></p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (items.length > 0) setShowSettlementModal(true);
+                      else alert("Add items before opening settlement.");
+                    }}
+                    className="bg-primary hover:bg-primary-container text-on-primary px-4 py-1.5 rounded text-xs font-bold transition shadow-2xs"
+                  >
+                    Open Multi-Tender Settlement Studio (F8)
+                  </button>
+                </div>
+              )}
+
+              {/* Tab 3: Addons & Deductions */}
+              {activeFooterTab === "addons" && (
+                <div className="p-2 overflow-x-auto flex-1 max-h-36">
+                  <table className="w-full text-left border border-outline-variant text-xs">
+                    <thead className="bg-surface-container-high border-b border-outline-variant font-label-caps text-[10px] text-on-surface-variant font-bold">
+                      <tr>
+                        <th className="px-2 py-1 w-10 border-r border-outline-variant">S.No</th>
+                        <th className="px-2 py-1 w-24 border-r border-outline-variant">Type</th>
+                        <th className="px-2 py-1 w-20 border-r border-outline-variant">Code</th>
+                        <th className="px-2 py-1 border-r border-outline-variant">Description</th>
+                        <th className="px-2 py-1 w-24 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-code-md text-xs">
+                      {addonRows.map((a, idx) => (
+                        <tr key={idx} className="border-b border-outline-variant">
+                          <td className="px-2 py-1 border-r border-outline-variant text-center bg-surface-container-low">{a.sNo}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant">
+                            <select
+                              value={a.type}
+                              onChange={e => {
+                                const val = e.target.value as "Addon" | "Deduction";
+                                setAddonRows(prev => prev.map((r, i) => i === idx ? { ...r, type: val } : r));
+                              }}
+                              className="bg-transparent border-none text-xs p-0 outline-none"
+                            >
+                              <option value="Addon">Addon (+)</option>
+                              <option value="Deduction">Deduction (-)</option>
+                            </select>
+                          </td>
+                          <td className="px-2 py-1 border-r border-outline-variant">{a.code}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant">{a.description}</td>
+                          <td className="px-2 py-1 text-right font-bold text-primary">
+                            <input
+                              type="number"
+                              value={a.amount || ""}
+                              placeholder="0.00"
+                              onChange={e => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setAddonRows(prev => prev.map((r, i) => i === idx ? { ...r, amount: val } : r));
+                              }}
+                              className="w-full bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-right font-code-md text-xs font-bold outline-none"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Document Remarks Input */}
+              <div className="p-2 border-t border-outline-variant bg-surface-container-low shrink-0">
+                <label className="font-label-caps text-[10px] text-on-surface-variant uppercase font-bold mb-1 block">
+                  Document Remarks
+                </label>
+                <input
+                  type="text"
+                  value={headerState.remarks}
+                  onChange={e => setHeaderState({ ...headerState, remarks: e.target.value })}
+                  placeholder="e.g. Dispatched via Express logistics, Fragile handling requested"
+                  className="w-full border border-outline-variant rounded h-7 text-xs px-2 bg-surface focus:border-secondary outline-none font-medium"
+                />
+              </div>
+            </div>
+
+            {/* Right Totals Grid */}
+            <div className="w-full lg:w-80 bg-surface-container-lowest border border-outline-variant rounded flex flex-col p-3 shadow-xs">
+              <table className="w-full text-left font-body-sm text-xs">
+                <thead className="font-label-caps text-[11px] text-on-surface-variant border-b border-outline-variant uppercase font-bold">
+                  <tr>
+                    <th className="pb-1.5 w-28">Description</th>
+                    <th className="pb-1.5 text-right">Net Values</th>
+                  </tr>
+                </thead>
+                <tbody className="font-code-md text-xs divide-y divide-outline-variant/30">
+                  <tr>
+                    <td className="py-1.5 text-on-surface-variant font-medium">Sales</td>
+                    <td className="py-1.5">
+                      <input
+                        type="text"
+                        value={summaryTotals.salesValue.toFixed(2)}
+                        readOnly
+                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-1.5 text-on-surface-variant font-medium">Discounts</td>
+                    <td className="py-1.5">
+                      <input
+                        type="text"
+                        value={summaryTotals.itemDiscount.toFixed(2)}
+                        readOnly
+                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-1.5 text-on-surface-variant font-medium">Sales Tax</td>
+                    <td className="py-1.5">
+                      <input
+                        type="text"
+                        value={summaryTotals.totalTax.toFixed(2)}
+                        readOnly
+                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-1.5 text-on-surface-variant font-medium">Add-ons</td>
+                    <td className="py-1.5">
+                      <input
+                        type="text"
+                        value={summaryTotals.totalAddons.toFixed(2)}
+                        readOnly
+                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-1.5 text-on-surface-variant font-medium">Deductions</td>
+                    <td className="py-1.5">
+                      <input
+                        type="text"
+                        value={summaryTotals.totalDeductions.toFixed(2)}
+                        readOnly
+                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+
+          {/* Bottom High-Visibility Status Bar */}
+          <div className="bg-primary-container text-on-primary border border-outline-variant rounded flex font-label-caps text-[10px] sm:text-xs overflow-hidden shadow-sm shrink-0">
+            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
+              <span className="opacity-70 uppercase tracking-wider">No. of Items</span>
+              <span className="font-code-md font-bold text-base text-white">{summaryTotals.itemCount}</span>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
+              <span className="opacity-70 uppercase tracking-wider">Total Qty.</span>
+              <span className="font-code-md font-bold text-base text-white">{summaryTotals.totalQty.toFixed(2)}</span>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
+              <span className="opacity-70 uppercase tracking-wider">Sales Value</span>
+              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.salesValue.toFixed(2)}</span>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
+              <span className="opacity-70 uppercase tracking-wider">Item Lvl. Discount</span>
+              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.itemDiscount.toFixed(2)}</span>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
+              <span className="opacity-70 uppercase tracking-wider">Bill Discount</span>
+              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.billDiscount.toFixed(2)}</span>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
+              <span className="opacity-70 uppercase tracking-wider">Total Tax</span>
+              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.totalTax.toFixed(2)}</span>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
+              <span className="opacity-70 uppercase tracking-wider">Total Addons</span>
+              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.totalAddons.toFixed(2)}</span>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
+              <span className="opacity-70 uppercase tracking-wider">Total Deductions</span>
+              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.totalDeductions.toFixed(2)}</span>
+            </div>
+
+            <div className="flex-[1.5] bg-secondary-container text-on-secondary-container flex flex-col justify-center items-end p-2 px-4">
+              <span className="opacity-80 font-bold uppercase tracking-wider">Net Amount</span>
+              <span className="font-code-md font-bold text-2xl text-primary">₹{summaryTotals.netAmount.toFixed(2)}</span>
             </div>
           </div>
 
-          {/* Right: Summary Table */}
-          <div className="w-64 bg-[#f4f3f9] shrink-0 flex flex-col p-3 border-l border-[#c4c6d4]">
-            <div className="bg-white border border-[#c4c6d4] rounded flex flex-col overflow-hidden shadow-sm">
-              <div className="flex border-b border-[#c4c6d4] bg-[#e9edff] text-xs font-bold text-[#00296d]">
-                <div className="flex-1 p-1.5 text-center border-r border-[#c4c6d4]">Description</div>
-                <div className="flex-1 p-1.5 text-center">Net Values</div>
-              </div>
-
-              <div className="flex border-b border-[#e2e2e8] text-xs h-7 items-center bg-white">
-                <div className="flex-1 px-2 py-1 border-r border-[#c4c6d4] font-medium text-[#434652]">Gross Sales</div>
-                <div className="flex-1 px-2 text-right font-mono font-bold">₹{summaryTotals.salesValue.toFixed(2)}</div>
-              </div>
-
-              <div className="flex border-b border-[#e2e2e8] text-xs h-7 items-center bg-white">
-                <div className="flex-1 px-2 py-1 border-r border-[#c4c6d4] font-medium text-[#434652]">Discount</div>
-                <div className="flex-1 px-2 text-right font-mono text-amber-700">-₹{summaryTotals.itemDiscount.toFixed(2)}</div>
-              </div>
-
-              <div className="flex border-b border-[#e2e2e8] text-xs h-7 items-center bg-white">
-                <div className="flex-1 px-2 py-1 border-r border-[#c4c6d4] font-medium text-[#434652]">Total GST</div>
-                <div className="flex-1 px-2 text-right font-mono text-emerald-700">+₹{summaryTotals.totalTax.toFixed(2)}</div>
-              </div>
-
-              <div className="flex border-b border-[#e2e2e8] text-xs h-7 items-center bg-white">
-                <div className="flex-1 px-2 py-1 border-r border-[#c4c6d4] font-medium text-[#434652]">Round Off</div>
-                <div className="flex-1 px-2 text-right font-mono">{summaryTotals.roundOff.toFixed(2)}</div>
-              </div>
-
-              <div className="flex text-xs h-8 items-center bg-[#00296d] text-white font-bold">
-                <div className="flex-1 px-2 py-1 border-r border-white/20 uppercase text-[11px]">Net Payable</div>
-                <div className="flex-1 px-2 text-right font-mono text-sm">₹{summaryTotals.netAmount.toFixed(2)}</div>
-              </div>
-            </div>
-
-            {/* Quick Tender Summary */}
-            <div className="mt-3 bg-white p-2.5 rounded border border-[#c4c6d4] flex flex-col gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-[#434652] tracking-wider">Payment Tender</span>
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-[#00296d]">{headerState.paymentMode}</span>
-                <span className="font-mono font-bold text-sm">₹{summaryTotals.netAmount.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
         </section>
 
-        {/* Secondary Bottom Scanning Bar */}
-        <section className="bg-[#e8e7ed] border-t border-[#c4c6d4] px-3 py-1 flex items-center gap-2 overflow-x-auto shrink-0 shadow-inner">
-          <form onSubmit={handleBarcodeScan} className="flex items-center bg-white border border-[#737685] rounded h-7 shrink-0">
-            <div className="bg-[#dae2ff] px-2 text-[10px] font-bold text-[#00296d] border-r border-[#737685] h-full flex items-center">
-              {selectedRowIndex + 1}
-            </div>
-            <input
-              ref={scannerInputRef}
-              type="text"
-              value={scanInput}
-              onChange={(e) => setScanInput(e.target.value)}
-              placeholder="Scan Barcode... (Press Enter)"
-              data-context-type="product"
-              aria-label="Barcode Scanner Input"
-              name="barcode_scan"
-              className="w-44 h-full bg-transparent border-none focus:ring-0 font-mono text-xs px-2 outline-none font-bold"
-            />
-          </form>
+      </div>
 
-          {/* Active Item Live Mirror */}
-          <div className="flex-1 flex gap-1 items-center">
-            <div className="flex flex-col min-w-[80px]">
-              <span className="text-[8px] uppercase text-[#434652] font-bold px-1">Stock No</span>
-              <div className="bg-white border border-[#c4c6d4] h-5 px-1.5 text-[11px] flex items-center font-mono font-bold text-[#00296d] truncate">
-                {activeMirrorItem.stockNo || "-"}
-              </div>
-            </div>
+      {/* Persistent Bottom Shortcut Footer */}
+      <footer className="bg-surface-container-highest border-t border-outline-variant mt-auto w-full flex justify-between items-center px-margin-page py-1.5 shrink-0 z-30 font-label-caps text-[11px]">
+        <span className="text-on-surface-variant font-medium">
+          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">F7/F8:</strong> Settlement | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
+        </span>
+        <span className="text-primary font-bold">© 2026 smritiSystems</span>
+      </footer>
 
-            <div className="flex flex-col flex-1 min-w-[140px]">
-              <span className="text-[8px] uppercase text-[#434652] font-bold px-1">Item Description</span>
-              <div className="bg-white border border-[#c4c6d4] h-5 px-1.5 text-[11px] flex items-center font-medium truncate">
-                {activeMirrorItem.itemDescription || "Ready for scan..."}
-              </div>
-            </div>
+      {/* MODALS */}
 
-            <div className="flex flex-col min-w-[65px]">
-              <span className="text-[8px] uppercase text-[#434652] font-bold px-1">Rate</span>
-              <div className="bg-white border border-[#c4c6d4] h-5 px-1.5 text-[11px] flex items-center justify-end font-mono">
-                {activeMirrorItem.rate !== undefined ? activeMirrorItem.rate.toFixed(2) : "0.00"}
-              </div>
-            </div>
-
-            <div className="flex flex-col min-w-[45px]">
-              <span className="text-[8px] uppercase text-[#434652] font-bold px-1">Qty</span>
-              <div className="bg-white border border-[#c4c6d4] h-5 px-1.5 text-[11px] flex items-center justify-end font-mono font-bold text-[#00296d]">
-                {activeMirrorItem.qty ?? "0"}
-              </div>
-            </div>
-
-            <div className="flex flex-col min-w-[70px]">
-              <span className="text-[8px] uppercase text-[#434652] font-bold px-1">Value</span>
-              <div className="bg-white border border-[#c4c6d4] h-5 px-1.5 text-[11px] flex items-center justify-end font-mono">
-                {activeMirrorItem.value !== undefined ? activeMirrorItem.value.toFixed(2) : "0.00"}
-              </div>
-            </div>
-
-            <div className="flex flex-col min-w-[60px]">
-              <span className="text-[8px] uppercase text-[#434652] font-bold px-1">Disc.Amt</span>
-              <div className="bg-white border border-[#c4c6d4] h-5 px-1.5 text-[11px] flex items-center justify-end font-mono text-amber-800">
-                {activeMirrorItem.discAmt !== undefined ? activeMirrorItem.discAmt.toFixed(2) : "0.00"}
-              </div>
-            </div>
-
-            <div className="flex flex-col min-w-[75px]">
-              <span className="text-[8px] uppercase text-[#434652] font-bold px-1">Total</span>
-              <div className="bg-white border border-[#c4c6d4] h-5 px-1.5 text-[11px] flex items-center justify-end font-mono font-bold text-[#00296d]">
-                {activeMirrorItem.total !== undefined ? activeMirrorItem.total.toFixed(2) : "0.00"}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Institutional Status / Summary Footer */}
-        <footer className="bg-[#2f3035] text-[#f1f0f6] shrink-0 border-t border-[#737685] flex text-[11px] font-semibold">
-          <div className="flex-1 flex divide-x divide-[#737685]/50 overflow-x-auto">
-            <div className="px-3 py-1.5 flex flex-col justify-center min-w-[75px]">
-              <span className="text-[#c4c6d4] font-normal text-[9px]">No. of Items</span>
-              <span className="font-mono text-xs font-bold text-white">{summaryTotals.itemCount}</span>
-            </div>
-
-            <div className="px-3 py-1.5 flex flex-col justify-center min-w-[75px]">
-              <span className="text-[#c4c6d4] font-normal text-[9px]">Total Qty.</span>
-              <span className="font-mono text-xs font-bold text-white">{summaryTotals.totalQty.toFixed(2)}</span>
-            </div>
-
-            <div className="px-3 py-1.5 flex flex-col justify-center min-w-[90px]">
-              <span className="text-[#c4c6d4] font-normal text-[9px]">Sales Value</span>
-              <span className="font-mono text-xs font-bold text-white">{summaryTotals.salesValue.toFixed(2)}</span>
-            </div>
-
-            <div className="px-3 py-1.5 flex flex-col justify-center min-w-[110px]">
-              <span className="text-[#c4c6d4] font-normal text-[9px]">Item Lvl. Discount</span>
-              <span className="font-mono text-xs text-amber-300 font-bold">{summaryTotals.itemDiscount.toFixed(2)}</span>
-            </div>
-
-            <div className="px-3 py-1.5 flex flex-col justify-center min-w-[90px]">
-              <span className="text-[#c4c6d4] font-normal text-[9px]">Bill Discount</span>
-              <span className="font-mono text-xs font-bold text-white">{summaryTotals.billDiscount.toFixed(2)}</span>
-            </div>
-
-            <div className="px-3 py-1.5 flex flex-col justify-center min-w-[80px]">
-              <span className="text-[#c4c6d4] font-normal text-[9px]">Total Tax</span>
-              <span className="font-mono text-xs text-emerald-300 font-bold">{summaryTotals.totalTax.toFixed(2)}</span>
-            </div>
-
-            <div className="px-3 py-1.5 flex flex-col justify-center min-w-[90px]">
-              <span className="text-[#c4c6d4] font-normal text-[9px]">Total Addons</span>
-              <span className="font-mono text-xs font-bold text-white">{summaryTotals.totalAddons.toFixed(2)}</span>
-            </div>
-
-            <div className="px-3 py-1.5 flex flex-col justify-center min-w-[100px]">
-              <span className="text-[#c4c6d4] font-normal text-[9px]">Total Deductions</span>
-              <span className="font-mono text-xs font-bold text-white">{summaryTotals.totalDeductions.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div className="w-52 bg-[#00296d] text-white flex flex-col justify-center items-end px-4 py-1.5 shrink-0 border-l border-[#737685]">
-            <span className="text-[#dae2ff] font-normal text-[9px] uppercase tracking-wider">Net Amount</span>
-            <span className="font-mono font-bold text-xl tracking-tight leading-none mt-0.5">
-              ₹{summaryTotals.netAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-            </span>
-          </div>
-        </footer>
-      </main>
-
-      {/* Product Catalog Search Modal */}
-      <ProductSearchBrowserModal
-        isOpen={showProductSearchModal}
-        products={products}
-        onSelectProduct={(p) => addProductToBill(p, 1)}
-        onClose={() => setShowProductSearchModal(false)}
+      {/* 1. Settlement Modal */}
+      <SmritiInvoiceSettlementModal
+        isOpen={showSettlementModal}
+        billNo={`${headerState.docPrefix}-${headerState.docNo}`}
+        billDate={headerState.billDate}
+        customer={headerState.customer}
+        netAmount={summaryTotals.netAmount}
+        onCompleteSettlement={handleCompleteSettlement}
+        onSuspendBill={handleSuspendInvoice}
+        onClose={() => setShowSettlementModal(false)}
       />
 
-      {/* Item Column/Attribute Browser Modal */}
-      <ItemBrowseOverlayModal
-        isOpen={showItemBrowseModal}
-        products={products}
-        onSelectProduct={(p) => addProductToBill(p, 1)}
-        onClose={() => setShowItemBrowseModal(false)}
-      />
-
-      {/* PDT Batch Import Modal */}
+      {/* 2. PDT Import Modal */}
       <PdtImportModal
         isOpen={showPdtImportModal}
         products={products}
-        onImportItems={(imported) => {
-          imported.forEach(({ product, qty }) => addProductToBill(product, qty));
-          if (onNotification) {
-            onNotification("PDT Ingest Complete", `Imported ${imported.length} items from batch collector.`, "success");
-          }
-        }}
+        onImportItems={handleImportPdtItems}
         onClose={() => setShowPdtImportModal(false)}
       />
 
-      {/* Add Quick Customer Modal */}
-      {showAddCustomerModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-[#faf9ff] text-[#1a1b20] w-full max-w-md rounded-lg shadow-2xl border border-[#c4c6d4] flex flex-col overflow-hidden">
-            <div className="bg-[#00296d] text-white px-4 py-2.5 flex justify-between items-center">
-              <span className="font-bold text-sm">Quick Add Customer</span>
-              <button onClick={() => setShowAddCustomerModal(false)} className="text-white hover:opacity-80">
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-            <div className="p-4 flex flex-col gap-3 text-xs">
-              <div>
-                <label className="font-bold text-[#434652] block mb-1">Customer Full Name *</label>
-                <input
-                  type="text"
-                  value={newCustomerName}
-                  onChange={(e) => setNewCustomerName(e.target.value)}
-                  placeholder="e.g. Ramesh Sharma"
-                  className="w-full border border-[#737685] rounded p-1.5 bg-white text-xs outline-none focus:ring-1 focus:ring-[#00296d]"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-[#434652] block mb-1">Phone / Mobile Number *</label>
-                <input
-                  type="text"
-                  value={newCustomerPhone}
-                  onChange={(e) => setNewCustomerPhone(e.target.value)}
-                  placeholder="e.g. 9876543210"
-                  className="w-full border border-[#737685] rounded p-1.5 bg-white text-xs outline-none focus:ring-1 focus:ring-[#00296d]"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-[#434652] block mb-1">GSTIN (Optional)</label>
-                <input
-                  type="text"
-                  value={newCustomerGstin}
-                  onChange={(e) => setNewCustomerGstin(e.target.value)}
-                  placeholder="e.g. 27AAAAA0000A1Z5"
-                  className="w-full border border-[#737685] rounded p-1.5 bg-white text-xs outline-none focus:ring-1 focus:ring-[#00296d]"
-                />
-              </div>
-            </div>
-            <div className="bg-[#e8e7ed] p-3 flex justify-end gap-2 border-t border-[#c4c6d4]">
+      {/* 3. Product Search / Catalog F2 Browser */}
+      <ProductSearchBrowserModal
+        isOpen={showProductSearchModal}
+        products={products}
+        onSelectProduct={product => {
+          setDirectEntry({
+            ...directEntry,
+            stockNo: product.code,
+            itemDescription: product.name,
+            rate: String(product.sellingPrice || product.mrp || 0)
+          });
+          setShowProductSearchModal(false);
+          directStockNoRef.current?.focus();
+        }}
+        onClose={() => setShowProductSearchModal(false)}
+      />
+
+      {/* 4. Recall Suspended Invoices Modal */}
+      {showRecallModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-surface rounded-lg shadow-2xl w-full max-w-xl border border-outline-variant overflow-hidden flex flex-col">
+            <div className="bg-surface-container-lowest px-5 py-3 border-b border-outline-variant flex justify-between items-center">
+              <h3 className="font-title-sm text-sm font-bold text-primary flex items-center gap-2">
+                <History size={16} className="text-secondary" />
+                <span>Held / Suspended Invoices Queue</span>
+              </h3>
               <button
                 type="button"
-                onClick={() => setShowAddCustomerModal(false)}
-                className="bg-white border border-[#c4c6d4] px-3 py-1 rounded text-xs font-bold text-[#434652]"
+                onClick={() => setShowRecallModal(false)}
+                className="p-1 hover:bg-surface-container-high rounded text-on-surface-variant"
               >
-                Cancel
+                <X size={16} />
               </button>
+            </div>
+
+            <div className="p-4 max-h-72 overflow-y-auto">
+              {suspendedBills.length === 0 ? (
+                <p className="text-center py-6 text-xs text-on-surface-variant">No suspended invoices currently on hold.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {suspendedBills.map((bill, idx) => (
+                    <div
+                      key={bill.id}
+                      className="bg-surface-container-low border border-outline-variant p-3 rounded flex justify-between items-center hover:bg-secondary-fixed/30 transition"
+                    >
+                      <div>
+                        <p className="font-code-md text-xs font-bold text-primary">
+                          {bill.header.docPrefix}-{bill.header.docNo}
+                        </p>
+                        <p className="text-[11px] text-on-surface-variant">
+                          {bill.header.customer?.name || "Counter Cash"} • {bill.items.length} items • Held at {bill.date}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-code-md text-xs font-bold text-primary">₹{bill.netAmount.toFixed(2)}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRecallInvoice(bill)}
+                          className="bg-primary hover:bg-primary-container text-on-primary px-3 py-1 rounded text-xs font-bold transition"
+                        >
+                          Recall
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-surface-container-low px-5 py-2.5 border-t border-outline-variant flex justify-end">
               <button
                 type="button"
-                onClick={async () => {
-                  if (!newCustomerName.trim() || !newCustomerPhone.trim()) {
-                    alert("Please enter both Customer Name and Phone.");
-                    return;
-                  }
-                  try {
-                    const created = await apiFetchV1("/customers", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        name: newCustomerName.trim(),
-                        phone: newCustomerPhone.trim(),
-                        gstin: newCustomerGstin.trim() || undefined
-                      })
-                    });
-                    setHeaderState({ ...headerState, customer: created });
-                    setCustomers(prev => [...prev, created]);
-                    setShowAddCustomerModal(false);
-                    setNewCustomerName("");
-                    setNewCustomerPhone("");
-                    setNewCustomerGstin("");
-                  } catch (e: any) {
-                    alert(e.message || "Failed to create customer.");
-                  }
-                }}
-                className="bg-[#00296d] text-white px-4 py-1 rounded text-xs font-bold"
+                onClick={() => setShowRecallModal(false)}
+                className="bg-surface-container border border-outline-variant px-4 py-1.5 rounded text-xs font-semibold text-primary"
               >
-                Save & Select
+                Close
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Print Preview Modal */}
-      {showPrintModal && (
+      {/* 5. Quick Add Customer Modal */}
+      {showAddCustomerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-surface rounded-lg shadow-2xl w-full max-w-md border border-outline-variant overflow-hidden flex flex-col">
+            <div className="bg-surface-container-lowest px-5 py-3 border-b border-outline-variant flex justify-between items-center">
+              <h3 className="font-title-sm text-sm font-bold text-primary flex items-center gap-2">
+                <UserPlus size={16} className="text-secondary" />
+                <span>Quick Add Customer</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddCustomerModal(false)}
+                className="p-1 hover:bg-surface-container-high rounded text-on-surface-variant"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-4 flex flex-col gap-3">
+              <div>
+                <label className="block font-label-caps text-[11px] text-on-surface-variant mb-1 font-bold uppercase">Customer Name *</label>
+                <input
+                  type="text"
+                  value={newCustName}
+                  onChange={e => setNewCustName(e.target.value)}
+                  placeholder="e.g. Modern Enterprises Pvt Ltd"
+                  className="w-full border border-outline-variant rounded h-8 px-2.5 text-xs bg-surface focus:border-secondary outline-none font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-label-caps text-[11px] text-on-surface-variant mb-1 font-bold uppercase">Mobile Number</label>
+                <input
+                  type="text"
+                  value={newCustMobile}
+                  onChange={e => setNewCustMobile(e.target.value)}
+                  placeholder="e.g. 9876543210"
+                  className="w-full border border-outline-variant rounded h-8 px-2.5 text-xs font-code-md bg-surface focus:border-secondary outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-label-caps text-[11px] text-on-surface-variant mb-1 font-bold uppercase">GSTIN / Tax ID</label>
+                <input
+                  type="text"
+                  value={newCustGstin}
+                  onChange={e => setNewCustGstin(e.target.value)}
+                  placeholder="e.g. 27AAAAA0000A1Z5"
+                  className="w-full border border-outline-variant rounded h-8 px-2.5 text-xs font-code-md bg-surface focus:border-secondary outline-none font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="bg-surface-container-low px-5 py-3 border-t border-outline-variant flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAddCustomerModal(false)}
+                className="bg-surface-container border border-outline-variant px-4 py-1.5 rounded text-xs font-semibold text-primary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateCustomer}
+                disabled={!newCustName}
+                className="bg-primary hover:bg-primary-container text-on-primary px-5 py-1.5 rounded text-xs font-bold transition disabled:opacity-40"
+              >
+                Save &amp; Select
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Tax Invoice Print Modal */}
+      {showPrintModal && lastCompletedInvoice && (
         <PrintPreviewModal
           isOpen={showPrintModal}
+          data={{
+            companyName: "SMRITI Retail OS",
+            companyAddress: "Central Warehouse, Distribution Center",
+            invoiceNumber: lastCompletedInvoice.invoiceNumber,
+            date: lastCompletedInvoice.date,
+            customerName: lastCompletedInvoice.customerName,
+            customerPhone: "",
+            customerGstin: lastCompletedInvoice.customerGstin,
+            items: lastCompletedInvoice.items,
+            subtotal: lastCompletedInvoice.subtotal,
+            discount: lastCompletedInvoice.discount,
+            tax: lastCompletedInvoice.tax,
+            total: lastCompletedInvoice.total,
+            paymentMode: lastCompletedInvoice.paymentMode,
+            terms: "Subject to local jurisdiction. Goods once sold will not be taken back without valid invoice."
+          }}
           onClose={() => setShowPrintModal(false)}
-          activeTabId="pos"
         />
       )}
+
     </div>
   );
 };
+
+export default SmritiBillingTerminal;
