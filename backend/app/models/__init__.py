@@ -88,4 +88,20 @@ from .item_master import (
     ItemBarcode,
 )
 
+# Canonical Pricing, Payment Ledger & Document Sequence Models (Slice 4)
+from .pricing import (
+    PriceBook,
+    PriceBookEntry,
+    CustomerPriceTier,
+)
+from .payment_ledger import (
+    PaymentTransaction,
+    PaymentAllocation,
+)
+from .numbering import (
+    DocumentSeries,
+    NumberingAuditLog,
+)
+
+
 

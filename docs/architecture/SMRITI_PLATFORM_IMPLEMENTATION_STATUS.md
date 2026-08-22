@@ -72,15 +72,18 @@ Remaining architectural tracking items for future slices:
 - Atomic sales invoicing and stock debit posting to `stock_movements`, line-item tax snapshotting (`cgst_amount`, `sgst_amount`, `igst_amount`), batch stock decrements, and idempotent cancellation reversals (`RETURN_INWARD`) verified.
 - 73 multi-module tests passing.
 
-## Next Approved Slice: Slice 4 (Pricing, GST, Payments, and Document Engine Unification)
+### Slice 4: Pricing, GST, Payments, and Document Engine Unification (Verified)
+- 4-level hierarchical pricing resolution (`PriceBook` + `CustomerPriceTier` + volume breaks), gapless row-locked `DocumentSeries` sequence allocation with `NumberingAuditLog`, and idempotent multi-tender `PaymentTransaction` settlement verified.
+- 77 multi-module tests passing.
+
+## Next Approved Slice: Slice 5 (Approval, Workflow, and Communicator Engines)
 
 **Scope**:
-- Unified Pricing Engine with versioned price books, customer tier pricing, and promotional discount governance.
-- Formal GST Statutory Engine versioning and tax rule snapshots.
-- Multi-tender payment settlement ledger with transaction idempotency keys.
-- Canonical document numbering engine and template version binding.
+- Multi-tier document approval hierarchy (Draft -> Pending Approval -> Approved -> Rejected -> Cancelled).
+- Configurable approval matrix based on transaction threshold limits, credit holds, and role assignments.
+- Unified notification and communicator engine (Email, SMS, WhatsApp templates and audit logs).
 
-Out of scope for Slice 4: PDT, Analytics plane, microservices decomposition, full metadata-driven UI generation.
+Out of scope for Slice 5: PDT, Analytics plane, microservices decomposition, full metadata-driven UI generation.
 
 ## Governance Rule
 
