@@ -76,14 +76,18 @@ Remaining architectural tracking items for future slices:
 - 4-level hierarchical pricing resolution (`PriceBook` + `CustomerPriceTier` + volume breaks), gapless row-locked `DocumentSeries` sequence allocation with `NumberingAuditLog`, and idempotent multi-tender `PaymentTransaction` settlement verified.
 - 77 multi-module tests passing.
 
-## Next Approved Slice: Slice 5 (Approval, Workflow, and Communicator Engines)
+### Slice 5: Approval, Workflow, and Communicator Engines (Verified)
+- Multi-tier document approval hierarchy (`ApprovalPolicy`, `ApprovalRequest`, `ApprovalAction`) and unified communicator template dispatch audit ledgers (`CommunicatorTemplate`, `CommunicatorLog`) verified.
+- 81 multi-module tests passing.
+
+## Next Approved Slice: Slice 6 (Capability, Template, and Workspace Resolution)
 
 **Scope**:
-- Multi-tier document approval hierarchy (Draft -> Pending Approval -> Approved -> Rejected -> Cancelled).
-- Configurable approval matrix based on transaction threshold limits, credit holds, and role assignments.
-- Unified notification and communicator engine (Email, SMS, WhatsApp templates and audit logs).
+- Business industry capabilities resolution in control plane (`smritisys`).
+- Business workspace templates (Retail, Supermarket, Wholesale, Apparel, Pharmacy, Restaurant).
+- User and role workspace policy binding.
 
-Out of scope for Slice 5: PDT, Analytics plane, microservices decomposition, full metadata-driven UI generation.
+Out of scope for Slice 6: PDT, Analytics plane, microservices decomposition, full metadata-driven UI generation.
 
 ## Governance Rule
 

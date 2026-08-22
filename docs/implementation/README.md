@@ -74,6 +74,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-08-23 | v6.16.0 | [Platform Refactor Slice 2: Universal Party Master & Universal Item Master Canonicalization](./foundation/Platform_Refactor_Slice2_Party_Item_Plan_v1.0.md) | `/backend/app/models/party.py`, `/backend/app/models/item_master.py`, `/backend/app/services/` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Universal_Party_Item_Master_v6.16.0.md) |
 | 2026-08-23 | v6.16.0 | [Platform Refactor Slice 3: Sales, POS, and Operational Stock Ledger Unification](./foundation/Platform_Refactor_Slice3_Sales_POS_Ledger_Plan_v1.0.md) | `/backend/app/services/unified_sales_ledger_service.py`, `/backend/models/sales.py`, `/backend/models/inventory.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Sales_POS_Ledger_Unification_v6.16.0.md) |
 | 2026-08-23 | v6.16.0 | [Platform Refactor Slice 4: Pricing, GST, Payments, and Document Engine Unification](./foundation/Platform_Refactor_Slice4_Pricing_GST_Payments_Plan_v1.0.md) | `/backend/app/services/unified_pricing_payment_service.py`, `/backend/models/pricing.py`, `/backend/models/payment_ledger.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Pricing_GST_Payments_Unification_v6.16.0.md) |
+| 2026-08-23 | v6.16.0 | [Platform Refactor Slice 5: Approval, Workflow, and Communicator Engines](./foundation/Platform_Refactor_Slice5_Approval_Workflow_Communicator_Plan_v1.0.md) | `/backend/app/services/unified_approval_communicator_service.py`, `/backend/models/approval.py`, `/backend/models/communicator.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Approval_Workflow_Communicator_v6.16.0.md) |
+
 
 
 
