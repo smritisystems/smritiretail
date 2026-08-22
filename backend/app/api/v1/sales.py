@@ -538,7 +538,7 @@ async def get_invoice_eway_bill_payload(
     lr_number: Optional[str] = Query(None),
     distance_km: int = Query(50, ge=1, le=4000),
     trans_mode: str = Query("1"),
-    strict_validation: bool = Query(False),
+    strict_validation: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):

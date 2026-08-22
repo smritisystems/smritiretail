@@ -307,7 +307,7 @@ async def get_transfer_eway_bill_payload(
     transfer_id: str,
     distance_km: int = Query(50, ge=1, le=4000),
     trans_mode: str = Query("1"),
-    strict_validation: bool = Query(False),
+    strict_validation: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
@@ -327,7 +327,7 @@ async def get_transfer_eway_bill_payload(
 )
 async def get_transfer_delivery_challan(
     transfer_id: str,
-    strict_validation: bool = Query(False),
+    strict_validation: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
