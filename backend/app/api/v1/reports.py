@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, update
 
-from ...api.deps import get_db, get_tenant_context, get_current_user, TenantContext
+from ...api.deps import get_db, get_company_db, get_tenant_context, get_current_user, TenantContext
 from ...schemas.reports import (
     StockValuationReport,
     DailySalesSummary,
@@ -81,15 +81,15 @@ SMRITI_STUDIOS = {
 @router.get("/stock-valuation", response_model=StockValuationReport)
 async def stock_valuation_report(
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     return await ReportsService(db, tenant).stock_valuation()
 
 @router.get("/daily-sales", response_model=DailySalesSummary)
 async def daily_sales_report(
-    report_date: date = Query(description="Date to report (YYYY-MM-DD)"),
+    report_date: Optional[date] = Query(default=None, description="Date to report (YYYY-MM-DD)"),
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     return await ReportsService(db, tenant).daily_sales(report_date)
 
@@ -97,7 +97,7 @@ async def daily_sales_report(
 async def supplier_ledger(
     supplier_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     return await ReportsService(db, tenant).supplier_ledger(supplier_id)
 
@@ -106,7 +106,7 @@ async def purchase_summary(
     from_date: Optional[date] = Query(default=None, description="Start date (YYYY-MM-DD)"),
     to_date:   Optional[date] = Query(default=None, description="End date (YYYY-MM-DD)"),
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     return await ReportsService(db, tenant).purchase_summary(from_date, to_date)
 

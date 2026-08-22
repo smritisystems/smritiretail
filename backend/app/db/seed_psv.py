@@ -15,8 +15,9 @@ Source Module: PSV (Party Stock Visibility) Canonical Database Seeding
 
 import asyncio
 from decimal import Decimal
-from sqlalchemy import select, delete
-from app.db.session import async_session
+from sqlalchemy import select, text
+from app.db.session import async_session, get_company_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.psv import PSVParty, PSVPartySkuTracking
 
 CANONICAL_PSV_PARTIES = [
@@ -94,44 +95,53 @@ CANONICAL_PSV_PARTIES = [
     }
 ]
 
-async def seed_psv_database():
-    async with async_session() as session:
-        print("[PSV Seed] Starting canonical Party Stock Visibility seeding...")
-        for p_data in CANONICAL_PSV_PARTIES:
-            existing_party = (
-                await session.execute(select(PSVParty).where(PSVParty.id == p_data["id"]))
-            ).scalar_one_or_none()
+async def seed_session(session: AsyncSession, db_name: str):
+    print(f"[PSV Seed] Starting canonical Party Stock Visibility seeding for {db_name}...")
+    for p_data in CANONICAL_PSV_PARTIES:
+        existing_party = (
+            await session.execute(select(PSVParty).where(PSVParty.id == p_data["id"]))
+        ).scalar_one_or_none()
 
-            if not existing_party:
-                party = PSVParty(
-                    id=p_data["id"],
-                    name=p_data["name"],
-                    location=p_data["location"],
-                    stock_count=p_data["stock_count"],
-                    sell_through=p_data["sell_through"],
-                    weeks_of_cover=p_data["weeks_of_cover"],
-                    capital_locked=p_data["capital_locked"],
-                    status=p_data["status"]
+        if not existing_party:
+            party = PSVParty(
+                id=p_data["id"],
+                name=p_data["name"],
+                location=p_data["location"],
+                stock_count=p_data["stock_count"],
+                sell_through=p_data["sell_through"],
+                weeks_of_cover=p_data["weeks_of_cover"],
+                capital_locked=p_data["capital_locked"],
+                status=p_data["status"]
+            )
+            session.add(party)
+            await session.flush()
+            print(f"  + Created PSV Party in {db_name}: {party.name} ({party.id})")
+
+            for s_data in p_data["skus"]:
+                sku = PSVPartySkuTracking(
+                    party_id=party.id,
+                    sku=s_data["sku"],
+                    invoiced_qty=s_data["invoiced_qty"],
+                    confirmed_sold_qty=s_data["confirmed_sold_qty"],
+                    returned_qty=s_data["returned_qty"]
                 )
-                session.add(party)
-                await session.flush()
-                print(f"  + Created PSV Party: {party.name} ({party.id})")
+                session.add(sku)
+                print(f"    - Added SKU tracking: {sku.sku}")
+        else:
+            print(f"  = PSV Party already exists in {db_name}: {existing_party.name}")
 
-                for s_data in p_data["skus"]:
-                    sku = PSVPartySkuTracking(
-                        party_id=party.id,
-                        sku=s_data["sku"],
-                        invoiced_qty=s_data["invoiced_qty"],
-                        confirmed_sold_qty=s_data["confirmed_sold_qty"],
-                        returned_qty=s_data["returned_qty"]
-                    )
-                    session.add(sku)
-                    print(f"    - Added SKU tracking: {sku.sku}")
-            else:
-                print(f"  = PSV Party already exists: {existing_party.name}")
+    await session.commit()
+    print(f"[PSV Seed] Canonical Party Stock Visibility seeding complete for {db_name}.")
 
-        await session.commit()
-        print("[PSV Seed] Canonical Party Stock Visibility seeding complete.")
+async def seed_psv_database():
+    # 1. Seed smritisys
+    async with async_session() as session:
+        await seed_session(session, "smritisys")
+    
+    # 2. Seed smriti001
+    engine001 = get_company_async_engine("smriti001")
+    async with AsyncSession(engine001) as session001:
+        await seed_session(session001, "smriti001")
 
 if __name__ == "__main__":
     asyncio.run(seed_psv_database())
