@@ -91,10 +91,12 @@ A controlled migration protects live business data and continuous uptime by esta
    - `test_suspended_company_database_access_denied_403` (Passed)
    - `test_resolver_rejects_arbitrary_database_names` (Passed)
    - `test_engine_cache_rejects_unregistered_arbitrary_database_names` (Passed)
+   - `test_engine_cache_rejects_unregistered_valid_syntax_database` (Passed)
+   - `test_tenant_header_normalization` (Passed)
    - `test_session_resolver_fails_closed_on_unregistered_company` (Passed)
    - `test_session_resolver_fails_closed_on_missing_company_context` (Passed)
 2. Full Multi-Module Regression:
-   - 61/61 automated tests across Routing Boundary, Runtime Routing, Naming Conventions, Engine Pooling, Provisioning, Menu Governance, Security Access, and WMS Phases 1–4 passed in 18.08s.
+   - 63/63 automated tests across Routing Boundary, Runtime Routing, Naming Conventions, Engine Pooling, Provisioning, Menu Governance, Security Access, and WMS Phases 1–4 passed in 20.56s.
 
 ---
 
@@ -107,22 +109,22 @@ rootdir: F:\SMRITRretailNX\backend
 configfile: pyproject.toml
 plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 61 items
+collected 63 items
 
-backend\tests\test_routing_boundary_canonical.py ...........             [ 18%]
-backend\tests\test_company_db_runtime_routing.py .......                 [ 29%]
-backend\tests\test_company_db_naming_convention.py ......                [ 39%]
-backend\tests\test_get_company_db_wiring.py .....                        [ 47%]
-backend\tests\test_multi_company_database_architecture.py ......         [ 57%]
-backend\tests\test_company_db_provisioning.py .....                      [ 65%]
-backend\tests\test_menu_governance.py .                                  [ 67%]
-backend\tests\test_security_menu_access.py ..                            [ 70%]
+backend\tests\test_routing_boundary_canonical.py .............           [ 20%]
+backend\tests\test_company_db_runtime_routing.py .......                 [ 31%]
+backend\tests\test_company_db_naming_convention.py ......                [ 41%]
+backend\tests\test_get_company_db_wiring.py .....                        [ 49%]
+backend\tests\test_multi_company_database_architecture.py ......         [ 58%]
+backend\tests\test_company_db_provisioning.py .....                      [ 66%]
+backend\tests\test_menu_governance.py .                                  [ 68%]
+backend\tests\test_security_menu_access.py ..                            [ 71%]
 backend\tests\test_wms_phase1.py ....                                    [ 77%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 81%]
+backend\tests\test_wms_phase2_grn_sales.py ...                           [ 82%]
 backend\tests\test_wms_phase3_eway_bill.py .....                         [ 90%]
 backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
 
-======================= 61 passed, 1 warning in 18.08s ========================
+======================= 63 passed, 1 warning in 20.56s ========================
 ```
 
 ---

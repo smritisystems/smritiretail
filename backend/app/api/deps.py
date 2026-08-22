@@ -122,21 +122,34 @@ async def get_current_user(
 # ---------------------------------------------------------------------------
 # get_tenant_context — sourced from user context with assignment validation
 # ---------------------------------------------------------------------------
+
+
+def normalize_company_id(cid: Optional[str]) -> Optional[str]:
+    if not cid:
+        return None
+    c = str(cid).strip().upper()
+    if len(c) == 3 and c.isalnum() and c not in ("000", "SYS"):
+        return f"COMP-{c}"
+    return c
+
+
 async def get_tenant_context(
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(_get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantContext:
     """
     Extract tenant context from the authenticated user's JWT claims & validate assignments.
     Enforces header tampering checks against X-Company-Code and X-Branch-Code headers.
+    Normalizes company codes (e.g. '001' and 'COMP-001') before validation.
     """
     header_company_id = request.headers.get("x-company-id") or request.headers.get("X-Company-ID")
     header_company = header_company_id or request.headers.get("x-company-code") or request.headers.get("X-Company-Code")
     header_branch = request.headers.get("x-branch-code") or request.headers.get("X-Branch-Code")
 
-    target_company = header_company if header_company else current_user.company_id
-    if not target_company or not str(target_company).strip():
+    raw_target = header_company if header_company else current_user.company_id
+    target_company = normalize_company_id(raw_target)
+    if not target_company:
         raise HTTPException(
             status_code=400,
             detail="Tenant company context is required.",
@@ -147,8 +160,9 @@ async def get_tenant_context(
         target_branch = "BR-001"
 
     if current_user.role != UserRole.SYSADMIN:
-        # Header Tampering Security Check
-        if header_company and header_company != current_user.company_id:
+        # Header Tampering Security Check with normalized company IDs
+        norm_user_company = normalize_company_id(current_user.company_id)
+        if header_company and normalize_company_id(header_company) != norm_user_company:
             raise HTTPException(
                 status_code=403,
                 detail=f"Header Tampering Forbidden: Access to company '{header_company}' is denied.",

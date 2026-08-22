@@ -26,6 +26,7 @@ Founders
 
 import os
 import re
+import psycopg2
 from typing import Dict, Optional, AsyncGenerator
 from urllib.parse import urlparse
 from fastapi import Request, Header, HTTPException, status
@@ -65,29 +66,64 @@ async_session = async_sessionmaker(
 # ---------------------------------------------------------------------------
 _company_engines: Dict[str, AsyncEngine] = {}
 _company_sessionmakers: Dict[str, async_sessionmaker] = {}
+_verified_company_databases = {"smritisys"}
 
 # Seed default control plane engine into pool
 _company_engines["smritisys"] = engine
 _company_sessionmakers["smritisys"] = async_session
 
 
+def _verify_database_is_registered(db_clean: str) -> bool:
+    """
+    Authoritative registry check in smritisys.
+    Ensures an engine is created ONLY for registered databases in READY status.
+    """
+    if db_clean in _verified_company_databases:
+        return True
+
+    parsed_url = urlparse(settings.DATABASE_URL)
+    user = os.getenv("POSTGRES_USER") or parsed_url.username or "postgres"
+    password = os.getenv("POSTGRES_PASSWORD") or parsed_url.password or "postgres"
+    db_host = os.getenv("POSTGRES_HOST") or parsed_url.hostname or "localhost"
+    db_port = int(os.getenv("POSTGRES_PORT") or parsed_url.port or 5432)
+    ctrl_url = f"postgresql://{user}:{password}@{db_host}:{db_port}/smritisys"
+
+    try:
+        conn = psycopg2.connect(ctrl_url)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT 1 FROM company_database_registries WHERE LOWER(database_name) = %s AND status = 'READY';",
+            (db_clean,)
+        )
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            _verified_company_databases.add(db_clean)
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def get_company_async_engine(database_name: str, host: str = "localhost", port: int = 5432) -> AsyncEngine:
     """
     Retrieves or creates a cached AsyncEngine for a specific company database.
     Prevents connection pool proliferation and resource exhaustion.
-    Rejects arbitrary or unverified database names.
+    Rejects arbitrary or unregistered database names by validating against smritisys registry.
     """
     db_clean = str(database_name).strip().lower()
     if not db_clean:
         raise ValueError("Database name is required.")
 
+    if db_clean in _company_engines:
+        return _company_engines[db_clean]
+
     if db_clean != "smritisys":
         pattern = r"^smriti(?!000)(?!sys)[a-z0-9]{3}$"
         if not re.match(pattern, db_clean):
             raise ValueError(f"Invalid or unauthorized company database name: '{database_name}'")
-
-    if db_clean in _company_engines:
-        return _company_engines[db_clean]
+        if not _verify_database_is_registered(db_clean):
+            raise ValueError(f"Database '{database_name}' is not registered or not in READY status in Control Plane.")
 
     parsed_url = urlparse(settings.DATABASE_URL)
     user = parsed_url.username or "postgres"

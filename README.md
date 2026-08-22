@@ -60,6 +60,8 @@ SMRITI Retail OS enforces strict physical multi-database tenant isolation:
 - **`smriti<Code>` (Company Operational DB):** Dedicated physical database per registered company (e.g. `smriti001`, `smriti002`). Hosts all operational transactions (sales invoices, purchase orders, inventory stock, customer ledgers).
 - **`CompanyDatabaseResolver`:** Authoritative gateway for dynamically resolving and binding database sessions.
 - **`Party Stock Visibility (PSV)`:** 100% Company-local shadow inventory and intelligence layer inside each Company DB (`smriti<Code>`). Projections do not mutate core stock balances.
+
+The frozen blueprint is tracked separately from implementation progress. See [SMRITI Platform Implementation Status](docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md) for the current verified, partial, and pending areas.
 - **`eCommerce & Omnichannel`:** Core capability channel feeding the company operational DB via unified commerce flows.
 
 ---

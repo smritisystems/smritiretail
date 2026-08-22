@@ -57,7 +57,7 @@ class ControlDatabaseRegistryService:
                 CompanyDatabaseRegistry.database_id == clean_code,
                 CompanyDatabaseRegistry.company_id == f"COMP-{clean_code.upper()}"
             ),
-            CompanyDatabaseRegistry.status.in_(("READY", "ACTIVE"))
+            CompanyDatabaseRegistry.status == "READY"
         )
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
