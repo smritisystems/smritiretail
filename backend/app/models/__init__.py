@@ -122,3 +122,9 @@ from .capability_template import (
     UserWorkspaceConfig,
 )
 
+# Canonical Outbox Models (Slice 7)
+from .outbox import (
+    OutboxEvent,
+)
+
+

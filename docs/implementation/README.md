@@ -76,6 +76,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-08-23 | v6.16.0 | [Platform Refactor Slice 4: Pricing, GST, Payments, and Document Engine Unification](./foundation/Platform_Refactor_Slice4_Pricing_GST_Payments_Plan_v1.0.md) | `/backend/app/services/unified_pricing_payment_service.py`, `/backend/models/pricing.py`, `/backend/models/payment_ledger.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Pricing_GST_Payments_Unification_v6.16.0.md) |
 | 2026-08-23 | v6.16.0 | [Platform Refactor Slice 5: Approval, Workflow, and Communicator Engines](./foundation/Platform_Refactor_Slice5_Approval_Workflow_Communicator_Plan_v1.0.md) | `/backend/app/services/unified_approval_communicator_service.py`, `/backend/models/approval.py`, `/backend/models/communicator.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Approval_Workflow_Communicator_v6.16.0.md) |
 | 2026-08-23 | v6.16.0 | [Platform Refactor Slice 6: Capability, Template, and Workspace Resolution](./foundation/Platform_Refactor_Slice6_Capability_Template_Workspace_Plan_v1.0.md) | `/backend/app/services/unified_workspace_capability_service.py`, `/backend/models/capability_template.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Capability_Template_Workspace_v6.16.0.md) |
+| 2026-08-23 | v6.16.0 | [Platform Refactor Slice 7: Outbox and Analytics Plane](./foundation/Platform_Refactor_Slice7_Outbox_Analytics_Plan_v1.0.md) | `/backend/app/services/unified_outbox_analytics_service.py`, `/backend/models/outbox.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Outbox_Analytics_Plane_v6.16.0.md) |
+
 
 
 
