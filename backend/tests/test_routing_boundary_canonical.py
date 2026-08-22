@@ -167,6 +167,23 @@ def test_engine_cache_rejects_unregistered_arbitrary_database_names():
     assert "invalid or unauthorized" in str(exc2.value).lower()
 
 
+def test_engine_cache_rejects_unregistered_valid_syntax_database():
+    """Verify that syntactically valid database 'smritiABC' is rejected by engine creation when unregistered in smritisys."""
+    with pytest.raises(ValueError) as exc:
+        get_company_async_engine("smritiABC")
+    assert "not registered or not in ready status" in str(exc.value).lower()
+
+
+def test_tenant_header_normalization():
+    """Verify that '001' and 'COMP-001' normalize to identical canonical tenant company IDs."""
+    from app.api.deps import normalize_company_id
+    assert normalize_company_id("001") == "COMP-001"
+    assert normalize_company_id("COMP-001") == "COMP-001"
+    assert normalize_company_id("002") == "COMP-002"
+    assert normalize_company_id("COMP-002") == "COMP-002"
+    assert normalize_company_id(None) is None
+
+
 @pytest.mark.asyncio
 async def test_session_resolver_fails_closed_on_unregistered_company():
     """Verify that async resolve_company_database_name fails closed on unregistered company."""

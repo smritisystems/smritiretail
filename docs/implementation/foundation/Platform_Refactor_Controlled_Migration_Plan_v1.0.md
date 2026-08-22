@@ -139,7 +139,9 @@ SMRITI represents one configurable business operating platform — not separate,
 ---
 
 ## 17. Status
-**In Progress — Milestone 1 (Routing Boundary Hardening & Model Canonicalization) Completed.**
+**In Progress — Milestone 1 (Routing Boundary Hardening & Model Canonicalization) Partially Verified.**
+
+The routing boundary is substantially hardened, but canonicalization is not yet complete. Registry-backed engine authorization, compatibility-model retirement, lifecycle status normalization, and isolated database verification remain open. See [SMRITI Platform Implementation Status](../../architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md).
 
 ---
 

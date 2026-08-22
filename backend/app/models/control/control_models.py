@@ -17,64 +17,14 @@ from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey, T
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ...db.base import Base
 
-class ControlCompany(Base):
-    """
-    ControlCompany — Central Company Master Registry in SmritiSys.
-    """
-    __tablename__ = "control_companies"
+from ...models.tenant import Company
+from ...models.company_database_registry import CompanyDatabaseRegistry
+from ...models.auth import User
 
-    id = Column(String(50), primary_key=True)
-    uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
-    company_code = Column(String(50), nullable=False, unique=True, index=True)
-    company_name = Column(String(255), nullable=False)
-    legal_name = Column(String(255), nullable=True)
-    gstin = Column(String(15), nullable=True)
-    pan = Column(String(10), nullable=True)
-    currency = Column(String(10), default="INR")
-    status = Column(String(30), nullable=False, default="ACTIVE") # ACTIVE, INACTIVE, SUSPENDED
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-
-
-class ControlCompanyDatabase(Base):
-    """
-    ControlCompanyDatabase — Authoritative Database Registry & Routing Table in SmritiSys.
-    """
-    __tablename__ = "control_company_databases"
-
-    id = Column(String(50), primary_key=True)
-    company_id = Column(String(50), ForeignKey("control_companies.id", ondelete="CASCADE"), nullable=False)
-    company_code = Column(String(50), nullable=False, unique=True, index=True)
-    database_name = Column(String(100), nullable=False, unique=True)
-    database_type = Column(String(30), nullable=False, default="POSTGRESQL")
-    host = Column(String(255), nullable=False, default="localhost")
-    port = Column(Integer, nullable=False, default=5432)
-    db_user = Column(String(100), nullable=False, default="postgres")
-    encrypted_credentials = Column(Text, nullable=True)
-    status = Column(String(30), nullable=False, default="ACTIVE") # ACTIVE, READ_ONLY, MAINTENANCE, ARCHIVED
-    schema_version = Column(String(30), nullable=False, default="1.0.0")
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    last_health_check = Column(DateTime(timezone=True), nullable=True)
-
-
-class ControlUser(Base):
-    """
-    ControlUser — Central User Authentication Master in SmritiSys.
-    """
-    __tablename__ = "control_users"
-
-    id = Column(String(50), primary_key=True)
-    uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
-    username = Column(String(100), nullable=False, unique=True, index=True)
-    email = Column(String(255), nullable=False, unique=True, index=True)
-    hashed_password = Column(String(255), nullable=False)
-    full_name = Column(String(255), nullable=False)
-    role_code = Column(String(50), nullable=False, default="STAFF")
-    is_active = Column(Boolean, default=True)
-    is_superuser = Column(Boolean, default=False)
-    allowed_company_codes = Column(ARRAY(String), default=list)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+# Canonical Model Aliases (Legacy Control Models Retired)
+ControlCompany = Company
+ControlCompanyDatabase = CompanyDatabaseRegistry
+ControlUser = User
 
 
 class ControlPSVConfig(Base):
