@@ -28,6 +28,23 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.16.0] - 2026-08-22
+
+#### Security & Access Control — Security Management: Menu Access Control & Security Configuration
+- **Menu Access Control Workspace (`SmritiMenuAccessControlView.tsx`)**:
+  - Unified User / Group / Node selector with browsing and company-wise scoping.
+  - Multi-level hierarchical expandable menu tree over existing `smriti_menus` PostgreSQL table.
+  - Fine-grained action operations matrix (`NEW`, `VOID`, `RETURN`, `VOID RETURN`, `ADD`, `EDIT`, `DELETE`, `VIEW`).
+- **Security Configuration Workspace (`SmritiSecurityConfigurationView.tsx`)**:
+  - 2-pane category inspector for Password Configuration (min/max length, uppercase, lowercase, numeric counts, history count, reset days, max invalid attempts) and Housekeeping policies (log retention days, country code, patch reminder, company-wise menu activation toggle, custom reports count, refresh interval).
+- **Backend Security Authority (`security.py`, `deps.py`)**:
+  - Endpoints `/api/v1/security/menu-access` and `/api/v1/security/config` backed by `smriti_permissions`, `system_configs`, and `smriti_audit_log`.
+  - Added action-level RBAC guard factory `require_permission(resource, action)` returning `SMRITI-AUTH-001` 403 Forbidden rejection when unauthorized.
+  - Zero duplicate tables or engines created — 100% database reuse.
+- **Verification & Testing**:
+  - Added unit test suite `securityMenuAccessControl.test.ts` (6 tests) and backend test `test_security_menu_access.py` (1 test).
+  - All 39 test suites passing (288/288 tests). Frontend built in 24.67s.
+
 ### [6.15.0] - 2026-08-22
 
 #### CRM & Sales — Customer Flow, Policy Enforcement & Database Referential Integrity Hardening
