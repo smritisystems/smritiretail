@@ -66,6 +66,7 @@ class SalesInvoice(BaseEntity):
     ack_no                  = Column(String(100))
     ack_date                = Column(String(100))
     signed_qr_payload       = Column(Text)
+    warehouse_id            = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=True)
 
     # Relationships
     items = relationship("SalesInvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
@@ -79,6 +80,7 @@ class SalesInvoiceItem(Base):
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
     code = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
+    batch_no = Column(String(100), nullable=True)
     quantity = Column(Numeric(12, 4), nullable=False, default=1.0000)
     price = Column(Numeric(15, 2), nullable=False)
     hsn_code = Column(String(15))

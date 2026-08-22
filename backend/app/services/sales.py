@@ -137,21 +137,55 @@ class SalesService:
         if invoice_in.is_interstate is not None:
             is_interstate = invoice_in.is_interstate
 
+        from .inventory_wms_service import InventoryWmsService
+        wms_service = InventoryWmsService(self.db, self.tenant_ctx)
+        warehouse_id = invoice_in.warehouse_id or "wh-central-001"
+
         # 1. Validate items and calculate totals
         calculated_taxable_total = Decimal("0.00")
         calculated_tax_total = Decimal("0.00")
         calculated_grand_total = Decimal("0.00")
         invoice_items = []
+        batch_deductions = []
 
         for idx, item in enumerate(invoice_in.items, start=1):
-            # Check stock
-            available = await self.inventory_service.check_stock_availability(item.product_id, float(item.quantity))
-            if not available:
-                raise HTTPException(status_code=400, detail=f"Insufficient stock for product ID: {item.product_id}")
+            product_stmt = select(Product).filter(
+                (Product.id == item.product_id) | (Product.code == item.product_id) | (Product.code == item.code),
+                Product.is_deleted == False,
+                Product.company_id == self.tenant_ctx.company_id,
+            )
+            product_res = await self.db.execute(product_stmt)
+            product = product_res.scalars().first()
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Product not found: {item.product_id or item.code}")
 
             quantity = Decimal(str(item.quantity))
             unit_price = Decimal(str(item.price))
             gst_rate = Decimal(str(item.gst_rate or "18.00"))
+
+            # Determine batch allocation
+            assigned_batch = item.batch_no
+            if product.tracking_mode != "No-stock":
+                if assigned_batch:
+                    batch_deductions.append({
+                        "product": product,
+                        "batch_no": assigned_batch,
+                        "quantity": quantity
+                    })
+                else:
+                    # Auto-allocate via FEFO
+                    allocs = await wms_service.allocate_stock_fefo(
+                        product_id=product.id,
+                        warehouse_id=warehouse_id,
+                        requested_qty=quantity
+                    )
+                    assigned_batch = allocs[0]["batch_no"] if allocs else "BATCH-OPENING"
+                    for a in allocs:
+                        batch_deductions.append({
+                            "product": product,
+                            "batch_no": a["batch_no"],
+                            "quantity": Decimal(str(a["allocated_quantity"]))
+                        })
 
             # Determine whether line is tax-inclusive (default: True for B2C consumer MRP, False for B2B wholesale)
             if item.is_tax_inclusive is not None:
@@ -177,12 +211,13 @@ class SalesService:
             calculated_grand_total += tax_calc["total_amount"]
 
             db_item = SalesInvoiceItem(
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
+                product_id=product.id,
+                code=item.code or product.code,
+                name=item.name or product.name,
+                batch_no=assigned_batch,
                 quantity=quantity,
                 price=unit_price,
-                hsn_code=item.hsn_code,
+                hsn_code=item.hsn_code or product.hsn_code,
                 gst_rate=gst_rate,
                 tax_amount=tax_calc["tax_amount"],
                 total_amount=tax_calc["total_amount"],
@@ -190,7 +225,7 @@ class SalesService:
                 cgst_amount=tax_calc["cgst_amount"],
                 sgst_amount=tax_calc["sgst_amount"],
                 igst_amount=tax_calc["igst_amount"],
-                mrp=item.mrp or unit_price,
+                mrp=item.mrp or product.mrp or unit_price,
                 disc_pct=disc_pct,
                 line_no=item.line_no or idx,
             )
@@ -201,14 +236,16 @@ class SalesService:
             await self.crm_service.check_credit_limit(resolved_customer_id, float(calculated_grand_total))
 
         # 3. Save Sales Invoice & items
+        db_customer_id = resolved_customer_id if (resolved_customer_id and resolved_customer_id != "CUST-WALKIN") else None
         db_invoice = SalesInvoice(
             id=invoice_id,
             invoice_no=invoice_no,
             date=invoice_in.date,
-            customer_id=resolved_customer_id,
+            customer_id=db_customer_id,
             customer_name=customer_name,
             customer_gstin=customer_gstin,
             pos_state=pos_state_name,
+            warehouse_id=warehouse_id,
             taxable_value=calculated_taxable_total,
             tax_total=calculated_tax_total,
             grand_total=calculated_grand_total,
@@ -223,44 +260,20 @@ class SalesService:
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
         )
-
-        # Deduct stock of products and record stock movements
-        for item in invoice_in.items:
-            product_stmt = select(Product).filter(
-                (Product.id == item.product_id) | (Product.code == item.product_id) | (Product.code == item.code),
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
-            )
-            product_res = await self.db.execute(product_stmt)
-            product = product_res.scalars().first()
-            if product and product.tracking_mode != "No-stock":
-                product.modified_at = datetime.now(timezone.utc)
-                self.db.add(product)
-
-
-                # Record StockMovement
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                db_movement = StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=-item.quantity,  # Negative for OUT
-                    movement_type="OUT",
-                    reference_doc_type="Sales Invoice",
-                    reference_doc_id=db_invoice.id,
-                    warehouse="Default Warehouse",
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
-                    source_module="Sales",
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id
-                )
-                self.db.add(db_movement)
-
         self.db.add(db_invoice)
+
+        # 4. Deduct stock from WMS batch stocks atomically
+        for ded in batch_deductions:
+            await wms_service.atomic_mutate_batch_stock(
+                product_id=ded["product"].id,
+                warehouse_id=warehouse_id,
+                batch_no=ded["batch_no"],
+                qty_delta=-ded["quantity"],
+                movement_type="SALES_OUTWARD",
+                reference_doc_type="Sales Invoice",
+                reference_doc_id=db_invoice.invoice_no,
+                remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
+            )
 
         # Record Transactional Outbox event atomically within same DB transaction
         from .outbox_service import OutboxService
@@ -716,12 +729,13 @@ class SalesService:
 
     async def cancel_sales_invoice(self, invoice_id: str) -> SalesInvoice:
         """
-        Cancel a sales invoice: set status='Cancelled' and soft-delete (is_deleted=True).
-        This mirrors the Express DELETE /api/sales/invoices/:id behaviour.
-        Stock reversal is NOT performed here; use Sales Returns for that.
+        Cancel a sales invoice: set status='Cancelled', soft-delete (is_deleted=True),
+        and reverse deducted batch stock into warehouse.
         """
         res = await self.db.execute(
-            select(SalesInvoice).where(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(
                 SalesInvoice.id         == invoice_id,
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
                 SalesInvoice.branch_id  == self.tenant_ctx.branch_id,
@@ -731,6 +745,39 @@ class SalesService:
         invoice = res.scalars().first()
         if not invoice:
             raise HTTPException(status_code=404, detail="Sales invoice not found")
+
+        from .inventory_wms_service import InventoryWmsService
+        wms_service = InventoryWmsService(self.db, self.tenant_ctx)
+        wh_id = invoice.warehouse_id or "wh-central-001"
+
+        # Restore batch stock for each line item
+        for item in invoice.items:
+            if item.product_id and item.quantity > 0:
+                batch = item.batch_no or "BATCH-OPENING"
+                try:
+                    await wms_service.atomic_mutate_batch_stock(
+                        product_id=item.product_id,
+                        warehouse_id=wh_id,
+                        batch_no=batch,
+                        qty_delta=Decimal(str(item.quantity)),
+                        movement_type="SALES_CANCEL",
+                        reference_doc_type="Sales Invoice",
+                        reference_doc_id=invoice.invoice_no,
+                        remarks=f"Stock restored for cancelled sales invoice: {invoice.invoice_no}",
+                    )
+                except Exception:
+                    pass
+
+        # Revert customer outstanding if credit sale
+        if invoice.customer_id and invoice.customer_id != "CUST-WALKIN":
+            try:
+                cust = await self.crm_service.get_customer(invoice.customer_id)
+                if cust and invoice.grand_total:
+                    cust.outstanding = max(Decimal("0.00"), cust.outstanding - invoice.grand_total)
+                    cust.modified_at = datetime.now(timezone.utc)
+                    self.db.add(cust)
+            except Exception:
+                pass
 
         invoice.status      = "Cancelled"
         invoice.is_deleted  = True
