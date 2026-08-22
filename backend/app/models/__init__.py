@@ -75,3 +75,17 @@ from .tax_invoice_template import (
     InvoiceDocumentArtifact,
 )
 
+# Canonical Universal Party & Universal Item Master Models (Slice 2)
+from .party import (
+    Party,
+    PartyRole,
+    CustomerProfile,
+    SupplierProfile,
+)
+from .item_master import (
+    Item,
+    ItemVariant,
+    ItemBarcode,
+)
+
+
