@@ -18,7 +18,13 @@ from typing import Dict, Any, List
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.capability_template import PlatformCapability, WorkspaceTemplate
+from ..models.capability_template import PlatformCapability, WorkspaceTemplate, FeatureFlag
+from ..models.governed_logic import (
+    FormulaDefinition,
+    BusinessRuleDefinition,
+    PolicyDefinition,
+    WorkflowDefinition,
+)
 from ..models.ui_control_plane import SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile
 from ..models.localization import (
     CountryRef,
@@ -391,14 +397,216 @@ class ControlPlaneSeeder:
         return counts
 
     @classmethod
+    async def seed_feature_flags(cls, session: AsyncSession) -> int:
+        """Seeds canonical platform feature flags on control plane."""
+        tbl_check = await session.execute(text("SELECT to_regclass('public.feature_flags');"))
+        if not tbl_check.scalar():
+            return 0
+
+        flags = [
+            {"id": "ff_multi_currency", "key": "ENABLE_MULTI_CURRENCY", "name": "Multi-Currency & FX Processing", "category": "FINANCE", "is_global_enabled": True, "description": "Enables multi-currency transaction entry and real-time forex conversions."},
+            {"id": "ff_adv_pricing", "key": "ENABLE_ADVANCED_PRICING", "name": "Dynamic & Volume Tier Pricing", "category": "PRICING", "is_global_enabled": True, "description": "Enables customer tier pricing, volume break tables, and promotional rules."},
+            {"id": "ff_ecom_sync", "key": "ENABLE_ECOM_SYNC", "name": "Omnichannel eCommerce Connector", "category": "INTEGRATION", "is_global_enabled": True, "description": "Enables Shopify, WooCommerce, and custom webhook synchronization."},
+            {"id": "ff_rule55_challan", "key": "ENABLE_RULE55_CHALLAN", "name": "Statutory Rule 55 Delivery Challan", "category": "COMPLIANCE", "is_global_enabled": True, "description": "Generates GST Rule 55 compliant Delivery Challans for stock transfers."},
+            {"id": "ff_serial_imei", "key": "ENABLE_SERIAL_IMEI_TRACKING", "name": "Serial & IMEI Number Tracking", "category": "INVENTORY", "is_global_enabled": True, "description": "Enforces piece-level serialized stock tracking at point of sale."},
+            {"id": "ff_offline_sync", "key": "ENABLE_OFFLINE_SYNC", "name": "Edge Offline POS Synchronization", "category": "OPERATIONS", "is_global_enabled": False, "description": "Allows POS terminals to continue offline with idempotent outbox replay."},
+        ]
+        count = 0
+        for f in flags:
+            existing = (await session.execute(select(FeatureFlag).where(FeatureFlag.key == f["key"]))).scalar_one_or_none()
+            if not existing:
+                session.add(FeatureFlag(**f))
+                count += 1
+        await session.flush()
+        return count
+
+    @classmethod
+    async def seed_governed_logic(cls, session: AsyncSession) -> Dict[str, int]:
+        """Seeds standard formulas, business rules, policies, and workflows on control plane."""
+        counts = {"formulas": 0, "rules": 0, "policies": 0, "workflows": 0}
+
+        # 1. Formulas
+        tbl_form = await session.execute(text("SELECT to_regclass('public.formula_definitions');"))
+        if tbl_form.scalar():
+            formulas = [
+                {
+                    "id": "form_mrp_disc_tax_v1",
+                    "code": "FORMULA_MRP_DISCOUNT_TAX",
+                    "version": 1,
+                    "name": "MRP with Discount and Tax Addition",
+                    "category": "PRICING",
+                    "description": "Calculates final item price: ((mrp * (1 - discount_pct / 100)) + tax_amount)",
+                    "expression_ast": {
+                        "type": "binary_op",
+                        "op": "+",
+                        "left": {
+                            "type": "binary_op",
+                            "op": "*",
+                            "left": {"type": "param", "name": "mrp"},
+                            "right": {
+                                "type": "binary_op",
+                                "op": "-",
+                                "left": {"type": "literal", "value": 1},
+                                "right": {
+                                    "type": "binary_op",
+                                    "op": "/",
+                                    "left": {"type": "param", "name": "discount_pct"},
+                                    "right": {"type": "literal", "value": 100}
+                                }
+                            }
+                        },
+                        "right": {"type": "param", "name": "tax_amount"}
+                    },
+                    "status": "ACTIVE"
+                },
+                {
+                    "id": "form_profit_margin_v1",
+                    "code": "FORMULA_PROFIT_MARGIN",
+                    "version": 1,
+                    "name": "Gross Profit Margin Percentage",
+                    "category": "PROFITABILITY",
+                    "description": "Calculates gross margin: (((selling_price - cost_price) / selling_price) * 100)",
+                    "expression_ast": {
+                        "type": "binary_op",
+                        "op": "*",
+                        "left": {
+                            "type": "binary_op",
+                            "op": "/",
+                            "left": {
+                                "type": "binary_op",
+                                "op": "-",
+                                "left": {"type": "param", "name": "selling_price"},
+                                "right": {"type": "param", "name": "cost_price"}
+                            },
+                            "right": {"type": "param", "name": "selling_price"}
+                        },
+                        "right": {"type": "literal", "value": 100}
+                    },
+                    "status": "ACTIVE"
+                }
+            ]
+            for f in formulas:
+                existing = (await session.execute(
+                    select(FormulaDefinition).where(
+                        FormulaDefinition.code == f["code"],
+                        FormulaDefinition.version == f["version"]
+                    )
+                )).scalar_one_or_none()
+                if not existing:
+                    session.add(FormulaDefinition(**f))
+                    counts["formulas"] += 1
+
+        # 2. Business Rules (v1: 10% VIP discount, v2: 15% VIP discount)
+        tbl_brule = await session.execute(text("SELECT to_regclass('public.business_rule_definitions');"))
+        if tbl_brule.scalar():
+            rules = [
+                {
+                    "id": "brule_vip_disc_v1",
+                    "code": "RULE_VIP_DISCOUNT",
+                    "version": 1,
+                    "name": "VIP Customer 10% Discount Rule",
+                    "rule_type": "DISCOUNT_RULE",
+                    "priority": 10,
+                    "conditions": {"field": "customer_tier", "op": "==", "value": "VIP"},
+                    "actions": [{"type": "PERCENT_DISCOUNT", "value": 10}],
+                    "status": "ACTIVE"
+                },
+                {
+                    "id": "brule_vip_disc_v2",
+                    "code": "RULE_VIP_DISCOUNT",
+                    "version": 2,
+                    "name": "VIP Customer 15% Discount Rule (Enhanced)",
+                    "rule_type": "DISCOUNT_RULE",
+                    "priority": 10,
+                    "conditions": {"field": "customer_tier", "op": "==", "value": "VIP"},
+                    "actions": [{"type": "PERCENT_DISCOUNT", "value": 15}],
+                    "status": "ACTIVE"
+                }
+            ]
+            for r in rules:
+                existing = (await session.execute(
+                    select(BusinessRuleDefinition).where(
+                        BusinessRuleDefinition.code == r["code"],
+                        BusinessRuleDefinition.version == r["version"]
+                    )
+                )).scalar_one_or_none()
+                if not existing:
+                    session.add(BusinessRuleDefinition(**r))
+                    counts["rules"] += 1
+
+        # 3. Policies
+        tbl_pol = await session.execute(text("SELECT to_regclass('public.policy_definitions');"))
+        if tbl_pol.scalar():
+            policies = [
+                {
+                    "id": "pol_gst_std_v1",
+                    "code": "POLICY_GST_STANDARD",
+                    "version": 1,
+                    "name": "Standard GST Tax Calculation Policy",
+                    "policy_type": "GST_TAX_POLICY",
+                    "parameters": {"rounding_mode": "ROUND_HALF_UP", "precision": 2, "rcm_applicable": False},
+                    "status": "ACTIVE"
+                }
+            ]
+            for p in policies:
+                existing = (await session.execute(
+                    select(PolicyDefinition).where(
+                        PolicyDefinition.code == p["code"],
+                        PolicyDefinition.version == p["version"]
+                    )
+                )).scalar_one_or_none()
+                if not existing:
+                    session.add(PolicyDefinition(**p))
+                    counts["policies"] += 1
+
+        # 4. Workflows
+        tbl_wf = await session.execute(text("SELECT to_regclass('public.workflow_definitions');"))
+        if tbl_wf.scalar():
+            workflows = [
+                {
+                    "id": "wf_sales_inv_v1",
+                    "code": "WF_SALES_INVOICE",
+                    "version": 1,
+                    "doc_type": "SalesInvoice",
+                    "name": "Standard Sales Invoice Approval Workflow",
+                    "initial_state": "DRAFT",
+                    "states": ["DRAFT", "PENDING_APPROVAL", "APPROVED", "CANCELLED"],
+                    "transitions": [
+                        {"from": "DRAFT", "to": "APPROVED", "action": "APPROVE", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "DRAFT", "to": "PENDING_APPROVAL", "action": "SUBMIT_FOR_APPROVAL", "required_roles": ["CASHIER", "MANAGER", "SYSADMIN"]},
+                        {"from": "PENDING_APPROVAL", "to": "APPROVED", "action": "APPROVE", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "PENDING_APPROVAL", "to": "DRAFT", "action": "REJECT", "required_roles": ["MANAGER", "SYSADMIN"]},
+                    ],
+                    "status": "ACTIVE"
+                }
+            ]
+            for w in workflows:
+                existing = (await session.execute(
+                    select(WorkflowDefinition).where(
+                        WorkflowDefinition.code == w["code"],
+                        WorkflowDefinition.version == w["version"]
+                    )
+                )).scalar_one_or_none()
+                if not existing:
+                    session.add(WorkflowDefinition(**w))
+                    counts["workflows"] += 1
+
+        await session.flush()
+        return counts
+
+    @classmethod
     async def seed_all(cls, session: AsyncSession) -> Dict[str, Any]:
-        """Runs capability, reference data, and UI metadata seeders."""
+        """Runs capability, reference data, UI metadata, feature flags, and governed logic seeders."""
         cap_count = await cls.seed_capabilities(session)
         ref_counts = await cls.seed_reference_data(session)
         ui_counts = await cls.seed_ui_metadata(session)
+        ff_count = await cls.seed_feature_flags(session)
+        gov_counts = await cls.seed_governed_logic(session)
         await session.commit()
         return {
             "capabilities_seeded": cap_count,
             "reference_counts": ref_counts,
-            "ui_counts": ui_counts
+            "ui_counts": ui_counts,
+            "feature_flags_seeded": ff_count,
+            "governed_logic_counts": gov_counts
         }

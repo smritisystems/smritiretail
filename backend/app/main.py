@@ -51,6 +51,7 @@ from .api.v1 import (
     docs,
     ecom,
     exchange,
+    governed_logic,
     health_flags,
     inventory,
     master_lookup,
@@ -165,6 +166,7 @@ app.include_router(wms.router,              prefix=settings.API_V1_STR + "/wms",
 app.include_router(accounting.router,       prefix=settings.API_V1_STR + "/accounting", tags=["Authoritative Accounting"])
 app.include_router(reference_data.router,    prefix=settings.API_V1_STR, tags=["Global Reference Data & Localization"])
 app.include_router(capability_registry.router, prefix=settings.API_V1_STR, tags=["Capability & Module Registry"])
+app.include_router(governed_logic.router, prefix=settings.API_V1_STR + "/governed-logic", tags=["Governed Logic & Reproducibility"])
 
 
 

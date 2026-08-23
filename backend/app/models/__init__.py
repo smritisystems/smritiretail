@@ -159,3 +159,11 @@ from .localization import (
     HsnSacCodeRef,
     PlatformReferenceData,
 )
+
+# Governed Logic & Reproducibility Models (P1.4 & P1.5)
+from .governed_logic import (
+    FormulaDefinition,
+    BusinessRuleDefinition,
+    PolicyDefinition,
+    WorkflowDefinition,
+)
