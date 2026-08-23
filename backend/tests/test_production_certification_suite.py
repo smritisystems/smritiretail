@@ -34,8 +34,8 @@ from app.services.invoice_pdf_service import InvoicePdfService
 from app.services.inventory import InventoryService
 from app.services.purchase import PurchaseService
 from app.services.supplier_payment import SupplierPaymentService
-from scripts.migrate_to_multidb import MultiDbMigrationEngine
 from app.models.auth import User, UserRole
+from app.models.company_database_registry import CompanyDatabaseRegistry
 from app.models.control.control_models import ControlCompanyDatabase, ControlPSVConfig
 from app.models.outbox import IntegrationOutboxEvent
 from app.models.psv import PSVStockEvent, PSVStockBalance
@@ -50,9 +50,10 @@ from app.core.config import settings
 async def test_01_schema_integrity():
     tables = sorted(Base.metadata.tables.keys())
     required = [
-        "control_companies", "control_company_databases", "control_users",
-        "control_psv_configs", "integration_outbox_events", "psv_stock_events",
-        "psv_stock_balances", "products", "sales_invoices"
+        "companies", "company_database_registries", "users",
+        "integration_outbox_events", "psv_stock_events",
+        "psv_stock_balances", "products", "sales_invoices",
+        "analytics_daily_sales_facts", "compliance_immutable_audit_logs"
     ]
     for r in required:
         assert r in tables, f"Missing required table '{r}' in Base.metadata"
@@ -68,9 +69,9 @@ async def test_02_database_provisioning_sanitization():
 # 03 — Registry Resolution Test
 @pytest.mark.asyncio
 async def test_03_registry_resolution():
-    dummy = ControlCompanyDatabase(
-        id="cdb_test", company_id="c1", company_code="TATTLY",
-        database_name="Smritibus_TATTLY", host="localhost", port=5432, db_user="postgres"
+    dummy = CompanyDatabaseRegistry(
+        company_id="c1", database_id="db_tattly",
+        database_name="Smritibus_TATTLY", host_reference="localhost", port_reference=5432
     )
     url = ControlDatabaseRegistryService.build_connection_url(dummy)
     assert url == "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_TATTLY"
