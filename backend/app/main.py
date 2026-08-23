@@ -37,6 +37,7 @@ from app.compliance.api import router as compliance_router
 from .api.v1 import (
     accounting,
     ai,
+    analytics,
     approval_matrix,
     attributes,
     auth,
@@ -55,6 +56,7 @@ from .api.v1 import (
     exchange,
     governed_logic,
     health_flags,
+    integration,
     inventory,
     master_lookup,
     masters,
@@ -175,6 +177,8 @@ app.include_router(universal_master.router, prefix=settings.API_V1_STR + "/unive
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
 app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
 app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])
+app.include_router(analytics.router, prefix=settings.API_V1_STR + "/analytics", tags=["Analytics & Intelligence Plane"])
+app.include_router(integration.router, prefix=settings.API_V1_STR + "/integration", tags=["Integration Hub & Audit"])
 
 
 
