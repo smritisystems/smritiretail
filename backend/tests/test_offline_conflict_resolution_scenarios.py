@@ -59,10 +59,13 @@ def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branc
 @pytest.mark.asyncio
 async def test_simultaneous_last_unit_sale_oversell_conflict():
     """
-    Scenario 1: Two offline POS terminals simultaneously sell the last remaining unit (Stock=1).
-    Terminal 1 gets ACCEPTED (Stock 1 -> 0);
-    Terminal 2 gets ACCEPTED_WARN (Stock 0 -> -1, under allow_negative_stock=True);
-    Terminal 3 gets NEEDS_REVIEW (under allow_negative_stock=False).
+    Scenario 1: Sequential scenario — two offline POS terminals sell the last remaining unit (Stock=1).
+    Each terminal syncs one at a time via sequential awaits (not concurrent). This verifies the
+    conflict-resolution *decision logic* for oversell: Terminal 1 is ACCEPTED, Terminal 2 is
+    ACCEPTED_WARN (allow_negative_stock=True), Terminal 3 is NEEDS_REVIEW (allow_negative_stock=False).
+
+    NOTE: This test does NOT verify behavior under genuine concurrent drift (asyncio.gather /
+    simultaneous writes to the same record). That requires a physical soak test.
     """
     sessionmaker = get_company_sessionmaker("smriti001")
     async with sessionmaker() as db:
