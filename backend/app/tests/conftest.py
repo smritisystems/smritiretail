@@ -155,11 +155,15 @@ async def clear_db(db_session: AsyncSession):
             await db_session.execute(text(f"DELETE FROM {tbl};"))
         except Exception:
             pass
-    try:
-        await db_session.execute(text("DELETE FROM smriti_menus;"))
-        await db_session.execute(text("DELETE FROM smriti_audit_log;"))
-    except Exception:
-        pass
+    from app.models.ui_control_plane import SmritiThemeVariant, SmritiTheme, SmritiWorkspaceProfile
+    await db_session.execute(delete(SmritiThemeVariant))
+    await db_session.execute(delete(SmritiTheme))
+    await db_session.execute(delete(SmritiWorkspaceProfile))
+    for tbl in ["smriti_menus", "smriti_audit_log"]:
+        try:
+            await db_session.execute(text(f"DELETE FROM {tbl};"))
+        except Exception:
+            pass
     await db_session.execute(delete(Company))
     await db_session.commit()
 
