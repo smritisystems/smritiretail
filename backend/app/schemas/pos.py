@@ -90,7 +90,7 @@ class POSProfileResponse(BaseModel):
 class ShiftOpen(BaseModel):
     id:              str = Field(..., max_length=50)
     register_id:     str = Field(..., max_length=50)
-    opening_balance: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"), decimal_places=2, max_digits=12)
+    opening_balance: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
 
 
 class CashDenominationBreakdown(BaseModel):
@@ -104,7 +104,7 @@ class CashDenominationBreakdown(BaseModel):
     notes_5:     int = Field(0, ge=0)
     notes_2:     int = Field(0, ge=0)
     notes_1:     int = Field(0, ge=0)
-    coins_total: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"), decimal_places=2, max_digits=12)
+    coins_total: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
 
     def calculate_total(self) -> Decimal:
         return (
@@ -132,7 +132,7 @@ class ShiftCashInRequest(BaseModel):
     at schema-validation time so that automatic random key generation
     is never silently used as a deduplication substitute.
     """
-    amount:            Decimal = Field(..., gt=Decimal("0.00"), decimal_places=2, max_digits=12)
+    amount:            Decimal = Field(..., gt=Decimal("0.00"))
     source_account_id: Optional[str] = Field(None, max_length=50)  # Defaults to 1020 (Bank) or 1010 vault
     reason:            str = Field(..., min_length=3, max_length=255)
     receipt_ref:       Optional[str] = Field(None, max_length=100)
@@ -147,7 +147,7 @@ class ShiftCashDropRequest(BaseModel):
     `idempotency_key` is REQUIRED. See ShiftCashInRequest for the same
     client-idempotency contract.
     """
-    amount:            Decimal = Field(..., gt=Decimal("0.00"), decimal_places=2, max_digits=12)
+    amount:            Decimal = Field(..., gt=Decimal("0.00"))
     target_account_id: Optional[str] = Field(None, max_length=50)  # Defaults to 1020 (Bank) or 1010 vault
     reason:            str = Field(..., min_length=3, max_length=255)
     receipt_ref:       Optional[str] = Field(None, max_length=100)
@@ -162,7 +162,7 @@ class ShiftTillExpenseRequest(BaseModel):
     `idempotency_key` is REQUIRED. See ShiftCashInRequest for the same
     client-idempotency contract.
     """
-    amount:             Decimal = Field(..., gt=Decimal("0.00"), decimal_places=2, max_digits=12)
+    amount:             Decimal = Field(..., gt=Decimal("0.00"))
     expense_account_id: Optional[str] = Field(None, max_length=50)  # Defaults to 5000 (Expenses)
     reason:             str = Field(..., min_length=3, max_length=255)
     receipt_ref:        Optional[str] = Field(None, max_length=100)
@@ -187,7 +187,7 @@ class ShiftCashTransactionResponse(BaseModel):
 
 
 class ShiftClose(BaseModel):
-    closing_balance: Optional[Decimal] = Field(None, ge=Decimal("0.00"), decimal_places=2, max_digits=12)
+    closing_balance: Optional[Decimal] = Field(None, ge=Decimal("0.00"))
     denominations:   Optional[CashDenominationBreakdown] = None
     closing_notes:   Optional[str] = Field(None, max_length=500)
     idempotency_key: Optional[str] = Field(None, max_length=100)
