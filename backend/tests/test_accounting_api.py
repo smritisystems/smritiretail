@@ -243,3 +243,44 @@ def test_api_exchange_rates_and_fx_revaluation(mock_auth_tenant):
     assert "total_unrealized_gain" in mtm_data
     assert "total_unrealized_loss" in mtm_data
 
+
+def test_api_accounting_rbac_unauthorized_user_403():
+    """Verify that unprivileged users (e.g. VIEWER) are rejected with 403 on mutating endpoints."""
+    session_factory = get_company_sessionmaker("smriti001")
+
+    async def override_get_company_db():
+        async with session_factory() as session:
+            yield session
+
+    async def override_get_tenant_context():
+        return TenantContext(company_id="COMP-001", branch_id="BR-001")
+
+    async def override_get_viewer_user():
+        return User(
+            id="usr-viewer-acct",
+            username="acct_viewer",
+            role=UserRole.VIEWER,
+            company_id="COMP-001",
+            branch_id="BR-001"
+        )
+
+    app.dependency_overrides[get_company_db] = override_get_company_db
+    app.dependency_overrides[get_tenant_context] = override_get_tenant_context
+    app.dependency_overrides[get_current_user] = override_get_viewer_user
+
+    client = TestClient(app)
+
+    # Attempt to post exchange rate with VIEWER role -> 403 Forbidden
+    res = client.post("/api/v1/accounting/exchange-rates", json={
+        "from_currency": "USD",
+        "to_currency": "INR",
+        "exchange_rate": 84.00,
+        "effective_date": date.today().isoformat()
+    })
+    assert res.status_code == 403
+    assert "permission" in res.json()["detail"].lower()
+
+    # Clean up overrides
+    app.dependency_overrides.clear()
+
+

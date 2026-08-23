@@ -89,4 +89,35 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table("currency_exchange_rates")
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    tables = inspector.get_table_names()
+
+    # 1. Drop multi-currency columns from general_ledger_entries
+    if "general_ledger_entries" in tables:
+        gle_cols = {c["name"] for c in inspector.get_columns("general_ledger_entries")}
+        if "foreign_credit_amount" in gle_cols:
+            op.drop_column("general_ledger_entries", "foreign_credit_amount")
+        if "foreign_debit_amount" in gle_cols:
+            op.drop_column("general_ledger_entries", "foreign_debit_amount")
+        if "exchange_rate" in gle_cols:
+            op.drop_column("general_ledger_entries", "exchange_rate")
+        if "foreign_currency" in gle_cols:
+            op.drop_column("general_ledger_entries", "foreign_currency")
+
+    # 2. Drop multi-currency columns from journal_vouchers
+    if "journal_vouchers" in tables:
+        jv_cols = {c["name"] for c in inspector.get_columns("journal_vouchers")}
+        if "total_foreign_credit" in jv_cols:
+            op.drop_column("journal_vouchers", "total_foreign_credit")
+        if "total_foreign_debit" in jv_cols:
+            op.drop_column("journal_vouchers", "total_foreign_debit")
+        if "exchange_rate" in jv_cols:
+            op.drop_column("journal_vouchers", "exchange_rate")
+        if "currency" in jv_cols:
+            op.drop_column("journal_vouchers", "currency")
+
+    # 3. Drop currency_exchange_rates table
+    if "currency_exchange_rates" in tables:
+        op.drop_table("currency_exchange_rates")
+

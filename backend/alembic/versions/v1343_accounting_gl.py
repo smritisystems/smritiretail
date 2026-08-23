@@ -232,6 +232,10 @@ def upgrade():
 
 def downgrade():
     """
-    Forward-only migration policy for financial ledger stability.
+    Symmetrical downgrade dropping accounting tables in reverse dependency order.
     """
-    pass
+    op.execute("DROP TABLE IF EXISTS account_balance_snapshots CASCADE;")
+    op.execute("DROP TABLE IF EXISTS general_ledger_entries CASCADE;")
+    op.execute("DROP TABLE IF EXISTS journal_vouchers CASCADE;")
+    op.execute("DROP TABLE IF EXISTS accounts CASCADE;")
+

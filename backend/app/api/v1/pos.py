@@ -26,9 +26,10 @@ from ...models.auth import UserRole, User
 from ...schemas.pos import (
     CashRegisterCreate, CashRegisterResponse,
     POSProfileCreate, POSProfileResponse,
-    ShiftOpen, ShiftClose, ShiftResponse,
+    ShiftOpen, ShiftClose, ShiftResponse, POSZReportResponse,
     POSCheckoutRequest, POSCheckoutResponse,
 )
+
 from ...services.pos import POSService
 
 router = APIRouter()
@@ -104,6 +105,23 @@ async def close_shift_contract(
 ):
     """Close an open shift — canonical contract URL. Replaces /shifts/{id}/close (deprecated)."""
     return await POSService(db, tenant).close_shift(shift_id, req, current_user.id)
+
+
+@router.get(
+    "/pos/shifts/{shift_id}/z-report",
+    response_model=POSZReportResponse,
+    summary="Get Shift Z-Report",
+    description="Returns comprehensive shift closing totals, tender variance breakdown, and linked GL voucher reference.",
+)
+async def get_shift_z_report(
+    shift_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """Get authoritative Z-Report data for a shift."""
+    return await POSService(db, tenant).get_z_report(shift_id)
+
 
 
 @router.get(

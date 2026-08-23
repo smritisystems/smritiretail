@@ -36,6 +36,7 @@ from ..models.sales import SalesInvoice
 from ..models.purchase import PurchaseReceipt
 from ..models.payment_ledger import PaymentTransaction
 from ..models.inventory import StockAudit
+from ..models.pos import Shift
 from .outbox_service import OutboxService
 
 
@@ -69,6 +70,7 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "4020", "name": "Discounts Received", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
     {"code": "4030", "name": "Foreign Exchange Gain (Realized)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
     {"code": "4040", "name": "Foreign Exchange Gain (Unrealized)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
+    {"code": "4050", "name": "Cash Register Overage (Surplus)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
 
     # 5000 - Expenses
     {"code": "5000", "name": "Expenses", "type": "EXPENSE", "root": "EXPENSE", "is_group": True, "parent": None},
@@ -78,7 +80,9 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "5040", "name": "Inventory Loss & Shrinkage", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5050", "name": "Foreign Exchange Loss (Realized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5060", "name": "Foreign Exchange Loss (Unrealized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
+    {"code": "5070", "name": "Cash Register Shortage (Deficit)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
 ]
+
 
 
 
@@ -167,6 +171,16 @@ class UnifiedAccountingLedgerService:
                 raise HTTPException(status_code=404, detail=f"SMRITI-GL-404: Account code '{account_code}' not found for company '{company_id}'.")
         return account
 
+    @staticmethod
+    def validate_currency_code(code: str) -> str:
+        """Validates that a currency code is a valid 3-letter uppercase ISO format."""
+        if not code or not isinstance(code, str):
+            raise HTTPException(status_code=400, detail="SMRITI-VAL-001: Currency code must be a valid 3-letter ISO code.")
+        clean_code = code.strip().upper()
+        if len(clean_code) != 3 or not clean_code.isalpha():
+            raise HTTPException(status_code=400, detail=f"SMRITI-VAL-002: Invalid currency code '{code}'. Must be a 3-letter uppercase ISO code (e.g. USD, EUR, INR).")
+        return clean_code
+
     @classmethod
     async def post_journal_voucher(
         cls,
@@ -189,7 +203,7 @@ class UnifiedAccountingLedgerService:
         Validates and atomically posts a balanced double-entry Journal Voucher.
         Strict invariant: sum(debit_amounts) == sum(credit_amounts) in Base Currency.
         Supports multi-currency conversion and foreign line amount tracking.
-        Enforces fiscal period lockouts (SMRITI-GL-006).
+        Enforces fiscal period lockouts (SMRITI-GL-006) and currency validation.
         """
         await cls.assert_fiscal_period_open(session, company_id, voucher_date)
 
@@ -199,13 +213,15 @@ class UnifiedAccountingLedgerService:
                 detail="SMRITI-GL-002: A double-entry journal voucher requires at least two lines."
             )
 
-        currency = currency.strip().upper()
+        currency = cls.validate_currency_code(currency)
         if currency != "INR" and exchange_rate is None:
             exchange_rate = await cls.get_exchange_rate(session, company_id, currency, "INR", voucher_date)
         elif exchange_rate is None:
             exchange_rate = Decimal("1.000000")
         else:
             exchange_rate = Decimal(str(exchange_rate))
+            if exchange_rate <= 0 or exchange_rate > Decimal("100000000.000000"):
+                raise HTTPException(status_code=400, detail="SMRITI-GL-008: Currency exchange rate must be strictly positive and <= 100,000,000.")
 
         total_debit = Decimal("0.00")
         total_credit = Decimal("0.00")
@@ -222,9 +238,16 @@ class UnifiedAccountingLedgerService:
             elif not acc_id:
                 raise HTTPException(status_code=400, detail="SMRITI-GL-003: Each voucher line must specify account_id or account_code.")
 
-            line_curr = (line.get("currency") or line.get("foreign_currency") or currency).strip().upper()
+            raw_curr = line.get("currency") or line.get("foreign_currency") or currency
+            line_curr = cls.validate_currency_code(raw_curr)
             raw_line_rate = line.get("exchange_rate")
-            line_rate = Decimal(str(raw_line_rate)) if raw_line_rate is not None else exchange_rate
+            if raw_line_rate is not None:
+                line_rate = Decimal(str(raw_line_rate))
+                if line_rate <= 0 or line_rate > Decimal("100000000.000000"):
+                    raise HTTPException(status_code=400, detail="SMRITI-GL-008: Line exchange rate must be strictly positive and <= 100,000,000.")
+            else:
+                line_rate = exchange_rate
+
 
 
             f_debit = Decimal(str(line.get("foreign_debit_amount", 0.00))).quantize(Decimal("0.01"))
@@ -271,12 +294,22 @@ class UnifiedAccountingLedgerService:
                 "remarks": line.get("remarks"),
             })
 
+        # Foreign Currency Consistency Validation
+        if currency != "INR":
+            same_foreign_curr = all(e["foreign_currency"] == currency for e in parsed_entries)
+            if same_foreign_curr and abs(total_f_debit - total_f_credit) > Decimal("0.001"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-GL-010: Unbalanced foreign currency voucher. Total foreign debits ({currency} {total_f_debit}) must equal total foreign credits ({currency} {total_f_credit})."
+                )
+
         # Strict Double-Entry Invariant Validation in Base Currency
         if abs(total_debit - total_credit) > Decimal("0.001"):
             raise HTTPException(
                 status_code=400,
                 detail=f"SMRITI-GL-001: Unbalanced journal voucher. Total debits (₹{total_debit}) must equal total credits (₹{total_credit})."
             )
+
 
         now_utc = datetime.now(timezone.utc)
         voucher_id = f"jv_{uuid.uuid4().hex[:12]}"
@@ -893,6 +926,110 @@ class UnifiedAccountingLedgerService:
         )
 
     @classmethod
+    async def post_shift_close_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        shift_id: str,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a closed POS Register Shift / Z-Report into an authoritative double-entry GL voucher.
+        Balances cash tender variance (physical cash drawer count vs expected cash total):
+        Cash Shortage (variance < 0):
+            Debit: Cash Register Shortage (5070) = |variance|
+            Credit: Cash in Hand (1010) = |variance|
+        Cash Overage (variance > 0):
+            Debit: Cash in Hand (1010) = variance
+            Credit: Cash Register Overage (4050) = variance
+        Zero Variance (variance == 0):
+            Returns None (Cash already perfectly aligned by individual invoice postings).
+        """
+        stmt = select(Shift).where(Shift.id == shift_id, Shift.company_id == company_id, Shift.is_deleted == False)
+        shift = (await session.execute(stmt)).scalar_one_or_none()
+        if not shift:
+            raise HTTPException(status_code=404, detail=f"Shift {shift_id} not found.")
+
+        if shift.status != "CLOSED":
+            raise HTTPException(status_code=400, detail="Cannot post GL voucher for an unclosed shift. Close shift first.")
+
+        # Idempotency check: check if already posted for this shift
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "POS_SHIFT",
+            JournalVoucher.reference_doc_id == shift.id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_v = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_v:
+            return existing_v
+
+        variance = Decimal(str(shift.variance or 0.00)).quantize(Decimal("0.01"))
+        if abs(variance) < Decimal("0.01"):
+            return None  # Zero cash variance; GL cash drawer balance matches physical count perfectly
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_cash = await cls.get_account_by_code(session, company_id, "1010")
+        acc_overage = await cls.get_account_by_code(session, company_id, "4050")
+        acc_shortage = await cls.get_account_by_code(session, company_id, "5070")
+
+        lines = []
+        if variance < 0:
+            # Shortage: Cash counted is less than expected -> Debit Shortage Expense, Credit Cash
+            shortage_amt = abs(variance)
+            lines = [
+                {
+                    "account_id": acc_shortage.id,
+                    "debit_amount": shortage_amt,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Cash drawer shortage on Register {shift.register_id} Shift {shift.id}"
+                },
+                {
+                    "account_id": acc_cash.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": shortage_amt,
+                    "remarks": f"Cash drawer shortage adjustment on Register {shift.register_id}"
+                }
+            ]
+        else:
+            # Overage: Cash counted is more than expected -> Debit Cash, Credit Overage Income
+            overage_amt = variance
+            lines = [
+                {
+                    "account_id": acc_cash.id,
+                    "debit_amount": overage_amt,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Cash drawer surplus on Register {shift.register_id} Shift {shift.id}"
+                },
+                {
+                    "account_id": acc_overage.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": overage_amt,
+                    "remarks": f"Cash drawer surplus adjustment on Register {shift.register_id}"
+                }
+            ]
+
+        opened_str = shift.opened_at.strftime('%Y%m%d%H%M') if shift.opened_at else shift.id[:8]
+        voucher_date = shift.closed_at.date() if shift.closed_at else date.today()
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or shift.branch_id,
+            voucher_type="SHIFT_CLOSE",
+            voucher_date=voucher_date,
+            lines=lines,
+            reference_doc_type="POS_SHIFT",
+            reference_doc_id=shift.id,
+            reference_doc_no=f"ZREPORT-{shift.register_id}-{opened_str}",
+            narration=f"ProPOS Shift Close & Z-Report balancing for Register {shift.register_id} (Expected: ₹{shift.expected_cash}, Counted: ₹{shift.closing_balance}, Variance: ₹{shift.variance})",
+            created_by=created_by or shift.cashier_id or "pos_shift_engine"
+        )
+
+
+    @classmethod
     async def generate_period_balance_snapshot(
         cls,
         session: AsyncSession,
@@ -1366,14 +1503,30 @@ class UnifiedAccountingLedgerService:
     ) -> CurrencyExchangeRate:
         """
         Upserts an authoritative currency exchange rate.
+        Enforces 3-letter ISO codes, currency disparity, valid rate types, and positive bounds.
         """
         eff_date = effective_date or date.today()
-        from_curr = from_currency.strip().upper()
-        to_curr = to_currency.strip().upper()
-        rate_val = Decimal(str(exchange_rate))
+        from_curr = cls.validate_currency_code(from_currency)
+        to_curr = cls.validate_currency_code(to_currency)
 
-        if rate_val <= 0:
-            raise HTTPException(status_code=400, detail="SMRITI-GL-008: Currency exchange rate must be strictly positive (> 0).")
+        if from_curr == to_curr:
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-GL-011: Exchange rate cannot be defined between identical currencies."
+            )
+
+        if rate_type not in ("SPOT", "CLOSING", "AVERAGE", "CUSTOM"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"SMRITI-VAL-003: Invalid rate_type '{rate_type}'. Must be SPOT, CLOSING, AVERAGE, or CUSTOM."
+            )
+
+        rate_val = Decimal(str(exchange_rate))
+        if rate_val <= 0 or rate_val > Decimal("100000000.000000"):
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-GL-008: Currency exchange rate must be strictly positive (> 0) and <= 100,000,000."
+            )
 
         stmt = select(CurrencyExchangeRate).where(
             CurrencyExchangeRate.company_id == company_id,
@@ -1420,8 +1573,8 @@ class UnifiedAccountingLedgerService:
         """
         Resolves the most recent applicable exchange rate on or before the given date.
         """
-        from_curr = from_currency.strip().upper()
-        to_curr = to_currency.strip().upper()
+        from_curr = cls.validate_currency_code(from_currency)
+        to_curr = cls.validate_currency_code(to_currency)
         if from_curr == to_curr:
             return Decimal("1.000000")
 
@@ -1463,20 +1616,60 @@ class UnifiedAccountingLedgerService:
     ) -> Optional[JournalVoucher]:
         """
         Calculates and posts Realized Foreign Exchange Gain / Loss upon foreign invoice settlement.
+        Enforces settlement allocation limits, document validation, and idempotency protection.
         """
-        inv_stmt = select(JournalVoucher).where(JournalVoucher.id == invoice_voucher_id, JournalVoucher.company_id == company_id)
+        foreign_amt = Decimal(str(settled_foreign_amount)).quantize(Decimal("0.01"))
+        if foreign_amt <= 0:
+            raise HTTPException(status_code=400, detail="SMRITI-VAL-004: Settled foreign amount must be strictly positive.")
+
+        inv_stmt = select(JournalVoucher).where(
+            JournalVoucher.id == invoice_voucher_id,
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.is_deleted == False
+        )
         invoice_voucher = (await session.execute(inv_stmt)).scalar_one_or_none()
         if not invoice_voucher:
             raise HTTPException(status_code=404, detail=f"SMRITI-GL-404: Invoice voucher '{invoice_voucher_id}' not found.")
 
-        pay_stmt = select(JournalVoucher).where(JournalVoucher.id == payment_voucher_id, JournalVoucher.company_id == company_id)
+        pay_stmt = select(JournalVoucher).where(
+            JournalVoucher.id == payment_voucher_id,
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.is_deleted == False
+        )
         payment_voucher = (await session.execute(pay_stmt)).scalar_one_or_none()
         if not payment_voucher:
             raise HTTPException(status_code=404, detail=f"SMRITI-GL-404: Payment voucher '{payment_voucher_id}' not found.")
 
+        # Currency consistency check
+        if invoice_voucher.currency != payment_voucher.currency:
+            raise HTTPException(
+                status_code=400,
+                detail=f"SMRITI-GL-014: Currency mismatch between invoice ({invoice_voucher.currency}) and payment ({payment_voucher.currency}) vouchers."
+            )
+
+        # Over-settlement boundary protection
+        max_inv_foreign = max(invoice_voucher.total_foreign_debit, invoice_voucher.total_foreign_credit)
+        max_pay_foreign = max(payment_voucher.total_foreign_debit, payment_voucher.total_foreign_credit)
+        if foreign_amt > max_inv_foreign or foreign_amt > max_pay_foreign:
+            raise HTTPException(
+                status_code=400,
+                detail=f"SMRITI-GL-009: Settled foreign amount ({foreign_amt}) exceeds invoice foreign limit ({max_inv_foreign}) or payment limit ({max_pay_foreign})."
+            )
+
+        # Idempotency check: check if realization voucher already posted for this pair
+        pair_ref_id = f"{invoice_voucher_id}:{payment_voucher_id}"
+        existing_fx_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.voucher_type == "FX_REALIZATION",
+            JournalVoucher.reference_doc_id == pair_ref_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_fx = (await session.execute(existing_fx_stmt)).scalars().all()
+        if existing_fx:
+            return existing_fx[0]
+
         booking_rate = Decimal(str(invoice_voucher.exchange_rate))
         settlement_rate = Decimal(str(payment_voucher.exchange_rate))
-        foreign_amt = Decimal(str(settled_foreign_amount))
 
         booking_base = (foreign_amt * booking_rate).quantize(Decimal("0.01"))
         settlement_base = (foreign_amt * settlement_rate).quantize(Decimal("0.01"))
@@ -1536,8 +1729,8 @@ class UnifiedAccountingLedgerService:
             voucher_date=payment_voucher.voucher_date,
             lines=lines,
             reference_doc_type="PAYMENT_SETTLEMENT",
-            reference_doc_id=payment_voucher.id,
-            reference_doc_no=payment_voucher.voucher_no,
+            reference_doc_id=pair_ref_id,
+            reference_doc_no=f"FX-SETTLE-{invoice_voucher.voucher_no}-{payment_voucher.voucher_no}",
             narration=narration,
             created_by=created_by or "system_fx_engine"
         )
@@ -1550,12 +1743,40 @@ class UnifiedAccountingLedgerService:
         as_of_date: date,
         closing_rates: Dict[str, Decimal],
         branch_id: Optional[str] = None,
-        created_by: Optional[str] = None
+        created_by: Optional[str] = None,
+        allow_overwrite: bool = False
     ) -> Dict[str, Any]:
         """
         Mark-to-Market (MTM) periodic revaluation of open foreign balances at closing rates.
         Posts unrealized gain/loss to Account 4040 or 5060.
+        Enforces fiscal period lockouts and periodic run idempotency.
         """
+        await cls.assert_fiscal_period_open(session, company_id, as_of_date)
+
+        # Idempotency check: look for existing revaluation voucher for this company and date
+        mtm_ref_no = f"MTM-{company_id}-{as_of_date.isoformat()}"
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.voucher_type == "FX_UNREALIZED_MTM",
+            JournalVoucher.reference_doc_no == mtm_ref_no,
+            JournalVoucher.is_deleted == False
+        )
+        existing_v = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_v and not allow_overwrite:
+            return {
+                "company_id": company_id,
+                "as_of_date": as_of_date.isoformat(),
+                "total_unrealized_gain": float(existing_v.total_credit),
+                "total_unrealized_loss": float(existing_v.total_debit),
+                "revaluation_voucher_id": existing_v.id,
+                "revaluation_voucher_no": existing_v.voucher_no,
+                "is_idempotent_cached": True
+            }
+        elif existing_v and allow_overwrite:
+            existing_v.is_deleted = True
+            existing_v.is_posted = False
+            await session.flush()
+
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
         acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
         acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
@@ -1644,6 +1865,8 @@ class UnifiedAccountingLedgerService:
                 voucher_type="FX_UNREALIZED_MTM",
                 voucher_date=as_of_date,
                 lines=jv_lines,
+                reference_doc_type="PERIODIC_REVALUATION",
+                reference_doc_no=mtm_ref_no,
                 narration=f"Periodic Mark-to-Market FX Revaluation as of {as_of_date.isoformat()}",
                 created_by=created_by or "system_mtm_engine"
             )
@@ -1656,6 +1879,20 @@ class UnifiedAccountingLedgerService:
             "revaluation_voucher_id": voucher.id if voucher else None,
             "revaluation_voucher_no": voucher.voucher_no if voucher else None
         }
+
+    @classmethod
+    async def assert_voucher_immutable(cls, session: AsyncSession, voucher_id: str, company_id: str) -> None:
+        """
+        Enforces append-only immutable ledger policy. Posted vouchers and ledger entries cannot be mutated.
+        """
+        stmt = select(JournalVoucher).where(JournalVoucher.id == voucher_id, JournalVoucher.company_id == company_id)
+        v = (await session.execute(stmt)).scalar_one_or_none()
+        if v and v.is_posted:
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-GL-015: Immutable Ledger Policy: Posted journal vouchers and ledger entries cannot be modified directly. Post an authoritative reversing journal voucher."
+            )
+
 
 
 
