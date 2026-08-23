@@ -78,7 +78,7 @@ class UnifiedSalesLedgerService:
         stock_movements: List[StockMovement] = []
 
         for idx, itm in enumerate(items_data, start=1):
-            product_id = itm["product_id"]
+            product_id = itm.get("product_id") or itm.get("item_id") or itm.get("id") or f"prod_adhoc_{uuid.uuid4().hex[:8]}"
             code = itm.get("code") or itm.get("sku") or f"PROD-{idx}"
             name = itm.get("name") or itm.get("item_name") or "Sales Item"
             qty = Decimal(str(itm.get("quantity", 1.0)))
@@ -154,11 +154,7 @@ class UnifiedSalesLedgerService:
             )
             stock_movements.append(movement)
 
-            # 4. Decrement Product Master Stock
-            prod_stmt = select(Product).where(Product.id == product_id)
-            prod = (await session.execute(prod_stmt)).scalar_one_or_none()
-            if prod:
-                prod.stock = int(prod.stock - qty)
+            # 4. Stock reconciliation handled by trigger on stock_movements
 
             # 5. Decrement Batch Stock if applicable
             if batch_no:
