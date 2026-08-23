@@ -35,6 +35,7 @@ from fastapi.responses import JSONResponse
 from app.compliance.api import router as compliance_router
 
 from .api.v1 import (
+    accounting,
     ai,
     approval_matrix,
     attributes,
@@ -159,6 +160,8 @@ app.include_router(database_manager.router,       prefix=settings.API_V1_STR + "
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 app.include_router(approval_matrix.router,  prefix=settings.API_V1_STR + "/approval-matrix", tags=["Approval Matrix"])
 app.include_router(wms.router,              prefix=settings.API_V1_STR + "/wms", tags=["Warehouse & Batch Management"])
+app.include_router(accounting.router,       prefix=settings.API_V1_STR + "/accounting", tags=["Authoritative Accounting"])
+
 
 
 

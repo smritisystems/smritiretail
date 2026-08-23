@@ -129,3 +129,103 @@ class AccountBalanceSnapshot(BaseEntity):
     closing_debit = Column(Numeric(15, 2), nullable=False, default=0.00)
     closing_credit = Column(Numeric(15, 2), nullable=False, default=0.00)
     net_balance = Column(Numeric(15, 2), nullable=False, default=0.00)
+
+
+class FiscalYear(BaseEntity):
+    """
+    Authoritative Financial Year tracking statutory accounting bounds and closure status.
+    """
+    __tablename__ = "fiscal_years"
+    __table_args__ = (
+        UniqueConstraint("company_id", "financial_year_code", name="uq_fiscal_year_company_code"),
+        Index("idx_fiscal_year_dates", "company_id", "start_date", "end_date"),
+    )
+
+    financial_year_code = Column(String(20), nullable=False, index=True)  # e.g., FY2026-27
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    is_closed = Column(Boolean, nullable=False, default=False)
+    is_locked = Column(Boolean, nullable=False, default=False)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    closed_by = Column(String(100), nullable=True)
+
+    # Relationships
+    periods = relationship("FiscalPeriod", back_populates="fiscal_year", cascade="all, delete-orphan")
+
+
+class FiscalPeriod(BaseEntity):
+    """
+    Sub-divided accounting period (e.g. Monthly / Quarterly) enforcing hard backdating lockouts.
+    """
+    __tablename__ = "fiscal_periods"
+    __table_args__ = (
+        UniqueConstraint("company_id", "fiscal_year_id", "period_number", name="uq_fiscal_period_comp_fy_num"),
+        Index("idx_fiscal_period_dates", "company_id", "start_date", "end_date"),
+    )
+
+    fiscal_year_id = Column(String(50), ForeignKey("fiscal_years.id", ondelete="CASCADE"), nullable=False, index=True)
+    period_name = Column(String(50), nullable=False)   # e.g. April 2026, M01-2026
+    period_number = Column(Integer, nullable=False)     # 1 to 12
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    status = Column(String(30), nullable=False, default="OPEN")  # OPEN, SOFT_CLOSED, HARD_LOCKED
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    closed_by = Column(String(100), nullable=True)
+
+    # Relationships
+    fiscal_year = relationship("FiscalYear", back_populates="periods")
+
+
+class BankStatement(BaseEntity):
+    """
+    Bank Statement master record for Bank Reconciliation Statement (BRS) processes.
+    """
+    __tablename__ = "bank_statements"
+    __table_args__ = (
+        UniqueConstraint("company_id", "bank_account_id", "statement_no", name="uq_bank_statement_comp_acc_no"),
+        Index("idx_bank_statement_dates", "company_id", "from_date", "to_date"),
+    )
+
+    bank_account_id = Column(String(50), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    statement_no = Column(String(100), nullable=False, index=True)
+    statement_date = Column(Date, nullable=False, default=date.today)
+    from_date = Column(Date, nullable=False)
+    to_date = Column(Date, nullable=False)
+    opening_balance = Column(Numeric(15, 2), nullable=False, default=0.00)
+    closing_balance = Column(Numeric(15, 2), nullable=False, default=0.00)
+    is_reconciled = Column(Boolean, nullable=False, default=False)
+    reconciled_at = Column(DateTime(timezone=True), nullable=True)
+    reconciled_by = Column(String(100), nullable=True)
+
+    # Relationships
+    bank_account = relationship("Account")
+    lines = relationship("BankStatementLine", back_populates="statement", cascade="all, delete-orphan")
+
+
+class BankStatementLine(BaseEntity):
+    """
+    Individual transaction line item from an ingested bank statement.
+    """
+    __tablename__ = "bank_statement_lines"
+    __table_args__ = (
+        Index("idx_bsl_statement_line", "company_id", "statement_id", "line_number"),
+        Index("idx_bsl_reconciliation", "company_id", "reconciliation_status"),
+    )
+
+    statement_id = Column(String(50), ForeignKey("bank_statements.id", ondelete="CASCADE"), nullable=False, index=True)
+    line_number = Column(Integer, nullable=False, default=1)
+    transaction_date = Column(Date, nullable=False)
+    value_date = Column(Date, nullable=False)
+    reference_no = Column(String(100), nullable=True, index=True)
+    description = Column(Text, nullable=True)
+    deposit_amount = Column(Numeric(15, 2), nullable=False, default=0.00)
+    withdrawal_amount = Column(Numeric(15, 2), nullable=False, default=0.00)
+    balance_after_transaction = Column(Numeric(15, 2), nullable=True)
+    reconciled_gl_entry_id = Column(String(50), ForeignKey("general_ledger_entries.id", ondelete="SET NULL"), nullable=True, index=True)
+    reconciliation_status = Column(String(30), nullable=False, default="UNMATCHED")  # UNMATCHED, AUTO_RECONCILED, MANUALLY_CLEARED, DISPUTED
+    cleared_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    statement = relationship("BankStatement", back_populates="lines")
+    reconciled_gl_entry = relationship("GeneralLedgerEntry")
+

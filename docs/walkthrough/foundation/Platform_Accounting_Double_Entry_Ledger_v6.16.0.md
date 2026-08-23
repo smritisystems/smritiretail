@@ -20,26 +20,27 @@ Establish the canonical **Authoritative Double-Entry General Ledger Engine** for
 ---
 
 ## 2. Scope
-- Hierarchical Chart of Accounts schema (`accounts`) supporting 5 root accounting heads (Assets, Liabilities, Equity, Revenue, Expense) and standard Indian retail ledgers (CGST, SGST, IGST, Debtors, Creditors, Cash, Bank, Inventory, COGS, Roundoff).
+- Hierarchical Chart of Accounts schema (`accounts`) supporting 5 root accounting heads (Assets, Liabilities, Equity, Revenue, Expense) and standard Indian retail ledgers (CGST, SGST, IGST, Debtors, Creditors, Cash, Bank, Inventory, COGS, Roundoff, Inventory Loss).
 - Immutable Journal Voucher headers (`journal_vouchers`) and general ledger entries (`general_ledger_entries`).
 - Periodic account balance snapshotting table (`account_balance_snapshots`).
-- Domain service `UnifiedAccountingLedgerService` with automated voucher balancing, validation errors (`SMRITI-GL-001`), Trial Balance reporting, and Net Profit calculations.
+- Domain service `UnifiedAccountingLedgerService` with automated voucher balancing, validation errors (`SMRITI-GL-001`), Trial Balance reporting, Net Profit calculations, Payment settlements, and WMS physical stock audit reconciliations.
 - Alembic database migration `v1343_accounting_gl` applied across tenant databases (`smriti001`, `smriti002`).
-- 8 comprehensive automated unit and integration tests.
+- 13 comprehensive automated unit and integration tests.
 
 ---
 
 ## 3. Files Created
 - `backend/app/models/accounting.py`: Canonical SQLAlchemy models for `Account`, `JournalVoucher`, `GeneralLedgerEntry`, and `AccountBalanceSnapshot`.
 - `backend/alembic/versions/v1343_accounting_gl.py`: Forward-only database migration creating accounting tables and indexes.
-- `backend/app/services/unified_accounting_ledger_service.py`: Core double-entry domain logic, COA seeding, automated document posting, and financial statements.
-- `backend/tests/test_unified_accounting_ledger.py`: Comprehensive test suite verifying all 8 balance invariants, document postings, and tenant isolation.
+- `backend/app/services/unified_accounting_ledger_service.py`: Core double-entry domain logic, COA seeding, automated document posting (Sales Invoices, Purchases, Multi-Tender Payments, Stock Audits), and period balance snapshots.
+- `backend/tests/test_unified_accounting_ledger.py`: Comprehensive test suite verifying 13 balance invariants, document postings, audit reconciliations, and tenant isolation.
 
 ---
 
 ## 4. Files Modified
 - `backend/app/models/__init__.py`: Exported canonical accounting models.
 - `backend/app/models/purchase.py`: Added `items` relationship to `PurchaseReceipt`.
+- `backend/app/models/inventory.py`: Fixed `timezone` import on `StockAudit`.
 - `backend/alembic/env.py`: Added automatic `sys.path` insertion for standalone CLI runner.
 
 ---
@@ -48,6 +49,7 @@ Establish the canonical **Authoritative Double-Entry General Ledger Engine** for
 - **Strict Invariant Enforcement**: No journal voucher can be committed unless total debits equal total credits within a tolerance of ₹0.001. Unbalanced entries are rejected synchronously with HTTP 400 (`SMRITI-GL-001`).
 - **Idempotent COA Seeding**: Company tenant databases automatically initialize a standard Indian Retail Chart of Accounts on first transaction without manual administrative overhead.
 - **Tenant Isolation**: All GL entries and vouchers are scoped to `company_id` and stored exclusively in the tenant PostgreSQL database.
+- **Operational Integration**: Automated GL voucher generation across Sales Invoices, Purchase Receipts (GRN), Multi-Tender Payment Settlements (Cash/Bank vs Receivables/Payables), and WMS Stock Audit Reconciliations (Loss vs Inventory / Inventory vs Income).
 - **Outbox Integration**: Every posted journal voucher atomically emits a `GL_VOUCHER_POSTED` event to the `ACCOUNTING_STREAM` target channel.
 
 ---
@@ -63,6 +65,9 @@ Establish the canonical **Authoritative Double-Entry General Ledger Engine** for
 - `post_journal_voucher`: Validates non-negative amounts, ensures debit == credit, creates GL entries, and stages outbox events.
 - `post_sales_invoice_to_gl`: Automatically debits Debtors and credits Sales Revenue, Output CGST, SGST, IGST, and Roundoff.
 - `post_purchase_receipt_to_gl`: Automatically debits Inventory Asset & Input GST and credits Accounts Payable.
+- `post_payment_transaction_to_gl`: Automatically debits Cash in Hand / Bank Accounts and credits Debtors (Customer receipt) or debits Creditors and credits Cash/Bank (Supplier disbursement).
+- `post_stock_audit_reconciliation_to_gl`: Automatically handles physical deficit (Debits 5040 Loss, Credits 1040 Inventory) and physical surplus (Debits 1040 Inventory, Credits 4020 Income).
+- `generate_period_balance_snapshot`: Computes and caches closing debits/credits per account for instantaneous period reporting.
 - `get_trial_balance`: Real-time aggregated trial balance verifying `is_balanced == True`.
 - `get_profit_and_loss`: Real-time operating statement computing `Revenue - Expenses = Net Profit`.
 
@@ -76,15 +81,21 @@ python -m pytest tests/test_unified_accounting_ledger.py -v
 ---
 
 ## 9. Verification Results
-- 8/8 tests passed in `test_unified_accounting_ledger.py` in 5.20s.
+- 13/13 tests passed in `test_unified_accounting_ledger.py` in 7.42s.
 - Verified idempotent chart of accounts seeding.
 - Verified manual journal voucher posting and balance invariant.
 - Verified rejection of unbalanced vouchers (`SMRITI-GL-001`).
 - Verified multi-line sales invoice automated double-entry GL posting with GST and roundoff.
 - Verified purchase receipt automated GL posting.
+- Verified cash payment receipt GL posting (Cash in Hand Dr, Debtors Cr).
+- Verified UPI / bank payment receipt GL posting (Bank Accounts Dr, Debtors Cr).
+- Verified stock audit deficit write-off GL posting (5040 Loss Dr, 1040 Inventory Cr).
+- Verified stock audit surplus addition GL posting (1040 Inventory Dr, 4020 Income Cr).
+- Verified account period balance snapshot generation and closing balance invariant.
 - Verified trial balance debit/credit balance equality.
 - Verified real-time profit & loss statement calculation.
 - Verified multi-tenant database isolation between `smriti001` and `smriti002`.
+
 
 ---
 
