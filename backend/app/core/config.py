@@ -219,6 +219,19 @@ def load_settings() -> Settings:
     elif env in {"production", "prod"}:
         base_settings.STRICT_STATUTORY_MODE = True
 
+    # Fail closed on insecure secrets in production
+    if env in {"production", "prod"}:
+        dev_jwt = "dev-test-jwt-secret-key-32-chars-long-smriti"
+        dev_internal = "dev-test-internal-service-key-32-chars"
+        if not base_settings.JWT_SECRET_KEY or base_settings.JWT_SECRET_KEY == dev_jwt or len(base_settings.JWT_SECRET_KEY) < 32:
+            raise ValueError(
+                "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong JWT_SECRET_KEY (min 32 chars). Dev defaults forbidden."
+            )
+        if not base_settings.INTERNAL_SERVICE_KEY or base_settings.INTERNAL_SERVICE_KEY == dev_internal or len(base_settings.INTERNAL_SERVICE_KEY) < 32:
+            raise ValueError(
+                "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong INTERNAL_SERVICE_KEY (min 32 chars). Dev defaults forbidden."
+            )
+
     return base_settings
 
 settings = load_settings()
