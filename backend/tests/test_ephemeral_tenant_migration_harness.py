@@ -84,7 +84,17 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         # Check alembic revision is at latest head
         rev_res = await session.execute(text("SELECT version_num FROM alembic_version;"))
         rev = rev_res.scalar()
-        assert rev == "v1346_pos_cash_denominations"
+        assert rev == "v1360_pos_sct_fk_constraints"
+
+        # Verify database-level FK constraints on shift_cash_transactions (v1360 / ADR-POS-002)
+        fk_res = await session.execute(text("""
+            SELECT conname FROM pg_constraint c
+            JOIN pg_class t ON c.conrelid = t.oid
+            WHERE t.relname = 'shift_cash_transactions' AND c.contype = 'f';
+        """))
+        fks = [row[0] for row in fk_res.fetchall()]
+        assert "fk_sct_account_id" in fks, f"fk_sct_account_id FK constraint missing from {fks}"
+        assert "fk_sct_gl_voucher_id" in fks, f"fk_sct_gl_voucher_id FK constraint missing from {fks}"
 
 
 @pytest.mark.asyncio
