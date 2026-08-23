@@ -13,9 +13,9 @@ License      : Proprietary Commercial Software
 
 import json
 import socket
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -28,6 +28,7 @@ from ...schemas.barcode import (
     PrintHistoryResponse, PrinterSettingsRequest, PrintJobAckRequest
 )
 from ...services.printer_service import PrinterService
+from ...services.qz_security import QzSecurityService
 
 router = APIRouter()
 
@@ -230,22 +231,37 @@ async def print_labels(
     """
     Generate ZPL commands stream, record print history, and dispatch stream via raw TCP socket.
     """
-    layout = await db.get(BarcodeLayout, req.layoutId)
-    if not layout or layout.is_deleted or layout.company_id != tenant_ctx.company_id:
-        raise HTTPException(status_code=404, detail="Barcode layout design not found.")
+    layout = None
+    if req.layoutId:
+        layout = await db.get(BarcodeLayout, req.layoutId)
+        if not layout:
+            q_lay = select(BarcodeLayout).where(
+                BarcodeLayout.name == req.layoutId,
+                BarcodeLayout.company_id == tenant_ctx.company_id,
+                BarcodeLayout.is_deleted == False
+            )
+            res_lay = await db.execute(q_lay)
+            layout = res_lay.scalars().first()
 
     elements = []
-    prn_template = None
-    if layout.elements_json:
-        try:
-            data = json.loads(layout.elements_json)
-            if isinstance(data, dict):
-                elements = data.get("elements", [])
-                prn_template = data.get("prn_template")
-            elif isinstance(data, list):
-                elements = data
-        except Exception:
-            pass
+    prn_template = req.templateContent or req.prnTemplate
+    layout_width = 50.0
+    layout_height = 25.0
+
+    if layout:
+        layout_width = float(layout.width_mm or 50.0)
+        layout_height = float(layout.height_mm or 25.0)
+        if layout.elements_json:
+            try:
+                data = json.loads(layout.elements_json)
+                if isinstance(data, dict):
+                    elements = data.get("elements", [])
+                    if not prn_template:
+                        prn_template = data.get("prn_template")
+                elif isinstance(data, list):
+                    elements = data
+            except Exception:
+                pass
     
     # 1. Fetch Printer Connection parameters from SystemConfig
     configured_printer = await PrinterService.get_configured_printer(db, company_id=tenant_ctx.company_id)
@@ -312,7 +328,7 @@ async def print_labels(
                     if v is not None:
                         raw_stream = raw_stream.replace(f"{{{k}}}", str(v))
                         raw_stream = raw_stream.replace(f"{{{k.lower()}}}", str(v))
-        elif layout.id == "lay-premium-zpl":
+        elif layout and layout.id == "lay-premium-zpl":
             mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
             mrp_val = item.get("mrp", item.get("price", 0.0))
             try:
@@ -421,7 +437,7 @@ async def print_labels(
 ^PQ1,0,1,Y
 ^XZ"""
         else:
-            zpl_parts = ["^XA", f"^PW{int(float(layout.width_mm) * 8)}", f"^LL{int(float(layout.height_mm) * 8)}"]
+            zpl_parts = ["^XA", f"^PW{int(layout_width * 8)}", f"^LL{int(layout_height * 8)}"]
 
             for el in elements:
                 type_val = el.get("type")
@@ -533,6 +549,7 @@ async def print_labels(
 
     if active_dispatch_mode == "qz_tray":
         primary_job_id = log_entries[0].id if log_entries else f"prn-qz-{int(datetime.now(timezone.utc).timestamp())}"
+        target_prn = req.targetPrinter or (configured_printer.get("usb_target") if configured_printer else None)
         return {
             "success": True,
             "dispatch_mode": "qz_tray",
@@ -541,7 +558,7 @@ async def print_labels(
             "language": req.language or "zpl",
             "payload": "\n".join(full_raw_stream_list) if full_raw_stream_list else "",
             "encoding": "utf-8",
-            "suggested_printer": None,
+            "suggested_printer": target_prn,
             "message": f"Generated {len(full_raw_stream_list)} labels for QZ Tray local dispatch."
         }
 
@@ -794,3 +811,49 @@ async def test_print(
         branch_id=tenant_ctx.branch_id,
     )
     return result
+
+
+@router.get(
+    "/qz/certificate",
+    summary="Fetch QZ Tray Public X.509 Certificate",
+    response_class=Response,
+)
+async def get_qz_certificate():
+    """
+    Returns the public X.509 Digital Certificate in PEM format for QZ Tray silent printing trust.
+    """
+    cert = QzSecurityService.get_public_certificate()
+    return Response(content=cert, media_type="text/plain")
+
+
+@router.get(
+    "/qz/sign",
+    summary="Cryptographically Sign QZ Tray Request (GET)",
+    response_class=Response,
+)
+@router.post(
+    "/qz/sign",
+    summary="Cryptographically Sign QZ Tray Request (POST)",
+    response_class=Response,
+)
+async def sign_qz_request(
+    request: Optional[str] = None,
+    req_body: Optional[Dict[str, Any]] = Body(default=None)
+):
+    """
+    Cryptographically signs the QZ Tray request payload using the server's private RSA key.
+    The private key is never exposed to the client.
+    """
+    to_sign = request
+    if not to_sign and req_body:
+        to_sign = req_body.get("request") or req_body.get("data") or req_body.get("to_sign")
+    
+    if not to_sign:
+        raise HTTPException(status_code=400, detail="Missing request string to sign.")
+
+    try:
+        signature = QzSecurityService.sign_request(to_sign)
+        return Response(content=signature, media_type="text/plain")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate QZ signature: {str(e)}")
+
