@@ -82,7 +82,6 @@ class PdtAnalyticsService:
         lead_time_dec = Decimal(str(lead_time_days))
         reorder_point = _quantize_decimal((avg_daily_velocity * lead_time_dec) + safety_stock)
         is_reorder_recommended = current_stock <= reorder_point
-
         suggested_reorder_qty = Decimal("0.00")
         if is_reorder_recommended:
             # Order up to 30 days of cover + safety stock
@@ -90,9 +89,41 @@ class PdtAnalyticsService:
                 max(Decimal("0.00"), (avg_daily_velocity * Decimal("30.00") + safety_stock) - current_stock)
             )
 
+        # 6. Data Freshness and Trend Detection
+        last_sale_stmt = select(func.max(StockMovement.created_at)).where(
+            StockMovement.company_id == company_id,
+            StockMovement.sku == clean_sku,
+            StockMovement.movement_type.in_(["OUTWARD_SALE", "POS_SALE"]),
+            StockMovement.is_deleted == False
+        )
+        last_sale_date = (await session.execute(last_sale_stmt)).scalar()
+        
+        now = datetime.now(timezone.utc)
+        if last_sale_date:
+            if last_sale_date.tzinfo is None:
+                last_sale_date = last_sale_date.replace(tzinfo=timezone.utc)
+            days_since_last_sale = max(0, (now - last_sale_date).days)
+        else:
+            days_since_last_sale = 999
+
+        # Confidence Score based on data volume & freshness
+        if total_units_sold > 50 and days_since_last_sale < 7:
+            confidence_score = 0.95
+        elif total_units_sold > 10 and days_since_last_sale < 30:
+            confidence_score = 0.85
+        elif total_units_sold > 0:
+            confidence_score = 0.70
+        else:
+            confidence_score = 0.50
+
         return {
             "sku": clean_sku,
             "company_id": company_id,
+            "model_metadata": {
+                "engine_version": "v1.0.0-deterministic-sql",
+                "algorithm": "POSTGRESQL_TRANSACTIONAL_RUNNING_VELOCITY",
+                "evaluated_at": now.isoformat()
+            },
             "lookback_days": lookback_days,
             "total_units_sold": float(total_units_sold),
             "avg_daily_velocity": float(avg_daily_velocity),
@@ -100,5 +131,15 @@ class PdtAnalyticsService:
             "days_of_cover": float(days_of_cover),
             "reorder_point": float(reorder_point),
             "is_reorder_recommended": is_reorder_recommended,
-            "suggested_reorder_quantity": float(suggested_reorder_qty)
+            "suggested_reorder_quantity": float(suggested_reorder_qty),
+            "confidence_score": confidence_score,
+            "data_freshness": {
+                "last_sale_at": last_sale_date.isoformat() if last_sale_date else None,
+                "days_since_last_sale": days_since_last_sale
+            },
+            "explainability": {
+                "velocity_formula": f"{total_units_sold} units sold / {lookback_days} days = {avg_daily_velocity} units/day",
+                "reorder_formula": f"({avg_daily_velocity} velocity * {lead_time_days} lead days) + {safety_stock} safety stock = {reorder_point}",
+                "stock_status": "CRITICAL_DEFICIT" if current_stock == 0 else ("REORDER_NEEDED" if is_reorder_recommended else "OPTIMAL_COVER")
+            }
         }

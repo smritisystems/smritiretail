@@ -29,6 +29,7 @@ from app.models.commission import CommissionProgram, CommissionRule, CommissionP
 from app.models.psv import PSVParty, PSVPartySkuTracking, PSVStockEvent, PSVStockBalance
 from app.models.inventory import Product, StockMovement
 from app.models.crm import Customer
+from app.models.sync import POSOfflineSyncQueue
 from app.services.commercial_growth_service import CommercialGrowthEngine
 from app.services.pdt_analytics_service import PdtAnalyticsService
 from app.services.offline_sync_service import OfflineSyncService
@@ -352,6 +353,10 @@ async def test_pdt_inventory_velocity_and_reorder_simulation():
         assert analytics["days_of_cover"] == 25.0  # 50 / 2.0 = 25 days
         assert analytics["reorder_point"] == 24.0  # (2.0 * 7 lead days) + 10 safety = 24.0
         assert analytics["is_reorder_recommended"] is False
+        assert analytics["confidence_score"] >= 0.70
+        assert analytics["model_metadata"]["engine_version"] == "v1.0.0-deterministic-sql"
+        assert "velocity_formula" in analytics["explainability"]
+        assert analytics["explainability"]["stock_status"] == "OPTIMAL_COVER"
         await session.commit()
 
 
@@ -359,7 +364,7 @@ async def test_pdt_inventory_velocity_and_reorder_simulation():
 async def test_offline_sync_and_idempotent_deduplication():
     """
     Verifies offline sync batch ingestion, deduplication of previously processed transactions,
-    and atomic posting of new sales invoices.
+    durable queue persistence in pos_offline_sync_queue, and atomic posting of new sales invoices.
     """
     sessionmaker = get_company_sessionmaker("smriti001")
     async with sessionmaker() as session:
@@ -409,7 +414,7 @@ async def test_offline_sync_and_idempotent_deduplication():
             }
         ]
 
-        # 2. First Sync Pass -> Should Commit
+        # 2. First Sync Pass -> Should Commit and write to pos_offline_sync_queue
         res1 = await OfflineSyncService.process_sync_batch(
             session=session,
             company_id=comp_id,
@@ -434,6 +439,16 @@ async def test_offline_sync_and_idempotent_deduplication():
         assert res2["deduplicated_count"] == 1
         assert res2["results"][0]["status"] == "ALREADY_PROCESSED"
         assert res2["results"][0]["invoice_no"] == invoice_no
+
+        # 4. Verify durable pos_offline_sync_queue rows exist in tenant database
+        queue_stmt = select(POSOfflineSyncQueue).where(
+            POSOfflineSyncQueue.company_id == comp_id,
+            POSOfflineSyncQueue.batch_id == batch_id
+        )
+        q_rows = (await session.execute(queue_stmt)).scalars().all()
+        assert len(q_rows) == 2
+        assert any(q.sync_status == "COMMITTED" for q in q_rows)
+        assert any(q.sync_status == "ALREADY_PROCESSED" for q in q_rows)
         await session.commit()
 
 
