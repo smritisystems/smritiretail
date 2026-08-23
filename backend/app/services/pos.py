@@ -231,8 +231,35 @@ class POSService:
             await self.db.commit()
         except IntegrityError as e:
             await self.db.rollback()
-            err_str = str(e.orig).lower() if hasattr(e, "orig") else str(e).lower()
-            if "uq_shifts_active_per_register" in err_str or "register_id" in err_str:
+            # Prefer structured constraint identification over fragile error-string parsing.
+            # asyncpg / psycopg2 both expose the constraint name via diag or pgcode.
+            # PG unique_violation code = '23505'
+            is_unique_violation = False
+            constraint_name: Optional[str] = None
+
+            orig = getattr(e, "orig", None)
+            if orig is not None:
+                # asyncpg: orig has .sqlstate or .constraint_name
+                pgcode = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None)
+                if pgcode == "23505":
+                    is_unique_violation = True
+                # psycopg2 wraps constraint name in diag
+                diag = getattr(orig, "diag", None)
+                if diag is not None:
+                    constraint_name = getattr(diag, "constraint_name", None)
+                # asyncpg provides constraint_name directly
+                if constraint_name is None:
+                    constraint_name = getattr(orig, "constraint_name", None)
+
+            # Fallback: parse constraint name from the error string if driver did not expose it
+            if constraint_name is None:
+                err_str = str(orig or e).lower()
+                if "uq_shifts_active_per_register" in err_str:
+                    constraint_name = "uq_shifts_active_per_register"
+                elif is_unique_violation and "register_id" in err_str:
+                    constraint_name = "uq_shifts_active_per_register"
+
+            if constraint_name == "uq_shifts_active_per_register":
                 raise HTTPException(
                     status_code=400,
                     detail="This register already has an open shift. Please close the current shift before opening a new one.",
@@ -299,6 +326,27 @@ class POSService:
                 status_code=403,
                 detail="Manager authorization required to specify custom GL source account overrides."
             )
+
+        # ── Cash In Source Balance Policy ──────────────────────────────────────────
+        # SMRITI POS Treasury Float Policy (ADR-POS-001):
+        #   Cash In is a manager-authorized treasury float injection from a bank or
+        #   vault account (e.g. Account 1020 — Bank, or a configured safe account).
+        #   Source-account balance validation is deliberately NOT enforced here because:
+        #     (a) Treasury float operations are pre-authorized at the manager level
+        #         (enforced above via RBAC guard on requesting_user_role).
+        #     (b) Source-account liquidity is governed by the accounting department
+        #         through the Chart of Accounts and General Ledger, not the POS terminal.
+        #     (c) Blocking a float injection due to a transient GL balance discrepancy
+        #         would prevent legitimate operations at the point of sale.
+        #
+        #   The double-entry GL posting (Debit 1010 / Credit source account) creates
+        #   the accounting record. Any resulting negative source balance is visible in
+        #   the GL trial balance and must be resolved by the accounting team, not the POS.
+        #
+        #   If a future business requirement mandates source-balance validation,
+        #   implement it as a separate manager-override approval workflow, not
+        #   an inline POS guard.
+        # ──────────────────────────────────────────────────────────────────────────
 
         from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
         await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
