@@ -145,7 +145,12 @@ async def get_tenant_context(
     """
     header_company_id = request.headers.get("x-company-id") or request.headers.get("X-Company-ID")
     header_company = header_company_id or request.headers.get("x-company-code") or request.headers.get("X-Company-Code")
-    header_branch = request.headers.get("x-branch-code") or request.headers.get("X-Branch-Code")
+    header_branch = (
+        request.headers.get("x-branch-code")
+        or request.headers.get("X-Branch-Code")
+        or request.headers.get("x-branch-id")
+        or request.headers.get("X-Branch-ID")
+    )
 
     raw_target = header_company if header_company else current_user.company_id
     target_company = normalize_company_id(raw_target)
