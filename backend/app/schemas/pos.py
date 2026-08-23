@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-08-23
+Modified     : 2026-08-23  (idempotency_key made mandatory on public financial request schemas)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -123,27 +123,51 @@ class CashDenominationBreakdown(BaseModel):
 
 
 class ShiftCashInRequest(BaseModel):
+    """
+    Cash In — treasury float injection into the open shift drawer.
+
+    `idempotency_key` is REQUIRED. Callers must generate a stable,
+    client-side UUID (or equivalent) before submitting. On a network
+    retry, resubmit the same key. Submitting without a key is rejected
+    at schema-validation time so that automatic random key generation
+    is never silently used as a deduplication substitute.
+    """
     amount:            Decimal = Field(..., gt=Decimal("0.00"), decimal_places=2, max_digits=12)
     source_account_id: Optional[str] = Field(None, max_length=50)  # Defaults to 1020 (Bank) or 1010 vault
     reason:            str = Field(..., min_length=3, max_length=255)
     receipt_ref:       Optional[str] = Field(None, max_length=100)
-    idempotency_key:   Optional[str] = Field(None, max_length=100)
+    idempotency_key:   str = Field(..., min_length=8, max_length=100,
+                                   description="Stable client-generated key. Resubmit unchanged on retry.")
 
 
 class ShiftCashDropRequest(BaseModel):
+    """
+    Cash Drop — mid-shift transfer of surplus cash from drawer to safe/bank.
+
+    `idempotency_key` is REQUIRED. See ShiftCashInRequest for the same
+    client-idempotency contract.
+    """
     amount:            Decimal = Field(..., gt=Decimal("0.00"), decimal_places=2, max_digits=12)
     target_account_id: Optional[str] = Field(None, max_length=50)  # Defaults to 1020 (Bank) or 1010 vault
     reason:            str = Field(..., min_length=3, max_length=255)
     receipt_ref:       Optional[str] = Field(None, max_length=100)
-    idempotency_key:   Optional[str] = Field(None, max_length=100)
+    idempotency_key:   str = Field(..., min_length=8, max_length=100,
+                                   description="Stable client-generated key. Resubmit unchanged on retry.")
 
 
 class ShiftTillExpenseRequest(BaseModel):
+    """
+    Till Expense — petty cash payout from drawer for operational expenses.
+
+    `idempotency_key` is REQUIRED. See ShiftCashInRequest for the same
+    client-idempotency contract.
+    """
     amount:             Decimal = Field(..., gt=Decimal("0.00"), decimal_places=2, max_digits=12)
     expense_account_id: Optional[str] = Field(None, max_length=50)  # Defaults to 5000 (Expenses)
     reason:             str = Field(..., min_length=3, max_length=255)
     receipt_ref:        Optional[str] = Field(None, max_length=100)
-    idempotency_key:    Optional[str] = Field(None, max_length=100)
+    idempotency_key:    str = Field(..., min_length=8, max_length=100,
+                                    description="Stable client-generated key. Resubmit unchanged on retry.")
 
 
 class ShiftCashTransactionResponse(BaseModel):

@@ -175,7 +175,8 @@ async def test_mid_shift_cash_drop_to_bank_safe():
         # Record Cash Drop of ₹6,000 to main safe/bank
         drop_req = ShiftCashDropRequest(
             amount=Decimal("6000.00"),
-            reason="Mid-day vault transfer for security"
+            reason="Mid-day vault transfer for security",
+            idempotency_key=f"drop-{uuid.uuid4().hex}"
         )
         sct = await pos_svc.record_cash_drop(
             shift_id=shift_id,
@@ -250,7 +251,8 @@ async def test_mid_shift_till_expense_payout():
         exp_req = ShiftTillExpenseRequest(
             amount=Decimal("350.00"),
             reason="Express store courier charges",
-            receipt_ref="RCP-EXP-9001"
+            receipt_ref="RCP-EXP-9001",
+            idempotency_key=f"exp-{uuid.uuid4().hex}"
         )
         sct = await pos_svc.record_till_expense(
             shift_id=shift_id,
@@ -340,14 +342,16 @@ async def test_combined_cash_movements_and_closing_shortage_gl_balancing():
         # 3. Cash Drop = ₹12,000
         await pos_svc.record_cash_drop(
             shift_id=shift_id,
-            req=ShiftCashDropRequest(amount=Decimal("12000.00"), reason="Excess cash drop"),
+            req=ShiftCashDropRequest(amount=Decimal("12000.00"), reason="Excess cash drop",
+                                     idempotency_key=f"drop-{uuid.uuid4().hex}"),
             requesting_user_id=cashier_id
         )
 
         # 4. Till Expense = ₹500
         await pos_svc.record_till_expense(
             shift_id=shift_id,
-            req=ShiftTillExpenseRequest(amount=Decimal("500.00"), reason="Tea & Refreshments"),
+            req=ShiftTillExpenseRequest(amount=Decimal("500.00"), reason="Tea & Refreshments",
+                                        idempotency_key=f"exp-{uuid.uuid4().hex}"),
             requesting_user_id=cashier_id
         )
 
@@ -464,7 +468,8 @@ async def test_api_pos_cash_drop_and_till_expense_endpoints():
         # 3. Record Cash Drop via API
         drop_resp = client.post(f"/api/v1/pos/shifts/{shift_id}/cash-drop", json={
             "amount": 3000.00,
-            "reason": "Mid-shift bank deposit"
+            "reason": "Mid-shift bank deposit",
+            "idempotency_key": f"drop-api-{shift_id}"
         })
         assert drop_resp.status_code == 201
         drop_data = drop_resp.json()
@@ -476,7 +481,8 @@ async def test_api_pos_cash_drop_and_till_expense_endpoints():
         exp_resp = client.post(f"/api/v1/pos/shifts/{shift_id}/till-expense", json={
             "amount": 250.00,
             "reason": "Printer ribbon cartridge",
-            "receipt_ref": "RCP-8812"
+            "receipt_ref": "RCP-8812",
+            "idempotency_key": f"exp-api-{shift_id}"
         })
         assert exp_resp.status_code == 201
         exp_data = exp_resp.json()
@@ -564,7 +570,8 @@ async def test_ephemeral_clean_database_cash_movements_verification():
             # 2. Record Cash Drop of ₹15,000
             drop_sct = await pos_svc.record_cash_drop(
                 shift_id=shift_id,
-                req=ShiftCashDropRequest(amount=Decimal("15000.00"), reason="End-of-afternoon safe drop"),
+                req=ShiftCashDropRequest(amount=Decimal("15000.00"), reason="End-of-afternoon safe drop",
+                                         idempotency_key=f"drop-{uuid.uuid4().hex}"),
                 requesting_user_id=cashier_id
             )
             assert drop_sct.gl_voucher_id is not None
@@ -625,7 +632,8 @@ async def test_cash_in_movement_end_to_end_and_gl_posting():
         # 1. Record Cash In of ₹4,000 from main safe
         in_sct = await pos_svc.record_cash_in(
             shift_id=shift_id,
-            req=ShiftCashInRequest(amount=Decimal("4000.00"), reason="Morning additional cash float"),
+            req=ShiftCashInRequest(amount=Decimal("4000.00"), reason="Morning additional cash float",
+                                   idempotency_key=f"in-{uuid.uuid4().hex}"),
             requesting_user_id=cashier_id
         )
         assert in_sct.transaction_type == "CASH_IN"
@@ -686,7 +694,8 @@ async def test_cash_drop_and_till_expense_insufficient_cash_rejection():
         with pytest.raises(HTTPException) as exc_drop:
             await pos_svc.record_cash_drop(
                 shift_id=shift_id,
-                req=ShiftCashDropRequest(amount=Decimal("2500.00"), reason="Excess drop attempt"),
+                req=ShiftCashDropRequest(amount=Decimal("2500.00"), reason="Excess drop attempt",
+                                         idempotency_key=f"drop-{uuid.uuid4().hex}"),
                 requesting_user_id=cashier_id
             )
         assert exc_drop.value.status_code == 400
@@ -696,7 +705,8 @@ async def test_cash_drop_and_till_expense_insufficient_cash_rejection():
         with pytest.raises(HTTPException) as exc_exp:
             await pos_svc.record_till_expense(
                 shift_id=shift_id,
-                req=ShiftTillExpenseRequest(amount=Decimal("1500.00"), reason="Excess expense attempt"),
+                req=ShiftTillExpenseRequest(amount=Decimal("1500.00"), reason="Excess expense attempt",
+                                            idempotency_key=f"exp-{uuid.uuid4().hex}"),
                 requesting_user_id=cashier_id
             )
         assert exc_exp.value.status_code == 400
@@ -835,7 +845,8 @@ async def test_invalid_source_and_expense_account_rejection():
                 req=ShiftCashInRequest(
                     amount=Decimal("500.00"),
                     reason="Invalid account test",
-                    source_account_id="acc-non-existent-999"
+                    source_account_id="acc-non-existent-999",
+                    idempotency_key=f"in-{uuid.uuid4().hex}"
                 ),
                 requesting_user_id=cashier_id,
                 requesting_user_role="MANAGER"
@@ -850,7 +861,8 @@ async def test_invalid_source_and_expense_account_rejection():
                 req=ShiftTillExpenseRequest(
                     amount=Decimal("100.00"),
                     reason="Invalid expense account test",
-                    expense_account_id="acc-non-existent-999"
+                    expense_account_id="acc-non-existent-999",
+                    idempotency_key=f"exp-{uuid.uuid4().hex}"
                 ),
                 requesting_user_id=cashier_id,
                 requesting_user_role="MANAGER"
@@ -1166,7 +1178,8 @@ async def test_cashier_account_override_forbidden_403():
                 req=ShiftCashInRequest(
                     amount=Decimal("500.00"),
                     source_account_id="ACC-CUSTOM-VAULT-999",
-                    reason="Unauthorized custom vault float"
+                    reason="Unauthorized custom vault float",
+                    idempotency_key=f"in-{uuid.uuid4().hex}"
                 ),
                 requesting_user_id=cashier_id,
                 requesting_user_role="CASHIER"

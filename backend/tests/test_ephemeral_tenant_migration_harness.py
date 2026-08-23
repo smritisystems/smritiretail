@@ -88,7 +88,7 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
 
 
 @pytest.mark.asyncio
-async def test_ephemeral_symmetrical_downgrade_and_reupgrade(ephemeral_db):
+async def test_ephemeral_forward_only_migration_guard_verification(ephemeral_db):
     """
     Verify migration lifecycle governance.
 
