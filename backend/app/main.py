@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.17.0
+* Version    : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-08-21
+Modified     : 2026-08-23
 Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -43,6 +43,7 @@ from .api.v1 import (
     assignments,
     barcode,
     capability_registry,
+    cge,
     changelog,
     company_control_center,
     crm,
@@ -69,6 +70,7 @@ from .api.v1 import (
     sales,
     security,
     supplier_payment,
+    sync,
     system,
     terms,
     training,
@@ -171,6 +173,8 @@ app.include_router(capability_registry.router, prefix=settings.API_V1_STR, tags=
 app.include_router(governed_logic.router, prefix=settings.API_V1_STR + "/governed-logic", tags=["Governed Logic & Reproducibility"])
 app.include_router(universal_master.router, prefix=settings.API_V1_STR + "/universal", tags=["Universal Party & Item Master"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
+app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
+app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])
 
 
 
