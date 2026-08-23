@@ -28,16 +28,19 @@ from ...api.deps import (
 from ...models.accounting import (
     Account, JournalVoucher, GeneralLedgerEntry,
     AccountBalanceSnapshot, FiscalYear, FiscalPeriod,
-    BankStatement, BankStatementLine
+    BankStatement, BankStatementLine, CurrencyExchangeRate
 )
 from ...schemas.accounting import (
     AccountResponse, JournalVoucherCreate, JournalVoucherResponse,
     TrialBalanceResponse, ProfitAndLossResponse,
     BankStatementImportRequest, BankStatementResponse,
     BankReconciliationStatementResponse, FiscalYearCreate,
-    FiscalPeriodLockRequest, BalanceSnapshotRequest
+    FiscalPeriodLockRequest, BalanceSnapshotRequest,
+    CurrencyExchangeRateCreate, CurrencyExchangeRateResponse,
+    UnrealizedRevaluationRequest, UnrealizedRevaluationResponse
 )
 from ...services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+
 
 router = APIRouter()
 
@@ -109,6 +112,8 @@ async def post_journal_voucher(
         voucher_type=req.voucher_type,
         voucher_date=req.voucher_date,
         lines=lines_data,
+        currency=req.currency,
+        exchange_rate=req.exchange_rate,
         reference_doc_type=req.reference_doc_type,
         reference_doc_id=req.reference_doc_id,
         reference_doc_no=req.reference_doc_no,
@@ -117,6 +122,7 @@ async def post_journal_voucher(
     )
     await db.commit()
     return JournalVoucherResponse.model_validate(voucher)
+
 
 
 
@@ -267,3 +273,72 @@ async def generate_balance_snapshots(
         "period_date": req.period_date.isoformat(),
         "snapshots_generated": len(snapshots)
     }
+
+
+# ─────────────────────────── Multi-Currency & FX Matrix ───────────────────────────
+
+@router.post("/exchange-rates", response_model=CurrencyExchangeRateResponse, status_code=201)
+async def set_currency_exchange_rate(
+    req: CurrencyExchangeRateCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Upsert an authoritative currency exchange rate."""
+    rate_obj = await UnifiedAccountingLedgerService.set_exchange_rate(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        from_currency=req.from_currency,
+        to_currency=req.to_currency,
+        exchange_rate=req.exchange_rate,
+        effective_date=req.effective_date,
+        rate_type=req.rate_type,
+        source=req.source
+    )
+    await db.commit()
+    return CurrencyExchangeRateResponse.model_validate(rate_obj)
+
+
+@router.get("/exchange-rates", response_model=List[CurrencyExchangeRateResponse])
+async def list_currency_exchange_rates(
+    from_currency: Optional[str] = Query(None, description="Filter by from currency e.g. USD"),
+    to_currency: Optional[str] = Query(None, description="Filter by to currency e.g. INR"),
+    rate_type: Optional[str] = Query(None, description="Filter by rate type e.g. SPOT"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List configured exchange rates for the tenant."""
+    stmt = (
+        select(CurrencyExchangeRate)
+        .where(CurrencyExchangeRate.company_id == tenant_ctx.company_id, CurrencyExchangeRate.is_deleted == False)
+    )
+    if from_currency:
+        stmt = stmt.where(CurrencyExchangeRate.from_currency == from_currency.strip().upper())
+    if to_currency:
+        stmt = stmt.where(CurrencyExchangeRate.to_currency == to_currency.strip().upper())
+    if rate_type:
+        stmt = stmt.where(CurrencyExchangeRate.rate_type == rate_type)
+
+    stmt = stmt.order_by(CurrencyExchangeRate.effective_date.desc(), CurrencyExchangeRate.from_currency.asc())
+    rates = (await db.execute(stmt)).scalars().all()
+    return [CurrencyExchangeRateResponse.model_validate(r) for r in rates]
+
+
+@router.post("/fx-revaluation/unrealized", response_model=UnrealizedRevaluationResponse)
+async def post_unrealized_fx_revaluation(
+    req: UnrealizedRevaluationRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Execute Mark-to-Market (MTM) periodic revaluation of open foreign party balances."""
+    res = await UnifiedAccountingLedgerService.calculate_unrealized_fx_revaluation(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        as_of_date=req.as_of_date,
+        closing_rates=req.closing_rates,
+        created_by="api_mtm_runner"
+    )
+    await db.commit()
+    return UnrealizedRevaluationResponse(**res)
+

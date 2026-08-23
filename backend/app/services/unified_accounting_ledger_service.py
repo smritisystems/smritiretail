@@ -30,6 +30,7 @@ from ..models.accounting import (
     FiscalPeriod,
     BankStatement,
     BankStatementLine,
+    CurrencyExchangeRate,
 )
 from ..models.sales import SalesInvoice
 from ..models.purchase import PurchaseReceipt
@@ -66,6 +67,8 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "4000", "name": "Revenue", "type": "REVENUE", "root": "INCOME", "is_group": True, "parent": None},
     {"code": "4010", "name": "Sales Revenue (Goods)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
     {"code": "4020", "name": "Discounts Received", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
+    {"code": "4030", "name": "Foreign Exchange Gain (Realized)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
+    {"code": "4040", "name": "Foreign Exchange Gain (Unrealized)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
 
     # 5000 - Expenses
     {"code": "5000", "name": "Expenses", "type": "EXPENSE", "root": "EXPENSE", "is_group": True, "parent": None},
@@ -73,7 +76,10 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "5020", "name": "Discounts Allowed", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5030", "name": "Roundoff Account", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5040", "name": "Inventory Loss & Shrinkage", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
+    {"code": "5050", "name": "Foreign Exchange Loss (Realized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
+    {"code": "5060", "name": "Foreign Exchange Loss (Unrealized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
 ]
+
 
 
 class UnifiedAccountingLedgerService:
@@ -175,12 +181,14 @@ class UnifiedAccountingLedgerService:
         reference_doc_no: Optional[str] = None,
         narration: Optional[str] = None,
         created_by: Optional[str] = None,
-        auto_stage_outbox: bool = True
+        auto_stage_outbox: bool = True,
+        currency: str = "INR",
+        exchange_rate: Optional[Decimal] = None
     ) -> JournalVoucher:
-
         """
         Validates and atomically posts a balanced double-entry Journal Voucher.
-        Strict invariant: sum(debit_amounts) == sum(credit_amounts).
+        Strict invariant: sum(debit_amounts) == sum(credit_amounts) in Base Currency.
+        Supports multi-currency conversion and foreign line amount tracking.
         Enforces fiscal period lockouts (SMRITI-GL-006).
         """
         await cls.assert_fiscal_period_open(session, company_id, voucher_date)
@@ -191,8 +199,18 @@ class UnifiedAccountingLedgerService:
                 detail="SMRITI-GL-002: A double-entry journal voucher requires at least two lines."
             )
 
+        currency = currency.strip().upper()
+        if currency != "INR" and exchange_rate is None:
+            exchange_rate = await cls.get_exchange_rate(session, company_id, currency, "INR", voucher_date)
+        elif exchange_rate is None:
+            exchange_rate = Decimal("1.000000")
+        else:
+            exchange_rate = Decimal(str(exchange_rate))
+
         total_debit = Decimal("0.00")
         total_credit = Decimal("0.00")
+        total_f_debit = Decimal("0.00")
+        total_f_credit = Decimal("0.00")
         parsed_entries = []
 
         for line in lines:
@@ -204,8 +222,30 @@ class UnifiedAccountingLedgerService:
             elif not acc_id:
                 raise HTTPException(status_code=400, detail="SMRITI-GL-003: Each voucher line must specify account_id or account_code.")
 
+            line_curr = (line.get("currency") or line.get("foreign_currency") or currency).strip().upper()
+            raw_line_rate = line.get("exchange_rate")
+            line_rate = Decimal(str(raw_line_rate)) if raw_line_rate is not None else exchange_rate
+
+
+            f_debit = Decimal(str(line.get("foreign_debit_amount", 0.00))).quantize(Decimal("0.01"))
+            f_credit = Decimal(str(line.get("foreign_credit_amount", 0.00))).quantize(Decimal("0.01"))
             debit = Decimal(str(line.get("debit_amount", 0.00))).quantize(Decimal("0.01"))
             credit = Decimal(str(line.get("credit_amount", 0.00))).quantize(Decimal("0.01"))
+
+            # Convert foreign amounts to base amounts if base amounts not explicitly supplied
+            if line_curr != "INR":
+                if f_debit > 0 and debit == 0:
+                    debit = (f_debit * line_rate).quantize(Decimal("0.01"))
+                elif debit > 0 and f_debit == 0:
+                    f_debit = (debit / line_rate).quantize(Decimal("0.01"))
+
+                if f_credit > 0 and credit == 0:
+                    credit = (f_credit * line_rate).quantize(Decimal("0.01"))
+                elif credit > 0 and f_credit == 0:
+                    f_credit = (credit / line_rate).quantize(Decimal("0.01"))
+            else:
+                f_debit = debit
+                f_credit = credit
 
             if debit < 0 or credit < 0:
                 raise HTTPException(status_code=400, detail="SMRITI-GL-004: Debit and credit amounts must be non-negative.")
@@ -214,18 +254,24 @@ class UnifiedAccountingLedgerService:
 
             total_debit += debit
             total_credit += credit
+            total_f_debit += f_debit
+            total_f_credit += f_credit
 
             parsed_entries.append({
                 "account_id": acc_id,
                 "party_id": line.get("party_id"),
                 "debit_amount": debit,
                 "credit_amount": credit,
+                "foreign_currency": line_curr,
+                "exchange_rate": line_rate,
+                "foreign_debit_amount": f_debit,
+                "foreign_credit_amount": f_credit,
                 "against_account_id": line.get("against_account_id"),
                 "against_account_name": line.get("against_account_name"),
                 "remarks": line.get("remarks"),
             })
 
-        # Strict Double-Entry Invariant Validation
+        # Strict Double-Entry Invariant Validation in Base Currency
         if abs(total_debit - total_credit) > Decimal("0.001"):
             raise HTTPException(
                 status_code=400,
@@ -249,6 +295,10 @@ class UnifiedAccountingLedgerService:
             reference_doc_id=reference_doc_id,
             reference_doc_no=reference_doc_no,
             narration=narration,
+            currency=currency,
+            exchange_rate=exchange_rate,
+            total_foreign_debit=total_f_debit,
+            total_foreign_credit=total_f_credit,
             total_debit=total_debit,
             total_credit=total_credit,
             is_posted=True,
@@ -273,6 +323,10 @@ class UnifiedAccountingLedgerService:
                 debit_amount=pe["debit_amount"],
                 credit_amount=pe["credit_amount"],
                 currency="INR",
+                foreign_currency=pe["foreign_currency"],
+                exchange_rate=pe["exchange_rate"],
+                foreign_debit_amount=pe["foreign_debit_amount"],
+                foreign_credit_amount=pe["foreign_credit_amount"],
                 against_account_id=pe["against_account_id"],
                 against_account_name=pe["against_account_name"],
                 reference_doc_type=reference_doc_type,
@@ -282,6 +336,7 @@ class UnifiedAccountingLedgerService:
             session.add(entry)
 
         await session.flush()
+
 
         # Stage canonical outbox event
         if auto_stage_outbox:
@@ -1293,5 +1348,314 @@ class UnifiedAccountingLedgerService:
             "difference": float(difference),
             "is_balanced": abs(difference) <= Decimal("0.01")
         }
+
+    # ─────────────────────────── Multi-Currency & FX Engine ───────────────────────────
+
+    @classmethod
+    async def set_exchange_rate(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        from_currency: str,
+        to_currency: str = "INR",
+        exchange_rate: Decimal = Decimal("1.000000"),
+        effective_date: Optional[date] = None,
+        rate_type: str = "SPOT",
+        source: str = "MANUAL",
+        branch_id: Optional[str] = None
+    ) -> CurrencyExchangeRate:
+        """
+        Upserts an authoritative currency exchange rate.
+        """
+        eff_date = effective_date or date.today()
+        from_curr = from_currency.strip().upper()
+        to_curr = to_currency.strip().upper()
+        rate_val = Decimal(str(exchange_rate))
+
+        if rate_val <= 0:
+            raise HTTPException(status_code=400, detail="SMRITI-GL-008: Currency exchange rate must be strictly positive (> 0).")
+
+        stmt = select(CurrencyExchangeRate).where(
+            CurrencyExchangeRate.company_id == company_id,
+            CurrencyExchangeRate.from_currency == from_curr,
+            CurrencyExchangeRate.to_currency == to_curr,
+            CurrencyExchangeRate.effective_date == eff_date,
+            CurrencyExchangeRate.rate_type == rate_type,
+            CurrencyExchangeRate.is_deleted == False
+        )
+        existing = (await session.execute(stmt)).scalar_one_or_none()
+
+        if existing:
+            existing.exchange_rate = rate_val
+            existing.source = source
+            await session.flush()
+            return existing
+
+        rate_obj = CurrencyExchangeRate(
+            id=f"fx_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id=company_id,
+            branch_id=branch_id,
+            from_currency=from_curr,
+            to_currency=to_curr,
+            exchange_rate=rate_val,
+            effective_date=eff_date,
+            rate_type=rate_type,
+            source=source
+        )
+        session.add(rate_obj)
+        await session.flush()
+        return rate_obj
+
+    @classmethod
+    async def get_exchange_rate(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        from_currency: str,
+        to_currency: str = "INR",
+        as_of_date: Optional[date] = None,
+        rate_type: str = "SPOT"
+    ) -> Decimal:
+        """
+        Resolves the most recent applicable exchange rate on or before the given date.
+        """
+        from_curr = from_currency.strip().upper()
+        to_curr = to_currency.strip().upper()
+        if from_curr == to_curr:
+            return Decimal("1.000000")
+
+        eff_date = as_of_date or date.today()
+
+        stmt = (
+            select(CurrencyExchangeRate.exchange_rate)
+            .where(
+                CurrencyExchangeRate.company_id == company_id,
+                CurrencyExchangeRate.from_currency == from_curr,
+                CurrencyExchangeRate.to_currency == to_curr,
+                CurrencyExchangeRate.rate_type == rate_type,
+                CurrencyExchangeRate.effective_date <= eff_date,
+                CurrencyExchangeRate.is_deleted == False
+            )
+            .order_by(CurrencyExchangeRate.effective_date.desc())
+            .limit(1)
+        )
+        rate = (await session.execute(stmt)).scalar_one_or_none()
+        if rate is not None:
+            return Decimal(str(rate))
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"SMRITI-GL-007: No exchange rate configured for currency pair '{from_curr}/{to_curr}' as of {eff_date.isoformat()}."
+        )
+
+    @classmethod
+    async def reconcile_foreign_settlement_fx(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        invoice_voucher_id: str,
+        payment_voucher_id: str,
+        settled_foreign_amount: Decimal,
+        party_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None
+    ) -> Optional[JournalVoucher]:
+        """
+        Calculates and posts Realized Foreign Exchange Gain / Loss upon foreign invoice settlement.
+        """
+        inv_stmt = select(JournalVoucher).where(JournalVoucher.id == invoice_voucher_id, JournalVoucher.company_id == company_id)
+        invoice_voucher = (await session.execute(inv_stmt)).scalar_one_or_none()
+        if not invoice_voucher:
+            raise HTTPException(status_code=404, detail=f"SMRITI-GL-404: Invoice voucher '{invoice_voucher_id}' not found.")
+
+        pay_stmt = select(JournalVoucher).where(JournalVoucher.id == payment_voucher_id, JournalVoucher.company_id == company_id)
+        payment_voucher = (await session.execute(pay_stmt)).scalar_one_or_none()
+        if not payment_voucher:
+            raise HTTPException(status_code=404, detail=f"SMRITI-GL-404: Payment voucher '{payment_voucher_id}' not found.")
+
+        booking_rate = Decimal(str(invoice_voucher.exchange_rate))
+        settlement_rate = Decimal(str(payment_voucher.exchange_rate))
+        foreign_amt = Decimal(str(settled_foreign_amount))
+
+        booking_base = (foreign_amt * booking_rate).quantize(Decimal("0.01"))
+        settlement_base = (foreign_amt * settlement_rate).quantize(Decimal("0.01"))
+        fx_diff = (settlement_base - booking_base).quantize(Decimal("0.01"))
+
+        if abs(fx_diff) < Decimal("0.01"):
+            return None  # Zero realized difference
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+        acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_fx_gain = await cls.get_account_by_code(session, company_id, "4030")
+        acc_fx_loss = await cls.get_account_by_code(session, company_id, "5050")
+
+        is_sales = invoice_voucher.voucher_type in ("SALES_INVOICE", "JOURNAL") and not invoice_voucher.voucher_type.startswith("PURCHASE")
+        lines = []
+
+        if is_sales:
+            # Customer / Debtors Settlement
+            if fx_diff > 0:
+                # Realized Gain: Received more INR => Debit Debtors, Credit FX Gain
+                gain_amt = fx_diff
+                lines = [
+                    {"account_id": acc_debtors.id, "party_id": party_id, "debit_amount": gain_amt, "credit_amount": Decimal("0.00"), "remarks": f"Realized FX Gain on {invoice_voucher.voucher_no}"},
+                    {"account_id": acc_fx_gain.id, "debit_amount": Decimal("0.00"), "credit_amount": gain_amt, "remarks": f"Realized FX Gain on {invoice_voucher.voucher_no}"}
+                ]
+            else:
+                # Realized Loss: Received less INR => Debit FX Loss, Credit Debtors
+                loss_amt = abs(fx_diff)
+                lines = [
+                    {"account_id": acc_fx_loss.id, "debit_amount": loss_amt, "credit_amount": Decimal("0.00"), "remarks": f"Realized FX Loss on {invoice_voucher.voucher_no}"},
+                    {"account_id": acc_debtors.id, "party_id": party_id, "debit_amount": Decimal("0.00"), "credit_amount": loss_amt, "remarks": f"Realized FX Loss on {invoice_voucher.voucher_no}"}
+                ]
+        else:
+            # Supplier / Creditors Settlement
+            if fx_diff < 0:
+                # Realized Gain: Paid less INR => Debit Creditors, Credit FX Gain
+                gain_amt = abs(fx_diff)
+                lines = [
+                    {"account_id": acc_creditors.id, "party_id": party_id, "debit_amount": gain_amt, "credit_amount": Decimal("0.00"), "remarks": f"Realized FX Gain on {invoice_voucher.voucher_no}"},
+                    {"account_id": acc_fx_gain.id, "debit_amount": Decimal("0.00"), "credit_amount": gain_amt, "remarks": f"Realized FX Gain on {invoice_voucher.voucher_no}"}
+                ]
+            else:
+                # Realized Loss: Paid more INR => Debit FX Loss, Credit Creditors
+                loss_amt = fx_diff
+                lines = [
+                    {"account_id": acc_fx_loss.id, "debit_amount": loss_amt, "credit_amount": Decimal("0.00"), "remarks": f"Realized FX Loss on {invoice_voucher.voucher_no}"},
+                    {"account_id": acc_creditors.id, "party_id": party_id, "debit_amount": Decimal("0.00"), "credit_amount": loss_amt, "remarks": f"Realized FX Loss on {invoice_voucher.voucher_no}"}
+                ]
+
+        narration = f"Automated Realized FX Settlement Difference for {invoice_voucher.voucher_no} vs {payment_voucher.voucher_no}"
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="FX_REALIZATION",
+            voucher_date=payment_voucher.voucher_date,
+            lines=lines,
+            reference_doc_type="PAYMENT_SETTLEMENT",
+            reference_doc_id=payment_voucher.id,
+            reference_doc_no=payment_voucher.voucher_no,
+            narration=narration,
+            created_by=created_by or "system_fx_engine"
+        )
+
+    @classmethod
+    async def calculate_unrealized_fx_revaluation(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        as_of_date: date,
+        closing_rates: Dict[str, Decimal],
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Mark-to-Market (MTM) periodic revaluation of open foreign balances at closing rates.
+        Posts unrealized gain/loss to Account 4040 or 5060.
+        """
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+        acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_unrealized_gain = await cls.get_account_by_code(session, company_id, "4040")
+        acc_unrealized_loss = await cls.get_account_by_code(session, company_id, "5060")
+
+        # Aggregate foreign currency balances for debtors and creditors
+        stmt = (
+            select(
+                GeneralLedgerEntry.account_id,
+                GeneralLedgerEntry.party_id,
+                GeneralLedgerEntry.foreign_currency,
+                func.sum(GeneralLedgerEntry.foreign_debit_amount - GeneralLedgerEntry.foreign_credit_amount).label("net_foreign"),
+                func.sum(GeneralLedgerEntry.debit_amount - GeneralLedgerEntry.credit_amount).label("net_base")
+            )
+            .where(
+                GeneralLedgerEntry.company_id == company_id,
+                GeneralLedgerEntry.entry_date <= as_of_date,
+                GeneralLedgerEntry.foreign_currency != "INR",
+                GeneralLedgerEntry.is_deleted == False,
+                GeneralLedgerEntry.account_id.in_([acc_debtors.id, acc_creditors.id])
+            )
+            .group_by(GeneralLedgerEntry.account_id, GeneralLedgerEntry.party_id, GeneralLedgerEntry.foreign_currency)
+        )
+        rows = (await session.execute(stmt)).all()
+
+        reval_lines = []
+        total_mtm_gain = Decimal("0.00")
+        total_mtm_loss = Decimal("0.00")
+
+        for r in rows:
+            acc_id = r.account_id
+            curr = r.foreign_currency
+            net_foreign = Decimal(str(r.net_foreign or 0))
+            net_base = Decimal(str(r.net_base or 0))
+
+            if abs(net_foreign) < Decimal("0.01"):
+                continue
+
+            closing_rate = closing_rates.get(curr)
+            if not closing_rate:
+                continue
+
+            closing_rate = Decimal(str(closing_rate))
+            revalued_base = (net_foreign * closing_rate).quantize(Decimal("0.01"))
+            diff = (revalued_base - net_base).quantize(Decimal("0.01"))
+
+            if abs(diff) < Decimal("0.01"):
+                continue
+
+            if acc_id == acc_debtors.id:
+                # Debtors asset revaluation
+                if diff > 0:
+                    # Unrealized Gain: Debit Debtors, Credit Unrealized Gain
+                    reval_lines.append({"account_id": acc_debtors.id, "party_id": r.party_id, "debit_amount": diff, "credit_amount": Decimal("0.00")})
+                    total_mtm_gain += diff
+                else:
+                    # Unrealized Loss: Debit Unrealized Loss, Credit Debtors
+                    loss_amt = abs(diff)
+                    reval_lines.append({"account_id": acc_debtors.id, "party_id": r.party_id, "debit_amount": Decimal("0.00"), "credit_amount": loss_amt})
+                    total_mtm_loss += loss_amt
+            elif acc_id == acc_creditors.id:
+                # Creditors liability revaluation (liability increases when diff < 0)
+                if diff < 0:
+                    # Unrealized Gain for liability (INR amount owed decreases)
+                    gain_amt = abs(diff)
+                    reval_lines.append({"account_id": acc_creditors.id, "party_id": r.party_id, "debit_amount": gain_amt, "credit_amount": Decimal("0.00")})
+                    total_mtm_gain += gain_amt
+                else:
+                    # Unrealized Loss for liability (INR amount owed increases)
+                    reval_lines.append({"account_id": acc_creditors.id, "party_id": r.party_id, "debit_amount": Decimal("0.00"), "credit_amount": diff})
+                    total_mtm_loss += diff
+
+        voucher = None
+        if total_mtm_gain > 0 or total_mtm_loss > 0:
+            jv_lines = list(reval_lines)
+            if total_mtm_gain > 0:
+                jv_lines.append({"account_id": acc_unrealized_gain.id, "debit_amount": Decimal("0.00"), "credit_amount": total_mtm_gain})
+            if total_mtm_loss > 0:
+                jv_lines.append({"account_id": acc_unrealized_loss.id, "debit_amount": total_mtm_loss, "credit_amount": Decimal("0.00")})
+
+            voucher = await cls.post_journal_voucher(
+                session=session,
+                company_id=company_id,
+                branch_id=branch_id,
+                voucher_type="FX_UNREALIZED_MTM",
+                voucher_date=as_of_date,
+                lines=jv_lines,
+                narration=f"Periodic Mark-to-Market FX Revaluation as of {as_of_date.isoformat()}",
+                created_by=created_by or "system_mtm_engine"
+            )
+
+        return {
+            "company_id": company_id,
+            "as_of_date": as_of_date.isoformat(),
+            "total_unrealized_gain": float(total_mtm_gain),
+            "total_unrealized_loss": float(total_mtm_loss),
+            "revaluation_voucher_id": voucher.id if voucher else None,
+            "revaluation_voucher_no": voucher.voucher_no if voucher else None
+        }
+
 
 

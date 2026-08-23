@@ -205,3 +205,41 @@ def test_api_fiscal_year_and_period_lock(mock_auth_tenant):
     assert fy_res.status_code == 201
     fy_data = fy_res.json()
     assert "fiscal_year_id" in fy_data
+
+
+def test_api_exchange_rates_and_fx_revaluation(mock_auth_tenant):
+    """Verify POST/GET /api/v1/accounting/exchange-rates and MTM revaluation."""
+    client = TestClient(app)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    # 1. Post exchange rate
+    rate_res = client.post("/api/v1/accounting/exchange-rates", json={
+        "from_currency": "USD",
+        "to_currency": "INR",
+        "exchange_rate": 84.250000,
+        "effective_date": date.today().isoformat(),
+        "rate_type": "SPOT",
+        "source": "RBI"
+    })
+    assert rate_res.status_code == 201
+    rate_data = rate_res.json()
+    assert rate_data["from_currency"] == "USD"
+    assert float(rate_data["exchange_rate"]) == 84.25
+
+    # 2. Get exchange rates list
+    list_res = client.get("/api/v1/accounting/exchange-rates?from_currency=USD")
+    assert list_res.status_code == 200
+    list_data = list_res.json()
+    assert len(list_data) >= 1
+    assert any(r["from_currency"] == "USD" for r in list_data)
+
+    # 3. Post MTM Unrealized Revaluation
+    mtm_res = client.post("/api/v1/accounting/fx-revaluation/unrealized", json={
+        "as_of_date": date.today().isoformat(),
+        "closing_rates": {"USD": 84.25}
+    })
+    assert mtm_res.status_code == 200
+    mtm_data = mtm_res.json()
+    assert "total_unrealized_gain" in mtm_data
+    assert "total_unrealized_loss" in mtm_data
+
