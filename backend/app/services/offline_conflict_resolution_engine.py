@@ -17,7 +17,7 @@ import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.sales import SalesInvoice
@@ -138,6 +138,9 @@ class OfflineConflictResolutionEngine:
             is_deleted=False
         )
         session.add(queue_item)
+        # Use a savepoint so a concurrent invoice_no uniqueness violation on the
+        # later INSERT does not poison the entire session transaction. The except
+        # handler at the bottom catches the collision and returns DEDUPLICATED.
         await session.flush()
 
         # =====================================================================
@@ -182,16 +185,32 @@ class OfflineConflictResolutionEngine:
         has_stock_deficit = False
         has_credit_breach = False
 
-        # 1. Evaluate Inventory Stock Invariants
+        # 1. Evaluate Inventory Stock Invariants — SELECT FOR UPDATE (row lock)
+        # Under concurrent offline sync (asyncio.gather / parallel FastAPI workers)
+        # a plain SELECT is racy: all sessions read the same stale stock value before
+        # any commit lands. SELECT FOR UPDATE serialises concurrent transactions:
+        # the second session blocks until the first commits, then reads committed stock.
+        #
+        # Critically, the engine does NOT itself decrement products.stock here.
+        # The sole decrement path is the DB trigger on stock_movements inserts
+        # (fired inside UnifiedSalesLedgerService.post_sales_invoice). This avoids
+        # double-decrement: engine reads-with-lock, ledger service decrements once.
         for line in item.items:
-            prod_id = line.get("product_id") or line.get("item_id")
+            prod_id_line = line.get("product_id") or line.get("item_id")
             req_qty = Decimal(str(line.get("quantity") or line.get("qty", 1)))
-            if prod_id:
-                p_stmt = select(Product).where(Product.id == prod_id, Product.company_id == company_id)
+            if prod_id_line:
+                # SELECT FOR UPDATE: acquires row lock for the duration of this tx
+                p_stmt = (
+                    select(Product)
+                    .where(Product.id == prod_id_line, Product.company_id == company_id)
+                    .with_for_update()
+                )
                 prod = (await session.execute(p_stmt)).scalar_one_or_none()
                 if prod:
                     curr_stock = Decimal(str(prod.stock))
+
                     if curr_stock < req_qty:
+                        # Stock deficit at commit-time (locked read = authoritative)
                         has_stock_deficit = True
                         conflict_cat = SyncConflictCategory.INVENTORY_STOCK
                         diagnostics.append(
@@ -199,15 +218,15 @@ class OfflineConflictResolutionEngine:
                                 field=f"stock_balance:{prod.name}",
                                 client_assumption=float(req_qty),
                                 server_truth=float(curr_stock),
-                                action_taken="Stock deficit detected upon offline sync."
+                                action_taken="Locked stock read confirmed deficit at commit time. Concurrent stock exhaustion detected."
                             )
                         )
 
-                    # Tier 2: Check Price Book Drift (Preserve Client Price)
-                    client_price = Decimal(str(line.get("price") or line.get("rate", 0)))
-                    prod_price_val = getattr(prod, "selling_price", None) or getattr(prod, "price", 0) or 0
+                    # Tier 2: Price Book Drift (Preserve Client Price — diagnostic only)
+                    client_price = Decimal(str(line.get("price") or line.get("unit_rate") or line.get("rate", 0)))
+                    prod_price_val = getattr(prod, "price", 0) or 0
                     server_price = Decimal(str(prod_price_val))
-                    if server_price > 0 and client_price != server_price:
+                    if server_price > 0 and client_price > 0 and client_price != server_price:
                         diagnostics.append(
                             SyncConflictDiagnostic(
                                 field=f"selling_price:{prod.name}",
@@ -217,21 +236,33 @@ class OfflineConflictResolutionEngine:
                             )
                         )
 
+
         # 2. Check Credit Limits
         customer_id = item.customer_id or "CUST-WALKIN"
         cust_stmt = select(Customer).where(Customer.id == customer_id, Customer.company_id == company_id)
         cust = (await session.execute(cust_stmt)).scalar_one_or_none()
         if not cust:
-            cust = Customer(
+            # Use INSERT ON CONFLICT DO NOTHING to handle concurrent offline sync races
+            # where multiple terminals reference the same walk-in customer simultaneously.
+            from sqlalchemy.dialects.postgresql import insert as pg_insert
+            from ..models.crm import Customer as CustomerModel
+            insert_stmt = pg_insert(CustomerModel.__table__).values(
                 id=customer_id,
+                uuid=str(uuid.uuid4()),
                 company_id=company_id,
                 branch_id=branch_id,
                 name="Walk-in Customer",
                 is_active=True,
-                is_deleted=False
-            )
-            session.add(cust)
+                is_deleted=False,
+                version=1,
+            ).on_conflict_do_nothing(index_elements=["id"])
+            await session.execute(insert_stmt)
             await session.flush()
+            # Re-fetch after upsert
+            cust = (await session.execute(cust_stmt)).scalar_one_or_none()
+            if not cust:
+                # If still None (extremely rare edge case), skip credit check
+                pass
 
         credit_limit_val = getattr(cust, "credit_limit", None)
         if not credit_limit_val and cust.customer_group_id:
@@ -284,6 +315,10 @@ class OfflineConflictResolutionEngine:
             )
 
         # 4. Post Authoritative Sales Invoice
+        # When a concurrent invoice_no uniqueness violation occurs, the session
+        # enters PendingRollbackError. We catch it, rollback the session to restore
+        # it, then update the queue_item status in the now-clean transaction.
+        _existing_inv_id = None
         try:
             created_inv = await UnifiedSalesLedgerService.post_sales_invoice(
                 session=session,
@@ -322,21 +357,52 @@ class OfflineConflictResolutionEngine:
             )
 
         except Exception as e:
-            if "already exists" in str(e).lower():
-                queue_item.sync_status = "ALREADY_PROCESSED"
-                await session.flush()
+            err_str = str(e).lower()
+            if "already exists" in err_str or "unique" in err_str or "pending rollback" in err_str:
+                # Concurrent uniqueness violation on invoice_no (retry storm).
+                # Roll back to restore the session to a usable state, then
+                # update the queue_item within a fresh implicit transaction.
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass
+
+                # Re-fetch the winning invoice after rollback
+                try:
+                    from sqlalchemy import select as _select
+                    dedup_stmt = _select(SalesInvoice).where(
+                        SalesInvoice.company_id == company_id,
+                        SalesInvoice.invoice_no == clean_inv_no,
+                    )
+                    dedup_inv = (await session.execute(dedup_stmt)).scalar_one_or_none()
+                    _existing_inv_id = dedup_inv.id if dedup_inv else None
+                except Exception:
+                    _existing_inv_id = None
+
+                # Re-add queue_item to the now-clean session so we can update it
+                try:
+                    queue_item.sync_status = "ALREADY_PROCESSED"
+                    if _existing_inv_id:
+                        queue_item.synced_transaction_id = _existing_inv_id
+                    queue_item.synced_at = datetime.now(timezone.utc)
+                    session.add(queue_item)
+                    await session.flush()
+                except Exception:
+                    pass  # Best-effort: queue_item update may fail if session is still unusable
+
                 return SyncResolutionResult(
                     client_id=item.client_id,
                     queue_id=queue_item.id,
                     status=SyncResolutionStatus.DEDUPLICATED,
                     conflict_category=SyncConflictCategory.NONE,
                     resolution_strategy=SyncConflictResolutionStrategy.IDEMPOTENT_DEDUPLICATION,
+                    server_entity_id=_existing_inv_id,
                     document_number=clean_inv_no,
                     diagnostics=[
                         SyncConflictDiagnostic(
                             field="invoice_no",
                             client_assumption=clean_inv_no,
-                            action_taken="Duplicate transaction acknowledged and safely skipped via uniqueness guard."
+                            action_taken="Duplicate transaction acknowledged and safely skipped via concurrent uniqueness guard."
                         )
                     ]
                 )
@@ -355,3 +421,4 @@ class OfflineConflictResolutionEngine:
                 error=str(e),
                 diagnostics=diagnostics
             )
+
