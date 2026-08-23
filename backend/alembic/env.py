@@ -155,8 +155,10 @@ def include_object(object, name, type_, reflected, compare_to):
             "bank_statements",
             "bank_statement_lines",
             "currency_exchange_rates",
+            "shift_cash_transactions",
         ]
     return True
+
 
 
 

@@ -27,8 +27,10 @@ from ...schemas.pos import (
     CashRegisterCreate, CashRegisterResponse,
     POSProfileCreate, POSProfileResponse,
     ShiftOpen, ShiftClose, ShiftResponse, POSZReportResponse,
+    ShiftCashDropRequest, ShiftTillExpenseRequest, ShiftCashTransactionResponse,
     POSCheckoutRequest, POSCheckoutResponse,
 )
+
 
 from ...services.pos import POSService
 
@@ -107,11 +109,64 @@ async def close_shift_contract(
     return await POSService(db, tenant).close_shift(shift_id, req, current_user.id)
 
 
+@router.post(
+    "/pos/shifts/{shift_id}/cash-drop",
+    response_model=ShiftCashTransactionResponse,
+    status_code=201,
+    summary="Record Mid-Shift Cash Drop",
+    description="Records a cash transfer from the register drawer to the main safe or bank account, creating an automated double-entry GL journal voucher.",
+)
+@router.post(
+    "/shifts/{shift_id}/cash-drop",
+    response_model=ShiftCashTransactionResponse,
+    status_code=201,
+    include_in_schema=False,
+)
+async def record_shift_cash_drop(
+    shift_id: str,
+    req: ShiftCashDropRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record mid-shift cash drop and post GL transfer voucher."""
+    return await POSService(db, tenant).record_cash_drop(shift_id, req, current_user.id)
+
+
+@router.post(
+    "/pos/shifts/{shift_id}/till-expense",
+    response_model=ShiftCashTransactionResponse,
+    status_code=201,
+    summary="Record Mid-Shift Till Expense",
+    description="Records an immediate petty cash payout from the register drawer, creating an automated double-entry GL journal voucher.",
+)
+@router.post(
+    "/shifts/{shift_id}/till-expense",
+    response_model=ShiftCashTransactionResponse,
+    status_code=201,
+    include_in_schema=False,
+)
+async def record_shift_till_expense(
+    shift_id: str,
+    req: ShiftTillExpenseRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record mid-shift till petty expense and post GL expense voucher."""
+    return await POSService(db, tenant).record_till_expense(shift_id, req, current_user.id)
+
+
 @router.get(
     "/pos/shifts/{shift_id}/z-report",
     response_model=POSZReportResponse,
     summary="Get Shift Z-Report",
-    description="Returns comprehensive shift closing totals, tender variance breakdown, and linked GL voucher reference.",
+    description="Returns comprehensive shift closing totals, cash drops, till expenses, physical denominations, tender variance breakdown, and linked GL voucher reference.",
+)
+@router.get(
+    "/shifts/{shift_id}/z-report",
+    response_model=POSZReportResponse,
+    include_in_schema=False,
 )
 async def get_shift_z_report(
     shift_id: str,
@@ -121,6 +176,7 @@ async def get_shift_z_report(
 ):
     """Get authoritative Z-Report data for a shift."""
     return await POSService(db, tenant).get_z_report(shift_id)
+
 
 
 

@@ -4,14 +4,17 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.22.0
+Version      : 6.16.0
 Created      : 2026-07-11
-Modified     : 2026-07-16
+Modified     : 2026-08-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+Classification: Internal
 """
 
 from sqlalchemy import Boolean, Column, String, Numeric, ForeignKey, Text, DateTime
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
 from ..db.base import BaseEntity
 
 
@@ -45,9 +48,9 @@ class Shift(BaseEntity):
     - Only one shift can be OPEN per register at a time.
     - Opening balance = cash counted in drawer at shift start.
     - Closing balance = cash counted at shift end.
-    - expected_cash = opening_balance + cash_sales_total
+    - expected_cash = opening_balance + cash_sales_total + cash_in_total - cash_drops_total - till_expenses_total
     - variance      = closing_balance − expected_cash
-      (positive = over, negative = short)
+      (positive = overage, negative = shortage)
     """
     __tablename__ = "shifts"
 
@@ -67,7 +70,37 @@ class Shift(BaseEntity):
     total_sales      = Column(Numeric(15, 2), nullable=False, default=0.00)
     total_invoices   = Column(String(10),     nullable=False, default="0")
 
+    # Mid-shift cash movement totals
+    cash_drops_total    = Column(Numeric(15, 2), nullable=False, default=0.00)
+    till_expenses_total = Column(Numeric(15, 2), nullable=False, default=0.00)
+    cash_in_total       = Column(Numeric(15, 2), nullable=False, default=0.00)
+
     closing_balance  = Column(Numeric(15, 2), nullable=True)
     expected_cash    = Column(Numeric(15, 2), nullable=True)
     variance         = Column(Numeric(15, 2), nullable=True)
+    denominations    = Column(JSONB, nullable=True)
     closing_notes    = Column(Text, nullable=True)
+
+    # Relationships
+    cash_transactions = relationship("ShiftCashTransaction", back_populates="shift", cascade="all, delete-orphan")
+
+
+class ShiftCashTransaction(BaseEntity):
+    """
+    Tracks cash movements during an active shift (CASH_DROP, TILL_EXPENSE, CASH_IN).
+    Links directly to an automated General Ledger Journal Voucher.
+    """
+    __tablename__ = "shift_cash_transactions"
+
+    shift_id         = Column(String(50), ForeignKey("shifts.id", ondelete="CASCADE"), nullable=False, index=True)
+    transaction_type = Column(String(30), nullable=False)  # CASH_DROP | TILL_EXPENSE | CASH_IN
+    amount           = Column(Numeric(15, 2), nullable=False)
+    account_id       = Column(String(50), nullable=True)   # Target safe/bank or expense account
+    reason           = Column(Text, nullable=False)
+    performed_by     = Column(String(50), nullable=False)
+    gl_voucher_id    = Column(String(50), nullable=True)
+    gl_voucher_no    = Column(String(100), nullable=True)
+    receipt_ref      = Column(String(100), nullable=True)
+
+    # Relationships
+    shift            = relationship("Shift", back_populates="cash_transactions")

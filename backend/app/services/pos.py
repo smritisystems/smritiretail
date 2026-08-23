@@ -24,15 +24,17 @@ from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
-from ..models.pos import CashRegister, Shift
+from ..models.pos import CashRegister, Shift, ShiftCashTransaction
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement
 from ..api.deps import TenantContext
 from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
     CashRegisterCreate, ShiftOpen, ShiftClose,
+    ShiftCashDropRequest, ShiftTillExpenseRequest,
     POSCheckoutRequest,
 )
+
 
 
 class POSService:
@@ -219,6 +221,189 @@ class POSService:
         return shift
 
     # ──────────────────────────────────────────────────────────────
+    # Mid-Shift Cash Movements (Cash Drop & Till Expense)
+    # ──────────────────────────────────────────────────────────────
+
+    async def record_cash_drop(
+        self,
+        shift_id: str,
+        req: ShiftCashDropRequest,
+        requesting_user_id: str
+    ) -> ShiftCashTransaction:
+        """
+        Record a mid-shift cash drop (till skim) from drawer to safe/bank.
+        Automatically posts a balanced double-entry Journal Voucher:
+            Debit: Bank / Safe Account (1020 / custom)
+            Credit: Cash in Hand (1010)
+        """
+        if req.amount <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Cash drop amount must be strictly greater than zero.")
+
+        shift = await self.get_shift(shift_id)
+        if shift.status != "OPEN":
+            raise HTTPException(status_code=400, detail="Cannot record a cash drop on a closed shift.")
+
+        from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
+        await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
+            self.db, self.tenant.company_id, self.tenant.branch_id
+        )
+
+        acc_cash = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "1010")
+
+        if req.target_account_id:
+            acc_target = await UnifiedAccountingLedgerService.get_account_by_id(self.db, self.tenant.company_id, req.target_account_id)
+            if not acc_target:
+                raise HTTPException(status_code=400, detail=f"Target account {req.target_account_id} not found.")
+        else:
+            acc_target = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "1020")
+
+        sct_id = f"sct-drop-{uuid.uuid4().hex[:8]}"
+        sct = ShiftCashTransaction(
+            id=sct_id,
+            uuid=str(uuid.uuid4()),
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            shift_id=shift.id,
+            transaction_type="CASH_DROP",
+            amount=req.amount.quantize(Decimal("0.01")),
+            account_id=acc_target.id,
+            reason=req.reason,
+            performed_by=requesting_user_id,
+            created_by=requesting_user_id
+        )
+        self.db.add(sct)
+        await self.db.flush()
+
+        lines = [
+            {
+                "account_id": acc_target.id,
+                "debit_amount": req.amount.quantize(Decimal("0.01")),
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Mid-shift cash drop from Register {shift.register_id} Shift {shift.id}: {req.reason}"
+            },
+            {
+                "account_id": acc_cash.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": req.amount.quantize(Decimal("0.01")),
+                "remarks": f"Cash drawer transfer on Register {shift.register_id}"
+            }
+        ]
+
+        voucher = await UnifiedAccountingLedgerService.post_journal_voucher(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            voucher_type="CASH_DROP",
+            voucher_date=datetime.now(timezone.utc).date(),
+            lines=lines,
+            reference_doc_type="POS_CASH_DROP",
+            reference_doc_id=sct.id,
+            reference_doc_no=f"DROP-{shift.id[:8]}",
+            narration=f"POS Cash Drop - {req.reason}",
+            created_by=requesting_user_id
+        )
+
+        sct.gl_voucher_id = voucher.id
+        sct.gl_voucher_no = voucher.voucher_no
+
+        shift.cash_drops_total = (Decimal(str(shift.cash_drops_total or 0.00)) + req.amount).quantize(Decimal("0.01"))
+        shift.modified_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(sct)
+        return sct
+
+    async def record_till_expense(
+        self,
+        shift_id: str,
+        req: ShiftTillExpenseRequest,
+        requesting_user_id: str
+    ) -> ShiftCashTransaction:
+        """
+        Record a mid-shift petty expense payout from drawer.
+        Automatically posts a balanced double-entry Journal Voucher:
+            Debit: Expense Account (5000 / custom)
+            Credit: Cash in Hand (1010)
+        """
+        if req.amount <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Till expense amount must be strictly greater than zero.")
+
+        shift = await self.get_shift(shift_id)
+        if shift.status != "OPEN":
+            raise HTTPException(status_code=400, detail="Cannot record till expense on a closed shift.")
+
+        from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
+        await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
+            self.db, self.tenant.company_id, self.tenant.branch_id
+        )
+
+        acc_cash = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "1010")
+
+        if req.expense_account_id:
+            acc_exp = await UnifiedAccountingLedgerService.get_account_by_id(self.db, self.tenant.company_id, req.expense_account_id)
+            if not acc_exp:
+                raise HTTPException(status_code=400, detail=f"Expense account {req.expense_account_id} not found.")
+        else:
+            acc_exp = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "5000")
+
+        sct_id = f"sct-exp-{uuid.uuid4().hex[:8]}"
+        sct = ShiftCashTransaction(
+            id=sct_id,
+            uuid=str(uuid.uuid4()),
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            shift_id=shift.id,
+            transaction_type="TILL_EXPENSE",
+            amount=req.amount.quantize(Decimal("0.01")),
+            account_id=acc_exp.id,
+            reason=req.reason,
+            receipt_ref=req.receipt_ref,
+            performed_by=requesting_user_id,
+            created_by=requesting_user_id
+        )
+        self.db.add(sct)
+        await self.db.flush()
+
+        lines = [
+            {
+                "account_id": acc_exp.id,
+                "debit_amount": req.amount.quantize(Decimal("0.01")),
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Mid-shift till expense from Register {shift.register_id} Shift {shift.id}: {req.reason}"
+            },
+            {
+                "account_id": acc_cash.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": req.amount.quantize(Decimal("0.01")),
+                "remarks": f"Cash drawer payout on Register {shift.register_id}"
+            }
+        ]
+
+        voucher = await UnifiedAccountingLedgerService.post_journal_voucher(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            voucher_type="TILL_EXPENSE",
+            voucher_date=datetime.now(timezone.utc).date(),
+            lines=lines,
+            reference_doc_type="POS_TILL_EXPENSE",
+            reference_doc_id=sct.id,
+            reference_doc_no=f"EXP-{shift.id[:8]}",
+            narration=f"POS Till Expense - {req.reason}",
+            created_by=requesting_user_id
+        )
+
+        sct.gl_voucher_id = voucher.id
+        sct.gl_voucher_no = voucher.voucher_no
+
+        shift.till_expenses_total = (Decimal(str(shift.till_expenses_total or 0.00)) + req.amount).quantize(Decimal("0.01"))
+        shift.modified_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(sct)
+        return sct
+
+    # ──────────────────────────────────────────────────────────────
     # Shift — close
     # ──────────────────────────────────────────────────────────────
 
@@ -226,9 +411,11 @@ class POSService:
         """
         Close a shift:
         1. Aggregate sales totals from linked SalesInvoices.
-        2. Compute expected_cash = opening_balance + cash_sales_total.
-        3. Compute variance = closing_balance − expected_cash.
-        4. Set status = CLOSED, closed_at = now.
+        2. Compute expected_cash = opening_balance + cash_sales + cash_in - cash_drops - till_expenses.
+        3. Determine closing_balance from denominations count or explicit closing_balance.
+        4. Compute variance = closing_balance − expected_cash.
+        5. Set status = CLOSED, closed_at = now.
+        6. Post automated balancing GL voucher if variance != 0.
         """
         res = await self.db.execute(
             select(Shift).where(
@@ -272,8 +459,31 @@ class POSService:
                 upi_total += gt
             total += gt
 
-        expected = (shift.opening_balance + cash_total).quantize(Decimal("0.01"))
-        variance = (req.closing_balance - expected).quantize(Decimal("0.01"))
+        # Handle closing balance and physical denomination count
+        if req.denominations is not None:
+            counted_balance = req.denominations.calculate_total()
+            shift.denominations = req.denominations.model_dump(mode="json")
+            closing_balance = counted_balance
+
+        elif req.closing_balance is not None:
+            closing_balance = Decimal(str(req.closing_balance)).quantize(Decimal("0.01"))
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Must provide either closing_balance or physical denomination breakdown."
+            )
+
+        # Net expected cash in register:
+        # Expected = Opening + Cash Sales + Cash In - Cash Drops - Till Expenses
+        expected = (
+            shift.opening_balance +
+            cash_total +
+            Decimal(str(shift.cash_in_total or 0.00)) -
+            Decimal(str(shift.cash_drops_total or 0.00)) -
+            Decimal(str(shift.till_expenses_total or 0.00))
+        ).quantize(Decimal("0.01"))
+
+        variance = (closing_balance - expected).quantize(Decimal("0.01"))
 
         shift.status           = "CLOSED"
         shift.closed_at        = datetime.now(timezone.utc)
@@ -282,7 +492,7 @@ class POSService:
         shift.upi_sales_total  = upi_total.quantize(Decimal("0.01"))
         shift.total_sales      = total.quantize(Decimal("0.01"))
         shift.total_invoices   = str(len(invoices))
-        shift.closing_balance  = req.closing_balance.quantize(Decimal("0.01"))
+        shift.closing_balance  = closing_balance
         shift.expected_cash    = expected
         shift.variance         = variance
         shift.closing_notes    = req.closing_notes
@@ -342,7 +552,8 @@ class POSService:
     async def get_z_report(self, shift_id: str) -> dict:
         """
         Generate authoritative Z-Report data for a shift, including sales breakdown,
-        cash tender reconciliation, and linked General Ledger balancing voucher.
+        cash drops, till expenses, physical denomination counts, cash tender reconciliation,
+        and linked General Ledger balancing voucher.
         """
         shift = await self.get_shift(shift_id)
 
@@ -355,6 +566,14 @@ class POSService:
             JournalVoucher.is_deleted == False
         )
         voucher = (await self.db.execute(stmt)).scalar_one_or_none()
+
+        # Fetch cash movements
+        sct_stmt = select(ShiftCashTransaction).where(
+            ShiftCashTransaction.shift_id == shift.id,
+            ShiftCashTransaction.company_id == self.tenant.company_id,
+            ShiftCashTransaction.is_deleted == False
+        ).order_by(ShiftCashTransaction.created_at.asc())
+        cash_movements = (await self.db.execute(sct_stmt)).scalars().all()
 
         return {
             "shift_id": shift.id,
@@ -369,15 +588,36 @@ class POSService:
             "upi_sales_total": shift.upi_sales_total,
             "total_sales": shift.total_sales,
             "total_invoices": int(shift.total_invoices or 0),
+            "cash_drops_total": shift.cash_drops_total or Decimal("0.00"),
+            "till_expenses_total": shift.till_expenses_total or Decimal("0.00"),
+            "cash_in_total": shift.cash_in_total or Decimal("0.00"),
             "expected_cash": shift.expected_cash or shift.opening_balance,
             "closing_balance": shift.closing_balance or Decimal("0.00"),
             "variance": shift.variance or Decimal("0.00"),
+            "denominations": shift.denominations,
             "closing_notes": shift.closing_notes,
             "gl_voucher_id": voucher.id if voucher else None,
             "gl_voucher_no": voucher.voucher_no if voucher else None,
             "company_id": shift.company_id,
-            "branch_id": shift.branch_id
+            "branch_id": shift.branch_id,
+            "cash_movements": [
+                {
+                    "id": m.id,
+                    "shift_id": m.shift_id,
+                    "transaction_type": m.transaction_type,
+                    "amount": m.amount,
+                    "account_id": m.account_id,
+                    "reason": m.reason,
+                    "performed_by": m.performed_by,
+                    "gl_voucher_id": m.gl_voucher_id,
+                    "gl_voucher_no": m.gl_voucher_no,
+                    "receipt_ref": m.receipt_ref,
+                    "created_at": m.created_at
+                }
+                for m in cash_movements
+            ]
         }
+
 
 
     # ───────────────────────────────────────────────────────────────
