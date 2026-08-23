@@ -103,10 +103,16 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         assert "policy_definitions" in tables
         assert "workflow_definitions" in tables
 
+        # Distribution Core tables (v1365 / Section 8)
+        assert "distribution_territories" in tables
+        assert "dealer_assignments" in tables
+        assert "distribution_orders" in tables
+        assert "distribution_order_items" in tables
+
         # Check alembic revision is at latest head
         rev_res = await session.execute(text("SELECT version_num FROM alembic_version;"))
         rev = rev_res.scalar()
-        assert rev == "v1364_party_item_snapshots"
+        assert rev == "v1365_distribution_core"
 
         # Verify database-level FK constraints on shift_cash_transactions (v1360 / ADR-POS-002)
         fk_res = await session.execute(text("""
