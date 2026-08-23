@@ -70,6 +70,10 @@ class JournalVoucher(BaseEntity):
     reference_doc_id = Column(String(50), nullable=True, index=True)
     reference_doc_no = Column(String(100), nullable=True)
     narration = Column(Text, nullable=True)
+    currency = Column(String(10), nullable=False, default="INR")
+    exchange_rate = Column(Numeric(18, 6), nullable=False, default=1.000000)
+    total_foreign_debit = Column(Numeric(15, 2), nullable=False, default=0.00)
+    total_foreign_credit = Column(Numeric(15, 2), nullable=False, default=0.00)
     total_debit = Column(Numeric(15, 2), nullable=False, default=0.00)
     total_credit = Column(Numeric(15, 2), nullable=False, default=0.00)
     is_posted = Column(Boolean, nullable=False, default=True)
@@ -101,6 +105,10 @@ class GeneralLedgerEntry(BaseEntity):
     debit_amount = Column(Numeric(15, 2), nullable=False, default=0.00)
     credit_amount = Column(Numeric(15, 2), nullable=False, default=0.00)
     currency = Column(String(10), nullable=False, default="INR")
+    foreign_currency = Column(String(10), nullable=False, default="INR")
+    exchange_rate = Column(Numeric(18, 6), nullable=False, default=1.000000)
+    foreign_debit_amount = Column(Numeric(15, 2), nullable=False, default=0.00)
+    foreign_credit_amount = Column(Numeric(15, 2), nullable=False, default=0.00)
     against_account_id = Column(String(50), nullable=True)
     against_account_name = Column(String(200), nullable=True)
     reference_doc_type = Column(String(50), nullable=True)
@@ -110,6 +118,7 @@ class GeneralLedgerEntry(BaseEntity):
     # Relationships
     voucher = relationship("JournalVoucher", back_populates="entries")
     account = relationship("Account", back_populates="gl_entries")
+
 
 
 class AccountBalanceSnapshot(BaseEntity):
@@ -228,4 +237,23 @@ class BankStatementLine(BaseEntity):
     # Relationships
     statement = relationship("BankStatement", back_populates="lines")
     reconciled_gl_entry = relationship("GeneralLedgerEntry")
+
+
+class CurrencyExchangeRate(BaseEntity):
+    """
+    Authoritative currency exchange rates for foreign currency valuation and FX Gain/Loss.
+    """
+    __tablename__ = "currency_exchange_rates"
+    __table_args__ = (
+        UniqueConstraint("company_id", "from_currency", "to_currency", "effective_date", "rate_type", name="uq_exchange_rate_comp_pair_date_type"),
+        Index("idx_exchange_rate_lookup", "company_id", "from_currency", "to_currency", "effective_date"),
+    )
+
+    from_currency = Column(String(10), nullable=False, index=True)   # e.g., USD, EUR, AED, GBP
+    to_currency = Column(String(10), nullable=False, default="INR", index=True) # e.g., INR
+    exchange_rate = Column(Numeric(18, 6), nullable=False)           # e.g., 83.500000
+    effective_date = Column(Date, nullable=False, default=date.today)
+    rate_type = Column(String(30), nullable=False, default="SPOT")    # SPOT, CLOSING, AVERAGE
+    source = Column(String(100), nullable=False, default="MANUAL")    # MANUAL, RBI, ECB
+
 

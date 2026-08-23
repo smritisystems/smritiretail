@@ -40,6 +40,10 @@ class JournalVoucherLineCreate(BaseModel):
     party_id: Optional[str] = None
     debit_amount: Decimal = Decimal("0.00")
     credit_amount: Decimal = Decimal("0.00")
+    foreign_currency: Optional[str] = None
+    exchange_rate: Optional[Decimal] = None
+    foreign_debit_amount: Decimal = Decimal("0.00")
+    foreign_credit_amount: Decimal = Decimal("0.00")
     against_account_id: Optional[str] = None
     against_account_name: Optional[str] = None
     remarks: Optional[str] = None
@@ -48,6 +52,8 @@ class JournalVoucherLineCreate(BaseModel):
 class JournalVoucherCreate(BaseModel):
     voucher_type: str = "JOURNAL"
     voucher_date: date = Field(default_factory=date.today)
+    currency: str = "INR"
+    exchange_rate: Optional[Decimal] = None
     lines: List[JournalVoucherLineCreate]
     reference_doc_type: Optional[str] = None
     reference_doc_id: Optional[str] = None
@@ -63,6 +69,10 @@ class JournalVoucherResponse(BaseModel):
     voucher_type: str
     voucher_date: date
     posting_date: datetime
+    currency: str
+    exchange_rate: Decimal
+    total_foreign_debit: Decimal
+    total_foreign_credit: Decimal
     total_debit: Decimal
     total_credit: Decimal
     is_posted: bool
@@ -89,7 +99,6 @@ class TrialBalanceResponse(BaseModel):
     grand_total_credit: float
     is_balanced: bool
     accounts: List[TrialBalanceItem]
-
 
 
 class ProfitAndLossItem(BaseModel):
@@ -170,3 +179,38 @@ class FiscalPeriodLockRequest(BaseModel):
 
 class BalanceSnapshotRequest(BaseModel):
     period_date: date = Field(default_factory=date.today)
+
+
+class CurrencyExchangeRateCreate(BaseModel):
+    from_currency: str
+    to_currency: str = "INR"
+    exchange_rate: Decimal
+    effective_date: Optional[date] = None
+    rate_type: str = "SPOT"
+    source: str = "MANUAL"
+
+
+class CurrencyExchangeRateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    from_currency: str
+    to_currency: str
+    exchange_rate: Decimal
+    effective_date: date
+    rate_type: str
+    source: str
+
+
+class UnrealizedRevaluationRequest(BaseModel):
+    as_of_date: date = Field(default_factory=date.today)
+    closing_rates: Dict[str, Decimal]
+
+
+class UnrealizedRevaluationResponse(BaseModel):
+    company_id: str
+    as_of_date: str
+    total_unrealized_gain: float
+    total_unrealized_loss: float
+    revaluation_voucher_id: Optional[str] = None
+    revaluation_voucher_no: Optional[str] = None
