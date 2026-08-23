@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 5.4.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -32,7 +32,11 @@ import {
   ChevronRight,
   ShieldAlert,
   Search,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  X
 } from "lucide-react";
 import { Product, AttributeDefinition } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
@@ -46,6 +50,17 @@ import { SmritiDataLoadingConfirmationModal } from "./SmritiDataLoadingConfirmat
 import { ViewConfigState } from "./SmritiViewConfiguration.tsx";
 
 export type MasterEntryMode = "add" | "edit" | "delete";
+export type SortDirection = "asc" | "desc";
+
+export interface SortConfig {
+  columnKey: string;
+  direction: SortDirection;
+}
+
+export interface DerivedGridRow {
+  row: any;
+  sourceIndex: number;
+}
 
 interface SmritiItemDetailsGridProps {
   products: Product[];
@@ -86,6 +101,8 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   const [activeCodeTargetRow, setActiveCodeTargetRow] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [searchFilter, setSearchFilter] = useState<string>("");
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
 
   // Listen to global visibility changes
@@ -243,18 +260,159 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
 
   const frozenCount = viewConfig?.frozenColumns ?? 2;
 
-  // Filtered rows
-  const filteredRows = useMemo(() => {
-    if (!searchFilter.trim()) return gridRows;
-    const q = searchFilter.toLowerCase();
-    return gridRows.filter(r => 
-      String(r.code || "").toLowerCase().includes(q) ||
-      String(r.name || "").toLowerCase().includes(q) ||
-      String(r.barcode || "").toLowerCase().includes(q) ||
-      String(r.imageName || "").toLowerCase().includes(q) ||
-      String(r.brand || "").toLowerCase().includes(q)
-    );
-  }, [gridRows, searchFilter]);
+  // Numeric field keys for natural numerical sorting
+  const NUMERIC_FIELD_KEYS = useMemo(() => new Set([
+    "mrp",
+    "price",
+    "sellingPrice",
+    "costPrice",
+    "cost_price",
+    "gst_percentage",
+    "gstPercentage",
+    "stock",
+    "quantity",
+    "discount",
+    "tax"
+  ]), []);
+
+  const isNumericField = (key: string, val: any): boolean => {
+    if (NUMERIC_FIELD_KEYS.has(key)) return true;
+    if (typeof val === "number") return true;
+    if (typeof val === "string" && val.trim() !== "" && !isNaN(Number(val.trim()))) {
+      return true;
+    }
+    return false;
+  };
+
+  const compareGridValues = (a: any, b: any, key: string, direction: SortDirection): number => {
+    const isAEmpty = a === null || a === undefined || a === "";
+    const isBEmpty = b === null || b === undefined || b === "";
+
+    if (isAEmpty && isBEmpty) return 0;
+    // Empty values appear last in both ascending and descending order
+    if (isAEmpty) return 1;
+    if (isBEmpty) return -1;
+
+    let comparison = 0;
+    const isNumeric = isNumericField(key, a) && isNumericField(key, b);
+
+    if (isNumeric) {
+      const numA = typeof a === "number" ? a : parseFloat(String(a));
+      const numB = typeof b === "number" ? b : parseFloat(String(b));
+      comparison = numA - numB;
+    } else {
+      const strA = String(a).toLowerCase();
+      const strB = String(b).toLowerCase();
+      comparison = strA.localeCompare(strB, undefined, { numeric: true, sensitivity: "base" });
+    }
+
+    return direction === "asc" ? comparison : -comparison;
+  };
+
+  // Derived rows preserving the underlying source index for robust editing, selection, and mutations
+  const derivedRows = useMemo<DerivedGridRow[]>(() => {
+    return gridRows.map((row, sourceIndex) => ({ row, sourceIndex }));
+  }, [gridRows]);
+
+  // Combined Filtered & Sorted Rows
+  const filteredSortedRows = useMemo<DerivedGridRow[]>(() => {
+    let result = derivedRows;
+
+    // 1. Global Search Filter
+    if (searchFilter.trim()) {
+      const q = searchFilter.trim().toLowerCase();
+      result = result.filter(({ row }) => {
+        return Object.entries(row).some(([k, v]) => {
+          if (k.startsWith("_") || typeof v === "boolean" || typeof v === "object") return false;
+          return String(v ?? "").toLowerCase().includes(q);
+        });
+      });
+    }
+
+    // 2. Per-Column Filters
+    const activeColFilters = Object.entries(columnFilters).filter(([_, val]) => Boolean(val && val.trim()));
+    if (activeColFilters.length > 0) {
+      result = result.filter(({ row }) => {
+        return activeColFilters.every(([colKey, filterVal]) => {
+          const targetVal = String(row[colKey] ?? "").toLowerCase();
+          return targetVal.includes(filterVal.trim().toLowerCase());
+        });
+      });
+    }
+
+    // 3. Per-Column Sort
+    if (sortConfig) {
+      const { columnKey, direction } = sortConfig;
+      result = [...result].sort((a, b) => {
+        return compareGridValues(a.row[columnKey], b.row[columnKey], columnKey, direction);
+      });
+    }
+
+    return result;
+  }, [derivedRows, searchFilter, columnFilters, sortConfig]);
+
+  // Sorting & Filtering interaction handlers
+  const handleToggleSort = (columnKey: string) => {
+    setSortConfig(prev => {
+      if (!prev || prev.columnKey !== columnKey) {
+        return { columnKey, direction: "asc" };
+      }
+      if (prev.direction === "asc") {
+        return { columnKey, direction: "desc" };
+      }
+      return null; // Cycle: none -> asc -> desc -> none
+    });
+  };
+
+  const handleColumnFilterChange = (columnKey: string, value: string) => {
+    setColumnFilters(prev => {
+      const next = { ...prev };
+      if (!value || !value.trim()) {
+        delete next[columnKey];
+      } else {
+        next[columnKey] = value;
+      }
+      return next;
+    });
+  };
+
+  const activeFilterCount = useMemo(() => {
+    const colCount = Object.values(columnFilters).filter(v => Boolean(v && v.trim())).length;
+    return colCount + (searchFilter.trim() ? 1 : 0);
+  }, [columnFilters, searchFilter]);
+
+  const handleClearAllFilters = () => {
+    setColumnFilters({});
+    setSearchFilter("");
+    setSortConfig(null);
+  };
+
+  // Selection handlers respecting visible filtered rows
+  const isAllFilteredSelected = filteredSortedRows.length > 0 && filteredSortedRows.every(item => selectedRowIndices.has(item.sourceIndex));
+  const isSomeFilteredSelected = filteredSortedRows.some(item => selectedRowIndices.has(item.sourceIndex));
+
+  const handleToggleSelectAll = () => {
+    if (isAllFilteredSelected) {
+      setSelectedRowIndices(prev => {
+        const next = new Set(prev);
+        filteredSortedRows.forEach(item => next.delete(item.sourceIndex));
+        return next;
+      });
+    } else {
+      setSelectedRowIndices(prev => {
+        const next = new Set(prev);
+        filteredSortedRows.forEach(item => next.add(item.sourceIndex));
+        return next;
+      });
+    }
+  };
+
+  // Auto-clamp classic view record index
+  useEffect(() => {
+    if (classicRecordIndex >= filteredSortedRows.length && filteredSortedRows.length > 0) {
+      setClassicRecordIndex(filteredSortedRows.length - 1);
+    }
+  }, [filteredSortedRows.length, classicRecordIndex]);
 
   // Uniqueness tracker for Stock No (code) and Barcode across Grid AND Database
   const duplicatesInfo = useMemo(() => {
@@ -635,7 +793,9 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
     window.print();
   };
 
-  const currentClassicRecord = filteredRows[classicRecordIndex] || filteredRows[0] || {};
+  const currentClassicItem = filteredSortedRows[classicRecordIndex] || filteredSortedRows[0];
+  const currentClassicRecord = currentClassicItem ? currentClassicItem.row : {};
+  const currentClassicSourceIndex = currentClassicItem ? currentClassicItem.sourceIndex : 0;
   const currentClassicImageUrl = resolveProductImageUrl(currentClassicRecord.imageName);
 
   return (
@@ -719,8 +879,19 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
               value={searchFilter}
               onChange={e => setSearchFilter(e.target.value)}
               placeholder="Filter items..."
-              className="w-full pl-8 pr-3 py-1 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs outline-none"
+              aria-label="Filter items globally"
+              className="w-full pl-8 pr-7 py-1 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs outline-none focus:border-[#0052cc]"
             />
+            {searchFilter && (
+              <button
+                type="button"
+                onClick={() => setSearchFilter("")}
+                aria-label="Clear global search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#76777d] hover:text-[#ba1a1a]"
+              >
+                <X size={12} />
+              </button>
+            )}
           </div>
 
           <button
@@ -767,11 +938,21 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             <div className="px-4 py-2 border-b border-[#eceef0] dark:border-[#45464d] bg-[#f2f4f6] dark:bg-[#131b2e] flex items-center justify-between text-xs">
               <div className="flex items-center gap-3">
                 <span className="font-mono font-bold text-[#515f74] dark:text-[#bec6e0] text-[11px]">
-                  {filteredRows.length} RECORDS DISPLAYED
+                  {filteredSortedRows.length} {filteredSortedRows.length !== gridRows.length ? `OF ${gridRows.length} ` : ""}RECORDS DISPLAYED
                 </span>
                 <span className="text-[11px] text-[#76777d]">
                   ({frozenCount} Frozen Column{frozenCount !== 1 ? "s" : ""})
                 </span>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllFilters}
+                    className="px-2 py-0.5 bg-[#ffdad6] dark:bg-[#93000a]/40 text-[#ba1a1a] dark:text-[#ffb4ab] rounded font-bold text-[10px] hover:bg-[#ba1a1a] hover:text-white transition flex items-center gap-1"
+                  >
+                    <Filter size={10} />
+                    Clear Filters ({activeFilterCount})
+                  </button>
+                )}
               </div>
 
               {/* Shortcuts hint */}
@@ -787,158 +968,240 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
               <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                 <thead className="sticky top-0 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] z-20">
                   <tr>
-                    <th className="p-2 w-10 text-center border-r border-[#c6c6cd] dark:border-[#45464d] sticky left-0 z-30 bg-[#f2f4f6] dark:bg-[#131b2e]">
-                      <input
-                        type="checkbox"
-                        checked={selectedRowIndices.size > 0 && selectedRowIndices.size === filteredRows.length}
-                        onChange={() => {
-                          if (selectedRowIndices.size === filteredRows.length) setSelectedRowIndices(new Set());
-                          else setSelectedRowIndices(new Set(filteredRows.map((_, i) => i)));
-                        }}
-                        className="rounded"
-                      />
+                    <th className="p-2 w-10 text-center border-r border-[#c6c6cd] dark:border-[#45464d] sticky left-0 z-30 bg-[#f2f4f6] dark:bg-[#131b2e] align-top">
+                      <div className="flex flex-col items-center gap-1.5 pt-0.5">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all visible items"
+                          checked={isAllFilteredSelected}
+                          ref={el => {
+                            if (el) el.indeterminate = isSomeFilteredSelected && !isAllFilteredSelected;
+                          }}
+                          onChange={handleToggleSelectAll}
+                          className="rounded"
+                        />
+                        {activeFilterCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleClearAllFilters}
+                            title="Clear all filters and sorts"
+                            className="text-[9px] font-bold text-[#ba1a1a] hover:underline"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
                     </th>
-                    <th className="p-2 w-12 text-center border-r border-[#c6c6cd] dark:border-[#45464d] font-mono text-[10px] text-[#76777d]">
+                    <th className="p-2 w-12 text-center border-r border-[#c6c6cd] dark:border-[#45464d] font-mono text-[10px] text-[#76777d] align-top pt-2">
                       #
                     </th>
                     {visibleColumns.map((col, cIdx) => {
                       const isFrozen = cIdx < frozenCount;
+                      const isSorted = sortConfig?.columnKey === col.key;
+                      const sortDirection = isSorted ? sortConfig.direction : null;
+                      const ariaSortValue = sortDirection === "asc" ? "ascending" : sortDirection === "desc" ? "descending" : "none";
+                      const filterValue = columnFilters[col.key] || "";
+
                       return (
                         <th
                           key={col.key}
-                          className={`p-2 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] border-r border-[#c6c6cd] dark:border-[#45464d] ${
+                          aria-sort={ariaSortValue}
+                          className={`p-2 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] border-r border-[#c6c6cd] dark:border-[#45464d] min-w-[130px] ${
                             isFrozen ? "sticky left-[88px] z-30 bg-[#f2f4f6] dark:bg-[#131b2e] shadow-xs" : ""
                           }`}
                         >
-                          {col.label}
+                          <div className="flex flex-col gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSort(col.key)}
+                              title={`Click to sort by ${col.label}`}
+                              className="flex items-center justify-between gap-1 w-full text-left font-bold uppercase tracking-wider hover:text-[#0052cc] dark:hover:text-[#dae2ff] transition select-none group"
+                            >
+                              <span className="truncate">{col.label}</span>
+                              <span className="shrink-0">
+                                {sortDirection === "asc" ? (
+                                  <ArrowUp size={12} className="text-[#0052cc] dark:text-[#8cb4ff]" aria-hidden="true" />
+                                ) : sortDirection === "desc" ? (
+                                  <ArrowDown size={12} className="text-[#0052cc] dark:text-[#8cb4ff]" aria-hidden="true" />
+                                ) : (
+                                  <ArrowUpDown size={11} className="text-[#76777d] opacity-30 group-hover:opacity-100" aria-hidden="true" />
+                                )}
+                              </span>
+                            </button>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                aria-label={`Filter by ${col.label}`}
+                                placeholder="Filter..."
+                                value={filterValue}
+                                onChange={e => handleColumnFilterChange(col.key, e.target.value)}
+                                className="w-full pl-2 pr-5 py-0.5 text-[10px] font-normal normal-case bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded outline-none focus:border-[#0052cc] dark:focus:border-[#8cb4ff] text-[#191c1e] dark:text-[#eff1f3] placeholder:text-[#76777d]"
+                              />
+                              {filterValue && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleColumnFilterChange(col.key, "")}
+                                  aria-label={`Clear filter for ${col.label}`}
+                                  className="absolute right-1 top-1/2 -translate-y-1/2 text-[#76777d] hover:text-[#ba1a1a] p-0.5 rounded"
+                                  title="Clear column filter"
+                                >
+                                  <X size={10} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </th>
                       );
                     })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
-                  {filteredRows.map((row, rIdx) => {
-                    const isSelected = selectedRowIndices.has(rIdx);
-
-                    return (
-                      <tr
-                        key={row._id || rIdx}
-                        className={`transition ${
-                          isSelected ? "bg-[#d5e3fd]/40" : "hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133]"
-                        }`}
+                  {filteredSortedRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={visibleColumns.length + 2}
+                        className="p-8 text-center text-xs text-[#76777d] font-mono"
                       >
-                        <td className="p-2 text-center border-r border-[#eceef0] dark:border-[#2d3133] sticky left-0 z-10 bg-inherit">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {
-                              setSelectedRowIndices(prev => {
-                                const next = new Set(prev);
-                                if (next.has(rIdx)) next.delete(rIdx);
-                                else next.add(rIdx);
-                                return next;
-                              });
-                            }}
-                            className="rounded"
-                          />
-                        </td>
-                        <td className="p-2 text-center font-mono text-[10px] text-[#76777d] border-r border-[#eceef0] dark:border-[#2d3133]">
-                          {rIdx + 1}
-                        </td>
-                        {visibleColumns.map((col, cIdx) => {
-                          const isFrozen = cIdx < frozenCount;
-                          const isCode = col.key === "code" || col.key === "sku" || col.key === "stockNo";
-                          const isBarcode = col.key === "barcode";
-                          const isImage = col.key === "imageName" || col.key === "image";
-                          const isNonEditableInEditMode = activeMode === "edit" && (isCode || isBarcode);
-                          const isDuplicateCode = isCode && (duplicatesInfo.duplicateCodes.has(rIdx) || duplicatesInfo.duplicateDbCodes.has(rIdx));
-                          const isDuplicateBarcode = isBarcode && (duplicatesInfo.duplicateBarcodes.has(rIdx) || duplicatesInfo.duplicateDbBarcodes.has(rIdx));
-                          const isDuplicate = isDuplicateCode || isDuplicateBarcode;
-                          const val = row[col.key] ?? "";
-                          const dbConflictMsg = isCode ? duplicatesInfo.duplicateDbCodes.get(rIdx) : duplicatesInfo.duplicateDbBarcodes.get(rIdx);
-
-                          return (
-                            <td
-                              key={col.key}
-                              className={`p-1.5 border-r border-[#eceef0] dark:border-[#2d3133] ${
-                                isFrozen ? "sticky left-[88px] z-10 bg-inherit shadow-xs" : ""
-                              } ${
-                                isDuplicate
-                                  ? "bg-[#ffdad6] dark:bg-[#93000a]/40"
-                                  : isNonEditableInEditMode
-                                  ? "bg-[#e0e3e5] dark:bg-[#2d3133]/60"
-                                  : ""
-                              }`}
+                        No item records matching the current filter criteria.
+                        {activeFilterCount > 0 && (
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={handleClearAllFilters}
+                              className="text-[#0052cc] dark:text-[#dae2ff] font-bold hover:underline"
                             >
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="text"
-                                  readOnly={isNonEditableInEditMode || activeMode === "delete"}
-                                  title={
-                                    isNonEditableInEditMode
-                                      ? "SKU and Barcode are permanent identifiers and cannot be edited for existing items."
-                                      : undefined
-                                  }
-                                  value={val}
-                                  onChange={e => handleCellChange(rIdx, col.key, e.target.value)}
-                                  onBlur={e => handleCellBlur(rIdx, col.key, e.target.value)}
-                                  className={`w-full px-2 py-1 rounded outline-none text-xs font-semibold ${
-                                    isDuplicate
-                                      ? "text-[#ba1a1a] dark:text-[#ffb4ab] font-bold border border-[#ba1a1a]"
-                                      : isNonEditableInEditMode
-                                      ? "bg-transparent text-[#515f74] dark:text-[#bec6e0] cursor-not-allowed font-mono font-bold"
-                                      : "bg-transparent hover:bg-white dark:hover:bg-[#191c1e] focus:bg-white dark:focus:bg-[#191c1e] border border-transparent focus:border-[#0052cc]"
-                                  }`}
-                                />
-                                {isDuplicate && (
-                                  <span
+                              Clear all active filters ({activeFilterCount})
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSortedRows.map((item, displayIdx) => {
+                      const { row, sourceIndex } = item;
+                      const isSelected = selectedRowIndices.has(sourceIndex);
+
+                      return (
+                        <tr
+                          key={row._id || sourceIndex}
+                          className={`transition ${
+                            isSelected ? "bg-[#d5e3fd]/40" : "hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133]"
+                          }`}
+                        >
+                          <td className="p-2 text-center border-r border-[#eceef0] dark:border-[#2d3133] sticky left-0 z-10 bg-inherit">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select row ${displayIdx + 1}`}
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedRowIndices(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(sourceIndex)) next.delete(sourceIndex);
+                                  else next.add(sourceIndex);
+                                  return next;
+                                });
+                              }}
+                              className="rounded"
+                            />
+                          </td>
+                          <td className="p-2 text-center font-mono text-[10px] text-[#76777d] border-r border-[#eceef0] dark:border-[#2d3133]">
+                            {displayIdx + 1}
+                          </td>
+                          {visibleColumns.map((col, cIdx) => {
+                            const isFrozen = cIdx < frozenCount;
+                            const isCode = col.key === "code" || col.key === "sku" || col.key === "stockNo";
+                            const isBarcode = col.key === "barcode";
+                            const isImage = col.key === "imageName" || col.key === "image";
+                            const isNonEditableInEditMode = activeMode === "edit" && (isCode || isBarcode);
+                            const isDuplicateCode = isCode && (duplicatesInfo.duplicateCodes.has(sourceIndex) || duplicatesInfo.duplicateDbCodes.has(sourceIndex));
+                            const isDuplicateBarcode = isBarcode && (duplicatesInfo.duplicateBarcodes.has(sourceIndex) || duplicatesInfo.duplicateDbBarcodes.has(sourceIndex));
+                            const isDuplicate = isDuplicateCode || isDuplicateBarcode;
+                            const val = row[col.key] ?? "";
+                            const dbConflictMsg = isCode ? duplicatesInfo.duplicateDbCodes.get(sourceIndex) : duplicatesInfo.duplicateDbBarcodes.get(sourceIndex);
+
+                            return (
+                              <td
+                                key={col.key}
+                                className={`p-1.5 border-r border-[#eceef0] dark:border-[#2d3133] ${
+                                  isFrozen ? "sticky left-[88px] z-10 bg-inherit shadow-xs" : ""
+                                } ${
+                                  isDuplicate
+                                    ? "bg-[#ffdad6] dark:bg-[#93000a]/40"
+                                    : isNonEditableInEditMode
+                                    ? "bg-[#e0e3e5] dark:bg-[#2d3133]/60"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="text"
+                                    readOnly={isNonEditableInEditMode || activeMode === "delete"}
                                     title={
-                                      dbConflictMsg
-                                        ? `Already registered in database for '${dbConflictMsg}'`
-                                        : isDuplicateCode
-                                        ? "Duplicate Stock No detected in grid!"
-                                        : "Duplicate Barcode detected in grid!"
+                                      isNonEditableInEditMode
+                                        ? "SKU and Barcode are permanent identifiers and cannot be edited for existing items."
+                                        : undefined
                                     }
-                                    className="text-[#ba1a1a] px-1 font-bold animate-pulse cursor-help"
-                                  >
-                                    ⚠️
-                                  </span>
-                                )}
-                                {isCode && activeMode === "add" && !isDuplicate && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenCodeGenerator(rIdx)}
-                                    title="Auto-Generate SKU & Barcode (F2)"
-                                    className="p-1 text-[#0052cc] hover:bg-[#e9edff] rounded"
-                                  >
-                                    <Sparkles size={13} />
-                                  </button>
-                                )}
-                                {isImage && Boolean(val) && (
-                                  <div
-                                    onMouseEnter={(e) => {
-                                      const rect = e.currentTarget.getBoundingClientRect();
-                                      setHoverPreview({
-                                        url: resolveProductImageUrl(val),
-                                        name: String(val),
-                                        x: rect.right + 10,
-                                        y: rect.top - 40
-                                      });
-                                    }}
-                                    onMouseLeave={() => setHoverPreview(null)}
-                                    className="cursor-pointer p-1 text-[#0052cc] hover:bg-[#e9edff] rounded"
-                                    title="Hover to preview resolved image"
-                                  >
-                                    <ImageIcon size={13} />
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
+                                    value={val}
+                                    onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
+                                    onBlur={e => handleCellBlur(sourceIndex, col.key, e.target.value)}
+                                    className={`w-full px-2 py-1 rounded outline-none text-xs font-semibold ${
+                                      isDuplicate
+                                        ? "text-[#ba1a1a] dark:text-[#ffb4ab] font-bold border border-[#ba1a1a]"
+                                        : isNonEditableInEditMode
+                                        ? "bg-transparent text-[#515f74] dark:text-[#bec6e0] cursor-not-allowed font-mono font-bold"
+                                        : "bg-transparent hover:bg-white dark:hover:bg-[#191c1e] focus:bg-white dark:focus:bg-[#191c1e] border border-transparent focus:border-[#0052cc]"
+                                    }`}
+                                  />
+                                  {isDuplicate && (
+                                    <span
+                                      title={
+                                        dbConflictMsg
+                                          ? `Already registered in database for '${dbConflictMsg}'`
+                                          : isDuplicateCode
+                                          ? "Duplicate Stock No detected in grid!"
+                                          : "Duplicate Barcode detected in grid!"
+                                      }
+                                      className="text-[#ba1a1a] px-1 font-bold animate-pulse cursor-help"
+                                    >
+                                      ⚠️
+                                    </span>
+                                  )}
+                                  {isCode && activeMode === "add" && !isDuplicate && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenCodeGenerator(sourceIndex)}
+                                      title="Auto-Generate SKU & Barcode (F2)"
+                                      className="p-1 text-[#0052cc] hover:bg-[#e9edff] rounded"
+                                    >
+                                      <Sparkles size={13} />
+                                    </button>
+                                  )}
+                                  {isImage && Boolean(val) && (
+                                    <div
+                                      onMouseEnter={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        setHoverPreview({
+                                          url: resolveProductImageUrl(val),
+                                          name: String(val),
+                                          x: rect.right + 10,
+                                          y: rect.top - 40
+                                        });
+                                      }}
+                                      onMouseLeave={() => setHoverPreview(null)}
+                                      className="cursor-pointer p-1 text-[#0052cc] hover:bg-[#e9edff] rounded"
+                                      title="Hover to preview resolved image"
+                                    >
+                                      <ImageIcon size={13} />
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -964,12 +1227,12 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <ChevronLeft size={16} />
                 </button>
                 <span className="font-mono text-xs font-bold px-2">
-                  Record {classicRecordIndex + 1} of {filteredRows.length}
+                  Record {filteredSortedRows.length > 0 ? classicRecordIndex + 1 : 0} of {filteredSortedRows.length}
                 </span>
                 <button
                   type="button"
-                  disabled={classicRecordIndex >= filteredRows.length - 1}
-                  onClick={() => setClassicRecordIndex(prev => Math.min(filteredRows.length - 1, prev + 1))}
+                  disabled={classicRecordIndex >= filteredSortedRows.length - 1}
+                  onClick={() => setClassicRecordIndex(prev => Math.min(filteredSortedRows.length - 1, prev + 1))}
                   className="p-1.5 border border-[#c6c6cd] dark:border-[#45464d] rounded hover:bg-[#eceef0] disabled:opacity-30"
                 >
                   <ChevronRight size={16} />
@@ -990,7 +1253,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                     readOnly={activeMode === "edit" || activeMode === "delete"}
                     title={activeMode === "edit" ? "SKU is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.code || ""}
-                    onChange={e => handleCellChange(classicRecordIndex, "code", e.target.value)}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "code", e.target.value)}
                     className={`w-full p-2 border border-[#c6c6cd] rounded font-mono font-bold ${
                       activeMode === "edit" ? "bg-[#e0e3e5] dark:bg-[#2d3133] cursor-not-allowed text-[#515f74] dark:text-[#bec6e0]" : "bg-white dark:bg-[#2d3133]"
                     }`}
@@ -1003,7 +1266,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                     readOnly={activeMode === "edit" || activeMode === "delete"}
                     title={activeMode === "edit" ? "Barcode is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.barcode || ""}
-                    onChange={e => handleCellChange(classicRecordIndex, "barcode", e.target.value)}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "barcode", e.target.value)}
                     className={`w-full p-2 border border-[#c6c6cd] rounded font-mono font-bold ${
                       activeMode === "edit" ? "bg-[#e0e3e5] dark:bg-[#2d3133] cursor-not-allowed text-[#515f74] dark:text-[#bec6e0]" : "bg-white dark:bg-[#2d3133]"
                     }`}
@@ -1014,7 +1277,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.name || ""}
-                    onChange={e => handleCellChange(classicRecordIndex, "name", e.target.value)}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "name", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-bold"
                   />
                 </div>
@@ -1023,7 +1286,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.imageName || ""}
-                    onChange={e => handleCellChange(classicRecordIndex, "imageName", e.target.value)}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "imageName", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-mono text-xs"
                   />
                 </div>
@@ -1037,7 +1300,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="number"
                     value={currentClassicRecord.mrp || 0}
-                    onChange={e => handleCellChange(classicRecordIndex, "mrp", Number(e.target.value))}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "mrp", Number(e.target.value))}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-mono font-bold"
                   />
                 </div>
@@ -1046,7 +1309,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="number"
                     value={currentClassicRecord.price || 0}
-                    onChange={e => handleCellChange(classicRecordIndex, "price", Number(e.target.value))}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "price", Number(e.target.value))}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-mono font-bold text-[#0c9488]"
                   />
                 </div>
@@ -1055,7 +1318,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.gst_percentage || "18"}
-                    onChange={e => handleCellChange(classicRecordIndex, "gst_percentage", e.target.value)}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "gst_percentage", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-semibold"
                   />
                 </div>
@@ -1069,7 +1332,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.a1 || ""}
-                    onChange={e => handleCellChange(classicRecordIndex, "a1", e.target.value)}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "a1", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
                   />
                 </div>
@@ -1078,7 +1341,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.a2 || ""}
-                    onChange={e => handleCellChange(classicRecordIndex, "a2", e.target.value)}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "a2", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
                   />
                 </div>
@@ -1087,7 +1350,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.a3 || ""}
-                    onChange={e => handleCellChange(classicRecordIndex, "a3", e.target.value)}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "a3", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
                   />
                 </div>

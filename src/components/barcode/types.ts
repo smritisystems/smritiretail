@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.2.0
+ * Version      : 6.8.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -37,11 +37,17 @@ export interface LabelPrintRow {
   colour: string;
   style: string;
   size: string;
+  category?: string;
   mrp: number;
   sellingPrice: number;
   currentStock: number;
   labelCount: number; // # Lbls
   originalProduct?: Product;
+}
+
+export interface DerivedLabelRow {
+  row: LabelPrintRow;
+  sourceIndex: number;
 }
 
 export interface SelectionCriteriaRange {
@@ -59,6 +65,18 @@ export interface SelectionCriteriaRange {
   sizeTo: string;
 }
 
+export interface ItemMasterSelectionCriteria {
+  stockNoFrom: string;
+  stockNoTo: string;
+  barcode: string;
+  productNames: string[];
+  brands: string[];
+  categories: string[];
+  styleCodes: string[];
+  colours: string[];
+  sizes: string[];
+}
+
 export interface LabelPrintSettings {
   scriptFileName: string;
   labelsPerRow: number;
@@ -71,6 +89,7 @@ export interface LabelPrintSettings {
   targetPrinterName?: string;
   ipAddress?: string;
   portNumber?: number;
+  resolutionDpi?: number;
 }
 
 export interface ScriptFieldIdentification {
@@ -88,4 +107,14 @@ export interface PrinterTargetConfig {
   address?: string;
   isOnline: boolean;
   resolutionDpi: 203 | 300 | 600;
+}
+
+export interface PrintSafetyValidation {
+  canPrint: boolean;
+  hasLoadedItems: boolean;
+  hasSelectedItems: boolean;
+  hasPositiveQuantity: boolean;
+  hasValidTemplate: boolean;
+  hasValidPrinter: boolean;
+  missingReasons: string[];
 }
