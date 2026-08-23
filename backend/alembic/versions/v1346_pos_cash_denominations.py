@@ -106,17 +106,32 @@ def upgrade():
 
 
 def downgrade():
-    op.execute("DROP TABLE IF EXISTS shift_cash_transactions CASCADE;")
-    conn = op.get_bind()
-    inspector = sa.inspect(conn)
-    tables = inspector.get_table_names()
-    if "shifts" in tables:
-        shift_cols = {c["name"] for c in inspector.get_columns("shifts")}
-        if "denominations" in shift_cols:
-            op.drop_column("shifts", "denominations")
-        if "cash_in_total" in shift_cols:
-            op.drop_column("shifts", "cash_in_total")
-        if "till_expenses_total" in shift_cols:
-            op.drop_column("shifts", "till_expenses_total")
-        if "cash_drops_total" in shift_cols:
-            op.drop_column("shifts", "cash_drops_total")
+    """
+    FORWARD-ONLY MIGRATION — DOWNGRADE IS BLOCKED.
+
+    This migration creates `shift_cash_transactions`, which contains audited
+    financial records (cash movements, GL voucher references, idempotency keys,
+    and denomination snapshots). Dropping this table or its tracking columns on
+    `shifts` would destroy irreversible financial history.
+
+    Policy (SMRITI Financial Data Governance — v1.0):
+        Migrations that touch financial transaction history are classified as
+        FORWARD-ONLY. The `downgrade()` path must never be executed in staging
+        or production environments.
+
+    If a structural rollback is required:
+        1. Create a new migration that preserves data (e.g. soft-delete, rename,
+           or archive to a read-only shadow table).
+        2. Never use `alembic downgrade` against a live database that has
+           processed any POS shift transactions.
+        3. To recover from a failed `upgrade()`, restore from a verified
+           pre-migration snapshot.
+
+    Attempting `alembic downgrade` will raise this error at runtime to prevent
+    accidental data loss.
+    """
+    raise NotImplementedError(
+        "Migration v1346_pos_cash_denominations is FORWARD-ONLY. "
+        "Downgrade would destroy financial transaction history (shift_cash_transactions). "
+        "Restore from a pre-migration database snapshot instead of running alembic downgrade."
+    )
