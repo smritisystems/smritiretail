@@ -42,6 +42,7 @@ from .api.v1 import (
     auth,
     assignments,
     barcode,
+    capability_registry,
     changelog,
     company_control_center,
     crm,
@@ -163,6 +164,7 @@ app.include_router(approval_matrix.router,  prefix=settings.API_V1_STR + "/appro
 app.include_router(wms.router,              prefix=settings.API_V1_STR + "/wms", tags=["Warehouse & Batch Management"])
 app.include_router(accounting.router,       prefix=settings.API_V1_STR + "/accounting", tags=["Authoritative Accounting"])
 app.include_router(reference_data.router,    prefix=settings.API_V1_STR, tags=["Global Reference Data & Localization"])
+app.include_router(capability_registry.router, prefix=settings.API_V1_STR, tags=["Capability & Module Registry"])
 
 
 
