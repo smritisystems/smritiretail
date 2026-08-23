@@ -9,9 +9,13 @@ This document is the authoritative implementation tracker for the frozen bluepri
 
 ---
 
-## Status Legend
+## Status Legend & Governance Gate
 
 - **Verified:** Implemented, schema-migrated, and proven by focused automated tests and active code.
+  - **MANDATORY VERIFICATION CRITERIA:** A "Verified" entry MUST explicitly cite:
+    1. **Quantitative metrics:** Exact test count/pass rates, concurrency scale, latency, or throughput figures (e.g. `53/53 passed`, `20 rolling cycles`).
+    2. **Named technical mechanism:** Exact architectural primitive (e.g. `SELECT FOR UPDATE`, `asyncio.gather`, `RSA SHA512`).
+    3. **Evidence citation:** Concrete commit hash, terminal log, or test suite file path.
 - **Partial:** Implemented in code/schema with focused tests, but specific named gaps, operational proofs, or external integrations remain.
 - **Pending:** Not yet implemented or scaffolding only.
 - **Out of scope:** Intentionally deferred; not a blocker for the current migration slice.
