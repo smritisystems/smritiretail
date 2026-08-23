@@ -180,3 +180,13 @@ from .distribution import (
 from .sync import (
     POSOfflineSyncQueue,
 )
+
+# Analytics Plane Models (Section 11)
+from .analytics import (
+    AnalyticsDailySalesFact,
+)
+
+# Compliance & Audit Models (Section 12)
+from .audit import (
+    ComplianceImmutableAuditLog,
+)

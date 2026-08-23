@@ -28,6 +28,24 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.23.0] - 2026-08-23
+
+#### Enterprise Blueprint Delivery — Sections 11 & 12 (Analytics & Intelligence Plane, Integration Hub & Compliance Audit)
+- **Analytics & Intelligence Plane (`v1367`, `analytics.py`, `analytical_intelligence_service.py`)**:
+  - Implemented `analytics_daily_sales_facts` downstream aggregate table to decouple analytical metric calculations from core transactional tables.
+  - Implemented `AnalyticalIntelligenceService` computing invoice counts, total revenue, tax totals, payment mode breakdowns (cash, digital, credit), estimated COGS, and gross margin percentages.
+  - Added category-level profitability rollups and sales velocity endpoints under `/api/v1/analytics/*`.
+- **TallyPrime Integration Hub (`tally_integration_service.py`, `integration.py`)**:
+  - Implemented native TallyPrime XML voucher generator for B2B/B2C Sales Invoices and Double-Entry General Ledger Journal Vouchers.
+  - Enforces standard Tally XML DTD envelopes (`ENVELOPE -> HEADER -> BODY -> IMPORTDATA -> REQUESTDATA -> TALLYMESSAGE -> VOUCHER`) with exact ledger and inventory allocations.
+- **Compliance & Immutable Regulatory Audit Engine (`audit.py`, `compliance_audit_service.py`)**:
+  - Implemented `compliance_immutable_audit_logs` storing append-only regulatory audit records.
+  - Integrated deterministic cryptographic SHA-256 payload checksums for mathematical tamper-evidence detection.
+  - Added audit search and verification endpoints under `/api/v1/integration/audit/*`.
+- **Test Harness and Migration Verification**:
+  - Expanded master regression suite to 87 tests (100% pass across all 13 suites in 91.06s).
+  - Verified clean-slate ephemeral tenant database harness on `v1367` migration head.
+
 ### [3.22.0] - 2026-08-23
 
 #### Enterprise Blueprint Delivery — Sections 9 & 10 (PSV, CGE, PDT, and Durable Offline Sync Queue)

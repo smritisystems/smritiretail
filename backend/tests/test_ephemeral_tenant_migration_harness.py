@@ -112,10 +112,14 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         # Offline Synchronization & CGE tables (v1366 / Sections 9 & 10)
         assert "pos_offline_sync_queue" in tables
 
+        # Analytics Plane & Compliance Audit tables (v1367 / Sections 11 & 12)
+        assert "analytics_daily_sales_facts" in tables
+        assert "compliance_immutable_audit_logs" in tables
+
         # Check alembic revision is at latest head
         rev_res = await session.execute(text("SELECT version_num FROM alembic_version;"))
         rev = rev_res.scalar()
-        assert rev == "v1366_cge_pdt_offline_sync"
+        assert rev == "v1367_analytics_and_integration"
 
         # Verify database-level FK constraints on shift_cash_transactions (v1360 / ADR-POS-002)
         fk_res = await session.execute(text("""
