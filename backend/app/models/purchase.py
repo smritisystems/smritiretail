@@ -24,8 +24,9 @@ Founders
 Classification: Internal
 """
 
-from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Date
+from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Date, text
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
 
 
@@ -58,8 +59,14 @@ class PurchaseOrder(BaseEntity):
 
     order_no    = Column(String(100), nullable=False, unique=True)
     supplier_id = Column(String(50),  ForeignKey("suppliers.id",   ondelete="RESTRICT"), nullable=False)
+    party_id    = Column(String(50),  ForeignKey("parties.id",     ondelete="SET NULL"), nullable=True, index=True)
     status      = Column(String(20),  nullable=False, default="DRAFT")
     notes       = Column(Text,        nullable=True)
+
+    # Transaction Reproducibility & Governance Version Snapshots (P1.5)
+    governance_snapshot_id = Column(String(50), nullable=True)
+    rule_snapshots = Column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+
     # Totals — populated by the service layer on create/update
     subtotal    = Column(Numeric(15, 2), nullable=False, default=0.00)
     tax_total   = Column(Numeric(15, 2), nullable=False, default=0.00)

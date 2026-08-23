@@ -15,6 +15,7 @@ Classification: Internal
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, text
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import Base, BaseEntity
 
 class SalesInvoice(BaseEntity):
@@ -23,6 +24,7 @@ class SalesInvoice(BaseEntity):
     invoice_no   = Column(String(100), nullable=False, unique=True)
     date         = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
     customer_id  = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), index=True)
+    party_id     = Column(String(50), ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)
     shift_id     = Column(String(50), ForeignKey("shifts.id",    ondelete="SET NULL"), nullable=True, index=True)
     tax_total    = Column(Numeric(15, 2), default=0.00)
     grand_total  = Column(Numeric(15, 2), nullable=False, default=0.00)
@@ -30,6 +32,10 @@ class SalesInvoice(BaseEntity):
     eway_bill_no = Column(String(50))
     payment_mode = Column(String(20), default="CASH")  # CASH | CARD | UPI | CREDIT
     status       = Column(String(20), default="Draft")
+
+    # Transaction Reproducibility & Governance Version Snapshots (P1.5)
+    governance_snapshot_id = Column(String(50), nullable=True)
+    rule_snapshots = Column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
 
     # Historical & Canonical Metadata
     source_type             = Column(String(50), default="LIVE")
