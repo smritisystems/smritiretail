@@ -78,6 +78,10 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-08-23 | v6.16.0 | [Platform Refactor Slice 6: Capability, Template, and Workspace Resolution](./foundation/Platform_Refactor_Slice6_Capability_Template_Workspace_Plan_v1.0.md) | `/backend/app/services/unified_workspace_capability_service.py`, `/backend/models/capability_template.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Capability_Template_Workspace_v6.16.0.md) |
 | 2026-08-23 | v6.16.0 | [Platform Refactor Slice 7: Consolidated Outbox & Operational Analytics](./foundation/Platform_Refactor_Slice7_Outbox_Analytics_Plan_v1.0.md) | `/backend/app/services/unified_outbox_analytics_service.py`, `/backend/app/services/outbox_worker.py`, `/backend/models/outbox.py` | Partially Verified | [Walkthrough](../walkthrough/foundation/Platform_Outbox_Analytics_Plane_v6.16.0.md) |
 | 2026-08-23 | v6.16.0 | [Platform Refactor Slice 8: Authoritative Double-Entry General Ledger Engine](../../brain/28ca2def-04f6-40a0-984c-804c8a9e5908/implementation_plan.md) | `/backend/app/services/unified_accounting_ledger_service.py`, `/backend/app/models/accounting.py`, `/backend/alembic/versions/v1343_accounting_gl.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Accounting_Double_Entry_Ledger_v6.16.0.md) |
+| 2026-08-23 | v6.16.0 | [Platform Refactor Slice 9: Fiscal Period Lockouts & Bank Reconciliation Statement (BRS) Engine](../../brain/28ca2def-04f6-40a0-984c-804c8a9e5908/implementation_plan.md) | `/backend/app/models/accounting.py`, `/backend/alembic/versions/v1344_fiscal_period_brs.py`, `/backend/app/services/unified_accounting_ledger_service.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Accounting_Fiscal_Lockouts_And_BRS_v6.16.0.md) |
+| 2026-08-23 | v6.16.0 | [Platform Refactor Slice 10: Financial Reporting & Accounting REST APIs](../../brain/28ca2def-04f6-40a0-984c-804c8a9e5908/implementation_plan.md) | `/backend/app/api/v1/accounting.py`, `/backend/app/schemas/accounting.py`, `/backend/app/main.py` | Completed | [Walkthrough](../walkthrough/foundation/Platform_Accounting_REST_APIs_v6.16.0.md) |
+
+
 
 
 

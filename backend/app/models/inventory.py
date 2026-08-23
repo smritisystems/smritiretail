@@ -11,7 +11,7 @@
  * License      : Proprietary Commercial Software
  """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity

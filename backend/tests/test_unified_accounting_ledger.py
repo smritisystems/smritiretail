@@ -24,13 +24,16 @@ from app.models.accounting import (
     Account,
     JournalVoucher,
     GeneralLedgerEntry,
+    AccountBalanceSnapshot,
 )
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.purchase import PurchaseReceipt, PurchaseReceiptItem, Supplier
 from app.models.crm import Customer
-from app.models.inventory import Product
+from app.models.inventory import Product, StockAudit, StockAuditItem, Warehouse
+from app.models.payment_ledger import PaymentTransaction
 from app.models.outbox import IntegrationOutboxEvent
 from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+
 
 
 @pytest.mark.asyncio
@@ -358,3 +361,236 @@ async def test_accounting_tenant_isolation():
         stmt_gle = select(GeneralLedgerEntry).where(GeneralLedgerEntry.voucher_id == voucher_id)
         leaked_entries = (await s2.execute(stmt_gle)).scalars().all()
         assert len(leaked_entries) == 0, "GeneralLedgerEntry from smriti001 must not leak into smriti002!"
+
+
+@pytest.mark.asyncio
+async def test_payment_transaction_cash_automated_gl_posting():
+    """Verify automated translation of Cash PaymentTransaction into balanced GL voucher."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        unique_suffix = uuid.uuid4().hex[:6]
+        pay_id = f"pay_cash_{unique_suffix}"
+        tx_no = f"TX-CASH-{unique_suffix.upper()}"
+        inv_id = f"inv_ref_{unique_suffix}"
+
+        pay = PaymentTransaction(
+            id=pay_id,
+            company_id="COMP-001",
+            branch_id="BR-001",
+            transaction_no=tx_no,
+            reference_doc_type="SALES_INVOICE",
+            reference_doc_id=inv_id,
+            party_id="CUST-001",
+            tender_type="CASH",
+            amount=Decimal("1500.00"),
+            currency="INR",
+            idempotency_key=f"idemp_pay_{unique_suffix}",
+            status="SUCCESS",
+            captured_at=datetime.now(timezone.utc)
+        )
+        session.add(pay)
+        await session.commit()
+
+        voucher = await UnifiedAccountingLedgerService.post_payment_transaction_to_gl(
+            session=session,
+            company_id="COMP-001",
+            payment_id=pay_id
+        )
+        await session.commit()
+
+        assert voucher.voucher_type == "PAYMENT_RECEIPT"
+        assert voucher.reference_doc_id == pay_id
+        assert voucher.total_debit == Decimal("1500.00")
+        assert voucher.total_credit == Decimal("1500.00")
+
+        # Verify entry: Debit Cash in Hand (1010), Credit Debtors (1030)
+        gl_entries = (await session.execute(
+            select(GeneralLedgerEntry).where(GeneralLedgerEntry.voucher_id == voucher.id)
+        )).scalars().all()
+        assert len(gl_entries) == 2
+
+
+@pytest.mark.asyncio
+async def test_payment_transaction_upi_bank_automated_gl_posting():
+    """Verify automated translation of UPI PaymentTransaction into Bank Debit GL voucher."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        unique_suffix = uuid.uuid4().hex[:6]
+        pay_id = f"pay_upi_{unique_suffix}"
+        tx_no = f"TX-UPI-{unique_suffix.upper()}"
+        inv_id = f"inv_ref_{unique_suffix}"
+
+        pay = PaymentTransaction(
+            id=pay_id,
+            company_id="COMP-001",
+            branch_id="BR-001",
+            transaction_no=tx_no,
+            reference_doc_type="SALES_INVOICE",
+            reference_doc_id=inv_id,
+            party_id="CUST-001",
+            tender_type="UPI",
+            amount=Decimal("3200.00"),
+            currency="INR",
+            idempotency_key=f"idemp_upi_{unique_suffix}",
+            status="SUCCESS",
+            captured_at=datetime.now(timezone.utc)
+        )
+        session.add(pay)
+        await session.commit()
+
+        voucher = await UnifiedAccountingLedgerService.post_payment_transaction_to_gl(
+            session=session,
+            company_id="COMP-001",
+            payment_id=pay_id
+        )
+        await session.commit()
+
+        assert voucher.voucher_type == "PAYMENT_RECEIPT"
+        assert voucher.total_debit == Decimal("3200.00")
+        assert voucher.total_credit == Decimal("3200.00")
+
+
+@pytest.mark.asyncio
+async def test_stock_audit_deficit_gl_posting():
+    """Verify that physical stock deficit (OUTWARD_LOSS) debits Inventory Loss (5040) and credits Inventory Asset (1040)."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        unique_suffix = uuid.uuid4().hex[:6]
+        audit_id = f"audit_def_{unique_suffix}"
+        audit_no = f"AUD-DEF-{unique_suffix.upper()}"
+
+        res_wh = await session.execute(select(Warehouse).where(Warehouse.company_id == "COMP-001", Warehouse.is_deleted == False).limit(1))
+        wh = res_wh.scalars().first()
+        assert wh is not None
+
+        res_prod = await session.execute(select(Product).where(Product.company_id == "COMP-001", Product.is_deleted == False).limit(1))
+        product = res_prod.scalars().first()
+        assert product is not None
+
+        audit = StockAudit(
+            id=audit_id,
+            company_id="COMP-001",
+            branch_id="BR-001",
+            audit_no=audit_no,
+            warehouse_id=wh.id,
+            status="COMPLETED",
+            reconciled_at=datetime.now(timezone.utc)
+        )
+        session.add(audit)
+
+        # Deficit item: System = 10, Counted = 8 -> Variance = -2 @ ₹150 = -₹300 loss
+        item = StockAuditItem(
+            id=f"item_aud_{unique_suffix}",
+            company_id="COMP-001",
+            branch_id="BR-001",
+            audit_id=audit_id,
+            product_id=product.id,
+            batch_no=f"BATCH-DEF-{unique_suffix.upper()}",
+            system_qty=Decimal("10.00"),
+            counted_qty=Decimal("8.00"),
+            variance_qty=Decimal("-2.00"),
+            unit_cost=Decimal("150.00"),
+            variance_value=Decimal("-300.00"),
+            is_reconciled=True
+        )
+        session.add(item)
+        await session.commit()
+
+        voucher = await UnifiedAccountingLedgerService.post_stock_audit_reconciliation_to_gl(
+            session=session,
+            company_id="COMP-001",
+            audit_id=audit_id
+        )
+        await session.commit()
+
+        assert voucher is not None
+        assert voucher.voucher_type == "STOCK_ADJUSTMENT"
+        assert voucher.total_debit == Decimal("300.00")
+        assert voucher.total_credit == Decimal("300.00")
+
+        # Verify entry: Debit 5040 (Loss), Credit 1040 (Inventory)
+        gl_entries = (await session.execute(
+            select(GeneralLedgerEntry).where(GeneralLedgerEntry.voucher_id == voucher.id)
+        )).scalars().all()
+        assert len(gl_entries) == 2
+
+
+@pytest.mark.asyncio
+async def test_stock_audit_surplus_gl_posting():
+    """Verify that physical stock surplus (INWARD_SURPLUS) debits Inventory Asset (1040) and credits Other Income (4020)."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        unique_suffix = uuid.uuid4().hex[:6]
+        audit_id = f"audit_sur_{unique_suffix}"
+        audit_no = f"AUD-SUR-{unique_suffix.upper()}"
+
+        res_wh = await session.execute(select(Warehouse).where(Warehouse.company_id == "COMP-001", Warehouse.is_deleted == False).limit(1))
+        wh = res_wh.scalars().first()
+        assert wh is not None
+
+        res_prod = await session.execute(select(Product).where(Product.company_id == "COMP-001", Product.is_deleted == False).limit(1))
+        product = res_prod.scalars().first()
+        assert product is not None
+
+        audit = StockAudit(
+            id=audit_id,
+            company_id="COMP-001",
+            branch_id="BR-001",
+            audit_no=audit_no,
+            warehouse_id=wh.id,
+            status="COMPLETED",
+            reconciled_at=datetime.now(timezone.utc)
+        )
+        session.add(audit)
+
+        # Surplus item: System = 5, Counted = 8 -> Variance = +3 @ ₹100 = +₹300 surplus
+        item = StockAuditItem(
+            id=f"item_sur_{unique_suffix}",
+            company_id="COMP-001",
+            branch_id="BR-001",
+            audit_id=audit_id,
+            product_id=product.id,
+            batch_no=f"BATCH-SUR-{unique_suffix.upper()}",
+            system_qty=Decimal("5.00"),
+            counted_qty=Decimal("8.00"),
+            variance_qty=Decimal("3.00"),
+            unit_cost=Decimal("100.00"),
+            variance_value=Decimal("300.00"),
+            is_reconciled=True
+        )
+        session.add(item)
+        await session.commit()
+
+        voucher = await UnifiedAccountingLedgerService.post_stock_audit_reconciliation_to_gl(
+            session=session,
+            company_id="COMP-001",
+            audit_id=audit_id
+        )
+        await session.commit()
+
+        assert voucher is not None
+        assert voucher.voucher_type == "STOCK_ADJUSTMENT"
+        assert voucher.total_debit == Decimal("300.00")
+        assert voucher.total_credit == Decimal("300.00")
+
+
+@pytest.mark.asyncio
+async def test_account_period_balance_snapshotting():
+    """Verify generate_period_balance_snapshot calculates closing balances for all active accounts."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        snapshots = await UnifiedAccountingLedgerService.generate_period_balance_snapshot(
+            session=session,
+            company_id="COMP-001",
+            period_date=date.today()
+        )
+        await session.commit()
+
+        assert len(snapshots) > 0
+        for s in snapshots:
+            assert s.period_date == date.today()
+            assert s.closing_debit >= Decimal("0.00")
+            assert s.closing_credit >= Decimal("0.00")
+            # Invariant: Net balance = closing_debit - closing_credit
+            assert s.net_balance == (s.closing_debit - s.closing_credit)
+
