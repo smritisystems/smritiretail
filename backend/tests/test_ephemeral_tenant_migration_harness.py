@@ -81,10 +81,26 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         assert "currency_exchange_rates" in tables
         assert "shift_cash_transactions" in tables
 
+        # Global Reference Data & Localization tables (v1361 / P1.1)
+        assert "countries_ref" in tables
+        assert "states_ref" in tables
+        assert "districts_ref" in tables
+        assert "postal_codes_ref" in tables
+        assert "languages_ref" in tables
+        assert "locales_ref" in tables
+        assert "translation_keys_ref" in tables
+        assert "translations_ref" in tables
+        assert "currencies_ref" in tables
+        assert "uoms_ref" in tables
+        assert "uom_conversions_ref" in tables
+        assert "tax_references_ref" in tables
+        assert "hsn_sac_codes_ref" in tables
+        assert "platform_reference_data" in tables
+
         # Check alembic revision is at latest head
         rev_res = await session.execute(text("SELECT version_num FROM alembic_version;"))
         rev = rev_res.scalar()
-        assert rev == "v1360_pos_sct_fk_constraints"
+        assert rev == "v1361_global_reference_data"
 
         # Verify database-level FK constraints on shift_cash_transactions (v1360 / ADR-POS-002)
         fk_res = await session.execute(text("""

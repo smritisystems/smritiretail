@@ -142,7 +142,20 @@ from .accounting import (
     CurrencyExchangeRate,
 )
 
-
-
-
-
+# Global Reference Data & Localization Models (P1.1)
+from .localization import (
+    CountryRef,
+    StateRef,
+    DistrictRef,
+    PostalCodeRef,
+    LanguageRef,
+    LocaleRef,
+    TranslationKeyRef,
+    TranslationRef,
+    CurrencyRef,
+    UnitOfMeasurementRef,
+    UOMConversionRef,
+    TaxReferenceRef,
+    HsnSacCodeRef,
+    PlatformReferenceData,
+)
