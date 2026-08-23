@@ -167,3 +167,11 @@ from .governed_logic import (
     PolicyDefinition,
     WorkflowDefinition,
 )
+
+# Distribution Engine Models (Section 8)
+from .distribution import (
+    DistributionTerritory,
+    DealerAssignment,
+    DistributionOrder,
+    DistributionOrderItem,
+)
