@@ -104,3 +104,21 @@ async def rebuild_daily_aggregates(
         "gross_margin_amount": float(fact.gross_margin_amount),
         "gross_margin_percent": float(fact.gross_margin_percent)
     }
+
+
+@router.post("/trigger-daemon-cycle")
+async def trigger_analytics_daemon_cycle(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Manually triggers the background analytics aggregation cycle for the current tenant.
+    """
+    from ...services.analytics_daemon_service import AnalyticsDaemonService
+    from ...db.session import resolve_company_database_name
+    db_name = await resolve_company_database_name(tenant_ctx.company_id)
+    result = await AnalyticsDaemonService.run_tenant_rollup_cycle(
+        db_name=db_name,
+        company_id=tenant_ctx.company_id
+    )
+    return result
