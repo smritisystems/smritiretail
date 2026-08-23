@@ -94,6 +94,42 @@ class UnifiedAccountingLedgerService:
     """
 
     @classmethod
+    async def get_account_by_code(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        account_code: str
+    ) -> Account:
+        """Fetch active account by code, auto-seeding COA if not found."""
+        stmt = select(Account).where(
+            Account.company_id == company_id,
+            Account.account_code == account_code,
+            Account.is_deleted == False
+        )
+        acc = (await session.execute(stmt)).scalars().first()
+        if not acc:
+            await cls.seed_default_chart_of_accounts(session, company_id)
+            acc = (await session.execute(stmt)).scalars().first()
+            if not acc:
+                raise HTTPException(status_code=404, detail=f"Ledger account {account_code} not found.")
+        return acc
+
+    @classmethod
+    async def get_account_by_id(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        account_id: str
+    ) -> Optional[Account]:
+        """Fetch active account by id."""
+        stmt = select(Account).where(
+            Account.id == account_id,
+            Account.company_id == company_id,
+            Account.is_deleted == False
+        )
+        return (await session.execute(stmt)).scalars().first()
+
+    @classmethod
     async def seed_default_chart_of_accounts(
         cls,
         session: AsyncSession,

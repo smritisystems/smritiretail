@@ -21,6 +21,7 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
@@ -31,7 +32,7 @@ from ..api.deps import TenantContext
 from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
     CashRegisterCreate, ShiftOpen, ShiftClose,
-    ShiftCashDropRequest, ShiftTillExpenseRequest,
+    ShiftCashInRequest, ShiftCashDropRequest, ShiftTillExpenseRequest,
     POSCheckoutRequest,
 )
 
@@ -167,27 +168,43 @@ class POSService:
     # Shift — open
     # ──────────────────────────────────────────────────────────────
 
+    async def get_shift(self, shift_id: str, for_update: bool = False) -> Shift:
+        stmt = select(Shift).where(
+            Shift.id == shift_id,
+            Shift.company_id == self.tenant.company_id,
+            Shift.branch_id == self.tenant.branch_id,
+            Shift.is_deleted == False,
+        )
+        if for_update:
+            stmt = stmt.with_for_update()
+        res = await self.db.execute(stmt)
+        shift = res.scalars().first()
+        if not shift:
+            raise HTTPException(status_code=404, detail=f"Shift {shift_id} not found.")
+        return shift
+
     async def open_shift(self, req: ShiftOpen, cashier_id: str) -> Shift:
         """
-        Open a new shift on a register.
-
-        Rules:
-        1. Register must belong to this tenant.
-        2. Only one shift may be OPEN on a register at a time.
-        3. opening_balance >= 0.
+        Open a new shift on a register with row lock concurrency control.
         """
         await self.get_register(req.register_id)
 
-        # Check no existing OPEN shift on this register
-        shift_repo = ShiftRepository(self.db, self.tenant)
-        if await shift_repo.get_active_shift(req.register_id):
+        # Concurrency guard: Lock check for any open shift on this register
+        active_stmt = select(Shift).where(
+            Shift.register_id == req.register_id,
+            Shift.company_id == self.tenant.company_id,
+            Shift.branch_id == self.tenant.branch_id,
+            Shift.status == "OPEN",
+            Shift.is_deleted == False,
+        ).with_for_update()
+        active_shift = (await self.db.execute(active_stmt)).scalars().first()
+        if active_shift:
             raise HTTPException(
                 status_code=400,
-                detail="This register already has an open shift. "
-                       "Please close the current shift before opening a new one.",
+                detail="This register already has an open shift. Please close the current shift before opening a new one.",
             )
 
-        if req.opening_balance < 0:
+        if req.opening_balance < Decimal("0.00"):
             raise HTTPException(
                 status_code=400,
                 detail="Opening balance cannot be negative.",
@@ -221,8 +238,121 @@ class POSService:
         return shift
 
     # ──────────────────────────────────────────────────────────────
-    # Mid-Shift Cash Movements (Cash Drop & Till Expense)
+    # Mid-Shift Cash Movements (Cash In, Cash Drop & Till Expense)
     # ──────────────────────────────────────────────────────────────
+
+    async def record_cash_in(
+        self,
+        shift_id: str,
+        req: ShiftCashInRequest,
+        requesting_user_id: str
+    ) -> ShiftCashTransaction:
+        """
+        Record a mid-shift cash injection (till float increase) from vault/safe into drawer.
+        Automatically posts a balanced double-entry Journal Voucher:
+            Debit: Cash in Hand (1010)
+            Credit: Bank / Safe Account (1020 / custom)
+        Includes row-level locking (SELECT FOR UPDATE) and idempotency deduplication.
+        """
+        if req.amount <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Cash In amount must be strictly greater than zero.")
+
+        # Concurrency row-level lock on shift
+        shift = await self.get_shift(shift_id, for_update=True)
+        if shift.status != "OPEN":
+            raise HTTPException(status_code=400, detail="Cannot record cash in on a closed shift.")
+
+        # Idempotency deduplication check
+        if req.idempotency_key:
+            existing_sct = (await self.db.execute(
+                select(ShiftCashTransaction).where(
+                    ShiftCashTransaction.shift_id == shift_id,
+                    ShiftCashTransaction.idempotency_key == req.idempotency_key,
+                    ShiftCashTransaction.company_id == self.tenant.company_id,
+                )
+            )).scalars().first()
+            if existing_sct:
+                return existing_sct
+
+        from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
+        await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
+            self.db, self.tenant.company_id, self.tenant.branch_id
+        )
+
+        acc_cash = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "1010")
+
+        if req.source_account_id:
+            acc_source = await UnifiedAccountingLedgerService.get_account_by_id(self.db, self.tenant.company_id, req.source_account_id)
+            if not acc_source:
+                raise HTTPException(status_code=400, detail=f"Source account {req.source_account_id} not found.")
+            if not acc_source.is_active or acc_source.is_deleted:
+                raise HTTPException(status_code=400, detail=f"Source account {req.source_account_id} is inactive or disabled.")
+            if acc_source.is_group:
+                raise HTTPException(status_code=400, detail=f"Source account {req.source_account_id} is a parent group account, not a posting ledger.")
+            if acc_source.account_type != "ASSET":
+                raise HTTPException(status_code=400, detail=f"Source account must be an Asset/Bank/Vault account, got {acc_source.account_type}.")
+            if acc_source.id == acc_cash.id:
+                raise HTTPException(status_code=400, detail="Source account cannot be the Cash in Hand drawer account.")
+        else:
+            acc_source = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "1020")
+
+        sct_id = f"sct-in-{uuid.uuid4().hex[:8]}"
+        sct = ShiftCashTransaction(
+            id=sct_id,
+            uuid=str(uuid.uuid4()),
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            shift_id=shift.id,
+            transaction_type="CASH_IN",
+            amount=req.amount.quantize(Decimal("0.01")),
+            account_id=acc_source.id,
+            reason=req.reason,
+            performed_by=requesting_user_id,
+            created_by=requesting_user_id,
+            receipt_ref=req.receipt_ref,
+            idempotency_key=req.idempotency_key,
+        )
+        self.db.add(sct)
+        await self.db.flush()
+
+        lines = [
+            {
+                "account_id": acc_cash.id,
+                "debit_amount": req.amount.quantize(Decimal("0.01")),
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Mid-shift cash in to Register {shift.register_id} Shift {shift.id}: {req.reason}"
+            },
+            {
+                "account_id": acc_source.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": req.amount.quantize(Decimal("0.01")),
+                "remarks": f"Cash vault transfer to register {shift.register_id}"
+            }
+        ]
+
+        voucher = await UnifiedAccountingLedgerService.post_journal_voucher(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            voucher_type="CASH_IN",
+            voucher_date=datetime.now(timezone.utc).date(),
+            lines=lines,
+            reference_doc_type="POS_CASH_IN",
+            reference_doc_id=sct.id,
+            reference_doc_no=f"IN-{shift.id[:8]}",
+            narration=f"POS Cash In - {req.reason}",
+            created_by=requesting_user_id
+        )
+
+        sct.gl_voucher_id = voucher.id
+        sct.gl_voucher_no = voucher.voucher_no
+
+        shift.cash_in_total = (Decimal(str(shift.cash_in_total or 0.00)) + req.amount).quantize(Decimal("0.01"))
+        shift.modified_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(sct)
+        return sct
 
     async def record_cash_drop(
         self,
@@ -235,13 +365,49 @@ class POSService:
         Automatically posts a balanced double-entry Journal Voucher:
             Debit: Bank / Safe Account (1020 / custom)
             Credit: Cash in Hand (1010)
+        Includes row-level locking (SELECT FOR UPDATE) and idempotency deduplication.
         """
         if req.amount <= Decimal("0.00"):
             raise HTTPException(status_code=400, detail="Cash drop amount must be strictly greater than zero.")
 
-        shift = await self.get_shift(shift_id)
+        # Concurrency row-level lock on shift
+        shift = await self.get_shift(shift_id, for_update=True)
         if shift.status != "OPEN":
             raise HTTPException(status_code=400, detail="Cannot record a cash drop on a closed shift.")
+
+        # Idempotency deduplication check
+        if req.idempotency_key:
+            existing_sct = (await self.db.execute(
+                select(ShiftCashTransaction).where(
+                    ShiftCashTransaction.shift_id == shift_id,
+                    ShiftCashTransaction.idempotency_key == req.idempotency_key,
+                    ShiftCashTransaction.company_id == self.tenant.company_id,
+                )
+            )).scalars().first()
+            if existing_sct:
+                return existing_sct
+
+        # Check available cash in drawer under row lock
+        invoices_res = await self.db.execute(
+            select(func.coalesce(func.sum(SalesInvoice.grand_total), 0)).where(
+                SalesInvoice.shift_id == shift_id,
+                SalesInvoice.payment_mode == "CASH",
+                SalesInvoice.is_deleted == False,
+            )
+        )
+        cash_sales = Decimal(str(invoices_res.scalar() or 0.00))
+        available_cash = (
+            shift.opening_balance +
+            cash_sales +
+            Decimal(str(shift.cash_in_total or 0.00)) -
+            Decimal(str(shift.cash_drops_total or 0.00)) -
+            Decimal(str(shift.till_expenses_total or 0.00))
+        )
+        if req.amount > available_cash:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient cash in drawer ({available_cash:.2f}) for requested amount ({req.amount:.2f})."
+            )
 
         from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
         await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
@@ -254,6 +420,14 @@ class POSService:
             acc_target = await UnifiedAccountingLedgerService.get_account_by_id(self.db, self.tenant.company_id, req.target_account_id)
             if not acc_target:
                 raise HTTPException(status_code=400, detail=f"Target account {req.target_account_id} not found.")
+            if not acc_target.is_active or acc_target.is_deleted:
+                raise HTTPException(status_code=400, detail=f"Target account {req.target_account_id} is inactive or disabled.")
+            if acc_target.is_group:
+                raise HTTPException(status_code=400, detail=f"Target account {req.target_account_id} is a parent group account, not a posting ledger.")
+            if acc_target.account_type != "ASSET":
+                raise HTTPException(status_code=400, detail=f"Target account must be an Asset/Bank/Vault account, got {acc_target.account_type}.")
+            if acc_target.id == acc_cash.id:
+                raise HTTPException(status_code=400, detail="Target account cannot be the Cash in Hand drawer account.")
         else:
             acc_target = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "1020")
 
@@ -269,7 +443,9 @@ class POSService:
             account_id=acc_target.id,
             reason=req.reason,
             performed_by=requesting_user_id,
-            created_by=requesting_user_id
+            created_by=requesting_user_id,
+            receipt_ref=req.receipt_ref,
+            idempotency_key=req.idempotency_key,
         )
         self.db.add(sct)
         await self.db.flush()
@@ -324,13 +500,49 @@ class POSService:
         Automatically posts a balanced double-entry Journal Voucher:
             Debit: Expense Account (5000 / custom)
             Credit: Cash in Hand (1010)
+        Includes row-level locking (SELECT FOR UPDATE) and idempotency deduplication.
         """
         if req.amount <= Decimal("0.00"):
             raise HTTPException(status_code=400, detail="Till expense amount must be strictly greater than zero.")
 
-        shift = await self.get_shift(shift_id)
+        # Concurrency row-level lock on shift
+        shift = await self.get_shift(shift_id, for_update=True)
         if shift.status != "OPEN":
             raise HTTPException(status_code=400, detail="Cannot record till expense on a closed shift.")
+
+        # Idempotency deduplication check
+        if req.idempotency_key:
+            existing_sct = (await self.db.execute(
+                select(ShiftCashTransaction).where(
+                    ShiftCashTransaction.shift_id == shift_id,
+                    ShiftCashTransaction.idempotency_key == req.idempotency_key,
+                    ShiftCashTransaction.company_id == self.tenant.company_id,
+                )
+            )).scalars().first()
+            if existing_sct:
+                return existing_sct
+
+        # Check available cash in drawer under row lock
+        invoices_res = await self.db.execute(
+            select(func.coalesce(func.sum(SalesInvoice.grand_total), 0)).where(
+                SalesInvoice.shift_id == shift_id,
+                SalesInvoice.payment_mode == "CASH",
+                SalesInvoice.is_deleted == False,
+            )
+        )
+        cash_sales = Decimal(str(invoices_res.scalar() or 0.00))
+        available_cash = (
+            shift.opening_balance +
+            cash_sales +
+            Decimal(str(shift.cash_in_total or 0.00)) -
+            Decimal(str(shift.cash_drops_total or 0.00)) -
+            Decimal(str(shift.till_expenses_total or 0.00))
+        )
+        if req.amount > available_cash:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient cash in drawer ({available_cash:.2f}) for requested amount ({req.amount:.2f})."
+            )
 
         from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
         await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
@@ -343,6 +555,12 @@ class POSService:
             acc_exp = await UnifiedAccountingLedgerService.get_account_by_id(self.db, self.tenant.company_id, req.expense_account_id)
             if not acc_exp:
                 raise HTTPException(status_code=400, detail=f"Expense account {req.expense_account_id} not found.")
+            if not acc_exp.is_active or acc_exp.is_deleted:
+                raise HTTPException(status_code=400, detail=f"Expense account {req.expense_account_id} is inactive or disabled.")
+            if acc_exp.is_group:
+                raise HTTPException(status_code=400, detail=f"Expense account {req.expense_account_id} is a parent group account, not a posting ledger.")
+            if acc_exp.account_type != "EXPENSE" and not acc_exp.account_code.startswith("5"):
+                raise HTTPException(status_code=400, detail=f"Expense account must be of type EXPENSE, got {acc_exp.account_type}.")
         else:
             acc_exp = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "5000")
 
@@ -359,7 +577,8 @@ class POSService:
             reason=req.reason,
             receipt_ref=req.receipt_ref,
             performed_by=requesting_user_id,
-            created_by=requesting_user_id
+            created_by=requesting_user_id,
+            idempotency_key=req.idempotency_key,
         )
         self.db.add(sct)
         await self.db.flush()
@@ -409,26 +628,12 @@ class POSService:
 
     async def close_shift(self, shift_id: str, req: ShiftClose, requesting_user_id: str) -> Shift:
         """
-        Close a shift:
-        1. Aggregate sales totals from linked SalesInvoices.
-        2. Compute expected_cash = opening_balance + cash_sales + cash_in - cash_drops - till_expenses.
-        3. Determine closing_balance from denominations count or explicit closing_balance.
-        4. Compute variance = closing_balance − expected_cash.
-        5. Set status = CLOSED, closed_at = now.
-        6. Post automated balancing GL voucher if variance != 0.
+        Close a shift with pessimistic row locking and idempotency protection.
         """
-        res = await self.db.execute(
-            select(Shift).where(
-                Shift.id == shift_id,
-                Shift.company_id == self.tenant.company_id,
-                Shift.branch_id  == self.tenant.branch_id,
-                Shift.is_deleted == False,
-            )
-        )
-        shift = res.scalars().first()
-        if not shift:
-            raise HTTPException(status_code=404, detail="Shift not found.")
+        shift = await self.get_shift(shift_id, for_update=True)
         if shift.status == "CLOSED":
+            if req.idempotency_key:
+                return shift
             raise HTTPException(
                 status_code=400,
                 detail="This shift has already been closed.",
@@ -464,7 +669,6 @@ class POSService:
             counted_balance = req.denominations.calculate_total()
             shift.denominations = req.denominations.model_dump(mode="json")
             closing_balance = counted_balance
-
         elif req.closing_balance is not None:
             closing_balance = Decimal(str(req.closing_balance)).quantize(Decimal("0.01"))
         else:
@@ -530,11 +734,19 @@ class POSService:
         res = await self.db.execute(q)
         return res.scalars().all()
 
-    async def get_shift(self, shift_id: str) -> Shift:
-        shift_repo = ShiftRepository(self.db, self.tenant)
-        shift = await shift_repo.get(shift_id)
+    async def get_shift(self, shift_id: str, for_update: bool = False) -> Shift:
+        stmt = select(Shift).where(
+            Shift.id == shift_id,
+            Shift.company_id == self.tenant.company_id,
+            Shift.branch_id == self.tenant.branch_id,
+            Shift.is_deleted == False,
+        )
+        if for_update:
+            stmt = stmt.with_for_update()
+        res = await self.db.execute(stmt)
+        shift = res.scalars().first()
         if not shift:
-            raise HTTPException(status_code=404, detail="Shift not found.")
+            raise HTTPException(status_code=404, detail=f"Shift {shift_id} not found.")
         return shift
 
     async def get_active_shift(self, register_id: str) -> Shift:
@@ -635,8 +847,8 @@ class POSService:
 
         Returns {"invoice": SalesInvoice, "shift": Shift, "cached": bool}
         """
-        # 1. Validate shift
-        shift = await self.get_shift(req.shift_id)
+        # 1. Validate shift with pessimistic row locking to prevent race with shift close
+        shift = await self.get_shift(req.shift_id, for_update=True)
         if shift.status != "OPEN":
             raise HTTPException(
                 status_code=400,

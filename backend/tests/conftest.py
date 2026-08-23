@@ -121,8 +121,9 @@ def seed_control_plane_test_assignments():
                 SET database_name = 'smriti001', status = 'READY', updated_at = NOW();
         """, (str(uuid.uuid4()),))
 
-        # 1. Insert test users into smritisys.users (Control Plane auth table)
-        # users table has unique constraints on (username) and (email).
+        # 1. Clean and insert test users into smritisys.users (Control Plane auth table)
+        ctrl_cur.execute("DELETE FROM user_company_assignments WHERE id LIKE 'uca-%';")
+        ctrl_cur.execute("DELETE FROM users WHERE username IN ('usr_super', 'usr_sysadmin', 'usr_cashier', 'usr_manager', 'usr_store_manager_a');")
         users_data = [
             ("usr-super", "usr_super", "SYSADMIN", True),
             ("usr_sysadmin", "usr_sysadmin", "SYSADMIN", True),

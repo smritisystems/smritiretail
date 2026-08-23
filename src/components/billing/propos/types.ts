@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.0.0
+ * Version      : 6.16.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -162,3 +162,83 @@ export interface PromotionRule {
   isActive: boolean;
   usageCount: number;
 }
+
+export interface CashDenominations {
+  notes_2000?: number;
+  notes_500?: number;
+  notes_200?: number;
+  notes_100?: number;
+  notes_50?: number;
+  notes_20?: number;
+  notes_10?: number;
+  notes_5?: number;
+  notes_2?: number;
+  notes_1?: number;
+  coins?: number;
+}
+
+export interface ShiftCashMovementRecord {
+  id: string;
+  shiftId: string;
+  type: "CASH_DROP" | "TILL_EXPENSE" | "CASH_IN";
+  amount: number;
+  reason: string;
+  reference?: string;
+  performedBy?: string;
+  journalVoucherId?: string;
+  createdAt?: string;
+}
+
+export interface ShiftCashInPayload {
+  amount: number;
+  reason: string;
+  reference?: string;
+  source_account_id?: string;
+}
+
+export interface ShiftCashDropPayload {
+  amount: number;
+  reason: string;
+  reference?: string;
+  safe_id?: string;
+}
+
+export interface ShiftTillExpensePayload {
+  amount: number;
+  reason: string;
+  category?: string;
+  reference?: string;
+}
+
+export interface POSZReportData {
+  shift_id: string;
+  shift_code: string;
+  cashier_id: string;
+  cashier_name?: string;
+  register_id: string;
+  branch_id: string;
+  company_id: string;
+  start_time: string;
+  end_time?: string;
+  status: "OPEN" | "CLOSED";
+  opening_float: number;
+  cash_sales: number;
+  card_sales: number;
+  upi_sales: number;
+  other_sales: number;
+  total_sales: number;
+  tax_total: number;
+  discount_total: number;
+  total_bills: number;
+  cash_drops_total: number;
+  till_expenses_total: number;
+  cash_in_total: number;
+  net_expected_cash: number;
+  actual_cash_counted?: number;
+  cash_variance?: number;
+  denominations?: CashDenominations;
+  cash_movements?: ShiftCashMovementRecord[];
+  closing_notes?: string;
+  shift_close_voucher_id?: string;
+}
+

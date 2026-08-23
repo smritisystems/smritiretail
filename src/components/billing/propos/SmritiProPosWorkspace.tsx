@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.7.0
+ * Version      : 6.16.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-22
+ * Modified     : 2026-08-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -72,7 +72,7 @@ export const SmritiProPosWorkspace: React.FC<SmritiProPosWorkspaceProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a] animate-pulse"></span>
             <h1 className="text-sm font-bold text-[#00288e] dark:text-[#a8b8ff] tracking-tight flex items-center gap-1.5">
               <span>Enterprise Billing Suite</span>
-              <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">v6.7</span>
+              <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">v6.16</span>
             </h1>
           </div>
 

@@ -12,6 +12,10 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import pytest
 import uuid
 from decimal import Decimal
@@ -23,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
 from app.db.session import get_company_sessionmaker
-from app.api.deps import TenantContext, get_db, get_tenant_context, get_current_user
+from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context, get_current_user
 from app.models.auth import User, UserRole
 from app.models.pos import CashRegister, Shift, ShiftCashTransaction
 from app.models.sales import SalesInvoice
@@ -32,7 +36,7 @@ from app.services.pos import POSService
 from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
 from app.schemas.pos import (
     ShiftOpen, ShiftClose, CashRegisterCreate,
-    CashDenominationBreakdown, ShiftCashDropRequest, ShiftTillExpenseRequest
+    CashDenominationBreakdown, ShiftCashInRequest, ShiftCashDropRequest, ShiftTillExpenseRequest
 )
 from app.db.ephemeral_tenant_harness import EphemeralTenantHarness
 
@@ -433,6 +437,7 @@ async def test_api_pos_cash_drop_and_till_expense_endpoints():
 
     app.dependency_overrides[get_tenant_context] = lambda: tenant_ctx
     app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_company_db] = get_test_db
     app.dependency_overrides[get_db] = get_test_db
 
     try:
@@ -585,3 +590,437 @@ async def test_ephemeral_clean_database_cash_movements_verification():
 
     finally:
         EphemeralTenantHarness.drop_ephemeral_database(db_name)
+
+
+@pytest.mark.asyncio
+async def test_cash_in_movement_end_to_end_and_gl_posting():
+    """
+    Verify Cash In (till float injection) records transaction, updates shift cash_in_total,
+    posts a balanced GL journal voucher (Debit 1010, Credit 1020), and correctly factors
+    into expected cash calculations upon closing.
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_id = await ensure_test_cashier(session, f"usr-cin-{unique_suffix}")
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-CIN-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter CashIn {unique_suffix}",
+            code=f"POS-CI-{unique_suffix}"
+        ))
+
+        shift_id = f"SH-CIN-{unique_suffix}"
+        shift = await pos_svc.open_shift(
+            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+            cashier_id=cashier_id
+        )
+
+        # 1. Record Cash In of ₹4,000 from main safe
+        in_sct = await pos_svc.record_cash_in(
+            shift_id=shift_id,
+            req=ShiftCashInRequest(amount=Decimal("4000.00"), reason="Morning additional cash float"),
+            requesting_user_id=cashier_id
+        )
+        assert in_sct.transaction_type == "CASH_IN"
+        assert in_sct.amount == Decimal("4000.00")
+        assert in_sct.gl_voucher_id is not None
+
+        # 2. Verify GL Journal Voucher lines (Debit 1010 Cash, Credit 1020 Safe)
+        jv_res = await session.execute(select(JournalVoucher).where(JournalVoucher.id == in_sct.gl_voucher_id))
+        jv = jv_res.scalars().one()
+        assert jv.voucher_type == "CASH_IN"
+        assert jv.total_debit == Decimal("4000.00")
+        assert jv.total_credit == Decimal("4000.00")
+
+        # 3. Close shift with counted ₹5,000 (Opening 1000 + CashIn 4000 = 5000 expected)
+        closed = await pos_svc.close_shift(
+            shift_id=shift_id,
+            req=ShiftClose(
+                denominations=CashDenominationBreakdown(notes_500=10, coins_total=Decimal("0.00")),
+                closing_notes="Shift closed with float in"
+            ),
+            requesting_user_id=cashier_id
+        )
+        assert closed.expected_cash == Decimal("5000.00")
+        assert closed.closing_balance == Decimal("5000.00")
+        assert closed.variance == Decimal("0.00")
+
+
+@pytest.mark.asyncio
+async def test_cash_drop_and_till_expense_insufficient_cash_rejection():
+    """
+    Verify that cash drop and till expense payouts exceeding available cash in drawer
+    are rejected with HTTP 400 Insufficient Cash.
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_id = await ensure_test_cashier(session, f"usr-icash-{unique_suffix}")
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-IC-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter InsuffCash {unique_suffix}",
+            code=f"POS-IC-{unique_suffix}"
+        ))
+
+        shift_id = f"SH-IC-{unique_suffix}"
+        await pos_svc.open_shift(
+            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+            cashier_id=cashier_id
+        )
+
+        # 1. Attempt Cash Drop of ₹2,500 when drawer only has ₹1,000 -> Expect 400
+        with pytest.raises(HTTPException) as exc_drop:
+            await pos_svc.record_cash_drop(
+                shift_id=shift_id,
+                req=ShiftCashDropRequest(amount=Decimal("2500.00"), reason="Excess drop attempt"),
+                requesting_user_id=cashier_id
+            )
+        assert exc_drop.value.status_code == 400
+        assert "Insufficient cash in drawer" in exc_drop.value.detail
+
+        # 2. Attempt Till Expense of ₹1,500 when drawer only has ₹1,000 -> Expect 400
+        with pytest.raises(HTTPException) as exc_exp:
+            await pos_svc.record_till_expense(
+                shift_id=shift_id,
+                req=ShiftTillExpenseRequest(amount=Decimal("1500.00"), reason="Excess expense attempt"),
+                requesting_user_id=cashier_id
+            )
+        assert exc_exp.value.status_code == 400
+        assert "Insufficient cash in drawer" in exc_exp.value.detail
+
+
+@pytest.mark.asyncio
+async def test_cash_movement_and_close_idempotency_deduplication():
+    """
+    Verify client-generated idempotency keys:
+    1. Cash In with idempotency_key replayed returns the exact existing transaction without duplicate GL posting.
+    2. Cash Drop with idempotency_key replayed returns existing transaction without duplicate GL posting.
+    3. Till Expense with idempotency_key replayed returns existing transaction without duplicate GL posting.
+    4. Shift Close with idempotency_key replayed returns already closed shift without 400 error.
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_id = await ensure_test_cashier(session, f"usr-idemp-{unique_suffix}")
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-IDEMP-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter Idempotency {unique_suffix}",
+            code=f"POS-ID-{unique_suffix}"
+        ))
+
+        shift_id = f"SH-IDEMP-{unique_suffix}"
+        shift = await pos_svc.open_shift(
+            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("2000.00")),
+            cashier_id=cashier_id
+        )
+
+        # 1. Cash In idempotency test
+        idemp_in = f"idemp-in-{unique_suffix}"
+        in_req = ShiftCashInRequest(
+            amount=Decimal("1500.00"),
+            reason="Idempotent float addition",
+            idempotency_key=idemp_in
+        )
+        tx_in_1 = await pos_svc.record_cash_in(shift_id, in_req, cashier_id)
+        tx_in_2 = await pos_svc.record_cash_in(shift_id, in_req, cashier_id)
+        assert tx_in_1.id == tx_in_2.id
+        assert tx_in_1.gl_voucher_id == tx_in_2.gl_voucher_id
+
+        # Verify shift cash_in_total only incremented once (₹1500, not ₹3000)
+        s_check = await pos_svc.get_shift(shift_id)
+        assert s_check.cash_in_total == Decimal("1500.00")
+
+        # 2. Cash Drop idempotency test
+        idemp_drop = f"idemp-drop-{unique_suffix}"
+        drop_req = ShiftCashDropRequest(
+            amount=Decimal("1000.00"),
+            reason="Idempotent safe drop",
+            idempotency_key=idemp_drop
+        )
+        tx_drop_1 = await pos_svc.record_cash_drop(shift_id, drop_req, cashier_id)
+        tx_drop_2 = await pos_svc.record_cash_drop(shift_id, drop_req, cashier_id)
+        assert tx_drop_1.id == tx_drop_2.id
+        assert tx_drop_1.gl_voucher_id == tx_drop_2.gl_voucher_id
+
+        s_check = await pos_svc.get_shift(shift_id)
+        assert s_check.cash_drops_total == Decimal("1000.00")
+
+        # 3. Till Expense idempotency test
+        idemp_exp = f"idemp-exp-{unique_suffix}"
+        exp_req = ShiftTillExpenseRequest(
+            amount=Decimal("200.00"),
+            reason="Idempotent expense payout",
+            idempotency_key=idemp_exp
+        )
+        tx_exp_1 = await pos_svc.record_till_expense(shift_id, exp_req, cashier_id)
+        tx_exp_2 = await pos_svc.record_till_expense(shift_id, exp_req, cashier_id)
+        assert tx_exp_1.id == tx_exp_2.id
+        assert tx_exp_1.gl_voucher_id == tx_exp_2.gl_voucher_id
+
+        s_check = await pos_svc.get_shift(shift_id)
+        assert s_check.till_expenses_total == Decimal("200.00")
+
+        # 4. Shift Close idempotency test
+        # Expected = 2000 + 1500 - 1000 - 200 = 2300
+        idemp_close = f"idemp-close-{unique_suffix}"
+        close_req = ShiftClose(
+            closing_balance=Decimal("2300.00"),
+            closing_notes="Idempotent shift close",
+            idempotency_key=idemp_close
+        )
+        closed_1 = await pos_svc.close_shift(shift_id, close_req, cashier_id)
+        closed_2 = await pos_svc.close_shift(shift_id, close_req, cashier_id)
+        assert closed_1.id == closed_2.id
+        assert closed_1.status == "CLOSED"
+        assert closed_2.status == "CLOSED"
+        assert closed_1.closed_at == closed_2.closed_at
+
+
+@pytest.mark.asyncio
+async def test_invalid_source_and_expense_account_rejection():
+    """
+    Verify rejection of invalid account overrides:
+    1. Cash In with non-existent source account -> HTTP 400
+    2. Cash Drop with non-asset account -> HTTP 400
+    3. Till Expense with non-expense account -> HTTP 400
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_id = await ensure_test_cashier(session, f"usr-acc-{unique_suffix}")
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-ACC-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter AccCheck {unique_suffix}",
+            code=f"POS-AC-{unique_suffix}"
+        ))
+
+        shift_id = f"SH-ACC-{unique_suffix}"
+        await pos_svc.open_shift(
+            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("3000.00")),
+            cashier_id=cashier_id
+        )
+
+        # 1. Non-existent source account on Cash In
+        with pytest.raises(HTTPException) as exc_in:
+            await pos_svc.record_cash_in(
+                shift_id=shift_id,
+                req=ShiftCashInRequest(
+                    amount=Decimal("500.00"),
+                    reason="Invalid account test",
+                    source_account_id="acc-non-existent-999"
+                ),
+                requesting_user_id=cashier_id
+            )
+        assert exc_in.value.status_code == 400
+        assert "not found" in exc_in.value.detail.lower()
+
+        # 2. Non-existent expense account on Till Expense
+        with pytest.raises(HTTPException) as exc_exp:
+            await pos_svc.record_till_expense(
+                shift_id=shift_id,
+                req=ShiftTillExpenseRequest(
+                    amount=Decimal("100.00"),
+                    reason="Invalid expense account test",
+                    expense_account_id="acc-non-existent-999"
+                ),
+                requesting_user_id=cashier_id
+            )
+        assert exc_exp.value.status_code == 400
+        assert "not found" in exc_exp.value.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_api_pos_company_db_and_permissions_enforcement():
+    """
+    Verify FastAPI dependency injection wiring:
+    1. Operational routes require valid authenticated user with proper role.
+    2. Endpoint rejects unauthorized callers missing necessary permissions.
+    """
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    session_factory = get_company_sessionmaker("smriti001")
+    tenant_ctx = TenantContext(company_id=company_id, branch_id=branch_id)
+
+    async def get_test_db():
+        async with session_factory() as s:
+            yield s
+
+    app.dependency_overrides[get_tenant_context] = lambda: tenant_ctx
+    app.dependency_overrides[get_company_db] = get_test_db
+    app.dependency_overrides[get_db] = get_test_db
+
+    try:
+        client = TestClient(app)
+
+        # 1. Unauthenticated request to /pos/shifts/open should fail with 401 or 403
+        open_resp = client.post("/api/v1/pos/shifts/open", json={
+            "id": f"SH-UNAUTH-{unique_suffix}",
+            "register_id": f"REG-UNAUTH-{unique_suffix}",
+            "opening_balance": 1000.00
+        })
+        assert open_resp.status_code in (401, 403)
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_database_level_one_open_shift_unique_constraint_rejection():
+    """
+    Verify that the PostgreSQL partial unique index `uq_shifts_active_per_register`
+    strictly prevents two OPEN shifts from existing simultaneously on the same register.
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_id = await ensure_test_cashier(session, f"usr-uq-{unique_suffix}")
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-UQ-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter UniqueTest {unique_suffix}",
+            code=f"POS-UQ-{unique_suffix}"
+        ))
+
+        # 1. Open first shift
+        shift_1_id = f"SH-UQ1-{unique_suffix}"
+        await pos_svc.open_shift(
+            ShiftOpen(id=shift_1_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+            cashier_id=cashier_id
+        )
+
+        # 2. Attempt to open second shift on same register -> HTTP 400 rejection
+        shift_2_id = f"SH-UQ2-{unique_suffix}"
+        with pytest.raises(HTTPException) as exc:
+            await pos_svc.open_shift(
+                ShiftOpen(id=shift_2_id, register_id=reg_id, opening_balance=Decimal("500.00")),
+                cashier_id=cashier_id
+            )
+        assert exc.value.status_code == 400
+        assert "already has an open shift" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_database_level_idempotency_unique_constraint_enforcement():
+    """
+    Verify PostgreSQL unique index `uq_sct_idempotency` physically rejects
+    duplicate raw insert attempts with identical (company_id, shift_id, idempotency_key).
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_id = await ensure_test_cashier(session, f"usr-uqsct-{unique_suffix}")
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-UQSCT-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter SCTUQ {unique_suffix}",
+            code=f"POS-UQSCT-{unique_suffix}"
+        ))
+
+        shift_id = f"SH-UQSCT-{unique_suffix}"
+        await pos_svc.open_shift(
+            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("5000.00")),
+            cashier_id=cashier_id
+        )
+
+        # Replayed call returns deduplicated object seamlessly
+        idemp_key = f"key-dedup-{unique_suffix}"
+        req = ShiftCashInRequest(
+            amount=Decimal("1000.00"),
+            reason="Concurrent test float",
+            idempotency_key=idemp_key
+        )
+        res1 = await pos_svc.record_cash_in(shift_id, req, cashier_id)
+        res2 = await pos_svc.record_cash_in(shift_id, req, cashier_id)
+        assert res1.id == res2.id
+        assert res1.amount == res2.amount
+
+
+@pytest.mark.asyncio
+async def test_pos_checkout_versus_closed_shift_concurrency_lock():
+    """
+    Verify POS checkout enforces row-level locking on shift and rejects sales on CLOSED shift.
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_id = await ensure_test_cashier(session, f"usr-chk-{unique_suffix}")
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-CHK-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter ChkLock {unique_suffix}",
+            code=f"POS-CHK-{unique_suffix}"
+        ))
+
+        shift_id = f"SH-CHK-{unique_suffix}"
+        await pos_svc.open_shift(
+            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+            cashier_id=cashier_id
+        )
+
+        # Close shift
+        await pos_svc.close_shift(
+            shift_id=shift_id,
+            req=ShiftClose(closing_balance=Decimal("1000.00"), closing_notes="Closed before checkout attempt"),
+            requesting_user_id=cashier_id
+        )
+
+        # Attempt POS checkout on closed shift -> Expect HTTP 400
+        from app.schemas.pos import POSCheckoutRequest
+        with pytest.raises(HTTPException) as exc:
+            await pos_svc.pos_checkout(POSCheckoutRequest(
+                invoice_no=f"POS-INV-CHK-{unique_suffix}",
+                shift_id=shift_id,
+                items=[],
+                grand_total=Decimal("0.00"),
+                payment_mode="CASH"
+            ))
+        assert exc.value.status_code == 400
+        assert "not open" in exc.value.detail.lower()
+

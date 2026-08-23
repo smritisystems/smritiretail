@@ -28,7 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
-### [6.16.0] - 2026-08-22
+### [6.16.0] - 2026-08-23
+
+#### ProPOS & Accounting — Physical Denominations, Mid-Shift Cash Movements, Concurrency & Multi-Tenant Routing Hardening
+- **Company Multi-Tenant Database Routing (`pos.py`)**:
+  - Replaced control-plane `get_db` session dependency with `get_company_db` across all operational endpoints (`/registers/`, `/pos/shifts/open`, `/pos/shifts/close/{id}`, `/pos/shifts/{id}/cash-in`, `/pos/shifts/{id}/cash-drop`, `/pos/shifts/{id}/till-expense`, `/pos/shifts/{id}/z-report`, `/pos/checkout`).
+- **PostgreSQL Row-Level Locking & Concurrency Control (`pos.py`, `services/pos.py`)**:
+  - Wired `.with_for_update()` on shift queries during open, close, cash movements, and checkout to eliminate race conditions between checkout and closing.
+- **Database-Enforced Invariants (`v1346_pos_cash_denominations.py`)**:
+  - Added partial unique index `uq_shifts_active_per_register` preventing concurrent open shifts on the same register at the database engine level.
+  - Added unique index `uq_sct_idempotency` enforcing physical uniqueness of client idempotency keys across shift cash movements.
+- **Client Idempotency Deduplication**:
+  - Added client nonce / `idempotency_key` deduplication on cash in, cash drop, till expense, and shift close requests.
+- **Role-Based Access Control (RBAC)**:
+  - Guarded operational endpoints with explicit `require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN)`.
+- **Chart of Accounts Validation**:
+  - Verified account active status, company ownership, and ledger categories (Asset vs Expense) before posting balancing Journal Vouchers.
+- **Verification & Test Coverage**:
+  - 14/14 automated test suites in `backend/tests/test_pos_cash_drawer_movements.py` passed in 32.03s.
+  - `npm run lint` and `npm run build` passed with zero errors.
 
 #### Warehouse & Logistics — WMS Phase 4: Physical Inventory Audit, Stock Discrepancy Reconciliation & Barcode Batch Counting
 - **Stock Audit Domain & Baseline Snapshotting Engine (`stock_audit_service.py`, `inventory.py`)**:
