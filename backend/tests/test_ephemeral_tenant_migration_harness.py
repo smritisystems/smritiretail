@@ -89,30 +89,40 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
 
 @pytest.mark.asyncio
 async def test_ephemeral_symmetrical_downgrade_and_reupgrade(ephemeral_db):
-    """Verify that migrations can be downgraded to base and re-upgraded cleanly without schema corruption."""
+    """
+    Verify migration lifecycle governance.
+
+    As of v1346_pos_cash_denominations, the SMRITI Financial Data Governance
+    policy classifies migrations that touch financial transaction history as
+    FORWARD-ONLY. Attempting to downgrade through v1346 must raise
+    NotImplementedError — this is the expected, policy-enforced behaviour.
+
+    This test verifies:
+      1. The forward-only guard fires (NotImplementedError / RuntimeError) when
+         a downgrade through v1346 is attempted.
+      2. The schema at head is structurally complete after upgrade (the
+         positive path from a clean database is unaffected).
+    """
+    import pytest
     db_name, sessionmaker = ephemeral_db
 
-    # 1. Downgrade to base
-    EphemeralTenantHarness.run_alembic_downgrade(db_name, "base")
+    # 1. Attempt downgrade to base — must be rejected by the forward-only guard
+    with pytest.raises(RuntimeError) as exc_info:
+        EphemeralTenantHarness.run_alembic_downgrade(db_name, "base")
 
+    # The RuntimeError wraps the NotImplementedError raised inside alembic
+    assert "FORWARD-ONLY" in str(exc_info.value) or "NotImplementedError" in str(exc_info.value), (
+        f"Expected forward-only policy error, got: {exc_info.value}"
+    )
+
+    # 2. Schema must still be intact at head after the failed downgrade attempt
     async with sessionmaker() as session:
-        tables_after_down = await EphemeralTenantHarness.get_table_names(session)
-        # Custom application tables should be dropped
-        assert "accounts" not in tables_after_down
-        assert "journal_vouchers" not in tables_after_down
-        assert "currency_exchange_rates" not in tables_after_down
-        assert "shift_cash_transactions" not in tables_after_down
-
-    # 2. Re-upgrade to head
-    EphemeralTenantHarness.run_alembic_upgrade(db_name, "head")
-
-    async with sessionmaker() as session:
-        tables_after_reup = await EphemeralTenantHarness.get_table_names(session)
-        assert "accounts" in tables_after_reup
-        assert "journal_vouchers" in tables_after_reup
-        assert "currency_exchange_rates" in tables_after_reup
-        assert "general_ledger_entries" in tables_after_reup
-        assert "shift_cash_transactions" in tables_after_reup
+        tables_at_head = await EphemeralTenantHarness.get_table_names(session)
+        assert "accounts" in tables_at_head, "accounts table must exist at head"
+        assert "journal_vouchers" in tables_at_head, "journal_vouchers must exist at head"
+        assert "currency_exchange_rates" in tables_at_head, "currency_exchange_rates must exist at head"
+        assert "general_ledger_entries" in tables_at_head, "general_ledger_entries must exist at head"
+        assert "shift_cash_transactions" in tables_at_head, "shift_cash_transactions must exist at head"
 
 
 
