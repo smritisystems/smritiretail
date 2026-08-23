@@ -162,7 +162,11 @@ def seed_canonical_tax_invoice_template(company_db_name: str = "smriti001"):
     batch invoice PDF artifacts in the specified company database.
     """
     print(f"Connecting to Company DB: {company_db_name}...")
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{company_db_name}")
+    db_host = os.getenv("POSTGRES_HOST") or "localhost"
+    db_port = os.getenv("POSTGRES_PORT") or 5432
+    db_user = os.getenv("POSTGRES_USER") or "postgres"
+    db_pwd = os.getenv("POSTGRES_PASSWORD") or "postgres"
+    conn = psycopg2.connect(f"postgresql://{db_user}:{db_pwd}@{db_host}:{db_port}/{company_db_name}")
     cur = conn.cursor()
 
     config_str = json.dumps(CANONICAL_LAYOUT_CONFIG, sort_keys=True)

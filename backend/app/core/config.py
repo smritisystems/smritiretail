@@ -231,6 +231,11 @@ def load_settings() -> Settings:
             raise ValueError(
                 "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong INTERNAL_SERVICE_KEY (min 32 chars). Dev defaults forbidden."
             )
+        pg_pwd = os.getenv("POSTGRES_PASSWORD") or ""
+        if not pg_pwd or pg_pwd == "postgres" or ":postgres@" in base_settings.DATABASE_URL:
+            raise ValueError(
+                "SECURITY FAULT: Production mode requires a dedicated, non-default POSTGRES_PASSWORD. Default credentials 'postgres:postgres' forbidden in production."
+            )
 
     return base_settings
 

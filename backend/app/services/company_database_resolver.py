@@ -16,7 +16,10 @@ from typing import Optional, Any
 import os, psycopg2, re
 
 DB_HOST = os.getenv("POSTGRES_HOST") or os.getenv("DATABASE_HOST") or "localhost"
-CONTROL_PLANE_DB_URL = f"postgresql://postgres:postgres@{DB_HOST}:5432/smritisys"
+DB_PORT = os.getenv("POSTGRES_PORT") or 5432
+DB_USER = os.getenv("POSTGRES_USER") or "postgres"
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD") or "postgres"
+CONTROL_PLANE_DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/smritisys"
 
 def generate_company_database_name(company_code: str) -> str:
     """

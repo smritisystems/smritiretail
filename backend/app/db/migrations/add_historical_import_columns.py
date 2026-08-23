@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
@@ -120,12 +120,16 @@ CREATE INDEX IF NOT EXISTS idx_ida_template_code ON invoice_document_artifacts(t
 """
 
 if __name__ == "__main__":
-    import psycopg2, sys
+    import os, psycopg2, sys
+    db_host = os.getenv("POSTGRES_HOST") or "localhost"
+    db_port = os.getenv("POSTGRES_PORT") or 5432
+    db_user = os.getenv("POSTGRES_USER") or "postgres"
+    db_pwd = os.getenv("POSTGRES_PASSWORD") or "postgres"
     target_dbs = ['smriti001']
     for dbname in target_dbs:
         print(f"Applying to {dbname}...")
         try:
-            conn = psycopg2.connect(f'postgresql://postgres:postgres@localhost:5432/{dbname}')
+            conn = psycopg2.connect(f'postgresql://{db_user}:{db_pwd}@{db_host}:{db_port}/{dbname}')
             conn.autocommit = False
             cur = conn.cursor()
             cur.execute(MIGRATION_SQL)

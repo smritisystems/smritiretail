@@ -11,10 +11,14 @@
  * Classification: Internal
 """
 
-import psycopg2, re
+import os, psycopg2, re
 from typing import Optional
 
-CONTROL_PLANE_DB_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
+DB_HOST = os.getenv("POSTGRES_HOST") or os.getenv("DATABASE_HOST") or "localhost"
+DB_PORT = os.getenv("POSTGRES_PORT") or 5432
+DB_USER = os.getenv("POSTGRES_USER") or "postgres"
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD") or "postgres"
+CONTROL_PLANE_DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/smritisys"
 
 class CompanyCodeAllocator:
     """
