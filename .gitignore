@@ -94,6 +94,12 @@ backend/.ruff_cache/
 .mypy_cache/
 backend/.mypy_cache/
 coverage/
+backups/
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.dump
 
 # Local MCP Configurations with API Keys
 .agents/mcp_config.json
