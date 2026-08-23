@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.21.0
+Version      : 3.22.0
 Created      : 2026-08-14
-Modified     : 2026-08-14
+Modified     : 2026-08-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -70,6 +70,14 @@ class PSVProjectionService:
             }
 
         # 1. Create PSVStockEvent record
+        sec_at = event_payload["source_event_created_at"]
+        if isinstance(sec_at, str):
+            sec_at = datetime.fromisoformat(sec_at)
+        
+        evt_dt = event_payload.get("event_date", sec_at)
+        if isinstance(evt_dt, str):
+            evt_dt = datetime.fromisoformat(evt_dt)
+
         psv_event = PSVStockEvent(
             event_id=f"psve_{uuid.uuid4().hex[:16]}",
             source_event_id=source_event_id,
@@ -88,8 +96,8 @@ class PSVProjectionService:
             sku=event_payload["sku"],
             movement_type=event_payload["movement_type"],
             quantity=Decimal(str(event_payload["quantity"])),
-            source_event_created_at=datetime.fromisoformat(event_payload["source_event_created_at"]),
-            event_date=datetime.fromisoformat(event_payload.get("event_date", event_payload["source_event_created_at"])),
+            source_event_created_at=sec_at,
+            event_date=evt_dt,
             sync_status="PROJECTED",
             created_at=datetime.now(timezone.utc)
         )
