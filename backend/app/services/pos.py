@@ -17,6 +17,7 @@ Founders
 """
 
 import uuid
+from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -228,8 +229,14 @@ class POSService:
         self.db.add(shift)
         try:
             await self.db.commit()
-        except IntegrityError:
+        except IntegrityError as e:
             await self.db.rollback()
+            err_str = str(e.orig).lower() if hasattr(e, "orig") else str(e).lower()
+            if "uq_shifts_active_per_register" in err_str or "register_id" in err_str:
+                raise HTTPException(
+                    status_code=400,
+                    detail="This register already has an open shift. Please close the current shift before opening a new one.",
+                )
             raise HTTPException(
                 status_code=400,
                 detail="A shift with this ID already exists.",
@@ -245,14 +252,15 @@ class POSService:
         self,
         shift_id: str,
         req: ShiftCashInRequest,
-        requesting_user_id: str
+        requesting_user_id: str,
+        requesting_user_role: Optional[str] = None
     ) -> ShiftCashTransaction:
         """
         Record a mid-shift cash injection (till float increase) from vault/safe into drawer.
         Automatically posts a balanced double-entry Journal Voucher:
             Debit: Cash in Hand (1010)
             Credit: Bank / Safe Account (1020 / custom)
-        Includes row-level locking (SELECT FOR UPDATE) and idempotency deduplication.
+        Includes row-level locking (SELECT FOR UPDATE) and payload-bound idempotency deduplication.
         """
         if req.amount <= Decimal("0.00"):
             raise HTTPException(status_code=400, detail="Cash In amount must be strictly greater than zero.")
@@ -262,17 +270,35 @@ class POSService:
         if shift.status != "OPEN":
             raise HTTPException(status_code=400, detail="Cannot record cash in on a closed shift.")
 
-        # Idempotency deduplication check
+        # Idempotency deduplication check with full request fingerprint equivalence validation
         if req.idempotency_key:
             existing_sct = (await self.db.execute(
                 select(ShiftCashTransaction).where(
                     ShiftCashTransaction.shift_id == shift_id,
                     ShiftCashTransaction.idempotency_key == req.idempotency_key,
                     ShiftCashTransaction.company_id == self.tenant.company_id,
+                    ShiftCashTransaction.is_deleted == False,
                 )
             )).scalars().first()
             if existing_sct:
+                if (
+                    existing_sct.amount != req.amount.quantize(Decimal("0.01"))
+                    or existing_sct.transaction_type != "CASH_IN"
+                    or existing_sct.reason != req.reason
+                    or (req.source_account_id and existing_sct.account_id != req.source_account_id)
+                ):
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Idempotency key '{req.idempotency_key}' collision: request fingerprint differs from previous request."
+                    )
                 return existing_sct
+
+        # Strict service-level authorization check: only managers/admins may override default source accounts
+        if req.source_account_id and requesting_user_role not in ("MANAGER", "SYSADMIN", "SUPERADMIN"):
+            raise HTTPException(
+                status_code=403,
+                detail="Manager authorization required to specify custom GL source account overrides."
+            )
 
         from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
         await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
@@ -296,6 +322,7 @@ class POSService:
         else:
             acc_source = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "1020")
 
+        effective_idempotency_key = req.idempotency_key or f"auto-in-{uuid.uuid4().hex[:12]}"
         sct_id = f"sct-in-{uuid.uuid4().hex[:8]}"
         sct = ShiftCashTransaction(
             id=sct_id,
@@ -310,10 +337,35 @@ class POSService:
             performed_by=requesting_user_id,
             created_by=requesting_user_id,
             receipt_ref=req.receipt_ref,
-            idempotency_key=req.idempotency_key,
+            idempotency_key=effective_idempotency_key,
         )
-        self.db.add(sct)
-        await self.db.flush()
+        try:
+            self.db.add(sct)
+            await self.db.flush()
+        except IntegrityError:
+            await self.db.rollback()
+            if req.idempotency_key:
+                res = await self.db.execute(
+                    select(ShiftCashTransaction).where(
+                        ShiftCashTransaction.shift_id == shift_id,
+                        ShiftCashTransaction.idempotency_key == req.idempotency_key,
+                        ShiftCashTransaction.company_id == self.tenant.company_id,
+                    )
+                )
+                existing = res.scalars().first()
+                if existing:
+                    if (
+                        existing.amount != req.amount.quantize(Decimal("0.01"))
+                        or existing.transaction_type != "CASH_IN"
+                        or existing.reason != req.reason
+                        or (req.source_account_id and existing.account_id != req.source_account_id)
+                    ):
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Idempotency key '{req.idempotency_key}' collision: request fingerprint differs from previous request."
+                        )
+                    return existing
+            raise HTTPException(status_code=400, detail="Database integrity error during cash movement insertion.")
 
         lines = [
             {
@@ -358,14 +410,15 @@ class POSService:
         self,
         shift_id: str,
         req: ShiftCashDropRequest,
-        requesting_user_id: str
+        requesting_user_id: str,
+        requesting_user_role: Optional[str] = None
     ) -> ShiftCashTransaction:
         """
         Record a mid-shift cash drop (till skim) from drawer to safe/bank.
         Automatically posts a balanced double-entry Journal Voucher:
             Debit: Bank / Safe Account (1020 / custom)
             Credit: Cash in Hand (1010)
-        Includes row-level locking (SELECT FOR UPDATE) and idempotency deduplication.
+        Includes row-level locking (SELECT FOR UPDATE) and payload-bound idempotency deduplication.
         """
         if req.amount <= Decimal("0.00"):
             raise HTTPException(status_code=400, detail="Cash drop amount must be strictly greater than zero.")
@@ -375,17 +428,35 @@ class POSService:
         if shift.status != "OPEN":
             raise HTTPException(status_code=400, detail="Cannot record a cash drop on a closed shift.")
 
-        # Idempotency deduplication check
+        # Idempotency deduplication check with full request fingerprint equivalence validation
         if req.idempotency_key:
             existing_sct = (await self.db.execute(
                 select(ShiftCashTransaction).where(
                     ShiftCashTransaction.shift_id == shift_id,
                     ShiftCashTransaction.idempotency_key == req.idempotency_key,
                     ShiftCashTransaction.company_id == self.tenant.company_id,
+                    ShiftCashTransaction.is_deleted == False,
                 )
             )).scalars().first()
             if existing_sct:
+                if (
+                    existing_sct.amount != req.amount.quantize(Decimal("0.01"))
+                    or existing_sct.transaction_type != "CASH_DROP"
+                    or existing_sct.reason != req.reason
+                    or (req.target_account_id and existing_sct.account_id != req.target_account_id)
+                ):
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Idempotency key '{req.idempotency_key}' collision: request fingerprint differs from previous request."
+                    )
                 return existing_sct
+
+        # Strict service-level authorization check: only managers/admins may override default target accounts
+        if req.target_account_id and requesting_user_role not in ("MANAGER", "SYSADMIN", "SUPERADMIN"):
+            raise HTTPException(
+                status_code=403,
+                detail="Manager authorization required to specify custom GL target account overrides."
+            )
 
         # Check available cash in drawer under row lock
         invoices_res = await self.db.execute(
@@ -431,6 +502,7 @@ class POSService:
         else:
             acc_target = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "1020")
 
+        effective_idempotency_key = req.idempotency_key or f"auto-drop-{uuid.uuid4().hex[:12]}"
         sct_id = f"sct-drop-{uuid.uuid4().hex[:8]}"
         sct = ShiftCashTransaction(
             id=sct_id,
@@ -445,10 +517,35 @@ class POSService:
             performed_by=requesting_user_id,
             created_by=requesting_user_id,
             receipt_ref=req.receipt_ref,
-            idempotency_key=req.idempotency_key,
+            idempotency_key=effective_idempotency_key,
         )
-        self.db.add(sct)
-        await self.db.flush()
+        try:
+            self.db.add(sct)
+            await self.db.flush()
+        except IntegrityError:
+            await self.db.rollback()
+            if req.idempotency_key:
+                res = await self.db.execute(
+                    select(ShiftCashTransaction).where(
+                        ShiftCashTransaction.shift_id == shift_id,
+                        ShiftCashTransaction.idempotency_key == req.idempotency_key,
+                        ShiftCashTransaction.company_id == self.tenant.company_id,
+                    )
+                )
+                existing = res.scalars().first()
+                if existing:
+                    if (
+                        existing.amount != req.amount.quantize(Decimal("0.01"))
+                        or existing.transaction_type != "CASH_DROP"
+                        or existing.reason != req.reason
+                        or (req.target_account_id and existing.account_id != req.target_account_id)
+                    ):
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Idempotency key '{req.idempotency_key}' collision: request fingerprint differs from previous request."
+                        )
+                    return existing
+            raise HTTPException(status_code=400, detail="Database integrity error during cash movement insertion.")
 
         lines = [
             {
@@ -493,14 +590,15 @@ class POSService:
         self,
         shift_id: str,
         req: ShiftTillExpenseRequest,
-        requesting_user_id: str
+        requesting_user_id: str,
+        requesting_user_role: Optional[str] = None
     ) -> ShiftCashTransaction:
         """
         Record a mid-shift petty expense payout from drawer.
         Automatically posts a balanced double-entry Journal Voucher:
             Debit: Expense Account (5000 / custom)
             Credit: Cash in Hand (1010)
-        Includes row-level locking (SELECT FOR UPDATE) and idempotency deduplication.
+        Includes row-level locking (SELECT FOR UPDATE) and payload-bound idempotency deduplication.
         """
         if req.amount <= Decimal("0.00"):
             raise HTTPException(status_code=400, detail="Till expense amount must be strictly greater than zero.")
@@ -510,17 +608,35 @@ class POSService:
         if shift.status != "OPEN":
             raise HTTPException(status_code=400, detail="Cannot record till expense on a closed shift.")
 
-        # Idempotency deduplication check
+        # Idempotency deduplication check with full request fingerprint equivalence validation
         if req.idempotency_key:
             existing_sct = (await self.db.execute(
                 select(ShiftCashTransaction).where(
                     ShiftCashTransaction.shift_id == shift_id,
                     ShiftCashTransaction.idempotency_key == req.idempotency_key,
                     ShiftCashTransaction.company_id == self.tenant.company_id,
+                    ShiftCashTransaction.is_deleted == False,
                 )
             )).scalars().first()
             if existing_sct:
+                if (
+                    existing_sct.amount != req.amount.quantize(Decimal("0.01"))
+                    or existing_sct.transaction_type != "TILL_EXPENSE"
+                    or existing_sct.reason != req.reason
+                    or (req.expense_account_id and existing_sct.account_id != req.expense_account_id)
+                ):
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Idempotency key '{req.idempotency_key}' collision: request fingerprint differs from previous request."
+                    )
                 return existing_sct
+
+        # Strict service-level authorization check: only managers/admins may override default expense accounts
+        if req.expense_account_id and requesting_user_role not in ("MANAGER", "SYSADMIN", "SUPERADMIN"):
+            raise HTTPException(
+                status_code=403,
+                detail="Manager authorization required to specify custom GL expense account overrides."
+            )
 
         # Check available cash in drawer under row lock
         invoices_res = await self.db.execute(
@@ -564,6 +680,7 @@ class POSService:
         else:
             acc_exp = await UnifiedAccountingLedgerService.get_account_by_code(self.db, self.tenant.company_id, "5000")
 
+        effective_idempotency_key = req.idempotency_key or f"auto-exp-{uuid.uuid4().hex[:12]}"
         sct_id = f"sct-exp-{uuid.uuid4().hex[:8]}"
         sct = ShiftCashTransaction(
             id=sct_id,
@@ -578,10 +695,35 @@ class POSService:
             receipt_ref=req.receipt_ref,
             performed_by=requesting_user_id,
             created_by=requesting_user_id,
-            idempotency_key=req.idempotency_key,
+            idempotency_key=effective_idempotency_key,
         )
-        self.db.add(sct)
-        await self.db.flush()
+        try:
+            self.db.add(sct)
+            await self.db.flush()
+        except IntegrityError:
+            await self.db.rollback()
+            if req.idempotency_key:
+                res = await self.db.execute(
+                    select(ShiftCashTransaction).where(
+                        ShiftCashTransaction.shift_id == shift_id,
+                        ShiftCashTransaction.idempotency_key == req.idempotency_key,
+                        ShiftCashTransaction.company_id == self.tenant.company_id,
+                    )
+                )
+                existing = res.scalars().first()
+                if existing:
+                    if (
+                        existing.amount != req.amount.quantize(Decimal("0.01"))
+                        or existing.transaction_type != "TILL_EXPENSE"
+                        or existing.reason != req.reason
+                        or (req.expense_account_id and existing.account_id != req.expense_account_id)
+                    ):
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Idempotency key '{req.idempotency_key}' collision: request fingerprint differs from previous request."
+                        )
+                    return existing
+            raise HTTPException(status_code=400, detail="Database integrity error during cash movement insertion.")
 
         lines = [
             {
@@ -626,17 +768,42 @@ class POSService:
     # Shift — close
     # ──────────────────────────────────────────────────────────────
 
-    async def close_shift(self, shift_id: str, req: ShiftClose, requesting_user_id: str) -> Shift:
+    async def close_shift(
+        self,
+        shift_id: str,
+        req: ShiftClose,
+        requesting_user_id: str,
+        requesting_user_role: Optional[str] = None
+    ) -> Shift:
         """
-        Close a shift with pessimistic row locking and idempotency protection.
+        Close a shift with pessimistic row locking and payload-bound idempotency protection.
         """
         shift = await self.get_shift(shift_id, for_update=True)
         if shift.status == "CLOSED":
             if req.idempotency_key:
+                if req.closing_balance is not None and shift.closing_balance is not None:
+                    if req.closing_balance.quantize(Decimal("0.01")) != shift.closing_balance:
+                        raise HTTPException(
+                            status_code=409,
+                            detail="Idempotency key collision: closing payload differs from previously closed shift."
+                        )
+                if req.closing_notes and shift.closing_notes and req.closing_notes != shift.closing_notes:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Idempotency key collision: closing notes differ from previously closed shift."
+                    )
                 return shift
             raise HTTPException(
                 status_code=400,
                 detail="This shift has already been closed.",
+            )
+
+        # Operational Authorization Check:
+        # Only the cashier who opened the shift, or a MANAGER/SYSADMIN/SUPERADMIN can close it
+        if requesting_user_id != shift.cashier_id and requesting_user_role not in ("MANAGER", "SYSADMIN", "SUPERADMIN"):
+            raise HTTPException(
+                status_code=403,
+                detail="Cashiers are only permitted to close their own shifts. Manager authorization required to close another cashier's shift."
             )
 
         # Aggregate invoices linked to this shift

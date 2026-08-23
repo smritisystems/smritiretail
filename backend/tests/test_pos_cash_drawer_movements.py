@@ -837,7 +837,8 @@ async def test_invalid_source_and_expense_account_rejection():
                     reason="Invalid account test",
                     source_account_id="acc-non-existent-999"
                 ),
-                requesting_user_id=cashier_id
+                requesting_user_id=cashier_id,
+                requesting_user_role="MANAGER"
             )
         assert exc_in.value.status_code == 400
         assert "not found" in exc_in.value.detail.lower()
@@ -851,7 +852,8 @@ async def test_invalid_source_and_expense_account_rejection():
                     reason="Invalid expense account test",
                     expense_account_id="acc-non-existent-999"
                 ),
-                requesting_user_id=cashier_id
+                requesting_user_id=cashier_id,
+                requesting_user_role="MANAGER"
             )
         assert exc_exp.value.status_code == 400
         assert "not found" in exc_exp.value.detail.lower()
@@ -1023,4 +1025,153 @@ async def test_pos_checkout_versus_closed_shift_concurrency_lock():
             ))
         assert exc.value.status_code == 400
         assert "not open" in exc.value.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_idempotency_key_collision_with_different_amount_raises_409():
+    """
+    Verify that reusing an idempotency key with a conflicting payload/amount
+    is rejected with HTTP 409 Conflict.
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_id = await ensure_test_cashier(session, f"usr-idempconf-{unique_suffix}")
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-IDEMP-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter IdempConf {unique_suffix}",
+            code=f"POS-IDC-{unique_suffix}"
+        ))
+
+        shift_id = f"SH-IDC-{unique_suffix}"
+        await pos_svc.open_shift(
+            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("5000.00")),
+            cashier_id=cashier_id
+        )
+
+        idemp_key = f"key-conflict-{unique_suffix}"
+        # 1. First request with 1000.00 -> Success
+        req1 = ShiftCashInRequest(
+            amount=Decimal("1000.00"),
+            reason="Original float injection",
+            idempotency_key=idemp_key
+        )
+        res1 = await pos_svc.record_cash_in(shift_id, req1, cashier_id)
+        assert res1.amount == Decimal("1000.00")
+
+        # 2. Colliding request with same idempotency_key but different amount 2000.00 -> HTTP 409
+        req2 = ShiftCashInRequest(
+            amount=Decimal("2000.00"),
+            reason="Modified float injection with same key",
+            idempotency_key=idemp_key
+        )
+        with pytest.raises(HTTPException) as exc:
+            await pos_svc.record_cash_in(shift_id, req2, cashier_id)
+        assert exc.value.status_code == 409
+        assert "collision" in exc.value.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_cashier_closing_another_cashier_shift_forbidden_403():
+    """
+    Verify that a cashier is strictly forbidden from closing another cashier's shift (HTTP 403),
+    while a manager or administrator is permitted.
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_1 = await ensure_test_cashier(session, f"usr-c1-{unique_suffix}")
+        cashier_2 = await ensure_test_cashier(session, f"usr-c2-{unique_suffix}")
+        manager_id = await ensure_test_cashier(session, f"usr-mgr-{unique_suffix}")
+
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-RBAC-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter RBAC {unique_suffix}",
+            code=f"POS-RBAC-{unique_suffix}"
+        ))
+
+        shift_id = f"SH-RBAC-{unique_suffix}"
+        await pos_svc.open_shift(
+            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("2000.00")),
+            cashier_id=cashier_1
+        )
+
+        # 1. Cashier 2 tries to close Cashier 1's shift -> HTTP 403
+        with pytest.raises(HTTPException) as exc:
+            await pos_svc.close_shift(
+                shift_id=shift_id,
+                req=ShiftClose(closing_balance=Decimal("2000.00")),
+                requesting_user_id=cashier_2,
+                requesting_user_role="CASHIER"
+            )
+        assert exc.value.status_code == 403
+        assert "manager authorization" in exc.value.detail.lower()
+
+        # 2. Manager closes the shift -> Success
+        closed_shift = await pos_svc.close_shift(
+            shift_id=shift_id,
+            req=ShiftClose(closing_balance=Decimal("2000.00")),
+            requesting_user_id=manager_id,
+            requesting_user_role="MANAGER"
+        )
+        assert closed_shift.status == "CLOSED"
+
+
+@pytest.mark.asyncio
+async def test_cashier_account_override_forbidden_403():
+    """
+    Verify that standard cashiers are forbidden from specifying custom GL account overrides (HTTP 403).
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    async with session_factory() as session:
+        cashier_id = await ensure_test_cashier(session, f"usr-accover-{unique_suffix}")
+        pos_svc = POSService(session, tenant)
+
+        reg_id = f"REG-ACCOV-{unique_suffix}"
+        await pos_svc.create_register(CashRegisterCreate(
+            id=reg_id,
+            name=f"Counter AccOv {unique_suffix}",
+            code=f"POS-ACO-{unique_suffix}"
+        ))
+
+        shift_id = f"SH-ACO-{unique_suffix}"
+        await pos_svc.open_shift(
+            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("3000.00")),
+            cashier_id=cashier_id
+        )
+
+        # Cashier role attempts custom GL source account override -> HTTP 403
+        with pytest.raises(HTTPException) as exc:
+            await pos_svc.record_cash_in(
+                shift_id=shift_id,
+                req=ShiftCashInRequest(
+                    amount=Decimal("500.00"),
+                    source_account_id="ACC-CUSTOM-VAULT-999",
+                    reason="Unauthorized custom vault float"
+                ),
+                requesting_user_id=cashier_id,
+                requesting_user_role="CASHIER"
+            )
+        assert exc.value.status_code == 403
+        assert "manager authorization" in exc.value.detail.lower()
+
 

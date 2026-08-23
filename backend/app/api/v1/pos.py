@@ -114,7 +114,7 @@ async def close_shift_contract(
     db: AsyncSession = Depends(get_company_db),
 ):
     """Close an open shift — canonical contract URL. Replaces /shifts/{id}/close (deprecated)."""
-    return await POSService(db, tenant).close_shift(shift_id, req, current_user.id)
+    return await POSService(db, tenant).close_shift(shift_id, req, current_user.id, requesting_user_role=current_user.role)
 
 
 @router.post(
@@ -138,7 +138,7 @@ async def record_shift_cash_in(
     db: AsyncSession = Depends(get_company_db),
 ):
     """Record mid-shift cash injection into till and post GL transfer voucher."""
-    return await POSService(db, tenant).record_cash_in(shift_id, req, current_user.id)
+    return await POSService(db, tenant).record_cash_in(shift_id, req, current_user.id, requesting_user_role=current_user.role)
 
 
 @router.post(
@@ -162,7 +162,7 @@ async def record_shift_cash_drop(
     db: AsyncSession = Depends(get_company_db),
 ):
     """Record mid-shift cash drop and post GL transfer voucher."""
-    return await POSService(db, tenant).record_cash_drop(shift_id, req, current_user.id)
+    return await POSService(db, tenant).record_cash_drop(shift_id, req, current_user.id, requesting_user_role=current_user.role)
 
 
 @router.post(
@@ -186,7 +186,7 @@ async def record_shift_till_expense(
     db: AsyncSession = Depends(get_company_db),
 ):
     """Record mid-shift till petty expense and post GL expense voucher."""
-    return await POSService(db, tenant).record_till_expense(shift_id, req, current_user.id)
+    return await POSService(db, tenant).record_till_expense(shift_id, req, current_user.id, requesting_user_role=current_user.role)
 
 
 @router.get(
