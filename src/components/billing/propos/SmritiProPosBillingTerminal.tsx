@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.0.0
+ * Version      : 6.16.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-08-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -19,7 +19,9 @@ import {
   ProPosTenderSplit, 
   SuspendedBill, 
   CancelledBillRecord,
-  ReturnItem 
+  ReturnItem,
+  POSZReportData,
+  ShiftCashMovementRecord
 } from "./types.ts";
 import { SmritiProPosSettlementModal } from "./SmritiProPosSettlementModal.tsx";
 import { SmritiProPosRecallModal } from "./SmritiProPosRecallModal.tsx";
@@ -31,6 +33,8 @@ import { SmritiProPosPdtImportModal } from "./SmritiProPosPdtImportModal.tsx";
 import { SmritiCustomerBrowseModal } from "./SmritiCustomerBrowseModal.tsx";
 import { SmritiProPosHotkeysModal } from "./SmritiProPosHotkeysModal.tsx";
 import { SmritiProPosReprintModal } from "./SmritiProPosReprintModal.tsx";
+import { SmritiProPosCashMovementsModal } from "./SmritiProPosCashMovementsModal.tsx";
+import { SmritiProPosShiftCloseModal } from "./SmritiProPosShiftCloseModal.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../../utils/gstEngine.ts";
 import { searchBackendProducts, AutoPopulateProductResult } from "../../../services/autoPopulateService.ts";
@@ -61,7 +65,9 @@ import {
   FilePlus,
   HelpCircle,
   Calculator,
-  RefreshCw
+  RefreshCw,
+  Vault,
+  Lock
 } from "lucide-react";
 
 interface SmritiProPosBillingTerminalProps {
@@ -308,6 +314,31 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [showCustomerBrowseModal, setShowCustomerBrowseModal] = useState<boolean>(false);
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [showReprintModal, setShowReprintModal] = useState<boolean>(false);
+  const [showCashMovementsModal, setShowCashMovementsModal] = useState<boolean>(false);
+  const [showShiftCloseModal, setShowShiftCloseModal] = useState<boolean>(false);
+  const [activeShiftId, setActiveShiftId] = useState<string>("shift-01");
+  const [activeShiftCode, setActiveShiftCode] = useState<string>("REG-01 / SHIFT-CURRENT");
+
+  // Fetch active shift on load
+  useEffect(() => {
+    let isMounted = true;
+    const fetchActiveShift = async () => {
+      try {
+        const shifts = await apiFetchV1<any[]>("/pos/shifts/");
+        if (isMounted && shifts && shifts.length > 0) {
+          const openShift = shifts.find((s: any) => s.status === "OPEN") || shifts[0];
+          setActiveShiftId(openShift.id);
+          setActiveShiftCode(openShift.shift_code || `REG-01 / SHIFT-${openShift.id.slice(-6).toUpperCase()}`);
+        }
+      } catch (e) {
+        // Fallback default shift ID
+      }
+    };
+    fetchActiveShift();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Last Completed Invoice for Tax Printing
   const [lastCompletedBill, setLastCompletedBill] = useState<{
@@ -685,6 +716,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         setShowSettlementModal(false);
         setShowReceiptModal(false);
         setShowLoyaltyModal(false);
+        setShowCashMovementsModal(false);
+        setShowShiftCloseModal(false);
         return;
       }
 
@@ -705,6 +738,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       } else if (e.altKey && e.key === "6") {
         e.preventDefault();
         setShowReprintModal(true);
+      } else if (e.altKey && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        setShowCashMovementsModal(true);
+      } else if (e.altKey && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        setShowShiftCloseModal(true);
       } else if (e.altKey && (e.key === "h" || e.key === "H")) {
         e.preventDefault();
         setShowHotkeysModal(prev => !prev);
@@ -841,6 +880,30 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             <Printer size={13} />
             <span>Reprint</span>
             <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+6]</kbd>
+          </button>
+
+          {/* Alt+D: Cash Movements (Safe Drop & Till Expense) */}
+          <button
+            type="button"
+            onClick={() => setShowCashMovementsModal(true)}
+            className="px-2.5 py-1 bg-[#f0fdf4] dark:bg-[#14532d]/40 border border-[#86efac] text-[#166534] dark:text-[#86efac] hover:bg-[#dcfce7] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            title="Mid-shift Cash Drop to Safe or Petty Till Expense Disbursal [Alt+D]"
+          >
+            <Vault size={13} />
+            <span>Cash Movements</span>
+            <kbd className="text-[10px] opacity-80 font-mono text-[#166534] dark:text-[#86efac]">[Alt+D]</kbd>
+          </button>
+
+          {/* Alt+Z: Shift Close & Z-Report Reconciliation */}
+          <button
+            type="button"
+            onClick={() => setShowShiftCloseModal(true)}
+            className="px-2.5 py-1 bg-[#fef2f2] dark:bg-[#7f1d1d]/40 border border-[#fca5a5] text-[#991b1b] dark:text-[#fca5a5] hover:bg-[#fee2e2] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            title="Perform Physical Denomination Count & Finalize Shift Closeout [Alt+Z]"
+          >
+            <Lock size={13} />
+            <span>Shift Close</span>
+            <kbd className="text-[10px] opacity-80 font-mono text-[#991b1b] dark:text-[#fca5a5]">[Alt+Z]</kbd>
           </button>
 
         </div>
@@ -1677,6 +1740,36 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           tenders={lastCompletedBill.tenders}
           changeDue={lastCompletedBill.changeDue}
           onClose={() => setShowReceiptModal(false)}
+        />
+      )}
+
+      {showCashMovementsModal && (
+        <SmritiProPosCashMovementsModal
+          shiftId={activeShiftId}
+          onSuccess={(mov) => {
+            onNotification?.(
+              "Movement Recorded",
+              `${mov.type === "CASH_DROP" ? "Cash Drop" : "Till Expense"} of ₹${mov.amount.toFixed(2)} posted.`,
+              "success"
+            );
+          }}
+          onClose={() => setShowCashMovementsModal(false)}
+          onNotification={onNotification}
+        />
+      )}
+
+      {showShiftCloseModal && (
+        <SmritiProPosShiftCloseModal
+          shiftId={activeShiftId}
+          onShiftClosed={(zRep) => {
+            onNotification?.(
+              "Register Closed",
+              `Shift ${zRep.shift_code || activeShiftId} successfully closed and reconciled.`,
+              "success"
+            );
+          }}
+          onClose={() => setShowShiftCloseModal(false)}
+          onNotification={onNotification}
         />
       )}
 

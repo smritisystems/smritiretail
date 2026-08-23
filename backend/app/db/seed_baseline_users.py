@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.25.0
 Created      : 2026-08-18
-Modified     : 2026-08-18
+Modified     : 2026-08-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -127,7 +127,12 @@ async def seed():
 
             # Branches
             for br_def in comp_def["branches"]:
-                br = await db.get(Branch, br_def["id"])
+                res_br = await db.execute(
+                    select(Branch).where(
+                        (Branch.id == br_def["id"]) | (Branch.code == br_def["code"])
+                    )
+                )
+                br = res_br.scalars().first()
                 if not br:
                     br = Branch(
                         id=br_def["id"],
@@ -145,19 +150,27 @@ async def seed():
 
         await db.flush()
 
-        # 2. Users: admin (SYSADMIN - global access to all companies), manager, cashier
+        # 2. Users: admin, sysadmin, manager, cashier with standard hashes
         users_to_seed = [
             ("admin", "admin@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
+            ("usr_sysadmin", "sysadmin@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
+            ("usr_super", "super@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
             ("manager", "manager@smritibooks.com", "Password@123", UserRole.MANAGER, "role-manager", "COMP-001", "BR-MAIN-001"),
+            ("usr_manager", "usr_manager@smritibooks.com", "Password@123", UserRole.MANAGER, "role-manager", "COMP-001", "BR-MAIN-001"),
+            ("usr_store_manager_a", "store_mgr_a@smritibooks.com", "Password@123", UserRole.MANAGER, "role-manager", "COMP-001", "BR-MAIN-001"),
             ("cashier", "cashier@smritibooks.com", "Cashier@123", UserRole.CASHIER, "role-cashier", "COMP-001", "BR-MAIN-001"),
+            ("usr_cashier", "usr_cashier@smritibooks.com", "Cashier@123", UserRole.CASHIER, "role-cashier", "COMP-001", "BR-MAIN-001"),
         ]
 
         for uname, email, pwd, role_enum, role_id, comp_id, branch_id in users_to_seed:
-            res = await db.execute(select(User).where(User.username == uname))
+            target_id = uname.replace('_', '-') if uname.startswith('usr') else f"usr-{uname}"
+            res = await db.execute(
+                select(User).where((User.username == uname) | (User.id == target_id))
+            )
             u = res.scalars().first()
             if not u:
                 u = User(
-                    id=f"usr-{uname}",
+                    id=target_id,
                     username=uname,
                     email=email,
                     hashed_password=hash_password(pwd),
@@ -172,14 +185,20 @@ async def seed():
                 db.add(u)
                 await db.flush()
             else:
+                u.username = uname
+                u.email = email
                 u.hashed_password = hash_password(pwd)
                 u.role = role_enum
                 u.role_id = role_id
                 u.is_active = True
                 u.is_deleted = False
                 u.status = "Active"
+                if comp_id:
+                    u.company_id = comp_id
+                if branch_id:
+                    u.branch_id = branch_id
 
-            # Assign all 3 companies to admin, and COMP-001 to manager and cashier
+            # Assign all 3 companies to sysadmin roles, and COMP-001 to manager and cashier
             target_comps = ["COMP-001", "COMP-002", "COMP-003"] if role_enum == UserRole.SYSADMIN else ["COMP-001"]
             for target_c in target_comps:
                 res_uca = await db.execute(
@@ -201,7 +220,7 @@ async def seed():
                     )
 
         await db.commit()
-        print("SUCCESS: Seeded 3 Enterprise Companies with READY database registries and full SYSADMIN access!")
+        print("SUCCESS: Seeded Enterprise Companies with READY database registries and authenticated users!")
 
 
 if __name__ == "__main__":

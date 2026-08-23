@@ -101,6 +101,7 @@ class ShiftCashTransaction(BaseEntity):
     gl_voucher_id    = Column(String(50), nullable=True)
     gl_voucher_no    = Column(String(100), nullable=True)
     receipt_ref      = Column(String(100), nullable=True)
+    idempotency_key  = Column(String(100), nullable=True, index=True)
 
     # Relationships
     shift            = relationship("Shift", back_populates="cash_transactions")

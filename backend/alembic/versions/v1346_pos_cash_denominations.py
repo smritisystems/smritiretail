@@ -40,8 +40,19 @@ def upgrade():
             op.add_column("shifts", sa.Column("cash_in_total", sa.Numeric(precision=15, scale=2), server_default="0.00", nullable=False))
         if "denominations" not in shift_cols:
             op.add_column("shifts", sa.Column("denominations", postgresql.JSONB(astext_type=sa.Text()), nullable=True))
+        
+        # 1b. Enforce database-level invariant: Only 1 OPEN shift per register per company
+        existing_shift_indexes = {i["name"] for i in inspector.get_indexes("shifts")}
+        if "uq_shifts_active_per_register" not in existing_shift_indexes:
+            op.create_index(
+                "uq_shifts_active_per_register",
+                "shifts",
+                ["company_id", "register_id"],
+                unique=True,
+                postgresql_where=sa.text("status = 'OPEN' AND is_deleted = false")
+            )
 
-    # 2. Create shift_cash_transactions table
+    # 2. Create shift_cash_transactions table or add idempotency_key
     if "shift_cash_transactions" not in tables:
         op.create_table(
             "shift_cash_transactions",
@@ -58,6 +69,7 @@ def upgrade():
             sa.Column("gl_voucher_id", sa.String(length=50), nullable=True),
             sa.Column("gl_voucher_no", sa.String(length=100), nullable=True),
             sa.Column("receipt_ref", sa.String(length=100), nullable=True),
+            sa.Column("idempotency_key", sa.String(length=100), nullable=True),
             sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
             sa.Column("modified_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
             sa.Column("created_by", sa.String(length=100), nullable=True),
@@ -70,6 +82,27 @@ def upgrade():
         )
         op.create_index("idx_sct_company_shift", "shift_cash_transactions", ["company_id", "shift_id"])
         op.create_index("idx_sct_type_date", "shift_cash_transactions", ["company_id", "transaction_type", "created_at"])
+        op.create_index(
+            "uq_sct_idempotency",
+            "shift_cash_transactions",
+            ["company_id", "shift_id", "idempotency_key"],
+            unique=True,
+            postgresql_where=sa.text("idempotency_key IS NOT NULL AND is_deleted = false")
+        )
+    else:
+        sct_cols = {c["name"] for c in inspector.get_columns("shift_cash_transactions")}
+        if "idempotency_key" not in sct_cols:
+            op.add_column("shift_cash_transactions", sa.Column("idempotency_key", sa.String(length=100), nullable=True))
+        
+        sct_indexes = {i["name"] for i in inspector.get_indexes("shift_cash_transactions")}
+        if "uq_sct_idempotency" not in sct_indexes:
+            op.create_index(
+                "uq_sct_idempotency",
+                "shift_cash_transactions",
+                ["company_id", "shift_id", "idempotency_key"],
+                unique=True,
+                postgresql_where=sa.text("idempotency_key IS NOT NULL AND is_deleted = false")
+            )
 
 
 def downgrade():
