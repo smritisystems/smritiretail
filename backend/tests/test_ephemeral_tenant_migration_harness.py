@@ -79,11 +79,12 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         assert "bank_statements" in tables
         assert "bank_statement_lines" in tables
         assert "currency_exchange_rates" in tables
+        assert "shift_cash_transactions" in tables
 
         # Check alembic revision is at latest head
         rev_res = await session.execute(text("SELECT version_num FROM alembic_version;"))
         rev = rev_res.scalar()
-        assert rev == "v1345_multicurrency_fx"
+        assert rev == "v1346_pos_cash_denominations"
 
 
 @pytest.mark.asyncio
@@ -100,6 +101,7 @@ async def test_ephemeral_symmetrical_downgrade_and_reupgrade(ephemeral_db):
         assert "accounts" not in tables_after_down
         assert "journal_vouchers" not in tables_after_down
         assert "currency_exchange_rates" not in tables_after_down
+        assert "shift_cash_transactions" not in tables_after_down
 
     # 2. Re-upgrade to head
     EphemeralTenantHarness.run_alembic_upgrade(db_name, "head")
@@ -110,6 +112,8 @@ async def test_ephemeral_symmetrical_downgrade_and_reupgrade(ephemeral_db):
         assert "journal_vouchers" in tables_after_reup
         assert "currency_exchange_rates" in tables_after_reup
         assert "general_ledger_entries" in tables_after_reup
+        assert "shift_cash_transactions" in tables_after_reup
+
 
 
 @pytest.mark.asyncio

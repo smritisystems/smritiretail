@@ -22,7 +22,7 @@ from .purchase import (
     PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
 )
-from .pos import CashRegister, Shift
+from .pos import CashRegister, Shift, ShiftCashTransaction
 from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity
 from .user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
 from .workflow import WorkflowEvent

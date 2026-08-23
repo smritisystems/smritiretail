@@ -182,11 +182,44 @@ def upgrade() -> None:
             is_interstate BOOLEAN      DEFAULT FALSE,
             eway_bill_no VARCHAR(50),
             status       VARCHAR(20)   DEFAULT 'Draft',
+            source_type  VARCHAR(50)   DEFAULT 'LIVE',
+            source_system VARCHAR(50),
+            source_file  VARCHAR(500),
+            import_batch_id VARCHAR(100),
+            imported_at  DATE,
+            import_validation_status VARCHAR(50),
+            import_validation_notes  TEXT,
+            sis_code     VARCHAR(50),
+            pos_state    VARCHAR(100),
+            reverse_charge BOOLEAN     DEFAULT FALSE,
+            is_reverse_charge BOOLEAN  DEFAULT FALSE,
+            po_reference VARCHAR(100),
+            customer_name VARCHAR(255),
+            customer_gstin VARCHAR(50),
+            billing_address TEXT,
+            shipping_address TEXT,
+            site_name    VARCHAR(255),
+            taxable_value NUMERIC(15,2),
+            rounding_amount NUMERIC(10,4) DEFAULT 0.0000,
+            amount_in_words TEXT,
+            bank_name    VARCHAR(100),
+            account_no   VARCHAR(100),
+            ifsc_code    VARCHAR(50),
+            original_pdf_sha256 VARCHAR(64),
+            original_pdf_path   VARCHAR(500),
+            original_pdf_size   INTEGER,
+            original_pdf_pages  INTEGER,
+            e_invoice_status    VARCHAR(50) DEFAULT 'NOT_APPLICABLE',
+            irn          VARCHAR(100),
+            ack_no       VARCHAR(100),
+            ack_date     VARCHAR(100),
+            signed_qr_payload TEXT,
             created_at   TIMESTAMPTZ   DEFAULT CURRENT_TIMESTAMP,
             modified_at  TIMESTAMPTZ   DEFAULT CURRENT_TIMESTAMP
         )
     """)
     op.execute("CREATE INDEX IF NOT EXISTS idx_sales_invoice_customer ON sales_invoices(customer_id)")
+
 
     # ── 7. sales_invoice_items ─────────────────────────────────────────────────
     op.execute("""
