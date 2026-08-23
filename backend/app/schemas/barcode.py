@@ -56,12 +56,15 @@ class BarcodeLayoutResponse(BaseModel):
 
 
 class PrintRequest(BaseModel):
-    layoutId: str = Field(..., alias="layoutId")
+    layoutId: Optional[str] = Field("default", alias="layoutId")
     items: List[Dict[str, Any]]
     saveAsPrn: Optional[bool] = Field(False, alias="saveAsPrn")
     dispatch_mode: Optional[str] = Field(None, alias="dispatch_mode")
     dispatchMode: Optional[str] = Field(None, alias="dispatchMode")
     language: Optional[str] = Field("zpl", alias="language")
+    prnTemplate: Optional[str] = Field(None, alias="prnTemplate")
+    templateContent: Optional[str] = Field(None, alias="templateContent")
+    targetPrinter: Optional[str] = Field(None, alias="targetPrinter")
 
     model_config = ConfigDict(populate_by_name=True)
 

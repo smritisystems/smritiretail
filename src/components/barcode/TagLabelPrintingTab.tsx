@@ -36,6 +36,14 @@ import {
   queryPurchaseOrderItems, 
   queryMasterItemsByDate
 } from "./barcodeTransactionStore.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import {
+  isQzTrayEnabled,
+  testQzConnection,
+  dispatchToQzTray,
+  acknowledgePrintJob,
+  testQzLabelPrint
+} from "../../utils/qzTrayClient.ts";
 import { 
   Printer, 
   Sliders, 
@@ -185,6 +193,45 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [isSinglePrintMode, setIsSinglePrintMode] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ptFileInputRef = useRef<HTMLInputElement>(null);
+
+  // QZ Live State
+  const [qzState, setQzState] = useState<{
+    connected: boolean;
+    version?: string;
+    loading: boolean;
+    error?: string;
+  }>({
+    connected: false,
+    loading: false
+  });
+  const [isPrinting, setIsPrinting] = useState<boolean>(false);
+
+  const checkQzStatus = async () => {
+    if (!isQzTrayEnabled()) {
+      setQzState({ connected: false, loading: false, error: "QZ Tray Disabled" });
+      return;
+    }
+    setQzState(prev => ({ ...prev, loading: true, error: undefined }));
+    try {
+      const res = await testQzConnection();
+      setQzState({
+        connected: res.connected,
+        version: res.version,
+        loading: false,
+        error: res.error
+      });
+    } catch (err: any) {
+      setQzState({
+        connected: false,
+        loading: false,
+        error: err?.message || "Failed to connect to QZ Tray"
+      });
+    }
+  };
+
+  useEffect(() => {
+    checkQzStatus();
+  }, []);
 
   // Keyboard Shortcuts Listener
   useEffect(() => {
@@ -849,12 +896,97 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     return activePrintItems.reduce((sum, r) => sum + r.labelCount, 0);
   }, [activePrintItems]);
 
-  // Browser Print Trigger (Dispatches to Windows print preview dialog)
-  const handleBrowserPrint = () => {
+  // Real Dispatch Router for Barcode Label Printing (QZ Tray / PRN File / Windows Dialog)
+  const handleExecutePrintDispatch = async () => {
     setShowDispatchModal(false);
+    setIsPrinting(true);
+
+    // 1. QZ Tray Direct Thermal Route
+    if (settings.portSetting === "QZ Tray Thermal") {
+      try {
+        onNotification?.("Preparing Print Job", `Creating secure print job for ${activePrintTotalLabels} label(s)...`, "info");
+        
+        let res: any = null;
+        try {
+          res = await apiFetchV1("/barcode/print", {
+            method: "POST",
+            body: JSON.stringify({
+              layoutId: settings.scriptFileName || "default",
+              dispatch_mode: "qz_tray",
+              targetPrinter: settings.targetPrinterName,
+              items: activePrintItems.map(item => ({
+                code: item.stockNo,
+                barcode: item.barcode || item.stockNo,
+                name: item.product,
+                brand: item.brand,
+                style: item.style,
+                color: item.colour,
+                size: item.size,
+                mrp: item.mrp,
+                price: item.sellingPrice,
+                qty: item.labelCount
+              }))
+            })
+          });
+        } catch (backendErr: any) {
+          console.warn("[Print Dispatch] Backend print error, fallback to client script:", backendErr);
+        }
+
+        const rawPayload = res?.payload || generateRawDplScript();
+        const jobId = res?.job_id || `job-client-${Date.now()}`;
+        const targetPrinter = settings.targetPrinterName || res?.suggested_printer;
+
+        onNotification?.("Sending to QZ Tray", `Dispatching to Windows printer "${targetPrinter}"...`, "info");
+
+        const qzResult = await dispatchToQzTray(
+          {
+            job_id: jobId,
+            payload: rawPayload,
+            language: "zpl",
+            encoding: "UTF-8",
+            suggested_printer: targetPrinter
+          },
+          targetPrinter
+        );
+
+        if (qzResult.success) {
+          onNotification?.("QZ Tray Print Success", `Successfully sent ${activePrintTotalLabels} label(s) to "${qzResult.printerName || targetPrinter}".`, "success");
+        } else {
+          onNotification?.("QZ Tray Print Error", qzResult.error || qzResult.message || "Failed to dispatch to QZ Tray printer.", "error");
+        }
+      } catch (err: any) {
+        onNotification?.("Print Dispatch Error", err?.message || String(err), "error");
+      } finally {
+        setIsPrinting(false);
+      }
+      return;
+    }
+
+    // 2. PRN File Download Route
+    if (settings.portSetting === "PRN File Download" || settings.outputToFile) {
+      try {
+        const content = generateRawDplScript();
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Honeywell_IH2_Labels_${Date.now()}.prn`;
+        a.click();
+        URL.revokeObjectURL(url);
+        onNotification?.("File Downloaded", `Downloaded PRN script for ${activePrintTotalLabels} label(s).`, "success");
+      } catch (err: any) {
+        onNotification?.("Download Error", err?.message || String(err), "error");
+      } finally {
+        setIsPrinting(false);
+      }
+      return;
+    }
+
+    // 3. Fallback: Browser Print (Windows Print Dialog)
     setTimeout(() => {
       window.print();
-      onNotification?.("Print Dispatched", `Dispatched ${activePrintTotalLabels} label(s) to Windows print queue.`, "success");
+      setIsPrinting(false);
+      onNotification?.("Print via Windows Dialog", `Opened system print dialog for ${activePrintTotalLabels} label(s).`, "success");
     }, 150);
   };
 
@@ -1136,16 +1268,31 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
               />
             </div>
 
-            {/* Target Printer info */}
+            {/* Target Printer info & QZ Live Status */}
             <div className="flex flex-col gap-1">
               <div className="flex justify-between items-center">
                 <label className="font-label-caps text-[10px] text-on-surface-variant">Target Printer</label>
-                <span 
-                  onClick={() => setIsPrinterSelectModalOpen(true)}
-                  className="text-[10px] text-secondary font-bold hover:underline cursor-pointer"
-                >
-                  Configure...
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {settings.portSetting === "QZ Tray Thermal" && (
+                    <span
+                      onClick={checkQzStatus}
+                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded cursor-pointer ${
+                        qzState.connected
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                      }`}
+                      title="Click to re-test QZ Tray connection"
+                    >
+                      {qzState.connected ? `QZ v${qzState.version || "2.2.6"}` : "QZ Offline"}
+                    </span>
+                  )}
+                  <span 
+                    onClick={() => setIsPrinterSelectModalOpen(true)}
+                    className="text-[10px] text-secondary font-bold hover:underline cursor-pointer"
+                  >
+                    Configure...
+                  </span>
+                </div>
               </div>
               <div className="bg-surface-container border border-outline-variant rounded p-1.5 text-xs font-medium text-on-surface flex items-center justify-between">
                 <div className="flex items-center gap-1.5 truncate">
@@ -1154,8 +1301,12 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                     {settings.targetPrinterName}
                   </span>
                 </div>
-                <span className="text-[9px] font-mono text-emerald-700 bg-emerald-100 font-bold px-1 rounded ml-1 shrink-0">
-                  Online
+                <span className={`text-[9px] font-mono font-bold px-1 rounded ml-1 shrink-0 ${
+                  settings.portSetting === "QZ Tray Thermal"
+                    ? (qzState.connected ? "text-emerald-700 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300" : "text-rose-700 bg-rose-100 dark:bg-rose-950 dark:text-rose-300")
+                    : "text-emerald-700 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300"
+                }`}>
+                  {settings.portSetting === "QZ Tray Thermal" ? (qzState.connected ? "Online" : "Offline") : "Ready"}
                 </span>
               </div>
             </div>
@@ -1167,13 +1318,14 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 <select
                   value={settings.portSetting}
                   onChange={e => setSettings({ ...settings, portSetting: e.target.value as any })}
-                  className="w-full bg-surface border border-outline-variant rounded p-1 text-xs font-medium focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"
+                  className="w-full bg-surface border border-outline-variant rounded p-1 text-xs font-medium focus:border-secondary focus:ring-1 focus:ring-secondary outline-hidden"
                 >
-                  <option value="USB">USB</option>
-                  <option value="COM 1">COM 1</option>
-                  <option value="COM 2">COM 2</option>
+                  <option value="QZ Tray Thermal">QZ Tray Thermal</option>
+                  <option value="USB">USB Direct</option>
+                  <option value="COM 1">COM 1 (Serial)</option>
+                  <option value="COM 2">COM 2 (Serial)</option>
                   <option value="Network TCP/IP">Network TCP/IP</option>
-                  <option value="QZ Tray Thermal">QZ Tray</option>
+                  <option value="PRN File Download">PRN File Download</option>
                 </select>
               </div>
 
@@ -2184,12 +2336,26 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
           <button
             type="button"
             onClick={handlePrintAll}
-            disabled={!safetyValidation.canPrint}
+            disabled={!safetyValidation.canPrint || (settings.portSetting === "QZ Tray Thermal" && !qzState.connected)}
             className="px-5 py-2 rounded bg-primary text-on-primary hover:bg-primary-container disabled:opacity-40 disabled:cursor-not-allowed shadow-md transition-all font-body-sm font-bold flex items-center gap-2 text-xs"
             title="Validate and print all selected labels (F8)"
           >
-            <Printer size={15} />
-            <span>Validate &amp; Print ({selectedTotalLabels})</span>
+            {settings.portSetting === "QZ Tray Thermal" ? (
+              <>
+                <Zap size={15} />
+                <span>Send to QZ Tray ({selectedTotalLabels})</span>
+              </>
+            ) : settings.portSetting === "PRN File Download" ? (
+              <>
+                <Download size={15} />
+                <span>Download PRN ({selectedTotalLabels})</span>
+              </>
+            ) : (
+              <>
+                <Printer size={15} />
+                <span>Validate &amp; Print ({selectedTotalLabels})</span>
+              </>
+            )}
           </button>
         </div>
       </footer>
@@ -2502,10 +2668,40 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
               </div>
 
               {/* Safe Print Instructions */}
-              <div className="bg-secondary-fixed/30 border border-secondary/30 rounded-lg p-2.5 flex items-start gap-2 text-primary">
-                <Info size={15} className="text-secondary shrink-0 mt-0.5" />
+              <div className={`p-2.5 rounded-lg border flex items-start gap-2 ${
+                settings.portSetting === "QZ Tray Thermal"
+                  ? (qzState.connected ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-rose-50 border-rose-200 text-rose-900")
+                  : "bg-secondary-fixed/30 border-secondary/30 text-primary"
+              }`}>
+                {settings.portSetting === "QZ Tray Thermal" ? (
+                  qzState.connected ? (
+                    <Zap size={15} className="text-emerald-700 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle size={15} className="text-rose-700 shrink-0 mt-0.5" />
+                  )
+                ) : (
+                  <Info size={15} className="text-secondary shrink-0 mt-0.5" />
+                )}
                 <div className="text-[11px] leading-relaxed">
-                  <strong>Print Dispatch Instructions:</strong> Click <strong>"Print from Browser"</strong> and select <strong>"IMPACT by Honeywell IH-2 (300 dpi) - DPL"</strong> (or thermal printer) in your system dialog.
+                  {settings.portSetting === "QZ Tray Thermal" ? (
+                    qzState.connected ? (
+                      <span>
+                        <strong>QZ Tray Direct Thermal Dispatch:</strong> Will send raw DPL/ZPL stream directly to installed Windows printer queue <strong>"{settings.targetPrinterName}"</strong> via local QZ Tray (Port 8182/8181).
+                      </span>
+                    ) : (
+                      <span>
+                        <strong>QZ Tray Disconnected:</strong> QZ Tray service is unreachable. Please start QZ Tray on this PC or switch port setting to "USB" / "Windows Dialog".
+                      </span>
+                    )
+                  ) : settings.portSetting === "PRN File Download" ? (
+                    <span>
+                      <strong>PRN Script Mode:</strong> Will compile and download printer command file for manual spooling.
+                    </span>
+                  ) : (
+                    <span>
+                      <strong>Windows Print Dialog:</strong> Click <strong>"Print via Windows Dialog"</strong> and select <strong>"{settings.targetPrinterName}"</strong> in your system dialog.
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -2554,11 +2750,26 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={handleBrowserPrint}
-                  className="px-5 py-1.5 bg-primary text-on-primary rounded font-bold hover:bg-primary-container transition shadow-md flex items-center gap-1.5 text-xs"
+                  onClick={handleExecutePrintDispatch}
+                  disabled={isPrinting || (settings.portSetting === "QZ Tray Thermal" && !qzState.connected)}
+                  className="px-5 py-1.5 bg-primary text-on-primary rounded font-bold hover:bg-primary-container disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md flex items-center gap-1.5 text-xs"
                 >
-                  <Printer size={14} />
-                  <span>Confirm &amp; Print ({activePrintTotalLabels})</span>
+                  {settings.portSetting === "QZ Tray Thermal" ? (
+                    <>
+                      <Zap size={14} />
+                      <span>Confirm &amp; Send to QZ Tray ({activePrintTotalLabels})</span>
+                    </>
+                  ) : settings.portSetting === "PRN File Download" ? (
+                    <>
+                      <Download size={14} />
+                      <span>Generate &amp; Download PRN ({activePrintTotalLabels})</span>
+                    </>
+                  ) : (
+                    <>
+                      <Printer size={14} />
+                      <span>Print via Windows Dialog ({activePrintTotalLabels})</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

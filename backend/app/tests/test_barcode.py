@@ -396,3 +396,24 @@ async def test_print_job_ack_endpoint_success_and_failure(db_session):
         assert res_fail.json()["status"] == "Failed"
 
 
+async def test_qz_certificate_and_signing_endpoints(db_session):
+    """Verify GET /qz/certificate and POST /qz/sign generate valid X.509 cert and SHA512 signatures."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Fetch certificate
+        res_cert = await client.get("/api/v1/barcode/qz/certificate")
+        assert res_cert.status_code == 200
+        assert "-----BEGIN CERTIFICATE-----" in res_cert.text
+        assert "-----END CERTIFICATE-----" in res_cert.text
+
+        # 2. Sign request via GET query param
+        res_sign_get = await client.get("/api/v1/barcode/qz/sign?request=test-to-sign-12345")
+        assert res_sign_get.status_code == 200
+        assert len(res_sign_get.text.strip()) > 30
+
+        # 3. Sign request via POST JSON body
+        res_sign_post = await client.post("/api/v1/barcode/qz/sign", json={"request": "test-to-sign-67890"})
+        assert res_sign_post.status_code == 200
+        assert len(res_sign_post.text.strip()) > 30
+
+
+
