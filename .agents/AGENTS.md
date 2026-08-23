@@ -77,8 +77,13 @@ Every verification report must structure its conclusions into three explicitly l
 ## 10. Evidence Policy (MANDATORY)
 Every completion claim must be backed by directly observable evidence. If evidence is unavailable, the agent must report the status as "claimed but unverified" rather than marking it complete.
 
----
+## 11. Quantitative & Named Mechanism Requirement for Status Documents (MANDATORY)
+No feature, sub-system, or architecture item may transition to `Verified` or `Done` in `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md` or any status registry with a bare status label. Every `Verified` entry MUST explicitly include:
+- **Quantitative Metrics:** Exact numbers (e.g. `53/53 tests green`, `20-cycle rolling load`, `0 errors`, `latency < 15ms`).
+- **Named Architectural Mechanisms:** The exact technical primitives enforcing the guarantee (e.g. `SELECT FOR UPDATE row lock`, `asyncio.gather 5-terminal runner`, `two-phase spool ACK`, `RSA-2048 SHA512 signing`).
+- **Verifiable Evidence Citation:** Concrete commit hash, test suite file path, or terminal verification log.
 
+---
 
 ### Self-check before sending any report
 Before presenting a verification report, the agent should confirm:
@@ -91,6 +96,7 @@ Before presenting a verification report, the agent should confirm:
 - [ ] Every item is labeled with one of exactly four states — Done, Failed, Partially Verified, Unverified — not a score or adjective (Rule 7)
 - [ ] Every "Ran command" / "Edited" / "Used tool" line is followed by its actual output (Rule 8)
 - [ ] Evidence, Interpretation, and Recommendation appear as distinct labeled sections, not blended into one narrative (Rule 9)
+- [ ] Status updates meet the 3-part quantitative metric, named mechanism, and commit citation rule (Rule 11)
 
 ---
 
