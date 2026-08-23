@@ -97,10 +97,16 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         assert "hsn_sac_codes_ref" in tables
         assert "platform_reference_data" in tables
 
+        # Governed Logic & Versioned Rules tables (v1363 / P1.4 & P1.5)
+        assert "formula_definitions" in tables
+        assert "business_rule_definitions" in tables
+        assert "policy_definitions" in tables
+        assert "workflow_definitions" in tables
+
         # Check alembic revision is at latest head
         rev_res = await session.execute(text("SELECT version_num FROM alembic_version;"))
         rev = rev_res.scalar()
-        assert rev == "v1362_platform_capabilities"
+        assert rev == "v1363_governed_logic"
 
         # Verify database-level FK constraints on shift_cash_transactions (v1360 / ADR-POS-002)
         fk_res = await session.execute(text("""
