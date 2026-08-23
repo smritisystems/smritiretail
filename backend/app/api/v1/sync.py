@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..deps import get_db, get_tenant_context, TenantContext
+from ...api.deps import get_company_db, get_tenant_context, TenantContext
 from ...services.offline_sync_service import OfflineSyncService
 
 router = APIRouter()
@@ -26,23 +26,25 @@ router = APIRouter()
 class SyncBatchRequest(BaseModel):
     batch_id: str
     transactions: List[Dict[str, Any]]
+    terminal_id: str = "POS-01"
 
 
 @router.post("/push")
 async def push_offline_sync_batch(
     req: SyncBatchRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """
-    Ingests and processes a batch of offline transactions from a POS terminal.
-    Guarantees deduplication and atomic ledger commits.
+    Ingests and processes a batch of offline transactions from a POS terminal into the tenant database.
+    Guarantees durable queue persistence, deduplication, and atomic ledger commits.
     """
     result = await OfflineSyncService.process_sync_batch(
         session=db,
         company_id=tenant_ctx.company_id,
         branch_id=tenant_ctx.branch_id,
         batch_id=req.batch_id,
-        transactions=req.transactions
+        transactions=req.transactions,
+        terminal_id=req.terminal_id
     )
     return result

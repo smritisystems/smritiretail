@@ -28,6 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.22.0] - 2026-08-23
+
+#### Enterprise Blueprint Delivery — Sections 9 & 10 (PSV, CGE, PDT, and Durable Offline Sync Queue)
+- **Durable Tenant-Local Offline Sync Queue (`v1366`, `sync.py`, `offline_sync_service.py`)**:
+  - Implemented `pos_offline_sync_queue` table in all tenant databases via forward-only migration `v1366_cge_pdt_offline_sync.py`.
+  - Upgraded `/api/v1/sync/push` and `/api/v1/cge/*` routes to route through `get_company_db`, ensuring offline transactions and CGE records are persisted authoritatively in tenant-isolated databases.
+  - Implemented durable ingestion state machine (`PENDING` -> `COMMITTED` / `ALREADY_PROCESSED` / `FAILED`) with automatic exception capture and retry counting.
+- **Commercial Growth Engine (CGE) Enhancements (`commercial_growth_service.py`, `cge.py`)**:
+  - Implemented multi-tier loyalty progression, lifetime spend tracking, points accrual multiplier calculation, and coupon validation caps.
+  - Added referral reward ledger and universal salesperson/agent commission posting.
+- **Predictive Distribution Twin (PDT) Core (`pdt_analytics_service.py`)**:
+  - Implemented deterministic PostgreSQL transactional running velocity, days-of-stock-cover projections, and reorder point simulations derived from `stock_movements`.
+  - Enriched analytics payload with model version metadata (`v1.0.0-deterministic-sql`), data freshness tracking, dynamic confidence scores, and formula explainability.
+- **Partner Stock Visibility (PSV) Integration (`psv_projection_service.py`)**:
+  - Implemented partner stock projection service, audit events, and ledger balances across vendor and franchise nodes.
+- **Test Harness and Migration Verification**:
+  - Expanded master regression suite to 79 tests (100% pass across all 12 suites).
+  - Verified clean-slate ephemeral tenant database harness on `v1366` migration head.
+
 ### [6.16.0] - 2026-08-23
 
 #### ProPOS & Accounting — Physical Denominations, Mid-Shift Cash Movements, Concurrency & Multi-Tenant Routing Hardening

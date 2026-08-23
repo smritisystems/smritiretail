@@ -175,3 +175,8 @@ from .distribution import (
     DistributionOrder,
     DistributionOrderItem,
 )
+
+# Offline Synchronization Models (Section 10)
+from .sync import (
+    POSOfflineSyncQueue,
+)

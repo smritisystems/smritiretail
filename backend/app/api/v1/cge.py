@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..deps import get_db, get_tenant_context, TenantContext
+from ...api.deps import get_company_db, get_tenant_context, TenantContext
 from ...services.commercial_growth_service import CommercialGrowthEngine
 from ...services.pdt_analytics_service import PdtAnalyticsService
 
@@ -46,10 +46,10 @@ class SkuVelocityRequest(BaseModel):
 async def enroll_loyalty_member(
     customer_id: str = Query(...),
     card_number: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Enrolls or fetches a customer loyalty member."""
+    """Enrolls or fetches a customer loyalty member in the tenant database."""
     member = await CommercialGrowthEngine.get_or_create_loyalty_member(
         session=db,
         company_id=tenant_ctx.company_id,
@@ -71,7 +71,7 @@ async def enroll_loyalty_member(
 @router.post("/loyalty/evaluate-points")
 async def evaluate_loyalty_points(
     req: EvaluateLoyaltyRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Calculates points to earn on spend."""
@@ -91,10 +91,10 @@ async def evaluate_loyalty_points(
 @router.post("/promotions/validate-coupon")
 async def validate_promotional_coupon(
     req: ValidateCouponRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Validates coupon code against active campaign rules."""
+    """Validates coupon code against active campaign rules in the tenant database."""
     res = await CommercialGrowthEngine.validate_and_evaluate_coupon(
         session=db,
         company_id=tenant_ctx.company_id,
@@ -110,7 +110,7 @@ async def get_sku_velocity_and_cover(
     sku: str,
     lookback_days: int = 30,
     lead_time_days: int = 7,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Computes deterministic inventory velocity and replenishment reorder recommendation."""
