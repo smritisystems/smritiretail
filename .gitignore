@@ -76,6 +76,7 @@ pytest_pie_failure.txt
 failing_test_run.txt
 repo_commit_check.txt
 repo_commit_files.txt
+commit_files.txt
 frontend_backend_route_audit.json
 frontend_backend_route_audit2.json
 *audit.txt
@@ -84,6 +85,15 @@ frontend_backend_route_audit2.json
 *.bak
 desktop.ini
 served_bundle.js
+served_*.tsx
+.git_*.txt
+.pytest_cache/
+backend/.pytest_cache/
+.ruff_cache/
+backend/.ruff_cache/
+.mypy_cache/
+backend/.mypy_cache/
+coverage/
 
 # Local MCP Configurations with API Keys
 .agents/mcp_config.json
