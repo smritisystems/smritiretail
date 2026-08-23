@@ -72,6 +72,7 @@ from .api.v1 import (
     terms,
     training,
     ui_control_plane,
+    universal_master,
     users,
     wms,
     workflow,
@@ -167,6 +168,7 @@ app.include_router(accounting.router,       prefix=settings.API_V1_STR + "/accou
 app.include_router(reference_data.router,    prefix=settings.API_V1_STR, tags=["Global Reference Data & Localization"])
 app.include_router(capability_registry.router, prefix=settings.API_V1_STR, tags=["Capability & Module Registry"])
 app.include_router(governed_logic.router, prefix=settings.API_V1_STR + "/governed-logic", tags=["Governed Logic & Reproducibility"])
+app.include_router(universal_master.router, prefix=settings.API_V1_STR + "/universal", tags=["Universal Party & Item Master"])
 
 
 
