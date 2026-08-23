@@ -114,3 +114,13 @@ TT/**
 !TT/logo/**
 *.pdf
 *.csv
+
+# Security, Certificates & Cryptographic Keys (NEVER COMMIT)
+backend/app/certs/
+certs/
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+
