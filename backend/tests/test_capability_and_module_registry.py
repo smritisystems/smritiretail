@@ -130,3 +130,38 @@ def test_api_capability_endpoints(client):
     rdata = res_res.json()
     assert "POS" in rdata["active_capabilities"]
     assert rdata["is_valid"] is True
+
+
+@pytest.mark.asyncio
+async def test_database_backed_capability_and_reference_seeding():
+    """Verify that SmritiSys database contains all 26 seeded capabilities with dependency metadata."""
+    from sqlalchemy import select
+    from app.db.session import get_company_sessionmaker
+    from app.models.capability_template import PlatformCapability
+    from app.models.localization import CountryRef, StateRef, CurrencyRef, UnitOfMeasurementRef
+
+    sessionmaker = get_company_sessionmaker("smritisys")
+    async with sessionmaker() as session:
+        # Verify 26 capabilities present in DB
+        res = await session.execute(select(PlatformCapability))
+        caps = res.scalars().all()
+        assert len(caps) >= 26
+
+        pos_cap = next((c for c in caps if c.code == "POS"), None)
+        assert pos_cap is not None
+        assert "INVENTORY" in pos_cap.dependencies
+        assert "SALES" in pos_cap.dependencies
+        assert "ACCOUNTING" in pos_cap.dependencies
+
+        # Verify countries, states, currencies, UOMs present in DB
+        countries = (await session.execute(select(CountryRef))).scalars().all()
+        assert len(countries) >= 8
+
+        states = (await session.execute(select(StateRef))).scalars().all()
+        assert len(states) >= 10
+
+        currencies = (await session.execute(select(CurrencyRef))).scalars().all()
+        assert len(currencies) >= 6
+
+        uoms = (await session.execute(select(UnitOfMeasurementRef))).scalars().all()
+        assert len(uoms) >= 10

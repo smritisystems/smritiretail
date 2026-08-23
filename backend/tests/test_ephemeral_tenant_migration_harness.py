@@ -100,7 +100,7 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         # Check alembic revision is at latest head
         rev_res = await session.execute(text("SELECT version_num FROM alembic_version;"))
         rev = rev_res.scalar()
-        assert rev == "v1361_global_reference_data"
+        assert rev == "v1362_platform_capabilities"
 
         # Verify database-level FK constraints on shift_cash_transactions (v1360 / ADR-POS-002)
         fk_res = await session.execute(text("""
