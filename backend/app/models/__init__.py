@@ -28,6 +28,8 @@ from .user_assignment import UserCompanyAssignment, UserBranchAssignment, UserSt
 from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment
 from .report_schedule import ReportSchedule
+from .role import Role
+
 
 # CRM, Loyalty Program & Universal Incentive Commission Engine (SICE)
 from .loyalty import LoyaltyTier, LoyaltyRule, LoyaltyMember, LoyaltyPointsLedger

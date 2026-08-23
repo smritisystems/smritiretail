@@ -25,6 +25,8 @@ from ...api.deps import (
     get_company_db, get_tenant_context, TenantContext,
     require_role, require_permission
 )
+from ...models.auth import User, UserRole
+
 from ...models.accounting import (
     Account, JournalVoucher, GeneralLedgerEntry,
     AccountBalanceSnapshot, FiscalYear, FiscalPeriod,
@@ -102,6 +104,7 @@ async def post_journal_voucher(
     req: JournalVoucherCreate,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
     """Post an authoritative balanced double-entry Journal Voucher (Debit == Credit)."""
     lines_data = [l.model_dump() for l in req.lines]
@@ -118,8 +121,9 @@ async def post_journal_voucher(
         reference_doc_id=req.reference_doc_id,
         reference_doc_no=req.reference_doc_no,
         narration=req.narration,
-        created_by="system"
+        created_by=current_user.username or "system"
     )
+
     await db.commit()
     return JournalVoucherResponse.model_validate(voucher)
 
@@ -152,6 +156,7 @@ async def import_bank_statement(
     req: BankStatementImportRequest,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
     """Import a bank statement with transaction lines for two-way matching."""
     lines_data = [l.model_dump() for l in req.lines]
@@ -177,6 +182,7 @@ async def auto_reconcile_bank_statement(
     statement_id: str,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
     """Execute automated two-way matching between bank statement lines and GL entries."""
     res = await UnifiedAccountingLedgerService.auto_reconcile_bank_statement(
@@ -211,6 +217,7 @@ async def create_fiscal_year(
     req: FiscalYearCreate,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
     """Initialize a Financial Year and generate 12 monthly Fiscal Periods."""
     fy = await UnifiedAccountingLedgerService.create_fiscal_year_with_periods(
@@ -236,6 +243,7 @@ async def lock_fiscal_period(
     req: FiscalPeriodLockRequest,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
     """Lock or soft-close an accounting period to prevent backdated entries."""
     fp = await UnifiedAccountingLedgerService.lock_fiscal_period(
@@ -243,7 +251,7 @@ async def lock_fiscal_period(
         company_id=tenant_ctx.company_id,
         period_id=period_id,
         lock_status=req.lock_status,
-        closed_by=req.closed_by or "admin"
+        closed_by=req.closed_by or current_user.username or "admin"
     )
     await db.commit()
 
@@ -260,6 +268,7 @@ async def generate_balance_snapshots(
     req: BalanceSnapshotRequest,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
     """Calculate and persist closing balance snapshots as of a target date."""
     snapshots = await UnifiedAccountingLedgerService.generate_period_balance_snapshot(
@@ -282,6 +291,7 @@ async def set_currency_exchange_rate(
     req: CurrencyExchangeRateCreate,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
     """Upsert an authoritative currency exchange rate."""
     rate_obj = await UnifiedAccountingLedgerService.set_exchange_rate(
@@ -329,6 +339,7 @@ async def post_unrealized_fx_revaluation(
     req: UnrealizedRevaluationRequest,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
     """Execute Mark-to-Market (MTM) periodic revaluation of open foreign party balances."""
     res = await UnifiedAccountingLedgerService.calculate_unrealized_fx_revaluation(
@@ -337,8 +348,9 @@ async def post_unrealized_fx_revaluation(
         branch_id=tenant_ctx.branch_id,
         as_of_date=req.as_of_date,
         closing_rates=req.closing_rates,
-        created_by="api_mtm_runner"
+        created_by=current_user.username or "api_mtm_runner"
     )
     await db.commit()
     return UnrealizedRevaluationResponse(**res)
+
 

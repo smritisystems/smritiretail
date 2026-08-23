@@ -288,9 +288,22 @@ class POSService:
         shift.closing_notes    = req.closing_notes
         shift.modified_at      = datetime.now(timezone.utc)
 
+        await self.db.flush()
+
+        # Trigger automated double-entry GL balancing voucher for shift close variance
+        from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
+        await UnifiedAccountingLedgerService.post_shift_close_to_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            shift_id=shift.id,
+            branch_id=self.tenant.branch_id,
+            created_by=requesting_user_id
+        )
+
         await self.db.commit()
         await self.db.refresh(shift)
         return shift
+
 
     # ──────────────────────────────────────────────────────────────
     # Shift — queries
@@ -325,6 +338,47 @@ class POSService:
                        "Please open a shift before processing sales.",
             )
         return shift
+
+    async def get_z_report(self, shift_id: str) -> dict:
+        """
+        Generate authoritative Z-Report data for a shift, including sales breakdown,
+        cash tender reconciliation, and linked General Ledger balancing voucher.
+        """
+        shift = await self.get_shift(shift_id)
+
+        # Look up linked GL journal voucher if any
+        from ..models.accounting import JournalVoucher
+        stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == self.tenant.company_id,
+            JournalVoucher.reference_doc_type == "POS_SHIFT",
+            JournalVoucher.reference_doc_id == shift.id,
+            JournalVoucher.is_deleted == False
+        )
+        voucher = (await self.db.execute(stmt)).scalar_one_or_none()
+
+        return {
+            "shift_id": shift.id,
+            "register_id": shift.register_id,
+            "cashier_id": shift.cashier_id,
+            "status": shift.status,
+            "opened_at": shift.opened_at,
+            "closed_at": shift.closed_at,
+            "opening_balance": shift.opening_balance,
+            "cash_sales_total": shift.cash_sales_total,
+            "card_sales_total": shift.card_sales_total,
+            "upi_sales_total": shift.upi_sales_total,
+            "total_sales": shift.total_sales,
+            "total_invoices": int(shift.total_invoices or 0),
+            "expected_cash": shift.expected_cash or shift.opening_balance,
+            "closing_balance": shift.closing_balance or Decimal("0.00"),
+            "variance": shift.variance or Decimal("0.00"),
+            "closing_notes": shift.closing_notes,
+            "gl_voucher_id": voucher.id if voucher else None,
+            "gl_voucher_no": voucher.voucher_no if voucher else None,
+            "company_id": shift.company_id,
+            "branch_id": shift.branch_id
+        }
+
 
     # ───────────────────────────────────────────────────────────────
     # POS Checkout  (Phase 1 — replaces Express in-memory bills[])

@@ -288,14 +288,15 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop tables added by this migration in reverse dependency order."""
-    op.execute("DROP TABLE IF EXISTS sync_queue")
-    op.execute("DROP TABLE IF EXISTS audit_logs")
-    op.execute("DROP TABLE IF EXISTS psv_sku_tracking")
-    op.execute("DROP TABLE IF EXISTS psv_parties")
-    op.execute("DROP TABLE IF EXISTS sales_invoice_items")
-    op.execute("DROP TABLE IF EXISTS sales_invoices")
-    op.execute("DROP TABLE IF EXISTS legacy_pos_shifts")
-    op.execute("DROP TABLE IF EXISTS pos_profiles")
-    op.execute("DROP TABLE IF EXISTS products")
-    op.execute("DROP TABLE IF EXISTS customers")
-    op.execute("DROP TABLE IF EXISTS customer_groups")
+    op.execute("DROP TABLE IF EXISTS sync_queue CASCADE;")
+    op.execute("DROP TABLE IF EXISTS audit_logs CASCADE;")
+    op.execute("DROP TABLE IF EXISTS psv_sku_tracking CASCADE;")
+    op.execute("DROP TABLE IF EXISTS psv_parties CASCADE;")
+    op.execute("DROP TABLE IF EXISTS sales_invoice_items CASCADE;")
+    op.execute("DROP TABLE IF EXISTS sales_invoices CASCADE;")
+    op.execute("DROP TABLE IF EXISTS legacy_pos_shifts CASCADE;")
+    op.execute("DROP TABLE IF EXISTS pos_profiles CASCADE;")
+    op.execute("DROP TABLE IF EXISTS products CASCADE;")
+    op.execute("DROP TABLE IF EXISTS customers CASCADE;")
+    op.execute("DROP TABLE IF EXISTS customer_groups CASCADE;")
+

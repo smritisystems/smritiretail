@@ -137,8 +137,27 @@ def include_object(object, name, type_, reflected, compare_to):
             "stock_audits",
             "stock_audit_items",
             "eway_bills",
+            "pricing_rules",
+            "price_books",
+            "price_book_entries",
+            "payment_transactions",
+            "approval_rules",
+            "approval_requests",
+            "communication_templates",
+            "communication_dispatches",
+            "integration_outbox_events",
+            "accounts",
+            "journal_vouchers",
+            "general_ledger_entries",
+            "account_balance_snapshots",
+            "fiscal_years",
+            "fiscal_periods",
+            "bank_statements",
+            "bank_statement_lines",
+            "currency_exchange_rates",
         ]
     return True
+
 
 
 def get_target_db_url() -> str:

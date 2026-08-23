@@ -105,7 +105,32 @@ class ShiftResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class POSZReportResponse(BaseModel):
+    shift_id:         str
+    register_id:      str
+    cashier_id:       str
+    status:           str
+    opened_at:        datetime
+    closed_at:        Optional[datetime] = None
+    opening_balance:  Decimal
+    cash_sales_total: Decimal
+    card_sales_total: Decimal
+    upi_sales_total:  Decimal
+    total_sales:      Decimal
+    total_invoices:   int
+    expected_cash:    Decimal
+    closing_balance:  Decimal
+    variance:         Decimal
+    closing_notes:    Optional[str] = None
+    gl_voucher_id:    Optional[str] = None
+    gl_voucher_no:    Optional[str] = None
+    company_id:       Optional[str] = None
+    branch_id:        Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
 # ─────────────────────────── POS Checkout ───────────────────────────
+
 
 class POSCheckoutItem(BaseModel):
     """
