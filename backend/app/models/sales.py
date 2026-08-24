@@ -74,8 +74,19 @@ class SalesInvoice(BaseEntity):
     signed_qr_payload       = Column(Text)
     warehouse_id            = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=True)
 
+    # v1373 -- Sprint 14/15: Salesperson, Terminal, Payment extension
+    salesperson_id   = Column(String(50),    nullable=True, index=True)
+    salesperson_name = Column(String(255),   nullable=True)
+    terminal_id      = Column(String(50),    nullable=True, index=True)
+    counter_id       = Column(String(50),    nullable=True)
+    paid_amount      = Column(Numeric(15, 2), nullable=False, server_default=text("0"), default=0.00)
+    balance_amount   = Column(Numeric(15, 2), nullable=False, server_default=text("0"), default=0.00)
+    discount_amount  = Column(Numeric(15, 2), nullable=False, server_default=text("0"), default=0.00)
+    net_amount       = Column(Numeric(15, 2), nullable=False, server_default=text("0"), default=0.00)
+
     # Relationships
     items = relationship("SalesInvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+
 
 
 class SalesInvoiceItem(Base):
