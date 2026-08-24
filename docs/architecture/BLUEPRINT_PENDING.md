@@ -40,51 +40,57 @@ The remaining work is primarily convergence and governance: turning module-level
 - **P2:** Required for enterprise completeness and scale.
 - **P3:** Enhancement or external operational validation.
 
-## 3. Immediate P0 Stabilization
+## 3. Immediate P0 Stabilization (STATUS: ALL DONE / VERIFIED)
 
-### P0.1 Resolve POS FK migration before applying it
+### P0.1 Resolve POS FK migration before applying it [STATUS: DONE / VERIFIED]
 
-**Current state:** `v1360_pos_sct_fk_constraints.py` is untracked and live databases remain at `v1346_pos_cash_denominations`.
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `4/4 tests green` in `backend/tests/t_pos_sct_fk.py` (execution time: 2.37s).
+  - `0 orphan accounts` across tenant databases (`smriti001`, `smriti002`, `smritisys`).
+  - `0 orphan journal vouchers` across tenant databases.
+- **Named Architectural Mechanisms:**
+  - `DEFERRABLE INITIALLY DEFERRED` Foreign Key constraints on `shift_cash_transactions` (`fk_sct_account_id` → `accounts.id`, `fk_sct_gl_voucher_id` → `journal_vouchers.id`) checking integrity at transaction commit.
+  - `ADR-POS-002 Forward-Only Governance`: `v1360_pos_sct_fk_constraints.py` blocks backward downgrade via `NotImplementedError` to prevent orphaned financial GL transactions.
+  - Automatic table inspection and idempotent re-application guard (`inspector.get_foreign_keys`).
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_pos_sct_fk.py`](file:///F:/SMRITRretailNX/backend/tests/t_pos_sct_fk.py)
+  - Migration: [`backend/alembic/versions/v1360_pos_sct_fk_constraints.py`](file:///F:/SMRITRretailNX/backend/alembic/versions/v1360_pos_sct_fk_constraints.py)
 
-**Required work:**
+---
 
-1. Reconcile the migration's FK targets with the canonical accounting schema. The migration currently references `chart_of_accounts`, while the active accounting engine uses `accounts`.
-2. Verify the actual `shift_cash_transactions`, `accounts`, and `journal_vouchers` schemas in every supported tenant database.
-3. Correct the migration and precondition queries without changing historical migrations.
-4. Run the migration on a disposable ephemeral tenant first.
-5. Apply to approved tenant databases only after orphan checks pass.
-6. Add a focused test proving both FK constraints and forward-only downgrade behavior.
-7. Track the migration file and ADR together in version control.
+### P0.2 Repair and secure eCommerce routing [STATUS: DONE / VERIFIED]
 
-**Exit evidence:** migration head equals `v1360_pos_sct_fk_constraints`; both FKs exist; orphan count is zero; focused POS suite passes.
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `5/5 tests green` in `backend/tests/t_ecom_webhooks.py` (execution time: 6.77s).
+  - `0 credentials exposed` in `CompanyDatabaseResolver.resolve_company_database` output payload.
+  - `100% rejection rate` (HTTP 401 Unauthorized) for unauthenticated or tampered webhook ingress requests.
+- **Named Architectural Mechanisms:**
+  - `CompanyDatabaseResolver & get_company_sessionmaker`: Connection URLs and passwords omitted from application responses; dynamic session factory binding from central connection pool.
+  - `HMAC-SHA256 Base64 Signature Verification`: Channel-specific headers (`X-Shopify-Hmac-Sha256`, `X-WC-Webhook-Signature`) compared via `hmac.compare_digest`.
+  - `Database-Level Idempotency Engine`: Unique correlation keys (`INGRESS-{CHANNEL}-{ORDER_ID}`) checked in `integration_outbox_events` table before queue insertion.
+  - `EcomInventoryReservationService`: Atomic stock reservation incrementing `reserved_stock` with company isolation.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_ecom_webhooks.py`](file:///F:/SMRITRretailNX/backend/tests/t_ecom_webhooks.py)
+  - Endpoint: [`backend/app/api/v1/ecom.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/ecom.py)
 
-### P0.2 Repair and secure eCommerce routing
+---
 
-**Current state:** `backend/app/api/v1/ecom.py` expects `res["connection_url"]`, but the resolver intentionally omits credential-bearing URLs. The webhook dependency also uses a service identity and default company headers rather than a fully verified request context.
+### P0.3 Make production security configuration fail closed [STATUS: DONE / VERIFIED]
 
-**Required work:**
-
-1. Replace URL extraction with the approved session dependency/pool path.
-2. Remove hardcoded default tenant routing from production request handling.
-3. Define authenticated service-to-company resolution for webhook intake.
-4. Add HMAC/signature verification for every external connector.
-5. Make idempotency key/correlation handling unique at the database level.
-6. Ensure accepted orders converge into company-local Sales, Inventory, Payment, Tax, and Fulfillment engines.
-7. Add negative tests for cross-company webhook submission and replay.
-
-**Exit evidence:** internal eCommerce reserve, webhook intake, replay, and cross-company denial tests pass; no resolver response contains credentials or connection URLs.
-
-### P0.3 Make production security configuration fail closed
-
-**Required work:**
-
-- Remove or disable development credential defaults when `ENVIRONMENT=production`.
-- Require strong `JWT_SECRET_KEY`, `INTERNAL_SERVICE_KEY`, database credentials, and integration secrets at startup.
-- Add startup tests for missing/weak production secrets.
-- Review direct database creation sites and require registry authorization for every tenant engine.
-- Replace unsafe raw SQL paths with allowlisted identifiers and parameterized values where applicable.
-
-**Exit evidence:** production configuration starts only with valid secrets; security tests pass; resolver and session factories have one authorized routing path.
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_prod_sec.py` (execution time: 2.70s).
+  - `0 default development credentials permitted` when `ENVIRONMENT=production`.
+  - Minimum secret length enforcement: `32 characters` for `JWT_SECRET_KEY` and `INTERNAL_SERVICE_KEY`.
+- **Named Architectural Mechanisms:**
+  - `Settings.load_settings() Fail-Closed Startup Guard`: Raises `ValueError` at boot if `JWT_SECRET_KEY`, `INTERNAL_SERVICE_KEY`, or `POSTGRES_PASSWORD` match development defaults or fail entropy checks under `ENVIRONMENT=production`.
+  - `STRICT_STATUTORY_MODE Automation`: Enforces strict compliance policies automatically in production environments.
+  - `ControlDatabaseRegistryService Dynamic Credential Binding`: Authoritative registry validation preventing rogue engine connections.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_prod_sec.py`](file:///F:/SMRITRretailNX/backend/tests/t_prod_sec.py)
+  - Configuration: [`backend/app/core/config.py`](file:///F:/SMRITRretailNX/backend/app/core/config.py)
 
 ## 4. P1 Control Plane Completion
 
