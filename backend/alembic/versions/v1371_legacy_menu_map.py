@@ -38,7 +38,7 @@ import sqlalchemy as sa
 
 # revision identifiers -- must stay <= 32 chars
 revision = "v1371_legacy_menu_map"
-down_revision = "v1370_tenant_capability_binding_status"
+down_revision = "v1370_tcb_status"
 branch_labels = None
 depends_on = None
 
