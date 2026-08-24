@@ -408,3 +408,266 @@ async def advance_receipt_status(
         "total_pending":   float(total_received - total_adjusted),
         "lines":           lines,
     }
+
+# ---------------------------------------------------------------------------
+# RPT-FIN-006: Reconciliation Report  (Shoper9: SR239600.EXE MnuNo 460/469)
+# GET /api/v1/finance/reconciliation
+# ---------------------------------------------------------------------------
+
+@router.get("/reconciliation")
+async def reconciliation_report(
+    from_date: Optional[date] = Query(default=None),
+    to_date:   Optional[date] = Query(default=None),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    RPT-FIN-006 -- Reconciliation Report (Shoper9: SR239600.EXE MnuNo 460/469).
+    Compares expected cash (from sales) vs actual declared cash per shift/counter.
+    """
+    date_clause = _build_date_clause(from_date, to_date)
+    _, params = _tenant_clauses(tenant)
+    sql = f"""
+        SELECT id,
+               COALESCE(counter_id, 'MAIN') AS counter,
+               opening_balance,
+               COALESCE(cash_in_hand, 0)    AS declared_cash,
+               COALESCE(total_sales, 0)     AS total_sales,
+               COALESCE(total_returns, 0)   AS total_returns,
+               status, created_at
+        FROM pos_shifts
+        WHERE is_deleted = false
+          {(' AND company_id = :company_id' if tenant and tenant.company_id else '')}
+          {date_clause}
+        ORDER BY created_at DESC LIMIT 200
+    """
+    try:
+        rows = (await db.execute(text(sql), params)).fetchall()
+        lines = [
+            {
+                "shift_id":        r[0],
+                "counter":         r[1],
+                "opening_balance": float(r[2] or 0),
+                "declared_cash":   float(r[3] or 0),
+                "total_sales":     float(r[4] or 0),
+                "total_returns":   float(r[5] or 0),
+                "expected_cash":   float((r[2] or 0) + (r[4] or 0) - (r[5] or 0)),
+                "variance":        float((r[3] or 0) - ((r[2] or 0) + (r[4] or 0) - (r[5] or 0))),
+                "status":          r[6] or "",
+                "date":            str(r[7])[:10] if r[7] else "",
+            }
+            for r in rows
+        ]
+    except Exception:
+        lines = []
+    return {
+        "report_id":      "RPT-FIN-006",
+        "sh9_exe":        "SR239600",
+        "from_date":      str(from_date or ""),
+        "to_date":        str(to_date or ""),
+        "generated_at":   datetime.now(timezone.utc).isoformat(),
+        "total_shifts":   len(lines),
+        "total_variance": round(sum(l["variance"] for l in lines), 2),
+        "lines":          lines,
+    }
+
+
+# ---------------------------------------------------------------------------
+# RPT-FIN-007: Till Status Report  (Shoper9: SR239600.EXE MnuNo 460/470)
+# GET /api/v1/finance/till-status
+# ---------------------------------------------------------------------------
+
+@router.get("/till-status")
+async def till_status(
+    as_on_date: Optional[date] = Query(default=None),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    RPT-FIN-007 -- Till Status Report (Shoper9: SR239600.EXE MnuNo 460/470).
+    Current open-shift status per till/counter.
+    """
+    params: Dict[str, Any] = {}
+    cmp_clause = ""
+    if tenant and tenant.company_id:
+        cmp_clause = "AND company_id = :company_id"
+        params["company_id"] = tenant.company_id
+    as_on = as_on_date or date.today()
+    params["as_on"] = as_on
+    sql = f"""
+        SELECT id, COALESCE(counter_id, 'MAIN') AS counter,
+               COALESCE(cashier_name, cashier_id, 'Unknown') AS cashier,
+               opening_balance,
+               COALESCE(cash_in_hand, opening_balance, 0) AS cash_in_hand,
+               status, created_at
+        FROM pos_shifts
+        WHERE is_deleted = false AND status IN ('OPEN', 'ACTIVE')
+          {cmp_clause}
+          AND DATE(created_at) = :as_on
+        ORDER BY created_at DESC
+    """
+    try:
+        rows = (await db.execute(text(sql), params)).fetchall()
+        lines = [
+            {
+                "shift_id":        r[0],
+                "counter":         r[1],
+                "cashier":         r[2],
+                "opening_balance": float(r[3] or 0),
+                "cash_in_hand":    float(r[4] or 0),
+                "status":          r[5] or "",
+                "opened_at":       str(r[6])[:19] if r[6] else "",
+            }
+            for r in rows
+        ]
+    except Exception:
+        lines = []
+    return {
+        "report_id":          "RPT-FIN-007",
+        "sh9_exe":            "SR239600",
+        "as_on_date":         str(as_on),
+        "generated_at":       datetime.now(timezone.utc).isoformat(),
+        "open_tills":         len(lines),
+        "total_cash_in_hand": round(sum(l["cash_in_hand"] for l in lines), 2),
+        "lines":              lines,
+    }
+
+
+# ---------------------------------------------------------------------------
+# RPT-FIN-008: Till Activity Log  (Shoper9: SR240400.EXE MnuNo 460/471)
+# GET /api/v1/finance/till-activity
+# ---------------------------------------------------------------------------
+
+@router.get("/till-activity")
+async def till_activity_log(
+    from_date:  Optional[date] = Query(default=None),
+    to_date:    Optional[date] = Query(default=None),
+    counter_id: Optional[str]  = Query(default=None),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    RPT-FIN-008 -- Till Activity Log (Shoper9: SR240400.EXE MnuNo 460/471).
+    Chronological log of all till shift events.
+    """
+    date_clause = _build_date_clause(from_date, to_date)
+    _, params = _tenant_clauses(tenant)
+    counter_clause = ""
+    if counter_id:
+        counter_clause = "AND counter_id = :counter_id"
+        params["counter_id"] = counter_id
+    sql = f"""
+        SELECT id, COALESCE(counter_id,'MAIN') AS counter,
+               COALESCE(cashier_name, cashier_id) AS cashier,
+               status, opening_balance,
+               COALESCE(cash_in_hand, 0) AS cash_in_hand,
+               COALESCE(total_sales, 0)  AS total_sales,
+               created_at, modified_at
+        FROM pos_shifts
+        WHERE is_deleted = false
+          {(' AND company_id = :company_id' if tenant and tenant.company_id else '')}
+          {date_clause} {counter_clause}
+        ORDER BY created_at DESC LIMIT 500
+    """
+    try:
+        rows = (await db.execute(text(sql), params)).fetchall()
+        lines = [
+            {
+                "shift_id":        r[0],
+                "counter":         r[1],
+                "cashier":         r[2] or "",
+                "event":           r[3] or "",
+                "opening_balance": float(r[4] or 0),
+                "cash_in_hand":    float(r[5] or 0),
+                "total_sales":     float(r[6] or 0),
+                "opened_at":       str(r[7])[:19] if r[7] else "",
+                "closed_at":       str(r[8])[:19] if r[8] else "",
+            }
+            for r in rows
+        ]
+    except Exception:
+        lines = []
+    return {
+        "report_id":    "RPT-FIN-008",
+        "sh9_exe":      "SR240400",
+        "from_date":    str(from_date or ""),
+        "to_date":      str(to_date or ""),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "total_events": len(lines),
+        "lines":        lines,
+    }
+
+
+# ---------------------------------------------------------------------------
+# RPT-FIN-009: Credit Sale Report  (Shoper9: SR242900.EXE MnuNo 460/4702)
+# GET /api/v1/finance/credit-sale
+# ---------------------------------------------------------------------------
+
+@router.get("/credit-sale")
+async def credit_sale_report(
+    from_date:    Optional[date] = Query(default=None),
+    to_date:      Optional[date] = Query(default=None),
+    overdue_only: bool = Query(default=False),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    RPT-FIN-009 -- Credit Sale Report (Shoper9: SR242900.EXE MnuNo 460/4702).
+    SalesInvoices with payment_mode=CREDIT â€” outstanding balances and due dates.
+    """
+    date_clause = _build_date_clause(from_date, to_date)
+    _, params = _tenant_clauses(tenant)
+    sql = f"""
+        SELECT id, invoice_number,
+               COALESCE(customer_name, 'Walk-in') AS customer,
+               customer_id,
+               COALESCE(net_amount, 0)            AS net_amount,
+               COALESCE(paid_amount, 0)           AS paid_amount,
+               COALESCE(net_amount, 0) - COALESCE(paid_amount, 0) AS balance,
+               COALESCE(due_date, created_at + INTERVAL '30 days') AS due_date,
+               created_at, status
+        FROM sales_invoices
+        WHERE is_deleted = false AND payment_mode = 'CREDIT'
+          AND status NOT IN ('CANCELLED')
+          {(' AND company_id = :company_id' if tenant and tenant.company_id else '')}
+          {date_clause}
+        ORDER BY due_date ASC LIMIT 500
+    """
+    try:
+        rows = (await db.execute(text(sql), params)).fetchall()
+        today = date.today()
+        lines = []
+        for r in rows:
+            is_overdue = (hasattr(r[7], 'date') and r[7].date() < today)
+            if overdue_only and not is_overdue:
+                continue
+            lines.append({
+                "invoice_id":     r[0],
+                "invoice_number": r[1] or r[0],
+                "customer":       r[2],
+                "customer_id":    r[3] or "",
+                "net_amount":     float(r[4] or 0),
+                "paid_amount":    float(r[5] or 0),
+                "balance":        float(r[6] or 0),
+                "due_date":       str(r[7])[:10] if r[7] else "",
+                "invoice_date":   str(r[8])[:10] if r[8] else "",
+                "status":         r[9] or "",
+                "overdue":        is_overdue,
+            })
+    except Exception:
+        lines = []
+    return {
+        "report_id":         "RPT-FIN-009",
+        "sh9_exe":           "SR242900",
+        "from_date":         str(from_date or ""),
+        "to_date":           str(to_date or ""),
+        "generated_at":      datetime.now(timezone.utc).isoformat(),
+        "total_invoices":    len(lines),
+        "total_outstanding": round(sum(l["balance"] for l in lines), 2),
+        "overdue_count":     sum(1 for l in lines if l["overdue"]),
+        "lines":             lines,
+    }

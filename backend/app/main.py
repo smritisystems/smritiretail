@@ -74,6 +74,7 @@ from .api.v1 import (
     reports,
     roles,
     sales,
+    sales_reports,
     security,
     supplier_payment,
     sync,
@@ -143,9 +144,10 @@ app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inve
 app.include_router(inventory_reports.router, prefix=settings.API_V1_STR,                          tags=["Inventory Reports"])
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
 app.include_router(crm.router,       prefix=settings.API_V1_STR + "/crm",          tags=["CRM"])
-app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated — remove at v3.20.0
-app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Contract URL (Phase 4A)
-app.include_router(sales.router,     prefix=settings.API_V1_STR + "/tattly",         tags=["Tattly Invoices"])
+app.include_router(sales.router,         prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated -- remove at v3.20.0
+app.include_router(sales.router,         prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Contract URL (Phase 4A)
+app.include_router(sales.router,         prefix=settings.API_V1_STR + "/tattly",         tags=["Tattly Invoices"])
+app.include_router(sales_reports.router, prefix=settings.API_V1_STR,                     tags=["Sales Reports"])
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Deprecated — remove at v3.20.0
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Contract URL (Phase 4A)
 app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
