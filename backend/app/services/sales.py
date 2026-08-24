@@ -605,7 +605,8 @@ class SalesService:
             status=sr_in.status,
             items=sr_items,
             company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
+            branch_id=self.tenant_ctx.branch_id,
+            customer_id=orig_invoice.customer_id if orig_invoice else None,  # v1374
         )
 
         # Apply stock increments (returned items add back to stock) and record stock movements

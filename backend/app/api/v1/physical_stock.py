@@ -1,4 +1,4 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Repository   : SMRITIRetailNX
 Organization : AITDL NETWORKS
@@ -493,4 +493,92 @@ async def approve_stock_take(
         "status":      "APPROVED",
         "approved_by": approver,
         "approved_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+# ---------------------------------------------------------------------------
+# PHY-006: Update a single count line (counted_qty, notes)
+# PATCH /api/v1/physical-stock/sessions/{take_id}/lines/{line_id}
+# Sprint 18 -- enables inline counted_qty entry from the React UI
+# ---------------------------------------------------------------------------
+
+class CountLineUpdate(BaseModel):
+    counted_qty: Decimal
+    notes:       Optional[str] = None
+
+@router.patch("/sessions/{take_id}/lines/{line_id}", status_code=200)
+async def update_count_line(
+    take_id:  str,
+    line_id:  str,
+    body:     CountLineUpdate,
+    tenant:   TenantContext = Depends(get_tenant_context),
+    db:       AsyncSession  = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    PHY-006 -- Update counted_qty (and optional notes) for a single stock count line.
+    Recalculates variance_qty = counted_qty - computed_qty.
+    Session must be OPEN or IN_PROGRESS.
+    """
+    # 1. Guard: session must exist + be open
+    take_row = (await db.execute(text("""
+        SELECT id, status FROM stock_takes
+        WHERE id = :take_id AND is_deleted = false
+    """), {"take_id": take_id})).fetchone()
+
+    if not take_row:
+        raise HTTPException(status_code=404, detail={
+            "code": "SMRITI-DATA-001",
+            "message": f"Stock take session '{take_id}' not found.",
+        })
+    if take_row[1] not in ("OPEN", "IN_PROGRESS"):
+        raise HTTPException(status_code=422, detail={
+            "code": "SMRITI-VAL-001",
+            "message": f"Session is '{take_row[1]}'. Only OPEN or IN_PROGRESS sessions can be edited.",
+            "action": "Reopen the session or create a new count.",
+        })
+
+    # 2. Guard: line must exist in this session
+    line_row = (await db.execute(text("""
+        SELECT id, computed_qty FROM stock_count_lines
+        WHERE id = :line_id AND stock_take_id = :take_id
+    """), {"line_id": line_id, "take_id": take_id})).fetchone()
+
+    if not line_row:
+        raise HTTPException(status_code=404, detail={
+            "code": "SMRITI-DATA-001",
+            "message": f"Count line '{line_id}' not found in session.",
+        })
+
+    computed_qty = Decimal(str(line_row[1] or 0))
+    variance_qty = body.counted_qty - computed_qty
+
+    # 3. Update
+    await db.execute(text("""
+        UPDATE stock_count_lines
+        SET counted_qty   = :counted_qty,
+            variance_qty  = :variance_qty,
+            notes         = COALESCE(:notes, notes),
+            modified_at   = NOW()
+        WHERE id = :line_id
+    """), {
+        "counted_qty":  float(body.counted_qty),
+        "variance_qty": float(variance_qty),
+        "notes":        body.notes,
+        "line_id":      line_id,
+    })
+
+    # 4. Transition session to IN_PROGRESS on first edit
+    if take_row[1] == "OPEN":
+        await db.execute(text("""
+            UPDATE stock_takes SET status = 'IN_PROGRESS', modified_at = NOW()
+            WHERE id = :take_id
+        """), {"take_id": take_id})
+
+    await db.commit()
+
+    return {
+        "id":           line_id,
+        "counted_qty":  float(body.counted_qty),
+        "variance_qty": float(variance_qty),
+        "status":       "IN_PROGRESS" if take_row[1] == "OPEN" else take_row[1],
     }

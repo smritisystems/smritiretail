@@ -1,4 +1,4 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@ Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.18.0
 Created      : 2026-07-11
 Modified     : 2026-08-18
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
+Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
@@ -196,6 +196,7 @@ class SalesReturn(BaseEntity):
     grand_total        = Column(Numeric(15, 2), nullable=False, default=0.00)
     is_interstate      = Column(Boolean, default=False)
     status             = Column(String(20), default="Draft")  # Draft | Submitted | Approved | Cancelled
+    customer_id        = Column(String(50),    nullable=True, index=True)  # v1374: denorm from orig invoice
 
     # Relationships
     items = relationship("SalesReturnItem", back_populates="sales_return", cascade="all, delete-orphan")
