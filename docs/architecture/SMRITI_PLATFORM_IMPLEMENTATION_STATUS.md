@@ -104,6 +104,18 @@ This document is the authoritative implementation tracker for the frozen bluepri
 
 ---
 
+## Milestone 7: Multi-Tenant Sales Contract & Workspace Themes Remediation (2026-08-24)
+
+- **Sales Invoice Contract Suite:** 10/10 tests green (`test_sales_invoice_contract_suite.py`).
+  - **Named Mechanisms:** Multi-tenant connection routing via `resolve_company_database_name()`, fail-closed registration lookup, cross-tenant isolation, FEFO batch stock allocation via `InventoryWmsService.allocate_stock_fefo()`, double-submit idempotency key cache.
+  - **Tenant Database:** `smriti002` provisioned, schema migrated to `v1370_tcb_status (head)`, registered in `smritisys.company_database_registries` as `COMP-002` (`status=READY`).
+  - **Schema Correction:** `SalesInvoiceBase.is_interstate` normalized to `Optional[bool]` to prevent response serialization failures on legacy rows.
+- **Workspace Menu & Themes Suite:** 6/6 tests green (`test_workspace_menu_and_ui_registry.py`).
+  - **Named Mechanisms:** Control Plane `seed_platform_company()` inserts `comp-default` into `smritisys.companies` to satisfy `smriti_themes` FK constraint; persona profile resolution for `CASHIER`, `STORE_MANAGER`, `ACCOUNTANT`, `SYSADMIN`.
+- **Suite Metrics:** Full suite advanced from 418 passed / 35 failed to **435 passed / 18 failed** across 456 tests. Commit: `a7169c08`.
+
+---
+
 
 All 25 rules verified by source code and migration file inspection on 2026-08-24.
 
