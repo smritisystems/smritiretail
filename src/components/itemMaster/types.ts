@@ -40,7 +40,9 @@ export interface ItemMasterCommonFieldValues {
   status: "active" | "inactive";
   department: string;
   merchandiseCategory: string;
+  hsnCode?: string;  // optional -- used as fallback in ItemEntryView line entry
 }
+
 
 export interface ItemMasterGridRow {
   id: string;

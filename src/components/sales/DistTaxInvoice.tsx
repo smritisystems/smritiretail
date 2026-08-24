@@ -33,8 +33,9 @@ export interface SmritiDistributorTaxInvoiceWorkspaceProps {
 }
 
 const DEFAULT_DOC_STATE: TaxInvoiceDocumentState = {
-  billType: "Product",
-  transactionMode: "Credit",
+  billType: "Tax Invoice",
+  transactionMode: "Tax Invoice",
+
   docPrefix: "D1DS13",
   docNo: "1",
   docDate: new Date().toISOString().split("T")[0],
@@ -285,16 +286,17 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
   // Export Columns definition
   const exportColumns: ExportColumnDefinition[] = useMemo(
     () => [
-      { key: "sNo", header: "S.No", width: 8, alignment: "center", type: "number" },
-      { key: "stockNo", header: "Stock No", width: 16, alignment: "left", type: "text" },
-      { key: "itemDescription", header: "Item Description", width: 28, alignment: "left", type: "text" },
-      { key: "rate", header: "Rate (₹)", width: 12, alignment: "right", type: "currency" },
-      { key: "qty", header: "Qty", width: 10, alignment: "right", type: "number" },
-      { key: "value", header: "Value (₹)", width: 14, alignment: "right", type: "currency" },
-      { key: "discCode", header: "Disc Code", width: 12, alignment: "center", type: "text" },
-      { key: "discAmt", header: "Disc Amt (₹)", width: 12, alignment: "right", type: "currency" },
-      { key: "total", header: "Total (₹)", width: 16, alignment: "right", type: "currency" },
-      { key: "salesStaff", header: "Sales Staff", width: 18, alignment: "left", type: "text" },
+      { key: "sNo", label: "S.No", width: 8, align: "center", datatype: "number" },
+      { key: "stockNo", label: "Stock No", width: 16, align: "left", datatype: "text" },
+      { key: "itemDescription", label: "Item Description", width: 28, align: "left", datatype: "text" },
+      { key: "rate", label: "Rate (₹)", width: 12, align: "right", datatype: "currency" },
+      { key: "qty", label: "Qty", width: 10, align: "right", datatype: "number" },
+      { key: "value", label: "Value (₹)", width: 14, align: "right", datatype: "currency" },
+      { key: "discCode", label: "Disc Code", width: 12, align: "center", datatype: "text" },
+      { key: "discAmt", label: "Disc Amt (₹)", width: 12, align: "right", datatype: "currency" },
+      { key: "total", label: "Total (₹)", width: 16, align: "right", datatype: "currency" },
+      { key: "salesStaff", label: "Sales Staff", width: 18, align: "left", datatype: "text" },
+
     ],
     []
   );

@@ -14,7 +14,8 @@
 
 import { Product } from "../../types.ts";
 
-export type PortType = "USB" | "COM 1" | "COM 2" | "COM 3" | "COM 4" | "LPT 1" | "Network TCP/IP" | "QZ Tray Thermal";
+export type PortType = "USB" | "COM 1" | "COM 2" | "COM 3" | "COM 4" | "LPT 1" | "Network TCP/IP" | "QZ Tray Thermal" | "PRN File Download";
+
 
 export type LabelSourceOption =
   | "Manual Selection"

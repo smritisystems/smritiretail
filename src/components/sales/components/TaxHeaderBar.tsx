@@ -145,10 +145,10 @@ export const TaxHeaderBar: React.FC<TaxHeaderBarolbarProps> = ({
             <ExportButton
               columns={exportColumns}
               data={exportData}
-              filename="Smriti_Distributor_Tax_Invoice"
               moduleTitle="Smriti Distributor Tax Invoice"
-              buttonLabel="Export"
             />
+
+
             <button
               type="button"
               className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
