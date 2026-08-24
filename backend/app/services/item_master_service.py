@@ -60,11 +60,12 @@ class UniversalItemMasterService:
         tax_rate: float = 18.00,
         mrp: float = 0.00,
         selling_price: float = 0.00,
+        buying_price: Optional[float] = None,
         cost_price: float = 0.00,
         primary_barcode: Optional[str] = None,
         primary_uom: str = "PCS",
         item_type: str = "FINISHED_GOOD",
-        hsn_code: Optional[str] = None,
+        hsn_code: str = "64041990",
         brand: Optional[str] = None,
         is_batch_tracked: bool = False,
         variants_data: Optional[List[Dict[str, Any]]] = None,
@@ -74,6 +75,7 @@ class UniversalItemMasterService:
         Creates or updates a canonical Universal Item with variants and barcodes.
         """
         clean_code = item_code.strip().upper()
+        clean_hsn = (hsn_code or "64041990").strip()
         existing = await cls.get_item_by_code(session, clean_code)
 
         if not existing:
@@ -86,11 +88,12 @@ class UniversalItemMasterService:
                 item_type=item_type,
                 category=category,
                 brand=brand,
-                hsn_code=hsn_code,
+                hsn_code=clean_hsn,
                 tax_rate=tax_rate,
                 primary_uom=primary_uom,
                 mrp=mrp,
                 selling_price=selling_price,
+                buying_price=buying_price,
                 cost_price=cost_price,
                 is_batch_tracked=is_batch_tracked,
                 status="ACTIVE",
@@ -106,6 +109,7 @@ class UniversalItemMasterService:
             item.tax_rate = tax_rate
             item.mrp = mrp
             item.selling_price = selling_price
+            item.buying_price = buying_price
             item.cost_price = cost_price
             if hsn_code:
                 item.hsn_code = hsn_code

@@ -156,8 +156,51 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
 
     const dynamicFields = allAvailableFields.filter(f => f.isDynamic);
 
-    for (const item of itemsToSave) {
+    for (let idx = 0; idx < itemsToSave.length; idx++) {
+      const item = itemsToSave[idx];
+      const rowNum = idx + 1;
       try {
+        const code = (item.stockNo || item.code || "").toString().trim();
+        const barcode = (item.barcode || "").toString().trim();
+        const name = (item.product || item.name || item.itemDescription || "").toString().trim();
+        const mrp = parseFloat(item.mrp);
+        const price = parseFloat(item.sellingPrice || item.price);
+        const buyingPrice = parseFloat(item.buyingPrice || item.buying_price || "0");
+        const costPrice = parseFloat(item.costPrice || item.cost_price || "0");
+        const gstRate = parseFloat(String(item.productTax || commonFieldValues.taxRate || "18").replace(/[^0-9.]/g, ""));
+        const hsnCode = (item.hsnCode || commonFieldValues.hsnCode || "").toString().trim();
+
+        const isNonStock = (
+          (item.trackingMode || item.tracking_mode || "").toLowerCase() === "no-stock" ||
+          (item.category || "").toLowerCase() === "services" ||
+          (item.category || "").toLowerCase() === "service" ||
+          (item.category || "").toLowerCase() === "samples" ||
+          (item.category || "").toLowerCase() === "sample" ||
+          (item.pricingMode || "").toLowerCase() === "free"
+        );
+
+        const missing: string[] = [];
+        if (!code) missing.push("Stock No / SKU");
+        if (!barcode) missing.push("Barcode");
+        if (!name) missing.push("Product Name / Title");
+        if (isNaN(mrp) || mrp < 0 || item.mrp === "" || item.mrp === null || item.mrp === undefined) missing.push("MRP");
+        if (isNaN(price) || price < 0 || (item.sellingPrice === "" && item.price === "") || (item.sellingPrice === null && item.price === null)) missing.push("Selling Price");
+        if (isNaN(gstRate) || gstRate < 0) missing.push("GST Tax Rate");
+        if (!hsnCode) missing.push("HSN Code");
+
+        if (!isNonStock) {
+          if (isNaN(buyingPrice) || buyingPrice <= 0) missing.push("Buying Price (> 0)");
+          if (isNaN(costPrice) || costPrice <= 0) missing.push("Cost Price (> 0)");
+          if (!isNaN(mrp) && !isNaN(price) && mrp < price) missing.push(`MRP >= Selling Price (${mrp} < ${price})`);
+          if (!isNaN(costPrice) && !isNaN(buyingPrice) && costPrice > buyingPrice) missing.push(`Cost Price <= Buying Price (${costPrice} > ${buyingPrice})`);
+        }
+
+        if (missing.length > 0) {
+          failureCount++;
+          errors.push(`Row #${rowNum} invalid field(s): ${missing.join(", ")}`);
+          continue;
+        }
+
         const attributesPayload = serializeProductAttributes(item, dynamicDefinitions);
 
         // Enforce validation constraints
@@ -169,20 +212,21 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
         }
 
         const payload = {
-          code: item.stockNo || `SKU-${Date.now().toString(36)}`,
-          name: item.product || item.itemDescription || "Unnamed Product",
-          barcode: item.barcode || item.stockNo || "",
-          price: parseFloat(item.sellingPrice || item.mrp || "0") || 0,
-          mrp: parseFloat(item.mrp || item.sellingPrice || "0") || 0,
-          cost_price: parseFloat(item.costPrice || "0") || 0,
+          code: code,
+          name: name,
+          barcode: barcode,
+          price: price,
+          mrp: mrp,
+          buying_price: !isNaN(buyingPrice) && buyingPrice > 0 ? buyingPrice : null,
+          cost_price: !isNaN(costPrice) && costPrice > 0 ? costPrice : null,
           stock: 100,
-          brand: item.brand || commonFieldValues.brand || "",
+          brand: item.brand || commonFieldValues.brand || null,
           category: item.category || commonFieldValues.category || "General",
-          color: item.shade || "",
-          size: item.size || "",
-          style_code: item.style || "",
-          hsn_code: item.hsnCode || "",
-          gst_percentage: parseFloat(item.productTax?.replace(/[^0-9.]/g, "") || commonFieldValues.taxRate || "18") || 18,
+          color: item.shade || null,
+          size: item.size || null,
+          style_code: item.style || null,
+          hsn_code: hsnCode,
+          gst_percentage: gstRate,
           is_active: commonFieldValues.status === "active",
           attributes: attributesPayload
         };
@@ -197,11 +241,11 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
         } else {
           failureCount++;
           const errData = typeof res.json === "function" ? await res.json().catch(() => ({})) : res;
-          errors.push(errData.detail || `Save failure`);
+          errors.push(errData.detail || `Save failure on Row #${rowNum}`);
         }
       } catch (err: any) {
         failureCount++;
-        errors.push(err.message || "Network error");
+        errors.push(err.message || `Network error on Row #${rowNum}`);
       }
     }
 

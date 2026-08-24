@@ -34,6 +34,7 @@ class Product(BaseEntity):
     mrp = Column(Numeric(15, 2))
     gst_percentage = Column(Numeric(5, 2), default=18.00)
     style_code = Column(String(100))
+    buying_price = Column(Numeric(15, 2))
     cost_price = Column(Numeric(15, 2))
     sku = Column(String(100), unique=True)
     hsn_code = Column(String(15))

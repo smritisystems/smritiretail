@@ -38,6 +38,7 @@ class Item(BaseEntity):
     # Standard pricing baseline
     mrp = Column(Numeric(15, 2), nullable=False, default=0.00)
     selling_price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    buying_price = Column(Numeric(15, 2), nullable=True)
     cost_price = Column(Numeric(15, 2), nullable=False, default=0.00)
     
     # Inventory tracking configuration
