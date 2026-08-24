@@ -80,6 +80,7 @@ import { AuditLogsTab } from "./components/AuditLogsTab.tsx";
 import { TermsEngineTab } from "./components/TermsEngineTab.tsx";
 import { DataExchangeTab } from "./components/DataExchangeTab.tsx";
 import { DatabaseManagerTab } from "./components/DatabaseManagerTab.tsx";
+import { LegacyMigDashTab } from "./components/LegacyMigDashTab.tsx";
 import { WmsStudioTab } from "./components/wms/WmsStudioTab.tsx";
 import { useLayoutModuleRegistration } from "./components/SmritiBaseModule.tsx";
 import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext.tsx";
@@ -569,6 +570,9 @@ const AppContent: React.FC = () => {
         return <DataExchangeTab onNotification={addNotification} />;
       case "database-manager":
         return <DatabaseManagerTab onNotification={addNotification} />;
+      case "legacy-migration":
+        return <LegacyMigDashTab />;
+
       case "wms":
       case "wms-dashboard":
       case "stock-transfers":
