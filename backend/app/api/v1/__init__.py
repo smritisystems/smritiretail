@@ -42,6 +42,7 @@ from . import (
     reports,
     roles,
     sales,
+    sales_reports,
     supplier_payment,
     terms,
     users,
