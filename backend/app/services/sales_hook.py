@@ -319,3 +319,167 @@ async def write_loyalty_redeem(
         return True
     except Exception:
         return False
+
+async def write_loyalty_bonus(
+    db,
+    member_id: str,
+    company_id,
+    branch_id,
+    points: float,
+    reason: str,
+    reference_id: str,
+    creator: str,
+) -> bool:
+    """
+    Sprint 19 -- Write a BONUS row to loyalty_transactions.
+    Manual point grant (e.g. birthday bonus, promotion, correction).
+    Adds to current_points_balance + total_points_earned.
+    Silently swallowed on exception.
+    """
+    from sqlalchemy import text
+    from decimal import Decimal
+
+    if not member_id or points <= 0:
+        return False
+    try:
+        row = (await db.execute(text("""
+            SELECT id, current_points_balance
+            FROM loyalty_members
+            WHERE id = :member_id AND is_deleted = false AND is_active = true
+            LIMIT 1
+        """), {"member_id": member_id})).fetchone()
+
+        if not row:
+            return False
+
+        cur_balance = Decimal(str(row[1] or 0))
+        bonus_pts   = Decimal(str(points))
+        new_balance = cur_balance + bonus_pts
+
+        tx_id = _sid()
+        await db.execute(text("""
+            INSERT INTO loyalty_transactions (
+                id, company_id, branch_id,
+                member_id, transaction_type,
+                points, balance_after,
+                reference_type, reference_id,
+                narration,
+                created_by, updated_by,
+                created_at, modified_at,
+                is_active, is_deleted, version
+            ) VALUES (
+                :id, :company_id, :branch_id,
+                :member_id, 'BONUS',
+                :points, :balance_after,
+                'MANUAL', :ref_id,
+                :narration,
+                :creator, :creator,
+                NOW(), NOW(),
+                true, false, 1
+            )
+        """), {
+            "id": tx_id, "company_id": company_id, "branch_id": branch_id,
+            "member_id": member_id,
+            "points": float(bonus_pts), "balance_after": float(new_balance),
+            "ref_id": reference_id,
+            "narration": reason or f"Bonus points grant {tx_id}",
+            "creator": creator,
+        })
+
+        await db.execute(text("""
+            UPDATE loyalty_members
+            SET current_points_balance = :new_balance,
+                total_points_earned    = total_points_earned + :points,
+                modified_at            = NOW()
+            WHERE id = :member_id
+        """), {
+            "new_balance": float(new_balance),
+            "points": float(bonus_pts),
+            "member_id": member_id,
+        })
+        return True
+    except Exception:
+        return False
+
+
+async def write_loyalty_expiry(
+    db,
+    member_id: str,
+    company_id,
+    branch_id,
+    points: float,
+    reason: str,
+    reference_id: str,
+    creator: str,
+) -> bool:
+    """
+    Sprint 19 -- Write an EXPIRY row to loyalty_transactions.
+    Deducts expired points from current_points_balance.
+    Clamps: never goes below zero.
+    Silently swallowed on exception.
+    """
+    from sqlalchemy import text
+    from decimal import Decimal
+
+    if not member_id or points <= 0:
+        return False
+    try:
+        row = (await db.execute(text("""
+            SELECT id, current_points_balance
+            FROM loyalty_members
+            WHERE id = :member_id AND is_deleted = false AND is_active = true
+            LIMIT 1
+        """), {"member_id": member_id})).fetchone()
+
+        if not row:
+            return False
+
+        cur_balance  = Decimal(str(row[1] or 0))
+        expiry_pts   = Decimal(str(points))
+        expiry_pts   = min(expiry_pts, cur_balance)   # never below zero
+        new_balance  = cur_balance - expiry_pts
+
+        tx_id = _sid()
+        await db.execute(text("""
+            INSERT INTO loyalty_transactions (
+                id, company_id, branch_id,
+                member_id, transaction_type,
+                points, balance_after,
+                reference_type, reference_id,
+                narration,
+                created_by, updated_by,
+                created_at, modified_at,
+                is_active, is_deleted, version
+            ) VALUES (
+                :id, :company_id, :branch_id,
+                :member_id, 'EXPIRY',
+                :points, :balance_after,
+                'SYSTEM', :ref_id,
+                :narration,
+                :creator, :creator,
+                NOW(), NOW(),
+                true, false, 1
+            )
+        """), {
+            "id": tx_id, "company_id": company_id, "branch_id": branch_id,
+            "member_id": member_id,
+            "points": float(expiry_pts), "balance_after": float(new_balance),
+            "ref_id": reference_id,
+            "narration": reason or f"Points expired {tx_id}",
+            "creator": creator,
+        })
+
+        await db.execute(text("""
+            UPDATE loyalty_members
+            SET current_points_balance  = :new_balance,
+                total_points_redeemed   = total_points_redeemed + :points,
+                modified_at             = NOW()
+            WHERE id = :member_id
+        """), {
+            "new_balance": float(new_balance),
+            "points": float(expiry_pts),
+            "member_id": member_id,
+        })
+        return True
+    except Exception:
+        return False

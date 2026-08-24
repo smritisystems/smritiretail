@@ -7,7 +7,7 @@ Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.9.0
 Created      : 2026-07-11
 Modified     : 2026-07-11
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
+Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_db, get_tenant_context, TenantContext, require_role
+from ...api.deps import get_db, get_tenant_context, TenantContext, require_role, get_current_user
+
 from ...models.auth import UserRole
 from ...models.crm import Customer
 from ...schemas.crm import (
@@ -199,3 +200,111 @@ async def get_customer_group(
     if not group:
         raise HTTPException(status_code=404, detail="Customer group not found")
     return group
+
+# ---------------------------------------------------------------------------
+# LYL-ADJ-001: Grant Bonus Points  (Sprint 19)
+# POST /api/v1/crm/loyalty/members/{member_id}/bonus
+# ---------------------------------------------------------------------------
+
+from pydantic import BaseModel as _BaseModel
+
+class LoyaltyAdjIn(_BaseModel):
+    points: float
+    reason: str
+    reference_id: str = ""
+
+@router.post("/loyalty/members/{member_id}/bonus", status_code=201)
+async def grant_loyalty_bonus(
+    member_id: str,
+    body:      LoyaltyAdjIn,
+    tenant:    TenantContext    = Depends(get_tenant_context),
+    db:        AsyncSession     = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    LYL-ADJ-001 -- Grant BONUS points to a loyalty member.
+    MANAGER role required. Points added to current_points_balance and
+    a BONUS row written to loyalty_transactions.
+    """
+    role = (getattr(current_user, "role", "") or "").upper()
+    if role not in ("ADMIN", "SYSADMIN", "SUPERADMIN", "MANAGER"):
+        raise HTTPException(status_code=403, detail={
+            "code": "SMRITI-PERM-001",
+            "message": "Only managers or administrators can grant loyalty bonus points.",
+        })
+    if body.points <= 0:
+        raise HTTPException(status_code=422, detail={
+            "code": "SMRITI-VAL-001",
+            "message": "Points must be greater than zero.",
+        })
+
+    from ...services.sales_hook import write_loyalty_bonus
+    creator = getattr(current_user, "id", None) or "system"
+    ok = await write_loyalty_bonus(
+        db=db,
+        member_id=member_id,
+        company_id=tenant.company_id,
+        branch_id=tenant.branch_id,
+        points=body.points,
+        reason=body.reason,
+        reference_id=body.reference_id or f"BONUS-{member_id}",
+        creator=creator,
+    )
+    await db.commit()
+    if not ok:
+        raise HTTPException(status_code=404, detail={
+            "code": "SMRITI-DATA-001",
+            "message": f"Loyalty member '{member_id}' not found or inactive.",
+        })
+    return {"member_id": member_id, "bonus_points": body.points, "status": "granted"}
+
+
+# ---------------------------------------------------------------------------
+# LYL-ADJ-002: Expire Points  (Sprint 19)
+# POST /api/v1/crm/loyalty/members/{member_id}/expire
+# ---------------------------------------------------------------------------
+
+@router.post("/loyalty/members/{member_id}/expire", status_code=201)
+async def expire_loyalty_points(
+    member_id: str,
+    body:      LoyaltyAdjIn,
+    tenant:    TenantContext    = Depends(get_tenant_context),
+    db:        AsyncSession     = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    LYL-ADJ-002 -- Expire / deduct points from a loyalty member.
+    MANAGER role required. Points deducted from current_points_balance (floor 0)
+    and an EXPIRY row written to loyalty_transactions.
+    """
+    role = (getattr(current_user, "role", "") or "").upper()
+    if role not in ("ADMIN", "SYSADMIN", "SUPERADMIN", "MANAGER"):
+        raise HTTPException(status_code=403, detail={
+            "code": "SMRITI-PERM-001",
+            "message": "Only managers or administrators can expire loyalty points.",
+        })
+    if body.points <= 0:
+        raise HTTPException(status_code=422, detail={
+            "code": "SMRITI-VAL-001",
+            "message": "Points must be greater than zero.",
+        })
+
+    from ...services.sales_hook import write_loyalty_expiry
+    creator = getattr(current_user, "id", None) or "system"
+    ok = await write_loyalty_expiry(
+        db=db,
+        member_id=member_id,
+        company_id=tenant.company_id,
+        branch_id=tenant.branch_id,
+        points=body.points,
+        reason=body.reason,
+        reference_id=body.reference_id or f"EXPIRY-{member_id}",
+        creator=creator,
+    )
+    await db.commit()
+    if not ok:
+        raise HTTPException(status_code=404, detail={
+            "code": "SMRITI-DATA-001",
+            "message": f"Loyalty member '{member_id}' not found or inactive.",
+        })
+    return {"member_id": member_id, "expired_points": body.points, "status": "expired"}
