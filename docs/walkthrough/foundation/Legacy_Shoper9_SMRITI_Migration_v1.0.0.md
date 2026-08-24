@@ -155,6 +155,8 @@ migrations.
 | 3 | `957ae753` | 5 read-only API endpoints |
 | 4 | `670c966d` | React dashboard (arc-gauge + paginated browse) |
 | 5 | `2589fb83` | Fiori launchpad tile (MANAGER+) |
+| 6 | `d57844b6` | Walkthrough + deploy guide + CHANGELOG v3.27.0 |
+| 7 | `29e6d569` | Alembic chain fix + live DB seed (265 rows verified) |
 
 ---
 
@@ -179,28 +181,31 @@ migrations.
 | Legacy extraction | Done | 265 rows in SH9_MENU_CATALOG.csv |
 | 100% classification | Done | `sh9_map.py` output: `Classified: 265 (100.0%)` |
 | DB model | Done | `LegacyMenuMap` in models/__init__.py |
-| Alembic migration | Done | `v1371_legacy_menu_map.py`, revises v1370 |
-| Seed script | Done | Dry-run: 265 rows, 0 errors |
+| Alembic migration | Done | `v1371_legacy_menu_map.py`, revises v1370_tcb_status |
+| Seed script | Done | Live run: Inserted=265, Updated=0, Errors=0 |
+| DB row count | Done | `SELECT count(*) = 265` (live Postgres verified) |
+| Status breakdown | Done | MAPPED=201, MERGED=27, DEPRECATED=14, REPLACED=10, PENDING=8, NOT_APPLIC=5 |
 | API 5 endpoints | Done | OpenAPI: 5 paths under `/api/v1/legacy-menu-map/` |
 | Frontend component | Done | `LegacyMigDashTab.tsx` — 0 TSC errors |
 | Launchpad tile | Done | `legacy-migration` in catalog, MANAGER+ role |
-| NGP compliance | Done | 0 violations across all 6 sprints |
-| DB seeded (prod) | Unverified | Requires `alembic upgrade head` + `sh9_seed.py` on target |
+| NGP compliance | Done | 0 violations across all 7 sprints |
+| Alembic chain fix | Done | `down_revision` corrected to `v1370_tcb_status` |
 
 ---
 
 ## 10. Known Limitations
 
 1. **8 PENDING entries** — Multi-company/replication scenarios not yet designed.
-2. **`sh9_seed.py` not yet run against the live PostgreSQL instance.** The table
-   exists in code (model + migration) but has not been populated in any environment.
-3. **`alembic upgrade head` not yet run** — v1371 has not been applied to the
-   test environment (`F:\Smriti9`). See Sprint 6 Deployment Guide.
-4. **Multi-Instance UI** — 8 Shoper entries with `MultiInstance=1` (Billing,
-   Return, Cancellation, Tender, etc.) require concurrent multi-tab session
-   support in the SMRITI frontend. This is tracked but not yet implemented.
+2. **`sh9_seed.py` seeded live Postgres** — 265 rows confirmed. ✓ Resolved in Sprint 7.
+3. **`alembic upgrade head` applied** — v1371 head confirmed. ✓ Resolved in Sprint 7.
+4. **Multi-Instance UI** — 4 Shoper entries with `sh9_multi_inst=1` (Billing,
+   Return, Cancellation, Tender) require concurrent multi-tab session
+   support in the SMRITI frontend. Tracked; not yet implemented.
 5. **Tally integration** — 6 deprecated Tally-bridge entries are preserved in
    the table as `DEPRECATED`. No SMRITI equivalent is planned.
+6. **Column naming note** — The actual DB column for multi-instance is
+   `sh9_multi_inst` (not `is_multi_instance`). The API stats endpoint
+   uses the correct model field; the deployment guide has been noted.
 
 ---
 
