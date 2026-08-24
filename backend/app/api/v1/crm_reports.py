@@ -489,3 +489,100 @@ async def loyalty_tier_summary(
         "total_members":   sum(t["member_count"] for t in tiers),
         "tiers":           tiers,
     }
+
+# ---------------------------------------------------------------------------
+# CRM-006: Loyalty Transaction Ledger  (v1372 loyalty_transactions table)
+# GET /api/v1/crm-reports/loyalty-ledger
+# ---------------------------------------------------------------------------
+
+@router.get("/loyalty-ledger")
+async def loyalty_transaction_ledger(
+    customer_id:      Optional[str] = Query(default=None),
+    member_id:        Optional[str] = Query(default=None),
+    transaction_type: Optional[str] = Query(default=None,
+                        description="EARN|REDEEM|REVERSAL|EXPIRY|ADJUSTMENT|BONUS"),
+    from_date:        Optional[date] = Query(default=None),
+    to_date:          Optional[date] = Query(default=None),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    CRM-006 -- Loyalty Transaction Ledger (v1372 loyalty_transactions table).
+    Chronological points earn/redeem/expiry ledger per customer or member.
+    """
+    params: Dict[str, Any] = {}
+    clauses = ["lt.is_deleted = false"]
+    if tenant and tenant.company_id:
+        clauses.append("lt.company_id = :company_id")
+        params["company_id"] = tenant.company_id
+    if member_id:
+        clauses.append("lt.member_id = :member_id")
+        params["member_id"] = member_id
+    if customer_id:
+        clauses.append("lt.customer_id = :customer_id")
+        params["customer_id"] = customer_id
+    if transaction_type:
+        clauses.append("lt.transaction_type = :tx_type")
+        params["tx_type"] = transaction_type.upper()
+    if from_date:
+        clauses.append("lt.created_at >= :from_date")
+        params["from_date"] = from_date
+    if to_date:
+        params["to_date_next"] = datetime.combine(to_date, datetime.min.time()) + timedelta(days=1)
+        clauses.append("lt.created_at < :to_date_next")
+
+    where = " AND ".join(clauses)
+    sql = f"""
+        SELECT
+            lt.id, lt.member_id, lt.customer_id,
+            COALESCE(c.name, 'Unknown')  AS customer_name,
+            lt.transaction_type, lt.points, lt.balance_after,
+            lt.reference_type, lt.reference_id, lt.invoice_amount,
+            lt.narration, lt.expiry_date, lt.created_at
+        FROM loyalty_transactions lt
+        LEFT JOIN customers c ON c.id = lt.customer_id
+        WHERE {where}
+        ORDER BY lt.created_at DESC
+        LIMIT 1000
+    """
+    try:
+        rows = (await db.execute(text(sql), params)).fetchall()
+        lines = [
+            {
+                "id":               r[0],
+                "member_id":        r[1],
+                "customer_id":      r[2] or "",
+                "customer_name":    r[3],
+                "transaction_type": r[4] or "",
+                "points":           float(r[5] or 0),
+                "balance_after":    float(r[6] or 0) if r[6] is not None else None,
+                "reference_type":   r[7] or "",
+                "reference_id":     r[8] or "",
+                "invoice_amount":   float(r[9] or 0) if r[9] is not None else None,
+                "narration":        r[10] or "",
+                "expiry_date":      str(r[11]) if r[11] else "",
+                "date":             str(r[12])[:10] if r[12] else "",
+            }
+            for r in rows
+        ]
+    except Exception:
+        lines = []
+
+    earned   = sum(l["points"] for l in lines if l["transaction_type"] == "EARN")
+    redeemed = sum(l["points"] for l in lines if l["transaction_type"] == "REDEEM")
+    expired  = sum(l["points"] for l in lines if l["transaction_type"] == "EXPIRY")
+
+    return {
+        "report_id":      "CRM-006",
+        "source":         "loyalty_transactions (v1372)",
+        "from_date":      str(from_date or ""),
+        "to_date":        str(to_date or ""),
+        "generated_at":   datetime.now(timezone.utc).isoformat(),
+        "total_records":  len(lines),
+        "total_earned":   round(earned,   2),
+        "total_redeemed": round(redeemed, 2),
+        "total_expired":  round(expired,  2),
+        "net_movement":   round(earned - redeemed - expired, 2),
+        "lines":          lines,
+    }
