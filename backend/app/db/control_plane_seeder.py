@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.22.0
+Version      : 3.26.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-08-24
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -25,7 +25,11 @@ from ..models.governed_logic import (
     PolicyDefinition,
     WorkflowDefinition,
 )
-from ..models.ui_control_plane import SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile
+from ..models.ui_control_plane import (
+    SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile,
+    IconRegistry, ScreenDefinition, FieldDefinition, ActionDefinition, LayoutDefinition,
+)
+from ..models.integration_hub import ProviderRegistry, IntegrationRegistry
 from ..models.localization import (
     CountryRef,
     StateRef,
@@ -595,18 +599,502 @@ class ControlPlaneSeeder:
         return counts
 
     @classmethod
+    async def seed_icon_registry(cls, session: AsyncSession) -> int:
+        """Seeds canonical platform icon catalogue into smritisys.icon_registry."""
+        tbl_check = await session.execute(text("SELECT to_regclass('public.icon_registry');"))
+        if not tbl_check.scalar():
+            return 0
+
+        icons = [
+            # --- Global / Navigation
+            {"id": "icn_home", "key": "icon.global.home", "name": "Home", "icon_pack": "Material Symbols Outlined", "icon_identifier": "home", "icon_category": "NAVIGATION", "module_scope": "GLOBAL", "tags": ["home", "dashboard"]},
+            {"id": "icn_dashboard", "key": "icon.global.dashboard", "name": "Dashboard", "icon_pack": "Material Symbols Outlined", "icon_identifier": "dashboard", "icon_category": "NAVIGATION", "module_scope": "GLOBAL", "tags": ["dashboard"]},
+            {"id": "icn_settings", "key": "icon.global.settings", "name": "Settings", "icon_pack": "Material Symbols Outlined", "icon_identifier": "settings", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["settings", "configuration"]},
+            {"id": "icn_search", "key": "icon.global.search", "name": "Search", "icon_pack": "Material Symbols Outlined", "icon_identifier": "search", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["search", "lookup"]},
+            {"id": "icn_notifications", "key": "icon.global.notifications", "name": "Notifications", "icon_pack": "Material Symbols Outlined", "icon_identifier": "notifications", "icon_category": "NAVIGATION", "module_scope": "GLOBAL", "tags": ["notifications", "alerts"]},
+            # --- POS
+            {"id": "icn_pos_checkout", "key": "icon.pos.checkout", "name": "POS Checkout", "icon_pack": "Material Symbols Outlined", "icon_identifier": "point_of_sale", "icon_category": "MODULE", "module_scope": "POS", "tags": ["pos", "checkout", "billing"]},
+            {"id": "icn_pos_shift", "key": "icon.pos.shift", "name": "POS Shift", "icon_pack": "Material Symbols Outlined", "icon_identifier": "work_history", "icon_category": "MODULE", "module_scope": "POS", "tags": ["pos", "shift"]},
+            {"id": "icn_pos_drawer", "key": "icon.pos.cash_drawer", "name": "Cash Drawer", "icon_pack": "Material Symbols Outlined", "icon_identifier": "local_atm", "icon_category": "MODULE", "module_scope": "POS", "tags": ["cash", "drawer"]},
+            # --- Sales
+            {"id": "icn_sales", "key": "icon.sales.module", "name": "Sales", "icon_pack": "Material Symbols Outlined", "icon_identifier": "receipt_long", "icon_category": "MODULE", "module_scope": "SALES", "tags": ["sales", "invoice"]},
+            {"id": "icn_sales_invoice", "key": "icon.sales.invoice", "name": "Sales Invoice", "icon_pack": "Material Symbols Outlined", "icon_identifier": "description", "icon_category": "ENTITY", "module_scope": "SALES", "tags": ["invoice"]},
+            {"id": "icn_sales_order", "key": "icon.sales.order", "name": "Sales Order", "icon_pack": "Material Symbols Outlined", "icon_identifier": "shopping_cart", "icon_category": "ENTITY", "module_scope": "SALES", "tags": ["order"]},
+            {"id": "icn_sales_return", "key": "icon.sales.return", "name": "Sales Return", "icon_pack": "Material Symbols Outlined", "icon_identifier": "assignment_return", "icon_category": "ENTITY", "module_scope": "SALES", "tags": ["return", "credit note"]},
+            # --- Purchase
+            {"id": "icn_purchase", "key": "icon.purchase.module", "name": "Purchase", "icon_pack": "Material Symbols Outlined", "icon_identifier": "shopping_bag", "icon_category": "MODULE", "module_scope": "PURCHASE", "tags": ["purchase", "procurement"]},
+            {"id": "icn_purchase_order", "key": "icon.purchase.order", "name": "Purchase Order", "icon_pack": "Material Symbols Outlined", "icon_identifier": "order_approve", "icon_category": "ENTITY", "module_scope": "PURCHASE", "tags": ["po", "order"]},
+            {"id": "icn_grn", "key": "icon.purchase.grn", "name": "Goods Receipt Note", "icon_pack": "Material Symbols Outlined", "icon_identifier": "inventory_2", "icon_category": "ENTITY", "module_scope": "PURCHASE", "tags": ["grn", "receipt"]},
+            # --- Inventory
+            {"id": "icn_inventory", "key": "icon.inventory.module", "name": "Inventory", "icon_pack": "Material Symbols Outlined", "icon_identifier": "inventory", "icon_category": "MODULE", "module_scope": "INVENTORY", "tags": ["inventory", "stock"]},
+            {"id": "icn_stock_adj", "key": "icon.inventory.adjustment", "name": "Stock Adjustment", "icon_pack": "Material Symbols Outlined", "icon_identifier": "tune", "icon_category": "ACTION", "module_scope": "INVENTORY", "tags": ["adjustment"]},
+            {"id": "icn_stock_transfer", "key": "icon.inventory.transfer", "name": "Stock Transfer", "icon_pack": "Material Symbols Outlined", "icon_identifier": "swap_horiz", "icon_category": "ACTION", "module_scope": "INVENTORY", "tags": ["transfer"]},
+            # --- Accounting
+            {"id": "icn_accounting", "key": "icon.accounting.module", "name": "Accounting", "icon_pack": "Material Symbols Outlined", "icon_identifier": "account_balance", "icon_category": "MODULE", "module_scope": "ACCOUNTING", "tags": ["accounting", "ledger"]},
+            {"id": "icn_journal", "key": "icon.accounting.journal", "name": "Journal Voucher", "icon_pack": "Material Symbols Outlined", "icon_identifier": "edit_note", "icon_category": "ENTITY", "module_scope": "ACCOUNTING", "tags": ["journal", "voucher"]},
+            # --- CRM & Party
+            {"id": "icn_party", "key": "icon.party.module", "name": "Party / Customer", "icon_pack": "Material Symbols Outlined", "icon_identifier": "people", "icon_category": "MODULE", "module_scope": "CRM", "tags": ["customer", "party", "supplier"]},
+            {"id": "icn_customer", "key": "icon.party.customer", "name": "Customer", "icon_pack": "Material Symbols Outlined", "icon_identifier": "person", "icon_category": "ENTITY", "module_scope": "CRM", "tags": ["customer"]},
+            {"id": "icn_supplier", "key": "icon.party.supplier", "name": "Supplier", "icon_pack": "Material Symbols Outlined", "icon_identifier": "factory", "icon_category": "ENTITY", "module_scope": "CRM", "tags": ["supplier", "vendor"]},
+            # --- Items
+            {"id": "icn_item", "key": "icon.item.module", "name": "Items / Products", "icon_pack": "Material Symbols Outlined", "icon_identifier": "category", "icon_category": "MODULE", "module_scope": "INVENTORY", "tags": ["product", "item"]},
+            {"id": "icn_barcode", "key": "icon.item.barcode", "name": "Barcode", "icon_pack": "Material Symbols Outlined", "icon_identifier": "barcode", "icon_category": "ACTION", "module_scope": "BARCODE", "tags": ["barcode", "scan"]},
+            # --- GST
+            {"id": "icn_gst", "key": "icon.gst.module", "name": "GST Compliance", "icon_pack": "Material Symbols Outlined", "icon_identifier": "gavel", "icon_category": "MODULE", "module_scope": "GST", "tags": ["gst", "tax", "compliance"]},
+            {"id": "icn_einvoice", "key": "icon.gst.einvoice", "name": "E-Invoice", "icon_pack": "Material Symbols Outlined", "icon_identifier": "receipt", "icon_category": "ENTITY", "module_scope": "GST", "tags": ["irn", "einvoice"]},
+            # --- Reports
+            {"id": "icn_reports", "key": "icon.reporting.module", "name": "Reports", "icon_pack": "Material Symbols Outlined", "icon_identifier": "bar_chart", "icon_category": "MODULE", "module_scope": "REPORTING", "tags": ["reports", "analytics"]},
+            # --- Common Actions
+            {"id": "icn_add", "key": "icon.action.add", "name": "Add / New", "icon_pack": "Material Symbols Outlined", "icon_identifier": "add", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["add", "create", "new"]},
+            {"id": "icn_edit", "key": "icon.action.edit", "name": "Edit", "icon_pack": "Material Symbols Outlined", "icon_identifier": "edit", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["edit", "modify"]},
+            {"id": "icn_delete", "key": "icon.action.delete", "name": "Delete", "icon_pack": "Material Symbols Outlined", "icon_identifier": "delete", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["delete", "remove"]},
+            {"id": "icn_print", "key": "icon.action.print", "name": "Print", "icon_pack": "Material Symbols Outlined", "icon_identifier": "print", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["print"]},
+            {"id": "icn_download", "key": "icon.action.download", "name": "Download / Export", "icon_pack": "Material Symbols Outlined", "icon_identifier": "download", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["download", "export"]},
+            {"id": "icn_filter", "key": "icon.action.filter", "name": "Filter", "icon_pack": "Material Symbols Outlined", "icon_identifier": "filter_list", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["filter"]},
+            {"id": "icn_approve", "key": "icon.action.approve", "name": "Approve", "icon_pack": "Material Symbols Outlined", "icon_identifier": "check_circle", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["approve", "confirm"]},
+            {"id": "icn_reject", "key": "icon.action.reject", "name": "Reject", "icon_pack": "Material Symbols Outlined", "icon_identifier": "cancel", "icon_category": "ACTION", "module_scope": "GLOBAL", "tags": ["reject", "decline"]},
+        ]
+
+        count = 0
+        for icon in icons:
+            icon.setdefault("aliases", [])
+            icon.setdefault("tags", [])
+            existing = (await session.execute(
+                select(IconRegistry).where(IconRegistry.key == icon["key"])
+            )).scalar_one_or_none()
+            if not existing:
+                session.add(IconRegistry(**icon))
+                count += 1
+        await session.flush()
+        return count
+
+    @classmethod
+    async def seed_integration_providers(cls, session: AsyncSession) -> int:
+        """Seeds canonical integration provider and registry definitions into smritisys."""
+        tbl_check = await session.execute(text("SELECT to_regclass('public.provider_registry');"))
+        if not tbl_check.scalar():
+            return 0
+
+        providers = [
+            {
+                "id": "prov_gstn", "code": "GSTN", "name": "GSTN / NIC E-Invoice Portal",
+                "provider_category": "GOVERNMENT", "provider_type": "GST",
+                "homepage_url": "https://einvoice1.gst.gov.in",
+                "supported_auth_types": ["API_KEY", "CERTIFICATE"],
+                "supported_environments": ["SANDBOX", "PRODUCTION"],
+                "capabilities_required": ["GST"], "status": "ACTIVE",
+            },
+            {
+                "id": "prov_nic_eway", "code": "NIC_EWAY_BILL", "name": "NIC E-Way Bill Portal",
+                "provider_category": "GOVERNMENT", "provider_type": "GST",
+                "homepage_url": "https://ewaybillgst.gov.in",
+                "supported_auth_types": ["API_KEY"],
+                "supported_environments": ["SANDBOX", "PRODUCTION"],
+                "capabilities_required": ["GST"], "status": "ACTIVE",
+            },
+            {
+                "id": "prov_tally", "code": "TALLY_PRIME", "name": "TallyPrime",
+                "provider_category": "ACCOUNTING", "provider_type": "ERP",
+                "homepage_url": "https://tallysolutions.com",
+                "supported_auth_types": ["BASIC_AUTH"],
+                "supported_environments": ["PRODUCTION"],
+                "capabilities_required": ["ACCOUNTING", "INTEGRATION"], "status": "ACTIVE",
+            },
+            {
+                "id": "prov_shopify", "code": "SHOPIFY", "name": "Shopify",
+                "provider_category": "ECOMMERCE", "provider_type": "MARKETPLACE",
+                "homepage_url": "https://shopify.com",
+                "supported_auth_types": ["OAUTH2", "API_KEY"],
+                "supported_environments": ["SANDBOX", "PRODUCTION"],
+                "capabilities_required": ["ECOM"], "status": "ACTIVE",
+            },
+            {
+                "id": "prov_woocommerce", "code": "WOOCOMMERCE", "name": "WooCommerce",
+                "provider_category": "ECOMMERCE", "provider_type": "MARKETPLACE",
+                "homepage_url": "https://woocommerce.com",
+                "supported_auth_types": ["API_KEY"],
+                "supported_environments": ["PRODUCTION"],
+                "capabilities_required": ["ECOM"], "status": "ACTIVE",
+            },
+            {
+                "id": "prov_twilio", "code": "TWILIO", "name": "Twilio (SMS/WhatsApp)",
+                "provider_category": "COMMUNICATION", "provider_type": "SMS",
+                "homepage_url": "https://twilio.com",
+                "supported_auth_types": ["API_KEY"],
+                "supported_environments": ["SANDBOX", "PRODUCTION"],
+                "capabilities_required": ["COMMUNICATOR"], "status": "SCAFFOLDING",
+            },
+        ]
+
+        count = 0
+        for p in providers:
+            p.setdefault("metadata_schema", {})
+            existing = (await session.execute(
+                select(ProviderRegistry).where(ProviderRegistry.code == p["code"])
+            )).scalar_one_or_none()
+            if not existing:
+                session.add(ProviderRegistry(**p))
+                count += 1
+
+        await session.flush()
+        return count
+
+    @classmethod
+    async def seed_layout_definitions(cls, session: AsyncSession) -> int:
+        """Seeds canonical SMRITI layout templates into smritisys.layout_definitions."""
+        tbl_check = await session.execute(text("SELECT to_regclass('public.layout_definitions');"))
+        if not tbl_check.scalar():
+            return 0
+
+        import uuid as _uuid
+        layouts = [
+            {
+                "id": "lay_full_width", "uuid": str(_uuid.uuid4()),
+                "code": "LAY_FULL_WIDTH", "version": 1, "name": "Full Width",
+                "description": "Single-column full-width layout. Used for list screens.",
+                "layout_type": "FULL_WIDTH", "is_responsive": True,
+                "breakpoints": {"xs": "100%", "sm": "100%", "md": "100%", "lg": "100%"},
+                "regions": [{"id": "main", "flex": 1, "label": "Main Content"}],
+                "css_overrides": {}, "persona_modes": ["SIMPLE", "HYBRID", "ADVANCED"],
+                "status": "ACTIVE",
+            },
+            {
+                "id": "lay_sidebar_left", "uuid": str(_uuid.uuid4()),
+                "code": "LAY_SIDEBAR_LEFT", "version": 1, "name": "Sidebar Left",
+                "description": "Two-column layout: fixed sidebar on the left, main content on the right.",
+                "layout_type": "SIDEBAR_LEFT", "is_responsive": True,
+                "breakpoints": {"xs": "100%", "sm": "100%", "md": "30%/70%", "lg": "25%/75%"},
+                "regions": [
+                    {"id": "sidebar", "width": "25%", "label": "Sidebar"},
+                    {"id": "main", "flex": 1, "label": "Main Content"},
+                ],
+                "css_overrides": {}, "persona_modes": ["HYBRID", "ADVANCED"],
+                "status": "ACTIVE",
+            },
+            {
+                "id": "lay_split", "uuid": str(_uuid.uuid4()),
+                "code": "LAY_SPLIT", "version": 1, "name": "Split Pane",
+                "description": "50/50 split layout. Used for POS billing.",
+                "layout_type": "SPLIT", "is_responsive": True,
+                "breakpoints": {"xs": "100%", "md": "50%/50%"},
+                "regions": [
+                    {"id": "left", "width": "50%", "label": "Left Pane"},
+                    {"id": "right", "width": "50%", "label": "Right Pane"},
+                ],
+                "css_overrides": {}, "persona_modes": ["SIMPLE", "HYBRID", "ADVANCED"],
+                "status": "ACTIVE",
+            },
+            {
+                "id": "lay_detail", "uuid": str(_uuid.uuid4()),
+                "code": "LAY_DETAIL", "version": 1, "name": "Detail Form",
+                "description": "Single document detail view with header, line items, and footer sections.",
+                "layout_type": "FULL_WIDTH", "is_responsive": True,
+                "breakpoints": {"xs": "100%", "md": "100%"},
+                "regions": [
+                    {"id": "header", "label": "Document Header"},
+                    {"id": "lines", "label": "Line Items"},
+                    {"id": "footer", "label": "Totals & Actions"},
+                ],
+                "css_overrides": {}, "persona_modes": ["HYBRID", "ADVANCED"],
+                "status": "ACTIVE",
+            },
+            {
+                "id": "lay_dashboard", "uuid": str(_uuid.uuid4()),
+                "code": "LAY_DASHBOARD", "version": 1, "name": "Dashboard Grid",
+                "description": "Responsive card grid layout for dashboard and analytics screens.",
+                "layout_type": "CARD_GRID", "is_responsive": True,
+                "breakpoints": {"xs": "1col", "sm": "2col", "md": "3col", "lg": "4col"},
+                "regions": [{"id": "grid", "label": "Card Grid"}],
+                "css_overrides": {}, "persona_modes": ["SIMPLE", "HYBRID", "ADVANCED"],
+                "status": "ACTIVE",
+            },
+            {
+                "id": "lay_wizard", "uuid": str(_uuid.uuid4()),
+                "code": "LAY_WIZARD", "version": 1, "name": "Wizard Steps",
+                "description": "Multi-step wizard layout for onboarding and setup flows.",
+                "layout_type": "WIZARD_STEPS", "is_responsive": True,
+                "breakpoints": {"xs": "100%", "md": "100%"},
+                "regions": [{"id": "steps", "label": "Step Content"}, {"id": "nav", "label": "Navigation"}],
+                "css_overrides": {}, "persona_modes": ["SIMPLE", "HYBRID", "ADVANCED"],
+                "status": "ACTIVE",
+            },
+        ]
+        count = 0
+        for lay in layouts:
+            existing = (await session.execute(
+                select(LayoutDefinition).where(LayoutDefinition.code == lay["code"])
+            )).scalar_one_or_none()
+            if not existing:
+                session.add(LayoutDefinition(**lay))
+                count += 1
+        await session.flush()
+        return count
+
+    @classmethod
+    async def seed_screen_definitions(cls, session: AsyncSession) -> int:
+        """Seeds the top 5 canonical business flow screen definitions into smritisys."""
+        tbl_check = await session.execute(text("SELECT to_regclass('public.screen_definitions');"))
+        if not tbl_check.scalar():
+            return 0
+
+        import uuid as _uuid
+        screens = [
+            {
+                "id": "scr_pos_billing", "uuid": str(_uuid.uuid4()),
+                "code": "SCR_POS_BILLING", "version": 1,
+                "name": "POS Billing Terminal",
+                "description": "Real-time point-of-sale billing screen with item search, cart, and payment.",
+                "module_code": "POS", "workspace_code": "BILLING",
+                "screen_type": "FORM", "persona_mode": "SIMPLE",
+                "capability_code": "POS",
+                "layout_config": {"layout": "LAY_SPLIT", "left": "item_search", "right": "cart_and_payment"},
+                "default_filters": [], "default_sort": {},
+                "pagination_default": 20, "searchable": True, "exportable": False, "printable": True,
+                "route_path": "/pos/billing", "icon_key": "icon.pos.checkout", "status": "ACTIVE",
+            },
+            {
+                "id": "scr_sales_invoice_list", "uuid": str(_uuid.uuid4()),
+                "code": "SCR_SALES_INVOICE_LIST", "version": 1,
+                "name": "Sales Invoice List",
+                "description": "Searchable, filterable list of all sales invoices with bulk actions.",
+                "module_code": "SALES", "workspace_code": "SALES",
+                "screen_type": "LIST", "persona_mode": "HYBRID",
+                "capability_code": "SALES",
+                "layout_config": {"layout": "LAY_FULL_WIDTH", "toolbar": True, "filters": True},
+                "default_filters": [{"field": "status", "op": "in", "value": ["APPROVED", "DRAFT"]}],
+                "default_sort": {"field": "invoice_date", "direction": "DESC"},
+                "pagination_default": 25, "searchable": True, "exportable": True, "printable": True,
+                "route_path": "/sales/invoices", "icon_key": "icon.sales.invoice", "status": "ACTIVE",
+            },
+            {
+                "id": "scr_purchase_order_list", "uuid": str(_uuid.uuid4()),
+                "code": "SCR_PURCHASE_ORDER_LIST", "version": 1,
+                "name": "Purchase Order List",
+                "description": "Searchable list of all purchase orders with supplier filter and approval status.",
+                "module_code": "PURCHASE", "workspace_code": "PURCHASE",
+                "screen_type": "LIST", "persona_mode": "HYBRID",
+                "capability_code": "PURCHASE",
+                "layout_config": {"layout": "LAY_FULL_WIDTH", "toolbar": True, "filters": True},
+                "default_filters": [{"field": "status", "op": "in", "value": ["DRAFT", "SENT", "PARTIAL"]}],
+                "default_sort": {"field": "order_date", "direction": "DESC"},
+                "pagination_default": 25, "searchable": True, "exportable": True, "printable": True,
+                "route_path": "/purchase/orders", "icon_key": "icon.purchase.order", "status": "ACTIVE",
+            },
+            {
+                "id": "scr_inventory_dashboard", "uuid": str(_uuid.uuid4()),
+                "code": "SCR_INVENTORY_DASHBOARD", "version": 1,
+                "name": "Inventory Dashboard",
+                "description": "Live stock levels, low-stock alerts, and movement summary dashboard.",
+                "module_code": "INVENTORY", "workspace_code": "INVENTORY",
+                "screen_type": "DASHBOARD", "persona_mode": "HYBRID",
+                "capability_code": "INVENTORY",
+                "layout_config": {"layout": "LAY_DASHBOARD", "cards": ["total_sku", "low_stock", "stock_value", "movements_today"]},
+                "default_filters": [], "default_sort": {},
+                "pagination_default": 0, "searchable": False, "exportable": False, "printable": False,
+                "route_path": "/inventory/dashboard", "icon_key": "icon.inventory.module", "status": "ACTIVE",
+            },
+            {
+                "id": "scr_party_list", "uuid": str(_uuid.uuid4()),
+                "code": "SCR_PARTY_LIST", "version": 1,
+                "name": "Party Master List",
+                "description": "Universal party master list covering customers, suppliers, and agents.",
+                "module_code": "PARTY", "workspace_code": "CRM",
+                "screen_type": "LIST", "persona_mode": "ADVANCED",
+                "capability_code": "CRM",
+                "layout_config": {"layout": "LAY_FULL_WIDTH", "toolbar": True, "filters": True},
+                "default_filters": [{"field": "is_active", "op": "eq", "value": True}],
+                "default_sort": {"field": "name", "direction": "ASC"},
+                "pagination_default": 50, "searchable": True, "exportable": True, "printable": False,
+                "route_path": "/party/list", "icon_key": "icon.party.module", "status": "ACTIVE",
+            },
+        ]
+        count = 0
+        for s in screens:
+            existing = (await session.execute(
+                select(ScreenDefinition).where(
+                    ScreenDefinition.code == s["code"],
+                    ScreenDefinition.version == s["version"]
+                )
+            )).scalar_one_or_none()
+            if not existing:
+                session.add(ScreenDefinition(**s))
+                count += 1
+        await session.flush()
+        return count
+
+    @classmethod
+    async def seed_action_definitions(cls, session: AsyncSession) -> int:
+        """Seeds canonical toolbar and row actions for the top 5 business flow screens."""
+        tbl_check = await session.execute(text("SELECT to_regclass('public.action_definitions');"))
+        if not tbl_check.scalar():
+            return 0
+
+        import uuid as _uuid
+        actions = [
+            # --- POS Billing actions
+            {"id": "act_pos_new_sale", "uuid": str(_uuid.uuid4()), "code": "ACT_POS_NEW_SALE", "version": 1,
+             "name": "New Sale", "label_key": "pos.action.new_sale",
+             "action_type": "API_CALL", "screen_code": "SCR_POS_BILLING", "placement": "TOOLBAR",
+             "icon_key": "icon.action.add", "variant": "PRIMARY", "order_index": 1,
+             "required_capability": "POS", "required_roles": ["CASHIER", "STORE_MANAGER", "SYSADMIN"],
+             "api_endpoint": "/api/v1/pos/sessions", "api_method": "POST", "status": "ACTIVE"},
+            {"id": "act_pos_hold_bill", "uuid": str(_uuid.uuid4()), "code": "ACT_POS_HOLD_BILL", "version": 1,
+             "name": "Hold Bill", "label_key": "pos.action.hold_bill",
+             "action_type": "API_CALL", "screen_code": "SCR_POS_BILLING", "placement": "TOOLBAR",
+             "icon_key": "icon.action.filter", "variant": "SECONDARY", "order_index": 2,
+             "required_capability": "POS", "required_roles": ["CASHIER", "STORE_MANAGER", "SYSADMIN"],
+             "api_endpoint": "/api/v1/pos/bills/hold", "api_method": "POST", "status": "ACTIVE"},
+            {"id": "act_pos_print_receipt", "uuid": str(_uuid.uuid4()), "code": "ACT_POS_PRINT_RECEIPT", "version": 1,
+             "name": "Print Receipt", "label_key": "pos.action.print_receipt",
+             "action_type": "PRINT", "screen_code": "SCR_POS_BILLING", "placement": "TOOLBAR",
+             "icon_key": "icon.action.print", "variant": "SECONDARY", "order_index": 3,
+             "required_capability": "POS", "required_roles": ["CASHIER", "STORE_MANAGER", "SYSADMIN"],
+             "status": "ACTIVE"},
+            # --- Sales Invoice List actions
+            {"id": "act_sales_new_invoice", "uuid": str(_uuid.uuid4()), "code": "ACT_SALES_NEW_INVOICE", "version": 1,
+             "name": "New Invoice", "label_key": "sales.action.new_invoice",
+             "action_type": "NAVIGATE", "screen_code": "SCR_SALES_INVOICE_LIST", "placement": "TOOLBAR",
+             "icon_key": "icon.action.add", "variant": "PRIMARY", "order_index": 1,
+             "required_capability": "SALES", "required_roles": ["CASHIER", "STORE_MANAGER", "SYSADMIN"],
+             "target_route": "/sales/invoices/new", "status": "ACTIVE"},
+            {"id": "act_sales_export", "uuid": str(_uuid.uuid4()), "code": "ACT_SALES_EXPORT", "version": 1,
+             "name": "Export", "label_key": "sales.action.export",
+             "action_type": "DOWNLOAD", "screen_code": "SCR_SALES_INVOICE_LIST", "placement": "TOOLBAR",
+             "icon_key": "icon.action.download", "variant": "SECONDARY", "order_index": 2,
+             "required_capability": "SALES", "required_roles": ["STORE_MANAGER", "ACCOUNTANT", "SYSADMIN"],
+             "api_endpoint": "/api/v1/sales/invoices/export", "api_method": "GET", "status": "ACTIVE"},
+            {"id": "act_sales_view_inv", "uuid": str(_uuid.uuid4()), "code": "ACT_SALES_VIEW_INVOICE", "version": 1,
+             "name": "View", "label_key": "sales.action.view",
+             "action_type": "NAVIGATE", "screen_code": "SCR_SALES_INVOICE_LIST", "placement": "ROW",
+             "icon_key": "icon.action.edit", "variant": "GHOST", "order_index": 1,
+             "required_capability": "SALES", "required_roles": ["CASHIER", "STORE_MANAGER", "ACCOUNTANT", "SYSADMIN"],
+             "target_route": "/sales/invoices/{id}", "status": "ACTIVE"},
+            {"id": "act_sales_print_inv", "uuid": str(_uuid.uuid4()), "code": "ACT_SALES_PRINT_INVOICE", "version": 1,
+             "name": "Print", "label_key": "sales.action.print",
+             "action_type": "PRINT", "screen_code": "SCR_SALES_INVOICE_LIST", "placement": "ROW",
+             "icon_key": "icon.action.print", "variant": "GHOST", "order_index": 2,
+             "required_capability": "SALES", "required_roles": ["CASHIER", "STORE_MANAGER", "SYSADMIN"],
+             "status": "ACTIVE"},
+            {"id": "act_sales_approve_inv", "uuid": str(_uuid.uuid4()), "code": "ACT_SALES_APPROVE_INVOICE", "version": 1,
+             "name": "Approve", "label_key": "sales.action.approve",
+             "action_type": "WORKFLOW_TRANSITION", "screen_code": "SCR_SALES_INVOICE_LIST", "placement": "ROW",
+             "icon_key": "icon.action.approve", "variant": "PRIMARY", "order_index": 3,
+             "required_capability": "SALES", "required_roles": ["STORE_MANAGER", "SYSADMIN"],
+             "visibility_condition": {"field": "status", "op": "eq", "value": "DRAFT"},
+             "confirmation_required": True, "confirmation_message_key": "sales.confirm.approve_invoice",
+             "workflow_action": "APPROVE", "status": "ACTIVE"},
+            # --- Purchase Order List actions
+            {"id": "act_po_new", "uuid": str(_uuid.uuid4()), "code": "ACT_PO_NEW", "version": 1,
+             "name": "New Purchase Order", "label_key": "purchase.action.new_po",
+             "action_type": "NAVIGATE", "screen_code": "SCR_PURCHASE_ORDER_LIST", "placement": "TOOLBAR",
+             "icon_key": "icon.action.add", "variant": "PRIMARY", "order_index": 1,
+             "required_capability": "PURCHASE", "required_roles": ["STORE_MANAGER", "SYSADMIN"],
+             "target_route": "/purchase/orders/new", "status": "ACTIVE"},
+            {"id": "act_po_export", "uuid": str(_uuid.uuid4()), "code": "ACT_PO_EXPORT", "version": 1,
+             "name": "Export", "label_key": "purchase.action.export",
+             "action_type": "DOWNLOAD", "screen_code": "SCR_PURCHASE_ORDER_LIST", "placement": "TOOLBAR",
+             "icon_key": "icon.action.download", "variant": "SECONDARY", "order_index": 2,
+             "required_capability": "PURCHASE", "required_roles": ["STORE_MANAGER", "ACCOUNTANT", "SYSADMIN"],
+             "api_endpoint": "/api/v1/purchase/orders/export", "api_method": "GET", "status": "ACTIVE"},
+            {"id": "act_po_view", "uuid": str(_uuid.uuid4()), "code": "ACT_PO_VIEW", "version": 1,
+             "name": "View", "label_key": "purchase.action.view_po",
+             "action_type": "NAVIGATE", "screen_code": "SCR_PURCHASE_ORDER_LIST", "placement": "ROW",
+             "icon_key": "icon.action.edit", "variant": "GHOST", "order_index": 1,
+             "required_capability": "PURCHASE", "required_roles": ["STORE_MANAGER", "ACCOUNTANT", "SYSADMIN"],
+             "target_route": "/purchase/orders/{id}", "status": "ACTIVE"},
+            {"id": "act_po_approve", "uuid": str(_uuid.uuid4()), "code": "ACT_PO_APPROVE", "version": 1,
+             "name": "Approve PO", "label_key": "purchase.action.approve_po",
+             "action_type": "WORKFLOW_TRANSITION", "screen_code": "SCR_PURCHASE_ORDER_LIST", "placement": "ROW",
+             "icon_key": "icon.action.approve", "variant": "PRIMARY", "order_index": 2,
+             "required_capability": "PURCHASE", "required_roles": ["STORE_MANAGER", "SYSADMIN"],
+             "visibility_condition": {"field": "status", "op": "eq", "value": "DRAFT"},
+             "confirmation_required": True, "confirmation_message_key": "purchase.confirm.approve_po",
+             "workflow_action": "APPROVE", "status": "ACTIVE"},
+            # --- Inventory Dashboard actions
+            {"id": "act_inv_adj", "uuid": str(_uuid.uuid4()), "code": "ACT_INV_ADJUSTMENT", "version": 1,
+             "name": "Stock Adjustment", "label_key": "inventory.action.adjustment",
+             "action_type": "NAVIGATE", "screen_code": "SCR_INVENTORY_DASHBOARD", "placement": "TOOLBAR",
+             "icon_key": "icon.inventory.adjustment", "variant": "SECONDARY", "order_index": 1,
+             "required_capability": "INVENTORY", "required_roles": ["STORE_MANAGER", "SYSADMIN"],
+             "target_route": "/inventory/adjustments/new", "status": "ACTIVE"},
+            {"id": "act_inv_transfer", "uuid": str(_uuid.uuid4()), "code": "ACT_INV_TRANSFER", "version": 1,
+             "name": "Stock Transfer", "label_key": "inventory.action.transfer",
+             "action_type": "NAVIGATE", "screen_code": "SCR_INVENTORY_DASHBOARD", "placement": "TOOLBAR",
+             "icon_key": "icon.inventory.transfer", "variant": "SECONDARY", "order_index": 2,
+             "required_capability": "INVENTORY", "required_roles": ["STORE_MANAGER", "SYSADMIN"],
+             "target_route": "/inventory/transfers/new", "status": "ACTIVE"},
+            # --- Party List actions
+            {"id": "act_party_new", "uuid": str(_uuid.uuid4()), "code": "ACT_PARTY_NEW", "version": 1,
+             "name": "New Party", "label_key": "party.action.new",
+             "action_type": "NAVIGATE", "screen_code": "SCR_PARTY_LIST", "placement": "TOOLBAR",
+             "icon_key": "icon.action.add", "variant": "PRIMARY", "order_index": 1,
+             "required_capability": "CRM", "required_roles": ["STORE_MANAGER", "SYSADMIN"],
+             "target_route": "/party/new", "status": "ACTIVE"},
+            {"id": "act_party_export", "uuid": str(_uuid.uuid4()), "code": "ACT_PARTY_EXPORT", "version": 1,
+             "name": "Export", "label_key": "party.action.export",
+             "action_type": "DOWNLOAD", "screen_code": "SCR_PARTY_LIST", "placement": "TOOLBAR",
+             "icon_key": "icon.action.download", "variant": "SECONDARY", "order_index": 2,
+             "required_capability": "CRM", "required_roles": ["STORE_MANAGER", "SYSADMIN"],
+             "api_endpoint": "/api/v1/party/export", "api_method": "GET", "status": "ACTIVE"},
+            {"id": "act_party_view", "uuid": str(_uuid.uuid4()), "code": "ACT_PARTY_VIEW", "version": 1,
+             "name": "View", "label_key": "party.action.view",
+             "action_type": "NAVIGATE", "screen_code": "SCR_PARTY_LIST", "placement": "ROW",
+             "icon_key": "icon.action.edit", "variant": "GHOST", "order_index": 1,
+             "required_capability": "CRM", "required_roles": ["STORE_MANAGER", "ACCOUNTANT", "SYSADMIN"],
+             "target_route": "/party/{id}", "status": "ACTIVE"},
+            {"id": "act_party_delete", "uuid": str(_uuid.uuid4()), "code": "ACT_PARTY_DELETE", "version": 1,
+             "name": "Deactivate", "label_key": "party.action.deactivate",
+             "action_type": "API_CALL", "screen_code": "SCR_PARTY_LIST", "placement": "ROW",
+             "icon_key": "icon.action.delete", "variant": "DANGER", "order_index": 2,
+             "required_capability": "CRM", "required_roles": ["STORE_MANAGER", "SYSADMIN"],
+             "confirmation_required": True, "confirmation_message_key": "party.confirm.deactivate",
+             "api_endpoint": "/api/v1/party/{id}/deactivate", "api_method": "POST", "status": "ACTIVE"},
+        ]
+        count = 0
+        for a in actions:
+            a.setdefault("description", None)
+            a.setdefault("required_roles", [])
+            a.setdefault("visibility_condition", {})
+            a.setdefault("confirmation_required", False)
+            a.setdefault("confirmation_message_key", None)
+            a.setdefault("target_route", None)
+            a.setdefault("api_endpoint", None)
+            a.setdefault("api_method", "POST")
+            a.setdefault("workflow_action", None)
+            a.setdefault("label_key", None)
+            existing = (await session.execute(
+                select(ActionDefinition).where(ActionDefinition.code == a["code"])
+            )).scalar_one_or_none()
+            if not existing:
+                session.add(ActionDefinition(**a))
+                count += 1
+        await session.flush()
+        return count
+
+    @classmethod
     async def seed_all(cls, session: AsyncSession) -> Dict[str, Any]:
-        """Runs capability, reference data, UI metadata, feature flags, and governed logic seeders."""
+        """Runs capability, reference data, UI metadata, feature flags, governed logic,
+        icon registry, integration provider, layout, screen and action definition seeders."""
         cap_count = await cls.seed_capabilities(session)
         ref_counts = await cls.seed_reference_data(session)
         ui_counts = await cls.seed_ui_metadata(session)
         ff_count = await cls.seed_feature_flags(session)
         gov_counts = await cls.seed_governed_logic(session)
+        icon_count = await cls.seed_icon_registry(session)
+        integration_count = await cls.seed_integration_providers(session)
+        layout_count = await cls.seed_layout_definitions(session)
+        screen_count = await cls.seed_screen_definitions(session)
+        action_count = await cls.seed_action_definitions(session)
         await session.commit()
         return {
             "capabilities_seeded": cap_count,
             "reference_counts": ref_counts,
             "ui_counts": ui_counts,
             "feature_flags_seeded": ff_count,
-            "governed_logic_counts": gov_counts
+            "governed_logic_counts": gov_counts,
+            "icons_seeded": icon_count,
+            "integration_providers_seeded": integration_count,
+            "layouts_seeded": layout_count,
+            "screens_seeded": screen_count,
+            "actions_seeded": action_count,
         }

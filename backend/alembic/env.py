@@ -61,6 +61,16 @@ from app.models.product_identity import BarcodeProvider, IdentityRule, ProductId
 from app.models.role import Role
 from app.models.master_lookup import MasterType, MasterValue
 from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
+# v1368: UI/Experience Engine (smritisys Control Plane)
+from app.models.ui_control_plane import (
+    SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile,
+    ScreenDefinition, FieldDefinition, ActionDefinition, LayoutDefinition, IconRegistry,
+)
+# v1369: Integration Hub Registry (smritisys Control Plane)
+from app.models.integration_hub import (
+    ProviderRegistry, ConnectorRegistry, IntegrationRegistry,
+    IntegrationCredentialReference, IntegrationPolicy, IntegrationVersion,
+)
 config = context.config
 
 if config.config_file_name is not None:
@@ -156,6 +166,19 @@ def include_object(object, name, type_, reflected, compare_to):
             "bank_statement_lines",
             "currency_exchange_rates",
             "shift_cash_transactions",
+            # v1368: UI/Experience Engine
+            "screen_definitions",
+            "field_definitions",
+            "action_definitions",
+            "layout_definitions",
+            "icon_registry",
+            # v1369: Integration Hub Registry
+            "provider_registry",
+            "connector_registry",
+            "integration_registry",
+            "integration_credentials_reference",
+            "integration_policies",
+            "integration_versions",
         ]
     return True
 
