@@ -259,6 +259,15 @@ class SalesService:
             items=invoice_items,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
+            # v1373 -- Sprint 14/15 optional fields (getattr for backward compat)
+            salesperson_id=getattr(invoice_in, "salesperson_id", None),
+            salesperson_name=getattr(invoice_in, "salesperson_name", None),
+            terminal_id=getattr(invoice_in, "terminal_id", None),
+            counter_id=getattr(invoice_in, "counter_id", None),
+            paid_amount=getattr(invoice_in, "paid_amount", None) or Decimal("0.00"),
+            balance_amount=getattr(invoice_in, "balance_amount", None) or Decimal("0.00"),
+            discount_amount=getattr(invoice_in, "discount_amount", None) or Decimal("0.00"),
+            net_amount=getattr(invoice_in, "net_amount", None) or Decimal("0.00"),
         )
         self.db.add(db_invoice)
 
@@ -627,6 +636,19 @@ class SalesService:
                 )
                 self.db.add(db_movement)
 
+        # -- Sprint 15: Loyalty REVERSAL hook + salesperson columns (atomic, pre-commit) --
+        from .sales_hook import write_loyalty_redeem
+        _ret_creator = getattr(self.tenant_ctx, "user_id", None) or "system"
+        await write_loyalty_redeem(
+            db=self.db,
+            return_id=db_sr.id,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            customer_id=getattr(db_sr, "customer_id", None),
+            return_total=grand_total,
+            creator=_ret_creator,
+        )
+        # -- End Sprint 15 hooks --
         self.db.add(db_sr)
         try:
             await self.db.commit()

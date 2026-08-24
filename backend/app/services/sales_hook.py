@@ -1,4 +1,4 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -226,4 +226,96 @@ async def write_loyalty_earn(
 
     except Exception:
         # Never fail the invoice commit due to loyalty hook
+        return False
+
+async def write_loyalty_redeem(
+    db,
+    return_id: str,
+    company_id,
+    branch_id,
+    customer_id,
+    return_total,
+    creator: str,
+) -> bool:
+    """
+    Write a REVERSAL row to loyalty_transactions for a sales return.
+    Points reversed = same calculation as earn (grand_total * points_per_unit * earn_mult).
+    Deducts from current_points_balance, but never below zero.
+    Silently swallowed on exception -- never fails the return commit.
+    """
+    from sqlalchemy import text
+    from decimal import Decimal
+
+    if not customer_id or customer_id == "CUST-WALKIN":
+        return False
+    try:
+        row = (await db.execute(text("""
+            SELECT lm.id, lm.current_points_balance,
+                   COALESCE(lt.earn_multiplier, 1.0)      AS earn_mult,
+                   COALESCE(lt.points_per_unit_spend, 1.0) AS points_per_unit
+            FROM loyalty_members lm
+            LEFT JOIN loyalty_tiers lt ON lt.id = lm.loyalty_tier_id
+            WHERE lm.customer_id = :customer_id
+              AND lm.is_deleted = false AND lm.is_active = true
+            LIMIT 1
+        """), {"customer_id": customer_id})).fetchone()
+
+        if not row:
+            return False
+
+        member_id       = row[0]
+        cur_balance     = Decimal(str(row[1] or 0))
+        earn_mult       = Decimal(str(row[2] or 1))
+        points_per_unit = Decimal(str(row[3] or 1))
+
+        return_total_d  = Decimal(str(return_total))
+        points_reversed = (return_total_d * points_per_unit * earn_mult).quantize(Decimal("0.01"))
+        # Never deduct below zero
+        points_reversed = min(points_reversed, cur_balance)
+        new_balance     = cur_balance - points_reversed
+
+        from app.services.sales_hook import _sid
+        tx_id = _sid()
+        await db.execute(text("""
+            INSERT INTO loyalty_transactions (
+                id, company_id, branch_id,
+                member_id, customer_id, transaction_type,
+                points, balance_after,
+                reference_type, reference_id, invoice_amount,
+                narration,
+                created_by, updated_by,
+                created_at, modified_at,
+                is_active, is_deleted, version
+            ) VALUES (
+                :id, :company_id, :branch_id,
+                :member_id, :customer_id, 'REVERSAL',
+                :points, :balance_after,
+                'SALES_RETURN', :return_id, :return_amount,
+                :narration,
+                :creator, :creator,
+                NOW(), NOW(),
+                true, false, 1
+            )
+        """), {
+            "id": tx_id, "company_id": company_id, "branch_id": branch_id,
+            "member_id": member_id, "customer_id": customer_id,
+            "points": float(points_reversed), "balance_after": float(new_balance),
+            "return_id": return_id, "return_amount": float(return_total_d),
+            "narration": f"Points reversed on return {return_id}",
+            "creator": creator,
+        })
+
+        await db.execute(text("""
+            UPDATE loyalty_members
+            SET current_points_balance = :new_balance,
+                total_points_redeemed  = total_points_redeemed + :points,
+                modified_at            = NOW()
+            WHERE id = :member_id
+        """), {
+            "new_balance": float(new_balance),
+            "points": float(points_reversed),
+            "member_id": member_id,
+        })
+        return True
+    except Exception:
         return False

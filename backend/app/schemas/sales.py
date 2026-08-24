@@ -67,6 +67,15 @@ class SalesInvoiceBase(BaseModel):
     shipping_address: Optional[str] = Field(None, validation_alias=AliasChoices("shipping_address", "shippingAddress"))
     taxable_value: Optional[Decimal] = Field(None, validation_alias=AliasChoices("taxable_value", "taxableValue"))
     rounding_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("rounding_amount", "roundingAmount"))
+    # v1373 -- Sprint 14/15 fields (salesperson, terminal, payment)
+    salesperson_id:   Optional[str]     = Field(None, max_length=50,  validation_alias=AliasChoices("salesperson_id",   "salespersonId"))
+    salesperson_name: Optional[str]     = Field(None,                  validation_alias=AliasChoices("salesperson_name", "salespersonName"))
+    terminal_id:      Optional[str]     = Field(None, max_length=50,  validation_alias=AliasChoices("terminal_id",      "terminalId"))
+    counter_id:       Optional[str]     = Field(None, max_length=50,  validation_alias=AliasChoices("counter_id",       "counterId"))
+    paid_amount:      Optional[Decimal] = Field(Decimal("0.00"),       validation_alias=AliasChoices("paid_amount",      "paidAmount"))
+    balance_amount:   Optional[Decimal] = Field(Decimal("0.00"),       validation_alias=AliasChoices("balance_amount",   "balanceAmount"))
+    discount_amount:  Optional[Decimal] = Field(Decimal("0.00"),       validation_alias=AliasChoices("discount_amount",  "discountAmount"))
+    net_amount:       Optional[Decimal] = Field(Decimal("0.00"),       validation_alias=AliasChoices("net_amount",       "netAmount"))
 
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50)
