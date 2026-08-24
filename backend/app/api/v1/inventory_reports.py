@@ -1,4 +1,4 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Repository   : SMRITIRetailNX
 Organization : AITDL NETWORKS
@@ -245,7 +245,7 @@ async def stock_availability(
 ):
     """
     RPT-INV-003 -- Stock Availability (Shoper9: SR241700.EXE MnuNo 430/445).
-    Current availability status — identifies below-minimum and reorder-required items.
+    Current availability status â€” identifies below-minimum and reorder-required items.
     """
     p_stmt = select(Product).where(Product.is_deleted == False, Product.is_active == True)
     p_stmt = _tenant_inv(p_stmt, Product, tenant)
@@ -579,5 +579,176 @@ async def goods_register_item(
         "to_date":      str(to_date or ""),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "total_items":  len(lines),
+        "lines":        lines,
+    }
+
+# ---------------------------------------------------------------------------
+# RPT-INV-007: Sales Returns Report  (Shoper9: SR210200.EXE MnuNo 410/421)
+# GET /api/v1/inventory-reports/returns
+# ---------------------------------------------------------------------------
+
+@router.get("/returns")
+async def sales_returns_report(
+    from_date:  Optional[date] = Query(default=None),
+    to_date:    Optional[date] = Query(default=None),
+    reason:     Optional[str]  = Query(default=None, description="Filter by return reason keyword"),
+    status:     Optional[str]  = Query(default=None, description="Filter by status e.g. APPROVED, PENDING"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    RPT-INV-007 -- Sales Returns / Returned Bills (Shoper9: SR210200.EXE MnuNo 410/421).
+    All sales_returns records within period with credit note details.
+    Also covers MnuNo 430/444 Void Transactions (SR239800) when status=VOIDED.
+    """
+    params: Dict[str, Any] = {}
+    clauses = ["is_deleted = false"]
+    if tenant and tenant.company_id:
+        clauses.append("company_id = :company_id")
+        params["company_id"] = tenant.company_id
+    if from_date:
+        clauses.append("created_at >= :from_date")
+        params["from_date"] = from_date
+    if to_date:
+        params["to_date_next"] = datetime.combine(to_date, datetime.min.time()) + timedelta(days=1)
+        clauses.append("created_at < :to_date_next")
+    if reason:
+        clauses.append("reason ILIKE :reason")
+        params["reason"] = f"%{reason}%"
+    if status:
+        clauses.append("status = :status")
+        params["status"] = status.upper()
+
+    where = " AND ".join(clauses)
+    sql = f"""
+        SELECT
+            id, return_no, original_invoice_id,
+            COALESCE(credit_note_number, '') AS credit_note_number,
+            date, reason, tax_total, grand_total, status, created_at
+        FROM sales_returns
+        WHERE {where}
+        ORDER BY created_at DESC
+        LIMIT 500
+    """
+    try:
+        rows = (await db.execute(text(sql), params)).fetchall()
+        lines = [
+            {
+                "return_id":          r[0],
+                "return_no":          r[1],
+                "original_invoice_id": r[2] or "",
+                "credit_note_number": r[3],
+                "return_date":        str(r[4]) if r[4] else str(r[9])[:10],
+                "reason":             r[5] or "",
+                "tax_total":          float(r[6] or 0),
+                "grand_total":        float(r[7] or 0),
+                "status":             r[8] or "",
+            }
+            for r in rows
+        ]
+    except Exception:
+        lines = []
+
+    total_value = sum(l["grand_total"] for l in lines)
+    return {
+        "report_id":    "RPT-INV-007",
+        "sh9_exe":      "SR210200",
+        "from_date":    str(from_date or ""),
+        "to_date":      str(to_date or ""),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "total_returns": len(lines),
+        "total_value":  round(total_value, 2),
+        "lines":        lines,
+    }
+
+
+# ---------------------------------------------------------------------------
+# RPT-INV-008: Stock Adjustments / Discrepancy  (Shoper9: SR211600.EXE MnuNo 430/436)
+# GET /api/v1/inventory-reports/adjustments
+# ---------------------------------------------------------------------------
+
+@router.get("/adjustments")
+async def stock_adjustments_report(
+    from_date: Optional[date] = Query(default=None),
+    to_date:   Optional[date] = Query(default=None),
+    status:    Optional[str]  = Query(default=None, description="DRAFT|APPROVED|REJECTED"),
+    reason:    Optional[str]  = Query(default=None),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    RPT-INV-008 -- Stock Adjustments / Discrepancy (Shoper9: SR211600.EXE MnuNo 430/436).
+    Lists all stock adjustment entries with qty and value impact.
+    Covers MnuNo 430/442 Inward Discrepancy (SR233700) when reason contains 'inward'.
+    """
+    params: Dict[str, Any] = {}
+    clauses = ["is_deleted = false"]
+    if tenant and tenant.company_id:
+        clauses.append("company_id = :company_id")
+        params["company_id"] = tenant.company_id
+    if from_date:
+        clauses.append("adjustment_date >= :from_date")
+        params["from_date"] = from_date
+    if to_date:
+        params["to_date_next"] = (datetime.combine(to_date, datetime.min.time()) + timedelta(days=1)).date()
+        clauses.append("adjustment_date < :to_date_next")
+    if status:
+        clauses.append("status = :status")
+        params["status"] = status.upper()
+    if reason:
+        clauses.append("reason ILIKE :reason")
+        params["reason"] = f"%{reason}%"
+
+    where = " AND ".join(clauses)
+    sql = f"""
+        SELECT
+            id, adjustment_no, document_number,
+            adjustment_date, reason,
+            total_adjustment_qty, total_adjustment_value,
+            status, workflow_status, notes, created_at, created_by
+        FROM stock_adjustments
+        WHERE {where}
+        ORDER BY adjustment_date DESC
+        LIMIT 500
+    """
+    try:
+        rows = (await db.execute(text(sql), params)).fetchall()
+        lines = [
+            {
+                "adjustment_id":       r[0],
+                "adjustment_no":       r[1] or r[2] or r[0],
+                "document_number":     r[2] or "",
+                "adjustment_date":     str(r[3]) if r[3] else str(r[10])[:10],
+                "reason":              r[4] or "",
+                "total_qty":           float(r[5] or 0),
+                "total_value":         float(r[6] or 0),
+                "status":              r[7] or "",
+                "workflow_status":     r[8] or "",
+                "notes":               r[9] or "",
+                "created_by":          r[11] or "",
+            }
+            for r in rows
+        ]
+    except Exception:
+        lines = []
+
+    total_qty   = sum(l["total_qty"] for l in lines)
+    total_value = sum(l["total_value"] for l in lines)
+    by_status: Dict[str, int] = {}
+    for l in lines:
+        by_status[l["status"]] = by_status.get(l["status"], 0) + 1
+
+    return {
+        "report_id":    "RPT-INV-008",
+        "sh9_exe":      "SR211600",
+        "from_date":    str(from_date or ""),
+        "to_date":      str(to_date or ""),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "total_adjustments": len(lines),
+        "total_qty_adjusted": round(total_qty, 2),
+        "total_value_adjusted": round(total_value, 2),
+        "by_status":    by_status,
         "lines":        lines,
     }
