@@ -47,9 +47,10 @@ const mapModuleToContext = (moduleId: string): BusinessContext => {
   if (['report-designer', 'business-ledger', 'audit-logs', 'accounting-sync', 'data-exchange'].includes(moduleId)) {
     return 'reports';
   }
-  if (['staff-management', 'dev-tracker', 'wiki', 'about-smriti'].includes(moduleId)) {
+  if (['staff-management', 'dev-tracker', 'wiki', 'about-smriti', 'legacy-migration'].includes(moduleId)) {
     return 'system';
   }
+
   return 'launchpad';
 };
 
