@@ -1,0 +1,266 @@
+MnuNo,MenuOpt,MnuName,MnuCap,ExeName,pgmopt,AllowWhenTrnClosed,MultiInstance,SmritiWorkspace,SmritiMenuId,SmritiModule,SmritiAction,DocumentType,MigrationStatus,Notes
+0,100,Shoper,Sales,,0,0,0,POS Hub,menu-pos,SALES,NAVIGATE,,MERGED,SMRITI root nav: POS Hub
+0,200,Shoper,Cash,,0,0,0,Business Ledger,menu-business-ledger,FINANCE,NAVIGATE,,MERGED,SMRITI root nav: Business Ledger
+0,300,Shoper,Stock,,0,0,0,Inventory Hub,menu-inventory,INVENTORY,NAVIGATE,,MERGED,SMRITI root nav: Inventory Hub
+0,400,Shoper,Reports,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,,MERGED,SMRITI root nav: Reports Portal
+0,500,Shoper,Housekeeping,,0,0,0,Governance Masters,menu-masters,CONFIG,NAVIGATE,,MERGED,SMRITI root nav: Governance Masters
+0,600,Shoper,Catalogue,,0,0,0,Item Master,menu-item-master,INVENTORY,NAVIGATE,,MERGED,SMRITI root nav: Item Master (Catalogue)
+0,700,Shoper,Setup,,0,0,0,Company Setup,menu-company-setup,ADMIN,NAVIGATE,,MERGED,SMRITI root nav: Company Setup
+0,800,Shoper,Help,,0,0,0,Dashboard,menu-dashboard,SYSTEM,NAVIGATE,,NOT_APPLIC,Help menu -- no SMRITI equivalent needed
+100,101,Sales,Billing,SR130000.EXE,0,0,1,Sales Workspace,menu-sales,SALES,NEW_TRANSACTION,SALES_INVOICE,MAPPED,Sales Workspace: New Tax Invoice. MultiInstance=1 preserved via tabbed session.
+100,104,Sales,Sales Advice Slips,SR115500.EXE,2,0,0,Sales Workspace,menu-sales,SALES,NEW_TRANSACTION,SALES_ADVICE_SLIP,MERGED,Sales Workspace: Advice Slip sub-mode via pgmopt=2.
+100,105,Sales,Service Order,SR115500.EXE,7,0,0,Sales Workspace,menu-sales,SALES,NEW_TRANSACTION,SERVICE_ORDER,MERGED,Sales Workspace: Service Order sub-mode via pgmopt=7.
+100,106,Sales,Sales Order,SR115500.EXE,3,0,0,Sales Workspace,menu-sales,SALES,NEW_TRANSACTION,SALES_ORDER,MERGED,Sales Workspace: Sales Order sub-mode via pgmopt=3.
+100,107,Sales,Sales Order Conversion,SR131400.EXE,0,0,0,Sales Workspace,menu-sales,SALES,CONVERT,SALES_ORDER,MAPPED,Sales Workspace: Order Conversion action (SR131400.EXE).
+100,108,Sales,Walk-in Entry,SR120100.EXE,0,0,0,Customer Workspace,menu-customer-master,CRM,WALKIN_ENTRY,,MAPPED,Customer Workspace: Walk-in registration. Distinct action within Customer WS.
+100,109,Sales,Change Payment Mode,SR323300.EXE,1,1,0,Sales Workspace,menu-sales,SALES,CHANGE_PAYMENT_MODE,,MAPPED,Sales Workspace: Post-bill payment mode amendment. AllowWhenTrnClosed=1.
+100,110,Sales,Pending Order/Trn Closure,SE101100.EXE,1,1,0,Sales Workspace,menu-sales,SALES,RECALL_PENDING,,MAPPED,Sales Workspace: Recall/close pending transactions. AllowWhenTrnClosed=1.
+100,111,Sales,Excise Invoice Generation,SR440100.EXE,0,0,0,Sales Workspace,menu-sales,SALES,GENERATE_EXCISE,EXCISE_INVOICE,DEPRECATED,Excise Invoice -- pre-GST. GST era: E-Invoice via compliance gateway instead.
+100,112,Sales,Transport Receipt Entry,SD400800.EXE,8,0,0,Purchase Workspace,menu-purchase,PURCHASE,NEW_TRANSACTION,TRANSPORT_RECEIPT,MERGED,Transport Receipt -- merged into Purchase Workspace inbound logistics.
+200,201,Cash,Cash Payouts,SR100200.EXE,2,0,0,Business Ledger,menu-business-ledger,FINANCE,NEW_TRANSACTION,CASH_PAYOUT,MAPPED,Business Ledger: Cash Payout document.
+200,202,Cash,Cash Receipts,SR100200.EXE,1,0,0,Business Ledger,menu-business-ledger,FINANCE,NEW_TRANSACTION,CASH_RECEIPT,MAPPED,Business Ledger: Cash Receipt document.
+200,250,Cash,Credit Card Management,,0,0,0,Business Ledger,menu-business-ledger,FINANCE,NAVIGATE,,MERGED,Credit Card group -- merged into Business Ledger sub-section.
+200,260,Cash,Franchisee A/C,,0,0,0,Business Ledger,menu-business-ledger,FINANCE,NAVIGATE,,MERGED,Franchisee A/C group -- merged into Business Ledger.
+200,270,Cash,Till Management,,0,0,0,Business Ledger,menu-business-ledger,FINANCE,NAVIGATE,,MAPPED,Till Management group -- SMRITI Business Ledger: Till section.
+200,280,Cash,Credit Sale Management,,0,0,0,Business Ledger,menu-business-ledger,FINANCE,NAVIGATE,,MAPPED,Credit Sale Management group -- Business Ledger: Credit section.
+250,251,Credit Card Management,Submission,SR100300.EXE,1,0,0,Business Ledger,menu-business-ledger,FINANCE,NEW_TRANSACTION,CC_SUBMISSION,MAPPED,Business Ledger: Credit Card Submission.
+250,252,Credit Card Management,Realisation,SR100400.EXE,1,0,0,Business Ledger,menu-business-ledger,FINANCE,NEW_TRANSACTION,CC_REALISATION,MAPPED,Business Ledger: Credit Card Realisation.
+260,261,Franchisee A/C,Payments to HO,SR101900.EXE,0,0,0,Business Ledger,menu-business-ledger,FINANCE,NEW_TRANSACTION,FRANCHISEE_PAYMENT,PENDING,Franchisee HO payments -- assess if SMRITI multi-company covers this.
+260,262,Franchisee A/C,Franchisee Details Form,SR430600.Exe,0,0,0,Company Setup,menu-company-setup,ADMIN,VIEW,,MERGED,Franchisee Details Form -> Company Setup in SMRITI.
+260,263,Franchisee A/C,Franchisee Outstanding,SR203400.EXE,0,0,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,FRANCHISEE_OUTSTANDING,PENDING,Franchisee outstanding report -- assess vs Business Ledger reports.
+260,265,Franchisee A/C,Pay-in Slip Generation,SR410800.EXE,0,0,0,Business Ledger,menu-business-ledger,FINANCE,NEW_TRANSACTION,PAYIN_SLIP,PENDING,Pay-in Slip -- bank deposit document. Not yet in SMRITI ledger.
+270,271,Till Management,Till Status,SR138900.EXE,1,0,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,TILL_STATUS,MAPPED,Till Status report in Business Ledger.
+270,272,Till Management,Set Opening Balance,SR138900.EXE,2,0,0,Business Ledger,menu-business-ledger,FINANCE,SET_OPENING_BAL,TILL,MAPPED,Till: Set Opening Balance action.
+270,273,Till Management,Cash Lift,SR138900.EXE,3,0,0,Business Ledger,menu-business-ledger,FINANCE,NEW_TRANSACTION,CASH_LIFT,MAPPED,Till: Cash Lift action.
+270,274,Till Management,Reconciliation,SR138900.EXE,4,0,0,Business Ledger,menu-business-ledger,FINANCE,RECONCILE,TILL,MAPPED,Till: End-of-day reconciliation.
+270,275,Till Management,Open Cash Drawer,SR138900.EXE,5,0,0,Business Ledger,menu-business-ledger,FINANCE,OPEN_CASH_DRAWER,,MAPPED,Till: Open Cash Drawer hardware command.
+270,276,Till Management,Till - Reprint,SR138900.EXE,6,0,0,Business Ledger,menu-business-ledger,FINANCE,REPRINT,TILL_REPORT,MAPPED,Till: Reprint last till report.
+280,281,Credit Sale Management,Collect Payment,SR142500.EXE,0,0,0,Business Ledger,menu-business-ledger,FINANCE,COLLECT_PAYMENT,CREDIT_SALE,MAPPED,Credit Sale: Collect payment from credit customer.
+280,282,Credit Sale Management,Set Opening Balance,SR142500.EXE,1,0,0,Business Ledger,menu-business-ledger,FINANCE,SET_OPENING_BAL,CREDIT_SALE,MAPPED,Credit Sale: Set opening balance for credit account.
+280,283,Credit Sale Management,Clear Credit Note,SR142500.EXE,2,0,0,Business Ledger,menu-business-ledger,FINANCE,CLEAR,CREDIT_NOTE,MAPPED,Credit Sale: Clear/apply credit note.
+300,311,Stock,Import DC / Master from PT File,SR324400.exe,1,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,PT_FILE_DC,REPLACED,PT File DC import -> SMRITI Data Exchange module. Legacy S9Q mechanism retired.
+300,312,Stock,Physical Verification,SR101000.exe,0,0,0,Stock Ledger,menu-stock-ledger,INVENTORY,NEW_TRANSACTION,PHYSICAL_VERIFY,MAPPED,Stock Ledger: Physical Verification (TrnType=9700).
+300,313,Stock,Goods Inwards,SR127000.EXE,0,0,0,Purchase Workspace,menu-purchase,PURCHASE,NEW_TRANSACTION,GOODS_INWARDS,MAPPED,Purchase Workspace: Goods Inwards / GRN.
+300,314,Stock,Goods Inwards Size-wise,SR129500.EXE,0,0,0,Purchase Workspace,menu-purchase,PURCHASE,NEW_TRANSACTION,GOODS_INWARDS_SIZE,MERGED,Size-wise GRN -- merged into Purchase Workspace with size matrix capability.
+300,315,Stock,Goods Outwards,SR144100.Exe,0,0,0,Stock Ledger,menu-stock-ledger,INVENTORY,NEW_TRANSACTION,GOODS_OUTWARDS,MAPPED,Stock Ledger: Goods Outwards / DC (TrnType=9200).
+300,316,Stock,PT File Information,SR210700.EXE,0,1,0,Data Exchange,menu-data-exchange,CONFIG,VIEW,PT_FILE_INFO,REPLACED,PT File Information -> Data Exchange history view.
+300,350,Stock,Stock Take,,0,0,0,Stock Ledger,menu-stock-ledger,INVENTORY,NAVIGATE,STOCK_TAKE,MAPPED,Stock Take group -> Stock Ledger workspace.
+300,360,Stock,Carton Management,,0,0,0,Purchase Workspace,menu-purchase,PURCHASE,NAVIGATE,CARTON_MGMT,MAPPED,Carton Management group -> Purchase Workspace.
+300,370,Stock,Barcode,,0,0,0,Barcode Studio,menu-barcode,INVENTORY,NAVIGATE,BARCODE,MAPPED,Barcode group -> Barcode Studio.
+300,380,Stock,Purchase Order,,0,0,0,Purchase Workspace,menu-purchase,PURCHASE,NAVIGATE,PURCHASE_ORDER,MAPPED,Purchase Order group -> Purchase Workspace.
+350,351,Stock Take,Physical Stock Management,SR323400.EXE,0,0,0,Stock Ledger,menu-stock-ledger,INVENTORY,NEW_TRANSACTION,PHYSICAL_STOCK,MAPPED,Stock Ledger: Physical Stock Management.
+350,352,Stock Take,Physical vs Computed Stock Report,SR211000.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,PHY_VS_COMPUTED,MAPPED,Stock Ledger: Physical vs Computed Stock report.
+350,353,Stock Take,Physical Stock Report,SR213300.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,PHYSICAL_STOCK_RPT,MAPPED,Stock Ledger: Physical Stock Report.
+350,354,Stock Take,Physical Stock Report - Batch-wise,SR203500.exe,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,PHYS_STK_BATCH,MAPPED,Stock Ledger: Physical Stock Batch-wise report.
+360,361,Stock,Carton Type Creation,SR441100.EXE,0,0,0,Item Master,menu-item-master,INVENTORY,NEW_RECORD,CARTON_TYPE,MAPPED,Item Master: Carton Type master record.
+360,362,Stock,Carton,SR440700.EXE,0,0,0,Purchase Workspace,menu-purchase,PURCHASE,NEW_TRANSACTION,CARTON,MAPPED,Purchase Workspace: Carton transaction.
+360,363,Stock,Packing,SR440900.EXE,0,0,0,Purchase Workspace,menu-purchase,PURCHASE,NEW_TRANSACTION,PACKING,MAPPED,Purchase Workspace: Packing slip.
+370,371,Barcode,Design Label for Barcode Printers,SR413000.EXE,1,1,0,Barcode Studio,menu-barcode,INVENTORY,DESIGN,BARCODE_LABEL,MAPPED,Barcode Studio: Design label for barcode printers.
+370,372,Barcode,Design Label for Standard Printers,SR431200.EXE,1,0,0,Barcode Studio,menu-barcode,INVENTORY,DESIGN,STD_LABEL,MAPPED,Barcode Studio: Design label for standard printers.
+370,373,Barcode,Design Layout for Standard Printers,SR431200.EXE,2,0,0,Barcode Studio,menu-barcode,INVENTORY,DESIGN,STD_LAYOUT,MAPPED,Barcode Studio: Design layout for standard printers.
+370,374,Barcode,Print Labels,SR413100.EXE,1,1,0,Barcode Studio,menu-barcode,INVENTORY,PRINT,BARCODE_LABELS,MAPPED,Barcode Studio: Print labels.
+380,381,Purchase Order,Generation,SE100900.EXE,1,0,0,Purchase Workspace,menu-purchase,PURCHASE,NEW_TRANSACTION,PURCHASE_ORDER,MAPPED,Purchase Workspace: PO generation.
+380,383,Purchase Order,Import,SE100400.EXE,0,0,0,Purchase Workspace,menu-purchase,PURCHASE,FORECLOSE,PURCHASE_ORDER,MAPPED,Purchase Workspace: Foreclose PO.
+380,384,Purchase Order,Foreclosure,SE127800.exe,2,0,0,Purchase Workspace,menu-purchase,PURCHASE,REOPEN,PURCHASE_ORDER,MAPPED,Purchase Workspace: Reopen PO.
+380,385,Purchase Order,Reopen,SE127800.exe,3,0,0,Purchase Workspace,menu-purchase,PURCHASE,EXPORT,PURCHASE_ORDER,MAPPED,Purchase Workspace: Export PO.
+380,386,Purchase Order,Export,SE127800.exe,4,0,0,Purchase Workspace,menu-purchase,PURCHASE,REPRINT,PURCHASE_ORDER,MAPPED,Purchase Workspace: Reprint PO.
+380,387,Purchase Order,Reprint,SE127800.exe,5,0,0,Purchase Workspace,menu-purchase,PURCHASE,VIEW,PO_STATUS,MAPPED,Purchase Workspace: PO status report.
+380,388,Purchase Order,Status Report,SE201200.EXE,1,0,0,Purchase Workspace,menu-purchase,PURCHASE,CONVERT,PO_INDENT,MAPPED,Purchase Workspace: PO/Indent conversion.
+380,389,Purchase Order,PO/Indent Conversion,SE101000.EXE,1,0,0,Purchase Workspace,menu-purchase,PURCHASE,CONFIGURE,PURCHASE_ORDER,MERGED,PO Configuration -> Purchase Workspace settings panel.
+380,390,Purchase Order,Purchase Order Configuration,SE100280.exe,0,0,0,Purchase Workspace,menu-purchase,PURCHASE,CONFIGURE,PO_CONFIG,MERGED,Purchase Order Configuration (SE100280.exe) -> Purchase Workspace settings.
+400,410,Reports,Sales,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,SALES_REPORTS,MAPPED,Reports: Sales sub-group.
+400,430,Reports,Stock,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,STOCK_REGISTERS,MAPPED,Reports: Stock Registers sub-group.
+400,450,Reports,Stock Registers,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,MIS_REPORTS,MAPPED,Reports: MIS sub-group.
+400,460,Reports,Cash,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,ANALYSIS_REPORTS,MAPPED,Reports: Analysis Reports sub-group.
+400,470,Reports,MIS,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,MIS,MAPPED,Reports: MIS navigation group.
+400,900,Reports,Analysis Reports,,0,0,0,Report Designer,menu-report-designer,REPORTS,NAVIGATE,ANALYSIS_REPORTS,MAPPED,Reports: Analysis Reports navigation -> Report Designer.
+410,411,Sales,Daily Sales Book,SR213600.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,DAILY_SALES_BOOK,MAPPED,Reports: Daily Sales Book.
+410,412,Sales,Bill-wise Sales,SR202400.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,BILLWISE_SALES,MAPPED,Reports: Bill-wise Sales.
+410,413,Sales,Item-wise Sales,SR202200.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,ITEMWISE_SALES,MAPPED,Reports: Item-wise Sales.
+410,414,Sales,Tax Register,SR202300.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,TAX_REGISTER_SALES,MAPPED,Reports: Tax Register (Sales).
+410,415,Sales,Bill-wise Items,SR202000.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,BILLWISE_ITEMS,MAPPED,Reports: Bill-wise Items.
+410,416,Sales,Discount Given,SR202100.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,DISCOUNT_GIVEN,MAPPED,Reports: Discount Given.
+410,418,Sales,Top Selling Items,SR209600.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,SALESPERSON_SALES,MAPPED,Reports: Salesperson Sales.
+410,419,Sales,Salesperson Sales,SR210000.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,CANCELLED_BILLS,MAPPED,Reports: Cancelled Bills.
+410,420,Sales,Cancelled Bills,SR210100.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,RETURNED_BILLS,MAPPED,Reports: Returned Bills.
+410,421,Sales,Returned Bills,SR210200.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,ATTR_SIZE_SALES,MAPPED,Reports: Attribute+Size-wise Sales.
+410,422,Sales,Attribute + Size wise,SR236300.Exe,2,1,0,Reports Portal,menu-reports,REPORTS,VIEW,DAYWISE_SUMMARY,MAPPED,Reports: Day-wise Sales Summary.
+410,423,Sales,Day-wise Sales Summary,SR209500.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,ITEMWISE_RETURNS,MAPPED,Reports: Item-wise Sales Returns.
+410,425,Sales,Item-wise Sales Returns,SR214100.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,NODEWISE_DETAILS,MAPPED,Reports: Node-wise Details.
+410,426,Sales,Salesperson Summary,SR221600.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,SALESPERSON_SUMM,MAPPED,Reports: Salesperson Summary (SR221600).
+410,427,Sales,Node-wise Details,SR231900.EXE,1,0,0,Reports Portal,menu-reports,REPORTS,VIEW,NODEWISE_DETAILS,MAPPED,Reports: Node-wise Details (SR231900).
+430,431,Stock,Balance,SR202500.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,BAL_MOVEMENT,MAPPED,Stock Ledger: Balance Movement Analysis.
+430,432,Stock,Movement,SR203000.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,BAL_STYLE_MODEL,MAPPED,Stock Ledger: Balance Style/Model.
+430,433,Stock,Analysis,SR202700.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,DISCREPANCY,MAPPED,Stock Ledger: Discrepancy.
+430,434,Stock,Statement,SR202900.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,TXN_LEDGER,MAPPED,Stock Ledger: Transaction Ledger.
+430,435,Stock,Balance - Style / Model wise,SR210300.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,ATTR_SIZE_BAL,MAPPED,Stock Ledger: Attribute+Size Balance.
+430,436,Stock,Discrepancy,SR211600.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,BAL_AS_ON_DATE,MAPPED,Stock Ledger: Balance as on Date.
+430,437,Stock,Transaction Ledger,SR213800.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,AGING,MAPPED,Stock Ledger: Aging.
+430,438,Stock,Attribute + Size wise,SR236300.Exe,3,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,INWARD_DISCREPANCY,MAPPED,Stock Ledger: Inward Discrepancy.
+430,439,Stock,Balance as on Date,SR217900.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,PURCHASE_TAX_REG,MAPPED,Stock Ledger: Tax Register (Purchase).
+430,441,Stock,Aging,SR233600.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,VOID_TRANSACTIONS,MAPPED,Stock Ledger: Void Transactions report.
+430,442,Stock,Inward Discrepancy,SR233700.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,INWARD_DISCREPANCY,MAPPED,Stock Ledger: Inward Discrepancy (alt).
+430,443,Stock,Tax Register,SR238000.Exe,1,0,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,TAX_REGISTER,MAPPED,Stock Ledger: Tax Register.
+430,444,Stock,Void Transactions,SR239800.Exe,0,0,0,Stock Ledger,menu-stock-ledger,INVENTORY,NEW_TRANSACTION,VOID_TXN,MAPPED,Stock Ledger: Void Transactions action (SR239800.Exe).
+430,445,Stock,Stock Availability,SR241700.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,STOCK_AVAIL,MAPPED,Stock Ledger: Stock Availability.
+430,446,Stock,Physical Verification Status,SR241600.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,PHYSICAL_VER_STATUS,MAPPED,Stock Ledger: Physical Verification Status.
+450,451,Stock Registers,Transaction-wise Goods Register,SR202800.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,TXN_GOODS_REG,MAPPED,Stock Registers: Transaction-wise Goods Register.
+450,452,Stock Registers,Item-wise Goods Register,SR212600.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,ITEMWISE_GOODS_REG,MAPPED,Stock Registers: Item-wise Goods Register.
+450,453,Stock Registers,Audit Trail - Size-wise,SR217700.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,AUDIT_TRAIL_SIZE,MAPPED,Stock Registers: Audit Trail Size-wise.
+460,461,Cash,Cash Transaction,SR203100.EXE,0,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,CASH_TXN_RPT,MAPPED,Cash Reports: Cash Transaction report.
+460,462,Cash,Submission / Realisation List,SR203300.EXE,0,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,CC_SUBMISSION_LIST,MAPPED,Cash Reports: Credit Card Submission/Realisation List.
+460,463,Cash,Pending Submissions / Realisations,SR203200.EXE,0,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,PENDING_CC,MAPPED,Cash Reports: Pending Submissions/Realisations.
+460,464,Cash,Counter-wise Details,SR210600.EXE,0,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,COUNTERWISE_DETAILS,MAPPED,Cash Reports: Counter-wise Details.
+460,465,Cash,Credit Note Status,SR212700.EXE,0,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,CREDIT_NOTE_STATUS,MAPPED,Cash Reports: Credit Note Status.
+460,466,Cash,Counter Summary across Cashiers,SR212900.EXE,0,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,COUNTER_SUMMARY,MAPPED,Cash Reports: Counter Summary across Cashiers.
+460,467,Cash,Advance Receipt Status,SR234400.EXE,0,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,ADVANCE_RECEIPT,MAPPED,Cash Reports: Advance Receipt Status.
+460,469,Cash,Reconciliation Report,SR239600.EXE,1,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,RECONCILIATION_RPT,MAPPED,Cash Reports: Reconciliation Report.
+460,470,Cash,Till Status Report,SR239600.EXE,2,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,TILL_STATUS_RPT,MAPPED,Cash Reports: Till Status Report.
+460,471,Till Management,Till Activity Log,SR240400.EXE,0,0,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,TILL_ACTIVITY_LOG,MAPPED,Till Management: Till Activity Log.
+460,4702,Credit Sale Management,Credit Sale,SR242900.EXE,0,1,0,Business Ledger,menu-business-ledger,FINANCE,VIEW,CREDIT_SALE_RPT,MAPPED,Credit Sale Management: Credit Sale report.
+470,471,MIS,Monthly Sales Comparison,SR203700.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,MONTHLY_SALES_CMP,MAPPED,MIS: Monthly Sales Comparison.
+470,472,MIS,Rate Variation,SR203800.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,RATE_VARIATION,MAPPED,MIS: Rate Variation report.
+470,473,MIS,Sales Analysis,SR203900.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,SALES_ANALYSIS,MAPPED,MIS: Sales Analysis.
+470,474,MIS,Attribute-wise Sales and Stock,SR236300.Exe,1,1,0,Reports Portal,menu-reports,REPORTS,VIEW,ATTR_SALES_STOCK,MAPPED,MIS: Attribute-wise Sales and Stock.
+470,475,MIS,Pending Transactions,SR215600.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,PENDING_TXN,MAPPED,MIS: Pending Transactions.
+470,476,MIS,Walk-in Details,SR222800.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,WALKIN_DETAILS,MAPPED,MIS: Walk-in Details.
+470,477,MIS,Superclass-wise Sales / Stock,SR216000.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,SUPERCLASS_SALES,MAPPED,MIS: Superclass-wise Sales/Stock.
+470,478,MIS,Stock across Chain,SE201000.EXE,0,0,0,Reports Portal,menu-reports,REPORTS,VIEW,STOCK_ACROSS_CHAIN,PENDING,MIS: Stock across Chain -- needs multi-company assessment.
+470,479,MIS,Transaction Details with Image,SR233000.EXE,1,0,0,Reports Portal,menu-reports,REPORTS,VIEW,TXN_DETAILS_IMG,MERGED,MIS: Transaction Details with Image -> SMRITI bill reprint.
+470,480,MIS,Gross Margin,SR229700.exe,0,0,0,Reports Portal,menu-reports,REPORTS,VIEW,GROSS_MARGIN,MAPPED,MIS: Gross Margin report.
+470,481,MIS,Bill Re-Print,SR233500.exe,0,0,0,Reports Portal,menu-reports,REPORTS,VIEW,BILL_REPRINT,MAPPED,MIS: Bill Re-Print.
+470,482,MIS,Sales Promotions,SR234900.exe,0,0,0,Reports Portal,menu-reports,REPORTS,VIEW,SALES_PROMOTIONS_RPT,MAPPED,MIS: Sales Promotions report.
+470,483,MIS,Salesperson-wise Discount,SR238400.EXE,1,0,0,Reports Portal,menu-reports,REPORTS,VIEW,SALESPERSON_DISC,MAPPED,MIS: Salesperson-wise Discount.
+470,490,MIS,Customer Offtake,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,CUSTOMER_OFFTAKE,MAPPED,MIS: Customer Offtake sub-group.
+470,491,MIS,Excise Report,SR240000.EXE,0,0,0,Reports Portal,menu-reports,REPORTS,VIEW,EXCISE_REPORT,DEPRECATED,MIS: Excise Report -- pre-GST. SMRITI uses GST-native reporting.
+470,492,MIS,Incentive Analysis,SR244700.EXE,1,1,0,Reports Portal,menu-reports,REPORTS,VIEW,INCENTIVE_ANALYSIS,MAPPED,MIS: Incentive Analysis report.
+490,491,Customer Offtake,Period-wise,SR208500.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,OFFTAKE_PERIOD,MAPPED,Customer Offtake: Period-wise.
+490,492,Customer Offtake,Bill-wise,SR208400.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,OFFTAKE_BILLWISE,MAPPED,Customer Offtake: Bill-wise.
+490,493,Customer Offtake,Product-wise,SR208600.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,OFFTAKE_PRODUCTWISE,MAPPED,Customer Offtake: Product-wise.
+500,501,Housekeeping,OPEN Day,SR322600.Exe,0,1,0,Governance Masters,menu-masters,CONFIG,DAY_OPEN,,MAPPED,Governance: Open Day operation.
+500,502,Housekeeping,CLOSE Day,SR309900.EXE,2,0,0,Governance Masters,menu-masters,CONFIG,DAY_CLOSE,,MAPPED,Governance: Close Day operation.
+500,503,Housekeeping,Backup,SR309000.EXE,2,1,0,Governance Masters,menu-masters,CONFIG,BACKUP,DATABASE,MAPPED,Governance: Database Backup.
+500,504,Housekeeping,Restore,SR309000.EXE,3,1,0,Governance Masters,menu-masters,CONFIG,RESTORE,DATABASE,MAPPED,Governance: Database Restore.
+500,505,Housekeeping,Compact,SR309000.EXE,1,1,0,Governance Masters,menu-masters,CONFIG,COMPACT,DATABASE,MAPPED,Governance: Compact Database.
+500,506,Housekeeping,Database Tuning Utility,SE900310.EXE,1,0,0,Governance Masters,menu-masters,CONFIG,TUNE,DATABASE,MAPPED,Governance: Database Tuning.
+500,507,Housekeeping,Purge Data,SR311900.EXE,0,0,0,Governance Masters,menu-masters,CONFIG,PURGE,DATA,MAPPED,Governance: Purge Data (restricted action).
+500,509,Housekeeping,Delete Temporary Tables,SR721000.EXE,0,1,0,Governance Masters,menu-masters,CONFIG,DELETE,BACKUP_FILE,DEPRECATED,"Delete Backup File -- OS-level operation, not in SMRITI scope."
+500,510,Housekeeping,Delete Backup File,SR329900.EXE,1,0,0,Governance Masters,menu-masters,CONFIG,DELETE,BACKUP_FILE,DEPRECATED,Delete Backup File (SR329900) -- OS-level. Not in SMRITI scope.
+500,520,Housekeeping,POS-HO Synchronisation,,0,0,0,Data Exchange,menu-data-exchange,CONFIG,NAVIGATE,SYNC,MAPPED,POS-HO Sync group -> Data Exchange.
+500,530,Housekeeping,Data Import,,0,0,0,Data Exchange,menu-data-exchange,CONFIG,NAVIGATE,IMPORT,MAPPED,Data Import group -> Data Exchange.
+500,550,Housekeeping,Data Export Masters,,0,0,0,Data Exchange,menu-data-exchange,CONFIG,NAVIGATE,IMPORT,MAPPED,Data Import group -> Data Exchange.
+500,560,Housekeeping,Back-end Data,,0,0,0,Governance Masters,menu-masters,CONFIG,NAVIGATE,BACKEND_DATA,REPLACED,Back-end Data -> SMRITI Admin / System Config (Postgres-native).
+500,580,Housekeeping,Schedule for &Reports,SR435600.EXE,302,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,COMMUNICATION,MAPPED,Communication Configuration -> Governance Masters comm settings.
+500,581,HouseKeeping,Activity Log,SR435600.EXE,1,1,1,Audit Logs,menu-audit-logs,ADMIN,VIEW,ACTIVITY_LOG,MAPPED,Activity Log -> Audit Logs workspace.
+520,521,POS-HO Synchronisation,Send Flat Files to HO,SR311400.EXE,0,0,0,Data Exchange,menu-data-exchange,CONFIG,SEND,FLAT_FILES,REPLACED,"Send Flat Files to HO -> SMRITI cloud sync via API, not flat files."
+520,522,POS-HO Synchronisation,Synchronise Manually,SE301100.EXE,0,0,0,Data Exchange,menu-data-exchange,CONFIG,SYNC,MANUAL,MAPPED,Synchronise Manually -> Data Exchange manual trigger.
+520,523,POS-HO Synchronisation,Configure Synchronisation,SE301600.exe,0,0,0,Data Exchange,menu-data-exchange,CONFIG,CONFIGURE,SYNC,MAPPED,Configure Synchronisation -> Data Exchange settings.
+520,524,POS-HO Synchronisation,Status Report,SR235400.EXE,0,0,0,Data Exchange,menu-data-exchange,CONFIG,VIEW,SYNC_STATUS,MAPPED,Sync Status Report -> Data Exchange status.
+530,531,Data Import,Item Master,SR320500.exe,1,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,ITEM_MASTER,MAPPED,Import Item Master.
+530,532,Data Import,Price Revision,SR330700.EXE,1,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,PRICE_REVISION,MAPPED,Import Price Revision.
+530,533,Data Import,Customer Information,SR312300.EXE,0,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,CUSTOMER_INFO,MAPPED,Import Customer Information.
+530,534,Data Import,'Replication Import (AST,,0,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,REPLICATION,PENDING,Replication Import (AST) -- needs multi-db assessment.
+530,535,Data Import,Active Sales Promotions,SR332800.EXE,0,1,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,SALES_PROMOTIONS,MAPPED,Import Active Sales Promotions.
+530,536,Data Import,'Import into Secondary Db.(s,,0,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,SECONDARY_ITEMS,PENDING,Import into Secondary Db -- needs multi-db assessment.
+530,537,Data Import,Import Items from Secondary to Primary Db.,SR325500.EXE,0,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,PRIMARY_ITEMS,PENDING,Import Items Secondary-to-Primary -- needs multi-db assessment.
+530,538,Data Import,Sales Promotions,SR430300.EXE,1,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,SALES_PROMOTIONS,MAPPED,Sales Promotions import (SR430300).
+550,551,Data Export Masters,Post Transactions to Tally,SR431500.EXE,1,1,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,ITEM_MASTER,MAPPED,Import Item Master -> Data Exchange: Item Master import.
+550,552,Data Export Masters,Create PT File,SR327100.EXE,0,1,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,PRICE_REVISION,MAPPED,Import Price Revision -> Data Exchange: Pricing import.
+550,553,Data Export Masters,Pricing Details,SR322300.EXE,1,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,CUSTOMER_INFO,MAPPED,Import Customer Information -> Data Exchange: Customer import.
+550,554,Data Export Masters,ID / IM Flat File,SR309700.EXE,1,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,SALES_PROMOTIONS,MAPPED,Import Active Sales Promotions -> Data Exchange: Promotions import.
+550,555,Data Export Masters,Customer Information,SR312200.EXE,1,0,0,Data Exchange,menu-data-exchange,CONFIG,EXPORT,CUSTOMER_INFO,MAPPED,Export Customer Information.
+550,558,Data Export Masters,'Replication Export (AST,,0,0,0,Data Exchange,menu-data-exchange,CONFIG,EXPORT,REPLICATION,PENDING,Replication Export (AST) -- needs multi-db assessment.
+560,561,Back-end Data,Configure,SE100140.EXE,0,0,0,Company Setup,menu-company-setup,ADMIN,CONFIGURE,BACKEND_CONFIG,REPLACED,Back-end Configure -> SMRITI Admin uses Postgres-native config.
+560,562,Back-end Data,Import,SE100120.EXE,0,0,0,Data Exchange,menu-data-exchange,CONFIG,IMPORT,BACKEND_DATA,REPLACED,Back-end Import -> SMRITI Admin uses Postgres-native import.
+600,601,Catalogue,General Lookup,SR429200.EXE,0,0,0,Item Master,menu-item-master,INVENTORY,LOOKUP,GENERAL,MERGED,General Lookup -> Item Master lookup/search.
+600,602,Catalogue,Vendor,SR404800.EXE,0,0,0,Supplier Management,menu-supplier-mgmt,PURCHASE,NEW_RECORD,VENDOR,MAPPED,Vendor master (SR442300 after update) -> Supplier Management.
+600,604,Catalogue,Item Classification,SR404900.EXE,0,0,0,Item Master,menu-item-master,INVENTORY,CONFIGURE,ITEM_CLASSIFICATION,MAPPED,Item Classification -> Item Master: Category/Class config.
+600,605,Catalogue,Size Management,SR430100.EXE,0,1,0,Item Master,menu-item-master,INVENTORY,CONFIGURE,SIZE_MANAGEMENT,MAPPED,Size Management -> Item Master: Size/Attribute matrix config.
+600,606,Catalogue,Item Master,SR122000.exe,1,0,0,Item Master,menu-item-master,INVENTORY,NEW_RECORD,ITEM_MASTER,MAPPED,Item Master entry -> Item Master workspace.
+600,607,Catalogue,Define Price Revisions,SR230500.EXE,1,0,0,Item Master,menu-item-master,INVENTORY,CONFIGURE,PRICE_REVISIONS,MAPPED,Define Price Revisions -> Item Master: Pricing rules.
+600,608,Catalogue,Define Sales Promotions,SR430300.EXE,1,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,SALES_PROMOTIONS,MAPPED,Define Sales Promotions -> Governance: Promotions config.
+600,610,Catalogue,Payment Mode,SR405600.EXE,0,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,SALES_FACTORS,MERGED,Sales Factors -> Governance Masters config.
+600,611,Catalogue,HO Chain Stores,SR405300.EXE,0,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,PAYMENT_MODE,MAPPED,Payment Mode config -> Governance Masters.
+600,650,Catalogue,Listings,,0,0,0,Item Master,menu-item-master,INVENTORY,NAVIGATE,LISTINGS,MERGED,Catalogue Listings group -> Item Master reports.
+603,6031,Sales Tax,Sales Tax,SR708100.EXE,1,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,SALES_TAX,REPLACED,Sales Tax config -- GST replaced this. SMRITI: GST rate master.
+603,6032,Purchase Tax,Purchase Tax,SR708100.EXE,3,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,PURCHASE_TAX,REPLACED,Purchase Tax config -- GST replaced this.
+603,6033,Excise Duty,Excise Duty,SR439900.EXE,1,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,EXCISE_DUTY,DEPRECATED,Excise Duty config -- pre-GST. Not applicable in SMRITI.
+609,6091,Sales Factors,Sales Factors,SR405800.EXE,0,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,SALES_FACTORS,MAPPED,Sales Factors -> Governance Masters config.
+609,6092,Stock Factors,Stock Factors,CZ100700.EXE,0,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,STOCK_FACTORS,MAPPED,Stock Factors -> Governance Masters config.
+612,6121,Personnel,Personnel Catalogue,SR442900.EXE,1,0,0,Staff Management,menu-staff-management,ADMIN,NEW_RECORD,PERSONNEL,MAPPED,Personnel Catalogue -> Staff Management.
+612,6124,Personnel,Incentive Definition,SR443900.exe,1,0,0,Staff Management,menu-staff-management,ADMIN,CONFIGURE,INCENTIVE,MAPPED,Incentive Definition -> Staff Management.
+613,6131,Customer Price Group,Customer Price Group,SR404700.EXE,1,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,CUSTOMER_PG,MAPPED,Customer Price Group -> Governance Masters.
+613,6132,Customer,Customer Catalogue,SR442300.EXE,0,0,0,Customer Workspace,menu-customer-master,CRM,NEW_RECORD,CUSTOMER,MAPPED,Customer Catalogue -> Customer Workspace.
+613,6133,Customer Mailer,Customer Mailer,SR430900.EXE,0,0,0,Customer Workspace,menu-customer-master,CRM,NEW_TRANSACTION,MAILER,MAPPED,Customer Mailer -> Customer Workspace.
+613,6134,Print Address Labels,Print Address Labels,SR323600.EXE,0,0,0,Customer Workspace,menu-customer-master,CRM,PRINT,ADDRESS_LABELS,MERGED,Print Address Labels -> Customer Workspace print action.
+614,6140,<<Class1>>-<<Class2>> Combo,Product + Brand Combo Settings,SH400900.EXE,1,0,0,Item Master,menu-item-master,INVENTORY,CONFIGURE,PRODUCT_BRAND_COMBO,MAPPED,Product+Brand Combo Settings -> Item Master attribute config.
+614,6141,Multiple Price,Multiple Price,SR143500.EXE,1,0,0,Item Master,menu-item-master,INVENTORY,CONFIGURE,MULTIPLE_PRICE,MAPPED,Multiple Price -> Item Master: Multi-price policy config.
+615,6122,Period,Week Catalogue,SH400600.exe,0,0,0,Item Master,menu-item-master,INVENTORY,CONFIGURE,WEEK_CATALOGUE,MERGED,Week Catalogue -> Item Master seasonal attributes.
+615,6123,Period,Season Catalogue,SE200300.exe,0,0,0,Item Master,menu-item-master,INVENTORY,CONFIGURE,SEASON_CATALOGUE,MERGED,Season Catalogue -> Item Master seasonal attributes.
+650,651,Listings,Price,SR203600.exe,1,0,0,Item Master,menu-item-master,INVENTORY,CONFIGURE,PERIOD,MERGED,Week/Season Catalogue -> Item Master: Seasonal attributes.
+650,652,Listings,Price Revision,SR230500.EXE,0,0,0,Item Master,menu-item-master,INVENTORY,CONFIGURE,SEASON,MERGED,Season Catalogue -> Item Master: Seasonal attributes.
+650,653,Listings,Style Catalogue,SR430800.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,STYLE_CATALOGUE,MAPPED,Listings: Style Catalogue.
+650,654,Listings,Sales Promotions,SR230400.EXE,1,0,0,Reports Portal,menu-reports,REPORTS,VIEW,SALES_PROMOTIONS,MAPPED,Listings: Sales Promotions.
+650,655,Listings,Sales Factors,SR216300.exe,1,1,0,Reports Portal,menu-reports,REPORTS,VIEW,SALES_FACTORS,MAPPED,Listings: Sales Factors.
+650,656,Listings,Schedule Details,SE100220.EXE,2,0,0,Reports Portal,menu-reports,REPORTS,VIEW,SCHEDULE_DETAILS,MERGED,Listings: Schedule Details.
+650,657,Listings,Terminal Prefix,SR234300.EXE,1,0,0,Numbering Engine,menu-document-series,CONFIG,VIEW,TERMINAL_PREFIX,MAPPED,Listings: Terminal Prefix -> Numbering Engine.
+650,658,Listing,Customers,SR242500.EXE,0,0,0,Customer Workspace,menu-customer-master,CRM,VIEW,CUSTOMERS_LIST,MAPPED,Listing: Customers -> Customer Workspace list view.
+650,660,PersonnelListing,Personnel Listing,SR244000.exe,1,0,0,Staff Management,menu-staff-management,ADMIN,VIEW,PERSONNEL_LIST,MAPPED,PersonnelListing: Personnel Listing -> Staff Management.
+650,661,Price Listing,Price Listing-New,SR244300.exe,1,0,0,Reports Portal,menu-reports,REPORTS,VIEW,PRICE_LISTING,MAPPED,Price Listing-New -> Reports Portal.
+700,711,Setup,Company Creation,SR432000.exe,0,0,0,Company Setup,menu-company-setup,ADMIN,NEW_RECORD,COMPANY,MAPPED,Company Creation -> Company Setup workspace.
+700,712,Setup,Company Maintenance,SR406500.exe,0,0,0,Company Setup,menu-company-setup,ADMIN,EDIT,COMPANY,MAPPED,Company Maintenance -> Company Setup workspace.
+700,713,Setup,Create Secondary Database,SR429000.exe,0,0,0,Company Setup,menu-company-setup,ADMIN,NEW_RECORD,SECONDARY_DB,REPLACED,"Create Secondary Database -- SMRITI is cloud-native Postgres, not needed."
+700,720,Setup,General,,0,0,0,Governance Masters,menu-masters,CONFIG,NAVIGATE,GENERAL_SETUP,MAPPED,General setup group -> Governance Masters.
+700,750,Setup,Supervisory Functions,,0,0,0,Staff Management,menu-staff-management,ADMIN,NAVIGATE,SUPERVISORY,MAPPED,Supervisory Functions group -> Staff Management / Admin.
+720,721,General,System Parameters,SR426400.EXE,0,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,SYSTEM_PARAMS,MAPPED,System Parameters -> Governance Masters: sysParam config.
+720,722,General,Bill Prefix,SR438600.EXE,1,0,0,Numbering Engine,menu-document-series,CONFIG,CONFIGURE,BILL_PREFIX,MAPPED,Bill Prefix -> Numbering Engine: Document series config.
+720,723,General,Stock Number Methodology,SR123000.EXE,0,0,0,Governance Masters,menu-masters,CONFIG,CONFIGURE,STOCK_NUMBERING,MAPPED,Stock Number Methodology -> Governance: Item numbering policy.
+720,724,General,Printing Templates,SR428200.EXE,1,0,0,Print Studio,menu-print-studio,CONFIG,CONFIGURE,PRINT_TEMPLATES,MAPPED,Printing Templates -> Print Studio.
+720,725,General,Flat File Values,SR428700.EXE,1,0,0,Data Exchange,menu-data-exchange,CONFIG,CONFIGURE,FLAT_FILE,REPLACED,"Flat File Values -> SMRITI uses API exchange, not flat files."
+720,727,General,Cash / Purchase Order Prefix,SR429300.EXE,2,0,0,Numbering Engine,menu-document-series,CONFIG,CONFIGURE,CASH_PO_PREFIX,MAPPED,Cash / PO Prefix -> Numbering Engine.
+720,728,General,Tally Interface - Mapping,SR431000.EXE,1,1,0,Accounting Sync,menu-accounting-sync,FINANCE,CONFIGURE,TALLY_MAPPING,DEPRECATED,Tally Interface Mapping -- Tally sync deprecated in SMRITI. GST-native.
+720,729,General,Tally Interface - HSN Mapping,SR431800.EXE,0,1,0,Accounting Sync,menu-accounting-sync,FINANCE,CONFIGURE,TALLY_HSN,DEPRECATED,Tally HSN Mapping -- deprecated. SMRITI has native HSN/SAC management.
+720,740,General,Tally Interface Utilities,,0,0,0,Accounting Sync,menu-accounting-sync,FINANCE,NAVIGATE,TALLY_UTILS,DEPRECATED,Tally Interface Utilities group -- deprecated entirely.
+720,804,General,Print Engine Configuration,SR438500.EXE,1,0,0,Print Studio,menu-print-studio,CONFIG,CONFIGURE,PRINT_ENGINE,MAPPED,Print Engine Configuration -> Print Studio advanced config.
+740,741,Tally Interface Utilities,Change Company Information,SR431700.EXE,1,1,0,Accounting Sync,menu-accounting-sync,FINANCE,CONFIGURE,TALLY_CO_INFO,DEPRECATED,Tally: Change Company Info. Not applicable in SMRITI.
+740,742,Tally Interface Utilities,Delete Mapping,SR431700.EXE,3,1,0,Accounting Sync,menu-accounting-sync,FINANCE,DELETE,TALLY_MAPPING,DEPRECATED,Tally: Delete Mapping. Not applicable.
+740,743,Tally Interface Utilities,Changes Master,SR431700.EXE,5,1,0,Accounting Sync,menu-accounting-sync,FINANCE,MANAGE,TALLY_CHANGES,DEPRECATED,Tally: Changes Master. Not applicable.
+740,744,Tally Interface Utilities,Manage Missing Vouchers,SR431700.EXE,7,1,0,Accounting Sync,menu-accounting-sync,FINANCE,MANAGE,MISSING_VOUCHERS,DEPRECATED,Tally: Missing Vouchers. Not applicable.
+740,745,Tally Interface Utilities,Offline Re-posting,SR431700.EXE,9,1,0,Accounting Sync,menu-accounting-sync,FINANCE,EXECUTE,TALLY_REPOST,DEPRECATED,Tally: Offline Re-posting. Not applicable.
+740,746,Tally Interface Utilities,Voucher Comparison Utility,SR431700.EXE,11,1,0,Accounting Sync,menu-accounting-sync,FINANCE,VIEW,VOUCHER_COMPARE,DEPRECATED,Tally: Voucher Comparison. Not applicable.
+750,755,Supervisory Functions,Node Management,SR413400.EXE,2,1,0,Company Setup,menu-company-setup,ADMIN,MANAGE,NODE_MANAGEMENT,MAPPED,Node Management -> Company Setup: Branch/Terminal management.
+750,756,Supervisory Functions,Data Rebuild,SR320800.EXE,1,0,0,Governance Masters,menu-masters,CONFIG,EXECUTE,DATA_REBUILD,MAPPED,Data Rebuild -> Governance: Admin data integrity operation.
+750,757,Supervisory Functions,Cost price Variance Fixing,SR730000.EXE,0,0,0,Governance Masters,menu-masters,CONFIG,EXECUTE,COST_VARIANCE,MAPPED,Cost Price Variance Fixing -> Governance: Admin cost correction.
+750,758,Supervisory Functions,Year End Process,SR428100.Exe,1,0,0,Governance Masters,menu-masters,CONFIG,EXECUTE,YEAR_END,MAPPED,Year End Process -> Governance: Fiscal year close.
+750,759,Supervisory Functions,Re-Open Day,SR333100.Exe,1,1,0,Governance Masters,menu-masters,CONFIG,EXECUTE,REOPEN_DAY,MAPPED,Re-Open Day -> Governance: Privileged day re-open.
+750,760,Supervisory Functions,Database Archival,SR329700.EXE,1,1,0,Governance Masters,menu-masters,CONFIG,EXECUTE,DB_ARCHIVAL,MAPPED,Database Archival -> Governance: Archive old data.
+750,765,Supervisory options,Manage DayEnd/ DayBegin Activity List,SR435700.exe,0,-1,0,Governance Masters,menu-masters,CONFIG,MANAGE,DAYEND_ACTIVITY,MAPPED,Manage DayEnd/DayBegin Activity -> Governance: Day process config.
+750,770,Supervisory options,Price Revision Authorisation,SR230500.exe,4,0,,Approval Matrix,menu-approval-matrix,ADMIN,APPROVE,PRICE_REVISION,MAPPED,Price Revision Authorisation -> Approval Matrix workspace.
+750,771,Item Reclassification,Item Reclassification,SR439400.EXE,1,0,0,Item Master,menu-item-master,INVENTORY,RECLASSIFY,ITEM,MAPPED,Item Reclassification -> Item Master: Reclassify action.
+750,772,Tax Re-computation,Tax Re-computation,SR721500.EXE,0,0,0,Governance Masters,menu-masters,CONFIG,EXECUTE,TAX_RECOMPUTE,MAPPED,Tax Re-computation -> Governance: Admin tax recalc.
+800,801,Help,Shoper Help,SR428900.Exe,1,1,0,Dashboard,menu-dashboard,SYSTEM,HELP,,NOT_APPLIC,Shoper Help -> SMRITI has inline Wiki/Help. External EXE not replicated.
+800,802,Help,Support Centre,SR435600.Exe,0,1,0,Dashboard,menu-dashboard,SYSTEM,HELP,,NOT_APPLIC,Support Centre -> SMRITI support via smritibooks.com. Not an action.
+800,803,Help,About Shoper,SR428900.Exe,2,1,0,Dashboard,menu-dashboard,SYSTEM,ABOUT,,NOT_APPLIC,About Shoper -> SMRITI has About screen. No migration needed.
+800,804,Help,Live Chat,sr428900.Exe,8,1,0,Dashboard,menu-dashboard,SYSTEM,HELP,,NOT_APPLIC,Live Chat -> External. Not migrated.
+900,910,Analysis Reports,Sales,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,SALES_ANALYSIS,MAPPED,Analysis Reports: Sales sub-group.
+900,920,Analysis Reports,Stock,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,STOCK_ANALYSIS,MAPPED,Analysis Reports: Stock sub-group.
+900,930,Analysis Reports,Customer Offtake,,0,0,0,Reports Portal,menu-reports,REPORTS,NAVIGATE,CUSTOMER_OFFTAKE,MAPPED,Analysis Reports: Customer Offtake sub-group.
+900,940,Analysis Reports,Report Designer,,0,0,0,Report Designer,menu-report-designer,REPORTS,NAVIGATE,,MAPPED,Report Designer sub-group -> SMRITI Report Designer workspace.
+910,911,Sales,Bill-wise,SR435600.EXE,2,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,SALES_BILLWISE,MAPPED,SR435600.EXE pgmopt=2: Bill-wise Sales -> Report Designer.
+910,912,Sales,Product-wise,SR435600.EXE,8,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,SALES_PRODUCTWISE,MAPPED,SR435600.EXE pgmopt=8: Product-wise.
+910,913,Sales,Product + Brand-wise,SR435600.EXE,9,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,SALES_PRODBRAND,MAPPED,SR435600.EXE pgmopt=9: Product+Brand-wise.
+910,914,Sales,Item-wise,SR435600.EXE,10,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,SALES_ITEMWISE,MAPPED,SR435600.EXE pgmopt=10: Item-wise Sales.
+910,915,Sales,Monthly comparision,SR435600.EXE,6,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,SALES_MONTHLY,MAPPED,SR435600.EXE pgmopt=6: Monthly comparison.
+920,921,Stock,Item-wise Balance,SR435600.EXE,11,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,STOCK_ITEMWISE,MAPPED,SR435600.EXE pgmopt=11: Item-wise Balance.
+920,922,Stock,Size-wise Balance,SR435600.EXE,12,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,STOCK_SIZEWISE,MAPPED,SR435600.EXE pgmopt=12: Size-wise Balance.
+920,923,Stock,Movement,SR435600.EXE,13,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,STOCK_MOVEMENT,MAPPED,SR435600.EXE pgmopt=13: Movement Analysis.
+920,924,Stock,Analysis,SR435600.EXE,14,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,STOCK_ANALYSIS,MAPPED,SR435600.EXE pgmopt=14: Stock Analysis.
+930,931,Customer Offtake,Summary,SR435600.EXE,3,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,OFFTAKE_SUMMARY,MAPPED,SR435600.EXE pgmopt=3: Customer Offtake Summary.
+930,932,Customer Offtake,Detailed,SR435600.EXE,4,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,OFFTAKE_DETAILED,MAPPED,SR435600.EXE pgmopt=4: Offtake Detailed.
+930,933,Customer Offtake,Brand-wise,SR435600.EXE,5,1,0,Report Designer,menu-report-designer,REPORTS,VIEW,OFFTAKE_BRAND,MAPPED,SR435600.EXE pgmopt=5: Brand-wise Offtake.
+940,941,Report Designer,Sales,SR435600.EXE,201,1,0,Report Designer,menu-report-designer,REPORTS,RUN,RPT_SALES,MAPPED,"Report Designer: Sales template (pgmopt=201, TrnType=2100)."
+940,942,Report Designer,Stock,SR435600.EXE,202,1,0,Report Designer,menu-report-designer,REPORTS,RUN,RPT_STOCK,MAPPED,Report Designer: Stock template (pgmopt=202).
+940,943,Report Designer,Sales && Stock,SR435600.EXE,203,1,0,Report Designer,menu-report-designer,REPORTS,RUN,RPT_SALES_STOCK,MAPPED,Report Designer: Sales & Stock template (pgmopt=203).
+940,944,Report Designer,Stock as on Date,SR435600.EXE,204,1,0,Report Designer,menu-report-designer,REPORTS,RUN,RPT_STOCK_DATE,MAPPED,Report Designer: Stock as on Date (pgmopt=204).
+940,945,Report Designer,Tender,SR435600.EXE,205,1,1,Report Designer,menu-report-designer,REPORTS,RUN,RPT_TENDER,MAPPED,"Report Designer: Tender report (pgmopt=205, MultiInstance=1)."
+940,946,Report Designer,Slips,SR435600.EXE,206,1,1,Report Designer,menu-report-designer,REPORTS,RUN,RPT_SLIPS,MAPPED,"Report Designer: Slips (pgmopt=206, MultiInstance=1)."
