@@ -52,6 +52,155 @@ import { ViewConfigState } from "./SmritiViewConfiguration.tsx";
 export type MasterEntryMode = "add" | "edit" | "delete";
 export type SortDirection = "asc" | "desc";
 
+export const REQUIRED_ITEM_KEYS = new Set([
+  "code",
+  "sku",
+  "stockNo",
+  "barcode",
+  "name",
+  "product",
+  "buying_price",
+  "buyingPrice",
+  "cost_price",
+  "costPrice",
+  "mrp",
+  "price",
+  "sellingPrice",
+  "gst_percentage",
+  "productTax",
+  "hsn_code",
+  "hsnCode"
+]);
+
+export function isItemFieldRequired(key: string): boolean {
+  return REQUIRED_ITEM_KEYS.has(key);
+}
+
+export function isExemptNonStockItem(row: any): boolean {
+  const tm = String(row.tracking_mode || row.trackingMode || "").toLowerCase();
+  const pm = String(row.pricing_mode || row.pricingMode || "").toLowerCase();
+  const cat = String(row.category || "").toLowerCase();
+  const itemType = String(row.item_type || row.itemType || "").toUpperCase();
+
+  return (
+    tm === "no-stock" || tm === "nostock" || tm === "service" || tm === "non-stock" ||
+    pm === "free" || pm === "sample" || pm === "promotional" ||
+    cat === "service" || cat === "services" || cat === "sample" || cat === "samples" || cat === "promotion" || cat === "promotional" || cat === "free" ||
+    itemType === "SERVICE" || itemType === "PROMOTION" || itemType === "SAMPLE" || itemType === "NON_STOCK" || itemType === "FREE"
+  );
+}
+
+export function validateRowRequiredFields(row: any): { isValid: boolean; missingFields: string[]; errors: Record<string, string> } {
+  const errors: Record<string, string> = {};
+  const missingFields: string[] = [];
+
+  // 1. Stock No / SKU
+  const codeVal = typeof row.code === "string" ? row.code.trim() : String(row.code ?? "").trim();
+  if (!codeVal) {
+    errors.code = "Stock No / SKU is required and cannot be blank.";
+    missingFields.push("Stock No / SKU");
+  }
+
+  // 2. Barcode
+  const barcodeVal = typeof row.barcode === "string" ? row.barcode.trim() : String(row.barcode ?? "").trim();
+  if (!barcodeVal) {
+    errors.barcode = "Barcode is required and cannot be blank.";
+    missingFields.push("Barcode");
+  }
+
+  // 3. Product Name / Title
+  const nameVal = typeof row.name === "string" ? row.name.trim() : String(row.name ?? "").trim();
+  if (!nameVal) {
+    errors.name = "Product Name is required and cannot be blank.";
+    missingFields.push("Product Name / Title");
+  }
+
+  // 4. GST Tax Rate
+  const gstRaw = row.gst_percentage;
+  const gstNum = typeof gstRaw === "number" ? gstRaw : parseFloat(String(gstRaw ?? "").replace(/[^0-9.]/g, "").trim());
+  if (gstRaw === null || gstRaw === undefined || String(gstRaw).trim() === "" || isNaN(gstNum) || gstNum < 0) {
+    errors.gst_percentage = "GST Tax Rate is required and cannot be blank.";
+    missingFields.push("GST Tax Rate");
+  }
+
+  // 5. HSN Code
+  const hsnVal = typeof row.hsn_code === "string" ? row.hsn_code.trim() : String(row.hsn_code ?? "").trim();
+  if (!hsnVal) {
+    errors.hsn_code = "HSN Code is required and cannot be blank.";
+    missingFields.push("HSN Code");
+  }
+
+  const isNonStock = isExemptNonStockItem(row);
+
+  // Parse pricing fields
+  const bpRaw = row.buying_price !== undefined ? row.buying_price : row.buyingPrice;
+  const bpNum = typeof bpRaw === "number" ? bpRaw : parseFloat(String(bpRaw ?? "").trim());
+
+  const cpRaw = row.cost_price !== undefined ? row.cost_price : row.costPrice;
+  const cpNum = typeof cpRaw === "number" ? cpRaw : parseFloat(String(cpRaw ?? "").trim());
+
+  const spRaw = row.price !== undefined ? row.price : row.sellingPrice;
+  const spNum = typeof spRaw === "number" ? spRaw : parseFloat(String(spRaw ?? "").trim());
+
+  const mrpRaw = row.mrp;
+  const mrpNum = typeof mrpRaw === "number" ? mrpRaw : parseFloat(String(mrpRaw ?? "").trim());
+
+  if (!isNonStock) {
+    // 6. Buying Price: Mandatory > 0
+    if (bpRaw === null || bpRaw === undefined || String(bpRaw).trim() === "" || isNaN(bpNum) || bpNum <= 0) {
+      errors.buying_price = "Buying Price is required and must be greater than 0.";
+      errors.buyingPrice = errors.buying_price;
+      missingFields.push("Buying Price (> 0)");
+    }
+
+    // 7. Cost Price: Mandatory > 0
+    if (cpRaw === null || cpRaw === undefined || String(cpRaw).trim() === "" || isNaN(cpNum) || cpNum <= 0) {
+      errors.cost_price = "Cost Price is required and must be greater than 0.";
+      errors.costPrice = errors.cost_price;
+      missingFields.push("Cost Price (> 0)");
+    }
+
+    // 8. Selling Price: Mandatory >= 0
+    if (spRaw === null || spRaw === undefined || String(spRaw).trim() === "" || isNaN(spNum) || spNum < 0) {
+      errors.price = "Selling Price is required and must be greater than or equal to 0.";
+      errors.sellingPrice = errors.price;
+      missingFields.push("Selling Price (>= 0)");
+    }
+
+    // 9. MRP: Mandatory >= Selling Price
+    if (mrpRaw === null || mrpRaw === undefined || String(mrpRaw).trim() === "" || isNaN(mrpNum) || mrpNum < 0) {
+      errors.mrp = "MRP is required and must be a valid non-negative number.";
+      missingFields.push("MRP");
+    } else if (!isNaN(spNum) && mrpNum < spNum) {
+      errors.mrp = `MRP (${mrpNum}) must be greater than or equal to Selling Price (${spNum}).`;
+      missingFields.push(`MRP >= Selling Price (${mrpNum} < ${spNum})`);
+    }
+
+    // 10. Cost Price <= Buying Price
+    if (!isNaN(cpNum) && !isNaN(bpNum) && cpNum > bpNum) {
+      errors.cost_price = `Cost Price (${cpNum}) must be less than or equal to Buying Price (${bpNum}).`;
+      errors.costPrice = errors.cost_price;
+      missingFields.push(`Cost Price <= Buying Price (${cpNum} > ${bpNum})`);
+    }
+  } else {
+    // For non-stock / service / free items: Validate non-negative if provided
+    if (spRaw !== null && spRaw !== undefined && String(spRaw).trim() !== "" && !isNaN(spNum) && spNum < 0) {
+      errors.price = "Selling Price cannot be negative.";
+      missingFields.push("Selling Price");
+    }
+    if (mrpRaw !== null && mrpRaw !== undefined && String(mrpRaw).trim() !== "" && !isNaN(mrpNum) && !isNaN(spNum) && mrpNum < spNum) {
+      errors.mrp = `MRP (${mrpNum}) must be greater than or equal to Selling Price (${spNum}).`;
+      missingFields.push("MRP >= Selling Price");
+    }
+  }
+
+  return {
+    isValid: missingFields.length === 0,
+    missingFields,
+    errors
+  };
+}
+
 export interface SortConfig {
   columnKey: string;
   direction: SortDirection;
@@ -637,7 +786,27 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   };
 
   const handleSaveGridToDatabase = async () => {
-    // 1. Check in-grid duplicate Stock No
+    // 0. Validate that grid is not empty
+    if (gridRows.length === 0) {
+      onNotification?.("No Records", "There are no item records to save.", "error");
+      return;
+    }
+
+    // 1. Validate required non-blank fields for every row
+    for (let i = 0; i < gridRows.length; i++) {
+      const row = gridRows[i];
+      const valResult = validateRowRequiredFields(row);
+      if (!valResult.isValid) {
+        onNotification?.(
+          "Validation Error — Required Fields Missing",
+          `Row #${i + 1} has missing required fields: ${valResult.missingFields.join(", ")}. Stock No/SKU, Barcode, Product Name, MRP, Selling Price, GST Tax Rate, and HSN Code cannot be blank.`,
+          "error"
+        );
+        return;
+      }
+    }
+
+    // 2. Check in-grid duplicate Stock No
     if (duplicatesInfo.duplicateCodes.size > 0) {
       const firstIdx = Array.from(duplicatesInfo.duplicateCodes)[0];
       const conflictCode = gridRows[firstIdx]?.code;
@@ -649,7 +818,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       return;
     }
 
-    // 2. Check in-grid duplicate Barcode
+    // 3. Check in-grid duplicate Barcode
     if (duplicatesInfo.duplicateBarcodes.size > 0) {
       const firstIdx = Array.from(duplicatesInfo.duplicateBarcodes)[0];
       const conflictBarcode = gridRows[firstIdx]?.barcode;
@@ -661,7 +830,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       return;
     }
 
-    // 3. Check database conflicts
+    // 4. Check database conflicts
     if (duplicatesInfo.duplicateDbCodes.size > 0) {
       const [idx, prodName] = Array.from(duplicatesInfo.duplicateDbCodes.entries())[0];
       const conflictCode = gridRows[idx]?.code;
@@ -686,67 +855,44 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
 
     setIsSaving(true);
     try {
-      const payloadProducts = gridRows.map(r => ({
-        code: r.code,
-        barcode: r.barcode,
-        name: r.name,
-        image_name: r.imageName,
-        brand: r.brand,
-        style_code: r.styleCode,
-        colour: r.colour,
-        size: r.size,
-        category: r.category,
-        sub_category: r.subCategory,
-        mrp: Number(r.mrp || 0),
-        price: Number(r.price || 0),
-        cost_price: Number(r.costPrice || 0),
-        gst_percentage: Number(r.gst_percentage || 18),
-        hsn_code: r.hsn_code,
-        uom: r.uom,
-        attributes: {
-          image_name: r.imageName,
-          a1: r.a1,
-          a2: r.a2,
-          a3: r.a3,
-          a4: r.a4,
-          a5: r.a5,
-          a6: r.a6,
-          a7: r.a7,
-          a8: r.a8,
-          a9: r.a9
-        }
-      }));
-
       // Commit to FastAPI transactional endpoint (PUT for existing, POST for new)
       for (let i = 0; i < gridRows.length; i++) {
         const row = gridRows[i];
         const rowNum = i + 1;
+        const rawBp = row.buying_price !== undefined && row.buying_price !== null && String(row.buying_price).trim() !== ""
+          ? row.buying_price
+          : row.buyingPrice;
+        const rawCp = row.cost_price !== undefined && row.cost_price !== null && String(row.cost_price).trim() !== ""
+          ? row.cost_price
+          : row.costPrice;
+
         const prodPayload = {
-          code: row.code ? String(row.code).trim() : "",
-          barcode: row.barcode && String(row.barcode).trim() ? String(row.barcode).trim() : null,
-          name: row.name ? String(row.name).trim() : "Untitled Product",
-          primary_image_url: row.imageName || null,
-          brand: row.brand || null,
-          style_code: row.styleCode || null,
-          color: row.colour || null,
-          size: row.size || null,
-          category: row.category || "Footwear",
+          code: String(row.code ?? "").trim(),
+          barcode: String(row.barcode ?? "").trim(),
+          name: String(row.name ?? "").trim(),
+          primary_image_url: row.imageName && String(row.imageName).trim() ? String(row.imageName).trim() : null,
+          brand: row.brand && String(row.brand).trim() ? String(row.brand).trim() : null,
+          style_code: row.styleCode && String(row.styleCode).trim() ? String(row.styleCode).trim() : null,
+          color: row.colour && String(row.colour).trim() ? String(row.colour).trim() : null,
+          size: row.size && String(row.size).trim() ? String(row.size).trim() : null,
+          category: row.category && String(row.category).trim() ? String(row.category).trim() : "Footwear",
           mrp: Number(row.mrp || 0),
           price: Number(row.price || 0),
-          cost_price: Number(row.costPrice || 0),
+          buying_price: rawBp !== null && rawBp !== undefined && String(rawBp).trim() !== "" ? Number(rawBp) : null,
+          cost_price: rawCp !== null && rawCp !== undefined && String(rawCp).trim() !== "" ? Number(rawCp) : null,
           gst_percentage: Number(row.gst_percentage || 18),
-          hsn_code: row.hsn_code || null,
+          hsn_code: String(row.hsn_code ?? "").trim(),
           attributes: {
-            image_name: row.imageName,
-            a1: row.a1,
-            a2: row.a2,
-            a3: row.a3,
-            a4: row.a4,
-            a5: row.a5,
-            a6: row.a6,
-            a7: row.a7,
-            a8: row.a8,
-            a9: row.a9
+            image_name: row.imageName || "",
+            a1: row.a1 || "",
+            a2: row.a2 || "",
+            a3: row.a3 || "",
+            a4: row.a4 || "",
+            a5: row.a5 || "",
+            a6: row.a6 || "",
+            a7: row.a7 || "",
+            a8: row.a8 || "",
+            a9: row.a9 || ""
           }
         };
 
@@ -1001,6 +1147,7 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                       const sortDirection = isSorted ? sortConfig.direction : null;
                       const ariaSortValue = sortDirection === "asc" ? "ascending" : sortDirection === "desc" ? "descending" : "none";
                       const filterValue = columnFilters[col.key] || "";
+                      const isRequiredCol = isItemFieldRequired(col.key);
 
                       return (
                         <th
@@ -1014,10 +1161,15 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                             <button
                               type="button"
                               onClick={() => handleToggleSort(col.key)}
-                              title={`Click to sort by ${col.label}`}
+                              title={`Click to sort by ${col.label}${isRequiredCol ? ' (Required)' : ''}`}
                               className="flex items-center justify-between gap-1 w-full text-left font-bold uppercase tracking-wider hover:text-[#0052cc] dark:hover:text-[#dae2ff] transition select-none group"
                             >
-                              <span className="truncate">{col.label}</span>
+                              <span className="truncate flex items-center">
+                                {col.label}
+                                {isRequiredCol && (
+                                  <span className="text-[#ba1a1a] dark:text-[#ffb4ab] ml-1 font-black" title="Required field">*</span>
+                                )}
+                              </span>
                               <span className="shrink-0">
                                 {sortDirection === "asc" ? (
                                   <ArrowUp size={12} className="text-[#0052cc] dark:text-[#8cb4ff]" aria-hidden="true" />
@@ -1119,6 +1271,9 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                             const val = row[col.key] ?? "";
                             const dbConflictMsg = isCode ? duplicatesInfo.duplicateDbCodes.get(sourceIndex) : duplicatesInfo.duplicateDbBarcodes.get(sourceIndex);
 
+                            const isRequiredField = isItemFieldRequired(col.key);
+                            const isBlankValue = isRequiredField && (val === null || val === undefined || String(val).trim() === "");
+
                             return (
                               <td
                                 key={col.key}
@@ -1127,6 +1282,8 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                 } ${
                                   isDuplicate
                                     ? "bg-[#ffdad6] dark:bg-[#93000a]/40"
+                                    : isBlankValue
+                                    ? "bg-[#ffdad6]/20 dark:bg-[#93000a]/20"
                                     : isNonEditableInEditMode
                                     ? "bg-[#e0e3e5] dark:bg-[#2d3133]/60"
                                     : ""
@@ -1139,6 +1296,8 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                     title={
                                       isNonEditableInEditMode
                                         ? "SKU and Barcode are permanent identifiers and cannot be edited for existing items."
+                                        : isBlankValue
+                                        ? `${col.label} is required and cannot be blank.`
                                         : undefined
                                     }
                                     value={val}
@@ -1147,6 +1306,8 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                     className={`w-full px-2 py-1 rounded outline-none text-xs font-semibold ${
                                       isDuplicate
                                         ? "text-[#ba1a1a] dark:text-[#ffb4ab] font-bold border border-[#ba1a1a]"
+                                        : isBlankValue
+                                        ? "border border-[#ba1a1a] bg-[#ffdad6]/40 text-[#ba1a1a] dark:text-[#ffb4ab] placeholder:text-[#ba1a1a]"
                                         : isNonEditableInEditMode
                                         ? "bg-transparent text-[#515f74] dark:text-[#bec6e0] cursor-not-allowed font-mono font-bold"
                                         : "bg-transparent hover:bg-white dark:hover:bg-[#191c1e] focus:bg-white dark:focus:bg-[#191c1e] border border-transparent focus:border-[#0052cc]"
@@ -1247,42 +1408,95 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
               <div className="space-y-3 bg-[#f7f9fb] dark:bg-[#191c1e] p-4 rounded-xl border border-[#c6c6cd] dark:border-[#45464d]">
                 <h3 className="font-bold uppercase tracking-wider text-[#003d9b] dark:text-[#b2c5ff] text-[10px]">1. Identification</h3>
                 <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">Stock No / SKU*</label>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    Stock No / SKU <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                  </label>
                   <input
                     type="text"
                     readOnly={activeMode === "edit" || activeMode === "delete"}
                     title={activeMode === "edit" ? "SKU is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.code || ""}
                     onChange={e => handleCellChange(currentClassicSourceIndex, "code", e.target.value)}
-                    className={`w-full p-2 border border-[#c6c6cd] rounded font-mono font-bold ${
+                    className={`w-full p-2 border rounded font-mono font-bold ${
+                      !currentClassicRecord.code?.toString().trim()
+                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
+                        : "border-[#c6c6cd]"
+                    } ${
                       activeMode === "edit" ? "bg-[#e0e3e5] dark:bg-[#2d3133] cursor-not-allowed text-[#515f74] dark:text-[#bec6e0]" : "bg-white dark:bg-[#2d3133]"
                     }`}
                   />
+                  {!currentClassicRecord.code?.toString().trim() && (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      Stock No / SKU is required and cannot be blank.
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">Barcode (EAN-13)</label>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    Barcode (EAN-13) <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                  </label>
                   <input
                     type="text"
                     readOnly={activeMode === "edit" || activeMode === "delete"}
                     title={activeMode === "edit" ? "Barcode is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.barcode || ""}
                     onChange={e => handleCellChange(currentClassicSourceIndex, "barcode", e.target.value)}
-                    className={`w-full p-2 border border-[#c6c6cd] rounded font-mono font-bold ${
+                    className={`w-full p-2 border rounded font-mono font-bold ${
+                      !currentClassicRecord.barcode?.toString().trim()
+                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
+                        : "border-[#c6c6cd]"
+                    } ${
                       activeMode === "edit" ? "bg-[#e0e3e5] dark:bg-[#2d3133] cursor-not-allowed text-[#515f74] dark:text-[#bec6e0]" : "bg-white dark:bg-[#2d3133]"
                     }`}
                   />
+                  {!currentClassicRecord.barcode?.toString().trim() && (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      Barcode is required and cannot be blank.
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">Product Title / Name*</label>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    Product Title / Name <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                  </label>
                   <input
                     type="text"
                     value={currentClassicRecord.name || ""}
                     onChange={e => handleCellChange(currentClassicSourceIndex, "name", e.target.value)}
-                    className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-bold"
+                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-bold ${
+                      !currentClassicRecord.name?.toString().trim()
+                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
+                        : "border-[#c6c6cd]"
+                    }`}
                   />
+                  {!currentClassicRecord.name?.toString().trim() && (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      Product Name is required and cannot be blank.
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">Image Filename (e.g. shoe-01)</label>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    HSN Code <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={currentClassicRecord.hsn_code || ""}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "hsn_code", e.target.value)}
+                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
+                      !currentClassicRecord.hsn_code?.toString().trim()
+                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
+                        : "border-[#c6c6cd]"
+                    }`}
+                  />
+                  {!currentClassicRecord.hsn_code?.toString().trim() && (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      HSN Code is required and cannot be blank.
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">Image Filename (Optional)</label>
                   <input
                     type="text"
                     value={currentClassicRecord.imageName || ""}
@@ -1296,31 +1510,120 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
               <div className="space-y-3 bg-[#f7f9fb] dark:bg-[#191c1e] p-4 rounded-xl border border-[#c6c6cd] dark:border-[#45464d]">
                 <h3 className="font-bold uppercase tracking-wider text-[#003d9b] dark:text-[#b2c5ff] text-[10px]">2. Pricing &amp; Taxes</h3>
                 <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">MRP</label>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    Buying Price {!isExemptNonStockItem(currentClassicRecord) && <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>}
+                  </label>
                   <input
                     type="number"
-                    value={currentClassicRecord.mrp || 0}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "mrp", Number(e.target.value))}
-                    className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-mono font-bold"
+                    value={currentClassicRecord.buyingPrice !== undefined && currentClassicRecord.buyingPrice !== null ? currentClassicRecord.buyingPrice : (currentClassicRecord.buying_price ?? "")}
+                    onChange={e => {
+                      const val = e.target.value === "" ? "" : Number(e.target.value);
+                      handleCellChange(currentClassicSourceIndex, "buyingPrice", val);
+                      handleCellChange(currentClassicSourceIndex, "buying_price", val);
+                    }}
+                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
+                      !isExemptNonStockItem(currentClassicRecord) && (Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price) <= 0 || isNaN(Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price)))
+                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
+                        : "border-[#c6c6cd]"
+                    }`}
                   />
+                  {!isExemptNonStockItem(currentClassicRecord) && (Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price) <= 0 || isNaN(Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price))) && (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      Buying Price is required and must be greater than 0.
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">Selling Price</label>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    Cost Price {!isExemptNonStockItem(currentClassicRecord) && <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>}
+                  </label>
                   <input
                     type="number"
-                    value={currentClassicRecord.price || 0}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "price", Number(e.target.value))}
-                    className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-mono font-bold text-[#0c9488]"
+                    value={currentClassicRecord.costPrice !== undefined && currentClassicRecord.costPrice !== null ? currentClassicRecord.costPrice : (currentClassicRecord.cost_price ?? "")}
+                    onChange={e => {
+                      const val = e.target.value === "" ? "" : Number(e.target.value);
+                      handleCellChange(currentClassicSourceIndex, "costPrice", val);
+                      handleCellChange(currentClassicSourceIndex, "cost_price", val);
+                    }}
+                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
+                      !isExemptNonStockItem(currentClassicRecord) && (Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price) <= 0 || isNaN(Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price)) || Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price) > Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price))
+                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
+                        : "border-[#c6c6cd]"
+                    }`}
                   />
+                  {!isExemptNonStockItem(currentClassicRecord) && (Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price) <= 0 || isNaN(Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price))) ? (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      Cost Price is required and must be greater than 0.
+                    </span>
+                  ) : !isExemptNonStockItem(currentClassicRecord) && Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price) > Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price) ? (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      Cost Price ({Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price)}) must be less than or equal to Buying Price ({Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price)}).
+                    </span>
+                  ) : null}
                 </div>
                 <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">GST Tax Rate (%)</label>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    Selling Price <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={currentClassicRecord.price ?? ""}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "price", e.target.value === "" ? "" : Number(e.target.value))}
+                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold text-[#0c9488] ${
+                      currentClassicRecord.price === "" || currentClassicRecord.price === null || currentClassicRecord.price === undefined || Number(currentClassicRecord.price) < 0 || isNaN(Number(currentClassicRecord.price))
+                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
+                        : "border-[#c6c6cd]"
+                    }`}
+                  />
+                  {(currentClassicRecord.price === "" || currentClassicRecord.price === null || currentClassicRecord.price === undefined || Number(currentClassicRecord.price) < 0 || isNaN(Number(currentClassicRecord.price))) && (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      Selling Price is required and must be greater than or equal to 0.
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    MRP <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={currentClassicRecord.mrp ?? ""}
+                    onChange={e => handleCellChange(currentClassicSourceIndex, "mrp", e.target.value === "" ? "" : Number(e.target.value))}
+                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
+                      currentClassicRecord.mrp === "" || currentClassicRecord.mrp === null || currentClassicRecord.mrp === undefined || Number(currentClassicRecord.mrp) < 0 || isNaN(Number(currentClassicRecord.mrp)) || Number(currentClassicRecord.mrp) < Number(currentClassicRecord.price)
+                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
+                        : "border-[#c6c6cd]"
+                    }`}
+                  />
+                  {(currentClassicRecord.mrp === "" || currentClassicRecord.mrp === null || currentClassicRecord.mrp === undefined || Number(currentClassicRecord.mrp) < 0 || isNaN(Number(currentClassicRecord.mrp))) ? (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      MRP is required and must be a valid number.
+                    </span>
+                  ) : Number(currentClassicRecord.mrp) < Number(currentClassicRecord.price) ? (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      MRP ({Number(currentClassicRecord.mrp)}) must be greater than or equal to Selling Price ({Number(currentClassicRecord.price)}).
+                    </span>
+                  ) : null}
+                </div>
+                <div>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    GST Tax Rate (%) <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                  </label>
                   <input
                     type="text"
-                    value={currentClassicRecord.gst_percentage || "18"}
+                    value={currentClassicRecord.gst_percentage ?? ""}
                     onChange={e => handleCellChange(currentClassicSourceIndex, "gst_percentage", e.target.value)}
-                    className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-semibold"
+                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-semibold ${
+                      !currentClassicRecord.gst_percentage?.toString().trim()
+                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
+                        : "border-[#c6c6cd]"
+                    }`}
                   />
+                  {!currentClassicRecord.gst_percentage?.toString().trim() && (
+                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
+                      GST Tax Rate is required and cannot be blank.
+                    </span>
+                  )}
                 </div>
               </div>
 

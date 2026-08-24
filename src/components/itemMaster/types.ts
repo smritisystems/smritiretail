@@ -68,26 +68,27 @@ export interface ItemMasterGridRow {
 export type ItemMasterActiveSubTab = "view" | "details";
 
 export const DEFAULT_MANDATORY_FIELDS: ItemMasterFieldDefinition[] = [
-  { id: "stockNo", key: "stockNo", label: "Stock No", isMandatory: true, type: "text", width: "120px" },
-  { id: "product", key: "product", label: "Product", isMandatory: true, type: "text", width: "160px" },
+  { id: "stockNo", key: "stockNo", label: "Stock No", isMandatory: true, type: "text", width: "120px", aliases: ["Stock No / SKU", "SKU", "Item Code", "Article No"] },
+  { id: "barcode", key: "barcode", label: "Barcode", isMandatory: true, type: "text", width: "140px", aliases: ["UPC", "EAN", "Barcode No"] },
+  { id: "product", key: "product", label: "Product", isMandatory: true, type: "text", width: "160px", aliases: ["Product Name", "Title", "Item Name"] },
+  { id: "buyingPrice", key: "buyingPrice", label: "Buying Price", isMandatory: true, type: "currency", align: "right", width: "110px", aliases: ["Buy Price", "Purchase Price", "Dealer Price", "BP"] },
+  { id: "costPrice", key: "costPrice", label: "Cost Price", isMandatory: true, type: "currency", align: "right", width: "110px", aliases: ["Cost", "Landing Cost", "Net Cost", "CP"] },
+  { id: "sellingPrice", key: "sellingPrice", label: "Selling Price", isMandatory: true, type: "currency", align: "right", width: "110px", aliases: ["Price", "Sale Price", "SP"] },
   { id: "mrp", key: "mrp", label: "MRP", isMandatory: true, type: "currency", align: "right", width: "110px" },
+  { id: "productTax", key: "productTax", label: "Product Tax", isMandatory: true, type: "select", width: "110px", options: ["STD_18", "GST_12", "GST_5", "EXEMPT"], aliases: ["GST %", "Tax Rate", "GST Tax Rate"] },
+  { id: "hsnCode", key: "hsnCode", label: "HSN Code", isMandatory: true, type: "text", width: "110px", aliases: ["HSN", "HSN/SAC"] },
 ];
 
 export const ALL_AVAILABLE_ITEM_FIELDS: ItemMasterFieldDefinition[] = [
   // Mandatory core fields
   ...DEFAULT_MANDATORY_FIELDS,
   // Standard retail attributes
-  { id: "barcode", key: "barcode", label: "Barcode", isMandatory: false, type: "text", width: "140px", aliases: ["UPC", "EAN", "Barcode No"] },
   { id: "brand", key: "brand", label: "Brand", isMandatory: false, type: "text", width: "120px", aliases: ["Manufacturer", "Brand Name"] },
   { id: "style", key: "style", label: "Style", isMandatory: false, type: "text", width: "120px", aliases: ["Style Code", "Model"] },
   { id: "shade", key: "shade", label: "Shade", isMandatory: false, type: "text", width: "110px", aliases: ["Color", "Colour", "Colorway"] },
   { id: "size", key: "size", label: "Size", isMandatory: false, type: "text", width: "90px", aliases: ["Product Size", "Dimension"] },
   { id: "itemDescription", key: "itemDescription", label: "Item Description", isMandatory: false, type: "text", width: "200px", aliases: ["Description", "Detail"] },
-  { id: "sellingPrice", key: "sellingPrice", label: "Selling Price", isMandatory: false, type: "currency", align: "right", width: "110px", aliases: ["Price", "Sale Price"] },
   { id: "dealerPrice", key: "dealerPrice", label: "Dealer Price", isMandatory: false, type: "currency", align: "right", width: "110px", aliases: ["Wholesale Price", "Trade Price"] },
-  { id: "costPrice", key: "costPrice", label: "Cost Price", isMandatory: false, type: "currency", align: "right", width: "110px", aliases: ["Purchase Rate", "Landing Cost"] },
-  { id: "productTax", key: "productTax", label: "Product Tax", isMandatory: false, type: "select", width: "110px", options: ["STD_18", "GST_12", "GST_5", "EXEMPT"], aliases: ["GST %", "Tax Rate"] },
-  { id: "hsnCode", key: "hsnCode", label: "HSN Code", isMandatory: false, type: "text", width: "110px", aliases: ["HSN", "HSN/SAC"] },
   { id: "category", key: "category", label: "Category", isMandatory: false, type: "text", width: "130px", aliases: ["Department", "Merchandise Category"] },
   { id: "subCategory", key: "subCategory", label: "Sub-Category", isMandatory: false, type: "text", width: "130px", aliases: ["Segment", "Subcategory"] },
   { id: "uom", key: "uom", label: "UOM", isMandatory: false, type: "select", width: "90px", options: ["Pcs", "Pair", "Box", "Set", "Kg", "Mtr"], aliases: ["Unit", "Unit of Measure"] },

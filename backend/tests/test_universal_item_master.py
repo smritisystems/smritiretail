@@ -26,16 +26,24 @@ from app.models.item_master import Item, ItemVariant, ItemBarcode
 @pytest.fixture(autouse=True)
 async def cleanup_test_items():
     """Clean up test items before and after each test."""
+    test_codes = ["SKU-POLO-NAVY", "SKU-TSHIRT-BLK", "SKU-JEANS-SLIM", "SKU-ISO-TEST-01", "SKU-SCAN-ITEM-01"]
     for db in ["smriti001", "smriti002"]:
         session_factory = get_company_sessionmaker(db)
         async with session_factory() as session:
-            await session.execute(delete(Item).where(Item.item_code.like("SKU-%")))
+            # Delete child variants and barcodes
+            subquery = select(Item.id).where(Item.item_code.in_(test_codes))
+            await session.execute(delete(ItemBarcode).where(ItemBarcode.item_id.in_(subquery)))
+            await session.execute(delete(ItemVariant).where(ItemVariant.item_id.in_(subquery)))
+            await session.execute(delete(Item).where(Item.item_code.in_(test_codes)))
             await session.commit()
     yield
     for db in ["smriti001", "smriti002"]:
         session_factory = get_company_sessionmaker(db)
         async with session_factory() as session:
-            await session.execute(delete(Item).where(Item.item_code.like("SKU-%")))
+            subquery = select(Item.id).where(Item.item_code.in_(test_codes))
+            await session.execute(delete(ItemBarcode).where(ItemBarcode.item_id.in_(subquery)))
+            await session.execute(delete(ItemVariant).where(ItemVariant.item_id.in_(subquery)))
+            await session.execute(delete(Item).where(Item.item_code.in_(test_codes)))
             await session.commit()
 
 

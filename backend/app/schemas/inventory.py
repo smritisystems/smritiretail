@@ -14,27 +14,29 @@ License      : Proprietary Commercial Software
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, ValidationInfo
+
 
 class ProductBase(BaseModel):
     variant_id: Optional[int] = None
-    code: str = Field(..., max_length=50)
-    name: str = Field(..., max_length=255)
-    price: Decimal = Decimal("0.00")
+    code: str = Field(..., max_length=50, description="Stock No / SKU")
+    name: str = Field(..., max_length=255, description="Product Name / Title")
+    price: Decimal = Field(..., ge=0, description="Selling Price")
     stock: int = 0
-    category: str = Field(..., max_length=100)
+    category: str = Field(default="Footwear", max_length=100)
     is_favorite: Optional[bool] = False
-    barcode: Optional[str] = Field(None, max_length=100)
+    barcode: str = Field(..., max_length=100, description="Barcode")
     secondary_barcodes: Optional[List[str]] = Field(default_factory=list)
     brand: Optional[str] = Field(None, max_length=100)
     color: Optional[str] = Field(None, max_length=50)
     size: Optional[str] = Field(None, max_length=50)
-    mrp: Optional[Decimal] = None
-    gst_percentage: Optional[Decimal] = Decimal("5.00")
+    mrp: Decimal = Field(..., ge=0, description="MRP")
+    gst_percentage: Decimal = Field(..., ge=0, description="GST Tax Rate (%)")
     style_code: Optional[str] = Field(None, max_length=100)
+    buying_price: Optional[Decimal] = None
     cost_price: Optional[Decimal] = None
     sku: Optional[str] = Field(None, max_length=100)
-    hsn_code: Optional[str] = Field(None, max_length=15)
+    hsn_code: str = Field(..., max_length=15, description="HSN Code")
     pricing_mode: Optional[str] = "Fixed"
     tracking_mode: Optional[str] = "Standard"
     variant_template_id: Optional[str] = Field(None, max_length=50)
@@ -43,9 +45,106 @@ class ProductBase(BaseModel):
     primary_image_url: Optional[str] = Field(None, max_length=512)
     gallery_images: Optional[List[str]] = Field(default_factory=list)
 
+    @field_validator("code", "name", "barcode", "hsn_code", mode="before")
+    @classmethod
+    def validate_non_blank_string(cls, v: Any, info: ValidationInfo) -> str:
+        if v is None:
+            raise ValueError(f"{info.field_name} is required and cannot be blank.")
+        s = str(v).strip()
+        if not s:
+            raise ValueError(f"{info.field_name} is required and cannot be blank or whitespace-only.")
+        return s
+
+    @field_validator("mrp", "price", "gst_percentage", mode="before")
+    @classmethod
+    def validate_required_numeric(cls, v: Any, info: ValidationInfo) -> Decimal:
+        if v is None:
+            raise ValueError(f"{info.field_name} is required and cannot be blank.")
+        if isinstance(v, str):
+            v_clean = v.strip()
+            if not v_clean:
+                raise ValueError(f"{info.field_name} is required and cannot be blank.")
+            try:
+                dec = Decimal(v_clean)
+            except Exception:
+                raise ValueError(f"{info.field_name} must be a valid number.")
+        else:
+            try:
+                dec = Decimal(str(v))
+            except Exception:
+                raise ValueError(f"{info.field_name} must be a valid number.")
+        if dec < 0:
+            raise ValueError(f"{info.field_name} cannot be negative.")
+        return dec
+
+    @field_validator("buying_price", "cost_price", mode="before")
+    @classmethod
+    def validate_optional_numeric(cls, v: Any, info: ValidationInfo) -> Optional[Decimal]:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v_clean = v.strip()
+            if not v_clean:
+                return None
+            try:
+                dec = Decimal(v_clean)
+            except Exception:
+                raise ValueError(f"{info.field_name} must be a valid number.")
+        else:
+            try:
+                dec = Decimal(str(v))
+            except Exception:
+                raise ValueError(f"{info.field_name} must be a valid number.")
+        return dec
+
+    @model_validator(mode="after")
+    def validate_pricing_hierarchy(self) -> "ProductBase":
+        # Check if item is an exempt non-stock/service/sample/free item
+        is_non_stock = (
+            (self.tracking_mode and self.tracking_mode.lower() in ["no-stock", "nostock", "service", "non-stock"])
+            or (self.pricing_mode and self.pricing_mode.lower() in ["free", "sample", "promotional"])
+            or (self.category and self.category.lower() in ["service", "services", "sample", "samples", "promotion", "promotional", "free"])
+        )
+
+        if is_non_stock:
+            # Pricing constraints are relaxed for non-stock / service / free items
+            return self
+
+        # For stock/inventory items:
+        # 1. Buying Price is mandatory and must be > 0
+        if self.buying_price is None:
+            raise ValueError("Buying Price is mandatory for stock items.")
+        if self.buying_price <= Decimal("0"):
+            raise ValueError("Buying Price must be greater than 0.")
+
+        # 2. Cost Price is mandatory and must be > 0
+        if self.cost_price is None:
+            raise ValueError("Cost Price is mandatory for stock items.")
+        if self.cost_price <= Decimal("0"):
+            raise ValueError("Cost Price must be greater than 0.")
+
+        # 3. Selling Price is mandatory and must be >= 0
+        if self.price is None:
+            raise ValueError("Selling Price is mandatory.")
+        if self.price < Decimal("0"):
+            raise ValueError("Selling Price must be greater than or equal to 0.")
+
+        # 4. MRP is mandatory and must be >= Selling Price
+        if self.mrp is None:
+            raise ValueError("MRP is mandatory.")
+        if self.mrp < self.price:
+            raise ValueError(f"MRP ({self.mrp}) must be greater than or equal to Selling Price ({self.price}).")
+
+        # 5. Cost Price must be <= Buying Price
+        if self.cost_price > self.buying_price:
+            raise ValueError(f"Cost Price ({self.cost_price}) must be less than or equal to Buying Price ({self.buying_price}).")
+
+        return self
+
 
 class ProductCreate(ProductBase):
     id: Optional[str] = Field(default=None, max_length=50)
+
 
 class ProductUpdate(BaseModel):
     code: Optional[str] = None
@@ -62,6 +161,7 @@ class ProductUpdate(BaseModel):
     mrp: Optional[Decimal] = None
     gst_percentage: Optional[Decimal] = None
     style_code: Optional[str] = None
+    buying_price: Optional[Decimal] = None
     cost_price: Optional[Decimal] = None
     sku: Optional[str] = None
     hsn_code: Optional[str] = None
@@ -72,6 +172,53 @@ class ProductUpdate(BaseModel):
     attributes: Optional[Dict[str, Any]] = None
     primary_image_url: Optional[str] = None
     gallery_images: Optional[List[str]] = None
+
+    @field_validator("code", "name", "barcode", "hsn_code", mode="before")
+    @classmethod
+    def validate_update_string(cls, v: Any, info: ValidationInfo) -> Optional[str]:
+        if v is None:
+            return None
+        s = str(v).strip()
+        if not s:
+            raise ValueError(f"{info.field_name} cannot be blank or whitespace-only.")
+        return s
+
+    @field_validator("mrp", "price", "gst_percentage", "buying_price", "cost_price", mode="before")
+    @classmethod
+    def validate_update_numeric(cls, v: Any, info: ValidationInfo) -> Optional[Decimal]:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v_clean = v.strip()
+            if not v_clean:
+                raise ValueError(f"{info.field_name} cannot be blank.")
+            try:
+                dec = Decimal(v_clean)
+            except Exception:
+                raise ValueError(f"{info.field_name} must be a valid number.")
+        else:
+            try:
+                dec = Decimal(str(v))
+            except Exception:
+                raise ValueError(f"{info.field_name} must be a valid number.")
+        return dec
+
+    @model_validator(mode="after")
+    def validate_update_pricing_hierarchy(self) -> "ProductUpdate":
+        if self.buying_price is not None and self.buying_price <= Decimal("0"):
+            raise ValueError("Buying Price must be greater than 0.")
+        if self.cost_price is not None and self.cost_price <= Decimal("0"):
+            raise ValueError("Cost Price must be greater than 0.")
+        if self.price is not None and self.price < Decimal("0"):
+            raise ValueError("Selling Price must be greater than or equal to 0.")
+        if self.cost_price is not None and self.buying_price is not None:
+            if self.cost_price > self.buying_price:
+                raise ValueError(f"Cost Price ({self.cost_price}) must be less than or equal to Buying Price ({self.buying_price}).")
+        if self.mrp is not None and self.price is not None:
+            if self.mrp < self.price:
+                raise ValueError(f"MRP ({self.mrp}) must be greater than or equal to Selling Price ({self.price}).")
+        return self
+
 
 class ProductResponse(ProductBase):
     id: str

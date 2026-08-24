@@ -36,7 +36,6 @@ import {
   queryPurchaseOrderItems, 
   queryMasterItemsByDate
 } from "./barcodeTransactionStore.ts";
-import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import {
   isQzTrayEnabled,
   testQzConnection,
