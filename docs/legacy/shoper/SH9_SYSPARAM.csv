@@ -1,0 +1,59 @@
+ParamCode,Description,Id,Source
+AllowApplropriationofFreeItemValue,Allow Appropriation of free Item value in Offers,SR1-0901-0000333,ZIP:SH9_015_EE_1_01.S9Q
+AllowClubDuplicateItemsInCartonGrid,Allow Club Duplicated Items in Packing Slip,SR7-0901-0000402,ZIP:SH9_018_EE_2_01.S9Q
+AllowEditDocActQtyinPTFileLoading,Allow editing Documented Qty and Actual Qty in PT file loading,SR3-0901-0000396,ZIP:SH9_018_EE_2_01.S9Q
+AllowExcessQtyinCarton,Allow excess quantity in Packing Slip,SR7-0901-0000405,ZIP:SH9_018_EE_2_01.S9Q
+AllowIndStockItemGORRecalledPackingSlip,Allow individual stock items in GOR along with recalled packing/pallet slip,SR3-0901-0000420,ZIP:SH9_019_EE_2_01.S9Q
+AllowItemScanningWithRecalling,Allow item Scanning Along With Recalling Expected Transaction ,SR1-0901-0000461,ZIP:SH9_020_EE_1_03.S9Q
+AllowMultipleCustomersSalesRtn,Allow Multiple Customers in Sales Return,SR1-0901-0000334,ZIP:SH9_015_EE_1_01.S9Q
+AllowOpenDatetoDesiredDate,Allow Open Date To Enter The Desired Date,SR5-0901-0000414,ZIP:SH9_018_EE_0_02.S9Q
+AllowRateAlterInServiceBill,Allow rate Alteration in service billing,SR1-0901-0000312,ZIP:SH9_013_EE_0_03.S9Q
+AllowRateAlterationinSalesReturnWOR,Allow Rate alteration in Sales Return without Reference,SR1-0901-0000446,ZIP:SH9_0191_EE_1_02.S9Q
+AllowRtnWORinWR,Allow Return without ref. in Return with ref. Transactions,SR1-0901-0000423,ZIP:SH9_019_EE_1_05.S9Q
+AllowTolFactForStockCheck,Allow Tolerence Factor Based Stock Check,SR1-0901-0000338,ZIP:SH9_015_EE_1_01.S9Q
+ApplyLsqForReturnWOR,Apply LSQ for Sales Return without Ref,SR9-0901-0000459,ZIP:SH9_020_EE_1_03.S9Q
+AutoCalculatePurchaseTaxonPredefinedRates,Auto calculate purchase tax based on predefined rates,SR3-0901-0000453,ZIP:SH9_020_EE_2_01.S9Q
+AutoSelectionofBillLvlDiscCode,Auto Selection of Bill Level Discount During Doc Level Discount entry,SR1-0901-0000424,ZIP:SH9_019_EE_1_05.S9Q
+BarcodeFilePath,Barcode File Path,SR1-0901-0000464,ZIP:SH9_020_EE_0_01.S9Q
+BarcodePrintingType,Barcode Printing Type,SR4-0901-0000393,ZIP:SH9_017_EE_6_01.S9Q
+CartonFldPrinted1,Fields to be Printed in Packing Slip1,SR7-0901-0000408,ZIP:SH9_018_EE_2_01.S9Q
+CartonFldPrinted2,Fields to be Printed in Packing Slip2,SR7-0901-0000409,ZIP:SH9_018_EE_2_01.S9Q
+CartonFldPrinted3,Fields to be Printed in Packing Slip3,SR7-0901-0000410,ZIP:SH9_018_EE_2_01.S9Q
+CartonPrintingType,Packing Slip Printing Type,SR7-0901-0000407,ZIP:SH9_018_EE_2_01.S9Q
+DCHdrPrintingOptions,DC Header Printing Options,SR1-0901-0000324,ZIP:SH9_014_EE_6_01.S9Q
+DCPrintingFormat,DC Printing Format To Be Used,SR1-0901-0000325,ZIP:SH9_014_EE_6_01.S9Q
+DCPrintingInGraphicPrinter,DC Printing in Graphic Printer,SR1-0901-0000297,ZIP:SH9_013_EE_0_03.S9Q
+DCPrnColForItemClassificationWise,DC Printing Columns (Item Classification Wise),SR6-0901-0000388,ZIP:SH9_017_EE_6_01.S9Q
+DCPrnItemClassificationWise,Print DC Item Classification Wise,SR1-0901-0000367,ZIP:SH9_017_EE_6_01.S9Q
+DefaultExptTranInBilling,Default Expected Transaction type in Billing,SR1-0901-0000455,ZIP:SH9_0192_EE_1_01.S9Q
+DisableLoadItemOptioninsalesreturnWR,Disable Loading of Items from Bill in Sales Return with Reference,SR1-0922-0000485,ZIP:SH9_0222_EE_0_10.S9Q
+DispPurchDocSelectingStockNo,Display the list of Purchase Documents on selecting stock number,SR3-0901-0000418,ZIP:SH9_019_EE_2_01.S9Q
+DisplayNetQtyInBrowse,Display Net Avaliable Quantity in Item Browse for Billing,SR5-0901-0000300,ZIP:SH9_013_EE_0_11.S9Q
+EnableQtyEditing,Enable Only Quantity Editing Option in Billing ,SR1-0901-0000462,ZIP:SH9_020_EE_1_03.S9Q
+EnableReceivable,Enable Credit Sale Management,SR1-0901-0000431,ZIP:SH9_019_EE_1_10.S9Q
+ExcisePrintingType,Excise Printing Type,SR1-0901-0000375,ZIP:SH9_017_EE_6_01.S9Q
+ExpTrnSlipPrintingType,Expected Transaction-Slip Printing Type,SR1-0901-0000315,ZIP:SH9_013_EE_1_03.S9Q
+FirstCalculateBillLvlDisc,Apply Bill Level Discount first,SR1-0901-0000303,ZIP:SH9_013_EE_0_03.S9Q
+GIRTransporterDetailsPrinting,Transporter Details to be printed in Inward,SR7-0901-0000425,ZIP:SH9_019_EE_2_01.S9Q
+GeneratePrintingLogForPrintEngine,Generate printing log for Print Engine,SR7-0901-0000328,ZIP:SH9_015_EE_6_04.S9Q
+LabelsToPrint,Number of labels per row in a barcode printer,SR1-0901-0000465,ZIP:SH9_020_EE_0_01.S9Q
+LowestHighestPricedItem,Catalogue – For Item Level Fixed Discounts/Offers – Default behaviour for Lowest/Highest Priced Item,SR4-9111-0000333,ZIP:SH9_013_EE_9_02.S9Q
+Multipleprices,Multiple Prices Applicable,SR9-0920-9000001,ZIP:SH9_020_EE_9_03.S9Q
+MultiplepricesPrcSettingCurCostLPP,CurrenCost and Last Purchase Price Setting in Multipe Prices,SR9-0920-4000002,ZIP:SH9_020_EE_9_03.S9Q
+MultiplepricesPrcSettingRetailDealer,Retail and Dealer Price Setting in Multipe Prices,SR9-0920-4000001,ZIP:SH9_020_EE_9_03.S9Q
+PayModesConsideredUnderCashSales,Pay Modes Considered under Cash Sales,SR7-0913-0000313,ZIP:SH9_013_EE_1_03.S9Q
+PaySlipPrintingType,Pay Slip Printing Type,SR7-0901-0000313,ZIP:SH9_013_EE_1_03.S9Q
+PrintBarcode,Print barcode after inward transaction,SR1-0901-0000466,ZIP:SH9_020_EE_0_01.S9Q
+PrintDocPrefixNoInOutwardItemDtls,Print Reference Doc Prefix and Doc No in Outward Item details,SR1-0901-0000437,ZIP:SH9_019_EE_6_01.S9Q
+PrintInclExclVatSummarySeparately,Print inclusive and exclusive vat summary breakup separately,SR1-0901-0000433,ZIP:SH9_019_EE_6_01.S9Q
+PrintSlipsRcptAndAdvRcptInSamePg,Print Slips Receipt & Advance Receipt in same page,SR4-0901-0000392,ZIP:SH9_017_EE_6_01.S9Q
+PrintTaxBreakupWithTaxCompDtls,Print tax breakup with tax component captions,SR1-0901-0000434,ZIP:SH9_019_EE_6_01.S9Q
+PrnSKUORItemWiseExtnFields,Print SKU Wise or Item Wise (Extension Framework/Customisation fields),SR1-0901-0000341,ZIP:SH9_016_EE_6_12.S9Q
+PurchaseOrderMandatoryInGIR,Purchase Order or Indent is mandatory in Goods Inwards,SR3-0901-0000299,ZIP:SH9_013_EE_0_03.S9Q
+ReceivablePrintingType,Printing Type,SR1-0901-0000444,ZIP:SH9_019_EE_1_10.S9Q
+TillPrnType,Till Printing Type,SR6-0901-0000358,ZIP:SH9_016_EE_6_12.S9Q
+TransporterDetailsPrintingInOutward,Transporter Details to be printed (Outward),SR7-0901-0000413,ZIP:SH9_018_EE_6_01.S9Q
+ValidateStockItemsAgainstSOandDA,Validate Stock Items Against Sales Order/Dispatch Advice,SR7-0901-0000406,ZIP:SH9_018_EE_2_01.S9Q
+WhetherMultipleAddonDednApplicable,Multiple Add-on and Deduction Applicable,SR3-0901-0000457,ZIP:SH9_020_EE_2_01.S9Q
+recvcustomerdtlsdispconfig,Customer details display configuration,SR1-0901-0000435,ZIP:SH9_019_EE_1_10.S9Q
+recvfiltercreditdays,No of days in Filter specification,SR1-0901-0000432,ZIP:SH9_019_EE_1_10.S9Q
