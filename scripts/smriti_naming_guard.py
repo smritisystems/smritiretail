@@ -135,13 +135,8 @@ WHITELIST: set = {
     "scripts/dev/temp_route_inventory.py",
     "scripts/dev/frontend_backend_route_audit2.py",
     "scripts/audit_item_master_db2.py",
-    # The genuine violations below are pre-policy legacy files.
-    # They are whitelisted so CI does not fail today.
-    # ACTION REQUIRED: rename these in a future cleanup task.
-    "backend/fix_test_user_seed.py",
-    "backend/tmp_auth_debug.py",
-    "backend/tmp_bootstrap_debug.py",
 }
+
 
 
 # ---------------------------------------------------------------------------
