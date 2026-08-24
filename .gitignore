@@ -115,6 +115,12 @@ TT/**
 *.pdf
 *.csv
 
+# SMRITI Governance Exception: Legacy reference artifacts and naming maps
+# These are IMMUTABLE governance artifacts, not generated data.
+# They must be tracked by git without force-add.
+!docs/legacy/**/*.csv
+!docs/governance/SMRITI_RENAME_MAP_NGP_V2.csv
+
 # Security, Certificates & Cryptographic Keys (NEVER COMMIT)
 backend/app/certs/
 certs/
