@@ -30,6 +30,7 @@ from . import (
     governance,
     governed_logic,
     inventory,
+    inventory_reports,
     legacy_menu_map,
     master_lookup,
     masters,
