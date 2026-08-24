@@ -15,8 +15,8 @@
 ## PHASE 2: BARCODE RUNTIME PIPELINE & PSV DEDICATED DATABASE (`SmritiPSV`)
 
 **Protocol:** SMRITI Post-Freeze Verification Protocol  
-**Canonical Architecture:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
-**Baseline Freeze:** [`docs/_audit/SMRITI_ARCHITECTURE_BASELINE_FREEZE.md`](file:///F:/SMRITRretailNX/docs/_audit/SMRITI_ARCHITECTURE_BASELINE_FREEZE.md)  
+**Canonical Architecture:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
+**Baseline Freeze:** [`docs/_audit/ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/_audit/ARCHITECTURE.md)  
 **Date:** 2026-08-17  
 **Overall Status:** **VERIFIED & OPERATIONAL (WITH EXPLICIT PHYSICAL PRINTER HARDWARE GAP)**
 

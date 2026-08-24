@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 import psycopg2
 from fastapi import HTTPException
-from app.services.company_database_resolver import (
+from app.services.db_resolver import (
     CompanyDatabaseResolver,
     validate_company_database_name,
     generate_company_database_name

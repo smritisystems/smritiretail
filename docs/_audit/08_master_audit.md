@@ -39,8 +39,8 @@
 **Evidence:** backend/alembic_status.txt -- asyncpg.exceptions.InvalidTextRepresentationError on JSONB server_default
 
 **Affected tables:** barcode_providers, identity_rules, product_identities
-**Documentation impact:** PRODUCT_IDENTITY_ENGINE.md claims IMPLEMENTED -- this is INCORRECT for the current database state.
-**Required documentation fix:** PRODUCT_IDENTITY_ENGINE.md must note migration status MIGRATION_FAILED / PENDING_FIX.
+**Documentation impact:** PRODUCT_IDENTITY_13.md claims IMPLEMENTED -- this is INCORRECT for the current database state.
+**Required documentation fix:** PRODUCT_IDENTITY_13.md must note migration status MIGRATION_FAILED / PENDING_FIX.
 **Required code fix (outside audit scope):** JSONB server_default must use ::jsonb cast.
 
 ### CRITICAL-2: backend/tests/conftest.py is UNTRACKED
@@ -57,7 +57,7 @@
 ### MEDIUM-1: USE_MULTI_DB_ROUTER Feature Flag Undocumented
 **Status:** PARTIALLY_VERIFIED
 **Finding:** Flag defaults OFF. In single-DB mode (tests + dev), ALL data is in smritisys. No architecture document explains this behavior.
-**Required documentation fix:** Add a section to SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md explaining the flag and single-DB vs. multi-DB operational modes.
+**Required documentation fix:** Add a section to DATABASE_ROUTING.md explaining the flag and single-DB vs. multi-DB operational modes.
 
 ### MEDIUM-2: CONTROL_DATABASE_URL Casing Inconsistency Undocumented
 **Status:** PARTIALLY_VERIFIED
@@ -76,8 +76,8 @@
 
 ### MEDIUM-5: PSV Standalone Architecture Document Missing
 **Status:** PARTIALLY_VERIFIED
-**Finding:** PSV is described in scattered walkthroughs and implementation plans. No standalone docs/architecture/SMRITI_PSV_ARCHITECTURE_v1.0.md exists.
-**Required documentation fix:** Create SMRITI_PSV_ARCHITECTURE_v1.0.md consolidating PSV topology, projection logic, enablement, and database isolation.
+**Finding:** PSV is described in scattered walkthroughs and implementation plans. No standalone docs/architecture/PSV_ARCHITECTURE.md exists.
+**Required documentation fix:** Create PSV_ARCHITECTURE.md consolidating PSV topology, projection logic, enablement, and database isolation.
 
 ---
 
@@ -93,7 +93,7 @@
 **Finding:** Walkthroughs reference versions up to 3.28.0 but provisioning engine docs still reference schema_version 3.16.0.
 **Required documentation fix:** Update schema_version reference if the system version has been incremented.
 
-### LOW-3: test_company_control_center_security.py tests reference COMP-001 but no seed data exists
+### LOW-3: t_comp_ctr_sec.py tests reference COMP-001 but no seed data exists
 **Status:** PARTIALLY_VERIFIED
 **Finding:** Tests use mock dependency overrides (get_current_user) so they do not require real COMP-001 in the database. But test_06 calls /api/v1/control-center/companies and asserts len > 0 -- this depends on data in the control plane during test.
 **Required documentation fix:** Test README should document which tests require seed data vs. which are fully self-contained.
@@ -125,15 +125,15 @@
 
 | ID | Document | Change Required | Priority |
 |---|---|---|---|
-| DOC-01 | PRODUCT_IDENTITY_ENGINE.md | Add MIGRATION_FAILED status note | CRITICAL |
-| DOC-02 | SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md | Document USE_MULTI_DB_ROUTER flag and single/multi-DB modes | MEDIUM |
-| DOC-03 | SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md | Acknowledge SmritiSys / smritisys casing | MEDIUM |
+| DOC-01 | PRODUCT_IDENTITY_13.md | Add MIGRATION_FAILED status note | CRITICAL |
+| DOC-02 | DATABASE_ROUTING.md | Document USE_MULTI_DB_ROUTER flag and single/multi-DB modes | MEDIUM |
+| DOC-03 | MULTI_COMPANY.md | Acknowledge SmritiSys / smritisys casing | MEDIUM |
 | DOC-04 | PSV implementation plan / create new PSV architecture doc | Document SmritiPSV manual provisioning requirement | MEDIUM |
 | DOC-05 | CHANGELOG or README | Explain version numbering model | MEDIUM |
 | DOC-06 | DEVELOPMENT_STATUS.md | Add Product Identity Engine module row | LOW |
-| DOC-07 | SMRITI_COMPANY_DATABASE_PROVISIONING_ENGINE_v1.0.md | Update schema_version reference | LOW |
+| DOC-07 | COMPANY_DATABASE.md | Update schema_version reference | LOW |
 | DOC-08 | backend/tests/README.md (create if missing) | Document seed data requirements for integration tests | LOW |
-| DOC-09 | Create SMRITI_PSV_ARCHITECTURE_v1.0.md | Standalone PSV architecture document | MEDIUM |
+| DOC-09 | Create PSV_ARCHITECTURE.md | Standalone PSV architecture document | MEDIUM |
 
 ---
 
@@ -171,14 +171,14 @@
 
 ## 8. Audit Completion Checklist
 
-- [x] Phase 0: Repository Inventory (00_repository_inventory.md)
-- [x] Phase 1: Document Inventory (01_document_inventory.md)
-- [x] Phase 2: Architecture Audit (02_architecture_audit.md)
+- [x] Phase 0: Repository Inventory (00_repository.md)
+- [x] Phase 1: Document Inventory (01_document.md)
+- [x] Phase 2: Architecture Audit (02_arch_audit.md)
 - [x] Phase 3: Database Audit (03_database_audit.md)
-- [x] Phase 4: Barcode Subsystem Audit (04_barcode_subsystem_audit.md)
-- [x] Phase 5: PSV Subsystem Audit (05_psv_subsystem_audit.md)
-- [x] Phase 6: Test Verification Audit (06_test_verification_audit.md)
-- [x] Phase 7: Version/Status Audit (07_version_status_audit.md)
-- [x] Master Report (08_master_audit_report.md) -- THIS FILE
+- [x] Phase 4: Barcode Subsystem Audit (04_barcode.md)
+- [x] Phase 5: PSV Subsystem Audit (05_psv_subsystem.md)
+- [x] Phase 6: Test Verification Audit (06_test.md)
+- [x] Phase 7: Version/Status Audit (07_version_status.md)
+- [x] Master Report (08_master_audit.md) -- THIS FILE
 
 **AUDIT COMPLETE**

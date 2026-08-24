@@ -20,22 +20,22 @@ Establish authoritative Control Plane Menu Management for SMRITI Retail OS reusi
 - Control Plane DB table reuse: `smriti_menus` & `smriti_audit_log`
 - Reconciled 32 frontend workspaces + 4 default system rows into 34 active DB menu records
 - Centralized Menu Resolver API: `GET /api/v1/menus/resolved`
-- Admin Menu Studio: [`AdminMenuManagementModal.tsx`](file:///F:/SMRITRretailNX/src/components/AdminMenuManagementModal.tsx) guarded by `system.menu.manage`
+- Admin Menu Studio: [`AdminMenuMgmtDlg.tsx`](file:///F:/SMRITRretailNX/src/components/AdminMenuMgmtDlg.tsx) guarded by `system.menu.manage`
 - Frontend degraded fallback in [`layout_store.tsx`](file:///F:/SMRITRretailNX/src/layout_engine/layout_store.tsx)
 
 ## 3. Files Created
 - `backend/app/models/menu.py`
 - `backend/app/schemas/menu.py`
 - `backend/app/api/v1/menus.py`
-- `src/components/AdminMenuManagementModal.tsx`
+- `src/components/AdminMenuMgmtDlg.tsx`
 - `scripts/seed_menu_registry.py`
-- `scripts/reconcile_workspace_counts.py`
-- `scripts/verify_database_integrity.py`
-- `scripts/test_menu_security_matrix.py`
-- `scripts/test_browser_navigation_e2e.py`
-- `scripts/test_offline_fallback.py`
-- `backend/tests/test_menu_governance.py`
-- `scripts/test_menu_governance_e2e.py`
+- `scripts/reconcile_ws.py`
+- `scripts/verify_db_integ.py`
+- `scripts/test_menu_sec.py`
+- `scripts/test_browser_e2e.py`
+- `scripts/test_offline_fall.py`
+- `backend/tests/t_menu_gov.py`
+- `scripts/test_menu_gov_e2e.py`
 
 ## 4. Files Modified
 - `backend/app/main.py`
@@ -56,12 +56,12 @@ Reusing pre-existing Control Plane tables prevents schema duplication, ensures s
 Implemented 9-phase menu governance pipeline, seeded 34 Control Plane menu items, connected frontend layout engine to backend resolver, built Admin Menu Studio, verified role matrix isolation, generated Excel review workbook (`SMRITI_Menu_Management_Database_Review.xlsx`), and generated `TARGET_MODEL_V1` (8 Navigation Groups).
 
 ## 8. Tests Executed
-- `pytest backend/tests/test_menu_governance.py` (PASSED)
-- `python scripts/reconcile_workspace_counts.py` (PASSED)
-- `python scripts/verify_database_integrity.py` (PASSED)
-- `python scripts/test_menu_security_matrix.py` (PASSED)
-- `python scripts/test_browser_navigation_e2e.py` (PASSED)
-- `python scripts/test_offline_fallback.py` (PASSED)
+- `pytest backend/tests/t_menu_gov.py` (PASSED)
+- `python scripts/reconcile_ws.py` (PASSED)
+- `python scripts/verify_db_integ.py` (PASSED)
+- `python scripts/test_menu_sec.py` (PASSED)
+- `python scripts/test_browser_e2e.py` (PASSED)
+- `python scripts/test_offline_fall.py` (PASSED)
 - `npx vite build` (PASSED)
 
 ## 9. Verification Results

@@ -15,8 +15,8 @@ import os
 import pytest
 from unittest.mock import patch
 from app.core.config import Settings, load_settings
-from app.services.control_database_registry import ControlDatabaseRegistryService
-from app.models.company_database_registry import CompanyDatabaseRegistry
+from app.services.control_registry import ControlDatabaseRegistryService
+from app.models.company_registry import CompanyDatabaseRegistry
 
 
 def test_production_mode_fails_on_default_postgres_password():

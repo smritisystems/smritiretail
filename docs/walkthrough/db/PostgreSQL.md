@@ -115,4 +115,4 @@ Output:
 ---
 
 ## 13. Related RFCs
-- PostgreSQL stand-alone migration plan (`POS_DeepReview_Fixes_Plan_v2.1.3.md`).
+- PostgreSQL stand-alone migration plan (`POS_DeepReview.md`).

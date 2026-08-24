@@ -13,9 +13,9 @@
 
 import React, { useState } from 'react';
 import { Layers, Play, CheckCircle2, Award, ArrowRight, ShieldCheck } from 'lucide-react';
-import { trainingSandboxStore } from '../../services/trainingSandboxStore';
+import { trainingStore } from '../../services/trainingStore';
 
-export const Day5LifecycleTestEngine: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+export const Day5Lifecycle: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [evaluationResult, setEvaluationResult] = useState<any>(null);
   const [stepProgress, setStepProgress] = useState({
     itemCreated: false,
@@ -28,7 +28,7 @@ export const Day5LifecycleTestEngine: React.FC<{ onComplete: () => void }> = ({ 
 
   const handleRunFullCycle = () => {
     // 1. Create Product
-    trainingSandboxStore.addSimulatedItem({
+    trainingStore.addSimulatedItem({
       sku: 'SKU-SUGAR-01',
       name: 'Refined Sugar 1kg Pack',
       hsn: '17019990',
@@ -38,14 +38,14 @@ export const Day5LifecycleTestEngine: React.FC<{ onComplete: () => void }> = ({ 
     });
 
     // 2. Create Supplier
-    trainingSandboxStore.addSimulatedSupplier({
+    trainingStore.addSimulatedSupplier({
       code: 'SUP-RAJ-TRADERS',
       name: 'Raj Wholesale Traders',
       gstin: '27AABCR9981F1Z8',
     });
 
     // 3. Issue PO (50 units)
-    trainingSandboxStore.createSimulatedPO({
+    trainingStore.createSimulatedPO({
       poNumber: 'PO-DAY5-5001',
       supplierCode: 'SUP-RAJ-TRADERS',
       sku: 'SKU-SUGAR-01',
@@ -55,7 +55,7 @@ export const Day5LifecycleTestEngine: React.FC<{ onComplete: () => void }> = ({ 
     });
 
     // 4. Receive GRN (48 units received, 2 short)
-    trainingSandboxStore.processSimulatedGRN({
+    trainingStore.processSimulatedGRN({
       grnNumber: 'GRN-DAY5-9001',
       poNumber: 'PO-DAY5-5001',
       receivedQty: 48,
@@ -65,7 +65,7 @@ export const Day5LifecycleTestEngine: React.FC<{ onComplete: () => void }> = ({ 
     });
 
     // 5. Sell Item via POS (5 units)
-    trainingSandboxStore.processSimulatedSale({
+    trainingStore.processSimulatedSale({
       invoiceNumber: 'INV-DAY5-7001',
       customerName: 'Standard Customer',
       sku: 'SKU-SUGAR-01',
@@ -87,7 +87,7 @@ export const Day5LifecycleTestEngine: React.FC<{ onComplete: () => void }> = ({ 
     });
 
     // 6. Deterministic Verification
-    const res = trainingSandboxStore.verifyDay5Lifecycle('SKU-SUGAR-01');
+    const res = trainingStore.verifyDay5Lifecycle('SKU-SUGAR-01');
     setEvaluationResult(res);
     if (res.passed) {
       onComplete();

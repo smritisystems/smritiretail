@@ -13,12 +13,12 @@
  */
 
 import React, { useState } from "react";
-import { SmritiProPosBillingTerminal } from "./SmritiProPosBillingTerminal.tsx";
-import { SmritiProPosEodReportView } from "./SmritiProPosEodReportView.tsx";
-import { SmritiProPosDailyReportsDashboard } from "./SmritiProPosDailyReportsDashboard.tsx";
-import { SmritiProPosPromotionEngine } from "./SmritiProPosPromotionEngine.tsx";
-import { SmritiProPosCommissionBuilder } from "./SmritiProPosCommissionBuilder.tsx";
-import { SmritiBillingTerminal } from "../SmritiBillingTerminal.tsx";
+import { SmritiProPosBillinginal } from "./ProPosBillingTerm.tsx";
+import { SmritiProPosEodReportw } from "./ProPosEodReportVie.tsx";
+import { SmritiDailyReportsDashDashboard } from "./ProPosDailyReports.tsx";
+import { SmritiPromotionEngineine } from "./ProPosPromotionEng.tsx";
+import { SmritiCommissionBuildilder } from "./ProPosCommissionBu.tsx";
+import { BillingTerm } from "../BillingTerm.tsx";
 import { Product, POSProfile, Shift } from "../../../types.ts";
 import { 
   ShoppingCart, 
@@ -44,7 +44,7 @@ interface SmritiProPosWorkspaceProps {
   onNotification?: (title: string, msg: string, type: "success" | "error") => void;
 }
 
-export const SmritiProPosWorkspace: React.FC<SmritiProPosWorkspaceProps> = ({
+export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
   products = [],
   profiles = [],
   shifts = [],
@@ -174,17 +174,17 @@ export const SmritiProPosWorkspace: React.FC<SmritiProPosWorkspaceProps> = ({
       {/* Main Workspace Active View */}
       <div className="flex-1 overflow-hidden relative">
         {activeTab === "INVOICING" && (
-          <SmritiBillingTerminal
+          <BillingTerm
             products={products}
             onNotification={showToast}
             onRefreshData={onRefreshData}
           />
         )}
         {activeTab === "BILLING" && (
-          <SmritiProPosBillingTerminal onNotification={showToast} />
+          <SmritiProPosBillinginal onNotification={showToast} />
         )}
         {activeTab === "EOD_Z_REPORT" && (
-          <SmritiProPosEodReportView
+          <SmritiProPosEodReportw
             onCommitCloseout={(eod) => {
               showToast("Register Closed", `Z-Report committed for shift ${eod.shiftId}`, "success");
             }}
@@ -192,13 +192,13 @@ export const SmritiProPosWorkspace: React.FC<SmritiProPosWorkspaceProps> = ({
           />
         )}
         {activeTab === "DAILY_REPORTS" && (
-          <SmritiProPosDailyReportsDashboard />
+          <SmritiDailyReportsDashDashboard />
         )}
         {activeTab === "PROMOTIONS" && (
-          <SmritiProPosPromotionEngine />
+          <SmritiPromotionEngineine />
         )}
         {activeTab === "COMMISSIONS" && (
-          <SmritiProPosCommissionBuilder />
+          <SmritiCommissionBuildilder />
         )}
       </div>
 
@@ -227,4 +227,4 @@ export const SmritiProPosWorkspace: React.FC<SmritiProPosWorkspaceProps> = ({
   );
 };
 
-export default SmritiProPosWorkspace;
+export default ProPosWs;

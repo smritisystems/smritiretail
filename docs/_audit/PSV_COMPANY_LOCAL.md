@@ -14,8 +14,8 @@
 # SMRITI RETAIL OS — PSV COMPANY-LOCAL ARCHITECTURE CERTIFICATION REPORT
 
 **Protocol:** Final PSV Company-Local Architecture Verification  
-**Canonical Architecture:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
-**PSV Specification:** [`docs/architecture/SMRITI_PSV_ARCHITECTURE_v1.0.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_PSV_ARCHITECTURE_v1.0.md)  
+**Canonical Architecture:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
+**PSV Specification:** [`docs/architecture/PSV_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/PSV_ARCHITECTURE.md)  
 **Date:** 2026-08-17  
 **Status:** **100% VERIFIED — COMPANY-LOCAL PSV**
 

@@ -15,7 +15,7 @@ import { apiFetchV1 } from "../lib/apiFetchV1";
 import { TrendingDown, TrendingUp, AlertTriangle, Package, CalendarClock, RefreshCw } from "lucide-react";
 import { Product } from "../types";
 
-export const InventoryForecastWidget: React.FC = () => {
+export const InvForecastidget: React.FC = () => {
   const [forecasts, setForecasts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

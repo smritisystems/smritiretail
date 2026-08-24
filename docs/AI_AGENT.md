@@ -14,7 +14,7 @@
 # SMRITI AI AGENT ARCHITECTURE & DATABASE GOVERNANCE RULES
 
 **Status:** **PERMANENT MANDATORY DIRECTIVE — ZERO EXCEPTIONS**  
-**Canonical Specification:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
+**Canonical Specification:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
 **Effective Date:** 2026-08-17
 
 All coding assistants, subagents, and automated software agents operating on the SMRITI Retail OS repository MUST strictly adhere to the following 11 non-negotiable architectural rules before proposing or applying any code or schema modifications:

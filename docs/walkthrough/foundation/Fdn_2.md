@@ -78,7 +78,7 @@ Introduce a complete JWT-based authentication layer to SMRITI Retail OS so that 
 | `backend/app/api/v1/sales.py` | Added `require_role(CASHIER, MANAGER, SYSADMIN)` to POST |
 | `backend/app/core/config.py` | `ACCESS_TOKEN_EXPIRE_MINUTES=60`, `REFRESH_TOKEN_EXPIRE_DAYS=7`, version 3.9.0 |
 | `backend/requirements.txt` | Added `python-jose[cryptography]==3.3.0`, `passlib[bcrypt]==1.7.4` |
-| `backend/app/tests/test_tenant_isolation.py` | Updated fixture to override `get_current_user` and `get_tenant_context`; replaced headers with contextvar approach |
+| `backend/app/tests/t_tenant_isolate.py` | Updated fixture to override `get_current_user` and `get_tenant_context`; replaced headers with contextvar approach |
 | `CHANGELOG.md` | v3.9.0 entry |
 
 ---
@@ -184,12 +184,12 @@ app/tests/test_schemas.py::test_inventory_schema_validation PASSED       [ 74%]
 app/tests/test_schemas.py::test_sales_schema_validation PASSED           [ 77%]
 app/tests/test_services.py::test_crm_and_inventory_services PASSED       [ 80%]
 app/tests/test_services.py::test_sales_invoice_service PASSED            [ 82%]
-app/tests/test_tenant_isolation.py::test_header_validation PASSED        [ 85%]
-app/tests/test_tenant_isolation.py::test_read_isolation PASSED           [ 88%]
-app/tests/test_tenant_isolation.py::test_write_validation PASSED         [ 91%]
-app/tests/test_tenant_isolation.py::test_service_layer_isolation PASSED  [ 94%]
-app/tests/test_tenant_isolation.py::test_cross_tenant_branch_validation PASSED [ 97%]
-app/tests/test_tenant_isolation.py::test_concurrent_duplicate_barcode_returns_400_not_500 PASSED [100%]
+app/tests/t_tenant_isolate.py::test_header_validation PASSED        [ 85%]
+app/tests/t_tenant_isolate.py::test_read_isolation PASSED           [ 88%]
+app/tests/t_tenant_isolate.py::test_write_validation PASSED         [ 91%]
+app/tests/t_tenant_isolate.py::test_service_layer_isolation PASSED  [ 94%]
+app/tests/t_tenant_isolate.py::test_cross_tenant_branch_validation PASSED [ 97%]
+app/tests/t_tenant_isolate.py::test_concurrent_duplicate_barcode_returns_400_not_500 PASSED [100%]
 
 ====================== 35 passed, 122 warnings in 8.93s =======================
 ```

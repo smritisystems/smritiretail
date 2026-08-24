@@ -22,8 +22,8 @@ def test_mock_kpi_remediation_e2e():
     - Complete removal of demo mock strings ('4,25,800', 'TechCorp Distributors') from UI components
     - Dynamic backend wiring via MasterListScreen and supplierMasterConfig
     """
-    filepath = r"F:\SMRITRretailNX\src\components\SupplierDashboardTab.tsx"
-    config_path = r"F:\SMRITRretailNX\src\components\global\configs\supplierMaster.config.tsx"
+    filepath = r"F:\SMRITRretailNX\src\components\SupplierDashTab.tsx"
+    config_path = r"F:\SMRITRretailNX\src\components\global\configs\supplierMaster.con.tsx"
     
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()

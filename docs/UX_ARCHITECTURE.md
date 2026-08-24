@@ -48,12 +48,12 @@
 ### Layer 1: Presentation & Layout Engine
 - **Layout Host**: [`src/layout_engine/layout_manager.tsx`](file:///F:/SMRITRretailNX/src/layout_engine/layout_manager.tsx)
 - **Theme Engine**: [`src/contexts/ThemeContext.tsx`](file:///F:/SMRITRretailNX/src/contexts/ThemeContext.tsx) (28 semantic design tokens defined in `src/index.css` supporting Light Baseline & Dark Alternative).
-- **Navigation Renderer**: [`src/layout_engine/navigation_renderer.tsx`](file:///F:/SMRITRretailNX/src/layout_engine/navigation_renderer.tsx) (Supports Left, Right, Top, Bottom, Hidden, and Focus Mode docks).
+- **Navigation Renderer**: [`src/layout_engine/NavRenderer.tsx`](file:///F:/SMRITRretailNX/src/layout_engine/NavRenderer.tsx) (Supports Left, Right, Top, Bottom, Hidden, and Focus Mode docks).
 - **Floating Workspace Host**: [`src/components/FloatingWindowHost.tsx`](file:///F:/SMRITRretailNX/src/components/FloatingWindowHost.tsx) (Supports multi-window tiling, docking, zooming, and standalone window popouts).
 - **Workspace Taskbar**: [`src/components/WorkspaceTaskbar.tsx`](file:///F:/SMRITRretailNX/src/components/WorkspaceTaskbar.tsx) (Hidable bottom bar with collapse trigger pill).
 
 ### Layer 2: Business Modules & Workspaces
-- **POS Billing Desk**: [`src/components/PosTerminalTab.tsx`](file:///F:/SMRITRretailNX/src/components/PosTerminalTab.tsx) & [`src/components/AdvancedBillingEngine.tsx`](file:///F:/SMRITRretailNX/src/components/AdvancedBillingEngine.tsx)
+- **POS Billing Desk**: [`src/components/PosTerminalTab.tsx`](file:///F:/SMRITRretailNX/src/components/PosTerminalTab.tsx) & [`src/components/AdvancedBillingEng.tsx`](file:///F:/SMRITRretailNX/src/components/AdvancedBillingEng.tsx)
 - **Sales Studio**: [`src/components/SalesStudioTab.tsx`](file:///F:/SMRITRretailNX/src/components/SalesStudioTab.tsx)
 - **Item Master**: [`src/components/ItemMasterTab.tsx`](file:///F:/SMRITRretailNX/src/components/ItemMasterTab.tsx)
 - **Purchase Studio**: [`src/components/PurchaseStudioTab.tsx`](file:///F:/SMRITRretailNX/src/components/PurchaseStudioTab.tsx)

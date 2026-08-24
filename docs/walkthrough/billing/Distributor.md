@@ -27,7 +27,7 @@ To implement the authentic Distributor Invoicing Terminal, Multi-Tender Settleme
 ---
 
 ## 2. Scope
-- **Distributor Invoicing Workspace (`SmritiBillingTerminal.tsx`)**:
+- **Distributor Invoicing Workspace (`BillingTerm.tsx`)**:
   - **Header Section**: `Bill Type` (`Product`, `Service`), `Transaction` (`Credit`, `Cash`), `Doc Prefix` (`D1DS13`), `Doc No.`, `Import` & `Recall` action buttons, `Customer` search with embedded `F2` trigger & `Add` button, and `Sales Staff` selector.
   - **Detail Section (Direct Entry + Table)**:
     - **F11 Direct Entry Row**: 11-column inline input grid (`Stock No`, `Item Description`, `Rate`, `Qty`, `Value`, `Disc Code`, `Disc Qty`, `Disc %`, `Disc Amt`, `Total`, `Staff`) with Enter-to-add action.
@@ -38,7 +38,7 @@ To implement the authentic Distributor Invoicing Terminal, Multi-Tender Settleme
     - **High-Visibility Blue Summary Bar**: 9 cells with large `Net Amount` display highlighted in `#a7c8ff`.
   - **Global Keybinding Bar**:
     - `Ready... F2: Search | F11: Direct Entry | F6: Discounts | F7/F8: Settlement | F12: Suspend | Ctrl+4: AddOns`.
-- **Multi-Tender Settlement & Payment Studio (`SmritiInvoiceSettlementModal.tsx`)**:
+- **Multi-Tender Settlement & Payment Studio (`InvoiceSettlementD.tsx`)**:
   - Split-view layout: Left invoice summary & dynamic multi-row payment entry table (`Cash`, `Credit Card`, `Debit Card`, `UPI`, `Cheque`, `Credit Note`); Right calculation breakdown (`Bill Amount`, `Total Tendered`, `Balance/Change`, `Round Off`), cash denomination counter (`2000` to `Coins`), and action bar (`Cancel [Esc]`, `Hold/Suspend [F12]`, `Complete Settlement [F8/Enter]`).
 - **PDT Import Dialog (`PdtImportModal.tsx`)**:
   - Radio toggle: `Import from File` (with Template dropdown & Browse parser) vs `Import from Transaction` (with Type, Prefix & Bill No).
@@ -46,19 +46,19 @@ To implement the authentic Distributor Invoicing Terminal, Multi-Tender Settleme
 ---
 
 ## 3. Files Created
-- `src/components/billing/SmritiInvoiceSettlementModal.tsx`: Split-view settlement studio with multi-tender payment grid and denomination counter.
-- `docs/walkthrough/billing/Distributor_Invoicing_Settlement_And_PDT_Import_Stitch_v6.7.0.md`: WGP Walkthrough document.
+- `src/components/billing/InvoiceSettlementD.tsx`: Split-view settlement studio with multi-tender payment grid and denomination counter.
+- `docs/walkthrough/billing/Distributor.md`: WGP Walkthrough document.
 
 ---
 
 ## 4. Files Modified
 - `src/components/billing/types.ts`: Added models for Transporter, Addons, Settlement, Denominations, and PDT Templates.
-- `src/components/billing/SmritiBillingTerminal.tsx`: Complete overhaul to match Stitch Invoicing Terminal specification.
+- `src/components/billing/BillingTerm.tsx`: Complete overhaul to match Stitch Invoicing Terminal specification.
 - `src/components/billing/PdtImportModal.tsx`: Updated with file template selector, browse parser, and transaction import.
-- `src/components/billing/propos/SmritiProPosWorkspace.tsx`: Added `Distributor Invoicing` tab to the primary billing suite.
+- `src/components/billing/propos/ProPosWs.tsx`: Added `Distributor Invoicing` tab to the primary billing suite.
 - `src/components/PosTerminalTab.tsx`: Passed products, profiles, and shifts to `SmritiProPosWorkspace`.
-- `src/components/barcode/barcodeTransactionStore.ts`: Exported `barcodeTransactionStore` helper object.
-- `src/tests/smritiBillingTerminal.test.ts`: Added 5 unit tests for line items, transporter totals, split payments, cash denominations, and PDT parsing (5/5 PASS).
+- `src/components/barcode/barcodeTransactionS.ts`: Exported `barcodeTransactionStore` helper object.
+- `src/tests/billingTerm.test.ts`: Added 5 unit tests for line items, transporter totals, split payments, cash denominations, and PDT parsing (5/5 PASS).
 - `CHANGELOG.md`: Appended v6.7.0 release notes.
 - `docs/walkthrough/README.md`: Appended master index entry.
 
@@ -83,8 +83,8 @@ Implements the exact layout and industrial logic aesthetic (`#041632`, `#3e5f90`
 
 ## 8. Tests Executed
 ```powershell
-npx vitest run src/tests/smritiBillingTerminal.test.ts
-npx vitest run src/tests/tagLabelPrinting.test.ts
+npx vitest run src/tests/billingTerm.test.ts
+npx vitest run src/tests/tagPrinting.test.ts
 ```
 
 ---
@@ -93,8 +93,8 @@ npx vitest run src/tests/tagLabelPrinting.test.ts
 ```text
  RUN  v4.1.10 F:/SMRITRretailNX
 
- ✓ src/tests/smritiBillingTerminal.test.ts (5 tests) 6ms
- ✓ src/tests/tagLabelPrinting.test.ts (14 tests) 10ms
+ ✓ src/tests/billingTerm.test.ts (5 tests) 6ms
+ ✓ src/tests/tagPrinting.test.ts (14 tests) 10ms
 
  Test Files  2 passed (2)
       Tests  19 passed (19)

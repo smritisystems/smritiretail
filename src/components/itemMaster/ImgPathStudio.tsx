@@ -31,13 +31,13 @@ import {
   getImagePathConfig, 
   saveImagePathConfig, 
   resolveProductImageUrl 
-} from "../../services/imagePathConfigService.ts";
+} from "../../services/imagePathConfig.ts";
 
-interface SmritiImagePathConfigStudioProps {
+interface SmritiImgPathStudiodioProps {
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
 }
 
-export const SmritiImagePathConfigStudio: React.FC<SmritiImagePathConfigStudioProps> = ({
+export const ImgPathStudio: React.FC<SmritiImgPathStudiodioProps> = ({
   onNotification
 }) => {
   const [config, setConfig] = useState<ImagePathConfig>(getImagePathConfig());
@@ -288,4 +288,4 @@ export const SmritiImagePathConfigStudio: React.FC<SmritiImagePathConfigStudioPr
   );
 };
 
-export default SmritiImagePathConfigStudio;
+export default ImgPathStudio;

@@ -51,9 +51,9 @@ This walkthrough documents the implementation of the Ports and Adapters (Hexagon
 | `src/core/services/BillingService.ts` | Billing use-case class encapsulating POS checkout business rules |
 | `src/core/sync/SyncEngine.ts` | Background polling sync coordinator with retry handling |
 | `src/bootstrap/di.ts` | Platform Abstraction Layer DI Bootstrapper mapping repositories |
-| `src/db/postgres/PostgresRepositories.ts` | PostgreSQL implementation of database ports |
+| `src/db/postgres/PgRepos.ts` | PostgreSQL implementation of database ports |
 | `src/db/sqlite/SqliteRepositories.ts` | SQLite stub repositories for Android |
-| `src/db/indexeddb/IndexedDbRepositories.ts` | IndexedDB stub repositories for Web/PWA |
+| `src/db/indexeddb/IdbRepos.ts` | IndexedDB stub repositories for Web/PWA |
 
 ---
 
@@ -123,4 +123,4 @@ Output:
 ---
 
 ## 13. Related RFCs
-- SMRITI Clean Architecture Implementation Plan (`Clean_Architecture_And_Offline_First_Plan_v3.0.0.md`).
+- SMRITI Clean Architecture Implementation Plan (`Clean_Arch_And.md`).

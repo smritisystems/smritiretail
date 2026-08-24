@@ -98,4 +98,4 @@ Output:
 ---
 
 ## 13. Related RFCs
-- SMRITI Project Header Standardization Implementation Plan (`Project_Header_Standardization_Plan_v3.3.0.md`).
+- SMRITI Project Header Standardization Implementation Plan (`Project_Header.md`).

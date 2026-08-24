@@ -14,7 +14,7 @@
 # SMRITI RETAIL OS — FINAL ARCHITECTURE CERTIFICATION REPORT
 
 **Protocol:** SMRITI Final Architecture Certification & Global Document Freeze  
-**Canonical Specification:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
+**Canonical Specification:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
 **Date:** 2026-08-17  
 **Status:** **CORE ARCHITECTURE VERIFIED WITH EXPLICIT REMAINING GAPS**
 

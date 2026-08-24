@@ -51,8 +51,8 @@ Establish the Python FastAPI core backend for SMRITI Retail OS separate from fro
 - `backend/app/api/v1/dev_tracker.py`
 - `backend/app/tests/test_main.py`
 - `backend/app/ai/*` (AI sub-module skeleton files)
-- `docs/implementation/foundation/SMRITI_FastAPI_Core_Implementation_Plan_v3.6.0.md`
-- `docs/walkthrough/foundation/Foundation_FastAPI_Core_Walkthrough_v3.6.0.md`
+- `docs/implementation/foundation/FastAPI_Core_Plan.md`
+- `docs/walkthrough/foundation/Fdn_FastAPI_Core.md`
 
 ---
 
@@ -107,4 +107,4 @@ None.
 ---
 
 ## 13. Related RFCs
-- SMRITI FastAPI Core Plan (`SMRITI_FastAPI_Core_Implementation_Plan_v3.6.0.md`).
+- SMRITI FastAPI Core Plan (`FastAPI_Core_Plan.md`).

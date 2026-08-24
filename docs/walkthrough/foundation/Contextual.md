@@ -50,14 +50,14 @@ This walkthrough documents the successful architectural refactor of **SMRITI Ret
 | `FioriLaunchpad` | `src/components/launchpad/FioriLaunchpad.tsx` | **Authoritative Capability Launcher** | Renders capability tile spaces across Sales, Purchase, Stock, Masters, & Analytics |
 | `LayoutManager` | `src/layout_engine/layout_manager.tsx` | **Removed from App.tsx DOM** | Dismounted to eliminate duplicate header & sidebar rendering |
 | `DockManager` | `src/layout_engine/dock_manager.tsx` | **Removed from App.tsx DOM** | Dismounted to eliminate duplicate dock sidebars |
-| `NavigationRenderer` | `src/layout_engine/navigation_renderer.tsx` | **Removed from App.tsx DOM** | Dismounted to eliminate inner vertical icon strip |
+| `NavigationRenderer` | `src/layout_engine/NavRenderer.tsx` | **Removed from App.tsx DOM** | Dismounted to eliminate inner vertical icon strip |
 
 ---
 
 ## 5. Files Created
 1. `src/components/shell/navigationResolver.ts`
-2. `docs/implementation/foundation/SMRITI_Contextual_Navigation_Refactor_Plan_v3.17.0.md`
-3. `docs/walkthrough/foundation/SMRITI_Contextual_Navigation_Refactor_Walkthrough_v3.17.0.md`
+2. `docs/implementation/foundation/Contextual.md`
+3. `docs/walkthrough/foundation/Contextual.md`
 
 ---
 
@@ -76,7 +76,7 @@ This walkthrough documents the successful architectural refactor of **SMRITI Ret
 * **TypeScript Compilation:** `npx tsc --noEmit` passed with **0 static errors**.
 * **Unit Tests:** `npx vitest run` passed: **11/11 test files, 64/64 tests passed**.
 * **Production Build:** `npm run build` passed: **3,409 modules transformed in 25.70s**.
-* **Production Readiness Gate:** `verify_comp001_production_readiness.py` passed: **0 Leaks in `dist/`**, Score: **98/100**, Classification: **`READY_FOR_PRODUCTION_REFERENCE`**.
+* **Production Readiness Gate:** `verify_comp001.py` passed: **0 Leaks in `dist/`**, Score: **98/100**, Classification: **`READY_FOR_PRODUCTION_REFERENCE`**.
 
 ---
 

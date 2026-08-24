@@ -337,7 +337,7 @@ export function resolveItemMasterCatalog(
 }
 
 /**
- * Converts the unified field catalog into ItemMasterFieldDefinitions for ItemMasterEntryView
+ * Converts the unified field catalog into ItemMasterFieldDefinitions for ItemEntryView
  */
 export function getUnifiedItemMasterFields(
   dynamicDefinitions: AttributeDefinition[] = []

@@ -15,7 +15,7 @@
 # Walkthrough: Excel Grid Header Paste Mapping (v3.16.0)
 
 ## 1. Purpose
-Integrate automatic column header identification and data alignment inside the Excel data entry grid (`ExcelGridEntrySection.tsx`) to allow non-technical operators to copy-paste spreadsheet data direct from Excel or CSV with variable column orders.
+Integrate automatic column header identification and data alignment inside the Excel data entry grid (`ExcelGridEntrySec.tsx`) to allow non-technical operators to copy-paste spreadsheet data direct from Excel or CSV with variable column orders.
 
 ## 2. Scope
 - Add clean alphanumeric normalization of column headers.
@@ -25,11 +25,11 @@ Integrate automatic column header identification and data alignment inside the E
 - Maintain positional fallback parsing logic.
 
 ## 3. Files Created
-- `docs/implementation/foundation/Excel_Grid_Header_Paste_Mapping_Plan_v3.16.0.md`
-- `docs/walkthrough/foundation/Foundation_Excel_Grid_Header_Paste_Mapping_v3.16.0.md`
+- `docs/implementation/foundation/Excel_Grid_Header.md`
+- `docs/walkthrough/foundation/Fdn_Excel_Grid.md`
 
 ## 4. Files Modified
-- `src/components/ExcelGridEntrySection.tsx`
+- `src/components/ExcelGridEntrySec.tsx`
 - `docs/walkthrough/README.md`
 - `docs/implementation/README.md`
 

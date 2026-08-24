@@ -81,7 +81,7 @@ export interface ImageDisplaySettings {
 ## 8. Files Created
 - `backend/app/services/spif.py` (Backend upload, optimization, and crop handler)
 - `src/components/common/ProductImage.tsx` (Decoupled image component)
-- `src/components/common/ImageDisplayPolicyModal.tsx` (Settings config panel)
+- `src/components/common/ImageDisplayPolicy.tsx` (Settings config panel)
 
 ## 9. Files Modified
 - `src/types.ts` (Extend `Product` with `primaryImageUrl` and `galleryImages`)

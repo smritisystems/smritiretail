@@ -29,7 +29,7 @@ from app.models.pos import CashRegister, Shift
 from app.models.sales import SalesInvoice
 from app.models.accounting import JournalVoucher, GeneralLedgerEntry, Account
 from app.services.pos import POSService
-from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from app.services.unified_ledger import UnifiedAccountingLedgerService
 from app.schemas.pos import ShiftOpen, ShiftClose, CashRegisterCreate
 
 

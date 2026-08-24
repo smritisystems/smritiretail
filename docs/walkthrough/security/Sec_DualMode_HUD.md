@@ -28,7 +28,7 @@ Configure the **Contextual Inspector HUD** (`ContextualInspectorHUD`) to safely 
 None.
 
 ## 4. Files Modified
-- `src/components/drilldown/ContextualInspectorHUD.tsx`: Implemented dual-mode render.
+- `src/components/drilldown/CtxInspectorHUD.tsx`: Implemented dual-mode render.
 - `src/context/ActiveFieldContext.tsx`: Added safe unauthenticated input handling.
 - `src/App.tsx`: Mounted overlays inside Provider tree; retained removal of bottom taskbar.
 - `docs/implementation/README.md`: Registered plan in master index table.
@@ -43,7 +43,7 @@ None.
 - **Full Operational Parity**: No features eliminated for authenticated retail operators.
 
 ## 7. Implementation Summary
-1. Enhanced `ContextualInspectorHUD.tsx` with conditional authentication rendering.
+1. Enhanced `CtxInspectorHUD.tsx` with conditional authentication rendering.
 2. Hardened `ActiveFieldContext.tsx` focus tracking on login inputs.
 3. Executed all 37 Vitest test suites (277 tests passed).
 4. Rebuilt production bundle and updated Docker container.

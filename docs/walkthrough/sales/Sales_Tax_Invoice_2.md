@@ -22,26 +22,26 @@ Freeze the definitive canonical Tax Invoice rendering engine (`InvoicePdfService
 - Route consolidation across `/invoices/{id}/html`, `/preview`, `/print`, `/reprint`, `/pdf`, `/download` in `backend/app/api/v1/sales.py`.
 - Complete table grid enforcement: horizontal separator after every item row, vertical column borders, zero text wrapping.
 - GST Column Engine: dynamic conditional column rendering with explicit separate TAX % and Tax Amount columns for Interstate (10 columns: `#`, `ITEM DESCRIPTION`, `HSN/SAC`, `QTY`, `MRP`, `DISC %`, `TAXABLE VALUE`, `TAX %`, `IGST`, `AMOUNT`) and Intrastate (12 columns: `#`, `ITEM DESCRIPTION`, `HSN/SAC`, `QTY`, `MRP`, `DISC %`, `TAXABLE VALUE`, `CGST %`, `CGST`, `SGST %`, `SGST`, `AMOUNT`).
-- Frontend UI action wiring in `SalesStudioTab.tsx` and `TaxInvoicePrintPage.tsx` for Print Tax Invoice, Preview, Export PDF, Download, and Reprint.
+- Frontend UI action wiring in `SalesStudioTab.tsx` and `TaxInvoicePrintPag.tsx` for Print Tax Invoice, Preview, Export PDF, Download, and Reprint.
 - Exact statutory financial calculation reconciliation on TT batch invoices (`TT2026-2027/74` through `TT2026-2027/103`) and intra-state fixtures.
 - Company Database persistence (`tax_invoice_templates`, `tax_invoice_template_versions`, `invoice_document_artifacts`) in `smriti001`.
 - Cryptographic SHA256 integrity verification and immutable historical document reprint protection.
 - Automated test suite verification with 375/375 PASS baseline.
 
 ## 3. Files Created
-- `backend/app/models/tax_invoice_template.py`: SQLAlchemy entity models for `TaxInvoiceTemplate`, `TaxInvoiceTemplateVersion`, and `InvoiceDocumentArtifact`.
-- `backend/app/db/seed_tax_invoice_canonical_template.py`: Seeding script for canonical frozen template and artifact SHA256 indexing.
-- `backend/tests/test_canonical_tax_invoice_frozen.py`: 17 automated tests validating canonical config, financial reconciliation on Invoices 102 & 103, zero-wrap guarantee, route registration, DB persistence, SHA256 integrity, tenant isolation, Interstate/Intrastate GST column engine with explicit separate tax rate and amount columns, and API preview/print/reprint/download contracts.
-- `docs/walkthrough/sales/Sales_Tax_Invoice_Canonical_Renderer_Freeze_v1.0.md`: Formal WGP governance walkthrough.
+- `backend/app/models/tax_inv_template.py`: SQLAlchemy entity models for `TaxInvoiceTemplate`, `TaxInvoiceTemplateVersion`, and `InvoiceDocumentArtifact`.
+- `backend/app/db/seed_tax_invoice.py`: Seeding script for canonical frozen template and artifact SHA256 indexing.
+- `backend/tests/t_canonical_tax.py`: 17 automated tests validating canonical config, financial reconciliation on Invoices 102 & 103, zero-wrap guarantee, route registration, DB persistence, SHA256 integrity, tenant isolation, Interstate/Intrastate GST column engine with explicit separate tax rate and amount columns, and API preview/print/reprint/download contracts.
+- `docs/walkthrough/sales/Sales_Tax_Invoice_2.md`: Formal WGP governance walkthrough.
 
 ## 4. Files Modified
 - `backend/app/models/__init__.py`: Exported new template and artifact models.
 - `backend/app/services/invoice_pdf_service.py`: Added `TAX_INVOICE_TATTLY_THREADS_CANONICAL_V1` configuration dictionary, `render_pdf_bytes`, `get_or_render_pdf_artifact` (reprint protection), `get_template_configuration`, dynamic explicit GST rate & amount columns, and `TaxInvoiceRenderer` / `TaxInvoicePrintService` aliases.
 - `backend/app/api/v1/sales.py`: Added canonical route handlers for `/preview`, `/print`, `/reprint`, `/pdf`, `/download` ensuring single-renderer execution.
 - `src/components/SalesStudioTab.tsx`: Connected `PRINT TAX INVOICE`, `Preview`, `Export PDF`, and `Reprint` action buttons to FastAPI canonical endpoints.
-- `src/components/TaxInvoicePrintPage.tsx`: Connected `Print`, `Export PDF`, and `Reprint` toolbar actions to FastAPI canonical endpoints.
-- `backend/generate_tt_tax_invoices_batch.py`: Synchronized item row horizontal and vertical borders, explicit tax rate & amount column widths, and CSS styling.
-- `docs/architecture/TAX_INVOICE_TATTLY_THREADS_CANONICAL_SPECIFICATION.md`: Added Company Database persistence, artifact governance, explicit GST rate & amount column engine, and API execution flow specifications.
+- `src/components/TaxInvoicePrintPag.tsx`: Connected `Print`, `Export PDF`, and `Reprint` toolbar actions to FastAPI canonical endpoints.
+- `backend/generate_tt_tax_in.py`: Synchronized item row horizontal and vertical borders, explicit tax rate & amount column widths, and CSS styling.
+- `docs/architecture/TAX_INVOICE.md`: Added Company Database persistence, artifact governance, explicit GST rate & amount column engine, and API execution flow specifications.
 - `docs/walkthrough/README.md`: Appended entry for this walkthrough.
 
 ## 5. Architecture Decisions
@@ -64,13 +64,13 @@ Freeze the definitive canonical Tax Invoice rendering engine (`InvoicePdfService
 
 ## 8. Tests Executed
 ```bash
-pytest tests/test_canonical_tax_invoice_frozen.py -v
+pytest tests/t_canonical_tax.py -v
 pytest tests/ -q
 pytest app/tests/ -q
 ```
 
 ## 9. Verification Results
-- `tests/test_canonical_tax_invoice_frozen.py`: 17/17 PASS
+- `tests/t_canonical_tax.py`: 17/17 PASS
 - `tests/`: 189/189 PASS
 - `app/tests/`: 186/186 PASS
 - Combined Total: 375/375 PASS (0 Failures)

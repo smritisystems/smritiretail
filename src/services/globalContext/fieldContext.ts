@@ -23,7 +23,7 @@
  *   ActiveFieldContext.tsx → infers contextType from focused input
  *   FieldContextRegistry   → provides columns, fetcher, insert-key for that type
  *   GlobalSearchService.ts → uses fetcher + debounce to load results
- *   FlexibleContextGrid.tsx → renders columns + handles keyboard/selection
+ *   FlexContextGrid.tsx → renders columns + handles keyboard/selection
  */
 
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";

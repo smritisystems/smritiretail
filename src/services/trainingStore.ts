@@ -255,4 +255,4 @@ class TrainingSandboxStore {
   }
 }
 
-export const trainingSandboxStore = new TrainingSandboxStore();
+export const trainingStore = new TrainingSandboxStore();

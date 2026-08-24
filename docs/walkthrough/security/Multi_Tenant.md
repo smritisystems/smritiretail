@@ -26,16 +26,16 @@ Document the comprehensive security hardening of the multi-tenant database routi
 - `backend/app/api/v1/barcode.py` (Full `get_company_db` & `TenantContext` wiring)
 - `backend/app/services/printer_service.py` (Tenant-scoped printer settings and `PrintHistory`)
 - `backend/app/services/invoice_pdf_service.py` (Dynamic bank details fallback chain and RCM status)
-- `backend/tests/test_e2e_tenant_security_and_routing.py` (End-to-end security test suite)
-- `scripts/ci_secret_and_reachability_guard.py` (Automated CI secret & wiring guard)
-- `scripts/audit_retroactive_invoices.py` (Retroactive invoice audit tool)
-- `scripts/export_tax_invoices_canonical.py` (Consolidated multi-format invoice exporter)
+- `backend/tests/t_tenant_sec.py` (End-to-end security test suite)
+- `scripts/ci_secret_guard.py` (Automated CI secret & wiring guard)
+- `scripts/audit_retro_inv.py` (Retroactive invoice audit tool)
+- `scripts/export_canonical.py` (Consolidated multi-format invoice exporter)
 
 ## 3. Files Created
-- `backend/tests/test_e2e_tenant_security_and_routing.py`
-- `scripts/ci_secret_and_reachability_guard.py`
-- `scripts/audit_retroactive_invoices.py`
-- `scripts/export_tax_invoices_canonical.py`
+- `backend/tests/t_tenant_sec.py`
+- `scripts/ci_secret_guard.py`
+- `scripts/audit_retro_inv.py`
+- `scripts/export_canonical.py`
 
 ## 4. Files Modified
 - `backend/app/api/deps.py`
@@ -46,7 +46,7 @@ Document the comprehensive security hardening of the multi-tenant database routi
 - `backend/app/api/v1/barcode.py`
 - `backend/app/services/printer_service.py`
 - `backend/app/services/invoice_pdf_service.py`
-- `src/components/TaxInvoicePrintPage.tsx`
+- `src/components/TaxInvoicePrintPag.tsx`
 - `db_store.json`
 
 ## 5. Architecture Decisions
@@ -54,7 +54,7 @@ Document the comprehensive security hardening of the multi-tenant database routi
 2. **Zero `get_db` in Operational Routes**: All transactional routes in `sales.py`, `inventory.py`, `purchase.py`, and `barcode.py` must use `get_company_db` to ensure all operational reads and writes execute against the tenant-specific PostgreSQL database (`smriti001`).
 3. **Barcode Printing Tenant Isolation**: `BarcodeLayout` CRUD, thermal printer connection configurations (`SystemConfig` with key `printer_connection_{company_id}`), diagnostics, test prints, and `PrintHistory` audit logs are tenant-isolated by `company_id` and `branch_id`.
 4. **Dynamic Credential Hierarchy**: Financial bank details and statutory metadata follow a strict fallback chain (`invoice.bank_name` -> `meta["bank_name"]` -> `DEFAULT_BANK_*` environment variables -> empty string). No hardcoded bank accounts or credentials exist in source code or template files.
-5. **Unified Invoice Exporter**: Consolidated 5 legacy ad-hoc export scripts into a single canonical CLI tool `scripts/export_tax_invoices_canonical.py` supporting `--db`, `--invoice`, `--last`, `--format`, and `--out-dir`.
+5. **Unified Invoice Exporter**: Consolidated 5 legacy ad-hoc export scripts into a single canonical CLI tool `scripts/export_canonical.py` supporting `--db`, `--invoice`, `--last`, `--format`, and `--out-dir`.
 
 ## 6. Design Rationale
 In a multi-tenant enterprise ERP, cross-tenant data leaks and unauthorized routing must be prevented at the dependency resolution layer. Bypassing tenant resolution with default `get_db` or trusting client-supplied headers creates critical security vulnerabilities. By enforcing server-verified token claims and gating CI with automated reachability and secret scanners, tenant isolation is mathematically guaranteed.
@@ -64,15 +64,15 @@ In a multi-tenant enterprise ERP, cross-tenant data leaks and unauthorized routi
 - Replaced all 20+ occurrences of `get_db` with `get_company_db` across `sales.py`, `inventory.py`, `purchase.py`, and `barcode.py`.
 - Added tenant parameters to `PrinterService` methods (`dispatch_payload`, `get_configured_printer`, `run_diagnostics`) and populated `company_id` / `branch_id` on `PrintHistory`.
 - Sanitized `db_store.json`, legacy scratch scripts, and test files to eliminate real bank account numbers and IFSC codes.
-- Created `scripts/ci_secret_and_reachability_guard.py` which scans for credentials and verifies 100% route wiring.
+- Created `scripts/ci_secret_guard.py` which scans for credentials and verifies 100% route wiring.
 - Executed retroactive audit of all 93 invoices in `smriti001` with 0 discrepancies.
 
 ## 8. Tests Executed
-- `pytest backend/tests/test_e2e_tenant_security_and_routing.py backend/tests/test_company_db_runtime_routing.py backend/tests/test_get_company_db_wiring.py backend/tests/test_item_master_gap_refactor.py` (20/20 passed in 10.30s)
+- `pytest backend/tests/t_tenant_sec.py backend/tests/t_comp_db_route.py backend/tests/t_comp_db_wire.py backend/tests/t_item_gap.py` (20/20 passed in 10.30s)
 - `npx vitest run` (113/113 passed in 5.53s across 19 test files)
-- `python scripts/ci_secret_and_reachability_guard.py` (Passed with 0 violations)
-- `python scripts/audit_retroactive_invoices.py` (93/93 invoices audited)
-- `python scripts/export_tax_invoices_canonical.py --last 3 --format all` (Exported PDF, HTML, JSON, CSV)
+- `python scripts/ci_secret_guard.py` (Passed with 0 violations)
+- `python scripts/audit_retro_inv.py` (93/93 invoices audited)
+- `python scripts/export_canonical.py --last 3 --format all` (Exported PDF, HTML, JSON, CSV)
 
 ## 9. Verification Results
 - **Unauthenticated Requests**: Blocked with `401 Unauthorized`.

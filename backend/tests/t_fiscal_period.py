@@ -29,7 +29,7 @@ from app.models.accounting import (
     BankStatement,
     BankStatementLine,
 )
-from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from app.services.unified_ledger import UnifiedAccountingLedgerService
 
 
 @pytest.mark.asyncio

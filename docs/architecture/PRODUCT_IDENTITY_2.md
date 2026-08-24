@@ -5,8 +5,8 @@
   Owner: Enterprise Architecture
   Reviewers: Product, Engineering, DevOps
   Last Updated: 2026-07-18
-  Dependencies: PRODUCT_IDENTITY_ENGINE.md, PRODUCT_IDENTITY_ENGINE_API_SPEC.md
-  Related Documents: PRODUCT_IDENTITY_ENGINE_ERRORS.md, PRODUCT_IDENTITY_ENGINE_TEST_PLAN.md
+  Dependencies: PRODUCT_IDENTITY_13.md, PRODUCT_IDENTITY__6.md
+  Related Documents: PRODUCT_IDENTITY_10.md, PRODUCT_IDENTITY__5.md
   Change History:
     - v1.0 2026-07-18 Created.
 -->

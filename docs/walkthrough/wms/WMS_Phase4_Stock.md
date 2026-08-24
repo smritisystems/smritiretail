@@ -54,9 +54,9 @@ Provide distributors and warehouse operations with a complete physical stocktaki
 ## 3. Files Created
 1. `backend/app/services/stock_audit_service.py`: Domain engine for audit snapshots, scanner increments, variance calculation, pessimistic row locking, and ledger reconciliation.
 2. `backend/alembic/versions/v1341_add_stock_audit_tables.py`: Official versioned Alembic migration for company databases.
-3. `backend/tests/test_wms_phase4_audit_reconciliation.py`: Complete isolated pytest suite (6 tests) covering snapshotting, secondary barcodes, deficit write-offs, surplus inwards, `smriti002` multi-company execution, and intervening transaction detection.
-4. `scripts/smoke_test_wms_phase4.py`: End-to-end async HTTP smoke test executing all 7 physical audit operations with database cleanup.
-5. `docs/walkthrough/wms/WMS_Phase4_Stock_Audit_Reconciliation_Barcode_v6.16.0.md`: This comprehensive walkthrough document.
+3. `backend/tests/t_wms_phase4.py`: Complete isolated pytest suite (6 tests) covering snapshotting, secondary barcodes, deficit write-offs, surplus inwards, `smriti002` multi-company execution, and intervening transaction detection.
+4. `scripts/smoke_wms_phase4.py`: End-to-end async HTTP smoke test executing all 7 physical audit operations with database cleanup.
+5. `docs/walkthrough/wms/WMS_Phase4_Stock.md`: This comprehensive walkthrough document.
 
 ---
 
@@ -64,7 +64,7 @@ Provide distributors and warehouse operations with a complete physical stocktaki
 1. `backend/app/models/inventory.py`: Added `StockAudit` and `StockAuditItem` SQLAlchemy database models.
 2. `backend/app/schemas/wms.py`: Added Pydantic request/response schemas for audits, bulk counts, and barcode scanning.
 3. `backend/app/api/v1/wms.py`: Added 6 REST endpoints for listing, creating, scanning, counting, and reconciling physical audits.
-4. `backend/tests/test_wms_phase2_grn_sales.py`: Isolated test product creation in credit limit enforcement test to prevent stock check contention.
+4. `backend/tests/t_wms_phase2.py`: Isolated test product creation in credit limit enforcement test to prevent stock check contention.
 5. `src/components/wms/WmsStudioTab.tsx`: Added "Stock Audit & Recon" workstation sub-tab with scanner input and variance grid.
 
 ---
@@ -101,14 +101,14 @@ Provide distributors and warehouse operations with a complete physical stocktaki
 ---
 
 ## 8. Tests Executed
-1. `backend/tests/test_wms_phase4_audit_reconciliation.py`:
+1. `backend/tests/t_wms_phase4.py`:
    - `test_stock_audit_creation_and_baseline_snapshot` (Passed)
    - `test_stock_audit_barcode_scanning_and_secondary_barcodes` (Passed)
    - `test_stock_audit_reconciliation_deficit_write_off` (Passed)
    - `test_stock_audit_reconciliation_surplus_inward` (Passed)
    - `test_stock_audit_multi_company_isolation_smriti002` (Passed)
    - `test_stock_audit_intervening_movement_detection_and_locking` (Passed)
-2. `scripts/smoke_test_wms_phase4.py`:
+2. `scripts/smoke_wms_phase4.py`:
    - 7/7 live HTTP steps executed and verified with zero residual database rows.
 3. Combined Multi-Module Regression:
    - 21/21 tests across Menu Governance, Security Access, WMS Phase 1, Phase 2, Phase 3, and Phase 4 passed in 9.88s.
@@ -123,12 +123,12 @@ platform win32 -- Python 3.13.11, pytest-9.1.1, pluggy-1.6.0
 rootdir: F:\SMRITRretailNX\backend
 collected 21 items
 
-backend\tests\test_menu_governance.py .                                  [  4%]
-backend\tests\test_security_menu_access.py ..                            [ 14%]
+backend\tests\t_menu_gov.py .                                  [  4%]
+backend\tests\t_sec_menu.py ..                            [ 14%]
 backend\tests\test_wms_phase1.py ....                                    [ 33%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 47%]
-backend\tests\test_wms_phase3_eway_bill.py .....                         [ 71%]
-backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
+backend\tests\t_wms_phase2.py ...                           [ 47%]
+backend\tests\t_wms_phase3.py .....                         [ 71%]
+backend\tests\t_wms_phase4.py ......             [100%]
 
 ======================== 21 passed, 1 warning in 9.88s ========================
 ```

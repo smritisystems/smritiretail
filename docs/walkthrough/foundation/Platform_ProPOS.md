@@ -19,21 +19,21 @@ This walkthrough documents the frontend delivery for Vertical Slice 15 in SMRITI
 
 ## 2. Scope
 - Physical cash denomination counter component with live row multiplier calculations and live variance tracking against system expected cash.
-- Mid-shift drawer action modal (`SmritiProPosCashMovementsModal.tsx`) supporting Safe Transfers and Till Expense Disbursals with real-time double-entry GL voucher posting.
-- Shift closeout modal (`SmritiProPosShiftCloseModal.tsx`) with physical denomination reconciliation, non-cash tender settlements, and automated shortage/overage GL balancing.
-- Upgraded EOD Z-Report view (`SmritiProPosEodReportView.tsx`) connecting directly to FastAPI + Postgres `/api/v1/pos/shifts/` endpoints.
-- Integration into ProPOS billing terminal (`SmritiProPosBillingTerminal.tsx`) and workspace (`SmritiProPosWorkspace.tsx`) with hotkeys (`Alt+D`, `Alt+Z`, `Escape`).
+- Mid-shift drawer action modal (`ProPosCashMovesDlg.tsx`) supporting Safe Transfers and Till Expense Disbursals with real-time double-entry GL voucher posting.
+- Shift closeout modal (`ProPosShiftCloseDl.tsx`) with physical denomination reconciliation, non-cash tender settlements, and automated shortage/overage GL balancing.
+- Upgraded EOD Z-Report view (`ProPosEodReportVie.tsx`) connecting directly to FastAPI + Postgres `/api/v1/pos/shifts/` endpoints.
+- Integration into ProPOS billing terminal (`ProPosBillingTerm.tsx`) and workspace (`ProPosWs.tsx`) with hotkeys (`Alt+D`, `Alt+Z`, `Escape`).
 
 ## 3. Files Created
-1. `src/components/billing/propos/SmritiProPosDenominationInput.tsx`: Reusable physical denomination entry matrix for Indian currency notes (₹2000, ₹500, ₹200, ₹100, ₹50, ₹20, ₹10, ₹5, ₹2, ₹1) and coins with live subtotal and variance calculator.
-2. `src/components/billing/propos/SmritiProPosCashMovementsModal.tsx`: Drawer action modal for cashier safe cash drops and till petty expenses.
-3. `src/components/billing/propos/SmritiProPosShiftCloseModal.tsx`: Cashier shift closeout modal with live denomination reconciliation and balancing GL voucher generation.
+1. `src/components/billing/propos/ProPosDenomination.tsx`: Reusable physical denomination entry matrix for Indian currency notes (₹2000, ₹500, ₹200, ₹100, ₹50, ₹20, ₹10, ₹5, ₹2, ₹1) and coins with live subtotal and variance calculator.
+2. `src/components/billing/propos/ProPosCashMovesDlg.tsx`: Drawer action modal for cashier safe cash drops and till petty expenses.
+3. `src/components/billing/propos/ProPosShiftCloseDl.tsx`: Cashier shift closeout modal with live denomination reconciliation and balancing GL voucher generation.
 
 ## 4. Files Modified
 1. `src/components/billing/propos/types.ts`: Added `CashDenominations`, `ShiftCashMovementRecord`, `ShiftCashDropPayload`, `ShiftTillExpensePayload`, and `POSZReportData` interfaces.
-2. `src/components/billing/propos/SmritiProPosBillingTerminal.tsx`: Integrated drawer movements and shift closeout modals, added top toolbar buttons, and wired `Alt+D` / `Alt+Z` hotkeys.
-3. `src/components/billing/propos/SmritiProPosWorkspace.tsx`: Updated header metadata and version badge to v6.16.
-4. `src/components/billing/propos/SmritiProPosEodReportView.tsx`: Connected to backend `/pos/shifts/` APIs, integrated denomination input component, and rendered cash movements history table.
+2. `src/components/billing/propos/ProPosBillingTerm.tsx`: Integrated drawer movements and shift closeout modals, added top toolbar buttons, and wired `Alt+D` / `Alt+Z` hotkeys.
+3. `src/components/billing/propos/ProPosWs.tsx`: Updated header metadata and version badge to v6.16.
+4. `src/components/billing/propos/ProPosEodReportVie.tsx`: Connected to backend `/pos/shifts/` APIs, integrated denomination input component, and rendered cash movements history table.
 5. `src/components/PosTerminalTab.tsx`: Updated metadata to v6.16.0.
 6. `backend/app/api/v1/pos.py`: Added contract route alias `/pos/shifts/active/{register_id}`.
 
@@ -59,7 +59,7 @@ This walkthrough documents the frontend delivery for Vertical Slice 15 in SMRITI
 ## 8. Tests Executed
 1. `npm run build`: Vite production bundle build transformed 3,482 modules in 32.56s with 0 errors.
 2. `npm run lint`: `tsc --noEmit` passed with 0 errors.
-3. `pytest backend/tests/test_pos_cash_drawer_movements.py -v`: 14/14 tests passed in 32.03s:
+3. `pytest backend/tests/t_pos_drawer.py -v`: 14/14 tests passed in 32.03s:
    - `test_physical_cash_denominations_calculation_and_closing` PASSED
    - `test_mid_shift_cash_drop_to_bank_safe` PASSED
    - `test_mid_shift_till_expense_payout` PASSED

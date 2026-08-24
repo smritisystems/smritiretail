@@ -24,7 +24,7 @@
 
 ## 3. Scope
 - Move all contextual overlays (`ContextRenderer`, `GlobalSearch`, `GlobalF2BrowseModal`, `ContextualInspectorHUD`, `DrillDownSidePanel`, `ShortcutPalette`) from the unauthenticated root level in `<App />` to inside `<AppShell>` within the authenticated `AppContent` session block.
-- Add strict token authentication guards inside `ContextualInspectorHUD.tsx`, `GlobalSearch.tsx`, `GlobalF2BrowseModal.tsx`, and `ActiveFieldContext.tsx`.
+- Add strict token authentication guards inside `CtxInspectorHUD.tsx`, `GlobalSearch.tsx`, `GlobalF2BrowseDlg.tsx`, and `ActiveFieldContext.tsx`.
 - Remove `WorkspaceTaskbar` and `pb-13` padding from `src/App.tsx`.
 - Validate zero regressions via full test suite and Docker build.
 
@@ -48,9 +48,9 @@ None.
 
 ## 9. Files Modified
 - `src/App.tsx`
-- `src/components/drilldown/ContextualInspectorHUD.tsx`
+- `src/components/drilldown/CtxInspectorHUD.tsx`
 - `src/components/drilldown/GlobalSearch.tsx`
-- `src/components/drilldown/GlobalF2BrowseModal.tsx`
+- `src/components/drilldown/GlobalF2BrowseDlg.tsx`
 - `src/context/ActiveFieldContext.tsx`
 - `docs/implementation/README.md`
 - `docs/walkthrough/README.md`
@@ -87,4 +87,4 @@ Completed
 - ADR-0016: Strict Authentication Boundaries for Contextual Intelligence and Workspace Cleanup.
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/security/Security_Auth_Guard_And_Bottom_Taskbar_Removal_v6.13.0.md`.
+- `docs/walkthrough/security/Sec_Auth_Guard.md`.

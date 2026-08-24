@@ -21,7 +21,7 @@ Verified against the live repository at the time of this revision:
 The TypeScript `WorkflowEngine` class still exists in `src/services/workflowEngine.ts`, unmodified, with zero import/call sites — its capability has been superseded by `backend/app/api/v1/workflow.py`, but the dead file itself has not been removed. Its deletion is a separate, not-yet-authorized action. This revision corrects the workflow disposition while leaving the rest of ADR-002 unchanged.
 
 ## Context
-This decision is derived solely from the Phase 1 evidence ledger at `docs/governance/METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md`.
+This decision is derived solely from the Phase 1 evidence ledger at `docs/governance/METADATA.md`.
 No additional codebase audit or external proposals are introduced.
 
 ## 6 — Architecture Decision
@@ -44,7 +44,7 @@ This decision accepts separate canonical owners for distinct metadata domains ra
 | Print template metadata | `src/print_engine/print_store.tsx` | Ledger §5 |
 | Report metadata | report UI/backend report APIs | Ledger §5 |
 | Numbering metadata | `src/services/numberingEngine.ts` | Ledger §4 |
-| Customer business validation/policy | `src/services/customerValidation.ts` / `src/services/customerPolicyEngine.ts` | Ledger §3 |
+| Customer business validation/policy | `src/services/customerValidation.ts` / `src/services/custPolicyEngine.ts` | Ledger §3 |
 
 ### Design-time vs runtime metadata
 - Design-time metadata: `src/masters_registry.ts` static definitions and global audit field metadata are design-time artifacts. [Ledger §3]

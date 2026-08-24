@@ -30,8 +30,8 @@ from ..models.party import Party, PartyRole
 from ..models.item_master import Item, ItemVariant
 from ..models.inventory import Product, StockMovement
 from ..services.pricing_engine import PricingEngine
-from ..services.governed_rule_engine import GovernedRuleEngine
-from ..services.transaction_reproducibility_service import TransactionReproducibilityService
+from ..services.governed_rules import GovernedRuleEngine
+from ..services.tx_reproduce_svc import TransactionReproducibilityService
 
 
 class DistributionService:

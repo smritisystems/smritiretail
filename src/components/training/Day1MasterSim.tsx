@@ -13,9 +13,9 @@
 
 import React, { useState } from 'react';
 import { Package, Truck, Users, Building2, CheckCircle2, ArrowRight, Plus } from 'lucide-react';
-import { trainingSandboxStore } from '../../services/trainingSandboxStore';
+import { trainingStore } from '../../services/trainingStore';
 
-export const Day1MasterSimulator: React.FC<{ onCompleteStep: () => void }> = ({ onCompleteStep }) => {
+export const Day1MasterSim: React.FC<{ onCompleteStep: () => void }> = ({ onCompleteStep }) => {
   const [activeSubTab, setActiveSubTab] = useState<'item' | 'supplier' | 'customer'>('item');
   const [sku, setSku] = useState('SKU-RICE-101');
   const [itemName, setItemName] = useState('Basmati Premium Rice 5kg');
@@ -23,16 +23,16 @@ export const Day1MasterSimulator: React.FC<{ onCompleteStep: () => void }> = ({ 
   const [gstRate, setGstRate] = useState('5');
   const [mrp, setMrp] = useState('450');
   const [purchaseRate, setPurchaseRate] = useState('380');
-  const [createdItems, setCreatedItems] = useState(trainingSandboxStore.getSimulatedItems());
+  const [createdItems, setCreatedItems] = useState(trainingStore.getSimulatedItems());
 
   const [supplierCode, setSupplierCode] = useState('SUP-AMAR-TRADERS');
   const [supplierName, setSupplierName] = useState('Amar Wholesale Traders');
   const [supplierGstin, setSupplierGstin] = useState('27ABCDE1234F1Z5');
-  const [createdSuppliers, setCreatedSuppliers] = useState(trainingSandboxStore.getSimulatedSuppliers());
+  const [createdSuppliers, setCreatedSuppliers] = useState(trainingStore.getSimulatedSuppliers());
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
-    trainingSandboxStore.addSimulatedItem({
+    trainingStore.addSimulatedItem({
       sku,
       name: itemName,
       hsn,
@@ -40,18 +40,18 @@ export const Day1MasterSimulator: React.FC<{ onCompleteStep: () => void }> = ({ 
       mrp: parseFloat(mrp),
       purchaseRate: parseFloat(purchaseRate),
     });
-    setCreatedItems(trainingSandboxStore.getSimulatedItems());
+    setCreatedItems(trainingStore.getSimulatedItems());
     onCompleteStep();
   };
 
   const handleCreateSupplier = (e: React.FormEvent) => {
     e.preventDefault();
-    trainingSandboxStore.addSimulatedSupplier({
+    trainingStore.addSimulatedSupplier({
       code: supplierCode,
       name: supplierName,
       gstin: supplierGstin,
     });
-    setCreatedSuppliers(trainingSandboxStore.getSimulatedSuppliers());
+    setCreatedSuppliers(trainingStore.getSimulatedSuppliers());
     onCompleteStep();
   };
 

@@ -99,16 +99,16 @@ CREATE TABLE IF NOT EXISTS outbox_events (
 
 ## 8. Files Created
 - `backend/app/models/outbox.py`: Canonical `OutboxEvent` model.
-- `backend/app/services/unified_outbox_analytics_service.py`: Domain service handling atomic outbox event staging, locked batch dispatching, and authoritative operational analytics summaries.
-- `backend/tests/test_unified_outbox_analytics.py`: Automated verification suite certifying transactional outbox staging, locked batch processing, analytics metrics, and tenant isolation.
-- `docs/implementation/foundation/Platform_Refactor_Slice7_Outbox_Analytics_Plan_v1.0.md`: This implementation plan.
+- `backend/app/services/outbox_analytics.py`: Domain service handling atomic outbox event staging, locked batch dispatching, and authoritative operational analytics summaries.
+- `backend/tests/t_outbox_stats.py`: Automated verification suite certifying transactional outbox staging, locked batch processing, analytics metrics, and tenant isolation.
+- `docs/implementation/foundation/Platform_Refactor_5.md`: This implementation plan.
 
 ---
 
 ## 9. Files Modified
 - `backend/app/models/__init__.py`: Export Outbox models.
 - `docs/implementation/README.md`: Append Slice 7 plan to master index.
-- `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Track Slice 7 verification.
+- `docs/architecture/PLATFORM.md`: Track Slice 7 verification.
 
 ---
 
@@ -140,14 +140,14 @@ Additive DDL tables. If rollback is required, business operations proceed normal
 ---
 
 ## 14. Test Plan
-- Run `backend/tests/test_unified_outbox_analytics.py` (Atomicity, Rollback, Callback Dispatcher, DLQ, Operational KPIs, Tenant Isolation).
-- Run full platform test suite (`test_routing_boundary_canonical.py` through `test_unified_outbox_analytics.py`).
+- Run `backend/tests/t_outbox_stats.py` (Atomicity, Rollback, Callback Dispatcher, DLQ, Operational KPIs, Tenant Isolation).
+- Run full platform test suite (`t_route_boundary.py` through `t_outbox_stats.py`).
 
 ---
 
 ## 15. Documentation Impact
-- Update `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
-- Update Walkthrough `docs/walkthrough/foundation/Platform_Outbox_Analytics_Plane_v6.16.0.md`.
+- Update `docs/architecture/PLATFORM.md`.
+- Update Walkthrough `docs/walkthrough/foundation/Platform_Outbox.md`.
 - Update `docs/walkthrough/README.md`.
 
 ---
@@ -171,5 +171,5 @@ Additive DDL tables. If rollback is required, business operations proceed normal
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Platform_Outbox_Analytics_Plane_v6.16.0.md`.
+- `docs/walkthrough/foundation/Platform_Outbox.md`.
 

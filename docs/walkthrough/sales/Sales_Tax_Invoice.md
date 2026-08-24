@@ -26,7 +26,7 @@ Achieve 100% forensic and geometric reproduction of the authoritative original T
 - `F:\SMRITRretailNX\exports\GEOMETRY_REPORT.csv` (Element bounding boxes & dimensions)
 - `F:\SMRITRretailNX\exports\TATTLY_THREADS_MASTER_RECONCILIATION.csv` (54-invoice master comparison)
 - `F:\SMRITRretailNX\exports\TATTLY_THREADS_MASTER_RECONCILIATION.md` (Detailed markdown report)
-- `docs/walkthrough/sales/Sales_Tax_Invoice_Tattly_Threads_Format_Master_Replication_v1.0.md`
+- `docs/walkthrough/sales/Sales_Tax_Invoice.md`
 
 ## 4. Files Modified
 - [`F:\SMRITRretailNX\backend\app\services\invoice_pdf_service.py`](file:///F:/SMRITRretailNX/backend/app/services/invoice_pdf_service.py)
@@ -47,7 +47,7 @@ Achieve 100% forensic and geometric reproduction of the authoritative original T
 - Performed 54-invoice forensic verification against `C:\Users\netma\Downloads\Tax_Invoice_Tattly_Threads/`.
 
 ## 8. Tests Executed
-- `pytest backend/tests/test_canonical_tax_invoice_frozen.py -v` (17 passed)
+- `pytest backend/tests/t_canonical_tax.py -v` (17 passed)
 - Full 54-invoice automated forensic reconciliation engine (`build_full_reconciliation_suite.py`).
 
 ## 9. Verification Results

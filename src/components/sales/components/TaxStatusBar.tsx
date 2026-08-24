@@ -14,7 +14,7 @@
 
 import React from "react";
 
-export interface TaxInvoiceStatusBarProps {
+export interface TaxStatusBarrProps {
   itemCount: number;
   totalQty: number;
   salesValue: number;
@@ -26,7 +26,7 @@ export interface TaxInvoiceStatusBarProps {
   netAmount: number;
 }
 
-export const TaxInvoiceStatusBar: React.FC<TaxInvoiceStatusBarProps> = ({
+export const TaxStatusBar: React.FC<TaxStatusBarrProps> = ({
   itemCount,
   totalQty,
   salesValue,

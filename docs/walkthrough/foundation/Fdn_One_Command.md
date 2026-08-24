@@ -31,8 +31,8 @@ This walkthrough documents the creation and verification of automated "one-comma
 ## 3. Files Created
 - `install.ps1` (PowerShell installer)
 - `install.sh` (Bash installer)
-- `docs/implementation/foundation/One_Command_Installation_Scripts_Plan_v3.16.0.md` (Implementation plan)
-- `docs/walkthrough/foundation/Foundation_One_Command_Installation_Scripts_v3.16.0.md` (This file)
+- `docs/implementation/foundation/One_Command.md` (Implementation plan)
+- `docs/walkthrough/foundation/Fdn_One_Command.md` (This file)
 
 ---
 

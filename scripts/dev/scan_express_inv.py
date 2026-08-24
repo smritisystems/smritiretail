@@ -10,7 +10,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 
-scan_express_route_inventory.py
+scan_express_inv.py
 =================================
 Development scanner: reads all Express router files in src/routes/*.ts and
 extracts registered route methods and paths. Also scans all frontend .ts/.tsx
@@ -18,7 +18,7 @@ files for legacy /api/ (non-v1) URL references. Outputs both lists to stdout
 for migration coverage review.
 
 Usage:
-    python scripts/dev/scan_express_route_inventory.py
+    python scripts/dev/scan_express_inv.py
 """
 
 import os

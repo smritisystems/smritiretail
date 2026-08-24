@@ -28,7 +28,7 @@ This walkthrough documents the visual refactor of the **Customer CRM & Loyalty S
 - **Business Logic & Validation**: Retained 100% of customer profile creation, FastAPI `/customers/validate-add` validation, audit logging (`recordAuditAction`), CRM lead status progression, and loyalty wallet point calculation parameters.
 
 ## 3. Files Created
-- `docs/walkthrough/crm/Customer_CRM_Loyalty_Refactor_v3.28.0.md`
+- `docs/walkthrough/crm/Customer_CRM.md`
 
 ## 4. Files Modified
 - `src/components/CustomerMasterTab.tsx` (Version 3.28.0 header updated, Lucide icons added, top subheader, 4 KPI cards, filter toolbar, 10-column table grid, side drawer inspector, and modal dialog refactored).

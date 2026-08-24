@@ -41,7 +41,7 @@ from ...schemas.accounting import (
     CurrencyExchangeRateCreate, CurrencyExchangeRateResponse,
     UnrealizedRevaluationRequest, UnrealizedRevaluationResponse
 )
-from ...services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from ...services.unified_ledger import UnifiedAccountingLedgerService
 
 
 router = APIRouter()

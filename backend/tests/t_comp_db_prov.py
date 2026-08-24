@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import pytest
 import psycopg2
-from app.services.company_database_provisioner import CompanyDatabaseProvisioner
+from app.services.db_provisioner import CompanyDatabaseProvisioner
 
 CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
 

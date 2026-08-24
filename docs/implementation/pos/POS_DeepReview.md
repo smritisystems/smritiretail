@@ -89,7 +89,7 @@ Resolve all high- and medium-priority findings from the SMRITI Retail OS deep co
 
 ## 7. Proposed Design
 
-See Implementation Summary in walkthrough: `docs/walkthrough/pos/POS_DeepReview_Fixes_Walkthrough_v2.1.3.md`
+See Implementation Summary in walkthrough: `docs/walkthrough/pos/POS_DeepReview.md`
 
 ---
 
@@ -97,9 +97,9 @@ See Implementation Summary in walkthrough: `docs/walkthrough/pos/POS_DeepReview_
 
 | File | Purpose |
 |---|---|
-| `src/components/SmritiErrorBoundary.tsx` | React Error Boundary, HREP-compliant user messaging |
-| `docs/walkthrough/pos/POS_DeepReview_Fixes_Walkthrough_v2.1.3.md` | This implementation's walkthrough |
-| `docs/implementation/pos/POS_DeepReview_Fixes_Plan_v2.1.3.md` | This document |
+| `src/components/ErrorBoundary.tsx` | React Error Boundary, HREP-compliant user messaging |
+| `docs/walkthrough/pos/POS_DeepReview.md` | This implementation's walkthrough |
+| `docs/implementation/pos/POS_DeepReview.md` | This document |
 
 ---
 
@@ -110,7 +110,7 @@ See Implementation Summary in walkthrough: `docs/walkthrough/pos/POS_DeepReview_
 | `src/components/PosTerminalTab.tsx` | 7 improvements (GST, persistence, memoization, callbacks, barcode, autocomplete) |
 | `src/App.tsx` | ErrorBoundary wrap, conditional PrintPreviewModal |
 | `docs/walkthrough/README.md` | Index updated |
-| `docs/walkthrough/CONSOLIDATED_WALKTHROUGHS.md` | New entry appended |
+| `docs/walkthrough/CONSOLIDATED.md` | New entry appended |
 | `docs/implementation/README.md` | Index updated |
 | `docs/implementation/CONSOLIDATED_PLANS.md` | New entry appended |
 | `docs/user_guide/USER_GUIDE.md` | POS section updated |
@@ -143,7 +143,7 @@ All changes are in 3 files. Rollback via:
 ```bash
 git checkout src/components/PosTerminalTab.tsx
 git checkout src/App.tsx
-git rm src/components/SmritiErrorBoundary.tsx
+git rm src/components/ErrorBoundary.tsx
 ```
 
 ---
@@ -200,5 +200,5 @@ All user-facing docs updated: User Guide, Developer Guide, Troubleshooting, Walk
 
 ## 19. Related Walkthroughs
 
-- `docs/walkthrough/pos/POS_DeepReview_Fixes_Walkthrough_v2.1.3.md`
-- `docs/walkthrough/sales/Sales_CRM_Audit_And_POS_Upgrades_Walkthrough_v2.1.2.md`
+- `docs/walkthrough/pos/POS_DeepReview.md`
+- `docs/walkthrough/sales/Sales_CRM_Audit.md`

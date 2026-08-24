@@ -51,16 +51,16 @@ Previously, sales invoicing applied a flat tax formula without distinguishing be
 - `backend/app/tests/test_gst_engine.py`
 - `src/utils/gstEngine.ts`
 - `src/tests/gstEngine.test.ts`
-- `docs/implementation/sales/Zero_Touch_Automated_GST_Customer_Classification_Engine_v3.26.0.md`
-- `docs/walkthrough/sales/Zero_Touch_Automated_GST_Customer_Classification_Engine_v3.26.0.md`
+- `docs/implementation/sales/Zero_Touch.md`
+- `docs/walkthrough/sales/Zero_Touch.md`
 
 ## 9. Files Modified
 - `backend/app/schemas/sales.py`
 - `backend/app/services/sales.py`
 - `src/components/billing/propos/types.ts`
-- `src/components/billing/propos/SmritiProPosBillingTerminal.tsx`
-- `src/components/billing/propos/SmritiCustomerBrowseModal.tsx`
-- `src/components/billing/propos/SmritiProPosTaxInvoiceReceipt.tsx`
+- `src/components/billing/propos/ProPosBillingTerm.tsx`
+- `src/components/billing/propos/CustBrowseDlg.tsx`
+- `src/components/billing/propos/ProPosTaxInvoiceRc.tsx`
 - `docs/implementation/README.md`
 - `docs/walkthrough/README.md`
 - `CHANGELOG.md`
@@ -95,4 +95,4 @@ Completed.
 - N/A
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/sales/Zero_Touch_Automated_GST_Customer_Classification_Engine_v3.26.0.md`
+- `docs/walkthrough/sales/Zero_Touch.md`

@@ -48,7 +48,7 @@ from ..models.localization import (
     PlatformReferenceData,
 )
 from ..services.capability_service import CapabilityService
-from ..services.localization_service import LocalizationService
+from ..services.localization_svc import LocalizationService
 
 
 class ControlPlaneSeeder:

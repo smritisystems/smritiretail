@@ -26,7 +26,7 @@
 - PrintProfile: print_profiles table -- code, label, paper_size, cols, rows, margins (JSONB), renderer, is_active
 - PrintHistory: print_histories table -- product_id, layout_id, label_count, print_source, printed_by, print_job_ref, format_used
 
-### Documentation claim (PRODUCT_IDENTITY_ENGINE.md + SMRITI_COMPANY_DATABASE_PROVISIONING_ENGINE_v1.0.md):
+### Documentation claim (PRODUCT_IDENTITY_13.md + COMPANY_DATABASE.md):
 - Tables described: barcode_providers, identity_rules, product_identities -- SEPARATE from barcode_layouts/templates
 
 ### Status: ALIGNED (models exist in code)
@@ -111,9 +111,9 @@ Tests confirmed present:
 ## 8. Documentation Accuracy for Barcode
 
 ### Documents checked:
-- PRODUCT_IDENTITY_ENGINE.md: Documents BarcodeProvider, IdentityRule, ProductIdentity -- ALIGNED with models
-- PRODUCT_IDENTITY_ENGINE_API_SPEC.md: API spec for identity routes
-- System_Master_Barcode_Refactor_v3.28.0.md: walkthrough for barcode refactor
+- PRODUCT_IDENTITY_13.md: Documents BarcodeProvider, IdentityRule, ProductIdentity -- ALIGNED with models
+- PRODUCT_IDENTITY__6.md: API spec for identity routes
+- System_Master.md: walkthrough for barcode refactor
 
 ### DISCREPANCY: Documentation claims barcode subsystem is IMPLEMENTED. Migration for product identity tables FAILED. Documentation should be updated to reflect MIGRATION_FAILED state.
 ### Status: PARTIALLY_VERIFIED (code implemented; DB migration incomplete)

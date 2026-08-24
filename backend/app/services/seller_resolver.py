@@ -13,7 +13,7 @@ License      : Proprietary Commercial Software
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from .invoice_render_errors import missing
+from .invoice_errors import missing
 
 
 def _text(*candidates: Any) -> Optional[str]:

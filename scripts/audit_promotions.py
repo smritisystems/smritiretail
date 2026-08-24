@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 TARGET_DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smriti001"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_PROMOTIONS_GROWTH_ENGINE_v1.0.md"
+DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\PROMOTIONS_GROWTH.md"
 DIST_DIR = r"F:\SMRITRretailNX\dist"
 
 def audit_promotions_growth_engine():

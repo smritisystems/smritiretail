@@ -39,8 +39,8 @@ from ...core.logging import logger
 from ...core.security import decode_token
 from ...db.session import get_company_sessionmaker
 from ...models.auth import User, UserRole
-from ...services.company_database_resolver import CompanyDatabaseResolver
-from ...services.ecom_reservation_service import EcomInventoryReservationService
+from ...services.db_resolver import CompanyDatabaseResolver
+from ...services.ecom_reservation import EcomInventoryReservationService
 from ...services.outbox_service import OutboxService
 
 router = APIRouter(tags=["eCommerce / Omnichannel Engine"])

@@ -33,15 +33,15 @@ Automate the transactional reconciliation and double-entry General Ledger journa
   - `POSService.get_z_report`: Computes shift sales breakdown, tender totals, variance, and resolves linked General Ledger voucher reference.
   - `GET /api/v1/pos/shifts/{shift_id}/z-report`: Exposes authoritative Z-Report schema (`POSZReportResponse`).
 - Automated test suites:
-  - `backend/tests/test_pos_shift_gl_integration.py` (7/7 tests passed).
+  - `backend/tests/t_pos_shift_gl.py` (7/7 tests passed).
   - Master Platform Regression Suite: 111/111 passed across 18 test suites in 64.88s.
 
 ## 3. Files Created
-- `backend/tests/test_pos_shift_gl_integration.py` — Integration test suite verifying shift closing, cash shortage/overage GL balancing, idempotency, unclosed shift rejection, Z-report API, and multi-tenant isolation.
-- `docs/walkthrough/foundation/Platform_Accounting_POS_Shift_Close_ZReport_v6.16.0.md` — This walkthrough document.
+- `backend/tests/t_pos_shift_gl.py` — Integration test suite verifying shift closing, cash shortage/overage GL balancing, idempotency, unclosed shift rejection, Z-report API, and multi-tenant isolation.
+- `docs/walkthrough/foundation/Platform_2_3_4.md` — This walkthrough document.
 
 ## 4. Files Modified
-- `backend/app/services/unified_accounting_ledger_service.py` — Added accounts `4050` and `5070` to `DEFAULT_CHART_OF_ACCOUNTS` and implemented `post_shift_close_to_gl`.
+- `backend/app/services/unified_ledger.py` — Added accounts `4050` and `5070` to `DEFAULT_CHART_OF_ACCOUNTS` and implemented `post_shift_close_to_gl`.
 - `backend/app/services/pos.py` — Integrated `post_shift_close_to_gl` in `close_shift` and implemented `get_z_report`.
 - `backend/app/schemas/pos.py` — Added `POSZReportResponse` Pydantic v2 schema.
 - `backend/app/api/v1/pos.py` — Added `GET /pos/shifts/{shift_id}/z-report` endpoint.
@@ -64,12 +64,12 @@ Decoupling tender variance adjustments into a single end-of-shift balancing vouc
 
 ## 8. Tests Executed
 ```powershell
-python -m pytest tests/test_pos_shift_gl_integration.py -v
-python -m pytest tests/test_routing_boundary_canonical.py tests/test_universal_party_master.py tests/test_universal_item_master.py tests/test_unified_sales_ledger.py tests/test_unified_pricing_payment_engine.py tests/test_unified_approval_communicator.py tests/test_unified_workspace_capability.py tests/test_unified_outbox_analytics.py tests/test_wms_phase1.py tests/test_wms_phase2_grn_sales.py tests/test_wms_phase3_eway_bill.py tests/test_wms_phase4_audit_reconciliation.py tests/test_security_menu_access.py tests/test_unified_accounting_ledger.py tests/test_fiscal_period_brs.py tests/test_accounting_api.py tests/test_multicurrency_fx.py tests/test_pos_shift_gl_integration.py -v
+python -m pytest tests/t_pos_shift_gl.py -v
+python -m pytest tests/t_route_boundary.py tests/t_univ_party.py tests/t_univ_item.py tests/t_sales_ledger.py tests/t_pricing_eng.py tests/t_approval_comm.py tests/t_workspace_cap.py tests/t_outbox_stats.py tests/test_wms_phase1.py tests/t_wms_phase2.py tests/t_wms_phase3.py tests/t_wms_phase4.py tests/t_sec_menu.py tests/t_unified_ledger.py tests/t_fiscal_period.py tests/test_accounting_api.py tests/t_multicurrency.py tests/t_pos_shift_gl.py -v
 ```
 
 ## 9. Verification Results
-- `tests/test_pos_shift_gl_integration.py`: 7/7 PASSED in 10.58s.
+- `tests/t_pos_shift_gl.py`: 7/7 PASSED in 10.58s.
 - Master Platform Regression Suite: 111/111 PASSED in 64.88s across 18 test suites.
 
 ## 10. Known Limitations

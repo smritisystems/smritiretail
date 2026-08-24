@@ -103,4 +103,4 @@ Completed.
 None.
 
 ### 19. Related Walkthroughs
-- [Sales Studio Expansion Walkthrough](../../walkthrough/sales/Sales_Studio_Expansion_Walkthrough_v2.1.1.md)
+- [Sales Studio Expansion Walkthrough](../../walkthrough/sales/Sales_Studio.md)

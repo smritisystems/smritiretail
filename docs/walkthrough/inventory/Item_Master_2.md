@@ -26,14 +26,14 @@ Enforce strict mathematical validation and integrity invariants on all pricing f
   5. Cost Price <= Buying Price (`cost_price <= buying_price`).
   6. Rejection of null, blank, whitespace-only, zero (for BP & CP), negative, and invalid numeric values.
   7. Conditional Exemptions for non-stock items, services, samples, and free promotional items (`tracking_mode == "No-stock"` or `pricing_mode == "Free"`).
-- Frontend UI Components: `src/components/itemMaster/SmritiItemDetailsGrid.tsx`, `src/components/itemMaster/ItemMasterEntryView.tsx`, `src/components/itemMaster/types.ts`, `src/services/unifiedFieldCatalog.ts`.
+- Frontend UI Components: `src/components/itemMaster/ItemDetGrid.tsx`, `src/components/itemMaster/ItemMasterEntryVie.tsx`, `src/components/itemMaster/types.ts`, `src/services/unifiedFieldCatalog.ts`.
 - Backend Schema & Service Layer: `backend/app/schemas/inventory.py`, `backend/app/models/inventory.py`, `backend/app/models/item_master.py`, `backend/app/services/item_master_service.py`.
-- Database Migration: `backend/scripts/migrate_pricing_constraints.py` across `smritisys`, `smriti001`, `smriti002`.
-- Automated Test Suite: `backend/tests/test_item_master_required_validation.py`.
+- Database Migration: `backend/scripts/migr_pricing.py` across `smritisys`, `smriti001`, `smriti002`.
+- Automated Test Suite: `backend/tests/t_item_val.py`.
 
 ## 3. Files Created
-- `backend/scripts/migrate_pricing_constraints.py` — Database migration script applying `buying_price` column and safe backfills.
-- `docs/walkthrough/inventory/Item_Master_Pricing_Fields_Validation_v3.23.0.md` — This walkthrough document.
+- `backend/scripts/migr_pricing.py` — Database migration script applying `buying_price` column and safe backfills.
+- `docs/walkthrough/inventory/Item_Master_2.md` — This walkthrough document.
 
 ## 4. Files Modified
 - `backend/app/models/inventory.py` — Added `buying_price = Column(Numeric(15, 2))` on `Product`.
@@ -42,9 +42,9 @@ Enforce strict mathematical validation and integrity invariants on all pricing f
 - `backend/app/services/item_master_service.py` — Updated `create_item` with `buying_price`.
 - `src/services/unifiedFieldCatalog.ts` — Added `buyingPrice` (`required: true`) and updated `costPrice` to `required: true`.
 - `src/components/itemMaster/types.ts` — Included `buyingPrice` and `costPrice` in `DEFAULT_MANDATORY_FIELDS`.
-- `src/components/itemMaster/SmritiItemDetailsGrid.tsx` — Implemented pricing relationship validation, cell error tooltips, Classic View pricing fields and alerts, and blocked save on price violations.
-- `src/components/itemMaster/ItemMasterEntryView.tsx` — Enforced pricing hierarchy in `executeCommitItems`.
-- `backend/tests/test_item_master_required_validation.py` — Expanded unit and integration tests to 43 passing tests.
+- `src/components/itemMaster/ItemDetGrid.tsx` — Implemented pricing relationship validation, cell error tooltips, Classic View pricing fields and alerts, and blocked save on price violations.
+- `src/components/itemMaster/ItemMasterEntryVie.tsx` — Enforced pricing hierarchy in `executeCommitItems`.
+- `backend/tests/t_item_val.py` — Expanded unit and integration tests to 43 passing tests.
 - `docs/walkthrough/README.md` — Appended master walkthrough index.
 
 ## 5. Architecture Decisions
@@ -66,7 +66,7 @@ Enforce strict mathematical validation and integrity invariants on all pricing f
 - Database: Successfully added `buying_price` and validated tenant data planes.
 
 ## 8. Tests Executed
-- `pytest backend/tests/test_item_master_required_validation.py backend/tests/test_universal_item_master.py -v` (43/43 passed in 13.22s).
+- `pytest backend/tests/t_item_val.py backend/tests/t_univ_item.py -v` (43/43 passed in 13.22s).
 - `npm run build` (Vite production build completed with 0 errors in 26.36s).
 
 ## 9. Verification Results

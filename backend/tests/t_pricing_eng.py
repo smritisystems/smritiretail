@@ -20,7 +20,7 @@ import pytest
 from decimal import Decimal
 from sqlalchemy import select, delete
 from app.db.session import get_company_sessionmaker
-from app.services.unified_pricing_payment_service import UnifiedPricingPaymentService
+from app.services.pricing_payment import UnifiedPricingPaymentService
 from app.models.pricing import PriceBook, PriceBookEntry, CustomerPriceTier
 from app.models.payment_ledger import PaymentTransaction, PaymentAllocation
 from app.models.numbering import DocumentSeries, NumberingAuditLog

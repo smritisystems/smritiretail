@@ -35,13 +35,13 @@ To establish and verify a 100% headless test pipeline for the Universal F2 Maste
 ---
 
 ## 3. Files Created
-- `src/tests/globalF2BrowseHeadless.test.ts` (Headless Vitest verification suite covering 23 test cases)
+- `src/tests/f2Browse.test.ts` (Headless Vitest verification suite covering 23 test cases)
 
 ---
 
 ## 4. Files Modified
-- `src/components/drilldown/GlobalF2BrowseModal.tsx` (Aligned product fetch to `/products?page_size=100` and defensive payload handling)
-- `src/components/billing/propos/SmritiProPosBillingTerminal.tsx` (Aligned product search to `/products/search` and pruned unused modal setter)
+- `src/components/drilldown/GlobalF2BrowseDlg.tsx` (Aligned product fetch to `/products?page_size=100` and defensive payload handling)
+- `src/components/billing/propos/ProPosBillingTerm.tsx` (Aligned product search to `/products/search` and pruned unused modal setter)
 - `backend/app/main.py` (Added `/inventory/products` router alias)
 - `docs/walkthrough/README.md` (Updated master walkthrough index)
 
@@ -59,15 +59,15 @@ When headed browsers are launched from within development tasks, GPU/VRAM conten
 ---
 
 ## 7. Implementation Summary
-- Refactored `GlobalF2BrowseModal.tsx` data loader to query `/products?page_size=100` and extract `items` whether returned as a raw array or a paginated envelope.
-- Updated `SmritiProPosBillingTerminal.tsx` barcode/stock lookup to invoke `/products/search?q=...` instead of the non-existent nested path.
+- Refactored `GlobalF2BrowseDlg.tsx` data loader to query `/products?page_size=100` and extract `items` whether returned as a raw array or a paginated envelope.
+- Updated `ProPosBillingTerm.tsx` barcode/stock lookup to invoke `/products/search?q=...` instead of the non-existent nested path.
 - Registered `/inventory/products` on the FastAPI `main.py` router table.
 
 ---
 
 ## 8. Tests Executed
 ```powershell
-npx vitest run src/tests/globalF2BrowseHeadless.test.ts src/tests/activeFieldContextAwareSearch.test.ts
+npx vitest run src/tests/f2Browse.test.ts src/tests/fieldSearch.test.ts
 ```
 
 ---
@@ -76,8 +76,8 @@ npx vitest run src/tests/globalF2BrowseHeadless.test.ts src/tests/activeFieldCon
 ```text
  RUN  v4.1.10 F:/SMRITRretailNX
 
- ✓ src/tests/globalF2BrowseHeadless.test.ts (23 tests) 13ms
- ✓ src/tests/activeFieldContextAwareSearch.test.ts (14 tests) 12ms
+ ✓ src/tests/f2Browse.test.ts (23 tests) 13ms
+ ✓ src/tests/fieldSearch.test.ts (14 tests) 12ms
 
  Test Files  2 passed (2)
       Tests  37 passed (37)

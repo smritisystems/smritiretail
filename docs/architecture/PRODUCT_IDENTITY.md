@@ -35,9 +35,9 @@ Deliver a governance-grade Product Identity Engine with configurable identity ru
 - Barcode reuse API (`/barcode/reuse`)
 - Rule version history and audit events
 - Import job tracking and row outcomes
-- `PRODUCT_IDENTITY_ENGINE.md` design document
-- `PRODUCT_IDENTITY_ENGINE_API_SPEC.md` API spec
-- `PRODUCT_IDENTITY_ENGINE_ERD.md` ERD
+- `PRODUCT_IDENTITY_13.md` design document
+- `PRODUCT_IDENTITY__6.md` API spec
+- `PRODUCT_IDENTITY_11.md` ERD
 
 ### Implementation Tasks
 
@@ -138,7 +138,7 @@ Deliver a governance-grade Product Identity Engine with configurable identity ru
 
 Keep documentation synchronized with implementation:
 
-- `PRODUCT_IDENTITY_ENGINE.md`
-- `PRODUCT_IDENTITY_ENGINE_API_SPEC.md`
-- `PRODUCT_IDENTITY_ENGINE_ERD.md`
+- `PRODUCT_IDENTITY_13.md`
+- `PRODUCT_IDENTITY__6.md`
+- `PRODUCT_IDENTITY_11.md`
 - Implementation notes and tickets in the project backlog

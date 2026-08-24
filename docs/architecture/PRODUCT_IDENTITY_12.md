@@ -5,8 +5,8 @@
   Owner: Enterprise Architecture
   Reviewers: Product, Engineering, DevOps
   Last Updated: 2026-07-18
-  Dependencies: PRODUCT_IDENTITY_ENGINE.md, PRODUCT_IDENTITY_ENGINE_CONFIGURATION.md
-  Related Documents: PRODUCT_IDENTITY_ENGINE_TEST_PLAN.md, PRODUCT_IDENTITY_ENGINE_API_SPEC.md
+  Dependencies: PRODUCT_IDENTITY_13.md, PRODUCT_IDENTITY_2.md
+  Related Documents: PRODUCT_IDENTITY__5.md, PRODUCT_IDENTITY__6.md
   Change History:
     - v1.0 2026-07-18 Created.
 -->
@@ -59,7 +59,7 @@ Defines performance, scalability, availability, security, and operational goals 
 
 ## Security and Compliance
 
-- Access control, authorization, and audit logging per `PRODUCT_IDENTITY_ENGINE_SECURITY.md`
+- Access control, authorization, and audit logging per `PRODUCT_IDENTITY__7.md`
 - Data retention and archival policy for audit records
 - Encryption for sensitive config and identity metadata
 

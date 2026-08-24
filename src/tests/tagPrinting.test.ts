@@ -27,7 +27,7 @@ import {
   queryTransactionItems,
   queryPurchaseOrderItems,
   queryMasterItemsByDate
-} from "../components/barcode/barcodeTransactionStore.ts";
+} from "../components/barcode/barcodeTransactionS.ts";
 
 describe("SMRITI Tag & Barcode Label Printing Logic Suite", () => {
   const sampleProducts: Product[] = [

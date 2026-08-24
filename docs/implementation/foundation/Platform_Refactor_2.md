@@ -78,16 +78,16 @@ SMRITI Retail OS powers diverse verticals—Supermarkets, Fashion & Apparel, Dis
 
 ## 8. Files Created
 - `backend/app/models/capability_template.py`: Canonical models for platform capabilities, workspace templates, and tenant bindings.
-- `backend/app/services/unified_workspace_capability_service.py`: Domain service resolving active capabilities, applying vertical templates, and retrieving personalized user layouts.
-- `backend/tests/test_unified_workspace_capability.py`: Automated verification suite certifying template resolution, capability filtering, user workspace bindings, and control/tenant plane isolation.
-- `docs/implementation/foundation/Platform_Refactor_Slice6_Capability_Template_Workspace_Plan_v1.0.md`: This implementation plan.
+- `backend/app/services/workspace_cap_svc.py`: Domain service resolving active capabilities, applying vertical templates, and retrieving personalized user layouts.
+- `backend/tests/t_workspace_cap.py`: Automated verification suite certifying template resolution, capability filtering, user workspace bindings, and control/tenant plane isolation.
+- `docs/implementation/foundation/Platform_Refactor_2.md`: This implementation plan.
 
 ---
 
 ## 9. Files Modified
 - `backend/app/models/__init__.py`: Export Capability and Workspace models.
 - `docs/implementation/README.md`: Append Slice 6 plan to master index.
-- `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Track Slice 6 verification.
+- `docs/architecture/PLATFORM.md`: Track Slice 6 verification.
 
 ---
 
@@ -119,14 +119,14 @@ Additive DDL tables. If rollback is required, services fall back to default reta
 ---
 
 ## 14. Test Plan
-- Run `backend/tests/test_unified_workspace_capability.py`.
+- Run `backend/tests/t_workspace_cap.py`.
 - Run full 85+ test multi-module regression suite.
 
 ---
 
 ## 15. Documentation Impact
-- Update `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
-- Generate Walkthrough `docs/walkthrough/foundation/Platform_Capability_Template_Workspace_v6.16.0.md`.
+- Update `docs/architecture/PLATFORM.md`.
+- Generate Walkthrough `docs/walkthrough/foundation/Platform_2_3_4_5_6.md`.
 - Update `docs/walkthrough/README.md`.
 
 ---
@@ -150,4 +150,4 @@ Additive DDL tables. If rollback is required, services fall back to default reta
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Platform_Approval_Workflow_Communicator_v6.16.0.md`.
+- `docs/walkthrough/foundation/Platform_Approval.md`.

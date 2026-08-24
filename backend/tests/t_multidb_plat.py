@@ -19,13 +19,13 @@ from fastapi import HTTPException
 
 sys.path.insert(0, "backend")
 from app.db.provisioning import sanitize_company_db_name
-from app.services.control_database_registry import ControlDatabaseRegistryService
+from app.services.control_registry import ControlDatabaseRegistryService
 from app.db.company_router import verify_user_company_access
 from app.db.connection_manager import LRUConnectionPoolManager
 from app.services.outbox_service import generate_ulid_source_event_id
 from app.services.outbox_worker import OutboxQueueWorker
-from app.services.psv_projection_service import PSVProjectionService
-from app.services.reconciliation_service import MultiLedgerReconciliationService
+from app.services.psv_projection import PSVProjectionService
+from app.services.reconcile_svc import MultiLedgerReconciliationService
 from app.models.auth import User, UserRole
 from app.models.control.control_models import ControlCompanyDatabase
 from app.models.outbox import IntegrationOutboxEvent

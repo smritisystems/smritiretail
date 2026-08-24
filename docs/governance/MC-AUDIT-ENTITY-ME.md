@@ -5,7 +5,7 @@ PENDING ARCHITECT AUTHORIZATION
 ## Scope
 - Audit `MetadataRegistry` dead-method usage in `src/services/metadataRegistry.ts`
 - Audit `WorkflowEngine` import/call sites in `src/services/workflowEngine.ts`
-- Compare `masters_registry.ts` metadata model shape with actual `Customer` entity usage in `customerStore.ts`, `customerValidation.ts`, and `customerPolicyEngine.ts`
+- Compare `masters_registry.ts` metadata model shape with actual `Customer` entity usage in `customerStore.ts`, `customerValidation.ts`, and `custPolicyEngine.ts`
 - Identify runtime metadata consumers, API metadata endpoints, and metadata ownership boundaries
 
 ## Repository fingerprint
@@ -19,11 +19,11 @@ PENDING ARCHITECT AUTHORIZATION
 - `src/services/metadataRegistry.ts` — runtime in-memory registry for modules, screens, reports, forms, APIs, databases, and print templates.
 - `src/components/SmritiBaseModule.tsx` — only active registration site for `MetadataRegistry` modules.
 - `src/components/AboutSmritiTab.tsx` / `src/components/AboutSmritiWidget.tsx` — runtime consumer of `MetadataRegistry.getModules()` and backend `/metadata` application metadata endpoint.
-- `src/components/MasterManagementTab.tsx` — uses static `MASTER_REGISTRY`, `GLOBAL_AUDIT_FIELDS`, and dynamically loads lookup master metadata from `/masters/lookup-types`.
+- `src/components/MasterMgmtTab.tsx` — uses static `MASTER_REGISTRY`, `GLOBAL_AUDIT_FIELDS`, and dynamically loads lookup master metadata from `/masters/lookup-types`.
 - `src/components/ReportDesignerTab.tsx` — consumes runtime report metadata via `/reports/studios` and uses report scheduling APIs.
 - `src/print_engine/print_store.tsx` + `src/components/PrintStudioTab.tsx` — print template registration and runtime print provider for generated print formats.
 - `src/services/customerValidation.ts` — static customer profile validation layer, used by the customer UI and tests.
-- `src/services/customerPolicyEngine.ts` — customer policy resolution and credit status engine, consumed by billing/business logic UI.
+- `src/services/custPolicyEngine.ts` — customer policy resolution and credit status engine, consumed by billing/business logic UI.
 - `src/types.ts` — concrete entity definitions, including `Customer`, `CustomerGroup`, `ReportDefinition`, and `PrintTemplate`.
 
 ## Architectural caveats
@@ -41,7 +41,7 @@ PENDING ARCHITECT AUTHORIZATION
 - No runtime registration was found for screens, reports, forms, APIs, databases, or print templates.
 
 ### Validation
-- Static/UI validation is in `src/services/customerValidation.ts`, used by `src/components/CustomerMasterTab.tsx` and `src/tests/customerCrmLoyaltyDecoupling.test.ts`.
+- Static/UI validation is in `src/services/customerValidation.ts`, used by `src/components/CustomerMasterTab.tsx` and `src/tests/crmLoyalty.test.ts`.
 - API validation is implied by `/customers/validate-add` in `CustomerMasterTab.tsx`, but the backend implementation is outside this frontend audit.
 - `MasterField.required` in `masters_registry.ts` provides metadata for field requiredness, but does not include business rule logic such as mobile or GSTIN formats.
 
@@ -57,8 +57,8 @@ PENDING ARCHITECT AUTHORIZATION
 
 ### Forms
 - `FormMetadata` exists in the runtime registry schema, but no registration call sites or consumers were found.
-- Actual form implementations are hardcoded in the UI (`CustomerMasterTab.tsx`, `MasterManagementTab.tsx`, and other component trees).
-- `MasterManagementTab.tsx` builds dynamic master forms from `MASTER_REGISTRY` plus lookup metadata loaded from `/masters/lookup-types`.
+- Actual form implementations are hardcoded in the UI (`CustomerMasterTab.tsx`, `MasterMgmtTab.tsx`, and other component trees).
+- `MasterMgmtTab.tsx` builds dynamic master forms from `MASTER_REGISTRY` plus lookup metadata loaded from `/masters/lookup-types`.
 
 ### Reports
 - `ReportMetadata` exists in the runtime registry schema, but no registration call sites were found.
@@ -233,7 +233,7 @@ Get-ChildItem -Path src -Recurse -Include *.ts,*.tsx -File | Select-String -Patt
 | --- | --- | --- | --- |
 | `src/services/customerStore.ts` | Customer persistence and sync | Imports `Customer` type, seeds `initialCustomers`, persists updates with API calls, and references `Customer` objects through `persistCustomerChange(customer: Customer)` | `src/services/customerStore.ts:27`, `src/services/customerStore.ts:162`, `src/services/customerStore.ts:606` |
 | `src/services/customerValidation.ts` | Customer field validation | Validates customer profile fields and business data formats for `name`, `mobile`, `email`, `gstNumber` | `src/services/customerValidation.ts:21`, `src/services/customerValidation.ts:27`, `src/services/customerValidation.ts:31`, `src/services/customerValidation.ts:40`, `src/services/customerValidation.ts:45` |
-| `src/services/customerPolicyEngine.ts` | Customer policy and credit controls | Resolves credit and billing policies using customer overrides and group defaults; checks credit hold, unlimited credit, auto-block sales, and usage thresholds | `src/services/customerPolicyEngine.ts:40`, `src/services/customerPolicyEngine.ts:45`, `src/services/customerPolicyEngine.ts:49`, `src/services/customerPolicyEngine.ts:50`, `src/services/customerPolicyEngine.ts:82`, `src/services/customerPolicyEngine.ts:88` |
+| `src/services/custPolicyEngine.ts` | Customer policy and credit controls | Resolves credit and billing policies using customer overrides and group defaults; checks credit hold, unlimited credit, auto-block sales, and usage thresholds | `src/services/custPolicyEngine.ts:40`, `src/services/custPolicyEngine.ts:45`, `src/services/custPolicyEngine.ts:49`, `src/services/custPolicyEngine.ts:50`, `src/services/custPolicyEngine.ts:82`, `src/services/custPolicyEngine.ts:88` |
 
 ### Comparison table: `MasterConfig` / `MasterField` vs `Customer` / service coverage
 
@@ -242,7 +242,7 @@ Get-ChildItem -Path src -Recurse -Include *.ts,*.tsx -File | Select-String -Patt
 | Structural metadata | `MasterConfig` defines schema metadata (`id`, `name`, `category`, `icon`, `fields`, `status`, `isLookup`) and `MasterField` defines field metadata (`label`, `type`, `required`, `options`) | `Customer` defines concrete business fields and customer data shape in `src/types.ts:465` | Does not define actual customer business fields such as `mobile`, `gstNumber`, `creditLimit`, `billingAddress`, `loyaltyPoints` | Does not define metadata-layer properties like `label`, `field type`, `options`, `workflowEnabled` or `auditEnabled` |
 | Audit/record fields | `GLOBAL_AUDIT_FIELDS` adds `status`, `created_by`, `modified_by`, `created_at`, `updated_at`, `notes` at `src/masters_registry.ts:45` | Customer has `status?` and `createdDate?` only, but lacks explicit `created_by` / `modified_by` fields in the type | Provides explicit audit metadata fields; structured audit fields are available for registry masters | Customer entity lacks the same explicit audit ownership fields and only has a generic `createdDate?` |
 | Validation focus | `MasterField.required` indicates requiredness and `type` indicates input semantics | `customerValidation.ts` validates `name`, `mobile`, `email`, `gstNumber` only | Master metadata can represent requiredness and field type, but does not enforce business-specific rules like mobile regex or GSTIN format | Validation logic exists only in `customerValidation.ts`; master metadata does not encode those exact business rules |
-| Policy / workflow | `MasterConfig.fields` can represent form fields and workloads indirectly, but no workflow semantics beyond `status`/`isLookup` | `customerPolicyEngine.ts` adds billing policy semantics (`creditHold`, `autoBlockSales`, `allowBackOrders`, `maxDiscountPercent`, `taxInclusive`, etc.) | No direct support for customer credit/discount/approval policy semantics | Customer policy semantics are not captured by master metadata types and are outside the registry model |
+| Policy / workflow | `MasterConfig.fields` can represent form fields and workloads indirectly, but no workflow semantics beyond `status`/`isLookup` | `custPolicyEngine.ts` adds billing policy semantics (`creditHold`, `autoBlockSales`, `allowBackOrders`, `maxDiscountPercent`, `taxInclusive`, etc.) | No direct support for customer credit/discount/approval policy semantics | Customer policy semantics are not captured by master metadata types and are outside the registry model |
 | Permissions and business context | `ScreenMetadata` and `ModuleMetadata` in registry support `requiredPermissions?` and module ownership | `Customer` actual usage has no direct permission metadata; policies are resolved separately | Metadata registry supports permission metadata in other metadata types, but not in `MasterField` itself | Customer entity usage does not include permissions metadata or role-based access declarations |
 | Lifecycle and lookup semantics | `MasterConfig.status` and `isLookup` are explicit lifecycle/lookup markers | `Customer` has `status?` and `group?`, but no `isLookup` marker | Master metadata can declare lookup masters, categories, and life-cycle state explicitly | Customer entity is concrete and lacks schema-level lookup metadata |
 | Metadata ownership | `masters_registry.ts` is owned by the UI master management layer and is loaded statically at runtime | `Customer` is owned by the domain type system and service layer | None — these metadata models are distinct and not derived from one another | None — `Customer` lacks master-definition metadata semantics |
@@ -253,7 +253,7 @@ Get-ChildItem -Path src -Recurse -Include *.ts,*.tsx -File | Select-String -Patt
 - `masters_registry.ts` is a metadata model for master entity definitions, not a concrete customer data model.
 - The customer domain is defined as a concrete `Customer` type in `src/types.ts:465`, and service files add usage and behavior on top of it.
 - `customerValidation.ts` covers a narrow validation subset; it does not attempt to validate the full `Customer` shape or audit fields.
-- `customerPolicyEngine.ts` covers credit and billing policy concerns, not schema metadata or audit field registration.
+- `custPolicyEngine.ts` covers credit and billing policy concerns, not schema metadata or audit field registration.
 - `GLOBAL_AUDIT_FIELDS` in `src/masters_registry.ts:45` provides audit-field metadata that is not directly mirrored by the `Customer` type.
 - `Customer` actual usage includes many business and financial fields that are outside the metadata registry's field metadata semantics.
 
@@ -267,7 +267,7 @@ Get-ChildItem -Path src -Recurse -Include *.ts,*.tsx -File | Select-String -Patt
 - `src/components/AboutSmritiTab.tsx:73`, `src/components/AboutSmritiTab.tsx:83` — runtime consumer of backend `/metadata` and `MetadataRegistry.getModules()`.
 - `src/components/AboutSmritiWidget.tsx:35` — backend `/metadata` app metadata consumer.
 - `src/components/ReportDesignerTab.tsx:195` — runtime consumer of `/reports/studios` report metadata.
-- `src/components/MasterManagementTab.tsx:69` — runtime consumer of `/masters/lookup-types` dynamic master metadata.
+- `src/components/MasterMgmtTab.tsx:69` — runtime consumer of `/masters/lookup-types` dynamic master metadata.
 - `src/components/PrintPreviewModal.tsx:762`, `src/components/PrintStudioTab.tsx:61-79`, `src/print_engine/print_store.tsx:94-98` — print template registration and provider runtime.
 - `src/services/workflowEngine.ts:36` — `WorkflowEngine` definition and no other repo references.
 - `src/masters_registry.ts:26`, `src/masters_registry.ts:36`, `src/masters_registry.ts:45` — metadata interface and global audit-field shape.
@@ -276,8 +276,8 @@ Get-ChildItem -Path src -Recurse -Include *.ts,*.tsx -File | Select-String -Patt
 - `src/components/CustomerMasterTab.tsx:22`, `src/components/CustomerMasterTab.tsx:87` — `validateCustomerProfile` consumer in the customer UI.
 - `src/services/customerValidation.ts:21-47` — customer validation logic and field checks.
 - `src/components/BusinessLedgerTab.tsx:33`, `src/components/drilldown/DrillDownSidePanel.tsx:18`, `src/components/drilldown/DrillDownSidePanel.tsx:115` — `resolveCustomerPolicy` consumers.
-- `src/components/AdvancedBillingEngine.tsx:18`, `src/components/AdvancedBillingEngine.tsx:462` — `checkCreditStatus` consumer.
-- `src/services/customerPolicyEngine.ts:40-50`, `src/services/customerPolicyEngine.ts:82-138` — policy evaluation / credit-hold logic.
+- `src/components/AdvancedBillingEng.tsx:18`, `src/components/AdvancedBillingEng.tsx:462` — `checkCreditStatus` consumer.
+- `src/services/custPolicyEngine.ts:40-50`, `src/services/custPolicyEngine.ts:82-138` — policy evaluation / credit-hold logic.
 - `backend/app/api/v1/metadata.py:1-41` — backend `/metadata` endpoint definition.
 
 ---

@@ -6,11 +6,11 @@ Date: 2026-07-17
 Status: Proposed
 
 ## Objective
-Derive canonical metadata architecture decisions from the Phase 1 evidence ledger at `docs/governance/METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md`.
+Derive canonical metadata architecture decisions from the Phase 1 evidence ledger at `docs/governance/METADATA.md`.
 
 ## Inputs
-- `docs/governance/METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md`
-- `docs/architecture/decisions/ADR-002-SMRITI-METADATA-ARCHITECTURE.md`
+- `docs/governance/METADATA.md`
+- `docs/architecture/decisions/ADR-002-SMRITI-MET.md`
 
 ## Process
 1. Verify the ledger exists and is internally consistent.
@@ -20,7 +20,7 @@ Derive canonical metadata architecture decisions from the Phase 1 evidence ledge
 5. Evaluate WorkflowEngine evidence and make a canonical/non-canonical disposition.
 
 ## Expected deliverables
-- A stable architecture decision document under `docs/architecture/decisions/ADR-002-SMRITI-METADATA-ARCHITECTURE.md`.
+- A stable architecture decision document under `docs/architecture/decisions/ADR-002-SMRITI-MET.md`.
 - A clear linkage from Phase 1 evidence to Phase 2 decisions.
 
 ## Notes

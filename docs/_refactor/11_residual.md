@@ -24,7 +24,7 @@
 
 | Residual Task | Action Taken | Result / Metric | Status |
 | :--- | :--- | :--- | :---: |
-| **1. Gate Doc Truth** | Updated `ITEM_MASTER_REFACTOR_GATE.md` | Status: `COMPLETE_VERIFIED`, Gate: `ITEM_MASTER_REFACTOR_APPLIED` | `CLOSED` |
+| **1. Gate Doc Truth** | Updated `ITEM_MASTER.md` | Status: `COMPLETE_VERIFIED`, Gate: `ITEM_MASTER_REFACTOR_APPLIED` | `CLOSED` |
 | **2. Backfill `variant_id`** | Applied Alembic `v1337_backfill_variant_id.py` + sequence | `smritisys`: 0 nulls / `smriti001`: 0 nulls | `CLOSED` |
 | **3. Identity Coverage** | Ran SQL identity coverage metric | **100.00%** coverage (588/588 active products) | `CLOSED` |
 | **4. `report_flat` Honesty** | Documented products-only catalog projection | No fake sales facts; documented future extension | `CLOSED` |

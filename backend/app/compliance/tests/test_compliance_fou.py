@@ -29,9 +29,9 @@ from app.compliance.models.compliance import (
     ComplianceOutbox,
     GovernmentService,
 )
-from app.compliance.repositories.audit_log_repository import ComplianceAuditLogRepository
-from app.compliance.repositories.credentials_repository import ComplianceCredentialsRepository
-from app.compliance.repositories.government_service_repository import GovernmentServiceRepository
+from app.compliance.repositories.audit_log_repo import ComplianceAuditLogRepository
+from app.compliance.repositories.credentials_repo import ComplianceCredentialsRepository
+from app.compliance.repositories.gov_service_repo import GovernmentServiceRepository
 from app.compliance.repositories.outbox_repository import ComplianceOutboxRepository
 from app.compliance.services.audit_service import AuditService
 from app.compliance.services.compliance_service import ComplianceService

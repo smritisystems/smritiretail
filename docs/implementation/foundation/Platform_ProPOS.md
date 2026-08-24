@@ -22,16 +22,16 @@ In retail store environments, cashiers frequently need to transfer excess cash t
 
 ## 3. Scope
 - TypeScript types and interfaces in `src/components/billing/propos/types.ts`.
-- Reusable denomination counter component `SmritiProPosDenominationInput.tsx`.
-- Cash Movements Modal `SmritiProPosCashMovementsModal.tsx` for Cash Drops and Till Expenses.
-- Shift Closeout Modal `SmritiProPosShiftCloseModal.tsx` with physical count reconciliation and Z-Report slip preview.
-- Upgraded `SmritiProPosEodReportView.tsx` with live backend API connectivity and denomination breakdown.
-- Integration into `SmritiProPosBillingTerminal.tsx` and `SmritiProPosWorkspace.tsx`.
+- Reusable denomination counter component `ProPosDenomination.tsx`.
+- Cash Movements Modal `ProPosCashMovesDlg.tsx` for Cash Drops and Till Expenses.
+- Shift Closeout Modal `ProPosShiftCloseDl.tsx` with physical count reconciliation and Z-Report slip preview.
+- Upgraded `ProPosEodReportVie.tsx` with live backend API connectivity and denomination breakdown.
+- Integration into `ProPosBillingTerm.tsx` and `ProPosWs.tsx`.
 - Contract route alias `/pos/shifts/active/{register_id}` in `backend/app/api/v1/pos.py`.
 
 ## 4. Current State
 - Backend (FastAPI + Postgres) implements `ShiftCashTransaction`, `cash_drops_total`, `till_expenses_total`, `denominations`, `record_cash_drop`, `record_till_expense`, `close_shift`, and `get_z_report`.
-- Frontend has `SmritiProPosBillingTerminal.tsx` and `SmritiProPosEodReportView.tsx`.
+- Frontend has `ProPosBillingTerm.tsx` and `ProPosEodReportVie.tsx`.
 
 ## 5. Gap Analysis
 - Missing physical denomination input widget for Indian Currency notes and coins.
@@ -48,23 +48,23 @@ In retail store environments, cashiers frequently need to transfer excess cash t
 - Shift Closeout Modal with physical count reconciliation, variance explanation, and Z-report printing.
 
 ## 8. Files Created
-1. `src/components/billing/propos/SmritiProPosDenominationInput.tsx`
-2. `src/components/billing/propos/SmritiProPosCashMovementsModal.tsx`
-3. `src/components/billing/propos/SmritiProPosShiftCloseModal.tsx`
+1. `src/components/billing/propos/ProPosDenomination.tsx`
+2. `src/components/billing/propos/ProPosCashMovesDlg.tsx`
+3. `src/components/billing/propos/ProPosShiftCloseDl.tsx`
 
 ## 9. Files Modified
 1. `src/components/billing/propos/types.ts`
-2. `src/components/billing/propos/SmritiProPosBillingTerminal.tsx`
-3. `src/components/billing/propos/SmritiProPosWorkspace.tsx`
-4. `src/components/billing/propos/SmritiProPosEodReportView.tsx`
+2. `src/components/billing/propos/ProPosBillingTerm.tsx`
+3. `src/components/billing/propos/ProPosWs.tsx`
+4. `src/components/billing/propos/ProPosEodReportVie.tsx`
 5. `src/components/PosTerminalTab.tsx`
 6. `backend/app/api/v1/pos.py`
 7. `backend/app/models/pos.py`
 8. `backend/app/schemas/pos.py`
 9. `backend/app/services/pos.py`
-10. `backend/app/services/unified_accounting_ledger_service.py`
+10. `backend/app/services/unified_ledger.py`
 11. `backend/alembic/versions/v1346_pos_cash_denominations.py`
-12. `backend/tests/test_pos_cash_drawer_movements.py`
+12. `backend/tests/t_pos_drawer.py`
 13. `backend/tests/conftest.py`
 
 ## 10. Dependencies
@@ -79,16 +79,16 @@ In retail store environments, cashiers frequently need to transfer excess cash t
 ## 13. Verification Plan
 - `npm run build` static compilation.
 - `npm run lint` TypeScript type-checking.
-- Pytest backend integration suites: 14 tests in `test_pos_cash_drawer_movements.py`.
+- Pytest backend integration suites: 14 tests in `t_pos_drawer.py`.
 
 ## 14. Test Plan
 - Run `npm run build` to verify frontend bundling.
 - Run `npm run lint` for TypeScript validation.
-- Run `pytest backend/tests/test_pos_cash_drawer_movements.py -v`.
+- Run `pytest backend/tests/t_pos_drawer.py -v`.
 
 ## 15. Documentation Impact
-- Walkthrough: `docs/walkthrough/foundation/Platform_ProPOS_Cash_Drawer_UI_v6.16.0.md`.
-- Implementation Plan: `docs/implementation/foundation/Platform_ProPOS_Cash_Drawer_UI_Plan_v6.16.0.md`.
+- Walkthrough: `docs/walkthrough/foundation/Platform_ProPOS.md`.
+- Implementation Plan: `docs/implementation/foundation/Platform_ProPOS.md`.
 - Master indexes in `docs/walkthrough/README.md` and `docs/implementation/README.md`.
 
 ## 16. Deployment Plan
@@ -102,5 +102,5 @@ In retail store environments, cashiers frequently need to transfer excess cash t
 - ADR-0044: POS Cash Drawer Denomination Audit & Shift Balance Reconciliation
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Platform_Accounting_POS_Cash_Drawer_Movements_v6.16.0.md`
-- `docs/walkthrough/foundation/Platform_ProPOS_Cash_Drawer_UI_v6.16.0.md`
+- `docs/walkthrough/foundation/Platform_2.md`
+- `docs/walkthrough/foundation/Platform_ProPOS.md`

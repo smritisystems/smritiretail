@@ -71,7 +71,7 @@ from .psv import (
 from .system import SystemConfig, TallyConfig
 
 # Canonical Tax Invoice Template & Artifact Governance Models
-from .tax_invoice_template import (
+from .tax_inv_template import (
     TaxInvoiceTemplate,
     TaxInvoiceTemplateVersion,
     InvoiceDocumentArtifact,

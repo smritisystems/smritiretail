@@ -28,15 +28,15 @@ Unify B2B Sales Invoicing, POS Checkout, and Inventory Lifecycle posting against
 ---
 
 ## 3. Files Created
-1. `backend/app/services/unified_sales_ledger_service.py`: `UnifiedSalesLedgerService` orchestrating invoice creation, line-level tax calculation, stock debit posting, and cancellation reversals.
-2. `backend/tests/test_unified_sales_ledger.py`: Automated verification suite certifying B2B sales posting, IGST calculations, cancellation reversals, and tenant isolation.
-3. `docs/implementation/foundation/Platform_Refactor_Slice3_Sales_POS_Ledger_Plan_v1.0.md`: Master 19-section implementation plan for Slice 3.
+1. `backend/app/services/sales_ledger_svc.py`: `UnifiedSalesLedgerService` orchestrating invoice creation, line-level tax calculation, stock debit posting, and cancellation reversals.
+2. `backend/tests/t_sales_ledger.py`: Automated verification suite certifying B2B sales posting, IGST calculations, cancellation reversals, and tenant isolation.
+3. `docs/implementation/foundation/Platform_Refactor_4.md`: Master 19-section implementation plan for Slice 3.
 
 ---
 
 ## 4. Files Modified
 1. `docs/implementation/README.md`: Appended Slice 3 implementation plan to master index.
-2. `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Updated platform tracker with verified Slice 3 status.
+2. `docs/architecture/PLATFORM.md`: Updated platform tracker with verified Slice 3 status.
 3. `docs/walkthrough/README.md`: Appended Slice 3 walkthrough to chronological master index.
 
 ---
@@ -67,7 +67,7 @@ Decoupled stock movements and on-the-fly tax calculations cause inventory drift 
 ---
 
 ## 8. Tests Executed
-1. `backend/tests/test_unified_sales_ledger.py`:
+1. `backend/tests/t_sales_ledger.py`:
    - `test_b2b_sales_invoice_posting_and_stock_debit` (Passed)
    - `test_interstate_sales_invoice_igst_calculation` (Passed)
    - `test_invoice_cancellation_and_stock_reversal` (Passed)
@@ -88,21 +88,21 @@ plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 73 items
 
-backend\tests\test_unified_sales_ledger.py ....                          [  5%]
-backend\tests\test_universal_party_master.py ...                         [  9%]
-backend\tests\test_universal_item_master.py ...                          [ 13%]
-backend\tests\test_routing_boundary_canonical.py .............           [ 31%]
-backend\tests\test_company_db_runtime_routing.py .......                 [ 41%]
-backend\tests\test_company_db_naming_convention.py ......                [ 49%]
-backend\tests\test_get_company_db_wiring.py .....                        [ 56%]
-backend\tests\test_multi_company_database_architecture.py ......         [ 64%]
-backend\tests\test_company_db_provisioning.py .....                      [ 71%]
-backend\tests\test_menu_governance.py .                                  [ 72%]
-backend\tests\test_security_menu_access.py ..                            [ 75%]
+backend\tests\t_sales_ledger.py ....                          [  5%]
+backend\tests\t_univ_party.py ...                         [  9%]
+backend\tests\t_univ_item.py ...                          [ 13%]
+backend\tests\t_route_boundary.py .............           [ 31%]
+backend\tests\t_comp_db_route.py .......                 [ 41%]
+backend\tests\t_comp_db_name.py ......                [ 49%]
+backend\tests\t_comp_db_wire.py .....                        [ 56%]
+backend\tests\t_multi_comp_db.py ......         [ 64%]
+backend\tests\t_comp_db_prov.py .....                      [ 71%]
+backend\tests\t_menu_gov.py .                                  [ 72%]
+backend\tests\t_sec_menu.py ..                            [ 75%]
 backend\tests\test_wms_phase1.py ....                                    [ 80%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 84%]
-backend\tests\test_wms_phase3_eway_bill.py .....                         [ 91%]
-backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
+backend\tests\t_wms_phase2.py ...                           [ 84%]
+backend\tests\t_wms_phase3.py .....                         [ 91%]
+backend\tests\t_wms_phase4.py ......             [100%]
 
 ======================= 73 passed, 1 warning in 26.68s ========================
 ```

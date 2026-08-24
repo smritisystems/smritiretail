@@ -22,14 +22,14 @@ This walkthrough documents the full production implementation of SMRITI Distribu
 - **Retailer Credit Limit Enforcement**: Enforcing `CustomerGroup` credit limits and auto-block flags in `CrmService.check_credit_limit` during sales invoice creation (`Customer.outstanding + invoice.grand_total > CustomerGroup.credit_limit`).
 - **Sales Invoice Cancellation Reversal**: Restoring deducted batch inventory (`movement_type='SALES_CANCEL'`) and adjusting retailer outstanding balance upon invoice cancellation.
 - **Alembic Database Migration**: Reversible schema revision `v1340_add_grn_sales_batch_columns.py` registered as the Alembic head.
-- **Multi-Tenant Transactional DDL**: `scripts/migrate_wms_phase2_company_db.py` applying schema modifications and default godown backfills across all company databases.
-- **Automated Integration & Live Smoke Tests**: End-to-end pytest suite `backend/tests/test_wms_phase2_grn_sales.py` and 10-endpoint live HTTP smoke test `scripts/smoke_test_wms_api.py`.
+- **Multi-Tenant Transactional DDL**: `scripts/migr_wms_phase2.py` applying schema modifications and default godown backfills across all company databases.
+- **Automated Integration & Live Smoke Tests**: End-to-end pytest suite `backend/tests/t_wms_phase2.py` and 10-endpoint live HTTP smoke test `scripts/smoke_test_wms_api.py`.
 
 ## 3. Files Created
 1. `backend/alembic/versions/v1340_add_grn_sales_batch_columns.py`: Formal Alembic migration adding batch and warehouse columns.
-2. `scripts/migrate_wms_phase2_company_db.py`: Multi-tenant company database schema migrator.
-3. `backend/tests/test_wms_phase2_grn_sales.py`: Integration test suite for Phase 2 GRN, Sales FEFO, credit limits, and cancellations.
-4. `docs/walkthrough/wms/WMS_Phase2_Inward_GRN_FEFO_Credit_Limits_v6.16.0.md`: This Walkthrough document.
+2. `scripts/migr_wms_phase2.py`: Multi-tenant company database schema migrator.
+3. `backend/tests/t_wms_phase2.py`: Integration test suite for Phase 2 GRN, Sales FEFO, credit limits, and cancellations.
+4. `docs/walkthrough/wms/WMS_Phase2_Inward.md`: This Walkthrough document.
 
 ## 4. Files Modified
 1. `backend/app/models/purchase.py`: Added `warehouse_id` on `PurchaseReceipt`; added `batch_no`, `mfg_date`, `expiry_date`, `mrp`, `quantity_damaged` on `PurchaseReceiptItem`.
@@ -59,22 +59,22 @@ In Indian distribution and wholesale operations, goods inward and sales outward 
 - Created comprehensive test harness validating the full procurement-to-sales inventory lifecycle.
 
 ## 8. Tests Executed
-1. `python scripts/migrate_wms_phase2_company_db.py`: Ran DDL migrations on all company databases.
-2. `backend/tests/test_wms_phase2_grn_sales.py`: Executed 3 automated integration tests:
+1. `python scripts/migr_wms_phase2.py`: Ran DDL migrations on all company databases.
+2. `backend/tests/t_wms_phase2.py`: Executed 3 automated integration tests:
    - `test_grn_inward_batch_stock_creation`
    - `test_sales_invoice_fefo_auto_deduction_and_cancellation`
    - `test_retailer_credit_limit_enforcement`
 3. `pytest backend/tests/`: Ran full suite (10/10 tests passed in 4.94s).
 4. `scripts/smoke_test_wms_api.py`: Executed 10 authenticated live HTTP requests against FastAPI backend container (10/10 passed).
-5. `npx vitest run src/tests/securityMenuAccessControl.test.ts`: Frontend security tests (6/6 passed).
+5. `npx vitest run src/tests/menuAccess.test.ts`: Frontend security tests (6/6 passed).
 
 ## 9. Verification Results
 ```text
 ============================= test session starts =============================
-backend/tests/test_menu_governance.py .                                  [ 10%]
-backend/tests/test_security_menu_access.py ..                            [ 30%]
+backend/tests/t_menu_gov.py .                                  [ 10%]
+backend/tests/t_sec_menu.py ..                            [ 30%]
 backend/tests/test_wms_phase1.py ....                                    [ 70%]
-backend/tests/test_wms_phase2_grn_sales.py ...                           [100%]
+backend/tests/t_wms_phase2.py ...                           [100%]
 
 ======================== 10 passed, 1 warning in 4.94s ========================
 ```

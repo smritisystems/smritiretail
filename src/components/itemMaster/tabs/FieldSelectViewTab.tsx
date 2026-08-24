@@ -30,7 +30,7 @@ interface FieldSelectionViewTabProps {
   allAvailableFields?: ItemMasterFieldDefinition[];
 }
 
-export const FieldSelectionViewTab: React.FC<FieldSelectionViewTabProps> = ({
+export const FieldSelectTab: React.FC<FieldSelectionViewTabProps> = ({
   selectedFieldIds,
   onSaveSelection,
   onCancel,

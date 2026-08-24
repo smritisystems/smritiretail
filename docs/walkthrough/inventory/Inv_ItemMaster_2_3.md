@@ -30,13 +30,13 @@ Refactor and modernize the **Item Master Entry** workflow in SMRITI Retail OS ba
 
 ## 3. Files Created
 - `src/components/itemMaster/types.ts`: Field definitions, common values interface, and grid row data models.
-- `src/components/itemMaster/tabs/FieldSelectionViewTab.tsx`: Tab 1 field transfer and column ordering.
+- `src/components/itemMaster/tabs/FieldSelectViewTab.tsx`: Tab 1 field transfer and column ordering.
 - `src/components/itemMaster/tabs/CommonFieldsTab.tsx`: Tab 2 batch defaults configurator.
 - `src/components/itemMaster/tabs/ItemDetailsGridTab.tsx`: Tab 3 tactical spreadsheet grid with sticky frozen columns and Excel clipboard import.
-- `src/components/itemMaster/modals/ItemMasterSaveWarningModal.tsx`: Confirmation and combination rights verification dialog.
-- `src/components/itemMaster/ItemMasterEntryView.tsx`: Master coordinator component with global `Alt+1/2/3` shortcuts and FastAPI `/api/v1/products/` persistence.
-- `src/tests/itemMasterTacticalGrid.test.ts`: Automated test suite covering field rules, reordering, common defaults, TSV parsing, and payload transformation.
-- `docs/walkthrough/inventory/Inventory_ItemMaster_TacticalGrid_Refactor_v3.29.0.md`: This governance walkthrough document.
+- `src/components/itemMaster/modals/ItemMasterSaveWarn.tsx`: Confirmation and combination rights verification dialog.
+- `src/components/itemMaster/ItemMasterEntryVie.tsx`: Master coordinator component with global `Alt+1/2/3` shortcuts and FastAPI `/api/v1/products/` persistence.
+- `src/tests/itemGrid.test.ts`: Automated test suite covering field rules, reordering, common defaults, TSV parsing, and payload transformation.
+- `docs/walkthrough/inventory/Inv_ItemMaster_2_3.md`: This governance walkthrough document.
 
 ## 4. Files Modified
 - `src/components/ItemMasterTab.tsx`: Mounted `ItemMasterEntryView` under the `item-entry` sub-tab.
@@ -62,24 +62,24 @@ Terminal execution of `npm test`:
 ```text
  RUN  v4.1.10 F:/SMRITRretailNX
 
- ✓ src/tests/itemMasterTacticalGrid.test.ts (10 tests) 11ms
- ✓ src/tests/headerMappingEngine.test.ts (13 tests) 41ms
+ ✓ src/tests/itemGrid.test.ts (10 tests) 11ms
+ ✓ src/tests/headerMap.test.ts (13 tests) 41ms
  ✓ src/tests/logoutButtons.test.ts (2 tests) 39ms
- ✓ src/tests/validatorsAndFormatters.test.ts (6 tests) 37ms
- ✓ src/tests/oneToManyAliasMapping.test.ts (4 tests) 17ms
+ ✓ src/tests/validators.test.ts (6 tests) 37ms
+ ✓ src/tests/aliasMap.test.ts (4 tests) 17ms
  ✓ src/tests/fioriLaunchpad.test.ts (9 tests) 12ms
- ✓ src/tests/multiTargetMapping.test.ts (9 tests) 11ms
- ✓ src/tests/masterListPagination.test.ts (6 tests) 9ms
- ✓ src/tests/customerCrmLoyaltyDecoupling.test.ts (9 tests) 9ms
+ ✓ src/tests/multiMap.test.ts (9 tests) 11ms
+ ✓ src/tests/masterPage.test.ts (6 tests) 9ms
+ ✓ src/tests/crmLoyalty.test.ts (9 tests) 9ms
  ✓ src/tests/helpers.test.ts (12 tests) 2932ms
  ✓ src/tests/qzTrayClient.test.ts (3 tests) 8ms
- ✓ src/tests/metadataRegistry.test.ts (5 tests) 8ms
- ✓ src/tests/companySelectorHardening.test.ts (4 tests) 9ms
- ✓ src/tests/skuGenerationEngine.test.ts (5 tests) 6ms
- ✓ src/tests/indianNumberWords.test.ts (14 tests) 7ms
- ✓ src/tests/phase2Architectures.test.ts (6 tests) 8ms
- ✓ src/tests/databaseManager.test.ts (3 tests) 6ms
- ✓ src/tests/taxInvoiceFiltering.test.ts (3 tests) 6ms
+ ✓ src/tests/metaRegistry.test.ts (5 tests) 8ms
+ ✓ src/tests/companySelect.test.ts (4 tests) 9ms
+ ✓ src/tests/skuEngine.test.ts (5 tests) 6ms
+ ✓ src/tests/numberWords.test.ts (14 tests) 7ms
+ ✓ src/tests/phase2Arch.test.ts (6 tests) 8ms
+ ✓ src/tests/dbManager.test.ts (3 tests) 6ms
+ ✓ src/tests/taxFilter.test.ts (3 tests) 6ms
  ✓ src/tests/indianFormat.test.ts (5 tests) 5ms
  ✓ src/tests/numbering.test.ts (2 tests) 6ms
  ✓ src/tests/gst.test.ts (6 tests) 5ms

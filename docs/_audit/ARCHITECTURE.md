@@ -14,7 +14,7 @@
 # SMRITI RETAIL OS — ARCHITECTURE BASELINE FREEZE
 
 **Directive:** SMRITI Final Architecture Baseline Freeze & Reconciliation  
-**Canonical Architecture:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
+**Canonical Architecture:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
 **Effective Date:** 2026-08-17  
 **Baseline Status:** **CORE ARCHITECTURE VERIFIED & FROZEN (WITH 2 EXPLICIT OPEN GAPS)**
 
@@ -144,9 +144,9 @@ SUBSYSTEM CERTIFICATION STATUS:
 
 ## 6. Canonical Artifact References
 
-- **Canonical Architecture:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)
-- **AI Agent Governance Rules:** [`docs/AI_AGENT_ARCHITECTURE_RULES.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT_ARCHITECTURE_RULES.md)
-- **Documentation Index:** [`docs/SMRITI_DOCUMENTATION_INDEX.md`](file:///F:/SMRITRretailNX/docs/SMRITI_DOCUMENTATION_INDEX.md)
+- **Canonical Architecture:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)
+- **AI Agent Governance Rules:** [`docs/AI_AGENT.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT.md)
+- **Documentation Index:** [`docs/DOCUMENTATION.md`](file:///F:/SMRITRretailNX/docs/DOCUMENTATION.md)
 - **Table Migration Map:** [`docs/_audit/TABLE_MIGRATION_MAP.md`](file:///F:/SMRITRretailNX/docs/_audit/TABLE_MIGRATION_MAP.md)
-- **Data Migration Report:** [`docs/_audit/FINAL_DATA_MIGRATION_REPORT.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_DATA_MIGRATION_REPORT.md)
-- **Final Architecture Certification:** [`docs/_audit/FINAL_ARCHITECTURE_CERTIFICATION.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_ARCHITECTURE_CERTIFICATION.md)
+- **Data Migration Report:** [`docs/_audit/FINAL_DATA.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_DATA.md)
+- **Final Architecture Certification:** [`docs/_audit/FINAL_2.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_2.md)

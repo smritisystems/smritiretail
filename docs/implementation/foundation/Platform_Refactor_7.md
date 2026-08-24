@@ -129,8 +129,8 @@ CREATE TABLE IF NOT EXISTS supplier_profiles (
 - `backend/app/models/item_master.py`: Canonical Item, ItemVariant, and ItemBarcode models.
 - `backend/app/services/party_service.py`: Universal Party domain management service.
 - `backend/app/services/item_master_service.py`: Universal Item domain management service.
-- `backend/tests/test_universal_party_master.py`: Verification suite for multi-role party resolution.
-- `backend/tests/test_universal_item_master.py`: Verification suite for item variants, barcodes, and batch stock linking.
+- `backend/tests/t_univ_party.py`: Verification suite for multi-role party resolution.
+- `backend/tests/t_univ_item.py`: Verification suite for item variants, barcodes, and batch stock linking.
 
 ---
 
@@ -168,15 +168,15 @@ All new tables (`parties`, `party_roles`, `customer_profiles`, `supplier_profile
 ---
 
 ## 14. Test Plan
-- Run `backend/tests/test_universal_party_master.py`.
-- Run `backend/tests/test_universal_item_master.py`.
+- Run `backend/tests/t_univ_party.py`.
+- Run `backend/tests/t_univ_item.py`.
 - Run full 63+ test regression suite to ensure zero breakages across WMS, Security, and Routing.
 
 ---
 
 ## 15. Documentation Impact
-- Update `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
-- Generate Walkthrough `docs/walkthrough/foundation/Platform_Universal_Party_Item_Master_v6.16.0.md`.
+- Update `docs/architecture/PLATFORM.md`.
+- Generate Walkthrough `docs/walkthrough/foundation/Platform_2_3_4_5__8.md`.
 - Update `docs/walkthrough/README.md`.
 
 ---
@@ -200,4 +200,4 @@ All new tables (`parties`, `party_roles`, `customer_profiles`, `supplier_profile
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Platform_Routing_Boundary_Hardening_v6.16.0.md`.
+- `docs/walkthrough/foundation/Platform_Routing.md`.

@@ -16,7 +16,7 @@ import React, { useState, useMemo } from "react";
 import { ProPosCustomer } from "./types.ts";
 import { X, Search, Award, Star, CheckCircle, Info } from "lucide-react";
 
-interface SmritiProPosLoyaltyLookupModalProps {
+interface SmritiLoyaltyLookupDlgpModalProps {
   currentCustomer?: ProPosCustomer;
   onApplyLoyaltyPoints: (points: number, amountDiscount: number) => void;
   onSelectCustomer: (customer: ProPosCustomer) => void;
@@ -59,7 +59,7 @@ const MOCK_LOYALTY_CUSTOMERS: ProPosCustomer[] = [
   }
 ];
 
-export const SmritiProPosLoyaltyLookupModal: React.FC<SmritiProPosLoyaltyLookupModalProps> = ({
+export const SmritiLoyaltyLookupDlgpModal: React.FC<SmritiLoyaltyLookupDlgpModalProps> = ({
   currentCustomer,
   onApplyLoyaltyPoints,
   onSelectCustomer,
@@ -272,4 +272,4 @@ export const SmritiProPosLoyaltyLookupModal: React.FC<SmritiProPosLoyaltyLookupM
   );
 };
 
-export default SmritiProPosLoyaltyLookupModal;
+export default SmritiLoyaltyLookupDlgpModal;

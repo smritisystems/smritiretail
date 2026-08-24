@@ -32,11 +32,11 @@ import {
   AlertCircle
 } from "lucide-react";
 import { RetailCustomerRecord, CustomerAddressEntry } from "./types.ts";
-import { SmritiCustomerFormTab } from "./SmritiCustomerFormTab.tsx";
-import { SmritiCustomerRetailDetailsTab } from "./SmritiCustomerRetailDetailsTab.tsx";
-import { SmritiCustomerAdditionalDetailsTab } from "./SmritiCustomerAdditionalDetailsTab.tsx";
-import { SmritiCustomerMailingModal } from "./SmritiCustomerMailingModal.tsx";
-import { SmritiAdvancedCustomerSearchModal } from "./SmritiAdvancedCustomerSearchModal.tsx";
+import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
+import { SmritiCustomerRetailDetailsTab } from "./CustRetailDetTab.tsx";
+import { SmritiCustomerAdditionalDetailsTab } from "./CustAddlDetTab.tsx";
+import { SmritiCustomerMailingModal } from "./CustMailingDlg.tsx";
+import { SmritiAdvancedCustomerSearchModal } from "./AdvancedCustSearch.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
 
@@ -280,7 +280,7 @@ export interface SmritiCustomerMasterWorkspaceProps {
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }
 
-export const SmritiCustomerMasterWorkspace: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
+export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   currentUser,
   onNotification
 }) => {
@@ -535,7 +535,6 @@ export const SmritiCustomerMasterWorkspace: React.FC<SmritiCustomerMasterWorkspa
             selectedRows={[currentCustomer]}
             totalRecordsCount={customers.length}
             filteredRecordsCount={customers.length}
-            searchTerm={searchTerm}
             companyName="SMRITI Retail"
             onNotification={onNotification}
           />

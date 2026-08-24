@@ -14,8 +14,8 @@
 # SMRITI RETAIL OS ? LEGACY & SMRITISYS TABLES FORENSIC CLASSIFICATION REPORT
 
 **Audit Protocol:** Forensic Classification of Legacy & Control Plane Tables  
-**Canonical Architecture:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
-**Baseline Freeze Specification:** [`docs/_audit/SMRITI_ARCHITECTURE_BASELINE_FREEZE.md`](file:///F:/SMRITRretailNX/docs/_audit/SMRITI_ARCHITECTURE_BASELINE_FREEZE.md)  
+**Canonical Architecture:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
+**Baseline Freeze Specification:** [`docs/_audit/ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/_audit/ARCHITECTURE.md)  
 **Date:** 2026-08-17  
 **Status:** **AUDIT COMPLETED ? ZERO ARCHITECTURAL MUTATION**
 

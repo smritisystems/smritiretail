@@ -21,22 +21,22 @@ Establish an application-wide, real-time context-aware search and inspector syst
 - Global DOM focus and input tracking via `ActiveFieldContext.tsx` and `useActiveField()`.
 - Intelligent multi-strategy field category inference engine (`product`, `customer`, `supplier`, `invoice`, `hsn`, `general`).
 - Reactive omni-search modal (`GlobalSearch.tsx`) displaying contextual detail cards and quick "Insert into Active Field" actions.
-- Floating `ContextualInspectorHUD.tsx` real-time assistant widget.
+- Floating `CtxInspectorHUD.tsx` real-time assistant widget.
 - Header integration in `GlobalHeader.tsx` displaying active cursor target badges.
-- Explicit context tagging across POS Billing Terminal (`PosTerminalTab.tsx`) and Advanced B2B Billing (`AdvancedBillingEngine.tsx`).
+- Explicit context tagging across POS Billing Terminal (`PosTerminalTab.tsx`) and Advanced B2B Billing (`AdvancedBillingEng.tsx`).
 
 ## 3. Files Created
 - `src/context/ActiveFieldContext.tsx`
-- `src/components/drilldown/ContextualInspectorHUD.tsx`
-- `src/tests/activeFieldContextAwareSearch.test.ts`
-- `docs/walkthrough/foundation/Foundation_ActiveFieldContextAwareSearch_v3.29.2.md`
+- `src/components/drilldown/CtxInspectorHUD.tsx`
+- `src/tests/fieldSearch.test.ts`
+- `docs/walkthrough/foundation/Fdn.md`
 
 ## 4. Files Modified
 - `src/App.tsx`
 - `src/components/shell/GlobalHeader.tsx`
 - `src/components/drilldown/GlobalSearch.tsx`
 - `src/components/PosTerminalTab.tsx`
-- `src/components/AdvancedBillingEngine.tsx`
+- `src/components/AdvancedBillingEng.tsx`
 - `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions
@@ -52,10 +52,10 @@ Retail operators switch frequently between scanning barcodes, selecting customer
 2. **Context Provider**: Added `ActiveFieldProvider` in `App.tsx` managing global focus tracking and active query state.
 3. **Omni-Search Modal Upgrade**: Rewrote `GlobalSearch.tsx` to automatically pre-select the active field category, display rich detail cards, and support direct value injection.
 4. **Header Integration**: Updated `GlobalHeader.tsx` to display real-time cursor target badges.
-5. **Inspector HUD**: Built `ContextualInspectorHUD.tsx` floating assistant.
+5. **Inspector HUD**: Built `CtxInspectorHUD.tsx` floating assistant.
 
 ## 8. Tests Executed
-- `vitest run src/tests/activeFieldContextAwareSearch.test.ts` (12/12 passed in 10ms)
+- `vitest run src/tests/fieldSearch.test.ts` (12/12 passed in 10ms)
 - `npm test` (167/167 passed across 25 test suites in 4.79s)
 - `npm run lint` (`tsc --noEmit` passed with 0 errors)
 

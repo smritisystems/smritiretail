@@ -20,7 +20,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.db.session import get_company_sessionmaker
-from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from app.services.unified_ledger import UnifiedAccountingLedgerService
 from app.models.accounting import (
     CurrencyExchangeRate,
     JournalVoucher,

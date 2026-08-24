@@ -36,8 +36,8 @@ PostgreSQL Database smriti001
 ```
 
 - **E2E Readiness Score**: **100 / 100**
-- **API Router**: [`backend/app/api/v1/company_control_center.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/company_control_center.py)
-- **Pytest E2E Suite**: **6 / 6 PASSED** ([`backend/tests/test_company_control_center_e2e.py`](file:///F:/SMRITRretailNX/backend/tests/test_company_control_center_e2e.py))
+- **API Router**: [`backend/app/api/v1/company_center.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/company_center.py)
+- **Pytest E2E Suite**: **6 / 6 PASSED** ([`backend/tests/t_comp_center_e2e.py`](file:///F:/SMRITRretailNX/backend/tests/t_comp_center_e2e.py))
 - **Credential Leakage Status**: **ZERO Credentials Exposed in `dist/`**
 - **Unapproved DBs Created**: **0**
 

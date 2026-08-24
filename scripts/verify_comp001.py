@@ -24,7 +24,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
 TARGET_DB_URL = "postgresql://postgres:postgres@localhost:5432/smriti001"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_COMP001_PRODUCTION_READINESS_v1.0.md"
+DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\COMP001.md"
 DIST_DIR = r"F:\SMRITRretailNX\dist"
 
 def verify_comp001_readiness():

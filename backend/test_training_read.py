@@ -20,7 +20,7 @@ from sqlalchemy import text
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
-from app.services.company_database_resolver import CompanyDatabaseResolver
+from app.services.db_resolver import CompanyDatabaseResolver
 from app.db.connection_manager import LRUConnectionPoolManager
 
 def get_db_table_counts(db_name):

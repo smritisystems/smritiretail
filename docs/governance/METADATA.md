@@ -19,14 +19,14 @@
 - Timestamp: not recorded from git command at creation time, exact fingerprint used. [SELF-REPORTED]
 
 ## Observed metadata systems
-- `src/masters_registry.ts` — static master schema definitions, global audit fields, and `MASTER_REGISTRY` data used by the master management UI. [VERIFIED via `src/masters_registry.ts` and `src/components/MasterManagementTab.tsx` import evidence]
+- `src/masters_registry.ts` — static master schema definitions, global audit fields, and `MASTER_REGISTRY` data used by the master management UI. [VERIFIED via `src/masters_registry.ts` and `src/components/MasterMgmtTab.tsx` import evidence]
 - `src/services/metadataRegistry.ts` — runtime in-memory registry for modules, screens, reports, forms, APIs, databases, and print templates. [VERIFIED via `src/services/metadataRegistry.ts` definition lines]
 - `src/components/SmritiBaseModule.tsx` — active runtime registration of module metadata into `MetadataRegistry`. [VERIFIED via `src/components/SmritiBaseModule.tsx:49,67`]
 - `src/components/AboutSmritiTab.tsx` — runtime consumer of `MetadataRegistry.getModules()` and backend `/metadata` application metadata endpoint. [VERIFIED via `src/components/AboutSmritiTab.tsx:73,83`]
 - `backend/app/api/v1/metadata.py` — backend system metadata endpoint returning product name, version, edition, and organization. [VERIFIED via `backend/app/api/v1/metadata.py:41-42`]
 - `src/print_engine/print_store.tsx` + `src/print_engine/PrintStudioTab.tsx` — separate print engine provider and template registration system. [VERIFIED via `src/print_engine/print_store.tsx` and `src/print_engine/PrintStudioTab.tsx:61-85`]
 - `src/services/numberingEngine.ts` + `src/components/DocumentSeriesTab.tsx` — document numbering engine and UI that consumes numbering metadata. [VERIFIED via `src/services/numberingEngine.ts` and `src/components/DocumentSeriesTab.tsx:57-59`]
-- `src/services/customerValidation.ts` + `src/services/customerPolicyEngine.ts` + `src/services/customerStore.ts` — customer metadata validation, policy resolution, and persistence services. [VERIFIED via search results for validation, policy, and customer store imports]
+- `src/services/customerValidation.ts` + `src/services/custPolicyEngine.ts` + `src/services/customerStore.ts` — customer metadata validation, policy resolution, and persistence services. [VERIFIED via search results for validation, policy, and customer store imports]
 
 ## 1. Runtime metadata registry evidence
 
@@ -87,14 +87,14 @@
 - `src/components/CustomerMasterTab.tsx` imports and uses customer validation from `src/services/customerStore.ts` and related UI. [VERIFIED]
 
 ### Customer policy evidence
-- `src/services/customerPolicyEngine.ts` provides `resolveCustomerPolicy(customer, group)` and `checkCreditStatus(customer, group, newSaleAmount)`. [VERIFIED]
-- These functions resolve credit limit, unlimited credit, due dates, auto-block sales, and warning thresholds. [VERIFIED via `src/services/customerPolicyEngine.ts` logic]
-- Customer policy resolution is invoked by billing/business logic UI components, including `src/components/AdvancedBillingEngine.tsx`, `src/components/BusinessLedgerTab.tsx`, and `src/components/SalesStudioTab.tsx`. [VERIFIED]
+- `src/services/custPolicyEngine.ts` provides `resolveCustomerPolicy(customer, group)` and `checkCreditStatus(customer, group, newSaleAmount)`. [VERIFIED]
+- These functions resolve credit limit, unlimited credit, due dates, auto-block sales, and warning thresholds. [VERIFIED via `src/services/custPolicyEngine.ts` logic]
+- Customer policy resolution is invoked by billing/business logic UI components, including `src/components/AdvancedBillingEng.tsx`, `src/components/BusinessLedgerTab.tsx`, and `src/components/SalesStudioTab.tsx`. [VERIFIED]
 
 ### Customer persistence evidence
 - `src/services/customerStore.ts` manages `Customer` and `CustomerGroup` persistence via `apiFetchV1` and local store helper functions. [VERIFIED]
 - `src/services/customerStore.ts:606` defines `persistCustomerChange(customer: Customer)`. [VERIFIED]
-- `src/components/CustomerMasterTab.tsx`, `src/components/AdvancedBillingEngine.tsx`, `src/components/BusinessLedgerTab.tsx`, and `src/components/PosTerminalTab.tsx` all import `getCustomers()` and `getCustomerGroups()` from `src/services/customerStore.ts`. [VERIFIED]
+- `src/components/CustomerMasterTab.tsx`, `src/components/AdvancedBillingEng.tsx`, `src/components/BusinessLedgerTab.tsx`, and `src/components/PosTerminalTab.tsx` all import `getCustomers()` and `getCustomerGroups()` from `src/services/customerStore.ts`. [VERIFIED]
 
 ## 4. Numbering, reporting, and printing metadata evidence
 
@@ -109,7 +109,7 @@
 ### Reporting metadata evidence
 - `src/components/ReportDesignerTab.tsx` consumes backend report metadata via `apiFetchV1` and `ReportSchedule` definitions. [VERIFIED]
 - `src/components/ReportDesignerTab.tsx` uses `/reports/studios` and report scheduling APIs rather than `MetadataRegistry.registerReport()`. [VERIFIED]
-- `backend/app/tests/test_reports_schedule.py` verifies report studio catalog behavior for `/api/v1/reports/studios`. [VERIFIED]
+- `backend/app/tests/t_rpt_schedule.py` verifies report studio catalog behavior for `/api/v1/reports/studios`. [VERIFIED]
 
 ### Printing metadata evidence
 - `src/print_engine/print_store.tsx` implements a separate print template registry and `PrintProvider`. [VERIFIED]
@@ -123,7 +123,7 @@
 
 ### Static schema ownership
 - `src/masters_registry.ts` is the owner of master schema metadata definitions and global audit fields. [VERIFIED]
-- `src/components/MasterManagementTab.tsx` consumes `MASTER_REGISTRY`, `GLOBAL_AUDIT_FIELDS`, and dynamic lookup metadata from `/masters/lookup-types`. [VERIFIED]
+- `src/components/MasterMgmtTab.tsx` consumes `MASTER_REGISTRY`, `GLOBAL_AUDIT_FIELDS`, and dynamic lookup metadata from `/masters/lookup-types`. [VERIFIED]
 
 ### Runtime metadata registry ownership
 - `src/services/metadataRegistry.ts` owns the runtime registry type definitions and methods. [VERIFIED]
@@ -145,4 +145,4 @@
 |---|---|---|---|
 | MetadataRegistry dead-method finding | CONFIRMED | `src/services/metadataRegistry.ts:130-154`, `src/components/SmritiBaseModule.tsx:49,67` | `registerModule` is active; other `register*` methods are defined but have no external call sites. |
 | WorkflowEngine zero-importer finding | CONFIRMED | `src/services/workflowEngine.ts:36`; grep output for `WorkflowEngine` returned no additional imports. | WorkflowEngine exists as a definition only in the current repository snapshot. |
-| `masters_registry.ts` vs. Customer bespoke-pattern finding | CONFIRMED | `src/masters_registry.ts:26-45`; `src/types.ts:411,465`; `src/services/customerValidation.ts:21-45`; `src/services/customerPolicyEngine.ts:40-88` | Static master metadata schema is present in `masters_registry.ts`; concrete customer business logic and shape are present in separate runtime customer service files. |
+| `masters_registry.ts` vs. Customer bespoke-pattern finding | CONFIRMED | `src/masters_registry.ts:26-45`; `src/types.ts:411,465`; `src/services/customerValidation.ts:21-45`; `src/services/custPolicyEngine.ts:40-88` | Static master metadata schema is present in `masters_registry.ts`; concrete customer business logic and shape are present in separate runtime customer service files. |

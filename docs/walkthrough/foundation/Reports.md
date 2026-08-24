@@ -44,7 +44,7 @@ Express `reports.ts` was unmounted. Now fully served by FastAPI + Postgres.
 | `backend/app/models/report_schedule.py` | `ReportSchedule(BaseEntity)` ORM model |
 | `backend/alembic/versions/h4i5j6k7l8m9_add_report_schedules_table.py` | DB migration |
 | `backend/app/schemas/report_schedule.py` | Pydantic create/response schemas |
-| `backend/app/tests/test_reports_schedule.py` | 6 endpoint tests |
+| `backend/app/tests/t_rpt_schedule.py` | 6 endpoint tests |
 
 ---
 
@@ -139,11 +139,11 @@ DELETE /api/v1/reports/schedules/{id}   # Soft-delete (MANAGER only)
 Command: python -m pytest app/tests/ --tb=short -q
 Result : 161 passed, 748 warnings in 121.53s
 
-Command: python -m pytest app/tests/test_reports_schedule.py -v --tb=short
+Command: python -m pytest app/tests/t_rpt_schedule.py -v --tb=short
 Result : 6 passed in 4.80s
 `
 
-### Test Coverage (test_reports_schedule.py)
+### Test Coverage (t_rpt_schedule.py)
 | Test | Assertion |
 |---|---|
 | test_studios_catalog_returns_all_studios | 3 studios, ≥4 sales reports |

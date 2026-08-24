@@ -21,8 +21,8 @@ from sqlalchemy.future import select
 from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, get_current_user
 from ...models.integration_hub import ProviderRegistry, ConnectorRegistry, IntegrationRegistry
 from ...models.auth import User
-from ...services.tally_integration_service import TallyIntegrationService
-from ...services.compliance_audit_service import ComplianceAuditService
+from ...services.tally_service import TallyIntegrationService
+from ...services.compliance_audit import ComplianceAuditService
 
 router = APIRouter()
 

@@ -399,7 +399,7 @@ export interface AuditLogEntry {
 // Customer & Customer Group — Policy Inheritance Model
 // CustomerGroup defines defaults; Customer inherits and may selectively override.
 // A field left `undefined` on a Customer means "inherit from its CustomerGroup".
-// Use resolveCustomerPolicy() (src/services/customerPolicyEngine.ts) to merge them
+// Use resolveCustomerPolicy() (src/services/custPolicyEngine.ts) to merge them
 // into the shape actually used at billing/checkout time.
 // ============================================================================
 

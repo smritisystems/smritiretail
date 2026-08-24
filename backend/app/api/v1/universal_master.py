@@ -17,8 +17,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_company_db, get_current_user
-from ...services.universal_party_service import UniversalPartyService
-from ...services.universal_item_service import UniversalItemService
+from ...services.univ_party_svc import UniversalPartyService
+from ...services.univ_item_svc import UniversalItemService
 
 router = APIRouter()
 

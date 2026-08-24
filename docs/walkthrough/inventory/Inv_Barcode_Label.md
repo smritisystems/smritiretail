@@ -37,16 +37,16 @@ To modernize and refactor the SMRITI 9 Tag & Barcode Label Printing and Designer
 ---
 
 ## 3. Files Created
-- [`src/components/barcode/EditQuantityDetailsModal.tsx`](file:///f:/SMRITRretailNX/src/components/barcode/EditQuantityDetailsModal.tsx) — High-density modal dialog for adjusting per-item `# Lbls` quantities.
-- [`src/components/barcode/BarcodeScriptGenerationView.tsx`](file:///f:/SMRITRretailNX/src/components/barcode/BarcodeScriptGenerationView.tsx) — Monospaced script editor with syntax highlighting, token extraction, and compilation status.
-- [`src/components/barcode/BarcodePrinterSelectModal.tsx`](file:///f:/SMRITRretailNX/src/components/barcode/BarcodePrinterSelectModal.tsx) — Target printer selector for thermal USB, Serial, Network TCP/IP, and QZ Tray.
+- [`src/components/barcode/EditQuantityDetDlg.tsx`](file:///f:/SMRITRretailNX/src/components/barcode/EditQuantityDetDlg.tsx) — High-density modal dialog for adjusting per-item `# Lbls` quantities.
+- [`src/components/barcode/BarcodeScriptGenVi.tsx`](file:///f:/SMRITRretailNX/src/components/barcode/BarcodeScriptGenVi.tsx) — Monospaced script editor with syntax highlighting, token extraction, and compilation status.
+- [`src/components/barcode/BarcodePrinterSele.tsx`](file:///f:/SMRITRretailNX/src/components/barcode/BarcodePrinterSele.tsx) — Target printer selector for thermal USB, Serial, Network TCP/IP, and QZ Tray.
 
 ---
 
 ## 4. Files Modified
 - [`src/components/barcode/types.ts`](file:///f:/SMRITRretailNX/src/components/barcode/types.ts) — Extended interfaces for script tokens, printer configs, and batch parameters.
-- [`src/components/barcode/TagLabelPrintingTab.tsx`](file:///f:/SMRITRretailNX/src/components/barcode/TagLabelPrintingTab.tsx) — Complete refactor based on 12-column industrial layout, range matrix, and action bar.
-- [`src/tests/tagLabelPrinting.test.ts`](file:///f:/SMRITRretailNX/src/tests/tagLabelPrinting.test.ts) — Comprehensive 7-test suite for range filtering, batch/per-item quantities, and script token generation.
+- [`src/components/barcode/TagLabelPrintingTa.tsx`](file:///f:/SMRITRretailNX/src/components/barcode/TagLabelPrintingTa.tsx) — Complete refactor based on 12-column industrial layout, range matrix, and action bar.
+- [`src/tests/tagPrinting.test.ts`](file:///f:/SMRITRretailNX/src/tests/tagPrinting.test.ts) — Comprehensive 7-test suite for range filtering, batch/per-item quantities, and script token generation.
 
 ---
 
@@ -73,14 +73,14 @@ To modernize and refactor the SMRITI 9 Tag & Barcode Label Printing and Designer
 
 ## 8. Tests Executed
 ```bash
-npx vitest run src/tests/tagLabelPrinting.test.ts
+npx vitest run src/tests/tagPrinting.test.ts
 npm run build
 ```
 
 ---
 
 ## 9. Verification Results
-- `src/tests/tagLabelPrinting.test.ts`: **7/7 Passed (100%)**.
+- `src/tests/tagPrinting.test.ts`: **7/7 Passed (100%)**.
 - `npm run build`: **Vite production bundle built successfully (0 errors)**.
 
 ---

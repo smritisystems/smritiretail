@@ -13,13 +13,13 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { TaxInvoiceHeaderToolbar } from "./components/TaxInvoiceHeaderToolbar.tsx";
-import { TaxInvoiceDocumentPanel } from "./components/TaxInvoiceDocumentPanel.tsx";
+import { TaxHeaderBar } from "./components/TaxHeaderBar.tsx";
+import { TaxInvoiceDoc } from "./components/TaxInvoiceDoc.tsx";
 import { TaxInvoiceItemGrid } from "./components/TaxInvoiceItemGrid.tsx";
-import { TaxInvoiceDirectEntryBar } from "./components/TaxInvoiceDirectEntryBar.tsx";
-import { TaxInvoiceFooterTabs } from "./components/TaxInvoiceFooterTabs.tsx";
-import { TaxInvoiceNetValuesPanel } from "./components/TaxInvoiceNetValuesPanel.tsx";
-import { TaxInvoiceStatusBar } from "./components/TaxInvoiceStatusBar.tsx";
+import { TaxEntryBar } from "./components/TaxEntryBar.tsx";
+import { TaxFooterTabs } from "./components/TaxFooterTabs.tsx";
+import { TaxNetValues } from "./components/TaxNetValues.tsx";
+import { TaxStatusBar } from "./components/TaxStatusBar.tsx";
 import { TaxInvoiceDocumentState, TaxInvoiceItemRow } from "./types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { ExportColumnDefinition } from "../export/types.ts";
@@ -52,7 +52,7 @@ const DEFAULT_DOC_STATE: TaxInvoiceDocumentState = {
   documentRemarks: "",
 };
 
-export const SmritiDistributorTaxInvoiceWorkspace: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps> = ({
+export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps> = ({
   initialInvoiceId,
   onExit,
   onNotification,
@@ -314,7 +314,7 @@ export const SmritiDistributorTaxInvoiceWorkspace: React.FC<SmritiDistributorTax
   return (
     <div className="bg-background text-on-background min-h-screen flex flex-col font-body-md antialiased overflow-hidden select-none">
       {/* Top Navigation Bar */}
-      <TaxInvoiceHeaderToolbar
+      <TaxHeaderBar
         onNew={() =>
           setDocState((prev) => ({
             ...DEFAULT_DOC_STATE,
@@ -339,7 +339,7 @@ export const SmritiDistributorTaxInvoiceWorkspace: React.FC<SmritiDistributorTax
       <div className="flex flex-1 overflow-hidden max-w-container-max-width mx-auto w-full">
         <main className="flex-1 flex flex-col p-stack-gap gap-stack-gap overflow-y-auto">
           {/* HEADER SECTION */}
-          <TaxInvoiceDocumentPanel
+          <TaxInvoiceDoc
             docState={docState}
             onChange={handleDocChange}
             onCustomerSearchOpen={() => setIsCustomerModalOpen(true)}
@@ -355,7 +355,7 @@ export const SmritiDistributorTaxInvoiceWorkspace: React.FC<SmritiDistributorTax
               onUpdateItem={handleUpdateItem}
               onDeleteItem={handleDeleteItem}
             />
-            <TaxInvoiceDirectEntryBar
+            <TaxEntryBar
               onAddItem={handleAddItem}
               onLookupProduct={handleLookupProduct}
             />
@@ -364,7 +364,7 @@ export const SmritiDistributorTaxInvoiceWorkspace: React.FC<SmritiDistributorTax
           {/* FOOTER SECTION */}
           <section className="flex flex-col gap-stack-gap h-64 shrink-0">
             <div className="flex gap-gutter h-full">
-              <TaxInvoiceFooterTabs
+              <TaxFooterTabs
                 transporters={docState.transporterDetails}
                 payments={docState.paymentDetails}
                 addonsAndDeductions={docState.addonsAndDeductions}
@@ -374,7 +374,7 @@ export const SmritiDistributorTaxInvoiceWorkspace: React.FC<SmritiDistributorTax
                 onUpdateAddons={(a) => handleDocChange({ addonsAndDeductions: a })}
                 onUpdateRemarks={(r) => handleDocChange({ documentRemarks: r })}
               />
-              <TaxInvoiceNetValuesPanel
+              <TaxNetValues
                 salesValue={metrics.salesValue}
                 discountValue={metrics.itemDiscount}
                 taxValue={metrics.totalTax}
@@ -383,7 +383,7 @@ export const SmritiDistributorTaxInvoiceWorkspace: React.FC<SmritiDistributorTax
                 netAmount={metrics.netAmount}
               />
             </div>
-            <TaxInvoiceStatusBar
+            <TaxStatusBar
               itemCount={metrics.itemCount}
               totalQty={metrics.totalQty}
               salesValue={metrics.salesValue}

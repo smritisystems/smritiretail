@@ -39,5 +39,5 @@ ALTER TABLE products DROP COLUMN IF EXISTS variant_id;
 ## 2. Frontend Code Rollback
 
 - Revert `HeaderAliasRegistry.ts` from git checkpoint commit `fe050f3d`.
-- Revert `ExcelGridEntrySection.tsx` from git checkpoint commit `fe050f3d`.
+- Revert `ExcelGridEntrySec.tsx` from git checkpoint commit `fe050f3d`.
 - Revert `backend/app/models/inventory.py` from git checkpoint commit `fe050f3d`.

@@ -14,7 +14,7 @@
 
 import { describe, it, expect } from "vitest";
 
-// Numeric field comparator & filter testing mirroring SmritiItemDetailsGrid logic
+// Numeric field comparator & filter testing mirroring ItemDetailsGrid logic
 const NUMERIC_FIELD_KEYS = new Set([
   "mrp",
   "price",

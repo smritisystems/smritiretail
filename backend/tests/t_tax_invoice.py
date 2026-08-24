@@ -1,5 +1,5 @@
 import pytest
-from app.services.tattly_dispatch_import_service import (
+from app.services.dispatch_import import (
     calculate_tax_invoice,
     LineItemInput
 )

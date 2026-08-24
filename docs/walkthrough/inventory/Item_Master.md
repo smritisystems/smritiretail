@@ -19,25 +19,25 @@ Enforce strict validation across frontend UI (Grid View & Classic View), backend
 
 ## 2. Scope
 - Frontend Catalog Definitions: `src/services/unifiedFieldCatalog.ts` and `src/components/itemMaster/types.ts`.
-- Frontend UI Components: `src/components/itemMaster/SmritiItemDetailsGrid.tsx` and `src/components/itemMaster/ItemMasterEntryView.tsx`.
+- Frontend UI Components: `src/components/itemMaster/ItemDetGrid.tsx` and `src/components/itemMaster/ItemMasterEntryVie.tsx`.
 - Backend Pydantic Schemas: `backend/app/schemas/inventory.py` (`ProductBase`, `ProductCreate`, `ProductUpdate`).
 - Backend Service Layer: `backend/app/services/item_master_service.py` and `backend/app/services/inventory.py`.
 - Database Migration: Safe legacy NULL backfill and `NOT NULL` constraints on `mrp`, `gst_percentage`, `hsn_code` across tenant databases (`smritisys`, `smriti001`, `smriti002`).
-- Automated Test Suites: `backend/tests/test_item_master_required_validation.py`.
+- Automated Test Suites: `backend/tests/t_item_val.py`.
 
 ## 3. Files Created
-- `backend/scripts/migrate_item_master_not_null.py` — Database migration script applying `NOT NULL` and defaults.
-- `backend/tests/test_item_master_required_validation.py` — 31 test cases verifying blank, whitespace, invalid numeric, duplicate SKU/barcode, and valid records.
-- `docs/walkthrough/inventory/Item_Master_Required_Fields_Validation_v3.22.0.md` — This walkthrough document.
+- `backend/scripts/migr_item_master.py` — Database migration script applying `NOT NULL` and defaults.
+- `backend/tests/t_item_val.py` — 31 test cases verifying blank, whitespace, invalid numeric, duplicate SKU/barcode, and valid records.
+- `docs/walkthrough/inventory/Item_Master.md` — This walkthrough document.
 
 ## 4. Files Modified
 - `src/services/unifiedFieldCatalog.ts` — Updated `sellingPrice`, `productTax`, `hsnCode` to `required: true`.
 - `src/components/itemMaster/types.ts` — Marked all 7 core fields as `isMandatory: true` in `DEFAULT_MANDATORY_FIELDS` and `ALL_AVAILABLE_ITEM_FIELDS`.
-- `src/components/itemMaster/SmritiItemDetailsGrid.tsx` — Added red asterisks to required headers, error cell styling, Classic View inline validation messages, string trimming, and blocked save on empty/whitespace rows.
-- `src/components/itemMaster/ItemMasterEntryView.tsx` — Enforced non-blank validation before API submission in `executeCommitItems`.
+- `src/components/itemMaster/ItemDetGrid.tsx` — Added red asterisks to required headers, error cell styling, Classic View inline validation messages, string trimming, and blocked save on empty/whitespace rows.
+- `src/components/itemMaster/ItemMasterEntryVie.tsx` — Enforced non-blank validation before API submission in `executeCommitItems`.
 - `backend/app/schemas/inventory.py` — Implemented `@field_validator` on `ProductBase` and `ProductUpdate` for non-blank string trimming and required positive numerics.
 - `backend/app/services/item_master_service.py` — Provided default `hsn_code: str = "64041990"` on `UniversalItemMasterService.create_item`.
-- `backend/tests/test_universal_item_master.py` — Updated fixture to clean targeted test codes.
+- `backend/tests/t_univ_item.py` — Updated fixture to clean targeted test codes.
 - `docs/walkthrough/README.md` — Appended master walkthrough index.
 
 ## 5. Architecture Decisions
@@ -64,7 +64,7 @@ Enforce strict validation across frontend UI (Grid View & Classic View), backend
 - Verified database constraints in PostgreSQL with `information_schema.columns` showing `is_nullable = 'NO'`.
 
 ## 8. Tests Executed
-- `pytest backend/tests/test_item_master_required_validation.py backend/tests/test_universal_item_master.py -v` (34/34 passed).
+- `pytest backend/tests/t_item_val.py backend/tests/t_univ_item.py -v` (34/34 passed).
 - `npm run build` (Vite production build completed with 0 errors).
 
 ## 9. Verification Results

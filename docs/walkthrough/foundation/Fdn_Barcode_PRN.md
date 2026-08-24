@@ -29,15 +29,15 @@ This walkthrough documents the creation and verification of a dynamic field mapp
 ---
 
 ## 3. Files Created
-- `docs/implementation/foundation/Barcode_PRN_Dynamic_Field_Mapping_Plan_v3.16.0.md` (Implementation plan)
-- `docs/walkthrough/foundation/Foundation_Barcode_PRN_Dynamic_Field_Mapping_v3.16.0.md` (This file)
+- `docs/implementation/foundation/Barcode_PRN.md` (Implementation plan)
+- `docs/walkthrough/foundation/Fdn_Barcode_PRN.md` (This file)
 
 ---
 
 ## 4. Files Modified
 - `backend/app/api/v1/barcode.py`
 - `backend/app/schemas/barcode.py`
-- `src/components/LabelPrintingSection.tsx`
+- `src/components/LabelPrintingSec.tsx`
 - `backend/app/tests/test_barcode.py`
 - `docs/implementation/README.md`
 - `docs/walkthrough/README.md`

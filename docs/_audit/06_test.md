@@ -26,7 +26,7 @@
 | conftest.py | N/A (fixtures) | Test infrastructure |
 | test_barcode.py | ~6 | Barcode CRUD + print history |
 | test_psv.py | ~4 | PSV projection + idempotency |
-| test_masters_consolidation.py | 3 | Company/Branch/Store/Warehouse CRUD + Lookup validation |
+| t_masters_consol.py | 3 | Company/Branch/Store/Warehouse CRUD + Lookup validation |
 | test_auth.py | ~5 | JWT auth endpoints |
 | test_sales.py | ~8 | Sales invoice lifecycle |
 | test_purchase.py | ~6 | Purchase order lifecycle |
@@ -40,8 +40,8 @@
 ### backend/tests/ (integration/runtime tests)
 | File | Test Count | Scope |
 |---|---|---|
-| test_multi_company_database_architecture.py | 5 | Control plane DB, resolver, menu count, audit log |
-| test_company_control_center_security.py | 9 | Auth, role enforcement, cross-company isolation |
+| t_multi_comp_db.py | 5 | Control plane DB, resolver, menu count, audit log |
+| t_comp_ctr_sec.py | 9 | Auth, role enforcement, cross-company isolation |
 | test_barcode.py | (unknown) | Barcode runtime integration |
 | conftest.py | N/A (untracked file) | Test infrastructure for backend/tests/ |
 
@@ -62,15 +62,15 @@
 ## 3. Test Content vs. Documentation Claims
 
 ### Claim: "CompanyDatabaseResolver rejects unauthorized users with 403"
-Evidence: test_multi_company_database_architecture.py test_company_db_resolver_unauthorized_user (line 40-44): raises HTTPException status 403
+Evidence: t_multi_comp_db.py test_company_db_resolver_unauthorized_user (line 40-44): raises HTTPException status 403
 Status: ALIGNED (test assertion matches claim)
 
 ### Claim: "34 immutable smriti_menus rows in smritisys"
-Evidence: test_multi_company_database_architecture.py test_menu_governance_34_immutable_ids (line 52-59): SELECT COUNT(*) FROM smriti_menus; asserts == 34
+Evidence: t_multi_comp_db.py test_menu_governance_34_immutable_ids (line 52-59): SELECT COUNT(*) FROM smriti_menus; asserts == 34
 Status: PARTIALLY_VERIFIED (test asserts it; live execution result not confirmed in this session)
 
 ### Claim: "Anonymous requests to control center return 401"
-Evidence: test_company_control_center_security.py test_01_anonymous_request_rejected_401: asserts 401 on /api/v1/control-center/companies, /api/v1/control-center/lifecycle/action, /api/v1/dev-tracker
+Evidence: t_comp_ctr_sec.py test_01_anonymous_request_rejected_401: asserts 401 on /api/v1/control-center/companies, /api/v1/control-center/lifecycle/action, /api/v1/dev-tracker
 Status: ALIGNED (test assertion matches claim)
 
 ### Claim: "SYSADMIN can access any company; non-SYSADMIN needs assignment row"
@@ -82,7 +82,7 @@ Evidence: test_psv_idempotency in test_psv.py: second projection of same ID retu
 Status: ALIGNED
 
 ### Claim: "Lookup validation enforces JSON schema"
-Evidence: test_masters_consolidation.py test_lookups_validation_and_soft_delete: invalid type -> 400, additionalProperties violation -> 400
+Evidence: t_masters_consol.py test_lookups_validation_and_soft_delete: invalid type -> 400, additionalProperties violation -> 400
 Status: ALIGNED
 
 ---

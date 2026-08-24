@@ -18,7 +18,7 @@ import psycopg2
 sys.stdout.reconfigure(encoding='utf-8')
 
 EXCEL_PATH = r"F:\SMRITRretailNX\SMRITI_UI_UX_Control_Plane_Audit.xlsx"
-DOC_PATH = r"F:\SMRITRretailNX\docs\architecture\SMRITI_UI_UX_CONTROL_PLANE_AUDIT_v1.0.md"
+DOC_PATH = r"F:\SMRITRretailNX\docs\architecture\UI_UX_CONTROL.md"
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 
 def verify_audit_artifacts():

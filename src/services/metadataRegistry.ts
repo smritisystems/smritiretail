@@ -37,7 +37,7 @@ export interface ModuleMetadata {
   lastUpdated?: string;
 }
 
-// Scope narrowed to module metadata only per ADR-002 (docs/architecture/decisions/ADR-002-SMRITI-METADATA-ARCHITECTURE.md), disposition (a).
+// Scope narrowed to module metadata only per ADR-002 (docs/architecture/decisions/ADR-002-SMRITI-MET.md), disposition (a).
 class MetadataRegistryService {
   private modules: Map<string, Readonly<ModuleMetadata>> = new Map();
   private listeners: Set<() => void> = new Set();

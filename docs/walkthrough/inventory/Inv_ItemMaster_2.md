@@ -40,24 +40,24 @@ This walkthrough documents the full synthesis and deployment of the Item Master 
 ---
 
 ## 3. Files Created
-1. `src/components/itemMaster/SmritiItemDetailsGrid.tsx` — Dual-mode Grid & Classic View matrix with inline row actions.
+1. `src/components/itemMaster/ItemDetGrid.tsx` — Dual-mode Grid & Classic View matrix with inline row actions.
 2. `src/components/itemMaster/SmritiCommonFieldsSetup.tsx` — Batch baseline presets and field inclusion checklist.
-3. `src/components/itemMaster/SmritiViewConfiguration.tsx` — Dual-list column selector, order manager, and frozen count selector.
-4. `src/components/itemMaster/SmritiReplaceDataModal.tsx` — Global find & replace utility modal.
-5. `src/components/itemMaster/SmritiCodeSelectionDialog.tsx` — SKU pattern & EAN-13 barcode generator.
-6. `src/components/itemMaster/SmritiKeyboardShortcutsModal.tsx` — `F1` keyboard shortcuts guide.
-7. `src/components/itemMaster/SmritiDataLoadingConfirmationModal.tsx` — Data loading confirmation modal (`Yes` load all / `No` apply filter first).
-8. `src/components/itemMaster/SmritiImagePathConfigStudio.tsx` — Product image base path and extension resolver studio.
-9. `src/services/imagePathConfigService.ts` — Image path resolution service with localStorage persistence.
+3. `src/components/itemMaster/ViewConfig.tsx` — Dual-list column selector, order manager, and frozen count selector.
+4. `src/components/itemMaster/ReplaceDataDlg.tsx` — Global find & replace utility modal.
+5. `src/components/itemMaster/CodeSelectDlg.tsx` — SKU pattern & EAN-13 barcode generator.
+6. `src/components/itemMaster/KeyboardKeysDlg.tsx` — `F1` keyboard shortcuts guide.
+7. `src/components/itemMaster/DataLoadingConfirm.tsx` — Data loading confirmation modal (`Yes` load all / `No` apply filter first).
+8. `src/components/itemMaster/ImagePathConfigStu.tsx` — Product image base path and extension resolver studio.
+9. `src/services/imagePathConfig.ts` — Image path resolution service with localStorage persistence.
 
 ---
 
 ## 4. Files Modified
-1. `src/components/itemMaster/SmritiItemMasterWorkspace.tsx` — Unified host navigation integrating all tabs (`Alt+1..5`).
-2. `src/components/itemMaster/SmritiItemCatalogGrid.tsx` — Rendered Barcode adjacent to Stock No and added hover image previews.
-3. `src/components/itemMaster/SmritiAttributeManagementStudio.tsx` — Support for `A1..A9` dynamic slots and custom alias management.
-4. `src/components/itemMaster/SmritiItemMasterStudio.tsx` — Corrected bulk creation API endpoint to `POST /api/v1/products/`.
-5. `src/components/drilldown/ContextualInspectorHUD.tsx` — Draggable Framer Motion HUD with minimize and hide options.
+1. `src/components/itemMaster/ItemMasterWs.tsx` — Unified host navigation integrating all tabs (`Alt+1..5`).
+2. `src/components/itemMaster/ItemCatGrid.tsx` — Rendered Barcode adjacent to Stock No and added hover image previews.
+3. `src/components/itemMaster/AttrMgmtStudio.tsx` — Support for `A1..A9` dynamic slots and custom alias management.
+4. `src/components/itemMaster/ItemMasterStudio.tsx` — Corrected bulk creation API endpoint to `POST /api/v1/products/`.
+5. `src/components/drilldown/CtxInspectorHUD.tsx` — Draggable Framer Motion HUD with minimize and hide options.
 6. `src/services/unifiedFieldCatalog.ts` — Added `imageName` and reordered `Barcode` immediately next to `Stock No`.
 7. `src/lib/headerMapping/HeaderAliasRegistry.ts` — Registered `imageName`, `A1..A9`, and custom alias mutation helpers.
 

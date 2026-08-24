@@ -32,16 +32,16 @@ Establish the canonical Universal Party Master (`parties`, `party_roles`, `custo
 2. `backend/app/models/item_master.py`: Canonical Universal Item, ItemVariant, and ItemBarcode models.
 3. `backend/app/services/party_service.py`: `UniversalPartyService` for entity lifecycle, multi-role assignment, and tenant-scoped lookups.
 4. `backend/app/services/item_master_service.py`: `UniversalItemMasterService` for item variants, barcode lookups, and batch inventory bridging.
-5. `backend/tests/test_universal_party_master.py`: Automated verification suite for party roles, profiles, and tenant isolation.
-6. `backend/tests/test_universal_item_master.py`: Automated verification suite for item variants, barcode resolution, and tenant isolation.
-7. `docs/implementation/foundation/Platform_Refactor_Slice2_Party_Item_Plan_v1.0.md`: Master 19-section implementation plan for Slice 2.
+5. `backend/tests/t_univ_party.py`: Automated verification suite for party roles, profiles, and tenant isolation.
+6. `backend/tests/t_univ_item.py`: Automated verification suite for item variants, barcode resolution, and tenant isolation.
+7. `docs/implementation/foundation/Platform_Refactor_7.md`: Master 19-section implementation plan for Slice 2.
 
 ---
 
 ## 4. Files Modified
 1. `backend/app/models/__init__.py`: Exported canonical Party and Item models.
 2. `docs/implementation/README.md`: Appended Slice 2 implementation plan to chronological index table.
-3. `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Updated platform tracker with verified Slice 2 status.
+3. `docs/architecture/PLATFORM.md`: Updated platform tracker with verified Slice 2 status.
 
 ---
 
@@ -70,11 +70,11 @@ In enterprise retail and supply chain ecosystems, customers frequently operate a
 ---
 
 ## 8. Tests Executed
-1. `backend/tests/test_universal_party_master.py`:
+1. `backend/tests/t_univ_party.py`:
    - `test_create_and_fetch_universal_party_customer` (Passed)
    - `test_expand_party_to_dual_role_supplier` (Passed)
    - `test_party_tenant_isolation` (Passed)
-2. `backend/tests/test_universal_item_master.py`:
+2. `backend/tests/t_univ_item.py`:
    - `test_create_and_fetch_universal_item_with_variants` (Passed)
    - `test_lookup_by_barcode_canonical_item` (Passed)
    - `test_item_tenant_isolation` (Passed)
@@ -94,20 +94,20 @@ plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 69 items
 
-backend\tests\test_universal_party_master.py ...                         [  4%]
-backend\tests\test_universal_item_master.py ...                          [  8%]
-backend\tests\test_routing_boundary_canonical.py .............           [ 27%]
-backend\tests\test_company_db_runtime_routing.py .......                 [ 37%]
-backend\tests\test_company_db_naming_convention.py ......                [ 46%]
-backend\tests\test_get_company_db_wiring.py .....                        [ 53%]
-backend\tests\test_multi_company_database_architecture.py ......         [ 62%]
-backend\tests\test_company_db_provisioning.py .....                      [ 69%]
-backend\tests\test_menu_governance.py .                                  [ 71%]
-backend\tests\test_security_menu_access.py ..                            [ 73%]
+backend\tests\t_univ_party.py ...                         [  4%]
+backend\tests\t_univ_item.py ...                          [  8%]
+backend\tests\t_route_boundary.py .............           [ 27%]
+backend\tests\t_comp_db_route.py .......                 [ 37%]
+backend\tests\t_comp_db_name.py ......                [ 46%]
+backend\tests\t_comp_db_wire.py .....                        [ 53%]
+backend\tests\t_multi_comp_db.py ......         [ 62%]
+backend\tests\t_comp_db_prov.py .....                      [ 69%]
+backend\tests\t_menu_gov.py .                                  [ 71%]
+backend\tests\t_sec_menu.py ..                            [ 73%]
 backend\tests\test_wms_phase1.py ....                                    [ 79%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 84%]
-backend\tests\test_wms_phase3_eway_bill.py .....                         [ 91%]
-backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
+backend\tests\t_wms_phase2.py ...                           [ 84%]
+backend\tests\t_wms_phase3.py .....                         [ 91%]
+backend\tests\t_wms_phase4.py ......             [100%]
 
 ======================= 69 passed, 1 warning in 25.19s ========================
 ```

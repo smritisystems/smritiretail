@@ -11,16 +11,16 @@
  */
 
 /**
- * FlexibleContextGrid
+ * FlexContextGrid
  * ====================
  * A single, reusable, keyboard-navigable data grid that renders dynamically
  * based on the active entity context descriptor from FieldContextRegistry.
  *
  * This component replaces the three duplicated product/item/customer search
  * table implementations in:
- *   - billing/ProductSearchBrowserModal.tsx
- *   - billing/ItemBrowseOverlayModal.tsx
- *   - purchase/PurchaseProductBrowseModal.tsx
+ *   - billing/ProductSearchBrows.tsx
+ *   - billing/ItemBrowseOverlayD.tsx
+ *   - purchase/PurchBrowseDlg.tsx
  *
  * Props:
  *   - columns          : FlexibleGridColumn[] from the registry
@@ -34,7 +34,7 @@
  */
 
 import React, { useRef, useEffect, useCallback } from "react";
-import { FlexibleGridColumn } from "../../services/globalContext/fieldContextRegistry.ts";
+import { FlexibleGridColumn } from "../../services/globalContext/fieldContext.ts";
 import { SearchResult } from "../../services/globalContext/GlobalSearchService.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -344,3 +344,4 @@ export const FlexibleGridFooter: React.FC<FlexibleGridFooterProps> = ({
     </div>
   );
 };
+export { FlexibleContextGrid as FlexContextGrid };

@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ...db.base import Base
 
 from ...models.tenant import Company
-from ...models.company_database_registry import CompanyDatabaseRegistry
+from ...models.company_registry import CompanyDatabaseRegistry
 from ...models.auth import User
 
 # Canonical Model Aliases (Legacy Control Models Retired)

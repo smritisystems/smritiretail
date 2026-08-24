@@ -16,7 +16,7 @@ import pytest
 from decimal import Decimal
 from fastapi.testclient import TestClient
 from app.main import app
-from app.services.localization_service import LocalizationService
+from app.services.localization_svc import LocalizationService
 
 
 @pytest.fixture

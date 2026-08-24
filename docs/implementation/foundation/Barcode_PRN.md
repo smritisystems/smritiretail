@@ -28,7 +28,7 @@ Enabling non-technical staff to easily map custom inventory attributes (like sty
 
 ## 3. Scope
 - Modify `backend/app/api/v1/barcode.py` to recursively and dynamically replace placeholders in ZPL/PRN templates using all top-level and nested product attributes.
-- Modify `src/components/LabelPrintingSection.tsx` to preserve all CSV-imported headers as dynamic properties on printable items.
+- Modify `src/components/LabelPrintingSec.tsx` to preserve all CSV-imported headers as dynamic properties on printable items.
 - Build an interactive "Placeholders Mapping Guide" in the custom script manager UI containing quick-insert click triggers for both standard item fields and dynamically parsed CSV worksheet columns.
 
 ---
@@ -72,7 +72,7 @@ None.
 
 ## 9. Files Modified
 - `backend/app/api/v1/barcode.py`
-- `src/components/LabelPrintingSection.tsx`
+- `src/components/LabelPrintingSec.tsx`
 - `docs/implementation/README.md`
 - `docs/walkthrough/README.md`
 - `CHANGELOG.md`
@@ -91,7 +91,7 @@ No new libraries. Uses standard Python dictionary traversal and React cursor/sta
 ---
 
 ## 12. Rollback Strategy
-Revert code changes in `barcode.py` and `LabelPrintingSection.tsx` via git.
+Revert code changes in `barcode.py` and `LabelPrintingSec.tsx` via git.
 
 ---
 

@@ -28,7 +28,7 @@
 ## 2. Granular Step Execution Logs
 
 ### J-01: POS Billing Journey Log
-- **Static Component**: [`PosTerminalTab.tsx`](file:///F:/SMRITRretailNX/src/components/PosTerminalTab.tsx) & [`AdvancedBillingEngine.tsx`](file:///F:/SMRITRretailNX/src/components/AdvancedBillingEngine.tsx) — **`Done`**
+- **Static Component**: [`PosTerminalTab.tsx`](file:///F:/SMRITRretailNX/src/components/PosTerminalTab.tsx) & [`AdvancedBillingEng.tsx`](file:///F:/SMRITRretailNX/src/components/AdvancedBillingEng.tsx) — **`Done`**
 - **API Handler**: `POST /api/v1/pos/bill` in `backend/app/api/v1/pos.py` — **`Done`**
 - **Vitest Integration Test**: `src/tests/auth.test.ts`, `src/tests/gst.test.ts`, `src/tests/helpers.test.ts` — **`Done`** (64/64 passed)
 - **Browser Runtime Interaction**: Pending headless/live browser execution.
@@ -50,6 +50,6 @@
 ### J-04: Customer Master Journey Log
 - **Static Component**: [`CustomerMasterTab.tsx`](file:///F:/SMRITRretailNX/src/components/CustomerMasterTab.tsx) — **`Done`**
 - **API Handler**: `POST /api/v1/crm/customers` in `backend/app/api/v1/crm.py` — **`Done`**
-- **Vitest Integration Test**: `src/tests/customerCrmLoyaltyDecoupling.test.ts` — **`Done`**
+- **Vitest Integration Test**: `src/tests/crmLoyalty.test.ts` — **`Done`**
 - **Browser Runtime Interaction**: Pending headless/live browser execution.
 - **Current Status**: **`Partially Verified`**

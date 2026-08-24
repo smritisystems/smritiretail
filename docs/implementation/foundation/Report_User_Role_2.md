@@ -48,11 +48,11 @@ None.
 
 ## 9. Files Modified
 - `src/components/CrmLoyaltyTab.tsx`
-- `src/components/LabelPrintingSection.tsx`
+- `src/components/LabelPrintingSec.tsx`
 - `src/components/PurchaseStudioTab.tsx`
 - `src/components/BusinessLedgerTab.tsx`
 - `src/components/StockLedgerTab.tsx`
-- `src/components/SupplierDashboardTab.tsx`
+- `src/components/SupplierDashTab.tsx`
 - `src/components/StaffManagementTab.tsx`
 
 ## 10. Dependencies
@@ -84,4 +84,4 @@ Completed
 None.
 
 ## 19. Related Walkthroughs
-- [Foundation_Report_User_Role_Expansion_v3.16.0.md](../../walkthrough/foundation/Foundation_Report_User_Role_Expansion_v3.16.0.md)
+- [Fdn_Report_User_2.md](../../walkthrough/foundation/Fdn_Report_User_2.md)

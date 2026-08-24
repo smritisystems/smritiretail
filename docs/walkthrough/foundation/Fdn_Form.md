@@ -23,13 +23,13 @@ Provide a single source of truth for Indian-market state mappings, formats, and 
 - **Setup Wizard Tab**: Gorakhpur (GIDA) defaults, state selection dropdowns, landmark fields, and input format validation in `src/components/SetupWizard/SetupWizardTab.tsx`.
 - **Sales Studio & Customers API**: Standardize date and currency rendering, and validate mobile and GSTIN formats in `src/components/SalesStudioTab.tsx` and `src/routes/customers.ts`.
 - **System Types**: Address type updates in `src/types.ts`.
-- **Unit Tests**: Verification in `src/tests/validatorsAndFormatters.test.ts`.
+- **Unit Tests**: Verification in `src/tests/validators.test.ts`.
 
 ## 3. Files Created
 1. **[indianStates.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/constants/indianStates.ts)** — Shared Indian state constants.
 2. **[validators.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/utils/validators.ts)** — Form validators (GSTIN, PIN, Mobile).
 3. **[formatters.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/utils/formatters.ts)** — Indian market display formatters (date, datetime, currency).
-4. **[validatorsAndFormatters.test.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/tests/validatorsAndFormatters.test.ts)** — Automated unit tests.
+4. **[validators.test.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/tests/validators.test.ts)** — Automated unit tests.
 
 ## 4. Files Modified
 1. **[types.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/types.ts)**
@@ -66,7 +66,7 @@ Executed all unit tests using Vitest.
 
  RUN  v4.1.10 D:/IMP/GitHub/SMRITRretailNX
 
- ✓ src/tests/validatorsAndFormatters.test.ts (5 tests) 37ms
+ ✓ src/tests/validators.test.ts (5 tests) 37ms
 stdout | src/tests/helpers.test.ts
 [Local DB] Loaded data successfully from disk!
 

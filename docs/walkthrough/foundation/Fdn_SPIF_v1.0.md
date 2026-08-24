@@ -22,18 +22,18 @@ The scope covers:
 - Core database schema extension (adding `primary_image_url` and `gallery_images` columns to the `products` table).
 - Implementing `SpifService` wrapper using Pillow to scale, transcode to WEBP, and store media.
 - Implementing FastAPI REST routes for primary and gallery image uploads/deletions.
-- Creating the reusable React components: `<ProductImage />` and `<ImageDisplayPolicyModal />`.
+- Creating the reusable React components: `<ProductImage />` and `<ImageDisplayPolicy />`.
 - Establishing full automated unit/integration test coverage for both backend python logic and frontend helpers.
 
 ## 3. Files Created
 - [test_spif.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/test_spif.py) (FastAPI SPIF Lifecycle Tests)
 - [spif.test.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/tests/spif.test.ts) (Vitest SPIF Helper Tests)
-- [Foundation_SPIF_v1.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Foundation_SPIF_v1.0.md) (This Walkthrough Document)
+- [Fdn_SPIF_v1.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Fdn_SPIF_v1.0.md) (This Walkthrough Document)
 
 ## 4. Files Modified
 - [__init__.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/__init__.py) (Initialize env variables early)
 - [README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/README.md) (Implementation Index update)
-- [SMRITI_Product_Image_Framework_Plan_v1.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/foundation/SMRITI_Product_Image_Framework_Plan_v1.0.md) (Plan status update)
+- [Product_Image.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/foundation/Product_Image.md) (Plan status update)
 - [README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/README.md) (Walkthrough Index update)
 - [CHANGELOG.md](file:///d:/IMP/GitHub/SMRITRretailNX/CHANGELOG.md) (Release notes log)
 

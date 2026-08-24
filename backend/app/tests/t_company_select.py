@@ -18,7 +18,7 @@ from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.models.auth import User, UserRole
 from app.models.tenant import Company, Branch
-from app.models.company_database_registry import CompanyDatabaseRegistry
+from app.models.company_registry import CompanyDatabaseRegistry
 from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 from app.api.deps import get_db
 from app.core.security import hash_password

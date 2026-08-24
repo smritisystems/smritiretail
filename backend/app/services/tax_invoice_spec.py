@@ -28,8 +28,8 @@ import re
 from pathlib import Path
 from typing import Dict, Final
 
-_GOLDEN_CSS_PATH: Final[Path] = Path(__file__).with_name("smrititaxinvoice_v1.golden.css")
-_INTEGRITY_JSON_PATH: Final[Path] = Path(__file__).with_name("smrititaxinvoice_v1.integrity.json")
+_GOLDEN_CSS_PATH: Final[Path] = Path(__file__).with_name("tax_invoice_v1.css")
+_INTEGRITY_JSON_PATH: Final[Path] = Path(__file__).with_name("tax_invoice_v1.json")
 
 # Canonical Identifier Constants
 SMRITITAXINVOICE_TEMPLATE_CODE: Final[str] = "SMRITITAXINVOICE"
@@ -111,7 +111,7 @@ def _strip_css_author_header(raw: str) -> str:
 
 
 def verify_golden_css_integrity() -> bool:
-    """Verify smrititaxinvoice_v1.golden.css against smrititaxinvoice_v1.integrity.json."""
+    """Verify tax_invoice_v1.css against tax_invoice_v1.json."""
     css_bytes = _read_golden_css_bytes()
     computed = hashlib.sha256(css_bytes).hexdigest()
 

@@ -17,18 +17,18 @@
 This walkthrough documents the implementation of **Phase 2 Guided Simulators** for the **SMRITI Training Academy**, providing interactive, step-by-step form simulators for **Day 1 (Master Creation)**, **Day 2 (Purchase Order)**, **Day 3 (Purchase Receipt / GRN)**, and **Day 4 (Sales / Billing)** operating in 100% session sandbox isolation.
 
 ## 2. Scope
-- Authoring `Day1MasterSimulator.tsx` for creating Item & Supplier masters in the sandbox session.
+- Authoring `Day1MasterSim.tsx` for creating Item & Supplier masters in the sandbox session.
 - Authoring `Day2POSimulator.tsx` for issuing, approving, and tracking Purchase Orders in the sandbox session.
 - Authoring `Day3GRNSimulator.tsx` for processing GRN material receipts, short/excess receipts, and immediate stock ledger updates.
-- Authoring `Day4BillingSimulator.tsx` for POS cashier checkout, GST calculations, tender payments, and thermal tax invoice print previews.
+- Authoring `Day4BillingSim.tsx` for POS cashier checkout, GST calculations, tender payments, and thermal tax invoice print previews.
 - Integrating all Day 1–4 simulators into `TrainingAcademyTab.tsx`.
 
 ## 3. Files Created
-- [`src/components/training/Day1MasterSimulator.tsx`](file:///F:/SMRITRretailNX/src/components/training/Day1MasterSimulator.tsx): Interactive Master Creation simulator for Items and Suppliers.
+- [`src/components/training/Day1MasterSim.tsx`](file:///F:/SMRITRretailNX/src/components/training/Day1MasterSim.tsx): Interactive Master Creation simulator for Items and Suppliers.
 - [`src/components/training/Day2POSimulator.tsx`](file:///F:/SMRITRretailNX/src/components/training/Day2POSimulator.tsx): Interactive Purchase Order simulator.
 - [`src/components/training/Day3GRNSimulator.tsx`](file:///F:/SMRITRretailNX/src/components/training/Day3GRNSimulator.tsx): Interactive GRN receipt & stock impact simulator.
-- [`src/components/training/Day4BillingSimulator.tsx`](file:///F:/SMRITRretailNX/src/components/training/Day4BillingSimulator.tsx): Interactive POS billing terminal & tax invoice print preview simulator.
-- [`docs/walkthrough/user_guide/SMRITI_Training_Academy_Phase2_Walkthrough_v1.0.md`](file:///F:/SMRITRretailNX/docs/walkthrough/user_guide/SMRITI_Training_Academy_Phase2_Walkthrough_v1.0.md): This walkthrough file.
+- [`src/components/training/Day4BillingSim.tsx`](file:///F:/SMRITRretailNX/src/components/training/Day4BillingSim.tsx): Interactive POS billing terminal & tax invoice print preview simulator.
+- [`docs/walkthrough/user_guide/Training_Academy__3.md`](file:///F:/SMRITRretailNX/docs/walkthrough/user_guide/Training_Academy__3.md): This walkthrough file.
 
 ## 4. Files Modified
 - [`src/components/training/TrainingAcademyTab.tsx`](file:///F:/SMRITRretailNX/src/components/training/TrainingAcademyTab.tsx): Dynamically renders Day 1–4 guided simulators based on active day selection.
@@ -48,13 +48,13 @@ Simulating realistic form inputs (SKU Codes, HSN, Tax rates, Purchase Rates, Sho
 
 ## 8. Tests Executed
 ```bash
-python -m pytest tests/test_production_isolation.py -v
+python -m pytest tests/t_prod_isolate.py -v
 npx vite build
 ```
 
 ## 9. Verification Results
 ```text
-tests/test_production_isolation.py: 4/4 PASSED
+tests/t_prod_isolate.py: 4/4 PASSED
 ✓ Vite build completed cleanly in 19.48s
 ```
 

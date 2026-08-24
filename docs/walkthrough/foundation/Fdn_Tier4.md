@@ -64,7 +64,7 @@ The scope includes database model definitions, Pydantic request/response schemas
 6. `backend/app/main.py`
 7. `backend/alembic/env.py`
 8. `docker-compose.yml`
-9. `backend/app/tests/test_user_management.py`
+9. `backend/app/tests/t_user_mgmt.py`
 
 ## 5. Architecture Decisions
 - **Strangler-Fig Migration:** Ported remaining modules directly to the FastAPI + PostgreSQL stack on port 8000.
@@ -84,7 +84,7 @@ The scope includes database model definitions, Pydantic request/response schemas
 
 ## 8. Tests Executed
 - Executed full test suite containing 99 tests using `pytest` inside the dockerized `smriti-python-core` container.
-- Customized `test_user_management.py` assertions to align with new REST endpoints.
+- Customized `t_user_mgmt.py` assertions to align with new REST endpoints.
 
 ## 9. Verification Results
 - All 99 automated tests passed successfully with 0 failures:

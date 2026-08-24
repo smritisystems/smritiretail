@@ -33,8 +33,8 @@ Unifying core master data (products and stock movements) on PostgreSQL ensures a
   - Update `src/App.tsx` (`fetchSystemState`) to query `apiFetchV1("/inventory")`.
   - Update `ItemMasterTab.tsx` to handle create, update, delete, and barcode additions via `apiFetchV1` to `/inventory` endpoints.
   - Update `StockLedgerTab.tsx` to read logs from `apiFetchV1("/inventory/ledger")`.
-  - Update `BarcodeMappingSection.tsx` to query FastAPI secondary barcode endpoints.
-  - Update `InventoryForecastWidget.tsx` to fetch products list from FastAPI.
+  - Update `BarcodeMappingSec.tsx` to query FastAPI secondary barcode endpoints.
+  - Update `InventoryForecastW.tsx` to fetch products list from FastAPI.
 - **Express Backend Deletion:** Remove Express-side product routes (`/api/pos/products` and secondary barcodes) and ledger routes (`/api/inventory/ledger`), and remove the `products` and `stockLedger` keys from `saveDb` in `src/state/store.ts`.
 
 ## 4. Current State
@@ -189,10 +189,10 @@ export function mapBackendProductToFrontend(p: any): Product {
 #### [MODIFY] [StockLedgerTab.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/StockLedgerTab.tsx)
 - Wire ledger loading to `apiFetchV1("/inventory/ledger")`.
 
-#### [MODIFY] [BarcodeMappingSection.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/BarcodeMappingSection.tsx)
+#### [MODIFY] [BarcodeMappingSec.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/BarcodeMappingSec.tsx)
 - Wire barcode mapping actions to FastAPI secondary barcode endpoints.
 
-#### [MODIFY] [InventoryForecastWidget.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/InventoryForecastWidget.tsx)
+#### [MODIFY] [InventoryForecastW.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/InventoryForecastW.tsx)
 - Fetch products list from FastAPI `/inventory`.
 
 ## 8. Files Created
@@ -208,8 +208,8 @@ export function mapBackendProductToFrontend(p: any): Product {
 - `src/App.tsx`
 - `src/components/ItemMasterTab.tsx`
 - `src/components/StockLedgerTab.tsx`
-- `src/components/BarcodeMappingSection.tsx`
-- `src/components/InventoryForecastWidget.tsx`
+- `src/components/BarcodeMappingSec.tsx`
+- `src/components/InventoryForecastW.tsx`
 
 ## 10. Dependencies
 No new dependencies. Standard `apiFetchV1` and Postgres `pool` are already operational.

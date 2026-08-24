@@ -24,11 +24,11 @@ sys.stdout.reconfigure(encoding='utf-8')
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
 
-DOC_BOUNDARY_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONTROL_PLANE_BOUNDARY_v1.0.md"
-DOC_AUDIT_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONTROL_PLANE_AUDIT_v1.0.md"
-DOC_BEHAVIOR_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_BUSINESS_BEHAVIOR_CONTROL_PLANE_v1.0.md"
-DOC_MATRIX_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONFIGURATION_OWNERSHIP_MATRIX_v1.0.md"
-DOC_MIGRATION_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONTROL_PLANE_MIGRATION_PLAN_v1.0.md"
+DOC_BOUNDARY_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\CONTROL_PLANE_2.md"
+DOC_AUDIT_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\CONTROL_PLANE_2_3.md"
+DOC_BEHAVIOR_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\BUSINESS_BEHAVIOR.md"
+DOC_MATRIX_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\CONFIGURATION.md"
+DOC_MIGRATION_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\CONTROL_PLANE.md"
 
 # 25 Specific Configuration Areas with Refined Mappings
 CONFIG_AREAS_25_REFINED = [
@@ -238,7 +238,7 @@ def run_decision_gate_audit():
     # 4. Generate & Update Markdown Specification Files
     os.makedirs(os.path.dirname(DOC_AUDIT_OUTPUT), exist_ok=True)
 
-    # SMRITI_CONFIGURATION_OWNERSHIP_MATRIX_v1.0.md
+    # CONFIGURATION.md
     with open(DOC_MATRIX_OUTPUT, "w", encoding="utf-8") as f:
         f.write(f"""<!--
   Project      : SMRITI Retail OS

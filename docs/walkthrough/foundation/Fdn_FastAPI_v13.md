@@ -24,7 +24,7 @@ This walkthrough documents the successful post-verification corrections of the F
 - Implemented client-side Indian format and HSN/GST master lookup table.
 
 ## 3. Files Created
-- [test_staff_verification.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/test_staff_verification.py) - Integration test validating the 35 fields on `StaffUserResponse` and sub-schemas.
+- [t_staff_verify.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/t_staff_verify.py) - Integration test validating the 35 fields on `StaffUserResponse` and sub-schemas.
 - [indianFormat.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/utils/indianFormat.ts) - Indian numbering formatter utility.
 - [indianFormat.test.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/tests/indianFormat.test.ts) - Unit tests for the Indian format utility.
 - [hsnMaster.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/utils/hsnMaster.ts) - Indian HSN GST mapping master table and resolution utility.
@@ -36,9 +36,9 @@ This walkthrough documents the successful post-verification corrections of the F
 - [db.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/core/interfaces/db.ts) - Added `IStateRepository` definition.
 - [di.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/bootstrap/di.ts) - Registered `state` repository.
 - [MemoryRepositories.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/memory/MemoryRepositories.ts) - Implemented `MemoryStateRepository`.
-- [PostgresRepositories.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/postgres/PostgresRepositories.ts) - Implemented `PostgresStateRepository`.
+- [PgRepos.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/postgres/PgRepos.ts) - Implemented `PostgresStateRepository`.
 - [SqliteRepositories.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/sqlite/SqliteRepositories.ts) - Stubbed `SqliteStateRepository`.
-- [IndexedDbRepositories.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/indexeddb/IndexedDbRepositories.ts) - Stubbed `IndexedDbStateRepository`.
+- [IdbRepos.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/indexeddb/IdbRepos.ts) - Stubbed `IndexedDbStateRepository`.
 - Modified 12 Express route files under `src/routes/` to call `await container.state.saveDb()`.
 
 ## 5. Architecture Decisions
@@ -56,7 +56,7 @@ Leveraged a unified state wrapper repository to isolate legacy JSON file writing
 ## 8. Tests Executed
 - Python Pytest:
   - `pytest app/tests/test_exchange.py`
-  - `pytest app/tests/test_staff_verification.py`
+  - `pytest app/tests/t_staff_verify.py`
 - Node Vitest:
   - `npm test`
 

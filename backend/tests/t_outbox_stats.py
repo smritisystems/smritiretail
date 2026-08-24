@@ -22,8 +22,8 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from sqlalchemy import select, delete
 from app.db.session import get_company_sessionmaker
-from app.services.unified_outbox_analytics_service import UnifiedOutboxAnalyticsService
-from app.services.unified_sales_ledger_service import UnifiedSalesLedgerService
+from app.services.outbox_analytics import UnifiedOutboxAnalyticsService
+from app.services.sales_ledger_svc import UnifiedSalesLedgerService
 from app.services.outbox_service import OutboxService
 from app.services.outbox_worker import OutboxQueueWorker
 from app.models.outbox import IntegrationOutboxEvent, OutboxEvent

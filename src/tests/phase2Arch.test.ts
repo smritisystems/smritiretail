@@ -12,8 +12,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { salesDocumentConfig } from "../components/global/document/configs/salesDocument.config.ts";
-import { purchaseDocumentConfig } from "../components/global/document/configs/purchaseDocument.config.ts";
+import { salesDocumentConfig } from "../components/global/document/configs/salesDoc.config.ts";
+import { purchaseDocumentConfig } from "../components/global/document/configs/purchaseDoc.config.ts";
 import { stockLedgerConfig } from "../components/global/ledger/configs/stockLedger.config.tsx";
 import { auditLogsConfig } from "../components/global/ledger/configs/auditLogs.config.tsx";
 import { DocumentLineItem, DocumentTotals } from "../components/global/document/types.ts";

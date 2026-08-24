@@ -29,7 +29,7 @@ interface SmritiCodeSelectionDialogProps {
   };
 }
 
-export const SmritiCodeSelectionDialog: React.FC<SmritiCodeSelectionDialogProps> = ({
+export const CodeSelectDlg: React.FC<SmritiCodeSelectionDialogProps> = ({
   isOpen,
   onClose,
   onSelectCode,
@@ -198,4 +198,4 @@ export const SmritiCodeSelectionDialog: React.FC<SmritiCodeSelectionDialogProps>
   );
 };
 
-export default SmritiCodeSelectionDialog;
+export default CodeSelectDlg;

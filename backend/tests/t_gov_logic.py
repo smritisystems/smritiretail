@@ -18,8 +18,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.main import app
-from app.services.governed_rule_engine import GovernedRuleEngine
-from app.services.transaction_reproducibility_service import TransactionReproducibilityService
+from app.services.governed_rules import GovernedRuleEngine
+from app.services.tx_reproduce_svc import TransactionReproducibilityService
 from app.db.session import get_company_sessionmaker
 from app.models.governed_logic import (
     FormulaDefinition,

@@ -16,14 +16,14 @@ import React, { useState, useMemo } from "react";
 import { SuspendedBill } from "./types.ts";
 import { X, Search, History, Trash2, ArrowRight, Clock, User, Package } from "lucide-react";
 
-interface SmritiProPosRecallModalProps {
+interface SmritiProPosRecallDlgProps {
   suspendedBills: SuspendedBill[];
   onRecallBill: (bill: SuspendedBill) => void;
   onDeleteSuspendedBill: (id: string) => void;
   onClose: () => void;
 }
 
-export const SmritiProPosRecallModal: React.FC<SmritiProPosRecallModalProps> = ({
+export const SmritiProPosRecallDlg: React.FC<SmritiProPosRecallDlgProps> = ({
   suspendedBills = [],
   onRecallBill,
   onDeleteSuspendedBill,
@@ -209,4 +209,4 @@ export const SmritiProPosRecallModal: React.FC<SmritiProPosRecallModalProps> = (
   );
 };
 
-export default SmritiProPosRecallModal;
+export default SmritiProPosRecallDlg;

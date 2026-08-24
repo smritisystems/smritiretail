@@ -15,7 +15,7 @@
 import React, { useState } from "react";
 import { X, Printer, Search, FileText, CheckCircle, Clock, Calendar } from "lucide-react";
 
-interface SmritiProPosReprintModalProps {
+interface SmritiProPosReprintDlgProps {
   onReprintBill: (docType: "BILL" | "RETURN", docNo: string) => void;
   onClose: () => void;
 }
@@ -27,7 +27,7 @@ const RECENT_DOCUMENTS = [
   { docNo: "INV-84917", docType: "BILL" as const, customer: "Priya Sharma", time: "16:05 PM", amount: 2697.30, itemsCount: 3 }
 ];
 
-export const SmritiProPosReprintModal: React.FC<SmritiProPosReprintModalProps> = ({
+export const SmritiProPosReprintDlg: React.FC<SmritiProPosReprintDlgProps> = ({
   onReprintBill,
   onClose
 }) => {
@@ -192,4 +192,4 @@ export const SmritiProPosReprintModal: React.FC<SmritiProPosReprintModalProps> =
   );
 };
 
-export default SmritiProPosReprintModal;
+export default SmritiProPosReprintDlg;

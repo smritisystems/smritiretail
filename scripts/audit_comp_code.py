@@ -20,11 +20,11 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from backend.app.services.company_database_provisioner import CompanyDatabaseProvisioner
+from backend.app.services.db_provisioner import CompanyDatabaseProvisioner
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_ARCH = r"F:\SMRITRretailNX\docs\architecture\SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md"
+DOC_ARCH = r"F:\SMRITRretailNX\docs\architecture\MULTI_COMPANY.md"
 
 def audit_alphanumeric_company_code():
     print("============================================================")

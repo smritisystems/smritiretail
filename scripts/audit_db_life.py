@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_COMPANY_DATABASE_LIFECYCLE_v1.0.md"
+DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\COMPANY_DATABASE_2.md"
 
 def audit_company_database_lifecycle():
     print("============================================================")
@@ -52,7 +52,7 @@ def audit_company_database_lifecycle():
         (2, "COMPANY_CODE_ALLOCATION", "3-char alphanumeric allocation [A-Z0-9]", "IMPLEMENTED", "CompanyCodeAllocator.allocate_next_available_code"),
         (3, "DATABASE_NAME_GENERATION", "smriti<A-Z0-9> server-side generation", "IMPLEMENTED", "generate_company_database_name"),
         (4, "LICENSE_ENTITLEMENT_VALIDATION", "Licensing plan entitlement verification", "PARTIALLY_IMPLEMENTED", "SystemConfig / License Vault check"),
-        (5, "DATABASE_PROVISIONING", "PostgreSQL CREATE DATABASE smriti<CODE>", "IMPLEMENTED", "execute_company_001_provisioning.py"),
+        (5, "DATABASE_PROVISIONING", "PostgreSQL CREATE DATABASE smriti<CODE>", "IMPLEMENTED", "exec_comp001_prov.py"),
         (6, "SCHEMA_INITIALIZATION", "SQLAlchemy ORM 45 tables initialization", "IMPLEMENTED", "Base.metadata.create_all"),
         (7, "HEALTH_CHECK", "Connectivity ping & table count check", "IMPLEMENTED", "information_schema ping"),
         (8, "DATABASE_REGISTRATION", "Register in smritisys.company_database_registries", "IMPLEMENTED", "company_database_registries READY"),

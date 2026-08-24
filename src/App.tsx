@@ -37,23 +37,23 @@ import { FormulaRegistryTab } from "./components/FormulaRegistryTab.tsx";
 import { PsvTab } from "./components/PsvTab.tsx";
 import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
 import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
-import { AdvancedBillingEngine } from "./components/AdvancedBillingEngine.tsx";
+import { AdvancedBillingEngine } from "./components/AdvancedBillingEng.tsx";
 import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
 import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
 import { BarcodeStudioTab } from "./components/BarcodeStudioTab.tsx";
-import { MasterManagementTab } from "./components/MasterManagementTab.tsx";
+import { MasterManagementTab } from "./components/MasterMgmtTab.tsx";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
 import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
 import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
-import { SupplierDashboardTab } from "./components/SupplierDashboardTab.tsx";
+import { SupplierDashboardTab } from "./components/SupplierDashTab.tsx";
 import { ReportDesignerTab } from "./components/ReportDesignerTab.tsx";
 import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
-import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownBreadcrumbs.tsx";
+import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownCrumbs.tsx";
 import { DrillDownSidePanel } from "./components/drilldown/DrillDownSidePanel.tsx";
 import { GlobalSearch } from "./components/drilldown/GlobalSearch.tsx";
-import { GlobalF2BrowseModal } from "./components/drilldown/GlobalF2BrowseModal.tsx";
+import { GlobalF2BrowseModal } from "./components/drilldown/GlobalF2BrowseDlg.tsx";
 import { ApprovalMatrixTab } from "./components/ApprovalMatrixTab.tsx";
 import { QuickActionsMenu } from "./components/QuickActionsMenu.tsx";
 import { DocumentSeriesTab } from "./components/DocumentSeriesTab.tsx";
@@ -61,7 +61,7 @@ import { StaffManagementTab } from "./components/StaffManagementTab.tsx";
 import { UserProfileTab } from "./components/UserProfileTab.tsx";
 import { NotificationProvider, useNotifications } from "./notifications/notification_store.tsx";
 import { ActiveFieldProvider } from "./context/ActiveFieldContext.tsx";
-import { ContextualInspectorHUD } from "./components/drilldown/ContextualInspectorHUD.tsx";
+import { ContextualInspectorHUD } from "./components/drilldown/CtxInspectorHUD.tsx";
 import { ContextProvider } from "./context-actions/ContextProvider.tsx";
 import { ContextRenderer } from "./context-actions/ContextRenderer.tsx";
 import { registerAllDefaultActions } from "./context-actions/providers/SMRITIModuleActions.ts";
@@ -69,8 +69,8 @@ import { PrintProvider } from "./print_engine/print_store.tsx";
 import { PrintStudioTab } from "./print_engine/PrintStudioTab.tsx";
 import { PrintHistoryTab } from "./print_engine/PrintHistoryTab.tsx";
 import { AboutSmritiTab } from "./components/AboutSmritiTab.tsx";
-import { TaxInvoicePrintPage } from "./components/TaxInvoicePrintPage.tsx";
-import { SmritiDistributorTaxInvoiceWorkspace } from "./components/sales/SmritiDistributorTaxInvoiceWorkspace.tsx";
+import { TaxInvoicePrintPage } from "./components/TaxInvoicePrintPag.tsx";
+import { DistTaxInvoice } from "./components/sales/DistTaxInvoice.tsx";
 import { TrainingAcademyTab } from "./components/training/TrainingAcademyTab.tsx";
 import { DevTrackerTab } from "./modules/dev_tracker/ui/DevTrackerTab.tsx";
 import { AccountingSyncTab } from "./components/AccountingSyncTab.tsx";
@@ -87,14 +87,14 @@ import { FloatingWindowHost } from "./components/FloatingWindowHost.tsx";
 import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
 import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
-import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
+import { PasswordReset } from "./components/PasswordReset.tsx";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
-import { CompanySelectionScreen } from "./components/CompanySelectionScreen.tsx";
-import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
+import { CompanySelectionScreen } from "./components/CompanySelectScree.tsx";
+import { SmritiErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
-import { SmritiSecurityManagementModal } from "./components/security/SmritiSecurityManagementModal.tsx";
+import { SecManageDlg } from "./components/security/SecManageDlg.tsx";
 import { X } from "lucide-react";
 
 interface AppNotification {
@@ -543,7 +543,7 @@ const AppContent: React.FC = () => {
       case "distributor-tax-invoice":
       case "tax-invoice-workspace":
         return (
-          <SmritiDistributorTaxInvoiceWorkspace
+          <DistTaxInvoice
             onNotification={addNotification}
             currentUser={currentUser}
           />
@@ -588,7 +588,7 @@ const AppContent: React.FC = () => {
       case "menu-access-control":
         return (
           <div className="w-full h-full flex items-center justify-center p-2">
-            <SmritiSecurityManagementModal
+            <SecManageDlg
               isOpen={true}
               onClose={() => setActiveTab("dashboard")}
               initialTab="Manage Menu Access"
@@ -598,7 +598,7 @@ const AppContent: React.FC = () => {
       case "security-configuration":
         return (
           <div className="w-full h-full flex items-center justify-center p-2">
-            <SmritiSecurityManagementModal
+            <SecManageDlg
               isOpen={true}
               onClose={() => setActiveTab("dashboard")}
               initialTab="Configuration"
@@ -636,7 +636,7 @@ const AppContent: React.FC = () => {
 
   if (currentUser.passwordResetRequired) {
     return (
-      <PasswordResetScreen
+      <PasswordReset
         onResetSuccess={() => {
           setCurrentUser((prev) => prev ? { ...prev, passwordResetRequired: false } : prev);
         }}

@@ -15,7 +15,7 @@
 
 > **SUPERSEDED ARCHITECTURE SPECIFICATION**  
 > This v1.0 document is superseded by the current canonical specification:  
-> [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)
+> [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)
 
 **Status: SUPERSEDED BY CANONICAL SPECIFICATION**  
 **Audit Timestamp:** 2026-08-15 06:00:48 UTC  

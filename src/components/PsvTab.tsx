@@ -26,7 +26,7 @@
 import React, { useState, useEffect } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { PSVParty } from "../types";
-import { computeSkuLyingWithPartner, computeSkuSellThrough } from "../services/partnerSellThroughEngine.ts";
+import { computeSkuLyingWithPartner, computeSkuSellThrough } from "../services/partnerSellThru.ts";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 
 interface PsvTabProps {

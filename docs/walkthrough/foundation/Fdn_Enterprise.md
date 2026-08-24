@@ -23,9 +23,9 @@ Centralize barcode and price label printing from the Item Master catalog. Connec
 - 3-step non-technical user interface containing: CSV worksheet parser, live pixel-perfect HTML preview block rendering, editable counts, and print history log tables.
 
 ## 3. Files Created
-- [Foundation_Enterprise_Label_Printing_Framework_v3.16.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Foundation_Enterprise_Label_Printing_Framework_v3.16.0.md) (Walkthrough)
+- [Fdn_Enterprise.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Fdn_Enterprise.md) (Walkthrough)
 - [e5f6g7h8i9j0_add_print_history.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/alembic/versions/e5f6g7h8i9j0_add_print_history.py) (Alembic Migration)
-- [LabelPrintingSection.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/LabelPrintingSection.tsx) (React UI wizard)
+- [LabelPrintingSec.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/LabelPrintingSec.tsx) (React UI wizard)
 - [test_barcode.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/test_barcode.py) (FastAPI endpoint unit tests)
 
 ## 4. Files Modified

@@ -43,8 +43,8 @@ Evolve the codebase status tracker into a built-in development intelligence dash
 - `src/modules/dev_tracker/ui/DevTrackerTab.tsx` — Live dashboard tab panel
 - `src/modules/dev_tracker/README.md` — Module documentation
 - `src/modules/dev_tracker/tests/devTracker.test.ts` — Unit test suite
-- `docs/implementation/foundation/Dev_Tracker_Implementation_Plan_v3.5.0.md` — Version-controlled plan
-- `docs/walkthrough/foundation/Foundation_Dev_Tracker_Walkthrough_v3.5.0.md` — Walkthrough file
+- `docs/implementation/foundation/Dev_Tracker_Plan.md` — Version-controlled plan
+- `docs/walkthrough/foundation/Fdn_Dev_Tracker.md` — Walkthrough file
 
 ---
 

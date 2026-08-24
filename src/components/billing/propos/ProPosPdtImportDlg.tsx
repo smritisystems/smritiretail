@@ -16,7 +16,7 @@ import React, { useState } from "react";
 import { ProPosCartItem } from "./types.ts";
 import { X, UploadCloud, FileText, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 
-interface SmritiProPosPdtImportModalProps {
+interface SmritiPdtImportDlgProps {
   onImportItems: (items: Partial<ProPosCartItem>[]) => void;
   onClose: () => void;
 }
@@ -35,7 +35,7 @@ export type TransactionImportType =
   | "Sales Advice Slip" 
   | "Service Order";
 
-export const SmritiProPosPdtImportModal: React.FC<SmritiProPosPdtImportModalProps> = ({
+export const SmritiPdtImportDlg: React.FC<SmritiPdtImportDlgProps> = ({
   onImportItems,
   onClose
 }) => {
@@ -370,4 +370,4 @@ export const SmritiProPosPdtImportModal: React.FC<SmritiProPosPdtImportModalProp
   );
 };
 
-export default SmritiProPosPdtImportModal;
+export default SmritiPdtImportDlg;

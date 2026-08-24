@@ -24,17 +24,17 @@ The purpose of this implementation is to provide a specialized, high-density, ke
 - Headless verification via automated test suites (`vitest`) and Vite production bundle builds.
 
 ## 3. Files Created
-- `src/components/sales/SmritiDistributorTaxInvoiceWorkspace.tsx`
-- `src/components/sales/components/TaxInvoiceHeaderToolbar.tsx`
-- `src/components/sales/components/TaxInvoiceDocumentPanel.tsx`
+- `src/components/sales/DistTaxInvoiceWs.tsx`
+- `src/components/sales/components/TaxInvoiceHeaderTo.tsx`
+- `src/components/sales/components/TaxInvoiceDocPanel.tsx`
 - `src/components/sales/components/TaxInvoiceItemGrid.tsx`
-- `src/components/sales/components/TaxInvoiceDirectEntryBar.tsx`
-- `src/components/sales/components/TaxInvoiceFooterTabs.tsx`
-- `src/components/sales/components/TaxInvoiceNetValuesPanel.tsx`
-- `src/components/sales/components/TaxInvoiceStatusBar.tsx`
+- `src/components/sales/components/TaxInvoiceDirectEn.tsx`
+- `src/components/sales/components/TaxInvoiceFooterTa.tsx`
+- `src/components/sales/components/TaxInvoiceNetValue.tsx`
+- `src/components/sales/components/TaxInvoiceStatusBa.tsx`
 - `src/components/sales/types.ts`
-- `src/tests/smritiDistributorTaxInvoice.test.ts`
-- `docs/walkthrough/sales/Smriti_Distributor_Tax_Invoice_Stitch_UI_v4.10.0.md`
+- `src/tests/distTaxInv.test.ts`
+- `docs/walkthrough/sales/Smriti.md`
 
 ## 4. Files Modified
 - `src/App.tsx`
@@ -44,7 +44,7 @@ The purpose of this implementation is to provide a specialized, high-density, ke
 
 ## 5. Architecture Decisions
 - **Material 3 / Fiori Horizon Hybrid Palette**: Integrated extended color tokens (`bg-surface`, `bg-surface-container-low`, `bg-primary-container`, `text-on-secondary-container`) directly into Tailwind v4 base layers.
-- **Direct Entry Rapid Input Engine**: Maintained an isolated entry state in `TaxInvoiceDirectEntryBar.tsx` allowing fast barcode scanning and automated calculation before appending rows into the document item state.
+- **Direct Entry Rapid Input Engine**: Maintained an isolated entry state in `TaxInvoiceDirectEn.tsx` allowing fast barcode scanning and automated calculation before appending rows into the document item state.
 - **Statutory Tax Alignment**: Unified back-calculation and IGST vs Intrastate tax calculation with the PostgreSQL backend ledger endpoints (`/api/v1/sales/invoices`).
 
 ## 6. Design Rationale
@@ -59,7 +59,7 @@ The Stitch design specification provides desktop ergonomics for distributor invo
 ```bash
 $ npm test
 ```
-All 42 test suites (324 individual tests) passed with zero errors, including 5 dedicated tax invoice calculation tests in `src/tests/smritiDistributorTaxInvoice.test.ts`.
+All 42 test suites (324 individual tests) passed with zero errors, including 5 dedicated tax invoice calculation tests in `src/tests/distTaxInv.test.ts`.
 
 ## 9. Verification Results
 ```bash

@@ -28,7 +28,7 @@ This walkthrough documents the successful migration of the SMRITI reporting modu
 None.
 
 ## 4. Files Modified
-- [docs/implementation/db/FastAPI_Reports_Migration_And_Governance_Update_Plan_v3.15.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/db/FastAPI_Reports_Migration_And_Governance_Update_Plan_v3.15.0.md) (Detailed bridge details and verified results)
+- [docs/implementation/db/FastAPI_Reports.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/db/FastAPI_Reports.md) (Detailed bridge details and verified results)
 - [.agents/AGENTS.md](file:///d:/IMP/GitHub/SMRITRretailNX/.agents/AGENTS.md) (Governance rules mapping the strangler-fig migration and Express freeze)
 - [backend/app/core/security.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/core/security.py) (Added legacy PBKDF2 hash support to FastAPI password checker)
 - [src/App.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/App.tsx) (Clear `smriti_jwt_token` on logout)

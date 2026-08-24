@@ -137,7 +137,7 @@ class SalesService:
         if invoice_in.is_interstate is not None:
             is_interstate = invoice_in.is_interstate
 
-        from .inventory_wms_service import InventoryWmsService
+        from .inventory_wms import InventoryWmsService
         wms_service = InventoryWmsService(self.db, self.tenant_ctx)
         warehouse_id = invoice_in.warehouse_id or "wh-central-001"
 
@@ -746,7 +746,7 @@ class SalesService:
         if not invoice:
             raise HTTPException(status_code=404, detail="Sales invoice not found")
 
-        from .inventory_wms_service import InventoryWmsService
+        from .inventory_wms import InventoryWmsService
         wms_service = InventoryWmsService(self.db, self.tenant_ctx)
         wh_id = invoice.warehouse_id or "wh-central-001"
 

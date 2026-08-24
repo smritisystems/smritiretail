@@ -13,14 +13,14 @@
 
 import { describe, it, expect } from "vitest";
 import { itemMasterConfig } from "../components/global/configs/itemMaster.config.tsx";
-import { customerMasterConfig } from "../components/global/configs/customerMaster.config.tsx";
-import { supplierMasterConfig } from "../components/global/configs/supplierMaster.config.tsx";
+import { customerMasterConfig } from "../components/global/configs/customerMaster.con.tsx";
+import { supplierMasterConfig } from "../components/global/configs/supplierMaster.con.tsx";
 import { staffMasterConfig } from "../components/global/configs/staffMaster.config.tsx";
-import { documentSeriesConfig } from "../components/global/configs/documentSeries.config.tsx";
+import { documentSeriesConfig } from "../components/global/configs/documentSeries.con.tsx";
 import { termsEngineConfig } from "../components/global/configs/termsEngine.config.tsx";
 import { posProfilesConfig } from "../components/global/configs/posProfiles.config.tsx";
-import { masterLookupConfig } from "../components/global/configs/masterLookup.config.tsx";
-import { approvalMatrixConfig } from "../components/global/configs/approvalMatrix.config.tsx";
+import { masterLookupConfig } from "../components/global/configs/masterLookup.confi.tsx";
+import { approvalMatrixConfig } from "../components/global/configs/approvalMatrix.con.tsx";
 
 describe("Item Master Server-Side Pagination Isolation & Configuration", () => {
   it("should enable serverPagination ONLY on Item Master", () => {

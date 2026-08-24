@@ -103,7 +103,7 @@ try {
     "DATABASE_STATUS.md",
     "API_STATUS.md",
     "TEST_STATUS.md",
-    "DOCUMENTATION_STATUS.md",
+    "DOCUMENTATION.md",
     "SECURITY_STATUS.md",
     "TECHNICAL_DEBT.md",
     "BUG_TRACKER.md",

@@ -39,25 +39,25 @@
 
 | Document | Classification | Topic | Status |
 |---|---|---|---|
-| SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md | CANONICAL | Multi-company DB naming/topology | CURRENT |
-| SMRITISYS_DATABASE_IDENTITY_AUDIT_v1.0.md | CANONICAL | smritisys identity audit | CURRENT |
-| SMRITI_COMPANY_DATABASE_PROVISIONING_ENGINE_v1.0.md | CANONICAL | Provisioning engine spec | CURRENT |
-| SMRITI_COMPANY_DATABASE_LIFECYCLE_v1.0.md | CANONICAL | Lifecycle state machine | CURRENT |
-| SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md | CANONICAL | Routing security invariants | CURRENT |
-| SMRITI_CONTROL_PLANE_AUDIT_v1.0.md | CANONICAL | Control plane 248-table audit | CURRENT |
-| SMRITI_CONFIGURATION_OWNERSHIP_MATRIX_v1.0.md | CANONICAL | Config ownership 25-area matrix | CURRENT |
-| SMRITI_COMPANY_CONTROL_CENTER_v1.0.md | CANONICAL | Control center spec | CURRENT |
-| SMRITI_COMPANY_CONTROL_CENTER_E2E_v1.0.md | CANONICAL | E2E test plan | CURRENT |
-| SMRITI_COMPANY_ONBOARDING_PRODUCTION_READINESS_v1.0.md | REFERENCE | Onboarding checklist | CURRENT |
-| SMRITI_COMP001_PRODUCTION_READINESS_v1.0.md | REFERENCE | Company 001 readiness | CURRENT |
-| SMRITI_COMPANY_001_FUNCTIONAL_READINESS_v1.0.md | REFERENCE | Functional readiness | CURRENT |
-| SMRITI_CONTROL_PLANE_BOUNDARY_v1.0.md | CANONICAL | Control plane boundary rules | CURRENT |
-| SMRITI_CONTROL_PLANE_MIGRATION_PLAN_v1.0.md | REFERENCE | Migration plan | CURRENT |
-| SMRITI_DEVELOPMENT_HEALTH_INDEX_RECONCILIATION_v3.25.0.md | REFERENCE | DHI reconciliation | CURRENT |
-| PRODUCT_IDENTITY_ENGINE.md | CANONICAL | Product Identity Engine | CURRENT |
-| PRODUCT_IDENTITY_ENGINE_API_SPEC.md | CANONICAL | PIE API spec | CURRENT |
-| PLATFORM_ADAPTER_RULES.md | REFERENCE | Platform adapter rules | CURRENT |
-| PLATFORM_MICROSERVICES_ROADMAP.md | REFERENCE | Microservices roadmap | REFERENCE |
+| MULTI_COMPANY.md | CANONICAL | Multi-company DB naming/topology | CURRENT |
+| SMRITISYS.md | CANONICAL | smritisys identity audit | CURRENT |
+| COMPANY_DATABASE.md | CANONICAL | Provisioning engine spec | CURRENT |
+| COMPANY_DATABASE_2.md | CANONICAL | Lifecycle state machine | CURRENT |
+| DATABASE_ROUTING.md | CANONICAL | Routing security invariants | CURRENT |
+| CONTROL_PLANE_2_3.md | CANONICAL | Control plane 248-table audit | CURRENT |
+| CONFIGURATION.md | CANONICAL | Config ownership 25-area matrix | CURRENT |
+| COMPANY_CONTROL_2.md | CANONICAL | Control center spec | CURRENT |
+| COMPANY_CONTROL.md | CANONICAL | E2E test plan | CURRENT |
+| COMPANY.md | REFERENCE | Onboarding checklist | CURRENT |
+| COMP001.md | REFERENCE | Company 001 readiness | CURRENT |
+| COMPANY_001.md | REFERENCE | Functional readiness | CURRENT |
+| CONTROL_PLANE_2.md | CANONICAL | Control plane boundary rules | CURRENT |
+| CONTROL_PLANE.md | REFERENCE | Migration plan | CURRENT |
+| DEVELOPMENT.md | REFERENCE | DHI reconciliation | CURRENT |
+| PRODUCT_IDENTITY_13.md | CANONICAL | Product Identity Engine | CURRENT |
+| PRODUCT_IDENTITY__6.md | CANONICAL | PIE API spec | CURRENT |
+| PLATFORM_ADAPTER.md | REFERENCE | Platform adapter rules | CURRENT |
+| PLATFORM_2.md | REFERENCE | Microservices roadmap | REFERENCE |
 | README.md | REFERENCE | Architecture README | CURRENT |
 | GLOSSARY.md | REFERENCE | Architecture glossary | CURRENT |
 | (remaining 26 files) | REFERENCE/CANONICAL | Various topics | CURRENT |
@@ -68,9 +68,9 @@
 
 | Document | Classification | Topic | Status |
 |---|---|---|---|
-| SMRITI_ERP_AUDIT_REPORT.md | HISTORICAL | ERP audit | UNKNOWN |
-| SMRITI_INTERNAL_ROLE_DASHBOARDS_AUDIT.md | REFERENCE | Role dashboard audit | CURRENT |
-| CONSIGNMENT_AUDIT_REPORT.md | REFERENCE | Consignment module audit | CURRENT |
+| SMRITI_ERP_AUDIT.md | HISTORICAL | ERP audit | UNKNOWN |
+| INTERNAL_ROLE.md | REFERENCE | Role dashboard audit | CURRENT |
+| CONSIGNMENT_AUDIT.md | REFERENCE | Consignment module audit | CURRENT |
 
 ---
 
@@ -78,7 +78,7 @@
 
 | Document | Classification | Topic | Status |
 |---|---|---|---|
-| SMRITI_MULTI_DB_PLATFORM_ARCHITECTURE_V1.1.md | CANONICAL | Multi-DB platform plan | CURRENT |
+| MULTI_DB_PLATFORM.md | CANONICAL | Multi-DB platform plan | CURRENT |
 | CONSOLIDATED_PLANS.md | REFERENCE | Merged plans | CURRENT |
 | (additional per area) | REFERENCE | Various | CURRENT |
 
@@ -89,10 +89,10 @@
 Organized under: foundation/, inventory/, pos/, procurement/, purchase/, reports/, sales/, security/, user_guide/
 
 Key walkthroughs relevant to this audit:
-- Foundation_Multi_Company_Assignment_And_Tenant_Isolation_v3.22.0.md
-- System_Master_Barcode_Refactor_v3.28.0.md
-- Company_Control_Center_Security_Hardening_v1.0.md
-- Menu_Management_Governance_v1.0.md
+- Fdn_Multi_Company.md
+- System_Master.md
+- Company_Control.md
+- Menu_Mgmt_Gov_v1.0.md
 
 ---
 
@@ -100,10 +100,10 @@ Key walkthroughs relevant to this audit:
 
 | Document | Classification | Status |
 |---|---|---|
-| SMRITI_MODULE_INVENTORY.md | REFERENCE | CURRENT |
-| SMRITI_GLOBAL_UX_CERTIFICATION.md | REFERENCE | CURRENT |
-| SMRITI_RUNTIME_E2E_RESULTS.md | REFERENCE | CURRENT |
-| SMRITI_RUNTIME_DATABASE_VERIFICATION.md | REFERENCE | CURRENT |
+| MODULE_INVENTORY.md | REFERENCE | CURRENT |
+| GLOBAL_UX.md | REFERENCE | CURRENT |
+| RUNTIME_E2E.md | REFERENCE | CURRENT |
+| RUNTIME_DATABASE.md | REFERENCE | CURRENT |
 | HOME.md | REFERENCE | CURRENT |
 | (remaining 16) | REFERENCE | CURRENT |
 

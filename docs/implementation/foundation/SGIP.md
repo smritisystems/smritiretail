@@ -48,8 +48,8 @@ Design and implement the SMRITI Government Integration Platform (SGIP) complianc
 ### ✅ Milestone 0 — Architecture Freeze (COMPLETE — verified)
 * **Goal**: Establish architecture principles, folder structures, and connector contracts.
 * **Deliverables** (confirmed present in repository):
-  * `docs/implementation/foundation/SGIP_PRODUCT_CONSTITUTION_v1.0.md`
-  * `docs/architecture/decisions/SGIP_ADR_001_Compliance_Architecture.md`
+  * `docs/implementation/foundation/SGIP_PRODUCT.md`
+  * `docs/architecture/decisions/SGIP_ADR_001.md`
 
 ### ⬜ Milestone 1 — Compliance Foundation (THIS PLAN)
 * **Goal**: Build database layer, credentials vault, registry, abstract connector, schemas, and unit tests.
@@ -310,7 +310,7 @@ backend/app/
         ├── __init__.py
         ├── fixtures/
         │   └── manifest.example.yaml     ← NEW, see §10.1
-        └── test_compliance_foundation.py
+        └── test_compliance_fou.py
 ```
 
 ### 10.1 Required test fixture (NEW — closes prior gap)

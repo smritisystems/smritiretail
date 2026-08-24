@@ -30,10 +30,10 @@ from app.models.psv import PSVParty, PSVPartySkuTracking, PSVStockEvent, PSVStoc
 from app.models.inventory import Product, StockMovement
 from app.models.crm import Customer
 from app.models.sync import POSOfflineSyncQueue
-from app.services.commercial_growth_service import CommercialGrowthEngine
-from app.services.pdt_analytics_service import PdtAnalyticsService
-from app.services.offline_sync_service import OfflineSyncService
-from app.services.psv_projection_service import PSVProjectionService
+from app.services.commercial_growth import CommercialGrowthEngine
+from app.services.pdt_analytics import PdtAnalyticsService
+from app.services.offline_sync_svc import OfflineSyncService
+from app.services.psv_projection import PSVProjectionService
 
 
 @pytest.fixture

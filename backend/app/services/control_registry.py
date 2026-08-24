@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..models.company_database_registry import CompanyDatabaseRegistry
+from ..models.company_registry import CompanyDatabaseRegistry
 from ..models.tenant import Company
 from ..db.provisioning import sanitize_company_db_name
 

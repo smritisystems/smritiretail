@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import pytest
 import psycopg2
 from fastapi import HTTPException
-from app.services.company_database_resolver import CompanyDatabaseResolver
+from app.services.db_resolver import CompanyDatabaseResolver
 
 CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
 

@@ -5,8 +5,8 @@
   Owner: Security & Architecture
   Reviewers: Product, Engineering, Compliance
   Last Updated: 2026-07-18
-  Dependencies: PRODUCT_IDENTITY_ENGINE_API_SPEC.md
-  Related Documents: PRODUCT_IDENTITY_ENGINE_CONFIGURATION.md, PRODUCT_IDENTITY_ENGINE_ERRORS.md
+  Dependencies: PRODUCT_IDENTITY__6.md
+  Related Documents: PRODUCT_IDENTITY_2.md, PRODUCT_IDENTITY_10.md
   Change History:
     - v1.0 2026-07-18 Created.
 -->

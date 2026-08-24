@@ -30,7 +30,7 @@ This document is the authoritative implementation tracker for the frozen bluepri
 | **Control Plane `smritisys`** | **Verified** | Reference data, localization, capability catalog, vertical workspace profiles, themes, and platform registries (`v1361`, `v1362`). |
 | **Tenant Databases `smritiXXX`** | **Verified** | Physical database separation, dynamic routing via `get_company_db`, ephemeral tenant lifecycle (`smriti001`, `smriti002`). |
 | **Multi-Tenant Dual Engine Routing** | **Verified** | Operational routes depend on `get_company_db`, fail-closed tenant validation, zero credential leakage in resolver responses. |
-| **Credential Exposure Prevention & Production Hardening** | **Verified** | Resolver output excludes connection URLs; dynamic connection resolvers bind environment variables (`POSTGRES_USER`, `POSTGRES_PASSWORD`); production startup mode enforces fail-closed rejection of default `postgres:postgres` credentials, default JWT secrets, and default internal keys (`test_production_security_hardening.py`). |
+| **Credential Exposure Prevention & Production Hardening** | **Verified** | Resolver output excludes connection URLs; dynamic connection resolvers bind environment variables (`POSTGRES_USER`, `POSTGRES_PASSWORD`); production startup mode enforces fail-closed rejection of default `postgres:postgres` credentials, default JWT secrets, and default internal keys (`t_prod_sec.py`). |
 | **Universal Party Master** | **Partial** | **Named Gap:** Polymorphic backend schema (`parties`, `party_roles`, `customer_profiles`, `supplier_profiles`) and migration `v1364` are live and verified, but frontend client UI still accesses separate customer and supplier contract endpoints. |
 | **Universal Item Master** | **Partial** | **Named Gap:** Universal item schema (`items`, `item_variants`, `item_barcodes`) and `v1364` migration are live and verified; existing product endpoints alias to items, but dynamic attribute matrix studio UI is not unified across frontend views. |
 | **Shared Pricing Engine & Volume Breaks** | **Verified** | 4-tier hierarchical price book resolution, customer price tiers, and quantity volume break calculation (`pricing_engine.py`). |
@@ -41,12 +41,12 @@ This document is the authoritative implementation tracker for the frozen bluepri
 | **Transaction Reproducibility** | **Verified** | Permanent immutable version snapshotting (`rule_snapshots`, `governance_snapshot_id`) on all sales/POS/distribution orders (`v1364`). |
 | **Warehouse & Distribution Core** | **Verified** | Sales territories, dealer assignments, primary/secondary distribution orders, Rule 55 Delivery Challans (`v1365`). |
 | **Partner Stock Visibility (PSV)** | **Partial** | **Named Gap:** PSV projection service and balance accumulation exist in PostgreSQL; live cross-enterprise sync and inter-company encryption are pending. |
-| **Commercial Growth Engine (CGE)** | **Partial** | **Named Gap:** Multi-tier loyalty progression, coupon rules, referral ledgers, and commission postings exist in `commercial_growth_service.py` (`v1366`); external SMS/WhatsApp notification delivery relies on scaffolding. |
+| **Commercial Growth Engine (CGE)** | **Partial** | **Named Gap:** Multi-tier loyalty progression, coupon rules, referral ledgers, and commission postings exist in `commercial_growth.py` (`v1366`); external SMS/WhatsApp notification delivery relies on scaffolding. |
 | **Predictive Distribution Twin (PDT)** | **Partial** | **Named Gap:** Deterministic PostgreSQL transactional running velocity, days-of-stock-cover, and reorder point simulations exist (`v1366`); machine learning / AI forecasting stays intentionally unimplemented per Rule 3 until real transaction volume exists. |
-| **Offline-First Operation & Sync Queue** | **Verified** | 5-Tier domain-driven conflict resolution engine (`offline_conflict_resolution_engine.py`), structured sync contracts (`schemas/sync.py`), Store Manager Reconciliation Queue (`/api/v1/sync/reconciliation-queue`), price-at-sale preservation, versioned rule snapshot binding. Scenario tests (`test_offline_conflict_resolution_scenarios.py`) verify sequential decision logic. Genuine concurrent soak tests (`test_offline_conflict_resolution_concurrent_soak.py`) confirm atomicity under `asyncio.gather`: 5-terminal oversell enforces stock=2 boundary (ACCEPTED=2, ACCEPTED_WARN=3), 8-way retry storm produces exactly 1 POST + 7 DEDUPLICATED, 5-terminal HTTP concurrent enforces stock=3 boundary, 20-cycle rolling load completes 40/40 with 0 errors. Stock check uses `SELECT FOR UPDATE` row lock; customer upsert uses `INSERT ON CONFLICT DO NOTHING`; session rollback pattern handles concurrent uniqueness violations. |
+| **Offline-First Operation & Sync Queue** | **Verified** | 5-Tier domain-driven conflict resolution engine (`conflict_engine.py`), structured sync contracts (`schemas/sync.py`), Store Manager Reconciliation Queue (`/api/v1/sync/reconciliation-queue`), price-at-sale preservation, versioned rule snapshot binding. Scenario tests (`t_conflict_res.py`) verify sequential decision logic. Genuine concurrent soak tests (`t_soak_conflict.py`) confirm atomicity under `asyncio.gather`: 5-terminal oversell enforces stock=2 boundary (ACCEPTED=2, ACCEPTED_WARN=3), 8-way retry storm produces exactly 1 POST + 7 DEDUPLICATED, 5-terminal HTTP concurrent enforces stock=3 boundary, 20-cycle rolling load completes 40/40 with 0 errors. Stock check uses `SELECT FOR UPDATE` row lock; customer upsert uses `INSERT ON CONFLICT DO NOTHING`; session rollback pattern handles concurrent uniqueness violations. |
 | **Transactional Outbox Engine** | **Verified** | Consolidated outbox (`integration_outbox_events`), 2-phase non-blocking dispatch (`SKIP LOCKED`), exponential retry, DLQ (`v1342`). |
-| **Analytics & Intelligence Plane** | **Verified** | Downstream materialized daily sales facts (`analytics_daily_sales_facts`), category margin rollups, velocity endpoints, PostgreSQL advisory lock-guarded background scheduler daemon (`analytics_daemon_service.py`), and verified test suite (`test_analytics_daemon_and_rollup.py`). |
-| **Compliance & TallyPrime Hub** | **Verified** | Standard Tally XML DTD envelopes for Sales Invoices and Journal Vouchers (`tally_integration_service.py`). |
+| **Analytics & Intelligence Plane** | **Verified** | Downstream materialized daily sales facts (`analytics_daily_sales_facts`), category margin rollups, velocity endpoints, PostgreSQL advisory lock-guarded background scheduler daemon (`analytics_daemon.py`), and verified test suite (`t_daemon_rollup.py`). |
+| **Compliance & TallyPrime Hub** | **Verified** | Standard Tally XML DTD envelopes for Sales Invoices and Journal Vouchers (`tally_service.py`). |
 | **Immutable Compliance Audit** | **Verified** | Tamper-evident regulatory audit trail (`compliance_immutable_audit_logs`) with cryptographic SHA-256 event checksums (`v1367`). |
 | **Production Readiness & Go-Live Certification** | **Partial** | **Named Gap:** Ephemeral tenant clean-slate provisioning and 15-suite regression (120 tests) pass in local environment; live production load testing, physical thermal hardware printing (Zebra/TSC), and NIC/GSTN live sandbox sign-offs remain physical operational gates. |
 | **UI/Experience Engine — Full Scope (§11)** | **Verified** | `smriti_themes`, `smriti_theme_variants`, `smriti_workspace_profiles` (`v1362`). `screen_definitions`, `field_definitions`, `action_definitions`, `layout_definitions`, `icon_registry` created in smritisys via `v1368_ui_experience_engine` (2026-08-24). Seeded: 36 icons, 6 layout templates, 5 canonical screens (POS Billing, Sales Invoice List, Purchase Order List, Inventory Dashboard, Party Master List), 18 toolbar+row actions. ORM: 5 model classes in `ui_control_plane.py`. API: 4 Control Plane read endpoints (`GET /ui/screens`, `/fields`, `/actions`, `/icons`). Mechanism: `ControlPlaneSeeder.seed_icon_registry()`, `seed_layout_definitions()`, `seed_screen_definitions()`, `seed_action_definitions()` — all table-existence-guarded via `SELECT to_regclass()`. |
@@ -70,11 +70,11 @@ This document is the authoritative implementation tracker for the frozen bluepri
 ### Milestone 3: Distribution, CGE & Offline Queue (Verified Baseline, Operational Testing Partial)
 - Distribution territories, dealer allocations, primary/secondary orders, delivery challans (`v1365`).
 - Durable offline sync queue (`pos_offline_sync_queue`) with state machine transitions (`v1366`).
-- PDT deterministic velocity and reorder point simulations (`pdt_analytics_service.py`).
+- PDT deterministic velocity and reorder point simulations (`pdt_analytics.py`).
 
 ### Milestone 4: Analytics Plane, Tally Integration & Compliance Audit (Verified Baseline)
 - Downstream fact table (`analytics_daily_sales_facts`) and category profitability margins (`v1367`).
-- TallyPrime XML export for B2B invoices and GL journal vouchers (`tally_integration_service.py`).
+- TallyPrime XML export for B2B invoices and GL journal vouchers (`tally_service.py`).
 - Cryptographic SHA-256 tamper-evident compliance audit trail (`v1367`).
 
 ---
@@ -106,11 +106,11 @@ This document is the authoritative implementation tracker for the frozen bluepri
 
 ## Milestone 7: Multi-Tenant Sales Contract & Workspace Themes Remediation (2026-08-24)
 
-- **Sales Invoice Contract Suite:** 10/10 tests green (`test_sales_invoice_contract_suite.py`).
+- **Sales Invoice Contract Suite:** 10/10 tests green (`t_sales_contract.py`).
   - **Named Mechanisms:** Multi-tenant connection routing via `resolve_company_database_name()`, fail-closed registration lookup, cross-tenant isolation, FEFO batch stock allocation via `InventoryWmsService.allocate_stock_fefo()`, double-submit idempotency key cache.
   - **Tenant Database:** `smriti002` provisioned, schema migrated to `v1370_tcb_status (head)`, registered in `smritisys.company_database_registries` as `COMP-002` (`status=READY`).
   - **Schema Correction:** `SalesInvoiceBase.is_interstate` normalized to `Optional[bool]` to prevent response serialization failures on legacy rows.
-- **Workspace Menu & Themes Suite:** 6/6 tests green (`test_workspace_menu_and_ui_registry.py`).
+- **Workspace Menu & Themes Suite:** 6/6 tests green (`t_menu_registry.py`).
   - **Named Mechanisms:** Control Plane `seed_platform_company()` inserts `comp-default` into `smritisys.companies` to satisfy `smriti_themes` FK constraint; persona profile resolution for `CASHIER`, `STORE_MANAGER`, `ACCOUNTANT`, `SYSADMIN`.
 - **Suite Metrics:** Full suite advanced from 418 passed / 35 failed to **435 passed / 18 failed** across 456 tests. Commit: `a7169c08`.
 
@@ -129,18 +129,18 @@ All 25 rules verified by source code and migration file inspection on 2026-08-24
 | 06 | Capabilities → smritisys | `platform_capabilities` seeded in smritisys by `ControlPlaneSeeder` |
 | 07 | Menu metadata → smritisys | `menu.py` model attributed to smritisys |
 | 08 | Formula/Rule/Policy/Workflow → smritisys | `v1363`, `governed_logic.py` models |
-| 09 | No executable code in smritisys | Definitions stored as JSONB AST; executed by `governed_rule_engine.py` |
+| 09 | No executable code in smritisys | Definitions stored as JSONB AST; executed by `governed_rules.py` |
 | 10 | smriti-api = execution layer | FastAPI at `/api/v1/*` is sole execution layer |
 | 11 | Master data ≠ transactional truth | `parties`/`items` are masters; `stock_movements`/`sales_invoices` are ledger truth |
 | 12 | Stock ledger authoritative | `stock_movements` authoritative per `v1339` migration |
 | 13 | Financial ledgers authoritative | `general_ledger_entries`, balance invariant enforced (`v1343`) |
-| 14 | PSV is visibility only | `psv_projection_service.py` is projection layer, not ledger |
-| 15 | PDT is predictive, not transactional | `pdt_analytics_service.py` is analytics only |
+| 14 | PSV is visibility only | `psv_projection.py` is projection layer, not ledger |
+| 15 | PDT is predictive, not transactional | `pdt_analytics.py` is analytics only |
 | 16 | CGE ≠ core sales/accounting | CGE is commercial layer; GL is separate |
 | 17 | eCommerce = capability, not separate DB | `ecom.py` routes to same smritiXXX company DB |
 | 18 | POS = capability, not separate DB | `pos.py` routes to same smritiXXX company DB |
-| 19 | Distribution = capability | `distribution_service.py` routes to smritiXXX |
-| 20 | Warehouse = capability | `inventory_wms_service.py` routes to smritiXXX |
+| 19 | Distribution = capability | `distribution_svc.py` routes to smritiXXX |
+| 20 | Warehouse = capability | `inventory_wms.py` routes to smritiXXX |
 | 21 | Shared engines across capabilities | Pricing, Party, Item, Payment, GST, Document all shared |
 | 22 | Templates configure, not transact | `WorkspaceTemplate` is definition only |
 | 23 | Version all governed metadata | `(code, version)` unique constraint on all governed tables |

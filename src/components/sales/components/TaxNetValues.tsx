@@ -14,7 +14,7 @@
 
 import React from "react";
 
-export interface TaxInvoiceNetValuesPanelProps {
+export interface TaxNetValuessPanelProps {
   salesValue: number;
   discountValue: number;
   taxValue: number;
@@ -23,7 +23,7 @@ export interface TaxInvoiceNetValuesPanelProps {
   netAmount: number;
 }
 
-export const TaxInvoiceNetValuesPanel: React.FC<TaxInvoiceNetValuesPanelProps> = ({
+export const TaxNetValues: React.FC<TaxNetValuessPanelProps> = ({
   salesValue,
   discountValue,
   taxValue,

@@ -14,7 +14,7 @@
 # SMRITI RETAIL OS ? 179 NON-COMPANYDB PRESERVED / RESIDUAL TABLES CLASSIFICATION
 
 **Audit Scope:** 179 Non-CompanyDB Physical Base Tables Preserved in `smritisys`  
-**Governance Directive:** [`docs/AI_AGENT_ARCHITECTURE_RULES.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT_ARCHITECTURE_RULES.md) (Rule 1, Rule 9, Rule 10)  
+**Governance Directive:** [`docs/AI_AGENT.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT.md) (Rule 1, Rule 9, Rule 10)  
 **Safety Protocol:** NO DROP, NO TRUNCATE, NO DESTRUCTIVE MIGRATION  
 **Date:** 2026-08-17  
 **Official Status:** **`PRESERVED NON-OPERATIONAL RESIDUE / RUNTIME WRITES: EXACTLY 0`**
@@ -81,7 +81,7 @@ ACTIVE RUNTIME WRITES       : EXACTLY 0 (Verified by live runtime audit)
 | 34 | `document_number_series` | 0 | 0 code refs | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`SCAFFOLDING`** | Empty scaffolding preserved from initial architecture. |
 | 35 | `document_posting_profiles` | 0 | 0 code refs | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`SCAFFOLDING`** | Empty scaffolding preserved from initial architecture. |
 | 36 | `document_workflows` | 0 | 0 code refs | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`SCAFFOLDING`** | Empty scaffolding preserved from initial architecture. |
-| 37 | `eway_bills` | 0 | `backend\tests\test_eway_bill_dispatch.py` | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`OTHER_PRESERVED_RESIDUE`** | Preserved residue. |
+| 37 | `eway_bills` | 0 | `backend\tests\t_eway_dispatch.py` | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`OTHER_PRESERVED_RESIDUE`** | Preserved residue. |
 | 38 | `financial_year` | 0 | `backend\app\models\numbering.py` | Yes | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`LEGACY`** | Legacy prototype model; superseded by Company DB operational tables. |
 | 39 | `fiscal_periods` | 0 | 0 code refs | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`SCAFFOLDING`** | Empty scaffolding preserved from initial architecture. |
 | 40 | `fulfillment_waves` | 0 | 0 code refs | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`SCAFFOLDING`** | Empty scaffolding preserved from initial architecture. |
@@ -207,7 +207,7 @@ ACTIVE RUNTIME WRITES       : EXACTLY 0 (Verified by live runtime audit)
 | 160 | `supplier_scorecard_metrics` | 0 | 0 code refs | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`SCAFFOLDING`** | Empty scaffolding preserved from initial architecture. |
 | 161 | `supplier_scorecards` | 0 | 0 code refs | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`SCAFFOLDING`** | Empty scaffolding preserved from initial architecture. |
 | 162 | `supplier_tax_profiles` | 0 | 0 code refs | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`SCAFFOLDING`** | Empty scaffolding preserved from initial architecture. |
-| 163 | `sync_queue` | 0 | `src\db\postgres\PostgresRepositories.ts` | Yes | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`MIGRATION_ONLY`** | Alembic historical migration reference. |
+| 163 | `sync_queue` | 0 | `src\db\postgres\PgRepos.ts` | Yes | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`MIGRATION_ONLY`** | Alembic historical migration reference. |
 | 164 | `system_bootstrap_states` | 0 | 0 code refs | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`SCAFFOLDING`** | Empty scaffolding preserved from initial architecture. |
 | 165 | `system_configs` | 0 | `backend\app\models\system.py` | Yes | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`LEGACY`** | Legacy prototype model; superseded by Company DB operational tables. |
 | 166 | `tally_configs` | 0 | `backend\app\models\system.py` | None | RUNTIME ACTIVITY NOT DIRECTLY OBSERVED | 0 RUNTIME WRITES | **`LEGACY`** | Legacy prototype model; superseded by Company DB operational tables. |

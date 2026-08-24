@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_company_db, get_tenant_context, TenantContext
-from ...services.analytical_intelligence_service import AnalyticalIntelligenceService
+from ...services.analytics_svc import AnalyticalIntelligenceService
 
 router = APIRouter()
 
@@ -114,7 +114,7 @@ async def trigger_analytics_daemon_cycle(
     """
     Manually triggers the background analytics aggregation cycle for the current tenant.
     """
-    from ...services.analytics_daemon_service import AnalyticsDaemonService
+    from ...services.analytics_daemon import AnalyticsDaemonService
     from ...db.session import resolve_company_database_name
     db_name = await resolve_company_database_name(tenant_ctx.company_id)
     result = await AnalyticsDaemonService.run_tenant_rollup_cycle(

@@ -13,7 +13,7 @@
  */
 
 import React from "react";
-import { SmritiCustomerMasterWorkspace } from "./customer/SmritiCustomerMasterWorkspace.tsx";
+import { CustMasterWs } from "./customer/CustMasterWs.tsx";
 
 export interface CustomerMasterTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -22,7 +22,7 @@ export interface CustomerMasterTabProps {
 
 export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUser, onNotification }) => {
   return (
-    <SmritiCustomerMasterWorkspace
+    <CustMasterWs
       currentUser={currentUser}
       onNotification={onNotification}
     />

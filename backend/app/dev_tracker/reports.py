@@ -176,7 +176,7 @@ Security: {sec_bar}
         status = "Fully covered with assertions" if m["unitTestsComplete"] else "No test suite found"
         test_status_md += f"| {m['name']} | {ut} | {it} | {status} |\n"
 
-    # DOCUMENTATION_STATUS.md
+    # DOCUMENTATION.md
     documentation_status_md = f"# Documentation Status Sheet\n\n*Generated: {res['timestamp']}*\n\n"
     documentation_status_md += "| Module | Docs Present | Recommendation |\n| :--- | :---: | :--- |\n"
     for m in res["modules"]:
@@ -250,7 +250,7 @@ Security: {sec_bar}
         "DATABASE_STATUS.md": database_status_md,
         "API_STATUS.md": api_status_md,
         "TEST_STATUS.md": test_status_md,
-        "DOCUMENTATION_STATUS.md": documentation_status_md,
+        "DOCUMENTATION.md": documentation_status_md,
         "SECURITY_STATUS.md": security_status_md,
         "TECHNICAL_DEBT.md": technical_debt_md,
         "BUG_TRACKER.md": bug_tracker_md,

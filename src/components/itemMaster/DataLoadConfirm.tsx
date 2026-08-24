@@ -15,13 +15,13 @@
 import React from "react";
 import { HelpCircle, Database, Filter, Check, X } from "lucide-react";
 
-interface SmritiDataLoadingConfirmationModalProps {
+interface SmritiDataLoadConfirmationModalProps {
   isOpen: boolean;
   onConfirm: (loadAll: boolean) => void;
   totalRecordsCount: number;
 }
 
-export const SmritiDataLoadingConfirmationModal: React.FC<SmritiDataLoadingConfirmationModalProps> = ({
+export const DataLoadConfirm: React.FC<SmritiDataLoadConfirmationModalProps> = ({
   isOpen,
   onConfirm,
   totalRecordsCount
@@ -75,4 +75,4 @@ export const SmritiDataLoadingConfirmationModal: React.FC<SmritiDataLoadingConfi
   );
 };
 
-export default SmritiDataLoadingConfirmationModal;
+export default DataLoadConfirm;

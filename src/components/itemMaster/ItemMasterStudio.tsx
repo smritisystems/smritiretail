@@ -54,7 +54,7 @@ interface ParsedRowData {
   isSkipped?: boolean;
 }
 
-export const SmritiItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
+export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   onRefreshProducts,
   onNotification,
   currentUser,
@@ -670,4 +670,4 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
   );
 };
 
-export default SmritiItemMasterStudio;
+export default ItemMasterStudio;

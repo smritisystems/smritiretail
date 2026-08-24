@@ -91,5 +91,5 @@ assistant.ts FastAPI stub, targeting v3.21.0.
 - ADR-003: Workflow as Core Service (Phase 4B)
 
 ## 14. Related Walkthroughs (previous phases)
-- MC2_Phase4A_URL_Contract_Alignment_v3.19.0.md
-- MC2_Phase4B_New_Endpoints_v3.19.1.md
+- MC2_Phase4A_URL.md
+- MC2_Phase4B_New.md

@@ -21,18 +21,18 @@ Complete the visual refactor for the remaining application workspaces (**Barcode
 
 ## 2. Scope
 - **BarcodeStudioTab.tsx**: Barcode studio sidebar navigation container, barcode master registry, scanner console, generator view, engine settings, and read-only banner.
-- **LabelPrintingSection.tsx**: Thermal label designer header, PRN/ZPL script template generator, and printer connection configuration.
+- **LabelPrintingSec.tsx**: Thermal label designer header, PRN/ZPL script template generator, and printer connection configuration.
 - **DocumentSeriesTab.tsx**: Atomic number series subheader, prefix/suffix builder, concurrency simulator, and audit log history.
-- **MasterManagementTab.tsx**: Dynamic schema-driven master management console, lookup types category list, search bar, and item editor modal.
+- **MasterMgmtTab.tsx**: Dynamic schema-driven master management console, lookup types category list, search bar, and item editor modal.
 
 ## 3. Files Created
-- `docs/walkthrough/foundation/System_Master_Barcode_Refactor_v3.28.0.md`
+- `docs/walkthrough/foundation/System_Master.md`
 
 ## 4. Files Modified
 - `src/components/BarcodeStudioTab.tsx`
-- `src/components/LabelPrintingSection.tsx`
+- `src/components/LabelPrintingSec.tsx`
 - `src/components/DocumentSeriesTab.tsx`
-- `src/components/MasterManagementTab.tsx`
+- `src/components/MasterMgmtTab.tsx`
 - `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions

@@ -18,21 +18,21 @@
 To ensure transactional data integrity and stock ledger consistency across SMRITI Retail OS by locking Stock Number (SKU/Code) and Barcode as immutable identifiers when editing existing products in the Item Master workspace and master drawer forms, while preserving full editability for all other core and dynamic product attributes.
 
 ## 2. Scope
-- **Item Master Matrix Grid (`SmritiItemDetailsGrid.tsx`)**: Enforce `readOnly` and disabled cursor styling on SKU and Barcode columns when `activeMode === "edit"`.
-- **Item Master Classic View (`SmritiItemDetailsGrid.tsx`)**: Enforce `readOnly` and disabled styling on Stock No and Barcode inputs during single-record editing.
+- **Item Master Matrix Grid (`ItemDetGrid.tsx`)**: Enforce `readOnly` and disabled cursor styling on SKU and Barcode columns when `activeMode === "edit"`.
+- **Item Master Classic View (`ItemDetGrid.tsx`)**: Enforce `readOnly` and disabled styling on Stock No and Barcode inputs during single-record editing.
 - **Global Master Form Drawer (`MasterFormDrawer.tsx`)**: Propagate `isEdit` boolean into field `disabled` condition callbacks.
 - **Item Master Config (`itemMaster.config.tsx`)**: Configure `code` and `barcode` fields as `disabled: (_form, isEdit) => Boolean(isEdit)`.
-- **Automated Test Suite (`itemMasterTacticalGrid.test.ts`)**: Add Section 7 unit tests to verify edit mode immutability for SKU/Barcode and editability for all other retail attributes.
+- **Automated Test Suite (`itemGrid.test.ts`)**: Add Section 7 unit tests to verify edit mode immutability for SKU/Barcode and editability for all other retail attributes.
 
 ## 3. Files Created
-- `docs/walkthrough/inventory/Inventory_ItemMaster_NonEditable_Sku_Barcode_Enforcement_v6.1.0.md`
+- `docs/walkthrough/inventory/Inv_ItemMaster.md`
 
 ## 4. Files Modified
-- `src/components/itemMaster/SmritiItemDetailsGrid.tsx`
+- `src/components/itemMaster/ItemDetGrid.tsx`
 - `src/components/global/master/types.ts`
 - `src/components/global/master/MasterFormDrawer.tsx`
 - `src/components/global/configs/itemMaster.config.tsx`
-- `src/tests/itemMasterTacticalGrid.test.ts`
+- `src/tests/itemGrid.test.ts`
 - `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions
@@ -44,22 +44,22 @@ To ensure transactional data integrity and stock ledger consistency across SMRIT
 - **Add Mode Usability**: In Add Mode (`activeMode === "add"`), SKU and Barcode remain fully editable and support auto-generation via F2 code generator shortcuts.
 
 ## 7. Implementation Summary
-1. Updated `SmritiItemDetailsGrid.tsx` to include `isBarcode` in `isNonEditableInEditMode` when `activeMode === "edit"`.
-2. Updated classic single-record inspector in `SmritiItemDetailsGrid.tsx` to set `readOnly={activeMode === "edit" || activeMode === "delete"}` and styling for Barcode and Stock No.
+1. Updated `ItemDetGrid.tsx` to include `isBarcode` in `isNonEditableInEditMode` when `activeMode === "edit"`.
+2. Updated classic single-record inspector in `ItemDetGrid.tsx` to set `readOnly={activeMode === "edit" || activeMode === "delete"}` and styling for Barcode and Stock No.
 3. Updated `src/components/global/master/types.ts` and `src/components/global/master/MasterFormDrawer.tsx` to supply `isEdit` to `field.disabled`.
 4. Updated `src/components/global/configs/itemMaster.config.tsx` to disable `code` and `barcode` fields when editing.
-5. Expanded `src/tests/itemMasterTacticalGrid.test.ts` with 3 test cases for edit mode immutability.
+5. Expanded `src/tests/itemGrid.test.ts` with 3 test cases for edit mode immutability.
 
 ## 8. Tests Executed
 ```bash
-npx vitest run src/tests/itemMasterTacticalGrid.test.ts
+npx vitest run src/tests/itemGrid.test.ts
 ```
 
 ## 9. Verification Results
 ```text
  RUN  v4.1.10 F:/SMRITRretailNX
 
- ✓ src/tests/itemMasterTacticalGrid.test.ts (13 tests) 13ms
+ ✓ src/tests/itemGrid.test.ts (13 tests) 13ms
 
  Test Files  1 passed (1)
       Tests  13 passed (13)

@@ -108,21 +108,21 @@ SERVER-CERTIFIED
 ## 5. Scope of Phase 1 Implementation
 - **Curriculum Shell**: `TrainingAcademyTab.tsx` with clean native SMRITI UI layout.
 - **Session Model**: `training_session_id` session manager & state initializer.
-- **Sandbox Engine**: `trainingSandboxStore.ts` for handling local interactive UI simulation.
-- **Isolation Tests**: `backend/tests/test_production_isolation.py` ensuring zero mutation of production database `Smritibus_<CompanyCode>`.
+- **Sandbox Engine**: `trainingStore.ts` for handling local interactive UI simulation.
+- **Isolation Tests**: `backend/tests/t_prod_isolate.py` ensuring zero mutation of production database `Smritibus_<CompanyCode>`.
 
 ## 6. Files Created
-- `docs/implementation/user_guide/SMRITI_Training_Academy_Implementation_Plan_v1.0.md`: This plan file.
+- `docs/implementation/user_guide/Training_Academy.md`: This plan file.
 - `src/components/training/TrainingAcademyTab.tsx`: Main Academy UI component.
 - `src/components/training/TrainingProgressHeader.tsx`: Academy header and progress tracker.
 - `src/components/training/MethodologyRunner.tsx`: 7-Step daily lesson runner.
 - `src/components/training/LiveTrainingStateView.tsx`: Business effect state widget.
-- `src/components/training/Day5LifecycleTestEngine.tsx`: Signature Day 5 evaluation engine.
-- `src/components/training/CertificateGeneratorModal.tsx`: PDF certificate generator.
-- `src/services/trainingSandboxStore.ts`: Session-based training sandbox store.
+- `src/components/training/Day5LifecycleTestE.tsx`: Signature Day 5 evaluation engine.
+- `src/components/training/CertificateGenerat.tsx`: PDF certificate generator.
+- `src/services/trainingStore.ts`: Session-based training sandbox store.
 - `backend/app/api/v1/training.py`: FastAPI training backend routes & public verification endpoint.
 - `backend/app/models/training.py`: SQLAlchemy database models for `SmritiTraining`.
-- `backend/tests/test_production_isolation.py`: Mandatory production isolation test suite.
+- `backend/tests/t_prod_isolate.py`: Mandatory production isolation test suite.
 
 ## 7. Files Modified
 - `src/App.tsx`: Mount `TrainingAcademyTab` in main workspace tab routing.
@@ -141,4 +141,4 @@ Approved (Rating: 9.9/10) — Ready for Phase 1 Build.
 - `ADR-001`: Platform Architecture & Modular Isolation Policy.
 
 ## 11. Related Walkthroughs
-- `docs/walkthrough/user_guide/User_Training_Blueprint_Walkthrough_v3.16.0.md`.
+- `docs/walkthrough/user_guide/User_Training.md`.

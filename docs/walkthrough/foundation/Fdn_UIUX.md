@@ -18,31 +18,31 @@ Eliminate hardcoded plaintext demo credentials, eliminate duplicate Indian curre
 
 ## 2. Scope
 - **Item 1 (Credentials)**: `src/state/store.ts`, `src/db/init.ts` (removed plaintext `whynothing`).
-- **Item 2 (Number to Words)**: `src/utils/indianNumberWords.ts`, `backend/app/services/invoice_pdf_service.py`, `backend/generate_tt_tax_invoices_batch.py`, `src/tests/indianNumberWords.test.ts`, `backend/tests/test_indian_number_words.py`.
+- **Item 2 (Number to Words)**: `src/utils/indianNumberWords.ts`, `backend/app/services/invoice_pdf_service.py`, `backend/generate_tt_tax_in.py`, `src/tests/numberWords.test.ts`, `backend/tests/t_number_words.py`.
 - **Item 3 (Invoice Templates)**: `src/components/templates/TaxInvoiceA4.tsx`, `src/print_engine/templates/StandardInvoiceA4.tsx`.
-- **Item 4 (Printer IP)**: `src/components/LabelPrintingSection.tsx`.
-- **Item 5 (Version Unification)**: `src/config/version.ts`, `package.json`, `src/components/LoginScreen.tsx`, `src/components/CompanySelectionScreen.tsx`, `src/layout_engine/layout_manager.tsx`, `src/components/DashboardTab.tsx`, `src/components/QuickReportsWidget.tsx`, `src/components/PrintPreviewModal.tsx`.
+- **Item 4 (Printer IP)**: `src/components/LabelPrintingSec.tsx`.
+- **Item 5 (Version Unification)**: `src/config/version.ts`, `package.json`, `src/components/LoginScreen.tsx`, `src/components/CompanySelectScree.tsx`, `src/layout_engine/layout_manager.tsx`, `src/components/DashboardTab.tsx`, `src/components/QuickReportsWidget.tsx`, `src/components/PrintPreviewModal.tsx`.
 - **Item 6 (API Hosts)**: `src/config/api.ts`, `src/lib/helpers.ts`.
 
 ## 3. Files Created
 - `src/utils/indianNumberWords.ts`
 - `src/config/version.ts`
 - `src/config/api.ts`
-- `src/tests/indianNumberWords.test.ts`
-- `backend/tests/test_indian_number_words.py`
-- `docs/walkthrough/foundation/Foundation_UIUX_Duplication_And_Hardcode_Remediation_v3.29.0.md`
+- `src/tests/numberWords.test.ts`
+- `backend/tests/t_number_words.py`
+- `docs/walkthrough/foundation/Fdn_UIUX.md`
 
 ## 4. Files Modified
 - `src/state/store.ts`
 - `src/db/init.ts`
 - `src/components/templates/TaxInvoiceA4.tsx`
 - `backend/app/services/invoice_pdf_service.py`
-- `backend/generate_tt_tax_invoices_batch.py`
+- `backend/generate_tt_tax_in.py`
 - `src/print_engine/templates/StandardInvoiceA4.tsx`
-- `src/components/LabelPrintingSection.tsx`
+- `src/components/LabelPrintingSec.tsx`
 - `package.json`
 - `src/components/LoginScreen.tsx`
-- `src/components/CompanySelectionScreen.tsx`
+- `src/components/CompanySelectScree.tsx`
 - `src/layout_engine/layout_manager.tsx`
 - `src/components/DashboardTab.tsx`
 - `src/components/QuickReportsWidget.tsx`
@@ -57,7 +57,7 @@ Eliminate hardcoded plaintext demo credentials, eliminate duplicate Indian curre
 2. **Canonical Indian Currency Words Formatter**:
    - Extracted `numberToIndianWords` into `src/utils/indianNumberWords.ts` and updated Python `number_to_indian_words` in `invoice_pdf_service.py` to match the exact same parity table (`0.50` -> `"Zero Rupees and Fifty Paisa Only"`, `1.00` -> `"One Rupee Only"`).
 3. **Template Architectural Partitioning**:
-   - Verified that `TaxInvoiceA4.tsx` (statutory GST tax invoice for `TaxInvoicePrintPage.tsx`) and `StandardInvoiceA4.tsx` (generic Print Studio design catalog) serve distinct business roles. Shared logic now imports from canonical utilities.
+   - Verified that `TaxInvoiceA4.tsx` (statutory GST tax invoice for `TaxInvoicePrintPag.tsx`) and `StandardInvoiceA4.tsx` (generic Print Studio design catalog) serve distinct business roles. Shared logic now imports from canonical utilities.
 4. **Environment-Driven API Host Resolution**:
    - Created `src/config/api.ts` to manage `FASTAPI_BASE_URL` with Docker `@db:` detection and `FASTAPI_BASE_URL` environment override.
 
@@ -69,16 +69,16 @@ Eliminate hardcoded plaintext demo credentials, eliminate duplicate Indian curre
 ## 7. Implementation Summary
 - Removed `whynothing` password seeds from `store.ts` and `init.ts`.
 - Created Vitest and Pytest test suites testing identical tables of 14 inputs each.
-- Replaced hardcoded initial `printerIp` state with empty string and placeholder in `LabelPrintingSection.tsx`.
+- Replaced hardcoded initial `printerIp` state with empty string and placeholder in `LabelPrintingSec.tsx`.
 - Centralized version strings across 6 UI components and `package.json`.
 - Updated `helpers.ts` to use `FASTAPI_BASE_URL`.
 
 ## 8. Tests Executed
 ```bash
-npx vitest run src/tests/indianNumberWords.test.ts
-pytest backend/tests/test_indian_number_words.py --tb=short -q
+npx vitest run src/tests/numberWords.test.ts
+pytest backend/tests/t_number_words.py --tb=short -q
 npm run lint
-pytest backend/tests/test_e2e_tenant_security_and_routing.py backend/app/tests/test_ecom_connectors.py backend/tests/test_company_control_center_security.py --tb=short -q
+pytest backend/tests/t_tenant_sec.py backend/app/tests/t_ecom_connect.py backend/tests/t_comp_ctr_sec.py --tb=short -q
 ```
 
 ## 9. Verification Results
@@ -95,7 +95,7 @@ pytest backend/tests/test_e2e_tenant_security_and_routing.py backend/app/tests/t
 - Continue strangler-fig migration of remaining Express mock endpoints to FastAPI.
 
 ## 12. Related ADRs
-- `docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md`
+- `docs/architecture/MULTI_COMPANY.md`
 - `docs/architecture/PLATFORM_ABSTRACTION_LAYER_ADR_v1.0.md`
 
 ## 13. Related RFCs

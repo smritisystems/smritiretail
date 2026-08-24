@@ -433,7 +433,7 @@ def run_export():
         ["Database Engine", "PostgreSQL 15+"],
         ["Export Timestamp", export_timestamp],
         ["Primary Tables", "smriti_menus, smriti_audit_log"],
-        ["Script Executed", "scripts/export_menu_management_review.py"],
+        ["Script Executed", "scripts/export_menu_review.py"],
         ["Purpose", "Human architectural review & governance analysis only"],
         ["Export Mode", "READ-ONLY Snapshot"],
         ["Notice", "Editing this Excel file does NOT modify database tables or server data."],

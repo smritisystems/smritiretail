@@ -14,8 +14,8 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { SmritiMenuAccessControlView } from "./SmritiMenuAccessControlView";
-import { SmritiSecurityConfigurationView } from "./SmritiSecurityConfigurationView";
+import { MenuAccessView } from "./MenuAccessView.tsx";
+import { SecConfigView } from "./SecConfigView";
 
 export type SecuritySidebarTab =
   | "List Profiles"
@@ -35,7 +35,7 @@ interface SmritiSecurityManagementModalProps {
   initialTab?: SecuritySidebarTab;
 }
 
-export const SmritiSecurityManagementModal: React.FC<SmritiSecurityManagementModalProps> = ({
+export const SecManageDlg: React.FC<SmritiSecurityManagementModalProps> = ({
   isOpen,
   onClose,
   initialTab = "Manage Menu Access",
@@ -183,11 +183,11 @@ export const SmritiSecurityManagementModal: React.FC<SmritiSecurityManagementMod
           {/* Right Work Area */}
           <div className="flex-1 flex flex-col min-h-0 bg-[#f0f0f0] border border-[#7f9db9] shadow-inner">
             {activeTab === "Manage Menu Access" && (
-              <SmritiMenuAccessControlView onClose={onClose} />
+              <MenuAccessView onClose={onClose} />
             )}
 
             {activeTab === "Configuration" && (
-              <SmritiSecurityConfigurationView onClose={onClose} />
+              <SecConfigView onClose={onClose} />
             )}
 
             {activeTab !== "Manage Menu Access" && activeTab !== "Configuration" && (
@@ -234,4 +234,4 @@ export const SmritiSecurityManagementModal: React.FC<SmritiSecurityManagementMod
   );
 };
 
-export default SmritiSecurityManagementModal;
+export default SecManageDlg;

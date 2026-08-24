@@ -18,15 +18,15 @@
 This walkthrough documents the complete replacement of legacy barcode studio interfaces with the official **SMRITI 9 Tag & Barcode Label Printing** high-throughput terminal package (`F:\SMRITI\Label Printing`).
 
 ## 2. Scope
-- Barcode Label Designer & Tag Printing workspace (`src/components/barcode/TagLabelPrintingTab.tsx`).
+- Barcode Label Designer & Tag Printing workspace (`src/components/barcode/TagLabelPrintingTa.tsx`).
 - Type contracts for tag printing settings, port dispatch, and criteria range filtering (`src/components/barcode/types.ts`).
 - Re-export and route integration in `src/components/BarcodeStudioTab.tsx` and `src/App.tsx`.
-- Automated regression test suite (`src/tests/tagLabelPrinting.test.ts`).
+- Automated regression test suite (`src/tests/tagPrinting.test.ts`).
 
 ## 3. Files Created
 - `src/components/barcode/types.ts`: Data models for label print rows, port options (`USB`, `COM 1`, `Network TCP/IP`), source options, and selection criteria ranges.
-- `src/components/barcode/TagLabelPrintingTab.tsx`: Full desktop terminal with script file selector, labels per row, port settings, source options, range filters, quantity details grid, pagination, and thermal print dispatch.
-- `src/tests/tagLabelPrinting.test.ts`: Automated regression tests covering mapping, range filtering, present stock calculation, clear actions, and counters.
+- `src/components/barcode/TagLabelPrintingTa.tsx`: Full desktop terminal with script file selector, labels per row, port settings, source options, range filters, quantity details grid, pagination, and thermal print dispatch.
+- `src/tests/tagPrinting.test.ts`: Automated regression tests covering mapping, range filtering, present stock calculation, clear actions, and counters.
 
 ## 4. Files Modified
 - `src/components/BarcodeStudioTab.tsx`: Re-exports and mounts `TagLabelPrintingTab`.
@@ -51,7 +51,7 @@ Implements the exact UI design and layout from `F:\SMRITI\Label Printing\code.ht
 - Added print queue preview modal and browser print dispatch.
 
 ## 8. Tests Executed
-1. `npm test` / `vitest run src/tests/tagLabelPrinting.test.ts`: 5/5 unit tests passed.
+1. `npm test` / `vitest run src/tests/tagPrinting.test.ts`: 5/5 unit tests passed.
 2. Full Vitest Suite: 27 test files passed (176/176 tests passed).
 3. TypeScript validation: `npm run lint` (`tsc --noEmit`) returned 0 errors.
 4. Production bundle build: `npm run build` completed in 28.59s with 0 errors.

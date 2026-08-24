@@ -31,13 +31,13 @@ import {
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { VariantTemplate, AttributeGroup, AttributeDefinition, Product } from "../types.js";
 
-interface VariantTemplateSectionProps {
+interface VariantTplSectionProps {
   products: Product[];
   onRefreshProducts: () => Promise<void>;
   onNotification: (title: string, message: string, type?: "success" | "error") => void;
 }
 
-export const VariantTemplateSection: React.FC<VariantTemplateSectionProps> = ({ 
+export const VariantTplSec: React.FC<VariantTplSectionProps> = ({ 
   products, 
   onRefreshProducts, 
   onNotification 

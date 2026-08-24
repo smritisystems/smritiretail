@@ -22,11 +22,11 @@ Consolidate dynamic lookup tables (Tier-1) and organizational structures (Tier-2
 - Mount organizational structure (Company, Branch, Store, Warehouse) CRUD routes under `/api/v1/masters/...`.
 - Alembic database migration to support soft-deletions on dynamic lookup tables (`master_values`).
 - Alembic database migration to drop the decommissioned legacy `master_entities` table.
-- Frontend cutover of `MasterManagementTab.tsx` to FastAPI using `apiFetchV1` to enforce JWT propagation and unified HREP error experience.
+- Frontend cutover of `MasterMgmtTab.tsx` to FastAPI using `apiFetchV1` to enforce JWT propagation and unified HREP error experience.
 - Complete decommissioning of legacy Express-side files: `src/routes/masters.ts`, `src/routes/masterLookup.ts`, `src/repositories/masterRepository.ts`.
 
 ## 3. Files Created
-- [test_masters_consolidation.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/test_masters_consolidation.py): Integration test suite.
+- [t_masters_consol.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/t_masters_consol.py): Integration test suite.
 - [93e07a92812b_add_master_values_soft_delete.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/alembic/versions/93e07a92812b_add_master_values_soft_delete.py): Migration adding soft-delete fields.
 - [96b45b17b8b1_drop_master_entities.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/alembic/versions/96b45b17b8b1_drop_master_entities.py): Migration dropping decommissioned legacy table.
 - [masters_tier2.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/schemas/masters_tier2.py): Pydantic schemas.
@@ -39,7 +39,7 @@ Consolidate dynamic lookup tables (Tier-1) and organizational structures (Tier-2
 - [masters.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/api/v1/masters.py): Refactored routers for ORM direct queries.
 - [main.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/main.py): Registered the lookup routers.
 - [server.ts](file:///d:/IMP/GitHub/SMRITRretailNX/server.ts): Decommissioned Express route mounts.
-- [MasterManagementTab.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/MasterManagementTab.tsx): Switched to `apiFetchV1` client fetches.
+- [MasterMgmtTab.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/MasterMgmtTab.tsx): Switched to `apiFetchV1` client fetches.
 - [README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/README.md): Marked plan as Completed.
 - [README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/README.md): Appended index entry.
 
@@ -58,13 +58,13 @@ Consolidate dynamic lookup tables (Tier-1) and organizational structures (Tier-2
 - **Decommissioning:** Dropped legacy `master_entities` table and cleanly excised Express routes.
 
 ## 8. Tests Executed
-- Executed `test_masters_consolidation.py` verifying full API coverage (Tier-1, Tier-2, Schema validation, soft deletes).
+- Executed `t_masters_consol.py` verifying full API coverage (Tier-1, Tier-2, Schema validation, soft deletes).
 - Executed full frontend compilation checks (`npx tsc --noEmit`).
 
 ## 9. Verification Results
 - **Backend Tests:** Passed 3/3 tests successfully:
   ```bash
-  python -m pytest backend/app/tests/test_masters_consolidation.py
+  python -m pytest backend/app/tests/t_masters_consol.py
   ======= 3 passed, 67 warnings in 3.86s =======
   ```
 - **Type Checking:** Mypy checks on consolidation modules passed with zero errors.

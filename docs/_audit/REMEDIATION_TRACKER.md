@@ -15,10 +15,10 @@
 
 > **HISTORICAL AUDIT ARTIFACT — NOT CURRENT ARCHITECTURE**  
 > This document preserves the historical remediation tracking state from early Phase 1–3 audits.  
-> For the current canonical architecture, see: [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md).  
-> For the final certification (336/336 passed), see: [`docs/_audit/FINAL_ARCHITECTURE_CERTIFICATION.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_ARCHITECTURE_CERTIFICATION.md).
+> For the current canonical architecture, see: [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md).  
+> For the final certification (336/336 passed), see: [`docs/_audit/FINAL_2.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_2.md).
 
-**Audit Source:** docs/_audit/08_master_audit_report.md
+**Audit Source:** docs/_audit/08_master_audit.md
 **Date Started:** 2026-08-17
 **Protocol:** NO DRY-RUN COMPLETION
 
@@ -63,7 +63,7 @@
 | Original State | Flag defined in config.py but not documented in routing architecture doc |
 | Finding (P1-A) | Flag is DEFINED in settings but NEVER CONSUMED in app code. grep backend/app shows only config.py uses it. The CompanyDatabaseResolver routes via live psycopg2 directly -- not gated by this flag. |
 | Reality | Multi-DB routing is ALWAYS ACTIVE via CompanyDatabaseResolver for integration tests. Flag is a placeholder for a future conditional bypass. |
-| Documentation Required | Update SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md to clarify: flag exists, is not yet wired to routing logic, CompanyDatabaseResolver is unconditionally active |
+| Documentation Required | Update DATABASE_ROUTING.md to clarify: flag exists, is not yet wired to routing logic, CompanyDatabaseResolver is unconditionally active |
 | Status | Partially Verified (finding documented; doc update scheduled) |
 
 ### MEDIUM-2: CONTROL_DATABASE_URL casing inconsistency

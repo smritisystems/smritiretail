@@ -81,4 +81,4 @@ Completed.
 ADR-001, ADR-002.
 
 ## 19. Related Walkthroughs
-[`docs/walkthrough/foundation/Commercial_Growth_Customer360_Fulfillment_And_Cost_Profitability_v1.0.md`](../../walkthrough/foundation/Commercial_Growth_Customer360_Fulfillment_And_Cost_Profitability_v1.0.md)
+[`docs/walkthrough/foundation/Comm_Growth.md`](../../walkthrough/foundation/Comm_Growth.md)

@@ -64,7 +64,7 @@ None.
 - `/server.ts`
 - `/src/App.tsx`
 - `/src/services/customerStore.ts`
-- `/src/components/AdvancedBillingEngine.tsx`
+- `/src/components/AdvancedBillingEng.tsx`
 - `/src/components/PosTerminalTab.tsx`
 
 ### 10. Dependencies
@@ -98,4 +98,4 @@ Completed.
 None.
 
 ### 19. Related Walkthroughs
-- [CRM, Auditing, and POS Upgrades Walkthrough](../../walkthrough/sales/Sales_CRM_Audit_And_POS_Upgrades_Walkthrough_v2.1.2.md)
+- [CRM, Auditing, and POS Upgrades Walkthrough](../../walkthrough/sales/Sales_CRM_Audit.md)

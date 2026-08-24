@@ -21,7 +21,7 @@ To provide an optional, feature-flagged **QZ Tray** local browser dispatch path 
 - Backend `POST /api/v1/barcode/print` payload generation for `qz_tray` without socket connection.
 - Backend `POST /api/v1/barcode/print-jobs/{job_id}/ack` endpoint for asynchronous execution status update.
 - Frontend `src/utils/qzTrayClient.ts` with `VITE_ENABLE_QZ_TRAY` flag protection, WebSocket RPC fallback, and ACK callback.
-- Frontend `src/components/LabelPrintingSection.tsx` integration with dispatch mode toggle and status badge.
+- Frontend `src/components/LabelPrintingSec.tsx` integration with dispatch mode toggle and status badge.
 - Comprehensive unit testing across backend (pytest) and frontend (vitest/tsc).
 - Preservation of existing item master, POS billing, and launchpad behavior.
 
@@ -29,14 +29,14 @@ To provide an optional, feature-flagged **QZ Tray** local browser dispatch path 
 - `docs/print/QZ_TRAY_SPIKE.md`
 - `src/utils/qzTrayClient.ts`
 - `src/tests/qzTrayClient.test.ts`
-- `docs/walkthrough/print/Print_QZ_Tray_Dispatch_Spike_And_Hybrid_v3.29.0.md`
+- `docs/walkthrough/print/Print_QZ_Tray.md`
 
 ## 4. Files Modified
 - `backend/app/schemas/barcode.py`
 - `backend/app/services/printer_service.py`
 - `backend/app/api/v1/barcode.py`
 - `backend/app/tests/test_barcode.py`
-- `src/components/LabelPrintingSection.tsx`
+- `src/components/LabelPrintingSec.tsx`
 - `docs/walkthrough/README.md`
 - `CHANGELOG.md`
 

@@ -20,11 +20,11 @@ This walkthrough documents the design and implementation of the **SMRITI Item Ma
 * **Decoupled Engine Core**:
   * Created `types.ts`, `HeaderNormalizer.ts`, `HeaderAliasRegistry.ts`, and `HeaderMappingEngine.ts`.
 * **Interactive Mapping Preview & Review UI**:
-  * Created `HeaderMappingPreviewModal.tsx` for confidence scoring review (`✓ Exact`, `✓ High`, `⚠ Fuzzy`, `? Ambiguous`, `○ Unmapped`), manual dropdown overrides, missing required field detection, and LocalStorage profile save/load.
+  * Created `HeaderMappingPrevi.tsx` for confidence scoring review (`✓ Exact`, `✓ High`, `⚠ Fuzzy`, `? Ambiguous`, `○ Unmapped`), manual dropdown overrides, missing required field detection, and LocalStorage profile save/load.
 * **Item Master Spreadsheet Integration**:
-  * Integrated mapping engine into `ExcelGridEntrySection.tsx` clipboard paste workflow with live status badge indicators (`✓ X auto-mapped | ⚠ Y review | ○ Z ignored`).
+  * Integrated mapping engine into `ExcelGridEntrySec.tsx` clipboard paste workflow with live status badge indicators (`✓ X auto-mapped | ⚠ Y review | ○ Z ignored`).
 * **Unit Testing & Readiness Verification**:
-  * Created unit test suite `src/tests/headerMappingEngine.test.ts` (9 tests passed, 73 total suite passed).
+  * Created unit test suite `src/tests/headerMap.test.ts` (9 tests passed, 73 total suite passed).
   * Executed production build (3,413 modules transformed, 0 leaks in `dist/`, COMP-001 readiness score 98 / 100).
 
 ## 3. Files Created
@@ -32,12 +32,12 @@ This walkthrough documents the design and implementation of the **SMRITI Item Ma
 * `src/lib/headerMapping/HeaderNormalizer.ts`
 * `src/lib/headerMapping/HeaderAliasRegistry.ts`
 * `src/lib/headerMapping/HeaderMappingEngine.ts`
-* `src/components/HeaderMappingPreviewModal.tsx`
-* `src/tests/headerMappingEngine.test.ts`
-* `docs/walkthrough/foundation/SMRITI_Header_Alias_Auto_Mapping_Engine_Walkthrough_v3.17.0.md`
+* `src/components/HeaderMappingPrevi.tsx`
+* `src/tests/headerMap.test.ts`
+* `docs/walkthrough/foundation/Header_Alias_Auto.md`
 
 ## 4. Files Modified
-* `src/components/ExcelGridEntrySection.tsx`
+* `src/components/ExcelGridEntrySec.tsx`
 * `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions
@@ -49,15 +49,15 @@ This walkthrough documents the design and implementation of the **SMRITI Item Ma
 * **User-Centric Flexibility**: Retail users receive vendor Excel catalogs in hundreds of different header formats (`EAN`, `Style No`, `Make`, `Product Category`, `Sale Rate`). SMRITI adapts to the user's headers rather than requiring Excel pre-processing.
 
 ## 7. Implementation Summary
-* Integrated `HeaderMappingEngine` into `ExcelGridEntrySection.tsx` `handlePaste`.
+* Integrated `HeaderMappingEngine` into `ExcelGridEntrySec.tsx` `handlePaste`.
 * Auto-mapped columns stream cleanly into grid rows upon user confirmation in `HeaderMappingPreviewModal`.
 
 ## 8. Tests Executed
-* `npx vitest run src/tests/headerMappingEngine.test.ts`: 9/9 tests passed.
+* `npx vitest run src/tests/headerMap.test.ts`: 9/9 tests passed.
 * `npx vitest run`: 12/12 test files passed (73/73 tests passed).
 * `npx tsc --noEmit`: 0 static errors.
 * `npm run build`: 3,413 modules transformed cleanly into `dist/`.
-* `python scripts/verify_comp001_production_readiness.py`: 0 leaks, Score 98 / 100 (`READY_FOR_PRODUCTION_REFERENCE`).
+* `python scripts/verify_comp001.py`: 0 leaks, Score 98 / 100 (`READY_FOR_PRODUCTION_REFERENCE`).
 
 ## 9. Verification Results
 ```text

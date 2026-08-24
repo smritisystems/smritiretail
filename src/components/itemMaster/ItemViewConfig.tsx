@@ -40,16 +40,16 @@ import {
   Check
 } from "lucide-react";
 
-export interface ViewConfigState {
+export interface ItemViewConfigState {
   viewMode: "grid" | "classic";
   visibleColumns: string[];
   frozenColumns: number;
 }
 
-interface SmritiViewConfigurationProps {
+interface SmritiItemViewConfigurationProps {
   availableFields?: { key: string; label: string }[];
-  currentConfig: ViewConfigState;
-  onSaveConfig: (config: ViewConfigState) => void;
+  currentConfig: ItemViewConfigState;
+  onSaveConfig: (config: ItemViewConfigState) => void;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
 }
 
@@ -62,7 +62,7 @@ const PRESET_STANDARD = [
   "category", "subCategory", "mrp", "price", "costPrice", "gst_percentage", "hsn_code"
 ];
 
-export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = ({
+export const ItemViewConfig: React.FC<SmritiItemViewConfigurationProps> = ({
   availableFields: propAvailableFields,
   currentConfig,
   onSaveConfig,
@@ -551,4 +551,4 @@ export const SmritiViewConfiguration: React.FC<SmritiViewConfigurationProps> = (
   );
 };
 
-export default SmritiViewConfiguration;
+export default ItemViewConfig;

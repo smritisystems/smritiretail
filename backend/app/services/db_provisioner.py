@@ -15,17 +15,17 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
 try:
-    from app.services.company_database_resolver import (
+    from app.services.db_resolver import (
         generate_company_database_name,
         validate_company_database_name
     )
-    from app.services.company_code_allocator import CompanyCodeAllocator
+    from app.services.code_allocator import CompanyCodeAllocator
 except ImportError:
-    from backend.app.services.company_database_resolver import (
+    from backend.app.services.db_resolver import (
         generate_company_database_name,
         validate_company_database_name
     )
-    from backend.app.services.company_code_allocator import CompanyCodeAllocator
+    from backend.app.services.code_allocator import CompanyCodeAllocator
 
 class CompanyDatabaseProvisioner:
     """

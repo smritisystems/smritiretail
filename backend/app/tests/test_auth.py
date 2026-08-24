@@ -55,7 +55,7 @@ async def override_db(db_session):
     app.dependency_overrides.pop(get_db, None)
 
 
-from app.models.company_database_registry import CompanyDatabaseRegistry
+from app.models.company_registry import CompanyDatabaseRegistry
 
 
 async def _make_tenant(db_session, suffix: str):

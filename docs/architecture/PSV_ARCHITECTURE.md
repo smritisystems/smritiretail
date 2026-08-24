@@ -13,7 +13,7 @@
 
 # SMRITI Party Stock Visibility (PSV) Architecture Specification v1.0
 
-> **CANONICAL REFERENCE:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
+> **CANONICAL REFERENCE:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
 > **Status:** **VERIFIED (COMPANY-LOCAL PSV)**
 
 **Canonical Principle:**

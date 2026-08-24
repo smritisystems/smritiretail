@@ -13,7 +13,7 @@
 
 import React, { useState } from 'react';
 import { Truck, CheckCircle2, TrendingUp, AlertTriangle } from 'lucide-react';
-import { trainingSandboxStore } from '../../services/trainingSandboxStore';
+import { trainingStore } from '../../services/trainingStore';
 
 export const Day3GRNSimulator: React.FC<{ onCompleteStep: () => void }> = ({ onCompleteStep }) => {
   const [grnNumber, setGrnNumber] = useState('GRN-2026-9001');
@@ -25,7 +25,7 @@ export const Day3GRNSimulator: React.FC<{ onCompleteStep: () => void }> = ({ onC
 
   const handleProcessGRN = (e: React.FormEvent) => {
     e.preventDefault();
-    const result = trainingSandboxStore.processSimulatedGRN({
+    const result = trainingStore.processSimulatedGRN({
       grnNumber,
       poNumber,
       receivedQty: parseInt(receivedQty, 10),

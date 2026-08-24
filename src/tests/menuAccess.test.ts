@@ -25,7 +25,7 @@ import {
   saveHousekeepingSecurityConfig,
   getPermissionsForSubject,
   savePermissionsForSubject,
-} from "../services/securityManagementStore";
+} from "../services/securityStore";
 
 const mockStorage: Record<string, string> = {};
 const mockLocalStorage = {

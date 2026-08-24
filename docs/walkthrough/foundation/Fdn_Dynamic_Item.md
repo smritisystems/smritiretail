@@ -24,21 +24,21 @@ This walkthrough documents the full design, structural refactoring, and integrat
 - Strangler-fig backend migration of all attributes and variant routes to FastAPI + Postgres backend, unmounting them from Express.
 
 ## 3. Files Created
-- [ExcelGridEntrySection.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/ExcelGridEntrySection.tsx)
+- [ExcelGridEntrySec.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/ExcelGridEntrySec.tsx)
 - [d4e5f6a7b8c9_extend_attribute_definitions.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/alembic/versions/d4e5f6a7b8c9_extend_attribute_definitions.py)
 
 ## 4. Files Modified
-- [IndexedDbRepositories.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/indexeddb/IndexedDbRepositories.ts)
+- [IdbRepos.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/indexeddb/IdbRepos.ts)
 - [attributes.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/models/attributes.py)
 - [attributes.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/schemas/attributes.py)
 - [attributes.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/services/attributes.py)
 - [attributes.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/api/v1/attributes.py)
 - [product.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/repositories/product.py)
 - [ItemMasterTab.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/ItemMasterTab.tsx)
-- [AttributeManagerSection.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/AttributeManagerSection.tsx)
-- [VariantTemplateSection.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/VariantTemplateSection.tsx)
+- [AttrManagerSec.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/AttrManagerSec.tsx)
+- [VariantTemplateSec.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/VariantTemplateSec.tsx)
 - [BulkImportSection.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/BulkImportSection.tsx)
-- [AttributeAnalyticsSection.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/AttributeAnalyticsSection.tsx)
+- [AttrAnalyticsSec.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/AttrAnalyticsSec.tsx)
 - [server.ts](file:///d:/IMP/GitHub/SMRITRretailNX/server.ts)
 - [README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/README.md)
 

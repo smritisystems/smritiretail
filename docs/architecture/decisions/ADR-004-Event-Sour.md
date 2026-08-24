@@ -7,7 +7,7 @@
   Status       : Draft
   Owner        : Enterprise Architecture
   Reviewers    : Product, Architecture, Engineering
-  Related Docs : PRODUCT_IDENTITY_ENGINE.md, PRODUCT_IDENTITY_ENGINE_ERRORS.md
+  Related Docs : PRODUCT_IDENTITY_13.md, PRODUCT_IDENTITY_10.md
 -->
 
 # ADR-004: Event Sourcing

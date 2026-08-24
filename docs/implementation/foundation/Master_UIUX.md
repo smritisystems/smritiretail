@@ -126,7 +126,7 @@ FastAPI + Postgres (System of Record Backend)
 3. `src/components/shell/NavRail.tsx`
 4. `src/components/launchpad/FioriLaunchpad.tsx`
 5. `src/components/common/TransactionStepper.tsx`
-6. `docs/implementation/foundation/SMRITI_Master_UIUX_Refactor_Plan_v3.17.0.md`
+6. `docs/implementation/foundation/Master_UIUX.md`
 
 ---
 

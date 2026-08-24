@@ -88,7 +88,7 @@ SMRITI Retail OS supports a **hybrid tri-mode print architecture** that accommod
      - `POST /api/v1/barcode/printer-settings`: Tenant printer settings persistence.
      - `GET /api/v1/barcode/print-history`: Audit logs of print jobs.
 3. **Frontend UI Component:**
-   - `src/components/LabelPrintingSection.tsx`:
+   - `src/components/LabelPrintingSec.tsx`:
      - CSV parsing, visual preview, layout selector, and print trigger.
 4. **Data Models:**
    - `PrintHistory`: Tracks `user`, `item_code`, `barcode`, `quantity`, `status` (`Success` / `Failed` / `Pending`), `error_message`, `company_id`.

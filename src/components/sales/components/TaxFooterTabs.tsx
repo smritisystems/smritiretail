@@ -20,7 +20,7 @@ import {
   AddonDeductionEntry,
 } from "../types.ts";
 
-export interface TaxInvoiceFooterTabsProps {
+export interface TaxFooterTabsbsProps {
   transporters: TransporterDetailEntry[];
   payments: PaymentDetailEntry[];
   addonsAndDeductions: AddonDeductionEntry[];
@@ -31,7 +31,7 @@ export interface TaxInvoiceFooterTabsProps {
   onUpdateRemarks: (remarks: string) => void;
 }
 
-export const TaxInvoiceFooterTabs: React.FC<TaxInvoiceFooterTabsProps> = ({
+export const TaxFooterTabs: React.FC<TaxFooterTabsbsProps> = ({
   transporters,
   payments,
   addonsAndDeductions,

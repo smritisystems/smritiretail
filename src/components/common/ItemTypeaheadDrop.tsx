@@ -231,3 +231,4 @@ export const SmritiItemTypeaheadDropdown: React.FC<SmritiItemTypeaheadDropdownPr
     </div>
   );
 };
+export { SmritiItemTypeaheadDropdown as ItemTypeaheadDrop };

@@ -27,8 +27,8 @@ Wire the completed Sales & Invoice backend (`backend/app/api/v1/sales.py`, `back
 - **Contract Certification**: 39/39 passing integration and certification tests.
 
 ## 3. Files Created
-- [`backend/tests/test_sales_invoice_contract_suite.py`](file:///F:/SMRITRretailNX/backend/tests/test_sales_invoice_contract_suite.py): 10 dedicated contract, cross-tenant isolation, and 3-step idempotency integration tests (TEST-01 to TEST-10).
-- [`docs/walkthrough/sales/Sales_Invoice_Frontend_Backend_Wiring_v3.22.0.md`](file:///F:/SMRITRretailNX/docs/walkthrough/sales/Sales_Invoice_Frontend_Backend_Wiring_v3.22.0.md): Formal governance walkthrough.
+- [`backend/tests/t_sales_contract.py`](file:///F:/SMRITRretailNX/backend/tests/t_sales_contract.py): 10 dedicated contract, cross-tenant isolation, and 3-step idempotency integration tests (TEST-01 to TEST-10).
+- [`docs/walkthrough/sales/Sales_Invoice.md`](file:///F:/SMRITRretailNX/docs/walkthrough/sales/Sales_Invoice.md): Formal governance walkthrough.
 
 ## 4. Files Modified
 - [`src/components/SalesStudioTab.tsx`](file:///F:/SMRITRretailNX/src/components/SalesStudioTab.tsx): Replaced local invoice state with authoritative server response upon save, added client `Idempotency-Key` header persistence across retries, and integrated HTML print preview modal.
@@ -60,13 +60,13 @@ Wire the completed Sales & Invoice backend (`backend/app/api/v1/sales.py`, `back
 
 ## 8. Tests Executed
 ```powershell
-$env:PYTHONPATH="backend"; pytest backend/tests/test_sales_invoice_contract_suite.py
-$env:PYTHONPATH="backend"; pytest backend/tests/test_production_certification_suite.py
+$env:PYTHONPATH="backend"; pytest backend/tests/t_sales_contract.py
+$env:PYTHONPATH="backend"; pytest backend/tests/t_prod_cert.py
 ```
 
 ## 9. Verification Results
-- `test_sales_invoice_contract_suite.py` -> **10/10 PASSED (100%)**
-- `test_production_certification_suite.py` -> **29/29 PASSED (100%)**
+- `t_sales_contract.py` -> **10/10 PASSED (100%)**
+- `t_prod_cert.py` -> **29/29 PASSED (100%)**
 - Combined Test Execution Result: **39/39 PASSED (100% Success Rate)**
 
 ```text

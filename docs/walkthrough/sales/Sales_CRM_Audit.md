@@ -43,7 +43,7 @@ None.
 - `/server.ts`
 - `/src/App.tsx`
 - `/src/services/customerStore.ts`
-- `/src/components/AdvancedBillingEngine.tsx`
+- `/src/components/AdvancedBillingEng.tsx`
 - `/src/components/PosTerminalTab.tsx`
 
 ### 5. Architecture Decisions

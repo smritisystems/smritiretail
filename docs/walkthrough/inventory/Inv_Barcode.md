@@ -50,8 +50,8 @@ To implement and verify the **"Printing Barcode Labels against Purchase (PT File
 ---
 
 ## 4. Files Modified
-- `src/components/barcode/TagLabelPrintingTab.tsx`: Integrated PT file ingestion, manifest table, quantity rule enforcement, and active item synchronization.
-- `src/tests/tagLabelPrinting.test.ts`: Added automated unit tests covering PT file parsing, fixed quantity enforcement, and sequential navigation.
+- `src/components/barcode/TagLabelPrintingTa.tsx`: Integrated PT file ingestion, manifest table, quantity rule enforcement, and active item synchronization.
+- `src/tests/tagPrinting.test.ts`: Added automated unit tests covering PT file parsing, fixed quantity enforcement, and sequential navigation.
 - `CHANGELOG.md`: Appended release notes for v6.4.0.
 - `docs/walkthrough/README.md`: Appended master index entry.
 
@@ -77,7 +77,7 @@ By presenting the full Purchase Transaction Manifest Table alongside the Selecte
 
 ## 8. Tests Executed
 ```powershell
-npx vitest run src/tests/tagLabelPrinting.test.ts
+npx vitest run src/tests/tagPrinting.test.ts
 ```
 
 ---
@@ -86,7 +86,7 @@ npx vitest run src/tests/tagLabelPrinting.test.ts
 ```text
  RUN  v4.1.10 F:/SMRITRretailNX
 
- ✓ src/tests/tagLabelPrinting.test.ts (10 tests) 10ms
+ ✓ src/tests/tagPrinting.test.ts (10 tests) 10ms
 
  Test Files  1 passed (1)
       Tests  10 passed (10)

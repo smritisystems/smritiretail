@@ -15,13 +15,13 @@
 import React, { useState, useRef } from "react";
 import { TaxInvoiceItemRow } from "../types.ts";
 
-export interface TaxInvoiceDirectEntryBarProps {
+export interface TaxEntryBartryBarProps {
   onAddItem: (item: Omit<TaxInvoiceItemRow, "sNo" | "id">) => void;
   staffList?: { id: string; name: string }[];
   onLookupProduct?: (term: string) => Promise<any | null>;
 }
 
-export const TaxInvoiceDirectEntryBar: React.FC<TaxInvoiceDirectEntryBarProps> = ({
+export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
   onAddItem,
   staffList = [
     { id: "EMP001", name: "EMP001 - Jawahar Mallah" },

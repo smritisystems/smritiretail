@@ -73,4 +73,4 @@ In Progress
 * None
 
 ## 19. Related Walkthroughs
-* [SMRITI Master Framework Phase A Walkthrough](../../walkthrough/foundation/SMRITI_Master_Framework_Phase_A_Walkthrough_v3.16.0.md)
+* [SMRITI Master Framework Phase A Walkthrough](../../walkthrough/foundation/Master_Framework__4.md)

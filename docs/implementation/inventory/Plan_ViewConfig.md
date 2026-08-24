@@ -40,25 +40,25 @@ Ensure high-throughput inventory ingestion, zero-error spreadsheet mapping, pred
 ## 6. Architecture Impact
 * Updated `HeaderAliasRegistry.ts` with `REMOVED_ALIASES_STORAGE_KEY` and suppression logic.
 * Updated `unifiedFieldCatalog.ts` with custom alias synchronization.
-* Refactored `SmritiViewConfiguration.tsx` with dynamic attribute resolution and 4-way ordering.
-* Fixed mapper filter in `SmritiItemMasterStudio.tsx`.
+* Refactored `ViewConfig.tsx` with dynamic attribute resolution and 4-way ordering.
+* Fixed mapper filter in `ItemMasterStudio.tsx`.
 
 ## 7. Proposed Design
 * Single unified source of truth for all field definitions, aliases, and custom business labels.
 * Reactive `smriti_field_visibility_updated` CustomEvent to synchronize all client components instantly.
 
 ## 8. Files Created
-* `docs/implementation/inventory/Implementation_Plan_ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md`
-* `docs/walkthrough/inventory/ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md`
+* `docs/implementation/inventory/Plan_ViewConfig.md`
+* `docs/walkthrough/inventory/ViewConfig_And.md`
 
 ## 9. Files Modified
 * `src/lib/headerMapping/HeaderAliasRegistry.ts`
 * `src/lib/headerMapping/HeaderMappingEngine.ts`
 * `src/services/unifiedFieldCatalog.ts`
-* `src/components/itemMaster/SmritiItemMasterStudio.tsx`
-* `src/components/itemMaster/SmritiAttributeManagementStudio.tsx`
-* `src/components/itemMaster/SmritiViewConfiguration.tsx`
-* `src/components/itemMaster/SmritiItemMasterWorkspace.tsx`
+* `src/components/itemMaster/ItemMasterStudio.tsx`
+* `src/components/itemMaster/AttrMgmtStudio.tsx`
+* `src/components/itemMaster/ViewConfig.tsx`
+* `src/components/itemMaster/ItemMasterWs.tsx`
 * `CHANGELOG.md`
 * `docs/implementation/README.md`
 * `docs/walkthrough/README.md`
@@ -98,4 +98,4 @@ Completed
 * `ADR-0014`: Platform Abstraction Layer UI Standard.
 
 ## 19. Related Walkthroughs
-* `docs/walkthrough/inventory/ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md`
+* `docs/walkthrough/inventory/ViewConfig_And.md`

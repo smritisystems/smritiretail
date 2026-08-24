@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_company_db, get_tenant_context, TenantContext
 from ...schemas.sync import SyncBatchRequest, SyncBatchResponse, SyncOperationItem
-from ...services.offline_conflict_resolution_engine import OfflineConflictResolutionEngine
+from ...services.conflict_engine import OfflineConflictResolutionEngine
 from ...models.sync import POSOfflineSyncQueue
 
 router = APIRouter()

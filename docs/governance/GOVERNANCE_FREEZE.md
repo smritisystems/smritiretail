@@ -5,9 +5,9 @@ PENDING ARCHITECT AUTHORIZATION
 This checklist formally freezes the current ADR and evidence documents as the architecture baseline for the repository.
 
 ## Frozen documents
-- `docs/governance/METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md`
-- `docs/architecture/decisions/ADR-002-SMRITI-METADATA-ARCHITECTURE.md`
-- `docs/governance/ADR_002_COMPLIANCE_AUDIT.md`
+- `docs/governance/METADATA.md`
+- `docs/architecture/decisions/ADR-002-SMRITI-MET.md`
+- `docs/governance/ADR_002.md`
 
 ## Governance Baseline
 

@@ -29,11 +29,11 @@ from app.models.accounting import JournalVoucher, GeneralLedgerEntry, Account
 from app.models.analytics import AnalyticsDailySalesFact
 from app.models.audit import ComplianceImmutableAuditLog
 from app.models.crm import Customer
-from app.services.analytical_intelligence_service import AnalyticalIntelligenceService
-from app.services.tally_integration_service import TallyIntegrationService
-from app.services.compliance_audit_service import ComplianceAuditService
-from app.services.unified_sales_ledger_service import UnifiedSalesLedgerService
-from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from app.services.analytics_svc import AnalyticalIntelligenceService
+from app.services.tally_service import TallyIntegrationService
+from app.services.compliance_audit import ComplianceAuditService
+from app.services.sales_ledger_svc import UnifiedSalesLedgerService
+from app.services.unified_ledger import UnifiedAccountingLedgerService
 
 
 def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:

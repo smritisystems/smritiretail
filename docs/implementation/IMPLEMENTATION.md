@@ -11,10 +11,10 @@ This document defines the controlled implementation sequence for SMRITI Retail O
 ## Governance Baseline
 Implementation work must obey the following hierarchy:
 1. `docs/governance/IMPLEMENTATION_GATE.md`
-2. `docs/governance/GOVERNANCE_FREEZE_CHECKLIST.md`
-3. `docs/architecture/decisions/ADR-002-SMRITI-METADATA-ARCHITECTURE.md`
-4. `docs/governance/METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md`
-5. `docs/developer_guide/AI_IMPLEMENTATION_STANDARD.md`
+2. `docs/governance/GOVERNANCE_FREEZE.md`
+3. `docs/architecture/decisions/ADR-002-SMRITI-MET.md`
+4. `docs/governance/METADATA.md`
+5. `docs/developer_guide/AI_IMPLEMENTATION.md`
 
 Governance Status:
 - Version: 1.0
@@ -130,7 +130,7 @@ Every implementation should follow this sequence:
 
 ## Implementation Start Check
 - [ ] `docs/governance/IMPLEMENTATION_GATE.md` reviewed
-- [ ] `docs/architecture/decisions/ADR-002-SMRITI-METADATA-ARCHITECTURE.md` reviewed
+- [ ] `docs/architecture/decisions/ADR-002-SMRITI-MET.md` reviewed
 - [ ] Module dependencies satisfied
 - [ ] Scope limited to one module
 - [ ] No architectural changes planned

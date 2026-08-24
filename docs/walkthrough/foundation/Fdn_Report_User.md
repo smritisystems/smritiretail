@@ -34,7 +34,7 @@ Introduces the `"Report User"` role which allows full visibility into reports (w
 
 ## 4. Files Modified
 - [backend/app/models/auth.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/models/auth.py) (Added `REPORT_USER` enum value)
-- [src/db/postgres/PostgresRepositories.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/postgres/PostgresRepositories.ts) (Added role mappings)
+- [src/db/postgres/PgRepos.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/postgres/PgRepos.ts) (Added role mappings)
 - [src/state/store.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/state/store.ts) (Added role seeding and updated default user types)
 - [db_store.json](file:///d:/IMP/GitHub/SMRITRretailNX/db_store.json) (Seeded Report User role config)
 - [server.ts](file:///d:/IMP/GitHub/SMRITRretailNX/server.ts) (Injected Report User write operations guard middleware)
@@ -71,7 +71,7 @@ Introduces the `"Report User"` role which allows full visibility into reports (w
 
  ✓ src/tests/helpers.test.ts (12 tests) 1890ms
  ✓ src/tests/reportUser.test.ts (5 tests) 935ms
- ✓ src/tests/validatorsAndFormatters.test.ts (5 tests) 34ms
+ ✓ src/tests/validators.test.ts (5 tests) 34ms
  ✓ src/tests/numbering.test.ts (3 tests) 6ms
  ✓ src/tests/gst.test.ts (6 tests) 6ms
  ✓ src/tests/indianFormat.test.ts (5 tests) 5ms

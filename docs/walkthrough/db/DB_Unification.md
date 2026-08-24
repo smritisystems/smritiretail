@@ -33,7 +33,7 @@ The scope includes securing FastAPI CORS headers, setting up the Vitest testing 
 - `src/core/interfaces/db.ts` — declared missing repository interfaces and update methods
 - `src/bootstrap/di.ts` — registered new repositories and the memory provider
 - `src/db/sqlite/SqliteRepositories.ts` — added SQLite stubs throwing offline errors
-- `src/db/indexeddb/IndexedDbRepositories.ts` — added IndexedDB stubs throwing offline errors
+- `src/db/indexeddb/IdbRepos.ts` — added IndexedDB stubs throwing offline errors
 - `src/state/store.ts` — removed sessions from flat-file database serialization
 - `src/routes/auth.ts` — refactored authentication endpoints to utilize repository layer
 - `src/routes/users.ts` — refactored user management endpoints to use repository layer

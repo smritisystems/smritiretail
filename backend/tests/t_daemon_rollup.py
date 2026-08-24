@@ -26,7 +26,7 @@ from app.db.session import get_company_sessionmaker
 from app.models.analytics import AnalyticsDailySalesFact
 from app.models.auth import UserRole
 from app.core.security import create_access_token
-from app.services.analytics_daemon_service import AnalyticsDaemonService
+from app.services.analytics_daemon import AnalyticsDaemonService
 
 
 def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:

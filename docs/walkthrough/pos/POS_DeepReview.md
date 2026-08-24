@@ -34,7 +34,7 @@ This walkthrough documents the implementation of all high- and medium-priority f
 ## 2. Scope
 
 - `src/components/PosTerminalTab.tsx` — 7 improvements
-- `src/components/SmritiErrorBoundary.tsx` — NEW file
+- `src/components/ErrorBoundary.tsx` — NEW file
 - `src/App.tsx` — Error Boundary integration + conditional modal
 
 ---
@@ -43,7 +43,7 @@ This walkthrough documents the implementation of all high- and medium-priority f
 
 | File | Size | Purpose |
 | :--- | :--- | :--- |
-| `src/components/SmritiErrorBoundary.tsx` | 98 lines | React class-based Error Boundary isolating workspace tab crashes |
+| `src/components/ErrorBoundary.tsx` | 98 lines | React class-based Error Boundary isolating workspace tab crashes |
 
 ---
 
@@ -159,7 +159,7 @@ Output:
 
 ## 12. Related ADRs
 
-- ADR-PAL-001: Platform Abstraction Layer rules (`docs/architecture/PLATFORM_ADAPTER_RULES.md`)
+- ADR-PAL-001: Platform Abstraction Layer rules (`docs/architecture/PLATFORM_ADAPTER.md`)
 
 ---
 

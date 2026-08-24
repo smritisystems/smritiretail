@@ -29,7 +29,7 @@ import {
 import { ExportButton } from "../../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../../export/types.ts";
 
-export interface TaxInvoiceHeaderToolbarProps {
+export interface TaxHeaderBarolbarProps {
   onNew: () => void;
   onSave: () => void;
   onDelete: () => void;
@@ -43,7 +43,7 @@ export interface TaxInvoiceHeaderToolbarProps {
   currentUser?: { role: string; name: string } | null;
 }
 
-export const TaxInvoiceHeaderToolbar: React.FC<TaxInvoiceHeaderToolbarProps> = ({
+export const TaxHeaderBar: React.FC<TaxHeaderBarolbarProps> = ({
   onNew,
   onSave,
   onDelete,

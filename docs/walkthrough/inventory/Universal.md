@@ -29,14 +29,14 @@ Establish the **View Configuration** studio as the central control panel for bot
 * Integration across Item Details Grid, Item Catalog Search, and Report Designer tables.
 
 ## 3. Files Created
-* `docs/implementation/inventory/Implementation_Plan_Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md`
-* `docs/walkthrough/inventory/Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md`
+* `docs/implementation/inventory/Plan_Universal.md`
+* `docs/walkthrough/inventory/Universal.md`
 
 ## 4. Files Modified
 * `src/services/unifiedFieldCatalog.ts`
-* `src/components/itemMaster/SmritiItemDetailsGrid.tsx`
-* `src/components/itemMaster/SmritiItemCatalogGrid.tsx`
-* `src/components/itemMaster/SmritiViewConfiguration.tsx`
+* `src/components/itemMaster/ItemDetGrid.tsx`
+* `src/components/itemMaster/ItemCatGrid.tsx`
+* `src/components/itemMaster/ViewConfig.tsx`
 * `src/components/ReportDesignerTab.tsx`
 * `docs/implementation/README.md`
 * `docs/walkthrough/README.md`
@@ -51,8 +51,8 @@ Retailers must have full autonomy to hide irrelevant attributes (e.g., hiding He
 
 ## 7. Implementation Summary
 * Added `saveGlobalFieldVisibility`, `getGlobalFieldVisibility`, and `isFieldGloballyVisible` to `unifiedFieldCatalog.ts`.
-* Updated `SmritiViewConfiguration.tsx` to persist global visibility state.
-* Subscribed `SmritiItemDetailsGrid.tsx`, `SmritiItemCatalogGrid.tsx`, and `ReportDesignerTab.tsx` to reactive updates.
+* Updated `ViewConfig.tsx` to persist global visibility state.
+* Subscribed `ItemDetGrid.tsx`, `ItemCatGrid.tsx`, and `ReportDesignerTab.tsx` to reactive updates.
 
 ## 8. Tests Executed
 * Toggled column visibility in View Configuration and confirmed instant removal from Item Details Grid, Catalog Browser, and Report Viewer tables.

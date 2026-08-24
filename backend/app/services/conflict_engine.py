@@ -35,8 +35,8 @@ from ..schemas.sync import (
     SyncBatchRequest,
     SyncBatchResponse
 )
-from .unified_sales_ledger_service import UnifiedSalesLedgerService
-from .compliance_audit_service import ComplianceAuditService
+from .sales_ledger_svc import UnifiedSalesLedgerService
+from .compliance_audit import ComplianceAuditService
 
 
 class OfflineConflictResolutionEngine:

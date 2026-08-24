@@ -12,7 +12,7 @@ Classification: Internal
 
 SMRITI Naming Guard - CI Enforcement Script
 ============================================
-Enforces docs/governance/SMRITI_NAMING_POLICY.md (Policy ID: NGP-v1.0).
+Enforces docs/governance/NAMING_POLICY.md (Policy ID: NGP-v1.0).
 
 Scans src/, backend/ for:
   1. Prohibited development-state name fragments (Rule 14)
@@ -70,10 +70,11 @@ SCAN_DIRS: list = ["src", "backend", "scripts"]
 SKIP_DIRS: set = {
     "node_modules", "__pycache__", ".venv", ".git",
     "dist", "build", ".pytest_cache", "coverage",
+    "alembic", "migrations",
 }
 
-HARD_MAX_LENGTH = 100
-PREFERRED_MAX_LENGTH = 80
+HARD_MAX_LENGTH = 22     # NGP-v2.0: hard maximum (including extension)
+PREFERRED_MAX_LENGTH = 16  # NGP-v2.0: preferred maximum (advisory warning)
 
 # ── Category A: ALWAYS prohibited in any token position ───────────────────
 # These words have no valid role in any compound domain name.
@@ -129,7 +130,7 @@ PROHIBITED_SUFFIXES: list = [
 WHITELIST: set = {
     # The governance policy doc and this guard script reference prohibited
     # words by necessity in their content -- they are exempted by design.
-    "docs/governance/SMRITI_NAMING_POLICY.md",
+    "docs/governance/NAMING_POLICY.md",
     "scripts/smriti_naming_guard.py",
 }
 
@@ -266,7 +267,7 @@ def _print_report(violations: List[Dict], warnings: List[Dict]) -> None:
         print(SEP)
         print("")
         print("  {0} violation(s) found.".format(len(violations)))
-        print("  See docs/governance/SMRITI_NAMING_POLICY.md (Policy NGP-v1.0).")
+        print("  See docs/governance/NAMING_POLICY.md (Policy NGP-v1.0).")
         print("")
     else:
         print("")

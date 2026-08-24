@@ -39,8 +39,8 @@ This walkthrough documents the implementation of the **Master UI/UX Refactor Spe
 4. `src/components/shell/NavRail.tsx`
 5. `src/components/shell/AppShell.tsx`
 6. `src/components/launchpad/FioriLaunchpad.tsx`
-7. `docs/implementation/foundation/SMRITI_Master_UIUX_Refactor_Plan_v3.17.0.md`
-8. `docs/walkthrough/foundation/SMRITI_Master_UIUX_Refactor_Walkthrough_v3.17.0.md`
+7. `docs/implementation/foundation/Master_UIUX.md`
+8. `docs/walkthrough/foundation/Master_UIUX.md`
 
 ---
 
@@ -102,4 +102,4 @@ The "Smriti Cognitive System" philosophy prioritizes low contrast fatigue, high 
 ---
 
 ## 13. Related RFCs
-* `docs/implementation/foundation/SMRITI_Master_UIUX_Refactor_Plan_v3.17.0.md`
+* `docs/implementation/foundation/Master_UIUX.md`

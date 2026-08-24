@@ -60,7 +60,7 @@ This architectural audit verifies that the official SMRITI Control Plane databas
 - [x] **Criterion 3**: No Docker configuration defaults to `smriti_retail_db`.
 - [x] **Criterion 4**: No backend production configuration defaults to `smriti_retail_db`.
 - [x] **Criterion 5**: No seed/migration script targets `smriti_retail_db` after migration.
-- [x] **Criterion 6**: Existing database rename executed via controlled migration (`scripts/migrate_db_to_smritisys.py`).
+- [x] **Criterion 6**: Existing database rename executed via controlled migration (`scripts/migr_db_to_sys.py`).
 - [x] **Criterion 7**: Company Business DB remains separate and decoupled from `smritisys`.
 - [x] **Criterion 8**: Zero database mutations performed during this audit.
 

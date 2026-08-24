@@ -20,7 +20,7 @@ from sqlalchemy import text, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.session import get_company_sessionmaker
-from .analytical_intelligence_service import AnalyticalIntelligenceService
+from .analytics_svc import AnalyticalIntelligenceService
 from .outbox_worker import OutboxQueueWorker
 
 logger = logging.getLogger("smriti.analytics_daemon")

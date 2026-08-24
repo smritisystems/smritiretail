@@ -40,7 +40,7 @@ In the new repository `SMRITIDocker`:
 - `.env.example`
 
 In `SMRITRretailNX` (this repository):
-- `docs/walkthrough/devops/Devops_SMRITIDocker_Repository_Creation_v3.16.0.md` (this file)
+- `docs/walkthrough/devops/Devops.md` (this file)
 
 ---
 

@@ -35,7 +35,7 @@ def update_references():
 
     for pat in file_patterns:
         for filepath in glob.glob(pat, recursive=True):
-            if "migrate_db_to_smritisys.py" in filepath:
+            if "migr_db_to_sys.py" in filepath:
                 continue
             try:
                 with open(filepath, "r", encoding="utf-8", errors="ignore") as f:

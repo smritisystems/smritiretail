@@ -32,14 +32,14 @@ Decouple the legacy unified CRM & Loyalty UI console into three focused, enterpr
 - `src/services/customerValidation.ts`
 - `src/components/CrmStudioTab.tsx`
 - `src/components/crm/LeadManager.tsx`
-- `src/components/crm/OpportunityPipeline.tsx`
+- `src/components/crm/OppPipe.tsx`
 - `src/services/crmService.ts`
 - `src/components/LoyaltyStudioTab.tsx`
 - `src/components/loyalty/WalletManager.tsx`
 - `src/components/loyalty/TierManager.tsx`
 - `src/services/loyaltyService.ts`
-- `src/tests/customerCrmLoyaltyDecoupling.test.ts`
-- `docs/implementation/foundation/CRM_Loyalty_CustomerMaster_Split_Plan_v3.16.0.md`
+- `src/tests/crmLoyalty.test.ts`
+- `docs/implementation/foundation/CRM_Loyalty.md`
 
 ## 4. Files Modified
 - `src/App.tsx`

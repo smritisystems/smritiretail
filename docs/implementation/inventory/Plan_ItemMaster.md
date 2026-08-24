@@ -59,7 +59,7 @@ Previous iterations handled basic item grids but lacked granular column reorderi
 ## 6. Architecture Impact
 Dependencies point inward only:
 ```text
-UI (SmritiItemMasterWorkspace, SmritiItemDetailsGrid, SmritiImagePathConfigStudio)
+UI (SmritiItemMasterWorkspace, ItemDetGrid, SmritiImagePathConfigStudio)
     ↓
 Platform Abstraction Layer (PAL & ImagePathConfigService)
     ↓
@@ -78,24 +78,24 @@ PostgreSQL Database
 ---
 
 ## 8. Files Created
-1. `src/components/itemMaster/SmritiItemDetailsGrid.tsx`
+1. `src/components/itemMaster/ItemDetGrid.tsx`
 2. `src/components/itemMaster/SmritiCommonFieldsSetup.tsx`
-3. `src/components/itemMaster/SmritiViewConfiguration.tsx`
-4. `src/components/itemMaster/SmritiReplaceDataModal.tsx`
-5. `src/components/itemMaster/SmritiCodeSelectionDialog.tsx`
-6. `src/components/itemMaster/SmritiKeyboardShortcutsModal.tsx`
-7. `src/components/itemMaster/SmritiDataLoadingConfirmationModal.tsx`
-8. `src/components/itemMaster/SmritiImagePathConfigStudio.tsx`
-9. `src/services/imagePathConfigService.ts`
+3. `src/components/itemMaster/ViewConfig.tsx`
+4. `src/components/itemMaster/ReplaceDataDlg.tsx`
+5. `src/components/itemMaster/CodeSelectDlg.tsx`
+6. `src/components/itemMaster/KeyboardKeysDlg.tsx`
+7. `src/components/itemMaster/DataLoadingConfirm.tsx`
+8. `src/components/itemMaster/ImagePathConfigStu.tsx`
+9. `src/services/imagePathConfig.ts`
 
 ---
 
 ## 9. Files Modified
-1. `src/components/itemMaster/SmritiItemMasterWorkspace.tsx`
-2. `src/components/itemMaster/SmritiItemCatalogGrid.tsx`
-3. `src/components/itemMaster/SmritiAttributeManagementStudio.tsx`
-4. `src/components/itemMaster/SmritiItemMasterStudio.tsx`
-5. `src/components/drilldown/ContextualInspectorHUD.tsx`
+1. `src/components/itemMaster/ItemMasterWs.tsx`
+2. `src/components/itemMaster/ItemCatGrid.tsx`
+3. `src/components/itemMaster/AttrMgmtStudio.tsx`
+4. `src/components/itemMaster/ItemMasterStudio.tsx`
+5. `src/components/drilldown/CtxInspectorHUD.tsx`
 6. `src/services/unifiedFieldCatalog.ts`
 7. `src/lib/headerMapping/HeaderAliasRegistry.ts`
 
@@ -153,4 +153,4 @@ PostgreSQL Database
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/inventory/Inventory_ItemMaster_StitchManagementSystem_v5.3.0.md`.
+- `docs/walkthrough/inventory/Inv_ItemMaster_2.md`.

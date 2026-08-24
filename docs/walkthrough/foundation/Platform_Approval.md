@@ -30,16 +30,16 @@ Unify multi-tier document approval governance (Draft -> Pending Approval -> Appr
 ## 3. Files Created
 1. `backend/app/models/approval.py`: Canonical `ApprovalPolicy`, `ApprovalRequest`, and `ApprovalAction` models.
 2. `backend/app/models/communicator.py`: Canonical `CommunicatorTemplate` and `CommunicatorLog` models.
-3. `backend/app/services/unified_approval_communicator_service.py`: Domain service orchestrating policy evaluation, state transitions, and communicator template dispatch.
-4. `backend/tests/test_unified_approval_communicator.py`: Automated verification suite certifying approval thresholds, decision audits, message rendering, and tenant isolation.
-5. `docs/implementation/foundation/Platform_Refactor_Slice5_Approval_Workflow_Communicator_Plan_v1.0.md`: Master 19-section implementation plan for Slice 5.
+3. `backend/app/services/unified_approval.py`: Domain service orchestrating policy evaluation, state transitions, and communicator template dispatch.
+4. `backend/tests/t_approval_comm.py`: Automated verification suite certifying approval thresholds, decision audits, message rendering, and tenant isolation.
+5. `docs/implementation/foundation/Platform_Refactor.md`: Master 19-section implementation plan for Slice 5.
 
 ---
 
 ## 4. Files Modified
 1. `backend/app/models/__init__.py`: Exported Approval and Communicator models.
 2. `docs/implementation/README.md`: Appended Slice 5 implementation plan to master index.
-3. `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Updated platform tracker with verified Slice 5 status.
+3. `docs/architecture/PLATFORM.md`: Updated platform tracker with verified Slice 5 status.
 4. `docs/walkthrough/README.md`: Appended Slice 5 walkthrough to chronological master index.
 
 ---
@@ -70,7 +70,7 @@ Decoupled approval policies allow organizations to adapt financial governance ru
 ---
 
 ## 8. Tests Executed
-1. `backend/tests/test_unified_approval_communicator.py`:
+1. `backend/tests/t_approval_comm.py`:
    - `test_approval_policy_threshold_trigger_and_request_creation` (Passed)
    - `test_approval_action_decision_lifecycle` (Passed)
    - `test_communicator_template_rendering_and_dispatch_log` (Passed)
@@ -91,23 +91,23 @@ plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 81 items
 
-backend\tests\test_unified_approval_communicator.py ....                 [  4%]
-backend\tests\test_unified_pricing_payment_engine.py ....                [  9%]
-backend\tests\test_unified_sales_ledger.py ....                          [ 14%]
-backend\tests\test_universal_party_master.py ...                         [ 18%]
-backend\tests\test_universal_item_master.py ...                          [ 22%]
-backend\tests\test_routing_boundary_canonical.py .............           [ 38%]
-backend\tests\test_company_db_runtime_routing.py .......                 [ 46%]
-backend\tests\test_company_db_naming_convention.py ......                [ 54%]
-backend\tests\test_get_company_db_wiring.py .....                        [ 60%]
-backend\tests\test_multi_company_database_architecture.py ......         [ 67%]
-backend\tests\test_company_db_provisioning.py .....                      [ 74%]
-backend\tests\test_menu_governance.py .                                  [ 75%]
-backend\tests\test_security_menu_access.py ..                            [ 77%]
+backend\tests\t_approval_comm.py ....                 [  4%]
+backend\tests\t_pricing_eng.py ....                [  9%]
+backend\tests\t_sales_ledger.py ....                          [ 14%]
+backend\tests\t_univ_party.py ...                         [ 18%]
+backend\tests\t_univ_item.py ...                          [ 22%]
+backend\tests\t_route_boundary.py .............           [ 38%]
+backend\tests\t_comp_db_route.py .......                 [ 46%]
+backend\tests\t_comp_db_name.py ......                [ 54%]
+backend\tests\t_comp_db_wire.py .....                        [ 60%]
+backend\tests\t_multi_comp_db.py ......         [ 67%]
+backend\tests\t_comp_db_prov.py .....                      [ 74%]
+backend\tests\t_menu_gov.py .                                  [ 75%]
+backend\tests\t_sec_menu.py ..                            [ 77%]
 backend\tests\test_wms_phase1.py ....                                    [ 82%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 86%]
-backend\tests\test_wms_phase3_eway_bill.py .....                         [ 92%]
-backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
+backend\tests\t_wms_phase2.py ...                           [ 86%]
+backend\tests\t_wms_phase3.py .....                         [ 92%]
+backend\tests\t_wms_phase4.py ......             [100%]
 
 ======================= 81 passed, 1 warning in 32.28s ========================
 ```

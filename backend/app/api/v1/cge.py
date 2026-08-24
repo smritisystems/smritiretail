@@ -19,8 +19,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_company_db, get_tenant_context, TenantContext
-from ...services.commercial_growth_service import CommercialGrowthEngine
-from ...services.pdt_analytics_service import PdtAnalyticsService
+from ...services.commercial_growth import CommercialGrowthEngine
+from ...services.pdt_analytics import PdtAnalyticsService
 
 router = APIRouter()
 

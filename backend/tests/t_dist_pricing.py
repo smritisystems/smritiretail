@@ -24,7 +24,7 @@ from app.core.security import create_access_token
 from app.models.auth import UserRole
 from app.db.session import get_company_sessionmaker
 from app.services.pricing_engine import PricingEngine
-from app.services.distribution_service import DistributionService
+from app.services.distribution_svc import DistributionService
 from app.models.party import Party
 from app.models.item_master import Item, ItemVariant
 from app.models.pricing import PriceBook, PriceBookEntry, CustomerPriceTier

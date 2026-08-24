@@ -14,7 +14,7 @@
 
 import React, { useState, useEffect } from "react";
 import { EodRegisterCloseout, POSZReportData, CashDenominations, ShiftCashMovementRecord } from "./types.ts";
-import { SmritiProPosDenominationInput, calculateDenominationTotal } from "./SmritiProPosDenominationInput.tsx";
+import ProPosDenomination, { calculateDenominationTotal } from "./ProPosDenomination.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { 
   FileSpreadsheet, 
@@ -36,13 +36,13 @@ import {
   RefreshCw
 } from "lucide-react";
 
-interface SmritiProPosEodReportViewProps {
+interface SmritiProPosEodReportwProps {
   initialEod?: EodRegisterCloseout;
   onCommitCloseout: (eod: EodRegisterCloseout) => void;
   onNotification?: (title: string, msg: string, type: "success" | "error") => void;
 }
 
-export const SmritiProPosEodReportView: React.FC<SmritiProPosEodReportViewProps> = ({
+export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
   initialEod,
   onCommitCloseout,
   onNotification
@@ -300,7 +300,7 @@ export const SmritiProPosEodReportView: React.FC<SmritiProPosEodReportViewProps>
         </div>
 
         {/* Physical Cash Denomination Breakdown Component */}
-        <SmritiProPosDenominationInput
+        <ProPosDenomination
           denominations={denominations}
           onChange={(updated) => setDenominations(updated)}
           expectedCash={systemCash}
@@ -471,4 +471,4 @@ export const SmritiProPosEodReportView: React.FC<SmritiProPosEodReportViewProps>
   );
 };
 
-export default SmritiProPosEodReportView;
+export default SmritiProPosEodReportw;

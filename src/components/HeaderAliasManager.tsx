@@ -17,14 +17,14 @@ import { X, Plus, Trash2, Tag, Check, BookMarked, Sparkles } from "lucide-react"
 import { SmritiFieldDefinition } from "../lib/headerMapping/types";
 import { SMRITI_ITEM_MASTER_FIELDS, addCustomAlias, removeCustomAlias, getCustomAliases } from "../lib/headerMapping/HeaderAliasRegistry";
 
-interface HeaderAliasManagerModalProps {
+interface HeaderAliasDlgModalProps {
   isOpen: boolean;
   onClose: () => void;
   availableFields?: SmritiFieldDefinition[];
   onAliasUpdated?: () => void;
 }
 
-export const HeaderAliasManagerModal: React.FC<HeaderAliasManagerModalProps> = ({
+export const HeaderAliasDlgModal: React.FC<HeaderAliasDlgModalProps> = ({
   isOpen,
   onClose,
   availableFields = SMRITI_ITEM_MASTER_FIELDS,

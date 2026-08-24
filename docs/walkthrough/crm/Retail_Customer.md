@@ -18,24 +18,24 @@
 This walkthrough documents the complete implementation of the **Customer Catalogue (Retail)** workspace, providing a central administrative interface split into 3 tabs (**Form**, **Retail Details**, **Additional Details**) with an associated **Mailing Address Sub-Form** and **Advanced Customer Search Utility**.
 
 ## 2. Scope
-* `src/components/customer/SmritiCustomerMasterWorkspace.tsx`
-* `src/components/customer/SmritiCustomerFormTab.tsx`
-* `src/components/customer/SmritiCustomerRetailDetailsTab.tsx`
-* `src/components/customer/SmritiCustomerAdditionalDetailsTab.tsx`
-* `src/components/customer/SmritiCustomerMailingModal.tsx`
-* `src/components/customer/SmritiAdvancedCustomerSearchModal.tsx`
+* `src/components/customer/CustMasterWs.tsx`
+* `src/components/customer/CustFormTab.tsx`
+* `src/components/customer/CustRetailDetTab.tsx`
+* `src/components/customer/CustAddlDetTab.tsx`
+* `src/components/customer/CustMailingDlg.tsx`
+* `src/components/customer/AdvancedCustSearch.tsx`
 * `src/components/CustomerMasterTab.tsx`
 
 ## 3. Files Created
 * `src/components/customer/types.ts`
-* `src/components/customer/SmritiCustomerFormTab.tsx`
-* `src/components/customer/SmritiCustomerRetailDetailsTab.tsx`
-* `src/components/customer/SmritiCustomerAdditionalDetailsTab.tsx`
-* `src/components/customer/SmritiCustomerMailingModal.tsx`
-* `src/components/customer/SmritiAdvancedCustomerSearchModal.tsx`
-* `src/components/customer/SmritiCustomerMasterWorkspace.tsx`
-* `docs/implementation/crm/Implementation_Plan_Retail_Customer_Catalogue_v5.5.0.md`
-* `docs/walkthrough/crm/Retail_Customer_Catalogue_v5.5.0.md`
+* `src/components/customer/CustFormTab.tsx`
+* `src/components/customer/CustRetailDetTab.tsx`
+* `src/components/customer/CustAddlDetTab.tsx`
+* `src/components/customer/CustMailingDlg.tsx`
+* `src/components/customer/AdvancedCustSearch.tsx`
+* `src/components/customer/CustMasterWs.tsx`
+* `docs/implementation/crm/Plan_Retail.md`
+* `docs/walkthrough/crm/Retail_Customer.md`
 
 ## 4. Files Modified
 * `src/components/CustomerMasterTab.tsx`

@@ -20,7 +20,7 @@ import pytest
 from decimal import Decimal
 from sqlalchemy import select, delete
 from app.db.session import get_company_sessionmaker
-from app.services.unified_sales_ledger_service import UnifiedSalesLedgerService
+from app.services.sales_ledger_svc import UnifiedSalesLedgerService
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.inventory import Product, StockMovement, ProductBatchStock
 

@@ -36,7 +36,7 @@ None.
 - **db.ts**: Add `IStateRepository` interface to handle collections read/write and persistence.
 - **di.ts**: Register `state` repository in `DIContainer` and bind to Postgres / Memory / Sqlite / IndexedDb adapters.
 - **MemoryRepositories.ts**: Implement `MemoryStateRepository` executing mutations and invoking `store.saveDb()`.
-- **PostgresRepositories.ts**: Implement `PostgresStateRepository`.
+- **PgRepos.ts**: Implement `PostgresStateRepository`.
 - Refactor all 12 route files under `src/routes/` to call `await container.state.saveDb()`.
 
 ### React Frontend (Indian Market Core Enhancements)

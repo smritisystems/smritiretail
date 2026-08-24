@@ -69,7 +69,7 @@ Loyalty Studio (Rewards / Tiers)
 ### Phase 2: CRM Studio
 - `src/components/CrmStudioTab.tsx`
 - `src/components/crm/LeadManager.tsx`
-- `src/components/crm/OpportunityPipeline.tsx`
+- `src/components/crm/OppPipe.tsx`
 - `src/services/crmService.ts`
 
 ### Phase 3: Loyalty Studio
@@ -113,4 +113,4 @@ Completed
 None.
 
 ## 19. Related Walkthroughs
-- [Foundation_CRM_Loyalty_CustomerMaster_Split_v3.16.0.md](../../walkthrough/foundation/Foundation_CRM_Loyalty_CustomerMaster_Split_v3.16.0.md)
+- [Fdn_CRM_Loyalty.md](../../walkthrough/foundation/Fdn_CRM_Loyalty.md)

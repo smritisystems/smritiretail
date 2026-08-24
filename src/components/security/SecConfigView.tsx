@@ -23,13 +23,13 @@ import {
   savePasswordSecurityConfig,
   getHousekeepingSecurityConfig,
   saveHousekeepingSecurityConfig,
-} from "../../services/securityManagementStore";
+} from "../../services/securityStore";
 
 interface SmritiSecurityConfigurationViewProps {
   onClose: () => void;
 }
 
-export const SmritiSecurityConfigurationView: React.FC<SmritiSecurityConfigurationViewProps> = ({
+export const SecConfigView: React.FC<SmritiSecurityConfigurationViewProps> = ({
   onClose,
 }) => {
   const [activeCategory, setActiveCategory] = useState<"Password" | "Housekeeping">("Password");

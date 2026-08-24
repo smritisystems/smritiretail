@@ -26,7 +26,7 @@ Three additional component bugs fixed where raw Express fetches were returning 4
 | Component | Change Type |
 |---|---|
 | PosTerminalTab.tsx | Remove 3 if/else blocks + isFeatureEnabled import |
-| AdvancedBillingEngine.tsx | Bug fix: Express checkout (unmounted) → apiFetchV1 |
+| AdvancedBillingEng.tsx | Bug fix: Express checkout (unmounted) → apiFetchV1 |
 | App.tsx | Bug fix: Express profiles (unmounted) → apiFetchV1 registers |
 | PosProfilesTab.tsx | ARCH-DEBT annotation (deferred to v3.22.0) |
 | src/config/flags.ts | Remove USE_FASTAPI_POS |
@@ -42,7 +42,7 @@ None.
 | File | Change |
 |---|---|
 | src/components/PosTerminalTab.tsx | 3 if/else blocks removed; isFeatureEnabled import removed |
-| src/components/AdvancedBillingEngine.tsx | Checkout migrated; apiFetchV1 import added |
+| src/components/AdvancedBillingEng.tsx | Checkout migrated; apiFetchV1 import added |
 | src/App.tsx | Profiles load: Express → apiFetchV1('/pos/registers/') |
 | src/components/PosProfilesTab.tsx | ARCH-DEBT comments added; no logic change |
 | src/config/flags.ts | USE_FASTAPI_POS removed |

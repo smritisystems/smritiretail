@@ -22,9 +22,9 @@ The "Common Fields Setup" tab introduced unnecessary navigation friction by atte
 
 ## 3. Scope
 - **Component Deletion**: Removed `src/components/itemMaster/SmritiCommonFieldsSetup.tsx` and `src/components/itemMaster/tabs/CommonFieldsTab.tsx`.
-- **Item Master Workspace Cleanup**: Cleaned up `SmritiItemMasterWorkspace.tsx`, removing the navigation tab, state, and shortcuts.
-- **Item Details Grid Decoupling**: Decoupled `SmritiItemDetailsGrid.tsx` and `ItemMasterEntryView.tsx` from `CommonFieldsData` interfaces.
-- **Keyboard Shortcuts Alignment**: Updated `SmritiKeyboardShortcutsModal.tsx` and global shortcut listeners to re-index Alt+1..6 directly.
+- **Item Master Workspace Cleanup**: Cleaned up `ItemMasterWs.tsx`, removing the navigation tab, state, and shortcuts.
+- **Item Details Grid Decoupling**: Decoupled `ItemDetGrid.tsx` and `ItemMasterEntryVie.tsx` from `CommonFieldsData` interfaces.
+- **Keyboard Shortcuts Alignment**: Updated `KeyboardKeysDlg.tsx` and global shortcut listeners to re-index Alt+1..6 directly.
 - **Test Suite & Build Verification**: Verified that all 37 Vitest test suites (277 tests) and Docker frontend container build pass with zero errors.
 
 ## 4. Current State
@@ -45,10 +45,10 @@ Previously, the Item Master sidebar displayed "Common Fields" with an `<Settings
 None.
 
 ## 9. Files Modified
-- `src/components/itemMaster/SmritiItemMasterWorkspace.tsx`
-- `src/components/itemMaster/SmritiItemDetailsGrid.tsx`
-- `src/components/itemMaster/ItemMasterEntryView.tsx`
-- `src/components/itemMaster/SmritiKeyboardShortcutsModal.tsx`
+- `src/components/itemMaster/ItemMasterWs.tsx`
+- `src/components/itemMaster/ItemDetGrid.tsx`
+- `src/components/itemMaster/ItemMasterEntryVie.tsx`
+- `src/components/itemMaster/KeyboardKeysDlg.tsx`
 - `src/components/itemMaster/types.ts`
 - `docs/implementation/README.md`
 - `docs/walkthrough/README.md`
@@ -73,7 +73,7 @@ Git revert commits if necessary.
 - Rebuild Docker container `smriti-web` and verify health check.
 
 ## 15. Test Plan
-- Run `npx vitest run src/tests/itemMasterTacticalGrid.test.ts`.
+- Run `npx vitest run src/tests/itemGrid.test.ts`.
 
 ## 16. Deployment Plan
 Sync to development workspace and pull into test environment.
@@ -85,4 +85,4 @@ Completed
 - ADR-0015: Item Master Workspace Modernization & Redundant Module Decommissioning.
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/inventory/Inventory_Remove_Common_Fields_Setup_Module_v6.12.0.md`.
+- `docs/walkthrough/inventory/Inv_Remove_Common.md`.

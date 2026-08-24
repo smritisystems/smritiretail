@@ -24,7 +24,7 @@ Refactor the **Reports, Registers & Financial Analytics Studio** (`ReportDesigne
 - **QuickReportsWidget.tsx**: Quick reports printout card, predefined report items list, preview modal launcher, and instant action buttons.
 
 ## 3. Files Created
-- `docs/walkthrough/reports/Reports_Analytics_Studio_Refactor_v3.28.0.md`
+- `docs/walkthrough/reports/Reports_Analytics.md`
 
 ## 4. Files Modified
 - `src/components/ReportDesignerTab.tsx`

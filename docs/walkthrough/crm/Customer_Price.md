@@ -18,29 +18,29 @@
 This walkthrough documents the complete implementation of the **Customer Price Group Master** window and the resolution of the **Customer Flow & Database Integrity Audit**, establishing PostgreSQL as the single canonical source of truth for CRM records while removing misleading frontend mock fallbacks.
 
 ## 2. Scope
-* Customer Price Group Master Modal (`src/components/customer/SmritiCustomerPriceGroupModal.tsx`)
-* Customer Form Tab Integration (`src/components/customer/SmritiCustomerFormTab.tsx`)
+* Customer Price Group Master Modal (`src/components/customer/CustPriceGroupDlg.tsx`)
+* Customer Form Tab Integration (`src/components/customer/CustFormTab.tsx`)
 * Customer Storage & Sync Service (`src/services/customerStore.ts`)
-* Billing Terminal & ProPOS Live Customer Browse (`src/components/billing/SmritiBillingTerminal.tsx`, `src/components/billing/propos/SmritiCustomerBrowseModal.tsx`)
+* Billing Terminal & ProPOS Live Customer Browse (`src/components/billing/BillingTerm.tsx`, `src/components/billing/propos/CustBrowseDlg.tsx`)
 * Backend Tenant Context & CRM Service Resilience (`backend/app/api/deps.py`, `backend/app/services/crm.py`, `backend/app/schemas/crm.py`)
 * Database Canonical Seeding (`backend/app/db/seed_customers.py`)
-* Automated Regression Test Suites (`src/tests/customerPriceGroup.test.ts`, `src/tests/customerFlowIntegrity.test.ts`)
+* Automated Regression Test Suites (`src/tests/custPriceGrp.test.ts`, `src/tests/custFlow.test.ts`)
 
 ## 3. Files Created
-* `src/components/customer/SmritiCustomerPriceGroupModal.tsx`
+* `src/components/customer/CustPriceGroupDlg.tsx`
 * `backend/app/db/seed_customers.py`
-* `src/tests/customerPriceGroup.test.ts`
-* `src/tests/customerFlowIntegrity.test.ts`
-* `docs/walkthrough/crm/Customer_Price_Group_And_Database_Integrity_v6.9.0.md`
-* `docs/implementation/crm/Customer_Price_Group_And_Database_Integrity_Plan_v6.9.0.md`
+* `src/tests/custPriceGrp.test.ts`
+* `src/tests/custFlow.test.ts`
+* `docs/walkthrough/crm/Customer_Price.md`
+* `docs/implementation/crm/Customer_Price.md`
 
 ## 4. Files Modified
 * `src/types.ts`
 * `src/components/customer/types.ts`
 * `src/services/customerStore.ts`
-* `src/components/customer/SmritiCustomerFormTab.tsx`
-* `src/components/billing/SmritiBillingTerminal.tsx`
-* `src/components/billing/propos/SmritiCustomerBrowseModal.tsx`
+* `src/components/customer/CustFormTab.tsx`
+* `src/components/billing/BillingTerm.tsx`
+* `src/components/billing/propos/CustBrowseDlg.tsx`
 * `backend/app/api/deps.py`
 * `backend/app/services/crm.py`
 * `backend/app/schemas/crm.py`
@@ -56,7 +56,7 @@ This walkthrough documents the complete implementation of the **Customer Price G
    - Seeded canonical Customer Groups (`CG-Retail`, `CG-LargeRetail`, `CG-Branches`, `CG-Franchises`) and 7 canonical Customers into PostgreSQL with tenant isolation (`COMP-001` / `BR-MAIN-001`).
    - Explicitly preserved invoice-linked customer IDs such as `cust-rrl-192b561d` (Reliance Retail) to eliminate foreign key orphan risks.
 3. **Removal of Silent Mock Fallback**:
-   - Removed `DEFAULT_CUSTOMERS` and fallback array substitutions from `SmritiCustomerBrowseModal.tsx` and `SmritiBillingTerminal.tsx`. When the database has 0 rows, the UI reflects an explicit empty state rather than fabricating demo data.
+   - Removed `DEFAULT_CUSTOMERS` and fallback array substitutions from `CustBrowseDlg.tsx` and `BillingTerm.tsx`. When the database has 0 rows, the UI reflects an explicit empty state rather than fabricating demo data.
 
 ## 6. Design Rationale
 * Enterprise density UI with high contrast borders (`#64748b`, `#cbd5e1`) and clean tabular catalogue for quick group inspection.
@@ -70,8 +70,8 @@ This walkthrough documents the complete implementation of the **Customer Price G
 * Updated CRM service with specific `IntegrityError` diagnosis and optional schema ID generation.
 
 ## 8. Tests Executed
-* `npx vitest run src/tests/customerPriceGroup.test.ts` (6/6 passed)
-* `npx vitest run src/tests/customerFlowIntegrity.test.ts` (4/4 passed)
+* `npx vitest run src/tests/custPriceGrp.test.ts` (6/6 passed)
+* `npx vitest run src/tests/custFlow.test.ts` (4/4 passed)
 * `npx vitest run` (34 test suites, 258 tests passed in 8.73s)
 * `npm run build` (Vite production bundle compiled cleanly in 22.21s)
 

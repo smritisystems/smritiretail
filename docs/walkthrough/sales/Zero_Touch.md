@@ -28,16 +28,16 @@ To deliver a fail-safe, zero-touch GST calculation and classification system whe
 2. `backend/app/tests/test_gst_engine.py`
 3. `src/utils/gstEngine.ts`
 4. `src/tests/gstEngine.test.ts`
-5. `docs/implementation/sales/Zero_Touch_Automated_GST_Customer_Classification_Engine_v3.26.0.md`
-6. `docs/walkthrough/sales/Zero_Touch_Automated_GST_Customer_Classification_Engine_v3.26.0.md`
+5. `docs/implementation/sales/Zero_Touch.md`
+6. `docs/walkthrough/sales/Zero_Touch.md`
 
 ## 4. Files Modified
 1. `backend/app/schemas/sales.py`
 2. `backend/app/services/sales.py`
 3. `src/components/billing/propos/types.ts`
-4. `src/components/billing/propos/SmritiProPosBillingTerminal.tsx`
-5. `src/components/billing/propos/SmritiCustomerBrowseModal.tsx`
-6. `src/components/billing/propos/SmritiProPosTaxInvoiceReceipt.tsx`
+4. `src/components/billing/propos/ProPosBillingTerm.tsx`
+5. `src/components/billing/propos/CustBrowseDlg.tsx`
+6. `src/components/billing/propos/ProPosTaxInvoiceRc.tsx`
 7. `docs/implementation/README.md`
 8. `docs/walkthrough/README.md`
 9. `CHANGELOG.md`
@@ -59,7 +59,7 @@ Eliminating operator decision-making at checkout reduces retail billing queues a
 ## 8. Tests Executed
 - Backend: `pytest backend/app/tests/test_gst_engine.py -v` (7 passed in 3.58s).
 - Frontend: `npx vitest run src/tests/gstEngine.test.ts` (5 passed in 605ms).
-- Frontend: `npx vitest run src/tests/validatorsAndFormatters.test.ts` (6 passed in 964ms).
+- Frontend: `npx vitest run src/tests/validators.test.ts` (6 passed in 964ms).
 
 ## 9. Verification Results
 All automated unit and regression tests passed with zero errors.

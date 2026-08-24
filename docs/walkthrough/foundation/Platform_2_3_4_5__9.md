@@ -26,7 +26,7 @@ Expose canonical, secure, multi-tenant REST API endpoints under `/api/v1/account
 - `backend/app/api/v1/accounting.py` — REST API router exposing 10 authoritative accounting endpoints.
 - `backend/app/schemas/accounting.py` — Pydantic models for voucher creation, trial balance, P&L, BRS, and fiscal period operations.
 - `backend/tests/test_accounting_api.py` — Integration test suite verifying HTTP status codes and payloads.
-- `docs/walkthrough/foundation/Platform_Accounting_REST_APIs_v6.16.0.md` — This walkthrough document.
+- `docs/walkthrough/foundation/Platform_2_3_4_5__9.md` — This walkthrough document.
 
 ## 4. Files Modified
 - `backend/app/main.py` — Registered `accounting.router` under `/api/v1/accounting`.
@@ -56,7 +56,7 @@ Decoupled presentation serialization (Pydantic models) from the transactional do
 ## 8. Tests Executed
 ```powershell
 python -m pytest tests/test_accounting_api.py -v
-python -m pytest tests/test_routing_boundary_canonical.py tests/test_universal_party_master.py tests/test_universal_item_master.py tests/test_unified_sales_ledger.py tests/test_unified_pricing_payment_engine.py tests/test_unified_approval_communicator.py tests/test_unified_workspace_capability.py tests/test_unified_outbox_analytics.py tests/test_wms_phase1.py tests/test_wms_phase2_grn_sales.py tests/test_wms_phase3_eway_bill.py tests/test_wms_phase4_audit_reconciliation.py tests/test_security_menu_access.py tests/test_unified_accounting_ledger.py tests/test_fiscal_period_brs.py tests/test_accounting_api.py -v
+python -m pytest tests/t_route_boundary.py tests/t_univ_party.py tests/t_univ_item.py tests/t_sales_ledger.py tests/t_pricing_eng.py tests/t_approval_comm.py tests/t_workspace_cap.py tests/t_outbox_stats.py tests/test_wms_phase1.py tests/t_wms_phase2.py tests/t_wms_phase3.py tests/t_wms_phase4.py tests/t_sec_menu.py tests/t_unified_ledger.py tests/t_fiscal_period.py tests/test_accounting_api.py -v
 ```
 
 ## 9. Verification Results

@@ -18,18 +18,18 @@ Documents the implementation and verification of the post-login Company Database
 
 ## 2. Scope
 - Filtering `GET /api/v1/auth/tenants` to return only authorized companies with `status = READY` in `company_database_registries`.
-- New `CompanySelectionScreen.tsx` component supporting 1-company auto-select, multi-company card selection, and unassigned guidance states.
+- New `CompanySelectScree.tsx` component supporting 1-company auto-select, multi-company card selection, and unassigned guidance states.
 - Company selection gating in `App.tsx`.
 - In-session company switcher integration with `POST /api/v1/auth/switch-context`.
 
 ## 3. Files Created
-- `src/components/CompanySelectionScreen.tsx`
-- `backend/app/tests/test_login_company_selector_flow.py`
-- `docs/implementation/foundation/Login_Company_Selector_Flow_Plan_v3.25.0.md`
-- `docs/walkthrough/foundation/Login_Company_Selector_Flow_v3.25.0.md`
+- `src/components/CompanySelectScree.tsx`
+- `backend/app/tests/t_company_select.py`
+- `docs/implementation/foundation/Login_Company.md`
+- `docs/walkthrough/foundation/Login_Company.md`
 
 ## 4. Files Modified
-- `backend/app/models/company_database_registry.py`
+- `backend/app/models/company_registry.py`
 - `backend/app/api/v1/auth.py`
 - `backend/app/tests/test_auth.py`
 - `src/App.tsx`
@@ -46,14 +46,14 @@ Ensures that operators are only ever routed to operational, provisioned database
 
 ## 7. Implementation Summary
 - Refined `list_tenant_options` in `backend/app/api/v1/auth.py`.
-- Developed `CompanySelectionScreen.tsx` with Fiori Horizon aesthetics.
+- Developed `CompanySelectScree.tsx` with Fiori Horizon aesthetics.
 - Added company context resolution gate in `App.tsx`.
 - Updated `CompanySelector.tsx` to issue server-side context switch requests.
 
 ## 8. Tests Executed
 - `pytest app/tests/test_auth.py`
-- `pytest app/tests/test_multi_company_tenant_isolation.py`
-- `pytest app/tests/test_login_company_selector_flow.py`
+- `pytest app/tests/t_tenant_iso.py`
+- `pytest app/tests/t_company_select.py`
 - `npm run build`
 
 ## 9. Verification Results

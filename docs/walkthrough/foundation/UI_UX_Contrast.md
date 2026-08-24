@@ -17,7 +17,7 @@
 This walkthrough documents the deep UI/UX audit, typography contrast fixes, table header overlap corrections, and launcher hero banner text cleanup across SMRITI Retail OS. It ensures complete compliance with the SMRITI Design Governance Policy (DGP), Human-Readable Error Policy (HREP), and reference company production readiness standards.
 
 ## 2. Scope
-* **Item Master Excel Grid (`ExcelGridEntrySection.tsx`)**:
+* **Item Master Excel Grid (`ExcelGridEntrySec.tsx`)**:
   * Refactored 16-column table layout (`#`, `SKU CODE *`, `ITEM NAME *`, `BARCODE *`, `BRAND`, `CATEGORY *`, `SUB CATEGORY`, `SIZE`, `COLOUR`, `SHADE`, `HSN CODE *`, `GST % *`, `SELLING PRICE *`, `UOM`, `STATUS`, `ACTIONS`).
   * Added validation status legend (`Valid`, `Warning`, `Duplicate SKU`, `Duplicate Barcode`, `Invalid HSN/GST`, `Required Field`).
   * Added bottom KPI summary card (`Total Rows`, `Valid`, `Warning`, `Errors`).
@@ -31,10 +31,10 @@ This walkthrough documents the deep UI/UX audit, typography contrast fixes, tabl
   * Verified 0 occurrences of `text-white` on light containers across all workspace tabs, forms, and dialogs.
 
 ## 3. Files Created
-* `docs/walkthrough/foundation/SMRITI_UI_UX_Contrast_And_Excel_Grid_Audit_Walkthrough_v3.17.0.md`
+* `docs/walkthrough/foundation/UI_UX_Contrast.md`
 
 ## 4. Files Modified
-* `src/components/ExcelGridEntrySection.tsx`: Fixed `apiFetchV1` contract check, input text contrast, header layout, row duplicate action, pre-commit audit (`Verify All`), and draft storage.
+* `src/components/ExcelGridEntrySec.tsx`: Fixed `apiFetchV1` contract check, input text contrast, header layout, row duplicate action, pre-commit audit (`Verify All`), and draft storage.
 * `src/components/launchpad/FioriLaunchpad.tsx`: Removed technical jargon badge and updated launchpad banner title & subtitle.
 * `docs/walkthrough/README.md`: Updated master walkthrough index.
 * `docs/implementation/README.md`: Updated master implementation index.
@@ -49,7 +49,7 @@ This walkthrough documents the deep UI/UX audit, typography contrast fixes, tabl
 
 ## 7. Implementation Summary
 1. Corrected `apiFetchV1` response evaluation in `handleSaveGrid` so clean HTTP responses register as success (`successCount++`).
-2. Updated all 24 grid cell input elements in `ExcelGridEntrySection.tsx` to dark slate text with indigo focus rings.
+2. Updated all 24 grid cell input elements in `ExcelGridEntrySec.tsx` to dark slate text with indigo focus rings.
 3. Enhanced table header cells to prevent overlapping text across wide displays.
 4. Added `[Verify All]` pre-commit audit and `[Save Draft]` / `[Load Draft]` toolbar buttons.
 5. Cleaned up `FioriLaunchpad.tsx` banner hero header.
@@ -58,7 +58,7 @@ This walkthrough documents the deep UI/UX audit, typography contrast fixes, tabl
 * **TypeScript Compilation**: `npx tsc --noEmit` — 0 static errors.
 * **Unit & Integration Suite**: `npx vitest run` — 11/11 test files passed (64/64 tests passed).
 * **Production Rebuild**: `npm run build` — 3,409 modules transformed cleanly into `dist/`.
-* **Reference Company Readiness Audit**: `python scripts/verify_comp001_production_readiness.py` — Score: **98 / 100**, Classification: **`READY_FOR_PRODUCTION_REFERENCE`**.
+* **Reference Company Readiness Audit**: `python scripts/verify_comp001.py` — Score: **98 / 100**, Classification: **`READY_FOR_PRODUCTION_REFERENCE`**.
 
 ## 9. Verification Results
 ```text

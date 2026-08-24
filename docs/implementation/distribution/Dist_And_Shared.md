@@ -43,22 +43,22 @@ Provide enterprise clients with B2B distribution capabilities alongside retail o
 ## 7. Proposed Design
 - Schema defined in `backend/app/models/distribution.py`.
 - Forward-only migration in `backend/alembic/versions/v1365_distribution_core.py`.
-- Service layer in `backend/app/services/distribution_service.py` and `backend/app/services/pricing_engine.py`.
+- Service layer in `backend/app/services/distribution_svc.py` and `backend/app/services/pricing_engine.py`.
 - API router in `backend/app/api/v1/distribution.py`.
 
 ## 8. Files Created
 - `backend/app/models/distribution.py`
 - `backend/alembic/versions/v1365_distribution_core.py`
 - `backend/app/services/pricing_engine.py`
-- `backend/app/services/distribution_service.py`
+- `backend/app/services/distribution_svc.py`
 - `backend/app/api/v1/distribution.py`
-- `backend/tests/test_distribution_and_shared_pricing_engine.py`
+- `backend/tests/t_dist_pricing.py`
 
 ## 9. Files Modified
 - `backend/app/models/__init__.py`
 - `backend/app/main.py`
 - `backend/alembic/versions/v1364_party_item_snapshots.py`
-- `backend/tests/test_ephemeral_tenant_migration_harness.py`
+- `backend/tests/t_tenant_migr.py`
 
 ## 10. Dependencies
 - Universal Party & Item Master (Section 6).
@@ -80,7 +80,7 @@ Provide enterprise clients with B2B distribution capabilities alongside retail o
 - Automated pytest regression execution across 11 core domain test suites (73 tests).
 
 ## 15. Documentation Impact
-- Added Walkthrough: `docs/walkthrough/distribution/Distribution_And_Shared_Pricing_Engine_v3.22.0.md`
+- Added Walkthrough: `docs/walkthrough/distribution/Dist_And_Shared.md`
 - Master Index: `docs/walkthrough/README.md`
 - Implementation Plan Index: `docs/implementation/README.md`
 
@@ -95,4 +95,4 @@ Completed
 - `ADR-DIST-002`: Authoritative Stock Dispatch Boundary
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/distribution/Distribution_And_Shared_Pricing_Engine_v3.22.0.md`
+- `docs/walkthrough/distribution/Dist_And_Shared.md`

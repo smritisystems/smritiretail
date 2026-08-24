@@ -14,8 +14,8 @@
 # SMRITI RETAIL OS — ECOMMERCE DOCUMENTATION FINAL CERTIFICATION
 
 **Protocol:** SMRITI eCommerce Audit Correction & Final Documentation Certification  
-**Canonical Master Architecture:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
-**Detailed Audit Report:** [`docs/_audit/ECOMMERCE_CORE_CAPABILITY_AUDIT.md`](file:///F:/SMRITRretailNX/docs/_audit/ECOMMERCE_CORE_CAPABILITY_AUDIT.md)  
+**Canonical Master Architecture:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
+**Detailed Audit Report:** [`docs/_audit/ECOMMERCE_CORE.md`](file:///F:/SMRITRretailNX/docs/_audit/ECOMMERCE_CORE.md)  
 **Date:** 2026-08-17  
 **Verdict:** **`ARCHITECTURE CERTIFIED — IMPLEMENTATION PARTIALLY VERIFIED`**
 
@@ -47,7 +47,7 @@ Explicit Remaining Capabilities:
 
 | Dimension | Requirement | Certified Status | Evidence & Audit Reality |
 |---|---|---|---|
-| **eCommerce Core Capability** | Core Product Decision | **`VERIFIED AS ARCHITECTURAL DECISION`** | Declared in `SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md` (Tenet 7) |
+| **eCommerce Core Capability** | Core Product Decision | **`VERIFIED AS ARCHITECTURAL DECISION`** | Declared in `MULTI_COMPANY_2.md` (Tenet 7) |
 | **eCommerce Architecture** | Channel Model | **`VERIFIED`** | Unified commerce flow converging on Company DB |
 | **Core Transactional Primitives** | DB & Reservation Layer | **`VERIFIED`** | `sales_orders`, `products.reserved_stock`, `IntegrationOutboxEvent` active |
 | **eCommerce Implementation** | Overall Implementation | **`PARTIALLY VERIFIED`** | Core transactional primitives verified; external channel ingress pending |

@@ -17,7 +17,7 @@ from decimal import Decimal
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 
-from .governed_rule_engine import GovernedRuleEngine
+from .governed_rules import GovernedRuleEngine
 
 
 class TransactionReproducibilityService:

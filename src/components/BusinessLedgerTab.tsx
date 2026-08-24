@@ -30,7 +30,7 @@ import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { DrillableLink } from "./drilldown/DrillableLink.tsx";
 import { useDrillDown } from "./drilldown/drilldown_store.tsx";
 import { getCustomers, getCustomerGroups } from "../services/customerStore.ts";
-import { resolveCustomerPolicy } from "../services/customerPolicyEngine.ts";
+import { resolveCustomerPolicy } from "../services/custPolicyEngine.ts";
 import { Customer, CustomerGroup } from "../types";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 

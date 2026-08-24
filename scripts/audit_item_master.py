@@ -10,7 +10,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 
-audit_item_master_schema_and_rows.py
+audit_item_master.py
 ======================================
 Read-only discovery audit: inspects all item-master-related tables across
 all registered SMRITI databases (smriti001, smriti002, smritisys), reporting
@@ -18,7 +18,7 @@ column definitions, row counts, and sample rows. Output is written to
 scripts/item_master_db_audit.txt.
 
 Usage:
-    python scripts/audit_item_master_schema_and_rows.py
+    python scripts/audit_item_master.py
 """
 
 import psycopg2

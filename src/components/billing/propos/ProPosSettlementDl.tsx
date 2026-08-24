@@ -28,7 +28,7 @@ import {
   AlertCircle
 } from "lucide-react";
 
-interface SmritiProPosSettlementModalProps {
+interface SmritiPosSettlementProps {
   netAmount: number;
   customer?: ProPosCustomer;
   onSettle: (tenders: ProPosTenderSplit, changeDue: number) => void;
@@ -46,7 +46,7 @@ interface AppliedPayment {
   reference?: string;
 }
 
-export const SmritiProPosSettlementModal: React.FC<SmritiProPosSettlementModalProps> = ({
+export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
   netAmount,
   customer,
   onSettle,
@@ -524,4 +524,4 @@ export const SmritiProPosSettlementModal: React.FC<SmritiProPosSettlementModalPr
   );
 };
 
-export default SmritiProPosSettlementModal;
+export default SmritiPosSettlement;

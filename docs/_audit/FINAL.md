@@ -14,7 +14,7 @@
 # SMRITI RETAIL OS — FINAL DOCUMENTATION MASTER CERTIFICATION
 
 **Protocol:** Global Documentation Master Reconciliation & Final Freeze  
-**Canonical Master Index:** [`docs/SMRITI_DOCUMENTATION_INDEX.md`](file:///F:/SMRITRretailNX/docs/SMRITI_DOCUMENTATION_INDEX.md)  
+**Canonical Master Index:** [`docs/DOCUMENTATION.md`](file:///F:/SMRITRretailNX/docs/DOCUMENTATION.md)  
 **Date:** 2026-08-17  
 **Verdict:** **SMRITI DOCUMENTATION RECONCILIATION COMPLETE**
 
@@ -40,7 +40,7 @@ database, source code, and test runner evidence.
 ### 2.1 ARCHITECTURE
 - **Status:** **CORE ARCHITECTURE VERIFIED**
 - **Canonical Model:** Control Plane (`smritisys`) governs identity, auth, routing, and global configs. Dedicated physical databases (`smriti001`, `smriti002`) host operational transactions.
-- **Reference:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)
+- **Reference:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)
 
 ### 2.2 MULTI-COMPANY
 - **Status:** **VERIFIED**

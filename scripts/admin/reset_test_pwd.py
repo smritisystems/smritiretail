@@ -10,13 +10,13 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 
-reset_test_user_password.py
+reset_test_pwd.py
 ============================
 Admin utility: resets the test_user account password in the control-plane
 database to 'password123' for local development and integration testing.
 
 Usage:
-    python scripts/admin/reset_test_user_password.py
+    python scripts/admin/reset_test_pwd.py
 
 SECURITY NOTE: Never run this script against a production database.
 """

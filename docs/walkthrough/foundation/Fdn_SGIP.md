@@ -28,9 +28,9 @@ The following new files were created under the bounded context of `backend/app/c
 - [backend/app/compliance/models/__init__.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/models/__init__.py) — SQLAlchemy model exports.
 - [backend/app/compliance/models/compliance.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/models/compliance.py) — Compliance database models.
 - [backend/app/compliance/repositories/__init__.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/repositories/__init__.py) — Repository layer exports.
-- [backend/app/compliance/repositories/government_service_repository.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/repositories/government_service_repository.py) — Government service repository.
-- [backend/app/compliance/repositories/credentials_repository.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/repositories/credentials_repository.py) — Encryption credentials vault repository.
-- [backend/app/compliance/repositories/audit_log_repository.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/repositories/audit_log_repository.py) — Compliance audit log repository.
+- [backend/app/compliance/repositories/gov_service_repo.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/repositories/gov_service_repo.py) — Government service repository.
+- [backend/app/compliance/repositories/credentials_repo.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/repositories/credentials_repo.py) — Encryption credentials vault repository.
+- [backend/app/compliance/repositories/audit_log_repo.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/repositories/audit_log_repo.py) — Compliance audit log repository.
 - [backend/app/compliance/repositories/outbox_repository.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/repositories/outbox_repository.py) — Transactional outbox repository.
 - [backend/app/compliance/schemas/__init__.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/schemas/__init__.py) — Schema layer exports.
 - [backend/app/compliance/schemas/compliance.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/schemas/compliance.py) — Pydantic schemas.
@@ -50,7 +50,7 @@ The following new files were created under the bounded context of `backend/app/c
 - [backend/app/compliance/registry/registry.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/registry/registry.py) — Connector registry manifest parser.
 - [backend/app/compliance/tests/__init__.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/tests/__init__.py) — Test suite initialization.
 - [backend/app/compliance/tests/conftest.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/tests/conftest.py) — Local bridge configuration for testing.
-- [backend/app/compliance/tests/test_compliance_foundation.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/tests/test_compliance_foundation.py) — Unit and integration tests.
+- [backend/app/compliance/tests/test_compliance_fou.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/compliance/tests/test_compliance_fou.py) — Unit and integration tests.
 - `backend/app/compliance/tests/fixtures/manifest.example.yaml` — Connector manifest fixture.
 
 ## 4. Files Modified

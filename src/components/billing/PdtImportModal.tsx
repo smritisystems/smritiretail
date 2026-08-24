@@ -17,7 +17,7 @@ import React, { useState, useRef } from "react";
 import { Product } from "../../types.ts";
 import { PdtImportRow, PdtFieldTemplate } from "./types.ts";
 import { Upload, X, FileText, CheckCircle, Database } from "lucide-react";
-import { barcodeTransactionStore } from "../barcode/barcodeTransactionStore.ts";
+import { barcodeTransactionStore } from "../barcode/barcodeTransactionS.ts";
 
 interface PdtImportModalProps {
   isOpen: boolean;

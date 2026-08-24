@@ -30,7 +30,7 @@ from ..core.config import settings
 from .session import _company_engines, _company_sessionmakers, _verified_company_databases
 from ..models.auth import User, UserRole
 from ..models.tenant import Company, Branch
-from ..services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from ..services.unified_ledger import UnifiedAccountingLedgerService
 
 
 class EphemeralTenantHarness:

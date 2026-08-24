@@ -14,14 +14,14 @@
 import React from "react";
 import { HelpCircle, X } from "lucide-react";
 
-interface ItemMasterSaveWarningModalProps {
+interface ItemSaveWarnDlgingModalProps {
   isOpen: boolean;
   message: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export const ItemMasterSaveWarningModal: React.FC<ItemMasterSaveWarningModalProps> = ({
+export const ItemSaveWarnDlg: React.FC<ItemSaveWarnDlgingModalProps> = ({
   isOpen,
   message,
   onConfirm,

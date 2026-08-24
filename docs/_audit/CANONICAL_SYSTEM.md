@@ -14,9 +14,9 @@
 # SMRITI RETAIL OS — CANONICAL SYSTEM STRUCTURE FORENSIC RECONCILIATION REPORT
 
 **Audit Protocol:** Live Forensic Database Schema & Documentation Reconciliation  
-**Canonical Architecture Reference:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
-**Governance Standard:** [`docs/AI_AGENT_ARCHITECTURE_RULES.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT_ARCHITECTURE_RULES.md)  
-**Master Documentation Index:** [`docs/SMRITI_DOCUMENTATION_INDEX.md`](file:///F:/SMRITRretailNX/docs/SMRITI_DOCUMENTATION_INDEX.md)  
+**Canonical Architecture Reference:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
+**Governance Standard:** [`docs/AI_AGENT.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT.md)  
+**Master Documentation Index:** [`docs/DOCUMENTATION.md`](file:///F:/SMRITRretailNX/docs/DOCUMENTATION.md)  
 **Date:** 2026-08-17  
 **Reconciliation Status:** **`FROZEN & CERTIFIED BASELINE`**
 
@@ -154,7 +154,7 @@ TOTAL CALCULATED SUM               : 99 BASE TABLES (100% Exact Match: 9+3+4+4+7
 
 ## 6. SMRITI AI Agent Golden Rules Reconciliation
 
-The canonical document [`docs/AI_AGENT_ARCHITECTURE_RULES.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT_ARCHITECTURE_RULES.md) explicitly defines **11 Golden Rules**:
+The canonical document [`docs/AI_AGENT.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT.md) explicitly defines **11 Golden Rules**:
 - **Rule 1:** `smritisys` is strictly the Control Plane
 - **Rule 2:** Company Database is the authoritative Operational Source of Truth
 - **Rule 3:** `tenant_id` column filtering is NOT Physical Isolation

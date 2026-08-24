@@ -35,7 +35,7 @@ This document defines the conceptual implementation mapping between the **SMRITI
 ## Long-Term Target Architecture
 
 * **Target Architecture:** Modular Microservices Platform
-* **Roadmap:** [PLATFORM_MICROSERVICES_ROADMAP.md](./PLATFORM_MICROSERVICES_ROADMAP.md)
+* **Roadmap:** [PLATFORM_2.md](./PLATFORM_2.md)
 
 This file currently documents the adapter rules for the existing hybrid platform. The roadmap describes the future transition toward a modular microservices architecture.
 

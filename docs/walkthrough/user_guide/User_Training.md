@@ -14,7 +14,7 @@
 # User Training Blueprint Walkthrough — v3.16.0
 
 ## 1. Purpose
-This walkthrough documents the creation and integration of the official **SMRITI Retail OS — User Training Blueprint** (`docs/user_guide/USER_TRAINING_BLUEPRINT.md`), establishing a 7-day transaction-lifecycle training program for store operators, cashiers, inventory clerks, and retail managers.
+This walkthrough documents the creation and integration of the official **SMRITI Retail OS — User Training Blueprint** (`docs/user_guide/USER_TRAINING.md`), establishing a 7-day transaction-lifecycle training program for store operators, cashiers, inventory clerks, and retail managers.
 
 ## 2. Scope
 - Authoring the comprehensive 7-Day User Training Blueprint covering Master Creation, Purchase Order, Purchase Receipt/GRN, Sales/Billing, Complete Business Cycle execution, Returns & Corrections, and Reports + Certification.
@@ -22,11 +22,11 @@ This walkthrough documents the creation and integration of the official **SMRITI
 - Updating the Master Walkthrough Index (`docs/walkthrough/README.md`) to reflect governance compliance.
 
 ## 3. Files Created
-- [`docs/user_guide/USER_TRAINING_BLUEPRINT.md`](file:///F:/SMRITRretailNX/docs/user_guide/USER_TRAINING_BLUEPRINT.md): Comprehensive 7-Day User Training Blueprint documentation detailing daily training outcomes, workflows, ASCII/box flowcharts, daily training methodology (Explain → Demonstrate → User Performs → Real Business Scenario → Verify → Questions → Repeat), and competency evaluation standards.
-- [`docs/walkthrough/user_guide/User_Training_Blueprint_Walkthrough_v3.16.0.md`](file:///F:/SMRITRretailNX/docs/walkthrough/user_guide/User_Training_Blueprint_Walkthrough_v3.16.0.md): This walkthrough file.
+- [`docs/user_guide/USER_TRAINING.md`](file:///F:/SMRITRretailNX/docs/user_guide/USER_TRAINING.md): Comprehensive 7-Day User Training Blueprint documentation detailing daily training outcomes, workflows, ASCII/box flowcharts, daily training methodology (Explain → Demonstrate → User Performs → Real Business Scenario → Verify → Questions → Repeat), and competency evaluation standards.
+- [`docs/walkthrough/user_guide/User_Training.md`](file:///F:/SMRITRretailNX/docs/walkthrough/user_guide/User_Training.md): This walkthrough file.
 
 ## 4. Files Modified
-- [`docs/user_guide/USER_GUIDE.md`](file:///F:/F:/SMRITRretailNX/docs/user_guide/USER_GUIDE.md): Added cross-reference to `docs/user_guide/USER_TRAINING_BLUEPRINT.md`.
+- [`docs/user_guide/USER_GUIDE.md`](file:///F:/F:/SMRITRretailNX/docs/user_guide/USER_GUIDE.md): Added cross-reference to `docs/user_guide/USER_TRAINING.md`.
 - [`docs/walkthrough/README.md`](file:///F:/SMRITRretailNX/docs/walkthrough/README.md): Added record for this walkthrough document.
 
 ## 5. Architecture Decisions
