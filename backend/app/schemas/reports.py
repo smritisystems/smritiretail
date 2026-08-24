@@ -196,3 +196,108 @@ class SalespersonDiscountReport(BaseModel):
     total_salespersons: int
     total_discount:     Decimal
     lines:              List[SalespersonDiscountLine]
+
+
+# ---------------------------------------------------------------------------
+# Sprint 23 P2 Schemas -- Shoper9 Full Parity
+# Sh9 EXE: SR202000 (RPT-TAX-005), SR202100 (RPT-OPS-001), SR214100 (RPT-MRC-003), SR236300 (RPT-MRC-001)
+# ---------------------------------------------------------------------------
+
+class BillWiseItemsLine(BaseModel):
+    invoice_number: str
+    invoice_date:   str
+    customer_name:  Optional[str] = None
+    line_no:        int = 1
+    product_code:   str
+    product_name:   str
+    hsn_code:       Optional[str] = None
+    quantity:       Decimal
+    unit_price:     Decimal
+    discount:       Decimal = Decimal("0.00")
+    gst_rate:       Decimal = Decimal("18.00")
+    tax_amount:     Decimal = Decimal("0.00")
+    line_total:     Decimal
+
+
+class BillWiseItemsReport(BaseModel):
+    """RPT-TAX-005 -- Shoper9 SR202000 Bill-wise Items Detail."""
+    from_date:       str
+    to_date:         str
+    generated_at:    str
+    total_invoices:  int
+    total_lines:     int
+    total_quantity:  Decimal
+    total_amount:    Decimal
+    lines:           List[BillWiseItemsLine]
+
+
+class DiscountSummaryLine(BaseModel):
+    invoice_number:   str
+    invoice_date:     str
+    salesperson_name: Optional[str] = None
+    customer_name:    Optional[str] = None
+    gross_amount:     Decimal
+    discount_amount:  Decimal
+    net_amount:       Decimal
+    discount_pct:     Decimal
+    remarks:          Optional[str] = None
+
+
+class DiscountSummaryReport(BaseModel):
+    """RPT-OPS-001 -- Shoper9 SR202100 Discount Given Summary."""
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_bills:        int
+    total_gross:        Decimal
+    total_discount:     Decimal
+    total_net:          Decimal
+    overall_discount_pct: Decimal
+    lines:              List[DiscountSummaryLine]
+
+
+class ItemWiseReturnsLine(BaseModel):
+    return_number:   str
+    return_date:     str
+    original_inv_no: str
+    product_code:    str
+    product_name:    str
+    quantity:        Decimal
+    unit_price:      Decimal
+    tax_amount:      Decimal = Decimal("0.00")
+    total_amount:    Decimal
+    reason:          Optional[str] = None
+
+
+class ItemWiseReturnsReport(BaseModel):
+    """RPT-MRC-003 -- Shoper9 SR214100 Item-wise Sales Returns."""
+    from_date:        str
+    to_date:          str
+    generated_at:     str
+    total_returns:    int
+    total_qty:        Decimal
+    total_amount:     Decimal
+    lines:            List[ItemWiseReturnsLine]
+
+
+class AttributeSizeSalesLine(BaseModel):
+    category:       str
+    brand:          Optional[str] = None
+    color:          Optional[str] = None
+    size:           Optional[str] = None
+    qty_sold:       Decimal
+    gross_revenue:  Decimal
+    discount:       Decimal = Decimal("0.00")
+    net_revenue:    Decimal
+
+
+class AttributeSizeSalesReport(BaseModel):
+    """RPT-MRC-001 -- Shoper9 SR236300 Attribute+Size wise Sales."""
+    from_date:       str
+    to_date:         str
+    generated_at:    str
+    total_groups:    int
+    total_qty:       Decimal
+    total_net:       Decimal
+    lines:           List[AttributeSizeSalesLine]
+

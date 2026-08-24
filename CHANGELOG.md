@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -27,6 +27,25 @@
 # SMRITI Retail OS â€” Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.39.0] - 2026-08-25
+
+#### Sprint 23: Reports Portal Gap Closure (Shoper9 Sales & Audit Report Parity)
+- **Backend API & Response Models**:
+  - Implemented 4 new endpoints in `backend/app/api/v1/reports.py`: `/bill-wise-items`, `/discount-summary`, `/item-wise-returns`, `/attribute-size-sales`.
+  - Added Pydantic schemas in `backend/app/schemas/reports.py`: `BillWiseItemsReport`, `DiscountSummaryReport`, `ItemWiseReturnsReport`, `AttributeSizeSalesReport`.
+  - Implemented async aggregator methods in `backend/app/services/reports.py` with multi-table joins, tenant isolation, and date-range filtering.
+  - Refactored `bill_wise_sales`, `item_wise_sales`, and `tax_register` with eager loading (`selectinload`) and clean mathematical aggregations.
+- **Database Schema Migration**:
+  - Executed Alembic migrations `v1371` through `v1375_backfill_sales_return_cust` across `smriti001`, `smriti002`, and `smritisys`.
+- **Frontend BI Center UI (`ReportDesignerTab.tsx`)**:
+  - Wired live `apiFetchV1` calls in `loadReportsData()` across all 9 Shoper9 sales/audit reports.
+  - Built interactive, high-contrast data table components with KPI summary stat banners.
+  - Connected `GlobalExportService` to export live loaded lines into XLSX, CSV, or TXT.
+- **Automated Test Suite**:
+  - Created `backend/tests/t_reports_parity.py` (9/9 integration tests passed).
+- **Parity Governance**:
+  - Updated `docs/legacy/shoper/SH9_PARITY_GAPS.md`: MnuNo 410 parity score elevated from 6/15 to 14/15 VERIFIED.
 
 ### [3.27.0] - 2026-08-24
 

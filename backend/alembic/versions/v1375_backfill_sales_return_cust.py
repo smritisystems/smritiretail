@@ -40,8 +40,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers
-revision = "v1375"
-down_revision = "v1374"
+revision = "v1375_backfill_sales_return_cust"
+down_revision = "v1374_sales_return_cust"
 branch_labels = None
 depends_on = None
 

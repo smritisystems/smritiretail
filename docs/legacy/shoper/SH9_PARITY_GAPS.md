@@ -67,22 +67,22 @@
 | MnuNo/Opt | Shoper9 Caption | EXE | Status | SMRITI Equivalent | Gap Status |
 |---|---|---|---|---|---|
 | 410/411 | Daily Sales Book | SR213600 | MAPPED | RPT-SAL-001 Daily Sales Summary Register | ✅ VERIFIED |
-| 410/412 | Bill-wise Sales | SR202400 | MAPPED | ⚠️ No dedicated bill-wise sales endpoint | ⚠️ GAP |
-| 410/413 | Item-wise Sales | SR202200 | MAPPED | ⚠️ No item-wise breakdown endpoint | ⚠️ GAP |
-| 410/414 | Tax Register | SR202300 | MAPPED | ⚠️ No tax register report | ⚠️ GAP |
-| 410/415 | Bill-wise Items | SR202000 | MAPPED | ⚠️ No bill-wise item detail | ⚠️ GAP |
-| 410/416 | Discount Given | SR202100 | MAPPED | ⚠️ No discount summary report | ⚠️ GAP |
+| 410/412 | Bill-wise Sales | SR202400 | MAPPED | RPT-TAX-002 Bill-wise Sales Register | ✅ VERIFIED |
+| 410/413 | Item-wise Sales | SR202200 | MAPPED | RPT-TAX-003 Item-wise Sales Breakdown | ✅ VERIFIED |
+| 410/414 | Tax Register | SR202300 | MAPPED | RPT-TAX-001 Tax Register (GSTR-1 Matrix) | ✅ VERIFIED |
+| 410/415 | Bill-wise Items | SR202000 | MAPPED | RPT-TAX-005 Bill-wise Items Detail | ✅ VERIFIED |
+| 410/416 | Discount Given | SR202100 | MAPPED | RPT-OPS-001 Discount Given Summary | ✅ VERIFIED |
 | 410/418 | Top Selling Items | SR209600 | MAPPED | RPT-SAL-003 Top Selling Products Ledger | ✅ VERIFIED |
 | 410/419 | Salesperson Sales | SR210000 | MAPPED | RPT-SAL-004 Salesperson Performance Index | ✅ VERIFIED |
-| 410/420 | Cancelled Bills | SR210200 | MAPPED | ⚠️ Cancelled bills not in SMRITI_STUDIOS | ⚠️ GAP |
+| 410/420 | Cancelled Bills | SR210200 | MAPPED | RPT-TAX-004 Cancelled & Voided Bills Audit | ✅ VERIFIED |
 | 410/421 | Returned Bills | SR210200 | MAPPED | RPT-SAL-002 Sales Returns & Credit Notes Log | ✅ VERIFIED |
-| 410/422 | Attribute+Size wise | SR236300 | MAPPED | ⚠️ No attribute/size dimension report | ⚠️ GAP |
+| 410/422 | Attribute+Size wise | SR236300 | MAPPED | RPT-MRC-001 Attribute+Size wise Merchandise Sales | ✅ VERIFIED |
 | 410/423 | Day-wise Sales Summary | SR209500 | MAPPED | RPT-SAL-001 (date param covers this) | ✅ VERIFIED |
-| 410/425 | Item-wise Sales Returns | SR214100 | MAPPED | ⚠️ Returns by item not separated | ⚠️ GAP |
+| 410/425 | Item-wise Sales Returns | SR214100 | MAPPED | RPT-MRC-003 Item-wise Sales Returns Register | ✅ VERIFIED |
 | 410/426 | Salesperson Summary | SR221600 | MAPPED | RPT-SAL-004 (summary variant) | ✅ VERIFIED |
 | 410/427 | Node-wise Details | SR231900 | MAPPED | ⚠️ Multi-branch node report missing | ⚠️ GAP |
 
-**MnuNo 410 Score: 6 VERIFIED / 8 GAP / 0 DEFERRED**
+**MnuNo 410 Score: 14 VERIFIED / 1 GAP / 0 DEFERRED**
 
 ---
 
@@ -101,12 +101,12 @@
 | 470/480 | Gross Margin | SR229700 | MAPPED | RPT-PRF-001 Invoice Net Contribution Ledger | ✅ VERIFIED |
 | 470/481 | Bill Re-Print | SR233500 | MAPPED | ⚠️ No bill re-print from Reports Portal | ⚠️ GAP |
 | 470/482 | Sales Promotions | SR234900 | MAPPED | ⚠️ No promotions analysis report | ⚠️ GAP |
-| 470/483 | Salesperson-wise Discount | SR238400 | MAPPED | ⚠️ No salesperson discount breakdown | ⚠️ GAP |
+| 470/483 | Salesperson-wise Discount | SR238400 | MAPPED | RPT-MIS-005 Salesperson-wise Discount Breakdown | ✅ VERIFIED |
 | 470/490 | Customer Offtake (parent) | — | MAPPED | ⚠️ No customer offtake section | ⚠️ GAP |
 | 470/492 | Incentive Analysis | SR244700 | MAPPED | ⚠️ No incentive analysis report | ⚠️ GAP |
 | 400/470 | MIS (parent menu) | — | MAPPED | Reports Portal MIS tab | ✅ VERIFIED (structural) |
 
-**MnuNo 470 Score: 2 VERIFIED / 12 GAP / 1 OVERLAP**
+**MnuNo 470 Score: 3 VERIFIED / 11 GAP / 1 OVERLAP**
 
 ---
 
