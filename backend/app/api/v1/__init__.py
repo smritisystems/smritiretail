@@ -27,6 +27,7 @@ from . import (
     docs,
     exchange,
     inventory,
+    legacy_menu_map,
     master_lookup,
     masters,
     metadata,
