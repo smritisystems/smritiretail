@@ -1,0 +1,284 @@
+MnuNo,MenuOpt,MnuName,MnuCap,MnuPgm,ExeName,MnuWght,AllowWhenTrnClosed,pgmopt,DbInfo,MenuIcon,Menusep,MenuBold,MultiInstance,SourceFile
+0,100,Shoper,Sales,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+0,200,Shoper,Cash,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+0,300,Shoper,Stock,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+0,400,Shoper,Reports,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+0,500,Shoper,Housekeeping,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+0,600,Shoper,Catalogue,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+0,700,Shoper,Setup,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+0,800,Shoper,Help,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+100,101,Sales,Billing,P,SR130000.EXE,0,0,0,0,,0,0,1,ZIP:SH9_013_EE_0_10.S9Q
+100,102,Sales,Return,P,SR130000.EXE,0,0,0,0,,0,0,1,ZIP:SH9_013_EE_0_10.S9Q
+100,103,Sales,Cancellation,P,SR130000.EXE,0,0,0,0,,0,0,1,ZIP:SH9_013_EE_0_10.S9Q
+100,104,Sales,Sales Advice Slips,P,SR115500.EXE,0,0,2,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+100,105,Sales,Service Order,P,SR115500.EXE,0,0,7,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+100,106,Sales,Sales Order,P,SR115500.EXE,0,0,3,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+100,107,Sales,Sales Order Conversion,P,SR131400.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+100,108,Sales,Walk-in Entry,P,SR120100.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+100,109,Sales,Change Payment Mode,P,SR323300.EXE,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+100,110,Sales,Pending Order/Trn Closure,P,SE101100.EXE,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+100,111,Sales,Excise Invoice Generation,P,SR440100.EXE,0,0,0,0,,0,0,0,ZIP:SH9_0161_EE_0_01.S9Q
+100,112,Sales,Transport Receipt Entry,P,SD400800.EXE,0,0,8,0,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+200,201,Cash,Cash Payouts,P,SR100200.EXE,0,0,2,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+200,202,Cash,Cash Receipts,P,SR100200.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+200,250,Cash,Credit Card Management,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+200,260,Cash,Franchisee A/C,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+200,270,Cash,Till Management,M,,0,0,0,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+200,280,Cash,Credit Sale Management,M,,0,0,0,0,,0,0,0,ZIP:SH9_019_EE_1_01.S9Q
+250,251,Credit Card Management,Submission,P,SR100300.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+250,252,Credit Card Management,Realisation,P,SR100400.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+260,261,Franchisee A/C,Payments to HO,P,SR101900.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+260,262,Franchisee A/C,Franchisee Details Form,P,SR430600.Exe,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+260,263,Franchisee A/C,Franchisee Outstanding,P,SR203400.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+260,265,Franchisee A/C,Pay-in Slip Generation,P,SR410800.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+270,271,Till Management,Till Status,P,SR138900.EXE,0,0,1,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+270,272,Till Management,Set Opening Balance,P,SR138900.EXE,0,0,2,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+270,273,Till Management,Cash Lift,P,SR138900.EXE,0,0,3,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+270,274,Till Management,Reconciliation,P,SR138900.EXE,0,0,4,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+270,275,Till Management,Open Cash Drawer,P,SR138900.EXE,0,0,5,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+270,276,Till Management,Till - Reprint,P,SR138900.EXE,0,0,6,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+280,281,Credit Sale Management,Collect Payment,P,SR142500.EXE,0,0,0,0,,0,0,0,ZIP:SH9_019_EE_1_01.S9Q
+280,282,Credit Sale Management,Set Opening Balance,P,SR142500.EXE,0,0,1,0,,0,0,0,ZIP:SH9_019_EE_1_01.S9Q
+280,283,Credit Sale Management,Clear Credit Note,P,SR142500.EXE,0,0,2,0,,0,0,0,ZIP:SH9_019_EE_1_01.S9Q
+300,311,Stock,Import DC / Master from PT File,P,SR324400.exe,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+300,312,Stock,Physical Verification,P,SR101000.exe,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+300,313,Stock,Goods Inwards,P,SR127000.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+300,314,Stock,Goods Inwards Size-wise,P,SR129500.EXE,0,0,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+300,315,Transactions,Goods Outwards,P,SR100700.EXE,0,0,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+300,316,Stock,PT File Information,P,SR210700.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+300,317,Stock,Audit Trail - Size-wise,P,SR217700.EXE,0,1,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+300,350,Stock,Stock Take,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+300,360,Stock,Carton Management,M,,0,0,0,0,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+300,370,Stock,Barcode,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+300,380,Stock,Purchase Order,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+350,351,Stock Take,Physical Stock Management,P,SR323400.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+350,352,Stock Take,Physical vs Computed Stock Report,P,SR211000.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+350,353,Stock Take,Physical Stock Report,P,SR213300.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+350,354,Stock Take,Physical Stock Report - Batch-wise,P,SR203500.exe,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+360,361,Stock,Carton Type Creation,P,SR441100.EXE,0,0,0,0,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+360,362,Stock,Carton,P,SR440700.EXE,0,0,0,0,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+360,363,Stock,Packing,P,SR440900.EXE,0,0,0,0,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+370,371,Barcode,Design Label for Barcode Printers,P,SR413000.EXE,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+370,372,Barcode,Design Label for Standard Printers,P,SR431200.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+370,373,Barcode,Design Layout for Standard Printers,P,SR431200.EXE,0,0,2,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+370,374,Barcode,Print Labels,P,SR413100.EXE,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+380,381,Purchase Order,Generation,P,SE100900.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+380,383,Purchase Order,Import,P,SE100400.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+380,384,Purchase Order,Foreclosure,P,SE127800.exe,0,0,2,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+380,385,Purchase Order,Reopen,P,SE127800.exe,0,0,3,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+380,386,Purchase Order,Export,P,SE127800.exe,0,0,4,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+380,387,Purchase Order,Reprint,P,SE127800.exe,0,0,5,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+380,388,Purchase Order,Status Report,P,SE201200.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+380,389,Purchase Order,PO/Indent Conversion,P,SE101000.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+380,390,Purchase Order,Purchase Order Configuration,P,SE100280.exe,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+400,410,Reports,Sales,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+400,430,Reports,Stock,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+400,450,Reports,Stock Registers,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+400,460,Reports,Cash,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+400,470,Reports,MIS,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+400,900,Reports,Analysis Reports,M,,0,0,0,0,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+410,411,Sales,Daily Sales Book,P,SR213600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,412,Sales,Bill-wise Sales,P,SR202400.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,413,Sales,Item-wise Sales,P,SR202200.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,414,Sales,Tax Register,P,SR202300.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,415,Sales,Bill-wise Items,P,SR202000.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,416,Sales,Discount Given,P,SR202100.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,418,Sales,Top Selling Items,P,SR209600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,419,Sales,Salesperson Sales,P,SR210000.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,420,Sales,Cancelled Bills,P,SR210100.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,421,Sales,Returned Bills,P,SR210200.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,422,Sales,Attribute + Size wise,P,SR236300.Exe,0,1,2,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,423,Sales,Day-wise Sales Summary,P,SR209500.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,425,Sales,Item-wise Sales Returns,P,SR214100.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,426,Sales,Salesperson Summary,P,SR221600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+410,427,Sales,Node-wise Details,P,SR231900.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,431,Stock,Balance,P,SR202500.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,432,Stock,Movement,P,SR203000.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,433,Stock,Analysis,P,SR202700.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,434,Stock,Statement,P,SR202900.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,435,Stock,Balance - Style / Model wise,P,SR210300.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,436,Stock,Discrepancy,P,SR211600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,437,Stock,Transaction Ledger,P,SR213800.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,438,Stock,Attribute + Size wise,P,SR236300.Exe,0,1,3,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,439,Stock,Balance as on Date,P,SR217900.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,441,Stock,Aging,P,SR233600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,442,Stock,Inward Discrepancy,P,SR233700.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+430,443,Stock,Tax Register,P,SR238000.Exe,0,0,1,0,,0,0,0,ZIP:SH9_015_EE_0_01.S9Q
+430,444,Stock,Void Transactions,P,SR239800.Exe,0,0,0,,,0,0,0,ZIP:SH9_017_EE_0_01.S9Q
+430,445,Stock,Stock Availability,P,SR241700.EXE,0,1,0,0,,0,0,0,ZIP:SH9_019_EE_0_01.S9Q
+430,446,Stock,Physical Verification Status,P,SR241600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_019_EE_0_01.S9Q
+450,451,Stock Registers,Transaction-wise Goods Register,P,SR202800.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+450,452,Stock Registers,Item-wise Goods Register,P,SR212600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+450,453,Stock Registers,Audit Trail - Size-wise,P,SR217700.EXE,0,1,0,0,,0,0,0,ZIP:SH9_019_EE_0_01.S9Q
+460,461,Cash,Cash Transaction,P,SR203100.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+460,462,Cash,Submission / Realisation List,P,SR203300.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+460,463,Cash,Pending Submissions / Realisations,P,SR203200.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+460,464,Cash,Counter-wise Details,P,SR210600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+460,465,Cash,Credit Note Status,P,SR212700.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+460,466,Cash,Counter Summary across Cashiers,P,SR212900.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+460,467,Cash,Advance Receipt Status,P,SR234400.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+460,469,Cash,Reconciliation Report,P,SR239600.EXE,0,1,1,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+460,470,Cash,Till Status Report,P,SR239600.EXE,0,1,2,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+460,471,Till Management,Till Activity Log,P,SR240400.EXE,0,0,0,0,,0,0,0,ZIP:SH9_017_EE_1_01.S9Q
+460,4702,Credit Sale Management,Credit Sale,P,SR242900.EXE,0,1,0,0,,0,0,0,ZIP:SH9_019_EE_1_01.S9Q
+470,471,MIS,Monthly Sales Comparison,P,SR203700.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,472,MIS,Rate Variation,P,SR203800.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,473,MIS,Sales Analysis,P,SR203900.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,474,MIS,Attribute-wise Sales and Stock,P,SR236300.Exe,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,475,MIS,Pending Transactions,P,SR215600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,476,MIS,Walk-in Details,P,SR222800.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,477,MIS,Superclass-wise Sales / Stock,P,SR216000.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,478,MIS,Stock across Chain,P,SE201000.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,479,MIS,Transaction Details with Image,P,SR233000.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,480,MIS,Gross Margin,P,SR229700.exe,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,481,MIS,Bill Re-Print,P,SR233500.exe,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,482,MIS,Sales Promotions,P,SR234900.exe,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,483,MIS,Salesperson-wise Discount,P,SR238400.EXE,0,0,1,0,,0,0,0,ZIP:SH9_015_EE_0_01.S9Q
+470,490,MIS,Customer Offtake,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+470,491,MIS,Excise Report,P,SR240000.EXE,0,0,0,0,,0,0,0,ZIP:SH9_0161_EE_0_01.S9Q
+470,492,MIS,Incentive Analysis,P,SR244700.EXE,0,1,1,0,,0,0,0,ZIP:SH9_020_EE_0_02.S9Q
+490,491,Customer Offtake,Period-wise,P,SR208500.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+490,492,Customer Offtake,Bill-wise,P,SR208400.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+490,493,Customer Offtake,Product-wise,P,SR208600.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,501,Housekeeping,OPEN Day,P,SR322600.Exe,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,502,Housekeeping,CLOSE Day,P,SR309900.EXE,0,0,2,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,503,Housekeeping,Backup,P,SR309000.EXE,0,1,2,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,504,Housekeeping,Restore,P,SR309000.EXE,0,1,3,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,505,Housekeeping,Compact,P,SR309000.EXE,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,506,Housekeeping,Database Tuning Utility,P,SE900310.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,507,Housekeeping,Purge Data,P,SR311900.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,509,Housekeeping,Delete Temporary Tables,P,SR721000.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,510,Housekeeping,Delete Backup File,P,SR329900.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,520,Housekeeping,POS-HO Synchronisation,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,530,Housekeeping,Data Import,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,550,Housekeeping,Data Export Masters,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+500,560,Housekeeping,Back-end Data,M,,0,0,0,0,,0,0,0,ZIP:SH9_0170_EE_9_02.S9Q
+500,570,Housekeeping,Alerts Management,P,SR435600.exe,0,0,1,0+2,,0,0,0,ZIP:SH9_017_EE_4_20.S9Q|UPDATE:SH9_020_EE_0_02.S9Q|UPDATE:ZIP:SH9_020_EE_0_02.S9Q
+500,571,Housekeeping,Communication Configuration,P,SR440600.exe,0,0,1,0+2,,0,0,0,ZIP:SH9_017_EE_4_20.S9Q
+500,580,Housekeeping,Schedule for &Reports,P,SR435600.EXE,0,0,302,0+2,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+500,581,HouseKeeping,Activity Log,P,SR435600.EXE,0,1,1,0+2,,1,0,1,ZIP:SH9_019_EE_0_01.S9Q
+520,521,POS-HO Synchronisation,Send Flat Files to HO,P,SR311400.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+520,522,POS-HO Synchronisation,Synchronise Manually,P,SE301100.EXE,0,0,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+520,523,POS-HO Synchronisation,Configure Synchronisation,P,SE301600.exe,0,0,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+520,524,POS-HO Synchronisation,Status Report,P,SR235400.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+530,531,Data Import,Item Master,P,SR320500.exe,0,0,1,0+1+2,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+530,532,Data Import,Price Revision,P,SR330700.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+530,533,Data Import,Customer Information,P,SR312300.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+530,534,Data Import,'Replication Import (AST,,,0,0,0,,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+530,535,Data Import,Active Sales Promotions,P,SR332800.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+530,536,Data Import,'Import into Secondary Db.(s,,,0,0,0,,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+530,537,Data Import,Import Items from Secondary to Primary Db.,P,SR325500.EXE,0,0,0,0+1,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+530,538,Data Import,Sales Promotions,P,SR430300.EXE,0,0,1,0,,0,0,0,ZIP:SH9_015_EE_0_01.S9Q|UPDATE:SH9_019_EE_9_02.S9Q|UPDATE:ZIP:SH9_019_EE_9_02.S9Q
+550,551,Data Export Masters,Post Transactions to Tally,P,SR431500.EXE,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+550,552,Data Export Masters,Create PT File,P,SR327100.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+550,553,Data Export Masters,Pricing Details,P,SR322300.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+550,554,Data Export Masters,ID / IM Flat File,P,SR309700.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+550,555,Data Export Masters,Customer Information,P,SR312200.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+550,558,Data Export Masters,'Replication Export (AST,,,0,0,0,,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+560,561,Back-end Data,Configure,P,SE100140.EXE,0,0,0,0,,0,0,0,ZIP:SH9_0170_EE_9_02.S9Q
+560,562,Back-end Data,Import,P,SE100120.EXE,0,0,0,0,,0,0,0,ZIP:SH9_0170_EE_9_02.S9Q
+600,601,Catalogue,General Lookup,P,SR429200.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,602,Catalogue,Vendor,P,SR404800.EXE,0,0,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,603,Catalogue,Tax,P,SR708100.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,604,Catalogue,Item Classification,P,SR404900.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,605,Catalogue,Size Management,P,SR430100.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,606,Catalogue,Item Master,P,SR122000.exe,0,0,1,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,607,Catalogue,Define Price Revisions,P,SR230500.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,608,Catalogue,Define Sales Promotions,P,SR430300.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,609,Catalogue,Sales Factors,P,SR100700.Exe,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q|UPDATE:SH9_020_EE_0_02.S9Q|UPDATE:ZIP:SH9_020_EE_0_02.S9Q
+600,610,Catalogue,Payment Mode,P,SR405600.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,611,Catalogue,HO Chain Stores,P,SR405300.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,612,Catalogue,Sales Personnel,P,SR405700.EXE,0,0,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,613,Catalogue,Customer Price Group,P,SR404700.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,614,Catalogue,Customer,P,SR405100.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,615,Catalogue,Customer Mailer,P,SR430900.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,616,Catalogue,Print Address Labels,P,SR323600.EXE,0,1,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+600,617,Excise Duty,Excise Duty,P,SR439900.EXE,0,0,1,0,,0,0,0,ZIP:SH9_0161_EE_0_01.S9Q
+600,650,Catalogue,Listings,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+603,6031,Sales Tax,Sales Tax,P,SR708100.EXE,0,0,1,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+603,6032,Purchase Tax,Purchase Tax,P,SR708100.EXE,0,0,3,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+603,6033,Excise Duty,Excise Duty,P,SR439900.EXE,0,0,1,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+609,6091,Sales Factors,Sales Factors,P,SR405800.EXE,0,0,0,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+609,6092,Stock Factors,Stock Factors,P,CZ100700.EXE,0,0,0,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+612,6121,Personnel,Personnel Catalogue,P,SR442900.EXE,0,0,1,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+612,6124,Personnel,Incentive Definition,P,SR443900.exe,0,0,1,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+613,6131,Customer Price Group,Customer Price Group,P,SR404700.EXE,0,0,1,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+613,6132,Customer,Customer Catalogue,P,SR442300.EXE,0,0,0,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+613,6133,Customer Mailer,Customer Mailer,P,SR430900.EXE,0,0,0,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+613,6134,Print Address Labels,Print Address Labels,P,SR323600.EXE,0,0,0,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+614,6140,<<Class1>>-<<Class2>> Combo,Product + Brand Combo Settings,P,SH400900.EXE,0,0,1,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+614,6141,Multiple Price,Multiple Price,P,SR143500.EXE,0,0,1,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+615,6122,Period,Week Catalogue,P,SH400600.exe,0,0,0,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+615,6123,Period,Season Catalogue,P,SE200300.exe,0,0,0,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+650,651,Listings,Price,P,SR203600.exe,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+650,652,Listings,Price Revision,P,SR230500.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+650,653,Listings,Style Catalogue,P,SR430800.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+650,654,Listings,Sales Promotions,P,SR230400.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+650,655,Listings,Sales Factors,P,SR216300.exe,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+650,656,Listings,Schedule Details,P,SE100220.EXE,0,0,2,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+650,657,Listings,Terminal Prefix,P,SR234300.EXE,0,0,1,0+2,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+650,658,Listing,Customers,P,SR242500.EXE,0,0,0,,,,0,0,ZIP:SH9_019_EE_9_02.S9Q
+650,660,PersonnelListing,Personnel Listing,P,SR244000.exe,0,0,1,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+650,661,Price Listing,Price Listing-New,P,SR244300.exe,0,0,1,,,,0,0,ZIP:SH9_020_EE_0_02.S9Q
+700,711,Setup,Company Creation,P,SR432000.exe,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+700,712,Setup,Company Maintenance,P,SR406500.exe,0,0,0,0+2,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+700,713,Setup,Create Secondary Database,P,SR429000.exe,0,0,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+700,720,Setup,General,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+700,750,Setup,Supervisory Functions,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,721,General,System Parameters,P,SR426400.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,722,General,Bill Prefix,P,SR438600.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q|UPDATE:SH9_0151_EE_0_01.S9Q|UPDATE:ZIP:SH9_0151_EE_0_01.S9Q
+720,723,General,Stock Number Methodology,P,SR123000.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,724,General,Printing Templates,P,SR428200.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,725,General,Flat File Values,P,SR428700.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,726,General,Goods Inward / Outward Prefix,P,SR429300.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,727,General,Cash / Purchase Order Prefix,P,SR429300.EXE,0,0,2,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,728,General,Tally Interface - Mapping,P,SR431000.EXE,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,729,General,Tally Interface - HSN Mapping,P,SR431800.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,740,General,Tally Interface Utilities,M,,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+720,804,General,Print Engine Configuration,P,SR438500.EXE,0,0,1,0+2,,0,0,0,ZIP:SH9_015_EE_6_03.S9Q
+740,741,Tally Interface Utilities,Change Company Information,P,SR431700.EXE,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+740,742,Tally Interface Utilities,Delete Mapping,P,SR431700.EXE,0,1,3,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+740,743,Tally Interface Utilities,Changes Master,P,SR431700.EXE,0,1,5,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+740,744,Tally Interface Utilities,Manage Missing Vouchers,P,SR431700.EXE,0,1,7,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+740,745,Tally Interface Utilities,Offline Re-posting,P,SR431700.EXE,0,1,9,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+740,746,Tally Interface Utilities,Voucher Comparison Utility,P,SR431700.EXE,0,1,11,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,751,Supervisory Functions,User Authorisation,P,SR406100.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,752,Supervisory Functions,Change Password,P,SR406000.exe,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,753,Supervisory Functions,Menu / User Weights,P,SR413900.EXE,0,1,0,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,754,Supervisory Functions,Menu / Node Restriction,P,SR413300.EXE,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,755,Supervisory Functions,Node Management,P,SR413400.EXE,0,1,2,0,,1,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,756,Supervisory Functions,Data Rebuild,P,SR320800.EXE,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,757,Supervisory Functions,Cost price Variance Fixing,P,SR730000.EXE,0,0,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,758,Supervisory Functions,Year End Process,P,SR428100.Exe,0,0,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,759,Supervisory Functions,Re-Open Day,P,SR333100.Exe,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,760,Supervisory Functions,Database Archival,P,SR329700.EXE,0,1,1,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,765,Supervisory options,Manage DayEnd/ DayBegin Activity List,P,SR435700.exe,0,-1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+750,770,Supervisory options,Price Revision Authorisation,P,SR230500.exe,0,0,4,0,,0,0,,ZIP:SH9_014_EE_0_01.S9Q
+750,771,Item Reclassification,Item Reclassification,P,SR439400.EXE,0,0,1,0,,0,0,0,ZIP:SH9_016_EE_0_01.S9Q
+750,772,Tax Re-computation,Tax Re-computation,P,SR721500.EXE,0,0,0,0,,0,0,0,ZIP:SH9_0161_EE_0_01.S9Q
+800,801,Help,Shoper Help,P,SR428900.Exe,0,1,1,2,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+800,802,Help,Support Centre,P,SR435600.Exe,0,1,0,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+800,803,Help,About Shoper,P,SR428900.Exe,0,1,2,2,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+800,804,Help,Live Chat,P,sr428900.Exe,0,1,8,0,,0,0,0,ZIP:SH9_013_EE_0_10.S9Q
+900,910,Analysis Reports,Sales,M,,0,0,0,0,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+900,920,Analysis Reports,Stock,M,,0,0,0,0,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+900,930,Analysis Reports,Customer Offtake,M,,0,0,0,0,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+900,940,Analysis Reports,Report Designer,M,,0,0,0,0,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+910,911,Sales,Bill-wise,P,SR435600.EXE,0,1,2,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+910,912,Sales,Product-wise,P,SR435600.EXE,0,1,8,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+910,913,Sales,Product + Brand-wise,P,SR435600.EXE,0,1,9,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+910,914,Sales,Item-wise,P,SR435600.EXE,0,1,10,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+910,915,Sales,Monthly comparision,P,SR435600.EXE,0,1,6,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+920,921,Stock,Item-wise Balance,P,SR435600.EXE,0,1,11,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+920,922,Stock,Size-wise Balance,P,SR435600.EXE,0,1,12,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+920,923,Stock,Movement,P,SR435600.EXE,0,1,13,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+920,924,Stock,Analysis,P,SR435600.EXE,0,1,14,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+930,931,Customer Offtake,Summary,P,SR435600.EXE,0,1,3,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+930,932,Customer Offtake,Detailed,P,SR435600.EXE,0,1,4,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+930,933,Customer Offtake,Brand-wise,P,SR435600.EXE,0,1,5,0+2,,0,0,0,ZIP:SH9_015_EE_4_21.S9Q
+940,941,Report Designer,Sales,P,SR435600.EXE,0,1,201,0+2,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+940,942,Report Designer,Stock,P,SR435600.EXE,0,1,202,0+2,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+940,943,Report Designer,Sales && Stock,P,SR435600.EXE,0,1,203,0+2,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+940,944,Report Designer,Stock as on Date,P,SR435600.EXE,0,1,204,0+2,,0,0,0,ZIP:SH9_018_EE_0_01.S9Q
+940,945,Report Designer,Tender,P,SR435600.EXE,0,1,205,0+2,,0,0,1,ZIP:SH9_019_EE_0_01.S9Q
+940,946,Report Designer,Slips,P,SR435600.EXE,0,1,206,0+2,,0,0,1,ZIP:SH9_020_EE_4_02.S9Q

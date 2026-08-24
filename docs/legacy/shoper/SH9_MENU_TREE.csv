@@ -1,0 +1,284 @@
+MnuNo,MnuName_Parent,MenuOpt,MnuCap,MnuPgm,ExeName,pgmopt,AllowWhenTrnClosed,MultiInstance
+0,Shoper,100,Sales,M,,0,0,0
+0,Shoper,200,Cash,M,,0,0,0
+0,Shoper,300,Stock,M,,0,0,0
+0,Shoper,400,Reports,M,,0,0,0
+0,Shoper,500,Housekeeping,M,,0,0,0
+0,Shoper,600,Catalogue,M,,0,0,0
+0,Shoper,700,Setup,M,,0,0,0
+0,Shoper,800,Help,M,,0,0,0
+100,Sales,101,Billing,P,SR130000.EXE,0,0,1
+100,Sales,102,Return,P,SR130000.EXE,0,0,1
+100,Sales,103,Cancellation,P,SR130000.EXE,0,0,1
+100,Sales,104,Sales Advice Slips,P,SR115500.EXE,2,0,0
+100,Sales,105,Service Order,P,SR115500.EXE,7,0,0
+100,Sales,106,Sales Order,P,SR115500.EXE,3,0,0
+100,Sales,107,Sales Order Conversion,P,SR131400.EXE,0,0,0
+100,Sales,108,Walk-in Entry,P,SR120100.EXE,0,0,0
+100,Sales,109,Change Payment Mode,P,SR323300.EXE,1,1,0
+100,Sales,110,Pending Order/Trn Closure,P,SE101100.EXE,1,1,0
+100,Sales,111,Excise Invoice Generation,P,SR440100.EXE,0,0,0
+100,Sales,112,Transport Receipt Entry,P,SD400800.EXE,8,0,0
+200,Cash,201,Cash Payouts,P,SR100200.EXE,2,0,0
+200,Cash,202,Cash Receipts,P,SR100200.EXE,1,0,0
+200,Cash,250,Credit Card Management,M,,0,0,0
+200,Cash,260,Franchisee A/C,M,,0,0,0
+200,Cash,270,Till Management,M,,0,0,0
+200,Cash,280,Credit Sale Management,M,,0,0,0
+250,Credit Card Management,251,Submission,P,SR100300.EXE,1,0,0
+250,Credit Card Management,252,Realisation,P,SR100400.EXE,1,0,0
+260,Franchisee A/C,261,Payments to HO,P,SR101900.EXE,0,0,0
+260,Franchisee A/C,262,Franchisee Details Form,P,SR430600.Exe,0,0,0
+260,Franchisee A/C,263,Franchisee Outstanding,P,SR203400.EXE,0,0,0
+260,Franchisee A/C,265,Pay-in Slip Generation,P,SR410800.EXE,0,0,0
+270,Till Management,271,Till Status,P,SR138900.EXE,1,0,0
+270,Till Management,272,Set Opening Balance,P,SR138900.EXE,2,0,0
+270,Till Management,273,Cash Lift,P,SR138900.EXE,3,0,0
+270,Till Management,274,Reconciliation,P,SR138900.EXE,4,0,0
+270,Till Management,275,Open Cash Drawer,P,SR138900.EXE,5,0,0
+270,Till Management,276,Till - Reprint,P,SR138900.EXE,6,0,0
+280,Credit Sale Management,281,Collect Payment,P,SR142500.EXE,0,0,0
+280,Credit Sale Management,282,Set Opening Balance,P,SR142500.EXE,1,0,0
+280,Credit Sale Management,283,Clear Credit Note,P,SR142500.EXE,2,0,0
+300,Stock,311,Import DC / Master from PT File,P,SR324400.exe,1,0,0
+300,Stock,312,Physical Verification,P,SR101000.exe,0,0,0
+300,Stock,313,Goods Inwards,P,SR127000.EXE,0,0,0
+300,Stock,314,Goods Inwards Size-wise,P,SR129500.EXE,0,0,0
+300,Stock,315,Goods Outwards,P,SR100700.EXE,0,0,0
+300,Stock,316,PT File Information,P,SR210700.EXE,0,1,0
+300,Stock,317,Audit Trail - Size-wise,P,SR217700.EXE,0,1,0
+300,Stock,350,Stock Take,M,,0,0,0
+300,Stock,360,Carton Management,M,,0,0,0
+300,Stock,370,Barcode,M,,0,0,0
+300,Stock,380,Purchase Order,M,,0,0,0
+350,Stock Take,351,Physical Stock Management,P,SR323400.EXE,0,0,0
+350,Stock Take,352,Physical vs Computed Stock Report,P,SR211000.EXE,0,1,0
+350,Stock Take,353,Physical Stock Report,P,SR213300.EXE,0,1,0
+350,Stock Take,354,Physical Stock Report - Batch-wise,P,SR203500.exe,0,1,0
+360,Stock,361,Carton Type Creation,P,SR441100.EXE,0,0,0
+360,Stock,362,Carton,P,SR440700.EXE,0,0,0
+360,Stock,363,Packing,P,SR440900.EXE,0,0,0
+370,Barcode,371,Design Label for Barcode Printers,P,SR413000.EXE,1,1,0
+370,Barcode,372,Design Label for Standard Printers,P,SR431200.EXE,1,0,0
+370,Barcode,373,Design Layout for Standard Printers,P,SR431200.EXE,2,0,0
+370,Barcode,374,Print Labels,P,SR413100.EXE,1,1,0
+380,Purchase Order,381,Generation,P,SE100900.EXE,1,0,0
+380,Purchase Order,383,Import,P,SE100400.EXE,0,0,0
+380,Purchase Order,384,Foreclosure,P,SE127800.exe,2,0,0
+380,Purchase Order,385,Reopen,P,SE127800.exe,3,0,0
+380,Purchase Order,386,Export,P,SE127800.exe,4,0,0
+380,Purchase Order,387,Reprint,P,SE127800.exe,5,0,0
+380,Purchase Order,388,Status Report,P,SE201200.EXE,1,0,0
+380,Purchase Order,389,PO/Indent Conversion,P,SE101000.EXE,1,0,0
+380,Purchase Order,390,Purchase Order Configuration,P,SE100280.exe,0,0,0
+400,Reports,410,Sales,M,,0,0,0
+400,Reports,430,Stock,M,,0,0,0
+400,Reports,450,Stock Registers,M,,0,0,0
+400,Reports,460,Cash,M,,0,0,0
+400,Reports,470,MIS,M,,0,0,0
+400,Reports,900,Analysis Reports,M,,0,0,0
+410,Sales,411,Daily Sales Book,P,SR213600.EXE,0,1,0
+410,Sales,412,Bill-wise Sales,P,SR202400.EXE,0,1,0
+410,Sales,413,Item-wise Sales,P,SR202200.EXE,0,1,0
+410,Sales,414,Tax Register,P,SR202300.EXE,0,1,0
+410,Sales,415,Bill-wise Items,P,SR202000.EXE,0,1,0
+410,Sales,416,Discount Given,P,SR202100.EXE,0,1,0
+410,Sales,418,Top Selling Items,P,SR209600.EXE,0,1,0
+410,Sales,419,Salesperson Sales,P,SR210000.EXE,0,1,0
+410,Sales,420,Cancelled Bills,P,SR210100.EXE,0,1,0
+410,Sales,421,Returned Bills,P,SR210200.EXE,0,1,0
+410,Sales,422,Attribute + Size wise,P,SR236300.Exe,2,1,0
+410,Sales,423,Day-wise Sales Summary,P,SR209500.EXE,0,1,0
+410,Sales,425,Item-wise Sales Returns,P,SR214100.EXE,0,1,0
+410,Sales,426,Salesperson Summary,P,SR221600.EXE,0,1,0
+410,Sales,427,Node-wise Details,P,SR231900.EXE,1,0,0
+430,Stock,431,Balance,P,SR202500.EXE,0,1,0
+430,Stock,432,Movement,P,SR203000.EXE,0,1,0
+430,Stock,433,Analysis,P,SR202700.EXE,0,1,0
+430,Stock,434,Statement,P,SR202900.EXE,0,1,0
+430,Stock,435,Balance - Style / Model wise,P,SR210300.EXE,0,1,0
+430,Stock,436,Discrepancy,P,SR211600.EXE,0,1,0
+430,Stock,437,Transaction Ledger,P,SR213800.EXE,0,1,0
+430,Stock,438,Attribute + Size wise,P,SR236300.Exe,3,1,0
+430,Stock,439,Balance as on Date,P,SR217900.EXE,0,1,0
+430,Stock,441,Aging,P,SR233600.EXE,0,1,0
+430,Stock,442,Inward Discrepancy,P,SR233700.EXE,0,1,0
+430,Stock,443,Tax Register,P,SR238000.Exe,1,0,0
+430,Stock,444,Void Transactions,P,SR239800.Exe,0,0,0
+430,Stock,445,Stock Availability,P,SR241700.EXE,0,1,0
+430,Stock,446,Physical Verification Status,P,SR241600.EXE,0,1,0
+450,Stock Registers,451,Transaction-wise Goods Register,P,SR202800.EXE,0,1,0
+450,Stock Registers,452,Item-wise Goods Register,P,SR212600.EXE,0,1,0
+450,Stock Registers,453,Audit Trail - Size-wise,P,SR217700.EXE,0,1,0
+460,Cash,461,Cash Transaction,P,SR203100.EXE,0,1,0
+460,Cash,462,Submission / Realisation List,P,SR203300.EXE,0,1,0
+460,Cash,463,Pending Submissions / Realisations,P,SR203200.EXE,0,1,0
+460,Cash,464,Counter-wise Details,P,SR210600.EXE,0,1,0
+460,Cash,465,Credit Note Status,P,SR212700.EXE,0,1,0
+460,Cash,466,Counter Summary across Cashiers,P,SR212900.EXE,0,1,0
+460,Cash,467,Advance Receipt Status,P,SR234400.EXE,0,1,0
+460,Cash,469,Reconciliation Report,P,SR239600.EXE,1,1,0
+460,Cash,470,Till Status Report,P,SR239600.EXE,2,1,0
+460,Till Management,471,Till Activity Log,P,SR240400.EXE,0,0,0
+460,Credit Sale Management,4702,Credit Sale,P,SR242900.EXE,0,1,0
+470,MIS,471,Monthly Sales Comparison,P,SR203700.EXE,0,1,0
+470,MIS,472,Rate Variation,P,SR203800.EXE,0,1,0
+470,MIS,473,Sales Analysis,P,SR203900.EXE,0,1,0
+470,MIS,474,Attribute-wise Sales and Stock,P,SR236300.Exe,1,1,0
+470,MIS,475,Pending Transactions,P,SR215600.EXE,0,1,0
+470,MIS,476,Walk-in Details,P,SR222800.EXE,0,1,0
+470,MIS,477,Superclass-wise Sales / Stock,P,SR216000.EXE,0,1,0
+470,MIS,478,Stock across Chain,P,SE201000.EXE,0,0,0
+470,MIS,479,Transaction Details with Image,P,SR233000.EXE,1,0,0
+470,MIS,480,Gross Margin,P,SR229700.exe,0,0,0
+470,MIS,481,Bill Re-Print,P,SR233500.exe,0,0,0
+470,MIS,482,Sales Promotions,P,SR234900.exe,0,0,0
+470,MIS,483,Salesperson-wise Discount,P,SR238400.EXE,1,0,0
+470,MIS,490,Customer Offtake,M,,0,0,0
+470,MIS,491,Excise Report,P,SR240000.EXE,0,0,0
+470,MIS,492,Incentive Analysis,P,SR244700.EXE,1,1,0
+490,Customer Offtake,491,Period-wise,P,SR208500.EXE,0,1,0
+490,Customer Offtake,492,Bill-wise,P,SR208400.EXE,0,1,0
+490,Customer Offtake,493,Product-wise,P,SR208600.EXE,0,1,0
+500,Housekeeping,501,OPEN Day,P,SR322600.Exe,0,1,0
+500,Housekeeping,502,CLOSE Day,P,SR309900.EXE,2,0,0
+500,Housekeeping,503,Backup,P,SR309000.EXE,2,1,0
+500,Housekeeping,504,Restore,P,SR309000.EXE,3,1,0
+500,Housekeeping,505,Compact,P,SR309000.EXE,1,1,0
+500,Housekeeping,506,Database Tuning Utility,P,SE900310.EXE,1,0,0
+500,Housekeeping,507,Purge Data,P,SR311900.EXE,0,0,0
+500,Housekeeping,509,Delete Temporary Tables,P,SR721000.EXE,0,1,0
+500,Housekeeping,510,Delete Backup File,P,SR329900.EXE,1,0,0
+500,Housekeeping,520,POS-HO Synchronisation,M,,0,0,0
+500,Housekeeping,530,Data Import,M,,0,0,0
+500,Housekeeping,550,Data Export Masters,M,,0,0,0
+500,Housekeeping,560,Back-end Data,M,,0,0,0
+500,Housekeeping,570,Alerts Management,P,SR435600.exe,1,0,0
+500,Housekeeping,571,Communication Configuration,P,SR440600.exe,1,0,0
+500,Housekeeping,580,Schedule for &Reports,P,SR435600.EXE,302,0,0
+500,Housekeeping,581,Activity Log,P,SR435600.EXE,1,1,1
+520,POS-HO Synchronisation,521,Send Flat Files to HO,P,SR311400.EXE,0,0,0
+520,POS-HO Synchronisation,522,Synchronise Manually,P,SE301100.EXE,0,0,0
+520,POS-HO Synchronisation,523,Configure Synchronisation,P,SE301600.exe,0,0,0
+520,POS-HO Synchronisation,524,Status Report,P,SR235400.EXE,0,0,0
+530,Data Import,531,Item Master,P,SR320500.exe,1,0,0
+530,Data Import,532,Price Revision,P,SR330700.EXE,1,0,0
+530,Data Import,533,Customer Information,P,SR312300.EXE,0,0,0
+530,Data Import,534,'Replication Import (AST,,,0,0,0
+530,Data Import,535,Active Sales Promotions,P,SR332800.EXE,0,1,0
+530,Data Import,536,'Import into Secondary Db.(s,,,0,0,0
+530,Data Import,537,Import Items from Secondary to Primary Db.,P,SR325500.EXE,0,0,0
+530,Data Import,538,Sales Promotions,P,SR430300.EXE,1,0,0
+550,Data Export Masters,551,Post Transactions to Tally,P,SR431500.EXE,1,1,0
+550,Data Export Masters,552,Create PT File,P,SR327100.EXE,0,1,0
+550,Data Export Masters,553,Pricing Details,P,SR322300.EXE,1,0,0
+550,Data Export Masters,554,ID / IM Flat File,P,SR309700.EXE,1,0,0
+550,Data Export Masters,555,Customer Information,P,SR312200.EXE,1,0,0
+550,Data Export Masters,558,'Replication Export (AST,,,0,0,0
+560,Back-end Data,561,Configure,P,SE100140.EXE,0,0,0
+560,Back-end Data,562,Import,P,SE100120.EXE,0,0,0
+600,Catalogue,601,General Lookup,P,SR429200.EXE,0,0,0
+600,Catalogue,602,Vendor,P,SR404800.EXE,0,0,0
+600,Catalogue,603,Tax,P,SR708100.EXE,1,0,0
+600,Catalogue,604,Item Classification,P,SR404900.EXE,0,0,0
+600,Catalogue,605,Size Management,P,SR430100.EXE,0,1,0
+600,Catalogue,606,Item Master,P,SR122000.exe,1,0,0
+600,Catalogue,607,Define Price Revisions,P,SR230500.EXE,1,0,0
+600,Catalogue,608,Define Sales Promotions,P,SR430300.EXE,1,0,0
+600,Catalogue,609,Sales Factors,P,SR100700.Exe,0,0,0
+600,Catalogue,610,Payment Mode,P,SR405600.EXE,0,0,0
+600,Catalogue,611,HO Chain Stores,P,SR405300.EXE,0,0,0
+600,Catalogue,612,Sales Personnel,P,SR405700.EXE,0,0,0
+600,Catalogue,613,Customer Price Group,P,SR404700.EXE,0,0,0
+600,Catalogue,614,Customer,P,SR405100.EXE,0,0,0
+600,Catalogue,615,Customer Mailer,P,SR430900.EXE,0,1,0
+600,Catalogue,616,Print Address Labels,P,SR323600.EXE,0,1,0
+600,Catalogue,617,Excise Duty,P,SR439900.EXE,1,0,0
+600,Catalogue,650,Listings,M,,0,0,0
+603,Sales Tax,6031,Sales Tax,P,SR708100.EXE,1,0,0
+603,Purchase Tax,6032,Purchase Tax,P,SR708100.EXE,3,0,0
+603,Excise Duty,6033,Excise Duty,P,SR439900.EXE,1,0,0
+609,Sales Factors,6091,Sales Factors,P,SR405800.EXE,0,0,0
+609,Stock Factors,6092,Stock Factors,P,CZ100700.EXE,0,0,0
+612,Personnel,6121,Personnel Catalogue,P,SR442900.EXE,1,0,0
+612,Personnel,6124,Incentive Definition,P,SR443900.exe,1,0,0
+613,Customer Price Group,6131,Customer Price Group,P,SR404700.EXE,1,0,0
+613,Customer,6132,Customer Catalogue,P,SR442300.EXE,0,0,0
+613,Customer Mailer,6133,Customer Mailer,P,SR430900.EXE,0,0,0
+613,Print Address Labels,6134,Print Address Labels,P,SR323600.EXE,0,0,0
+614,<<Class1>>-<<Class2>> Combo,6140,Product + Brand Combo Settings,P,SH400900.EXE,1,0,0
+614,Multiple Price,6141,Multiple Price,P,SR143500.EXE,1,0,0
+615,Period,6122,Week Catalogue,P,SH400600.exe,0,0,0
+615,Period,6123,Season Catalogue,P,SE200300.exe,0,0,0
+650,Listings,651,Price,P,SR203600.exe,1,0,0
+650,Listings,652,Price Revision,P,SR230500.EXE,0,0,0
+650,Listings,653,Style Catalogue,P,SR430800.EXE,0,1,0
+650,Listings,654,Sales Promotions,P,SR230400.EXE,1,0,0
+650,Listings,655,Sales Factors,P,SR216300.exe,1,1,0
+650,Listings,656,Schedule Details,P,SE100220.EXE,2,0,0
+650,Listings,657,Terminal Prefix,P,SR234300.EXE,1,0,0
+650,Listing,658,Customers,P,SR242500.EXE,0,0,0
+650,PersonnelListing,660,Personnel Listing,P,SR244000.exe,1,0,0
+650,Price Listing,661,Price Listing-New,P,SR244300.exe,1,0,0
+700,Setup,711,Company Creation,P,SR432000.exe,0,0,0
+700,Setup,712,Company Maintenance,P,SR406500.exe,0,0,0
+700,Setup,713,Create Secondary Database,P,SR429000.exe,0,0,0
+700,Setup,720,General,M,,0,0,0
+700,Setup,750,Supervisory Functions,M,,0,0,0
+720,General,721,System Parameters,P,SR426400.EXE,0,0,0
+720,General,722,Bill Prefix,P,SR438600.EXE,1,0,0
+720,General,723,Stock Number Methodology,P,SR123000.EXE,0,0,0
+720,General,724,Printing Templates,P,SR428200.EXE,1,0,0
+720,General,725,Flat File Values,P,SR428700.EXE,1,0,0
+720,General,726,Goods Inward / Outward Prefix,P,SR429300.EXE,1,0,0
+720,General,727,Cash / Purchase Order Prefix,P,SR429300.EXE,2,0,0
+720,General,728,Tally Interface - Mapping,P,SR431000.EXE,1,1,0
+720,General,729,Tally Interface - HSN Mapping,P,SR431800.EXE,0,1,0
+720,General,740,Tally Interface Utilities,M,,0,0,0
+720,General,804,Print Engine Configuration,P,SR438500.EXE,1,0,0
+740,Tally Interface Utilities,741,Change Company Information,P,SR431700.EXE,1,1,0
+740,Tally Interface Utilities,742,Delete Mapping,P,SR431700.EXE,3,1,0
+740,Tally Interface Utilities,743,Changes Master,P,SR431700.EXE,5,1,0
+740,Tally Interface Utilities,744,Manage Missing Vouchers,P,SR431700.EXE,7,1,0
+740,Tally Interface Utilities,745,Offline Re-posting,P,SR431700.EXE,9,1,0
+740,Tally Interface Utilities,746,Voucher Comparison Utility,P,SR431700.EXE,11,1,0
+750,Supervisory Functions,751,User Authorisation,P,SR406100.EXE,0,1,0
+750,Supervisory Functions,752,Change Password,P,SR406000.exe,0,1,0
+750,Supervisory Functions,753,Menu / User Weights,P,SR413900.EXE,0,1,0
+750,Supervisory Functions,754,Menu / Node Restriction,P,SR413300.EXE,0,1,0
+750,Supervisory Functions,755,Node Management,P,SR413400.EXE,2,1,0
+750,Supervisory Functions,756,Data Rebuild,P,SR320800.EXE,1,0,0
+750,Supervisory Functions,757,Cost price Variance Fixing,P,SR730000.EXE,0,0,0
+750,Supervisory Functions,758,Year End Process,P,SR428100.Exe,1,0,0
+750,Supervisory Functions,759,Re-Open Day,P,SR333100.Exe,1,1,0
+750,Supervisory Functions,760,Database Archival,P,SR329700.EXE,1,1,0
+750,Supervisory options,765,Manage DayEnd/ DayBegin Activity List,P,SR435700.exe,0,-1,0
+750,Supervisory options,770,Price Revision Authorisation,P,SR230500.exe,4,0,
+750,Item Reclassification,771,Item Reclassification,P,SR439400.EXE,1,0,0
+750,Tax Re-computation,772,Tax Re-computation,P,SR721500.EXE,0,0,0
+800,Help,801,Shoper Help,P,SR428900.Exe,1,1,0
+800,Help,802,Support Centre,P,SR435600.Exe,0,1,0
+800,Help,803,About Shoper,P,SR428900.Exe,2,1,0
+800,Help,804,Live Chat,P,sr428900.Exe,8,1,0
+900,Analysis Reports,910,Sales,M,,0,0,0
+900,Analysis Reports,920,Stock,M,,0,0,0
+900,Analysis Reports,930,Customer Offtake,M,,0,0,0
+900,Analysis Reports,940,Report Designer,M,,0,0,0
+910,Sales,911,Bill-wise,P,SR435600.EXE,2,1,0
+910,Sales,912,Product-wise,P,SR435600.EXE,8,1,0
+910,Sales,913,Product + Brand-wise,P,SR435600.EXE,9,1,0
+910,Sales,914,Item-wise,P,SR435600.EXE,10,1,0
+910,Sales,915,Monthly comparision,P,SR435600.EXE,6,1,0
+920,Stock,921,Item-wise Balance,P,SR435600.EXE,11,1,0
+920,Stock,922,Size-wise Balance,P,SR435600.EXE,12,1,0
+920,Stock,923,Movement,P,SR435600.EXE,13,1,0
+920,Stock,924,Analysis,P,SR435600.EXE,14,1,0
+930,Customer Offtake,931,Summary,P,SR435600.EXE,3,1,0
+930,Customer Offtake,932,Detailed,P,SR435600.EXE,4,1,0
+930,Customer Offtake,933,Brand-wise,P,SR435600.EXE,5,1,0
+940,Report Designer,941,Sales,P,SR435600.EXE,201,1,0
+940,Report Designer,942,Stock,P,SR435600.EXE,202,1,0
+940,Report Designer,943,Sales && Stock,P,SR435600.EXE,203,1,0
+940,Report Designer,944,Stock as on Date,P,SR435600.EXE,204,1,0
+940,Report Designer,945,Tender,P,SR435600.EXE,205,1,1
+940,Report Designer,946,Slips,P,SR435600.EXE,206,1,1
