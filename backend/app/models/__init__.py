@@ -190,3 +190,7 @@ from .analytics import (
 from .audit import (
     ComplianceImmutableAuditLog,
 )
+
+# Legacy Migration Registry (Sprint 2)
+from .legacy_menu_map import LegacyMenuMap
+
