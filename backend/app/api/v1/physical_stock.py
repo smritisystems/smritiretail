@@ -582,3 +582,72 @@ async def update_count_line(
         "variance_qty": float(variance_qty),
         "status":       "IN_PROGRESS" if take_row[1] == "OPEN" else take_row[1],
     }
+
+# ---------------------------------------------------------------------------
+# PHY-007: Complete / Close a Stock Take Session
+# POST /api/v1/physical-stock/sessions/{take_id}/complete
+# Sprint 19 -- closes the CompleteBtn gap in PhysicalStockTab.tsx
+# ---------------------------------------------------------------------------
+
+@router.patch("/sessions/{take_id}/complete", status_code=200)
+async def complete_stock_take(
+    take_id:  str,
+    db:       AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    PHY-007 -- Mark a stock-take session COMPLETED.
+    Transitions: OPEN or IN_PROGRESS -> COMPLETED.
+    Validates: at least one count line must have counted_qty set.
+    After completion the session is locked from further line edits.
+    Approve (PHY-005) remains a separate MANAGER step.
+    """
+    row = (await db.execute(text("""
+        SELECT id, status FROM stock_takes
+        WHERE id = :id AND is_deleted = false
+    """), {"id": take_id})).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail={
+            "code":    "SMRITI-DATA-001",
+            "message": f"Stock take session '{take_id}' not found.",
+        })
+
+    if row[1] not in ("OPEN", "IN_PROGRESS"):
+        raise HTTPException(status_code=422, detail={
+            "code":    "SMRITI-VAL-001",
+            "message": f"Session is already '{row[1]}'. Only OPEN or IN_PROGRESS sessions can be completed.",
+            "action":  "Create a new session to perform another count.",
+        })
+
+    # Guard: at least one line must be counted
+    counted = (await db.execute(text("""
+        SELECT COUNT(*) FROM stock_count_lines
+        WHERE stock_take_id = :take_id
+          AND counted_qty IS NOT NULL
+    """), {"take_id": take_id})).scalar()
+
+    if not counted or counted == 0:
+        raise HTTPException(status_code=422, detail={
+            "code":    "SMRITI-VAL-002",
+            "message": "Cannot complete a session with no counted lines.",
+            "action":  "Enter counted quantities for at least one item before completing.",
+        })
+
+    completed_by = getattr(current_user, "full_name", None) or getattr(current_user, "id", "system")
+    await db.execute(text("""
+        UPDATE stock_takes
+        SET status       = 'COMPLETED',
+            completed_by = :completed_by,
+            modified_at  = NOW()
+        WHERE id = :id
+    """), {"completed_by": completed_by, "id": take_id})
+    await db.commit()
+
+    return {
+        "id":           take_id,
+        "status":       "COMPLETED",
+        "completed_by": completed_by,
+        "counted_lines": int(counted),
+        "message":      "Session marked COMPLETED. A manager can now approve it.",
+    }
