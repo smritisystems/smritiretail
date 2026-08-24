@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.18.0
 Created      : 2026-07-11
-Modified     : 2026-07-14
+Modified     : 2026-08-24
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -56,7 +56,7 @@ class SalesInvoiceBase(BaseModel):
     warehouse_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("warehouse_id", "warehouseId"))
     tax_total: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_total", "taxTotal"))
     grand_total: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("grand_total", "grandTotal"))
-    is_interstate: bool = Field(False, validation_alias=AliasChoices("is_interstate", "isInterstate"))
+    is_interstate: Optional[bool] = Field(False, validation_alias=AliasChoices("is_interstate", "isInterstate"))
     eway_bill_no: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("eway_bill_no", "eWayBillNo", "ewayBillNo"))
     payment_mode: Optional[str] = Field("CASH", validation_alias=AliasChoices("payment_mode", "paymentMode"))
     status: str = "Draft"

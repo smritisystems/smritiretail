@@ -19,6 +19,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.capability_template import PlatformCapability, WorkspaceTemplate, FeatureFlag
+from ..models.tenant import Company
 from ..models.governed_logic import (
     FormulaDefinition,
     BusinessRuleDefinition,
@@ -261,6 +262,32 @@ class ControlPlaneSeeder:
 
         await session.flush()
         return counts
+
+    @classmethod
+    async def seed_platform_company(cls, session: AsyncSession) -> int:
+        """
+        Seeds a sentinel platform company row into smritisys.companies.
+        Required because smriti_themes and smriti_workspace_profiles carry a
+        non-nullable FK (company_id -> companies.id). The seed row represents
+        the SMRITI Control Plane itself, not any individual business tenant.
+        Idempotent: no-op if id='comp-default' already exists.
+        """
+        tbl = await session.execute(text("SELECT to_regclass('public.companies')"))
+        if not tbl.scalar():
+            return 0
+        existing = (await session.execute(
+            select(Company).where(Company.id == "comp-default")
+        )).scalar_one_or_none()
+        if not existing:
+            session.add(Company(
+                id="comp-default",
+                name="SMRITI Platform Control Plane",
+                is_active=True,
+                is_deleted=False,
+            ))
+            await session.flush()
+            return 1
+        return 0
 
     @classmethod
     async def seed_ui_metadata(cls, session: AsyncSession) -> Dict[str, int]:
@@ -1075,6 +1102,9 @@ class ControlPlaneSeeder:
     async def seed_all(cls, session: AsyncSession) -> Dict[str, Any]:
         """Runs capability, reference data, UI metadata, feature flags, governed logic,
         icon registry, integration provider, layout, screen and action definition seeders."""
+        # seed_platform_company MUST run before seed_ui_metadata so that
+        # smriti_themes.company_id FK constraint can be satisfied.
+        platform_company_count = await cls.seed_platform_company(session)
         cap_count = await cls.seed_capabilities(session)
         ref_counts = await cls.seed_reference_data(session)
         ui_counts = await cls.seed_ui_metadata(session)
@@ -1087,6 +1117,7 @@ class ControlPlaneSeeder:
         action_count = await cls.seed_action_definitions(session)
         await session.commit()
         return {
+            "platform_company_seeded": platform_company_count,
             "capabilities_seeded": cap_count,
             "reference_counts": ref_counts,
             "ui_counts": ui_counts,
