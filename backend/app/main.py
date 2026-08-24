@@ -55,6 +55,7 @@ from .api.v1 import (
     ecom,
     exchange,
     finance,
+    governance,
     governed_logic,
     health_flags,
     integration,
@@ -172,7 +173,8 @@ app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 app.include_router(approval_matrix.router,  prefix=settings.API_V1_STR + "/approval-matrix", tags=["Approval Matrix"])
 app.include_router(wms.router,              prefix=settings.API_V1_STR + "/wms", tags=["Warehouse & Batch Management"])
 app.include_router(accounting.router,       prefix=settings.API_V1_STR + "/accounting", tags=["Authoritative Accounting"])
-app.include_router(finance.router,          prefix=settings.API_V1_STR + "/finance",    tags=["Finance & Cash Reports"])
+app.include_router(finance.router,          prefix=settings.API_V1_STR + "/finance",     tags=["Finance & Cash Reports"])
+app.include_router(governance.router,       prefix=settings.API_V1_STR + "/governance",  tags=["Governance & System Config"])
 app.include_router(reference_data.router,    prefix=settings.API_V1_STR, tags=["Global Reference Data & Localization"])
 app.include_router(capability_registry.router, prefix=settings.API_V1_STR, tags=["Capability & Module Registry"])
 app.include_router(governed_logic.router, prefix=settings.API_V1_STR + "/governed-logic", tags=["Governed Logic & Reproducibility"])

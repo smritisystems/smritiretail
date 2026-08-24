@@ -27,6 +27,8 @@ from . import (
     docs,
     exchange,
     finance,
+    governance,
+    governed_logic,
     inventory,
     legacy_menu_map,
     master_lookup,
