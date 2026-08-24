@@ -4,29 +4,33 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.1.0
+ * Version      : 1.2.0
  * Created      : 2026-08-25
  * Modified     : 2026-08-25
  * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
+ * Sprint 20 -- Barcode scan-to-count (PHY-008) + updated to call PHY-007.
  * Sprint 18 -- Physical Stock Count UI v1.1 with inline count entry.
  * Covers Shoper9: SR323400.EXE MnuNo 350/351 (Physical Inventory Audit).
  *
- * API endpoints consumed (PHY-001..006):
+ * API endpoints consumed (PHY-001..008):
  *   GET   /api/v1/physical-stock/sessions              -- list sessions
  *   POST  /api/v1/physical-stock/sessions              -- create session
  *   GET   /api/v1/physical-stock/sessions/:id          -- session detail + count lines
  *   GET   /api/v1/physical-stock/variance              -- variance report
  *   PATCH /api/v1/physical-stock/sessions/:id/approve  -- approve (MANAGER)
  *   PATCH /api/v1/physical-stock/sessions/:id/lines/:lid -- update counted_qty (PHY-006, Sprint 18)
+ *   PATCH /api/v1/physical-stock/sessions/:id/complete -- complete session (PHY-007, Sprint 19)
+ *   SCAN  barcode -> auto-PATCH via PHY-006             -- scan-to-count (PHY-008, Sprint 20)
+
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import {
   ClipboardList, Plus, RefreshCw, CheckCircle, AlertTriangle,
-  ChevronRight, Package, BarChart3, Loader2, Save, Pencil, X
+  ChevronRight, Package, BarChart3, Loader2, Save, Pencil, X, ScanLine
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -198,6 +202,82 @@ const CountCell: React.FC<CountCellProps> = ({ line, sessionId, editable, onSave
         )}
       </div>
     </td>
+  );
+};
+
+// ─── Barcode Scan-to-Count Bar ────────────────────────────────────────────────
+// Sprint 20 -- PHY-008: scan a barcode, auto-submit counted_qty via PHY-006.
+// Matches scanned SKU/barcode against the current session's count_lines.
+// On match: PATCHes counted_qty = (current + 1) and flashes a status message.
+
+const ScanBar: React.FC<{
+  sessionId:  string;
+  lines:      CountLine[];
+  editable:   boolean;
+  onSaved:    (lineId: string, countedQty: number, varianceQty: number) => void;
+}> = ({ sessionId, lines, editable, onSaved }) => {
+
+  const [scanValue, setScanValue]   = useState("");
+  const [flash, setFlash]           = useState<{ msg: string; ok: boolean } | null>(null);
+  const [scanning, setScanning]     = useState(false);
+  const scanRef                     = useRef<HTMLInputElement>(null);
+
+  const doScan = useCallback(async (raw: string) => {
+    const sku = raw.trim();
+    if (!sku) return;
+    const line = lines.find(l => l.sku === sku || l.product_id === sku);
+    if (!line) {
+      setFlash({ msg: `SKU "${sku}" not found in this session`, ok: false });
+      setScanValue("");
+      setTimeout(() => setFlash(null), 2500);
+      return;
+    }
+    setScanning(true);
+    try {
+      const newQty = (line.counted_qty ?? 0) + 1;
+      const updated = await apiFetchV1<CountLine>(
+        `/physical-stock/sessions/${sessionId}/lines/${line.id}`,
+        { method: "PATCH", body: JSON.stringify({ counted_qty: newQty }) }
+      );
+      onSaved(updated.id, updated.counted_qty ?? 0, updated.variance_qty ?? 0);
+      setFlash({ msg: `✓ ${line.product_name} → ${updated.counted_qty ?? 0} pcs`, ok: true });
+
+    } catch {
+      setFlash({ msg: `Failed to save count for SKU "${sku}"`, ok: false });
+    } finally {
+      setScanning(false);
+      setScanValue("");
+      setTimeout(() => setFlash(null), 2000);
+      scanRef.current?.focus();
+    }
+  }, [sessionId, lines, onSaved]);
+
+  if (!editable) return null;
+
+  return (
+    <div className="flex items-center gap-3 mb-4 bg-slate-800/70 border border-slate-600 rounded-xl px-4 py-2.5">
+      <ScanLine className="w-4 h-4 text-blue-400 shrink-0" />
+      <span className="text-xs text-slate-400 font-mono shrink-0">Scan barcode:</span>
+      <input
+        ref={scanRef}
+        id="phy-scan-input"
+        type="text"
+        value={scanValue}
+        onChange={e => setScanValue(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter") { e.preventDefault(); doScan(scanValue); }
+        }}
+        placeholder="Scan or type SKU + Enter"
+        className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-slate-600 font-mono"
+        autoFocus
+      />
+      {scanning && <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />}
+      {flash && (
+        <span className={`text-xs font-mono shrink-0 ${flash.ok ? "text-emerald-400" : "text-red-400"}`}>
+          {flash.msg}
+        </span>
+      )}
+    </div>
   );
 };
 
@@ -524,6 +604,14 @@ const SessionDetailPanel: React.FC<{
                   </button>
                 ))}
               </div>
+
+              {/* Barcode Scan-to-Count (PHY-008, Sprint 20) */}
+              <ScanBar
+                sessionId={sessionId}
+                lines={detail?.count_lines ?? []}
+                editable={editable}
+                onSaved={handleSaved}
+              />
 
               {/* Count Lines Table */}
               <div className="overflow-x-auto rounded-xl border border-slate-700">

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -6,13 +6,14 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.28.0
+ * Version      : 3.29.0
  * Created      : 2026-07-13
- * Modified     : 2026-08-16
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-08-25
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : CRM Studio (Fiori Horizon Inspired Light Theme)
  */
+
 
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
@@ -30,8 +31,14 @@ import {
   Plus, 
   Download,
   Send,
-  Sparkles
+  Sparkles,
+  Gift,
+  Minus,
+  Star,
+  Loader2
 } from "lucide-react";
+import { apiFetchV1 } from "../lib/apiFetchV1";
+
 
 export interface CrmStudioTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -39,7 +46,8 @@ export interface CrmStudioTabProps {
 
 export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
   const isReadOnly = currentUser?.role === "Report User";
-  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "leads" | "pipeline" | "campaigns">("dashboard");
+  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "leads" | "pipeline" | "campaigns" | "loyalty">("dashboard");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
@@ -118,7 +126,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
 
       {/* Sub Navigation Pills Bar */}
       <div className="flex items-center border-b border-theme-divider gap-1">
-        {(["dashboard", "leads", "pipeline", "campaigns"] as const).map((tab) => (
+        {(["dashboard", "leads", "pipeline", "campaigns", "loyalty"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveSubTab(tab)}
@@ -132,8 +140,15 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
             {tab === "leads" && "Leads Manager"}
             {tab === "pipeline" && "Opportunity Pipeline"}
             {tab === "campaigns" && "Campaigns & Marketing"}
+            {tab === "loyalty" && (
+              <span className="flex items-center gap-1.5">
+                <Star size={11} />
+                Loyalty Adjustments
+              </span>
+            )}
           </button>
         ))}
+
       </div>
 
       {/* Main Content Workspace */}
@@ -227,9 +242,202 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
               </div>
             </div>
           )}
+
+          {activeSubTab === "loyalty" && (
+            <LoyaltyAdjPanel currentUser={currentUser} />
+          )}
         </motion.div>
       </SmritiScrollArea>
     </div>
   );
 };
+// ─── Loyalty Adjustment Panel (Sprint 20 -- LYL-ADJ-001/002) ─────────────────
+// Allows MANAGER+ to grant BONUS or expire points for a loyalty member.
+// Calls: POST /api/v1/crm/loyalty/members/{id}/bonus|expire
 
+interface LoyaltyAdjPanelProps {
+  currentUser?: { role: string; name: string } | null;
+}
+
+const LoyaltyAdjPanel: React.FC<LoyaltyAdjPanelProps> = ({ currentUser }) => {
+  const [memberId, setMemberId]   = useState("");
+  const [adjType, setAdjType]     = useState<"bonus" | "expire">("bonus");
+  const [points, setPoints]       = useState("");
+  const [reason, setReason]       = useState("");
+  const [refId, setRefId]         = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [flash, setFlash]         = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const role = (currentUser?.role || "").toUpperCase();
+  const canAdjust = ["ADMIN","SYSADMIN","SUPERADMIN","MANAGER"].includes(role);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!memberId.trim()) { setFlash({ msg: "Member ID is required.", ok: false }); return; }
+    const pts = parseFloat(points);
+    if (isNaN(pts) || pts <= 0) { setFlash({ msg: "Points must be a positive number.", ok: false }); return; }
+    if (!reason.trim()) { setFlash({ msg: "Reason is required.", ok: false }); return; }
+
+    setLoading(true);
+    setFlash(null);
+    try {
+      const endpoint = `/crm/loyalty/members/${memberId.trim()}/${adjType}`;
+      await apiFetchV1(endpoint, {
+        method: "POST",
+        body: JSON.stringify({ points: pts, reason, reference_id: refId.trim() || undefined }),
+      });
+      const action = adjType === "bonus" ? "granted" : "expired";
+      setFlash({ msg: `${pts} pts ${action} for member ${memberId}.`, ok: true });
+      setPoints(""); setReason(""); setRefId("");
+    } catch (err: any) {
+      const msg = err?.detail?.message || err?.message || "Request failed.";
+      setFlash({ msg, ok: false });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-xl">
+      {/* Title */}
+      <div className="flex items-center gap-2">
+        <Star size={16} className="text-amber-500" />
+        <h3 className="text-xs font-bold text-theme-body uppercase tracking-wider font-mono">
+          Loyalty Points Adjustment
+        </h3>
+      </div>
+
+      {!canAdjust && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-700 text-sm">
+          Only MANAGER or ADMIN accounts can make loyalty adjustments.
+        </div>
+      )}
+
+      {canAdjust && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Adjustment type toggle */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              id="lyl-adj-bonus-btn"
+              onClick={() => setAdjType("bonus")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                adjType === "bonus"
+                  ? "bg-emerald-600 border-emerald-500 text-white"
+                  : "bg-theme-surface-1 border-theme-border text-theme-muted hover:text-theme-body"
+              }`}
+            >
+              <Gift size={13} /> Grant Bonus
+            </button>
+            <button
+              type="button"
+              id="lyl-adj-expire-btn"
+              onClick={() => setAdjType("expire")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                adjType === "expire"
+                  ? "bg-red-600 border-red-500 text-white"
+                  : "bg-theme-surface-1 border-theme-border text-theme-muted hover:text-theme-body"
+              }`}
+            >
+              <Minus size={13} /> Expire Points
+            </button>
+          </div>
+
+          {/* Member ID */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">
+              Loyalty Member ID *
+            </label>
+            <input
+              id="lyl-member-id"
+              type="text"
+              value={memberId}
+              onChange={e => setMemberId(e.target.value)}
+              placeholder="e.g. MEM-001234"
+              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm font-mono outline-none focus:border-theme-primary"
+              required
+            />
+          </div>
+
+          {/* Points */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">
+              Points *
+            </label>
+            <input
+              id="lyl-points"
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={points}
+              onChange={e => setPoints(e.target.value)}
+              placeholder="e.g. 250"
+              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm font-mono outline-none focus:border-theme-primary"
+              required
+            />
+          </div>
+
+          {/* Reason */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">
+              Reason *
+            </label>
+            <input
+              id="lyl-reason"
+              type="text"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="e.g. Birthday bonus / Points expired after 1 year"
+              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm outline-none focus:border-theme-primary"
+              required
+            />
+          </div>
+
+          {/* Reference ID (optional) */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">
+              Reference ID <span className="text-theme-muted/60">(optional)</span>
+            </label>
+            <input
+              id="lyl-ref-id"
+              type="text"
+              value={refId}
+              onChange={e => setRefId(e.target.value)}
+              placeholder="e.g. Campaign ID, Invoice No."
+              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm font-mono outline-none focus:border-theme-primary"
+            />
+          </div>
+
+          {/* Flash */}
+          {flash && (
+            <div className={`rounded-lg px-4 py-2.5 text-sm font-mono ${
+              flash.ok
+                ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
+                : "bg-red-50 border border-red-200 text-red-700"
+            }`}>
+              {flash.msg}
+            </div>
+          )}
+
+          {/* Submit */}
+          <button
+            id="lyl-adj-submit"
+            type="submit"
+            disabled={loading}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-colors disabled:opacity-50 ${
+              adjType === "bonus"
+                ? "bg-emerald-600 hover:bg-emerald-500"
+                : "bg-red-600 hover:bg-red-500"
+            }`}
+          >
+            {loading
+              ? <Loader2 size={14} className="animate-spin" />
+              : adjType === "bonus" ? <Gift size={14} /> : <Minus size={14} />
+            }
+            {adjType === "bonus" ? "Grant Bonus Points" : "Expire Points"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+};
