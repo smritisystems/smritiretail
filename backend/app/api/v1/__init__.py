@@ -38,6 +38,7 @@ from . import (
     metadata,
     numbering,
     pos,
+    physical_stock,
     product_identity,
     purchase,
     reports,

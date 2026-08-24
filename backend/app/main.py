@@ -69,6 +69,7 @@ from .api.v1 import (
     metadata,
     numbering,
     pos,
+    physical_stock,
     product_identity,
     purchase,
     reference_data,
@@ -154,7 +155,8 @@ app.include_router(sales.router,         prefix=settings.API_V1_STR + "/tattly",
 app.include_router(sales_reports.router, prefix=settings.API_V1_STR,                     tags=["Sales Reports"])
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Deprecated — remove at v3.20.0
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Contract URL (Phase 4A)
-app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
+app.include_router(pos.router,            prefix=settings.API_V1_STR,           tags=["POS Shift"])
+app.include_router(physical_stock.router, prefix=settings.API_V1_STR,           tags=["Physical Stock"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
 app.include_router(master_lookup.router,    prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
