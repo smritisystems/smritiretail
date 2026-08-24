@@ -32,8 +32,8 @@ Establish the canonical **Authoritative Double-Entry General Ledger Engine** for
 ## 3. Files Created
 - `backend/app/models/accounting.py`: Canonical SQLAlchemy models for `Account`, `JournalVoucher`, `GeneralLedgerEntry`, and `AccountBalanceSnapshot`.
 - `backend/alembic/versions/v1343_accounting_gl.py`: Forward-only database migration creating accounting tables and indexes.
-- `backend/app/services/unified_accounting_ledger_service.py`: Core double-entry domain logic, COA seeding, automated document posting (Sales Invoices, Purchases, Multi-Tender Payments, Stock Audits), and period balance snapshots.
-- `backend/tests/test_unified_accounting_ledger.py`: Comprehensive test suite verifying 13 balance invariants, document postings, audit reconciliations, and tenant isolation.
+- `backend/app/services/unified_ledger.py`: Core double-entry domain logic, COA seeding, automated document posting (Sales Invoices, Purchases, Multi-Tender Payments, Stock Audits), and period balance snapshots.
+- `backend/tests/t_unified_ledger.py`: Comprehensive test suite verifying 13 balance invariants, document postings, audit reconciliations, and tenant isolation.
 
 ---
 
@@ -75,13 +75,13 @@ Establish the canonical **Authoritative Double-Entry General Ledger Engine** for
 
 ## 8. Tests Executed
 ```powershell
-python -m pytest tests/test_unified_accounting_ledger.py -v
+python -m pytest tests/t_unified_ledger.py -v
 ```
 
 ---
 
 ## 9. Verification Results
-- 13/13 tests passed in `test_unified_accounting_ledger.py` in 7.42s.
+- 13/13 tests passed in `t_unified_ledger.py` in 7.42s.
 - Verified idempotent chart of accounts seeding.
 - Verified manual journal voucher posting and balance invariant.
 - Verified rejection of unbalanced vouchers (`SMRITI-GL-001`).

@@ -106,14 +106,14 @@ Rapid switching A -> B -> A -> B (10 iterations): 100% DETERMINISTIC, ZERO LEAKA
 - **Result:** **158 passed**, 0 failed (10.07s)
 - **Exit Code:** `0`
 - **Closure of Previous 12 Failures:**
-  1. `test_menu_governance.py`: Seeded exactly 34 immutable menus including the 4 default menus (`menu-dashboard`, `menu-inventory`, `menu-sales`, `menu-reports`). **[PASSED]**
+  1. `t_menu_gov.py`: Seeded exactly 34 immutable menus including the 4 default menus (`menu-dashboard`, `menu-inventory`, `menu-sales`, `menu-reports`). **[PASSED]**
   2. `test_menu_governance_34_immutable_ids`: Verified count == 34. **[PASSED]**
   3. `test_no_business_endpoint_accidental_smritisys_mutation`: Verified count == 34. **[PASSED]**
-  4. `test_sales_return_workflow.py`: Seeded `comp-default` and customer `cust-ril-1888`. **[PASSED]**
-  5. `test_eway_bill_dispatch.py`: Seeded invoice `inv-disp-1888`. **[PASSED]**
-  6. `test_grn_stock_increment.py`: Seeded `prod-ch-24-g-black-36`. **[PASSED]**
-  7. `test_purchase_order_flow.py`: Seeded `prod-ch-24-g-black-36`. **[PASSED]**
-  8. `test_sales_invoice_contract_suite.py` (10 tests): Resolved ASGITransport in-process execution, seeded `COMP-001`, `MAIN` branch, `cg-default` customer group, `cust-ril-1888`, and `prod-ch-01-a-cream-36` with stock. **[ALL 10 PASSED]**
+  4. `t_sales_return.py`: Seeded `comp-default` and customer `cust-ril-1888`. **[PASSED]**
+  5. `t_eway_dispatch.py`: Seeded invoice `inv-disp-1888`. **[PASSED]**
+  6. `t_grn_stock.py`: Seeded `prod-ch-24-g-black-36`. **[PASSED]**
+  7. `t_po_flow.py`: Seeded `prod-ch-24-g-black-36`. **[PASSED]**
+  8. `t_sales_contract.py` (10 tests): Resolved ASGITransport in-process execution, seeded `COMP-001`, `MAIN` branch, `cg-default` customer group, `cust-ril-1888`, and `prod-ch-01-a-cream-36` with stock. **[ALL 10 PASSED]**
 
 ---
 

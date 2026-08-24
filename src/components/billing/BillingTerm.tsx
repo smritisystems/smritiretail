@@ -23,8 +23,8 @@ import {
   AutoPopulateCustomerResult, 
   AutoPopulateProductResult 
 } from "../../services/autoPopulateService.ts";
-import { SmritiTypeaheadDropdown, TypeaheadOption } from "../common/SmritiTypeaheadDropdown.tsx";
-import { SmritiItemTypeaheadDropdown } from "../common/SmritiItemTypeaheadDropdown.tsx";
+import { TypeaheadDrop, TypeaheadOption } from "../common/TypeaheadDrop.tsx";
+import { SmritiItemTypeaheadDropdown } from "../common/ItemTypeaheadDrop.tsx";
 import {
   BillingLineItem,
   BillType,
@@ -35,10 +35,10 @@ import {
   AddonDeductionRow,
   SettlementPaymentRow
 } from "./types.ts";
-import { ProductSearchBrowserModal } from "./ProductSearchBrowserModal.tsx";
-import { ItemBrowseOverlayModal } from "./ItemBrowseOverlayModal.tsx";
+import { ProductSearchBrowserModal } from "./ProductSearchBrows.tsx";
+import { ItemBrowseOverlayModal } from "./ItemBrowseOverlayD.tsx";
 import { PdtImportModal } from "./PdtImportModal.tsx";
-import { SmritiInvoiceSettlementModal } from "./SmritiInvoiceSettlementModal.tsx";
+import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
 import { 
   Download, 
@@ -65,7 +65,7 @@ interface SmritiBillingTerminalProps {
   isStandaloneTab?: boolean;
 }
 
-export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
+export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   products = [],
   customers: initialCustomersProp,
   currentUser,
@@ -833,7 +833,7 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
                   <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                   
                   {/* Real-Time Backend Customer Typeahead Dropdown */}
-                  <SmritiTypeaheadDropdown
+                  <TypeaheadDrop
                     isOpen={showCustomerDropdown && (customerSuggestions.length > 0 || isCustomerSearching)}
                     options={customerSuggestions}
                     selectedIndex={customerSelectedIndex}
@@ -1699,4 +1699,4 @@ export const SmritiBillingTerminal: React.FC<SmritiBillingTerminalProps> = ({
   );
 };
 
-export default SmritiBillingTerminal;
+export default BillingTerm;

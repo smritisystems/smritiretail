@@ -21,11 +21,11 @@ EXCEL_PATH = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 
 DOCS = [
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md",
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md",
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_COMPANY_DATABASE_LIFECYCLE_v1.0.md",
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONTROL_PLANE_BOUNDARY_v1.0.md",
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONFIGURATION_OWNERSHIP_MATRIX_v1.0.md"
+    r"F:\SMRITRretailNX\docs\architecture\MULTI_COMPANY.md",
+    r"F:\SMRITRretailNX\docs\architecture\DATABASE_ROUTING.md",
+    r"F:\SMRITRretailNX\docs\architecture\COMPANY_DATABASE_2.md",
+    r"F:\SMRITRretailNX\docs\architecture\CONTROL_PLANE_2.md",
+    r"F:\SMRITRretailNX\docs\architecture\CONFIGURATION.md"
 ]
 
 def verify_multi_company_architecture():

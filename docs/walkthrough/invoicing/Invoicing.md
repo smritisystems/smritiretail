@@ -11,7 +11,7 @@
   Classification: Internal
 -->
 
-# Invoicing_MasterTaxInvoiceHardening_And_Watermark_v4.9.5
+# Invoicing
 
 **Date:** 2026-08-18 | **Version:** 4.9.5
 
@@ -21,11 +21,11 @@ Implement backend-driven GST and E-Invoice QR compliance architecture, dynamic R
 ## 2. Scope
 - `backend/app/models/sales.py`: Added compliance columns `e_invoice_status`, `irn`, `ack_no`, `ack_date`, `signed_qr_payload`.
 - `backend/app/services/invoice_pdf_service.py`: Added 3-state QR logic, IRN conditional rendering, center-aligned branding footer, and `.watermark-logo` background layer (80% width, 7% opacity).
-- `backend/tests/test_master_tax_invoice_hardening.py`: Added 7 new test assertions covering compliance states, QR payloads, and watermark layer.
+- `backend/tests/t_tax_inv_harden.py`: Added 7 new test assertions covering compliance states, QR payloads, and watermark layer.
 - Bulk export and 1,032-check programmatic reconciliation of all 86 historical sales invoices.
 
 ## 3. Files Created
-- `docs/walkthrough/invoicing/Invoicing_MasterTaxInvoiceHardening_And_Watermark_v4.9.5.md`
+- `docs/walkthrough/invoicing/Invoicing.md`
 - `exports/forensic_86_gate/BUSINESS_DATA_RECONCILIATION_86.csv`
 - `exports/forensic_86_gate/BUSINESS_DATA_RECONCILIATION_86.md`
 - `exports/forensic_86_gate/BUSINESS_DATA_RECONCILIATION_86_SUMMARY.json`
@@ -33,7 +33,7 @@ Implement backend-driven GST and E-Invoice QR compliance architecture, dynamic R
 ## 4. Files Modified
 - `backend/app/models/sales.py`
 - `backend/app/services/invoice_pdf_service.py`
-- `backend/tests/test_master_tax_invoice_hardening.py`
+- `backend/tests/t_tax_inv_harden.py`
 - `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions
@@ -55,7 +55,7 @@ Implement backend-driven GST and E-Invoice QR compliance architecture, dynamic R
 7. Completed 86-invoice bulk export and automated 1,032-check reconciliation audit with 0 failures and 0 warnings.
 
 ## 8. Tests Executed
-- `pytest backend/tests/test_master_tax_invoice_hardening.py -v`: 19 passed in 2.05s.
+- `pytest backend/tests/t_tax_inv_harden.py -v`: 19 passed in 2.05s.
 - `python scratch/verify_single_invoice_64_watermark.py`: 10/10 checks PASS.
 - `python scratch/run_master_tax_invoice_hardening.py`: 86/86 PDFs exported, 1032/1032 checks PASS.
 

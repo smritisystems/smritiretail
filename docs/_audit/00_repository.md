@@ -36,10 +36,10 @@
 
 Modified (not staged):
   DEVELOPMENT_STATUS.md
-  backend/app/api/v1/company_control_center.py
-  backend/app/services/company_database_resolver.py
+  backend/app/api/v1/company_center.py
+  backend/app/services/db_resolver.py
   backend/app/tests/conftest.py
-  backend/tests/test_company_control_center_security.py
+  backend/tests/t_comp_ctr_sec.py
   docs/reports/2026-08-17/CHANGE_HISTORY.md
   docs/reports/2026-08-17/DEVELOPMENT_STATUS.md
 

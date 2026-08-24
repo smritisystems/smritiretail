@@ -69,7 +69,7 @@ TRANSACTION & DOCUMENT LIFECYCLE
 | `FioriLaunchpad` | `src/components/launchpad/FioriLaunchpad.tsx` | Capability entry point | **KEEP — Refactored Capability Launcher** |
 | `LayoutManager` | `src/layout_engine/layout_manager.tsx` | Legacy layout engine | **REMOVE FROM APP.TSX DOM TREE** |
 | `DockManager` | `src/layout_engine/dock_manager.tsx` | Legacy dock manager | **REMOVE FROM APP.TSX DOM TREE** |
-| `NavigationRenderer` | `src/layout_engine/navigation_renderer.tsx` | Legacy sidebar renderer | **REMOVE FROM APP.TSX DOM TREE** |
+| `NavigationRenderer` | `src/layout_engine/NavRenderer.tsx` | Legacy sidebar renderer | **REMOVE FROM APP.TSX DOM TREE** |
 
 ---
 
@@ -77,4 +77,4 @@ TRANSACTION & DOCUMENT LIFECYCLE
 * `npx tsc --noEmit`: 0 static type errors.
 * `npx vitest run`: 64/64 tests passed.
 * `npm run build`: 3,414 modules transformed into `dist/`.
-* `python scripts/verify_comp001_production_readiness.py`: 0 leaks in `dist/`, Score 98/100 (`READY_FOR_PRODUCTION_REFERENCE`).
+* `python scripts/verify_comp001.py`: 0 leaks in `dist/`, Score 98/100 (`READY_FOR_PRODUCTION_REFERENCE`).

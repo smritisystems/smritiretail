@@ -10,14 +10,14 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 
-smoke_test_auth_bootstrap_endpoint.py
+smoke_auth_boot.py
 =======================================
 Admin smoke-test utility: issues an HTTP POST to /api/v1/auth/bootstrap to
 confirm the endpoint is reachable and the admin account seeding response is
 correct. Intended for use immediately after deploying a fresh instance.
 
 Usage:
-    python scripts/admin/smoke_test_auth_bootstrap_endpoint.py
+    python scripts/admin/smoke_auth_boot.py
 
 SECURITY NOTE: Targets 127.0.0.1:8001 by default. Verify BOOTSTRAP_URL
 below before pointing at any non-local server.

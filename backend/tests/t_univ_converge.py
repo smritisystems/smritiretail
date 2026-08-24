@@ -22,9 +22,9 @@ from app.main import app
 from app.core.security import create_access_token
 from app.models.auth import UserRole
 from app.db.session import get_company_sessionmaker
-from app.services.universal_party_service import UniversalPartyService
-from app.services.universal_item_service import UniversalItemService
-from app.services.transaction_reproducibility_service import TransactionReproducibilityService
+from app.services.univ_party_svc import UniversalPartyService
+from app.services.univ_item_svc import UniversalItemService
+from app.services.tx_reproduce_svc import TransactionReproducibilityService
 from app.models.party import Party, PartyRole, CustomerProfile, SupplierProfile
 from app.models.item_master import Item, ItemVariant, ItemBarcode
 from app.models.sales import SalesInvoice

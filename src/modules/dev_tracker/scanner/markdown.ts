@@ -206,7 +206,7 @@ export function generateTestStatus(res: ScanResult): string {
   return md;
 }
 
-// 10. DOCUMENTATION_STATUS.md
+// 10. DOCUMENTATION.md
 export function generateDocumentationStatus(res: ScanResult): string {
   let md = `# Reference Documentation Status\n\n`;
   md += `*Generated: ${res.timestamp}*\n\n`;

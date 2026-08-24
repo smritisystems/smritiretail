@@ -23,7 +23,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_UI_UX_Control_Plane_Audit.xlsx"
-DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_UI_UX_CONTROL_PLANE_AUDIT_v1.0.md"
+DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\UI_UX_CONTROL.md"
 
 def run_ui_ux_audit():
     print("============================================================")
@@ -103,7 +103,7 @@ def run_ui_ux_audit():
     # ------------------------------------------------------------
     registries_data = [
         {"registry": "layout_store.tsx", "location": "src/layout_engine/layout_store.tsx", "purpose": "Dynamic workspace navigation state & offline fallback", "source_of_truth": "/api/v1/menus/resolved (DB: smriti_menus)", "persistence": "PostgreSQL + localStorage Fallback"},
-        {"registry": "navigation_renderer.tsx", "location": "src/layout_engine/navigation_renderer.tsx", "purpose": "Sidebar & Topbar Navigation Rendering", "source_of_truth": "layout_store.tsx", "persistence": "Runtime Component State"},
+        {"registry": "NavRenderer.tsx", "location": "src/layout_engine/NavRenderer.tsx", "purpose": "Sidebar & Topbar Navigation Rendering", "source_of_truth": "layout_store.tsx", "persistence": "Runtime Component State"},
         {"registry": "masters_registry.ts", "location": "src/masters_registry.ts", "purpose": "Master Management Entity Configuration", "source_of_truth": "Static Code Registry", "persistence": "Code Constant"},
         {"registry": "ContextRegistry.ts", "location": "src/context-actions/ContextRegistry.ts", "purpose": "Adaptive Context Action System (ACAS) Heuristic Engine", "source_of_truth": "Code Heuristics + localStorage", "persistence": "localStorage (smriti_acas_*)"},
         {"registry": "ShortcutContext.tsx", "location": "src/contexts/ShortcutContext.tsx", "purpose": "Keyboard shortcut mappings per role", "source_of_truth": "Static Defaults + localStorage", "persistence": "localStorage (smriti_custom_shortcuts)"},
@@ -240,7 +240,7 @@ def run_ui_ux_audit():
         ["Database Name", "smritisys"],
         ["Audit Timestamp", ts],
         ["Audit Scope", "Control Plane DB, FastAPI Backend, React Layout Engine, Design Tokens, AWE/SAEF"],
-        ["Script Executed", "scripts/audit_ui_ux_control_plane.py"],
+        ["Script Executed", "scripts/audit_ui_ctrl.py"],
         ["Audit Status", "AUDIT_COMPLETE"],
         ["Database Mutations", "ZERO (0 Mutations Verified)"],
         ["Core Finding", "REUSE existing Control Plane tables (smriti_menus, smriti_audit_log, system_configs, master_types, smriti_themes). DO NOT CREATE NEW TABLES."],

@@ -24,18 +24,18 @@ import {
   LabelSourceOption,
   PrintSafetyValidation
 } from "./types.ts";
-import { EditQuantityDetailsModal } from "./EditQuantityDetailsModal.tsx";
-import { BarcodeScriptGenerationView } from "./BarcodeScriptGenerationView.tsx";
-import { BarcodePrinterSelectModal } from "./BarcodePrinterSelectModal.tsx";
-import { PurchaseProductBrowseModal } from "../purchase/PurchaseProductBrowseModal.tsx";
-import { SearchableMultiSelect } from "./SearchableMultiSelect.tsx";
+import { EditQuantityDetailsModal } from "./EditQuantityDetDlg.tsx";
+import { BarcodeScriptGenerationView } from "./BarcodeScriptGenVi.tsx";
+import { BarcodePrinterSelectModal } from "./BarcodePrinterSele.tsx";
+import { PurchBrowseDlg } from "../purchase/PurchBrowseDlg.tsx";
+import { SearchableMultiSelect } from "./SearchableMultiSel.tsx";
 import { ThermalBarcodeSvg } from "./ThermalBarcodeSvg.tsx";
 import { parsePTFileContent, SAMPLE_PT_FILE_RECORDS } from "./ptFileParser.ts";
 import { 
   queryTransactionItems, 
   queryPurchaseOrderItems, 
   queryMasterItemsByDate
-} from "./barcodeTransactionStore.ts";
+} from "./barcodeTransactionS.ts";
 import {
   isQzTrayEnabled,
   testQzConnection,
@@ -2554,7 +2554,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       />
 
       {/* F2 Product Browse Modal */}
-      <PurchaseProductBrowseModal
+      <PurchBrowseDlg
         products={products}
         isOpen={isF2BrowseModalOpen}
         onClose={() => setIsF2BrowseModalOpen(false)}

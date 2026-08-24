@@ -73,14 +73,14 @@ SMRITI represents one configurable business operating platform — not separate,
 ---
 
 ## 8. Files Created
-- `backend/tests/test_routing_boundary_canonical.py`: Automated tests proving authorized access, 403 on unassigned users, 403 on suspended databases, zero demo fallbacks, and regex database validation.
-- `docs/implementation/foundation/Platform_Refactor_Controlled_Migration_Plan_v1.0.md`: Master 19-section implementation plan.
-- `docs/walkthrough/foundation/Platform_Routing_Boundary_Hardening_v6.16.0.md`: Master 13-section walkthrough document.
+- `backend/tests/t_route_boundary.py`: Automated tests proving authorized access, 403 on unassigned users, 403 on suspended databases, zero demo fallbacks, and regex database validation.
+- `docs/implementation/foundation/Platform_Refactor_6.md`: Master 19-section implementation plan.
+- `docs/walkthrough/foundation/Platform_Routing.md`: Master 13-section walkthrough document.
 
 ---
 
 ## 9. Files Modified
-- `backend/app/services/company_database_resolver.py`: Removed demo fallbacks, enforced canonical database registry lookup, unified dynamic connection URL building.
+- `backend/app/services/db_resolver.py`: Removed demo fallbacks, enforced canonical database registry lookup, unified dynamic connection URL building.
 - `backend/app/db/session.py`: Hardened `resolve_company_database_name` to fail closed on unregistered or non-ready company databases.
 - `backend/app/models/control/control_models.py`: Exported compatibility adapters for canonical models.
 - `docs/walkthrough/README.md`: Updated master walkthroughs index table.
@@ -113,12 +113,12 @@ SMRITI represents one configurable business operating platform — not separate,
 ---
 
 ## 14. Test Plan
-- `backend/tests/test_routing_boundary_canonical.py` (6 tests)
-- `backend/tests/test_company_db_runtime_routing.py` (7 tests)
-- `backend/tests/test_company_db_naming_convention.py` (6 tests)
-- `backend/tests/test_get_company_db_wiring.py` (5 tests)
-- `backend/tests/test_multi_company_database_architecture.py` (6 tests)
-- `backend/tests/test_company_db_provisioning.py` (5 tests)
+- `backend/tests/t_route_boundary.py` (6 tests)
+- `backend/tests/t_comp_db_route.py` (7 tests)
+- `backend/tests/t_comp_db_name.py` (6 tests)
+- `backend/tests/t_comp_db_wire.py` (5 tests)
+- `backend/tests/t_multi_comp_db.py` (6 tests)
+- `backend/tests/t_comp_db_prov.py` (5 tests)
 - Combined multi-module suite (56 tests total).
 
 ---
@@ -141,7 +141,7 @@ SMRITI represents one configurable business operating platform — not separate,
 ## 17. Status
 **In Progress — Milestone 1 (Routing Boundary Hardening & Model Canonicalization) Partially Verified.**
 
-The routing boundary is substantially hardened, but canonicalization is not yet complete. Registry-backed engine authorization, compatibility-model retirement, lifecycle status normalization, and isolated database verification remain open. See [SMRITI Platform Implementation Status](../../architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md).
+The routing boundary is substantially hardened, but canonicalization is not yet complete. Registry-backed engine authorization, compatibility-model retirement, lifecycle status normalization, and isolated database verification remain open. See [SMRITI Platform Implementation Status](../../architecture/PLATFORM.md).
 
 ---
 
@@ -152,5 +152,5 @@ The routing boundary is substantially hardened, but canonicalization is not yet 
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Platform_Routing_Boundary_Hardening_v6.16.0.md`
-- `docs/walkthrough/wms/WMS_Phase4_Stock_Audit_Reconciliation_Barcode_v6.16.0.md`
+- `docs/walkthrough/foundation/Platform_Routing.md`
+- `docs/walkthrough/wms/WMS_Phase4_Stock.md`

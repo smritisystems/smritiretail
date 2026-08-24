@@ -10,7 +10,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 
-audit_frontend_backend_route_coverage.py
+audit_route_cov.py
 ==========================================
 Development audit: cross-references all registered FastAPI backend routes
 against all frontend fetch/apiFetchV1/apiFetch/axios calls found in src/.
@@ -20,7 +20,7 @@ mappings, and backend routes never referenced by any frontend file.
 Output is written to scripts/dev/frontend_backend_route_coverage.json.
 
 Usage:
-    python scripts/dev/audit_frontend_backend_route_coverage.py
+    python scripts/dev/audit_route_cov.py
 """
 
 import os

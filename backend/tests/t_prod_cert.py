@@ -21,21 +21,21 @@ from fastapi import HTTPException
 sys.path.insert(0, "backend")
 from app.db.base import Base
 from app.db.provisioning import sanitize_company_db_name
-from app.services.control_database_registry import ControlDatabaseRegistryService
+from app.services.control_registry import ControlDatabaseRegistryService
 from app.db.company_router import verify_user_company_access
 from app.db.connection_manager import LRUConnectionPoolManager
 from app.services.outbox_service import OutboxService, generate_ulid_source_event_id
 from app.services.outbox_worker import OutboxQueueWorker
-from app.services.psv_projection_service import PSVProjectionService
-from app.services.reconciliation_service import MultiLedgerReconciliationService
-from app.services.ecom_reservation_service import EcomInventoryReservationService
+from app.services.psv_projection import PSVProjectionService
+from app.services.reconcile_svc import MultiLedgerReconciliationService
+from app.services.ecom_reservation import EcomInventoryReservationService
 from app.services.gst_gateway_service import GSTGatewayService
 from app.services.invoice_pdf_service import InvoicePdfService
 from app.services.inventory import InventoryService
 from app.services.purchase import PurchaseService
 from app.services.supplier_payment import SupplierPaymentService
 from app.models.auth import User, UserRole
-from app.models.company_database_registry import CompanyDatabaseRegistry
+from app.models.company_registry import CompanyDatabaseRegistry
 from app.models.control.control_models import ControlCompanyDatabase, ControlPSVConfig
 from app.models.outbox import IntegrationOutboxEvent
 from app.models.psv import PSVStockEvent, PSVStockBalance

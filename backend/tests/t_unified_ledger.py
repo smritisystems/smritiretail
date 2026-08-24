@@ -32,7 +32,7 @@ from app.models.crm import Customer
 from app.models.inventory import Product, StockAudit, StockAuditItem, Warehouse
 from app.models.payment_ledger import PaymentTransaction
 from app.models.outbox import IntegrationOutboxEvent
-from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from app.services.unified_ledger import UnifiedAccountingLedgerService
 
 
 

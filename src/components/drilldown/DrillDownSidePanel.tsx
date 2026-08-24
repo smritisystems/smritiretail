@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useDrillDown } from "./drilldown_store.tsx";
 import { SmritiScrollArea } from "../SmritiScrollArea.tsx";
 import { getCustomers, getCustomerGroups, updateCustomerStatus, updateCustomerTags, getSalesInvoices, getSalesReturns } from "../../services/customerStore.ts";
-import { resolveCustomerPolicy } from "../../services/customerPolicyEngine.ts";
+import { resolveCustomerPolicy } from "../../services/custPolicyEngine.ts";
 import { Customer, CustomerGroup, Quotation, SalesOrder } from "../../types";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
 import { useLayoutEngine } from "../../layout_engine/layout_store";

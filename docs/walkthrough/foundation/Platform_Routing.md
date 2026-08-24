@@ -21,27 +21,27 @@ Execute Milestone 1 of the SMRITI Master Architecture Blueprint v1.0: Canonicali
 
 ## 2. Scope
 - Canonicalizing `Company`, `User`, and `CompanyDatabaseRegistry` models with compatibility adapters.
-- Hardening `CompanyDatabaseResolver.resolve_company_database` in `backend/app/services/company_database_resolver.py`.
+- Hardening `CompanyDatabaseResolver.resolve_company_database` in `backend/app/services/db_resolver.py`.
 - Hardening `resolve_company_database_name` in `backend/app/db/session.py`.
-- Adding automated verification tests in `backend/tests/test_routing_boundary_canonical.py`.
+- Adding automated verification tests in `backend/tests/t_route_boundary.py`.
 
 ---
 
 ## 3. Files Created
-- `backend/tests/test_routing_boundary_canonical.py`: 11 automated tests validating authorized routing, zero credential leaks in payloads, non-admin cross-company tenant isolation, 403 on unassigned users, 403 on suspended companies, fail-closed rejection on missing/unregistered entities, engine cache validation, and regex naming validation.
-- `docs/implementation/foundation/Platform_Refactor_Controlled_Migration_Plan_v1.0.md`: Master 19-section implementation plan.
-- `docs/walkthrough/foundation/Platform_Routing_Boundary_Hardening_v6.16.0.md`: This 13-section walkthrough.
+- `backend/tests/t_route_boundary.py`: 11 automated tests validating authorized routing, zero credential leaks in payloads, non-admin cross-company tenant isolation, 403 on unassigned users, 403 on suspended companies, fail-closed rejection on missing/unregistered entities, engine cache validation, and regex naming validation.
+- `docs/implementation/foundation/Platform_Refactor_6.md`: Master 19-section implementation plan.
+- `docs/walkthrough/foundation/Platform_Routing.md`: This 13-section walkthrough.
 
 ---
 
 ## 4. Files Modified
-- `backend/app/services/company_database_resolver.py`: Removed credential-bearing connection URLs from returned payloads, removed `"Tattly Threads"` demo fallbacks, enforced `companies` and `company_database_registries` lookup in `smritisys`, rejected empty/missing company context.
+- `backend/app/services/db_resolver.py`: Removed credential-bearing connection URLs from returned payloads, removed `"Tattly Threads"` demo fallbacks, enforced `companies` and `company_database_registries` lookup in `smritisys`, rejected empty/missing company context.
 - `backend/app/db/session.py`: Hardened `resolve_company_database_name` to fail closed if company context is missing or database is not in `READY` status; hardened `get_company_async_engine` to reject unverified/arbitrary database names.
 - `backend/app/api/deps.py`: Hardened `get_tenant_context` to reject missing tenant company context without defaulting.
-- `backend/app/services/control_database_registry.py`: Migrated active usage from `ControlCompanyDatabase` to canonical `CompanyDatabaseRegistry` and aligned `READY`/`ACTIVE` status.
+- `backend/app/services/control_registry.py`: Migrated active usage from `ControlCompanyDatabase` to canonical `CompanyDatabaseRegistry` and aligned `READY`/`ACTIVE` status.
 - `backend/app/db/company_router.py`: Replaced `ControlCompanyDatabase` import with canonical `CompanyDatabaseRegistry`.
-- `backend/tests/test_get_company_db_wiring.py`: Updated `test_resolve_company_database_name` to verify fail-closed behavior on `None` input.
-- `backend/tests/test_multi_company_database_architecture.py`: Updated assertion to check clean database metadata without exposed connection URLs.
+- `backend/tests/t_comp_db_wire.py`: Updated `test_resolve_company_database_name` to verify fail-closed behavior on `None` input.
+- `backend/tests/t_multi_comp_db.py`: Updated assertion to check clean database metadata without exposed connection URLs.
 - `docs/walkthrough/README.md`: Appended new walkthrough to master chronological table.
 
 ---
@@ -81,7 +81,7 @@ A controlled migration protects live business data and continuous uptime by esta
 ---
 
 ## 8. Tests Executed
-1. `backend/tests/test_routing_boundary_canonical.py`:
+1. `backend/tests/t_route_boundary.py`:
    - `test_authorized_user_reaches_assigned_database` (Passed)
    - `test_zero_credential_exposure_in_resolver_response` (Passed)
    - `test_unauthorized_user_access_rejected_403` (Passed)
@@ -111,18 +111,18 @@ plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 63 items
 
-backend\tests\test_routing_boundary_canonical.py .............           [ 20%]
-backend\tests\test_company_db_runtime_routing.py .......                 [ 31%]
-backend\tests\test_company_db_naming_convention.py ......                [ 41%]
-backend\tests\test_get_company_db_wiring.py .....                        [ 49%]
-backend\tests\test_multi_company_database_architecture.py ......         [ 58%]
-backend\tests\test_company_db_provisioning.py .....                      [ 66%]
-backend\tests\test_menu_governance.py .                                  [ 68%]
-backend\tests\test_security_menu_access.py ..                            [ 71%]
+backend\tests\t_route_boundary.py .............           [ 20%]
+backend\tests\t_comp_db_route.py .......                 [ 31%]
+backend\tests\t_comp_db_name.py ......                [ 41%]
+backend\tests\t_comp_db_wire.py .....                        [ 49%]
+backend\tests\t_multi_comp_db.py ......         [ 58%]
+backend\tests\t_comp_db_prov.py .....                      [ 66%]
+backend\tests\t_menu_gov.py .                                  [ 68%]
+backend\tests\t_sec_menu.py ..                            [ 71%]
 backend\tests\test_wms_phase1.py ....                                    [ 77%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 82%]
-backend\tests\test_wms_phase3_eway_bill.py .....                         [ 90%]
-backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
+backend\tests\t_wms_phase2.py ...                           [ 82%]
+backend\tests\t_wms_phase3.py .....                         [ 90%]
+backend\tests\t_wms_phase4.py ......             [100%]
 
 ======================= 63 passed, 1 warning in 20.56s ========================
 ```

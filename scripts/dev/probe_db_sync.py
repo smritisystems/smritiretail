@@ -10,14 +10,14 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 
-probe_cross_db_product_invoice_sync.py
+probe_db_sync.py
 =======================================
 Development probe: inserts one product row and one sales_invoice row from
 smriti001 into smritisys using the common column intersection, in order to
 diagnose schema or constraint mismatches preventing cross-database sync.
 
 Usage:
-    python scripts/dev/probe_cross_db_product_invoice_sync.py
+    python scripts/dev/probe_db_sync.py
 """
 
 import psycopg2

@@ -14,8 +14,8 @@
 # SMRITI RETAIL OS ? RUNTIME OWNERSHIP CERTIFICATION FORENSIC AUDIT
 
 **Audit Protocol:** Comprehensive Runtime Ownership & Multi-Company Architecture Enforcement Audit  
-**Canonical Specification Reference:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
-**Governance Directive Reference:** [`docs/AI_AGENT_ARCHITECTURE_RULES.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT_ARCHITECTURE_RULES.md) (11 Golden Rules)  
+**Canonical Specification Reference:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
+**Governance Directive Reference:** [`docs/AI_AGENT.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT.md) (11 Golden Rules)  
 **Live PostgreSQL Engine:** PostgreSQL 15.18 on x86_64-pc-linux-musl  
 **Date:** 2026-08-17  
 **Official Verification Status:**
@@ -51,7 +51,7 @@
 - **Findings:**
   - `backend/app/db/connection_manager.py` (Lines 18, 32, 39, 59, 66): Core pooling engine backing `CompanyDatabaseResolver`.
   - `backend/app/db/session.py` (Lines 26, 30, 39): Default session factory for Control Plane `smritisys`.
-  - `backend/app/tests/conftest.py` & `test_tenant_isolation.py`: Isolated test harness factories.
+  - `backend/app/tests/conftest.py` & `t_tenant_isolate.py`: Isolated test harness factories.
   - **Unauthorized Business Module Engine Creation Sites:** **`0`**.
   - **Unauthorized API Router Engine Creation Sites:** **`0`**.
   - **Unauthorized Repository / Service Engine Creation Sites:** **`0`**.

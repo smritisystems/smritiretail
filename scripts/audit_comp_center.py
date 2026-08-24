@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_COMPANY_CONTROL_CENTER_v1.0.md"
+DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\COMPANY_CONTROL_2.md"
 
 def audit_company_control_center():
     print("============================================================")
@@ -49,14 +49,14 @@ def audit_company_control_center():
     # 2. Artifact Classification Audit
     artifacts = [
         ("CompanySelector.tsx", "React Company Context switcher component", "IMPLEMENTED", "src/components/layout/CompanySelector.tsx"),
-        ("CompanyControlCenter.tsx", "React Company Control Center modal console", "IMPLEMENTED", "src/components/CompanyControlCenter.tsx"),
+        ("CompanyControlCent.tsx", "React Company Control Center modal console", "IMPLEMENTED", "src/components/CompanyControlCent.tsx"),
         ("apiFetchV1.ts", "FastAPI client passing x-company-id header", "IMPLEMENTED", "src/lib/apiFetchV1.ts"),
-        ("CompanyDatabaseResolver.py", "Server-side tenant resolution & DB routing", "IMPLEMENTED", "backend/app/services/company_database_resolver.py"),
-        ("CompanyDatabaseProvisioner.py", "10-step saga provisioning pipeline dry-run", "IMPLEMENTED", "backend/app/services/company_database_provisioner.py"),
+        ("CompanyDatabaseResolver.py", "Server-side tenant resolution & DB routing", "IMPLEMENTED", "backend/app/services/db_resolver.py"),
+        ("CompanyDatabaseProvisioner.py", "10-step saga provisioning pipeline dry-run", "IMPLEMENTED", "backend/app/services/db_provisioner.py"),
         ("ui_control_plane.py", "Control Plane UI/UX configuration API", "IMPLEMENTED", "backend/app/api/v1/ui_control_plane.py"),
         ("E-Commerce Capability Engine", "Company business capability in smriti001", "IMPLEMENTED", "E-Commerce module flag in Control Plane"),
         ("Role-Based Access Control", "FastAPI HTTP 403 authorization gate", "IMPLEMENTED", "CompanyDatabaseResolver HTTP 403"),
-        ("Credential Leak Scanner", "Zero database passwords/connection strings in dist/", "IMPLEMENTED", "scripts/audit_frontend_vite_react_architecture.py")
+        ("Credential Leak Scanner", "Zero database passwords/connection strings in dist/", "IMPLEMENTED", "scripts/audit_fe_arch.py")
     ]
 
     df_artifacts = pd.DataFrame([
@@ -66,7 +66,7 @@ def audit_company_control_center():
     summary_metrics = pd.DataFrame([
         {"Metric": "Control Plane Database", "Value": "smritisys (PERMANENT CONTROL PLANE)"},
         {"Metric": "Reference Company Business DB", "Value": "smriti001 (ACTIVE & READY for COMP-001)"},
-        {"Metric": "React Control Center Component", "Value": "src/components/CompanyControlCenter.tsx"},
+        {"Metric": "React Control Center Component", "Value": "src/components/CompanyControlCent.tsx"},
         {"Metric": "Unapproved DBs Created", "Value": f"{len(unapproved_dbs)} (ZERO DBs Created)"},
         {"Metric": "Database Mutations Executed", "Value": "0 Mutations"},
         {"Metric": "Frontend Credentials Exposed", "Value": "0 Passwords / Secrets Exposed"},
@@ -140,7 +140,7 @@ def audit_company_control_center():
 ## 1. Executive Summary & Security Isolation
 
 ```text
-Browser / React Frontend (CompanyControlCenter.tsx)
+Browser / React Frontend (CompanyControlCent.tsx)
         │
         ▼ (Selected company_id = COMP-001)
 FastAPI Backend (CompanyDatabaseResolver)
@@ -149,7 +149,7 @@ FastAPI Backend (CompanyDatabaseResolver)
 PostgreSQL Database smriti001
 ```
 
-- **Frontend Component**: [`src/components/CompanyControlCenter.tsx`](file:///F:/SMRITRretailNX/src/components/CompanyControlCenter.tsx)
+- **Frontend Component**: [`src/components/CompanyControlCent.tsx`](file:///F:/SMRITRretailNX/src/components/CompanyControlCent.tsx)
 - **Credential Leakage Status**: **ZERO Credentials or Passwords Exposed in Frontend**
 - **Security Boundary**: **FastAPI `HTTPException(403)` Server-Side Authorization Gate**
 - **Unapproved DBs Created**: **0**

@@ -5,8 +5,8 @@
   Owner: QA & Engineering
   Reviewers: Product, Architecture, DevOps
   Last Updated: 2026-07-18
-  Dependencies: PRODUCT_IDENTITY_ENGINE.md, PRODUCT_IDENTITY_ENGINE_API_SPEC.md, PRODUCT_IDENTITY_ENGINE_ERRORS.md
-  Related Documents: PRODUCT_IDENTITY_ENGINE_NFR.md, PRODUCT_IDENTITY_ENGINE_MIGRATION.md
+  Dependencies: PRODUCT_IDENTITY_13.md, PRODUCT_IDENTITY__6.md, PRODUCT_IDENTITY_10.md
+  Related Documents: PRODUCT_IDENTITY_12.md, PRODUCT_IDENTITY__4.md
   Change History:
     - v1.0 2026-07-18 Created.
 -->

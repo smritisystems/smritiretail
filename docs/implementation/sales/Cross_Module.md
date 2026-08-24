@@ -52,15 +52,15 @@ Derived directly from the repository, not from a template:
 | Sales | `SalesStudioTab.tsx` | `sales.py` (`SalesInvoice`, `SalesInvoiceItem`) | `sales.py` | `sales.py` | `sales.ts` |
 | Purchase | `PurchaseStudioTab.tsx` | `purchase.py` (`Supplier`, `PurchaseOrder`, `PurchaseOrderItem`, `PurchaseReceipt`, `PurchaseReceiptItem`) | `purchase.py` | `purchase.py` | `purchase.ts` |
 | POS | `PosTerminalTab.tsx`, `PosProfilesTab.tsx` | `pos.py` | `pos.py` | `pos.py` | `pos.ts` |
-| Inventory / Stock | `InventoryForecastWidget.tsx`, `StockLedgerTab.tsx`, `ItemMasterTab.tsx` | `inventory.py` (`Product`, `StockMovement`, `Store`, `Warehouse`) | `inventory.py` | `inventory.py` | `inventory.ts` (**note: this file is the ledger stub, not stock — see Master Command 2 Section 1.2**) |
-| Masters (Tier-1/Tier-2) | `MasterManagementTab.tsx` | `master_lookup.py`, `tenant.py` (`Company`, `Branch`) | `masters.py`, `master_lookup.py` | — | *(decommissioned — Master Command 1)* |
+| Inventory / Stock | `InventoryForecastW.tsx`, `StockLedgerTab.tsx`, `ItemMasterTab.tsx` | `inventory.py` (`Product`, `StockMovement`, `Store`, `Warehouse`) | `inventory.py` | `inventory.py` | `inventory.ts` (**note: this file is the ledger stub, not stock — see Master Command 2 Section 1.2**) |
+| Masters (Tier-1/Tier-2) | `MasterMgmtTab.tsx` | `master_lookup.py`, `tenant.py` (`Company`, `Branch`) | `masters.py`, `master_lookup.py` | — | *(decommissioned — Master Command 1)* |
 | CRM | `CrmStudioTab.tsx`, `CustomerMasterTab.tsx` | `crm.py` (`Customer`, `CustomerGroup`) | `crm.py` | `crm.py` | `customers.ts` |
 | Loyalty | `LoyaltyStudioTab.tsx` | *(check — not confirmed in this ledger)* | — | `spif.py` | — |
-| Supplier Payment | `SupplierDashboardTab.tsx` | `supplier_payment.py` | `supplier_payment.py` | `supplier_payment.py` | — |
+| Supplier Payment | `SupplierDashTab.tsx` | `supplier_payment.py` | `supplier_payment.py` | `supplier_payment.py` | — |
 | Numbering | `DocumentSeriesTab.tsx` | `numbering.py` | `numbering.py` | `numbering.py` | `numbering.ts` |
-| Barcode | `BarcodeStudioTab.tsx`, `BarcodeMappingSection.tsx` | `barcode.py` | `barcode.py` | — | `barcode.ts` |
+| Barcode | `BarcodeStudioTab.tsx`, `BarcodeMappingSec.tsx` | `barcode.py` | `barcode.py` | — | `barcode.ts` |
 | Terms/Print | `TermsEngineTab.tsx`, `PrintPreviewModal.tsx` | `terms.py` | `terms.py` | `terms.py` | `terms.ts` |
-| Attributes/Variants | `AttributeManagerSection.tsx`, `VariantTemplateSection.tsx`, `AttributeAnalyticsSection.tsx` | `attributes.py` | `attributes.py` | `attributes.py` | — |
+| Attributes/Variants | `AttrManagerSec.tsx`, `VariantTemplateSec.tsx`, `AttrAnalyticsSec.tsx` | `attributes.py` | `attributes.py` | `attributes.py` | — |
 | Auth/Users | `LoginScreen.tsx`, `UserProfileTab.tsx`, `StaffManagementTab.tsx` | `auth.py`, `role.py` | `auth.py`, `users.py`, `roles.py` | `auth.py`, `user.py` | `auth.ts`, `users.ts` |
 | Reports | `ReportDesignerTab.tsx`, `QuickReportsWidget.tsx` | — | `reports.py` | `reports.py` | `reports.ts` |
 | Workflow (status transitions) | consumed by `SalesStudioTab.tsx`, `PurchaseStudioTab.tsx`, `ApprovalMatrixTab.tsx` | — | **not found — see Master Command 2 Section 1** | `workflowEngine.js` (Express only) | `system.ts` (`/api/workflow/:docType/:id/:action`) |

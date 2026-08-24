@@ -13,9 +13,9 @@
 
 import React, { useState } from 'react';
 import { ShoppingBag, CheckCircle2, Printer, CreditCard, DollarSign } from 'lucide-react';
-import { trainingSandboxStore, SimulatedSale } from '../../services/trainingSandboxStore';
+import { trainingStore, SimulatedSale } from '../../services/trainingStore';
 
-export const Day4BillingSimulator: React.FC<{ onCompleteStep: () => void }> = ({ onCompleteStep }) => {
+export const Day4BillingSim: React.FC<{ onCompleteStep: () => void }> = ({ onCompleteStep }) => {
   const [invoiceNumber, setInvoiceNumber] = useState('INV-2026-7001');
   const [customerName, setCustomerName] = useState('Walk-in Retail Customer');
   const [sku, setSku] = useState('SKU-RICE-101');
@@ -32,7 +32,7 @@ export const Day4BillingSimulator: React.FC<{ onCompleteStep: () => void }> = ({
     const totalAmount = qty * price;
     const totalGst = totalAmount * 0.05;
 
-    const result = trainingSandboxStore.processSimulatedSale({
+    const result = trainingStore.processSimulatedSale({
       invoiceNumber,
       customerName,
       sku,

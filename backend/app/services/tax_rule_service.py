@@ -18,7 +18,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
 
-from .invoice_render_errors import missing
+from .invoice_errors import missing
 
 
 class TaxRuleService:

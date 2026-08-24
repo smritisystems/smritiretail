@@ -33,12 +33,12 @@ Document the complete architectural closure, UI/UX integration, dataset consiste
 
 ## 3. Files Created
 - [`backend/app/models/reporting.py`](file:///F:/SMRITRretailNX/backend/app/models/reporting.py) — SQLAlchemy models (`ReportDefinition`, `ReportSavedView`, `Dashboard`, `DashboardWidget`).
-- [`backend/tests/test_reporting_and_dashboard_engine.py`](file:///F:/SMRITRretailNX/backend/tests/test_reporting_and_dashboard_engine.py) — Pytest suite for reporting schema & widget composition.
-- [`backend/tests/test_report_execution_and_data_integrity.py`](file:///F:/SMRITRretailNX/backend/tests/test_report_execution_and_data_integrity.py) — Pytest suite for 20-point runtime report execution & data integrity.
-- [`scripts/audit_reporting_dashboard_engine.py`](file:///F:/SMRITRretailNX/scripts/audit_reporting_dashboard_engine.py) — Reporting architecture audit script.
-- [`scripts/audit_report_execution_data_integrity.py`](file:///F:/SMRITRretailNX/scripts/audit_report_execution_data_integrity.py) — Forensic report execution audit script.
-- [`docs/architecture/SMRITI_REPORTING_DASHBOARD_ENGINE_v1.0.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_REPORTING_DASHBOARD_ENGINE_v1.0.md) — Architectural spec document.
-- [`docs/architecture/SMRITI_REPORT_EXECUTION_DATA_INTEGRITY_v1.0.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_REPORT_EXECUTION_DATA_INTEGRITY_v1.0.md) — Data integrity spec document.
+- [`backend/tests/t_report_engine.py`](file:///F:/SMRITRretailNX/backend/tests/t_report_engine.py) — Pytest suite for reporting schema & widget composition.
+- [`backend/tests/t_report_exec.py`](file:///F:/SMRITRretailNX/backend/tests/t_report_exec.py) — Pytest suite for 20-point runtime report execution & data integrity.
+- [`scripts/audit_reporting.py`](file:///F:/SMRITRretailNX/scripts/audit_reporting.py) — Reporting architecture audit script.
+- [`scripts/audit_report_exec.py`](file:///F:/SMRITRretailNX/scripts/audit_report_exec.py) — Forensic report execution audit script.
+- [`docs/architecture/REPORTING.md`](file:///F:/SMRITRretailNX/docs/architecture/REPORTING.md) — Architectural spec document.
+- [`docs/architecture/REPORT_EXECUTION.md`](file:///F:/SMRITRretailNX/docs/architecture/REPORT_EXECUTION.md) — Data integrity spec document.
 
 ## 4. Files Modified
 - [`backend/app/models/__init__.py`](file:///F:/SMRITRretailNX/backend/app/models/__init__.py) — Exported reporting models.
@@ -60,8 +60,8 @@ Prevents fragmented reporting metrics across screens and guarantees end-to-end d
 - Clean Vite production build in 21.47s.
 
 ## 8. Tests Executed
-- `pytest backend/tests/test_reporting_and_dashboard_engine.py` (4 passed)
-- `pytest backend/tests/test_report_execution_and_data_integrity.py` (5 passed)
+- `pytest backend/tests/t_report_engine.py` (4 passed)
+- `pytest backend/tests/t_report_exec.py` (5 passed)
 - Full Pytest suite (75 passed in 4.72s)
 
 ## 9. Verification Results

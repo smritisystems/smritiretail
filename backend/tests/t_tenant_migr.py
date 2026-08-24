@@ -19,7 +19,7 @@ from datetime import date
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.ephemeral_tenant_harness import EphemeralTenantHarness
+from app.db.tenant_harness import EphemeralTenantHarness
 from app.db.session import get_company_sessionmaker
 from app.models.accounting import (
     Account,
@@ -30,7 +30,7 @@ from app.models.accounting import (
     CurrencyExchangeRate
 )
 from app.models.tenant import Company, Branch
-from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from app.services.unified_ledger import UnifiedAccountingLedgerService
 
 
 

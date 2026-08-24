@@ -104,6 +104,6 @@ The Sales Studio is the central commerce workspace for customer quotations, sale
 - If a new quotation or invoice does not appear, click **Refresh Ledger** and confirm the current subview is active.
 
 ## Related Training Documents
-- `docs/user_guide/ENDUSER_TRAINING_AUTHORS.md`
-- `docs/user_guide/ENDUSER_TRAINING_COMPANY_DETAILS.md`
+- `docs/user_guide/ENDUSER_TRAINING__3.md`
+- `docs/user_guide/ENDUSER_TRAINING.md`
 - `docs/user_guide/USER_GUIDE.md`

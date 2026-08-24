@@ -21,11 +21,11 @@ try:
     import app.models.auth
     import app.models.tenant
     import app.models.user_assignment
-    import app.models.company_database_registry
+    import app.models.company_registry
     from app.models.auth import User, UserRole
     from app.models.role import Role
     from app.models.tenant import Company, Branch
-    from app.models.company_database_registry import CompanyDatabaseRegistry
+    from app.models.company_registry import CompanyDatabaseRegistry
     from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
     from app.core.security import hash_password
 except ImportError:
@@ -34,11 +34,11 @@ except ImportError:
     import backend.app.models.auth
     import backend.app.models.tenant
     import backend.app.models.user_assignment
-    import backend.app.models.company_database_registry
+    import backend.app.models.company_registry
     from backend.app.models.auth import User, UserRole
     from backend.app.models.role import Role
     from backend.app.models.tenant import Company, Branch
-    from backend.app.models.company_database_registry import CompanyDatabaseRegistry
+    from backend.app.models.company_registry import CompanyDatabaseRegistry
     from backend.app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
     from backend.app.core.security import hash_password
 

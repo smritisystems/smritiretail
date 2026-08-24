@@ -14,7 +14,7 @@
 # SMRITI RETAIL OS ? BUSINESS PROCESS ACCEPTANCE MATRIX (3-DAY TRAINING FLOW)
 
 **Evaluation Framework:** 3-Day User Training Lifecycle Functional Acceptance Matrix  
-**Canonical Architecture Reference:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
+**Canonical Architecture Reference:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
 **Date:** 2026-08-17  
 **Official Status:** **`FUNCTIONAL SMOKE & ACCEPTANCE MATRIX VERIFIED`**
 
@@ -45,8 +45,8 @@
 | **Day 2** | **Purchase Invoice** | `smriti<Code>` | `purchase_invoices` | `PurchaseInvoiceService` | **IMPLEMENTED + RUNTIME VERIFIED** | `test_purchase.py` (PASS) |
 | **Day 2** | **Purchase Return & Debit Note** | `smriti<Code>` | `supplier_debit_notes` | Debit note generator | **IMPLEMENTED + RUNTIME VERIFIED** | `test_purchase.py` (PASS) |
 | **Day 3** | **Sales Order & POS Billing** | `smriti<Code>` | `sales_orders`, `pos_sales` | `POSService.checkout` | **IMPLEMENTED + RUNTIME VERIFIED** | `test_pos.py` (PASS) |
-| **Day 3** | **GST Tax Calculation** | `smriti<Code>` | `sales_invoices` | `GSTCalculationEngine` | **IMPLEMENTED + RUNTIME VERIFIED** | `test_sales_invoice_contract_suite.py` (PASS) |
-| **Day 3** | **Tax Invoice Generation** | `smriti<Code>` | `sales_invoices` | `SalesInvoiceService` | **IMPLEMENTED + RUNTIME VERIFIED** | `test_sales_invoice_contract_suite.py` (PASS) |
+| **Day 3** | **GST Tax Calculation** | `smriti<Code>` | `sales_invoices` | `GSTCalculationEngine` | **IMPLEMENTED + RUNTIME VERIFIED** | `t_sales_contract.py` (PASS) |
+| **Day 3** | **Tax Invoice Generation** | `smriti<Code>` | `sales_invoices` | `SalesInvoiceService` | **IMPLEMENTED + RUNTIME VERIFIED** | `t_sales_contract.py` (PASS) |
 | **Day 3** | **PDF & Label Print Generation** | Memory / Client | `print_jobs` | `PrintService` (PDF stream) | **IMPLEMENTED + RUNTIME VERIFIED (Software)** | PDF generator test PASS; physical printer pending |
 | **Day 3** | **E-Way Bill Scaffolding** | `smriti<Code>` | `eway_bills` | `EWayBillService` | **IMPLEMENTED + NOT RUNTIME VERIFIED** | NIC sandbox credentials pending |
 | **Day 3** | **Dispatch & Fulfillment** | `smriti<Code>` | `dispatches` | `DispatchService` | **IMPLEMENTED + RUNTIME VERIFIED** | `test_sales.py` (PASS) |

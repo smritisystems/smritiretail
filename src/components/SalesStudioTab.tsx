@@ -31,7 +31,7 @@ import { CompanySelector } from "./layout/CompanySelector.tsx";
 import { formatDate, formatDateTime, formatCurrency } from "../utils/formatters.ts";
 import { isValidMobile } from "../utils/validators.ts";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
-import { SmritiDistributorTaxInvoiceWorkspace } from "./sales/SmritiDistributorTaxInvoiceWorkspace.tsx";
+import { DistTaxInvoice } from "./sales/DistTaxInvoice.tsx";
 
 interface ParsedRow {
   name: string;
@@ -1640,7 +1640,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           ) : isCreatingInvoice ? (
             /* Smriti Distributor Stitch-Integrated Tax Invoice Workspace */
             <div className="w-full h-full overflow-hidden animate-in fade-in duration-200">
-              <SmritiDistributorTaxInvoiceWorkspace
+              <DistTaxInvoice
                 onExit={() => {
                   setIsCreatingInvoice(false);
                   fetchSalesInvoices();

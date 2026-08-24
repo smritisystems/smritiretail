@@ -120,7 +120,7 @@ def dispatch_error(request: Request, status_code: int, response_model: SmritiErr
 * Execute regression tests in `test_seef.py`.
 
 ## 15. Documentation Impact
-* Generate walkthrough `docs/walkthrough/foundation/Foundation_SEEF_v1.0_Error_Experience_v3.16.0.md`.
+* Generate walkthrough `docs/walkthrough/foundation/Fdn_SEEF_v1.0.md`.
 
 ## 16. Deployment Plan
 * Merge from `development` to `main`, run CI checks, and push.

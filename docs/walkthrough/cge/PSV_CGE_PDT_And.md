@@ -25,16 +25,16 @@ This document provides the technical walkthrough for the implementation and cert
 - **FastAPI Endpoints**: REST APIs for `/api/v1/cge/*` and `/api/v1/sync/*`.
 
 ## 3. Files Created
-- [`backend/app/services/commercial_growth_service.py`](file:///F:/SMRITRretailNX/backend/app/services/commercial_growth_service.py): Core service for loyalty tiers, points ledgers, promotions, coupon validation, and commission attributions.
-- [`backend/app/services/pdt_analytics_service.py`](file:///F:/SMRITRretailNX/backend/app/services/pdt_analytics_service.py): Deterministic SQL analytics engine calculating daily velocity, cover days, and safety stock recommendations.
-- [`backend/app/services/offline_sync_service.py`](file:///F:/SMRITRretailNX/backend/app/services/offline_sync_service.py): Batch sync ingestion engine with idempotency check against existing invoice numbers and integration with `UnifiedSalesLedgerService`.
+- [`backend/app/services/commercial_growth.py`](file:///F:/SMRITRretailNX/backend/app/services/commercial_growth.py): Core service for loyalty tiers, points ledgers, promotions, coupon validation, and commission attributions.
+- [`backend/app/services/pdt_analytics.py`](file:///F:/SMRITRretailNX/backend/app/services/pdt_analytics.py): Deterministic SQL analytics engine calculating daily velocity, cover days, and safety stock recommendations.
+- [`backend/app/services/offline_sync_svc.py`](file:///F:/SMRITRretailNX/backend/app/services/offline_sync_svc.py): Batch sync ingestion engine with idempotency check against existing invoice numbers and integration with `UnifiedSalesLedgerService`.
 - [`backend/app/api/v1/cge.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/cge.py): REST API endpoints for loyalty enrollment, spend calculation, coupon verification, and PDT velocity metrics.
 - [`backend/app/api/v1/sync.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/sync.py): REST API endpoints for offline batch push.
-- [`backend/tests/test_psv_cge_and_offline_sync.py`](file:///F:/SMRITRretailNX/backend/tests/test_psv_cge_and_offline_sync.py): Comprehensive test suite covering all Section 9 and 10 capabilities.
+- [`backend/tests/t_psv_sync.py`](file:///F:/SMRITRretailNX/backend/tests/t_psv_sync.py): Comprehensive test suite covering all Section 9 and 10 capabilities.
 
 ## 4. Files Modified
 - [`backend/app/main.py`](file:///F:/SMRITRretailNX/backend/app/main.py): Registered `cge.router` and `sync.router`.
-- [`backend/app/services/psv_projection_service.py`](file:///F:/SMRITRretailNX/backend/app/services/psv_projection_service.py): Added robust parsing for ISO strings and datetime objects on stock projection events.
+- [`backend/app/services/psv_projection.py`](file:///F:/SMRITRretailNX/backend/app/services/psv_projection.py): Added robust parsing for ISO strings and datetime objects on stock projection events.
 
 ## 5. Architecture Decisions
 - **ADR-041 (Idempotent Offline Batch Synchronization)**: Offline POS terminals generate client-side transactions with distinct invoice numbers. The server validates uniqueness against PostgreSQL `sales_invoices`. Duplicate submissions return `ALREADY_PROCESSED` without double-debiting inventory or double-posting general ledger entries.
@@ -58,7 +58,7 @@ This document provides the technical walkthrough for the implementation and cert
 
 ## 8. Tests Executed
 ```powershell
-python -m pytest tests/test_psv_cge_and_offline_sync.py tests/test_distribution_and_shared_pricing_engine.py tests/test_universal_party_and_item_convergence.py tests/test_governed_logic_and_reproducibility.py tests/test_workspace_menu_and_ui_registry.py tests/test_capability_and_module_registry.py tests/test_reference_data_and_localization.py tests/test_ephemeral_tenant_migration_harness.py tests/test_unified_pricing_payment_engine.py tests/test_unified_sales_ledger.py tests/test_unified_accounting_ledger.py tests/test_pos_shift_gl_integration.py -v --tb=short
+python -m pytest tests/t_psv_sync.py tests/t_dist_pricing.py tests/t_univ_converge.py tests/t_gov_logic.py tests/t_menu_registry.py tests/t_cap_registry.py tests/t_ref_data_loc.py tests/t_tenant_migr.py tests/t_pricing_eng.py tests/t_sales_ledger.py tests/t_unified_ledger.py tests/t_pos_shift_gl.py -v --tb=short
 ```
 
 ## 9. Verification Results

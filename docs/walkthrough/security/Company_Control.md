@@ -17,21 +17,21 @@
 Document the security defect remediation for Company Control Center and Dev Tracker API endpoints to eliminate unauthenticated access and header spoofing (`x-user-id: usr_sysadmin`).
 
 ## 2. Scope
-- `backend/app/api/v1/company_control_center.py`
+- `backend/app/api/v1/company_center.py`
 - `backend/app/api/v1/dev_tracker.py`
 - `backend/app/main.py`
-- `backend/app/services/company_database_resolver.py`
-- `backend/tests/test_company_control_center_security.py`
+- `backend/app/services/db_resolver.py`
+- `backend/tests/t_comp_ctr_sec.py`
 
 ## 3. Files Created
-- `backend/tests/test_company_control_center_security.py`
+- `backend/tests/t_comp_ctr_sec.py`
 
 ## 4. Files Modified
-- `backend/app/api/v1/company_control_center.py`
+- `backend/app/api/v1/company_center.py`
 - `backend/app/api/v1/dev_tracker.py`
 - `backend/app/main.py`
-- `backend/app/services/company_database_resolver.py`
-- `backend/tests/test_company_control_center_e2e.py`
+- `backend/app/services/db_resolver.py`
+- `backend/tests/t_comp_center_e2e.py`
 
 ## 5. Architecture Decisions
 - Replaced header-based mock user parameters (`x_user_id = Header("usr_sysadmin")`) with server-verified JWT authentication (`Depends(get_current_user)`).
@@ -45,8 +45,8 @@ Identity and permissions must be derived exclusively from server-side JWT verifi
 Removed default administrative headers, added `require_role(UserRole.SYSADMIN)` dependencies, mounted `company_control_center` router in `main.py`, and added a regression security test suite.
 
 ## 8. Tests Executed
-- `pytest backend/tests/test_company_control_center_security.py`
-- `pytest backend/tests/test_company_control_center_e2e.py`
+- `pytest backend/tests/t_comp_ctr_sec.py`
+- `pytest backend/tests/t_comp_center_e2e.py`
 - Full Pytest Regression Suite (82 tests passed across 28 test suites in 5.96s)
 - `npx vite build` (Exit Code 0 in 34.20s)
 

@@ -20,9 +20,9 @@ Address security vulnerabilities where unauthenticated users could trigger the C
 ## 2. Scope
 - Move `ContextRenderer`, `GlobalSearch`, `GlobalF2BrowseModal`, `ContextualInspectorHUD`, `DrillDownSidePanel`, and `ShortcutPalette` inside `<AppShell>` inside the authenticated `AppContent` session block.
 - Add direct authentication token checks (`smriti_jwt_token` / `smriti_session_token`) across:
-  - `ContextualInspectorHUD.tsx` (returns `null` if unauthenticated)
+  - `CtxInspectorHUD.tsx` (returns `null` if unauthenticated)
   - `GlobalSearch.tsx` (blocks search trigger, prewarm, and modal display without auth)
-  - `GlobalF2BrowseModal.tsx` (blocks load and display without auth)
+  - `GlobalF2BrowseDlg.tsx` (blocks load and display without auth)
   - `ActiveFieldContext.tsx` (ignores focusin, input, and F2 events when unauthenticated)
 - Remove `WorkspaceTaskbar` and `pb-13` viewport bottom padding from `src/App.tsx`.
 
@@ -31,9 +31,9 @@ None.
 
 ## 4. Files Modified
 - `src/App.tsx`: Moved overlays into authenticated block; removed `WorkspaceTaskbar` and `pb-13`.
-- `src/components/drilldown/ContextualInspectorHUD.tsx`: Added token verification guard.
+- `src/components/drilldown/CtxInspectorHUD.tsx`: Added token verification guard.
 - `src/components/drilldown/GlobalSearch.tsx`: Added token verification guard to keydown and render logic.
-- `src/components/drilldown/GlobalF2BrowseModal.tsx`: Added token verification guard.
+- `src/components/drilldown/GlobalF2BrowseDlg.tsx`: Added token verification guard.
 - `src/context/ActiveFieldContext.tsx`: Added token verification to event listeners.
 - `docs/implementation/README.md`: Registered plan in master index table.
 - `docs/walkthrough/README.md`: Registered walkthrough in master index table.

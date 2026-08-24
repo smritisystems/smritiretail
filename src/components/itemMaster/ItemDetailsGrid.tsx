@@ -42,12 +42,12 @@ import { Product, AttributeDefinition } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { getUnifiedItemMasterFields, getGloballyVisibleFields, getGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 import { getCustomFieldLabels } from "../../lib/headerMapping/HeaderAliasRegistry.ts";
-import { resolveProductImageUrl, getImagePathConfig } from "../../services/imagePathConfigService.ts";
-import { SmritiReplaceDataModal } from "./SmritiReplaceDataModal.tsx";
-import { SmritiCodeSelectionDialog } from "./SmritiCodeSelectionDialog.tsx";
-import { SmritiKeyboardShortcutsModal } from "./SmritiKeyboardShortcutsModal.tsx";
-import { SmritiDataLoadingConfirmationModal } from "./SmritiDataLoadingConfirmationModal.tsx";
-import { ViewConfigState } from "./SmritiViewConfiguration.tsx";
+import { resolveProductImageUrl, getImagePathConfig } from "../../services/imagePathConfig.ts";
+import { ReplaceDataDlg } from "./ReplaceDataDlg.tsx";
+import { CodeSelectDlg } from "./CodeSelectDlg.tsx";
+import { ItemShortcuts } from "./ItemShortcuts.tsx";
+import { DataLoadConfirm } from "./DataLoadConfirm.tsx";
+import { ItemViewConfigState } from "./ItemViewConfig.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
 
@@ -215,23 +215,23 @@ export interface DerivedGridRow {
 
 interface SmritiItemDetailsGridProps {
   products: Product[];
-  viewConfig?: ViewConfigState;
+  viewConfig?: ItemViewConfigState;
   commonFields?: any;
   entryMode?: MasterEntryMode;
   onRefreshProducts?: () => Promise<void>;
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
-  onNavigateToViewConfig?: () => void;
+  onNavigateToItemViewConfig?: () => void;
   onNavigateToCommonFields?: () => void;
 }
 
-export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
+export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   products = [],
   viewConfig,
   commonFields,
   entryMode = "add",
   onRefreshProducts,
   onNotification,
-  onNavigateToViewConfig,
+  onNavigateToItemViewConfig,
   onNavigateToCommonFields
 }) => {
   const [dynamicDefinitions, setDynamicDefinitions] = useState<AttributeDefinition[]>([]);
@@ -1830,26 +1830,26 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       </footer>
 
       {/* Modals */}
-      <SmritiReplaceDataModal
+      <ReplaceDataDlg
         isOpen={isReplaceModalOpen}
         onClose={() => setIsReplaceModalOpen(false)}
         onReplace={handleGlobalReplace}
         fields={catalogFields}
       />
 
-      <SmritiCodeSelectionDialog
+      <CodeSelectDlg
         isOpen={isCodeModalOpen}
         onClose={() => setIsCodeModalOpen(false)}
         onSelectCode={handleApplyGeneratedCode}
         currentRow={activeCodeTargetRow !== null ? gridRows[activeCodeTargetRow] : {}}
       />
 
-      <SmritiKeyboardShortcutsModal
+      <ItemShortcuts
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
       />
 
-      <SmritiDataLoadingConfirmationModal
+      <DataLoadConfirm
         isOpen={isDataConfirmOpen}
         totalRecordsCount={products.length}
         onConfirm={handleConfirmDataLoading}
@@ -1859,4 +1859,4 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   );
 };
 
-export default SmritiItemDetailsGrid;
+export default ItemDetailsGrid;

@@ -21,14 +21,14 @@
 
 ## 1. Architecture Claim vs. Reality
 
-### Claim (from SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md):
+### Claim (from MULTI_COMPANY.md):
 "smritisys is the single Control Plane database. Each company gets a physically isolated database named smriti<3-digit-code> (e.g. smriti001)."
 
 ### Evidence (Code):
 - backend/app/core/config.py line 35-40: DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys"
 - backend/app/core/config.py line 161: PSV_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiPSV"
 - backend/app/models/control/control_models.py line 91: psv_database_name = Column(String(100), nullable=False, default="SmritiPSV")
-- backend/app/services/company_database_resolver.py (CompanyDatabaseResolver): Resolves smriti<code> per company
+- backend/app/services/db_resolver.py (CompanyDatabaseResolver): Resolves smriti<code> per company
 
 ### Status: ALIGNED
 
@@ -39,9 +39,9 @@
 ### Claim: smritisys holds companies, company_database_registries, smriti_menus, smriti_audit_log, roles, users
 ### Evidence:
 - backend/app/models/tenant.py: Company, Branch models with __tablename__ = "companies", "branches"
-- backend/tests/test_multi_company_database_architecture.py line 22: CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
-- backend/tests/test_multi_company_database_architecture.py lines 54-59: SELECT COUNT(*) FROM smriti_menus asserts count == 34
-- backend/tests/test_multi_company_database_architecture.py lines 61-68: SELECT COUNT(*) FROM smriti_audit_log asserts count >= 40
+- backend/tests/t_multi_comp_db.py line 22: CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
+- backend/tests/t_multi_comp_db.py lines 54-59: SELECT COUNT(*) FROM smriti_menus asserts count == 34
+- backend/tests/t_multi_comp_db.py lines 61-68: SELECT COUNT(*) FROM smriti_audit_log asserts count >= 40
 - backend/app/tests/conftest.py line 141-142: DELETE FROM smriti_menus; DELETE FROM smriti_audit_log; (test teardown)
 
 ### Status: ALIGNED
@@ -52,9 +52,9 @@
 
 ### Claim: smriti<3-digit-code> (e.g. smriti001)
 ### Evidence:
-- SMRITI_COMPANY_DATABASE_PROVISIONING_ENGINE_v1.0.md Dry-Run Step 3: "database_name": "smriti001"
-- backend/app/api/v1/company_control_center.py line 43: ValidateCodeRequest field description "3-character alphanumeric code [A-Z0-9]"
-- backend/app/services/company_database_resolver.py: function generate_company_database_name(company_code) -> str
+- COMPANY_DATABASE.md Dry-Run Step 3: "database_name": "smriti001"
+- backend/app/api/v1/company_center.py line 43: ValidateCodeRequest field description "3-character alphanumeric code [A-Z0-9]"
+- backend/app/services/db_resolver.py: function generate_company_database_name(company_code) -> str
 
 ### Status: ALIGNED
 
@@ -64,10 +64,10 @@
 
 ### Claim: Single authoritative resolver at app.services.company_database_resolver.CompanyDatabaseResolver
 ### Evidence:
-- backend/app/services/company_database_resolver.py: CompanyDatabaseResolver class exists
-- backend/app/api/v1/company_control_center.py lines 19-23: imports CompanyDatabaseResolver, generate_company_database_name, validate_company_database_name
-- backend/tests/test_multi_company_database_architecture.py line 35-36: CompanyDatabaseResolver.resolve_company_database("usr_sysadmin","COMP-001") asserts company_id == "COMP-001"
-- backend/tests/test_multi_company_database_architecture.py line 40-44: unauthorized user gets HTTPException 403
+- backend/app/services/db_resolver.py: CompanyDatabaseResolver class exists
+- backend/app/api/v1/company_center.py lines 19-23: imports CompanyDatabaseResolver, generate_company_database_name, validate_company_database_name
+- backend/tests/t_multi_comp_db.py line 35-36: CompanyDatabaseResolver.resolve_company_database("usr_sysadmin","COMP-001") asserts company_id == "COMP-001"
+- backend/tests/t_multi_comp_db.py line 40-44: unauthorized user gets HTTPException 403
 
 ### Status: ALIGNED
 
@@ -114,8 +114,8 @@
 
 ### Claim: Company A user cannot access Company B data
 ### Evidence (tests):
-- backend/tests/test_company_control_center_security.py test_05_company_a_user_accessing_company_b_returns_403: asserts 403 for /api/v1/control-center/companies/COMP-002
-- backend/tests/test_company_control_center_security.py test_08: unassigned user gets 403 with "not authorized to access Company"
+- backend/tests/t_comp_ctr_sec.py test_05_company_a_user_accessing_company_b_returns_403: asserts 403 for /api/v1/control-center/companies/COMP-002
+- backend/tests/t_comp_ctr_sec.py test_08: unassigned user gets 403 with "not authorized to access Company"
 - backend/app/db/company_router.py: guards API-level routing
 
 ### Status: ALIGNED (by test evidence; cannot confirm DB-level isolation without live DB connection)

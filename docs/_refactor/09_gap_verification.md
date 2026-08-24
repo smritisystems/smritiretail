@@ -30,7 +30,7 @@
 | **Alembic Migration** | `backend/alembic/versions/v1336_add_variant_identity_and_reporting_view.py` | `PRESENT` | Revision `v1336_variant_identity_view` |
 | **Header Alias Registry (FE)** | `src/lib/headerMapping/HeaderAliasRegistry.ts` | `PRESENT` | One-to-many alias mappings with `additionalTargets` |
 | **Header Mapping Engine (FE)** | `src/lib/headerMapping/HeaderMappingEngine.ts` | `PRESENT` | Normalized mapping and preview calculation |
-| **Import Preview Modal (FE)** | `src/components/HeaderMappingPreviewModal.tsx` | `PRESENT` | Wired into `ExcelGridEntrySection.tsx` |
+| **Import Preview Modal (FE)** | `src/components/HeaderMappingPrevi.tsx` | `PRESENT` | Wired into `ExcelGridEntrySec.tsx` |
 | **Reporting Flat View** | PostgreSQL `report_flat_inventory_sales` | `PRESENT` | Canonical SQL View created and verified |
 
 ---
@@ -89,4 +89,4 @@ SELECT COUNT(*) FROM report_flat_inventory_sales WHERE is_deleted = false;
 
 - **Vitest**: `19 passed / 19 files` (113/113 unit tests passed)
 - **TypeScript**: `tsc --noEmit` clean (0 errors)
-- **Pytest**: `backend/tests/test_item_master_gap_refactor.py` (2/2 passed)
+- **Pytest**: `backend/tests/t_item_gap.py` (2/2 passed)

@@ -6,7 +6,7 @@ Date: 2026-07-17
 Status: Proposed
 
 ## Objective
-Establish a reproducible, frozen evidence ledger for metadata architecture decisions in `docs/governance/METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md`.
+Establish a reproducible, frozen evidence ledger for metadata architecture decisions in `docs/governance/METADATA.md`.
 
 ## Scope
 - Audit the repository for metadata ownership, runtime registration, and subsystem consumption.
@@ -16,7 +16,7 @@ Establish a reproducible, frozen evidence ledger for metadata architecture decis
 - Record a repository fingerprint (commit SHA) to lock the ledger against later changes.
 
 ## Primary outputs
-- `docs/governance/METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md`
+- `docs/governance/METADATA.md`
 
 ## Preconditions
 1. Confirm the repository is on the target branch.

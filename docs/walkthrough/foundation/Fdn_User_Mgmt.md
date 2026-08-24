@@ -58,7 +58,7 @@ Introduce full SYSADMIN-controlled user lifecycle management so that operational
 | `backend/app/schemas/user.py` | `UserCreate`, `UserUpdate`, `PasswordChange`, `UserResponse`, `UserListResponse` |
 | `backend/app/services/user.py` | `UserService` — create, list, get, update, deactivate, change_password |
 | `backend/app/api/v1/users.py` | REST router — 6 endpoints under `/api/v1/users/` |
-| `backend/app/tests/test_user_management.py` | 17 tests |
+| `backend/app/tests/t_user_mgmt.py` | 17 tests |
 
 ---
 
@@ -154,23 +154,23 @@ app/tests/test_auth.py::test_role_guard_manager_can_create_product PASSED [ 25%]
 app/tests/test_auth.py::test_protected_route_no_token PASSED             [ 26%]
 ... [test_main, test_models, test_repositories, test_schemas, test_services,
      test_tenant_isolation — all 21 PASSED] ...
-app/tests/test_user_management.py::test_sysadmin_can_create_manager PASSED [ 69%]
-app/tests/test_user_management.py::test_manager_cannot_create_user PASSED [ 71%]
-app/tests/test_user_management.py::test_create_user_non_sysadmin_without_branch_rejected PASSED [ 73%]
-app/tests/test_user_management.py::test_create_duplicate_username_returns_400 PASSED [ 75%]
-app/tests/test_user_management.py::test_sysadmin_can_list_users PASSED   [ 76%]
-app/tests/test_user_management.py::test_non_sysadmin_cannot_list_users PASSED [ 78%]
-app/tests/test_user_management.py::test_list_users_filter_by_role PASSED [ 80%]
-app/tests/test_user_management.py::test_sysadmin_can_get_any_user PASSED [ 82%]
-app/tests/test_user_management.py::test_user_can_get_own_profile PASSED  [ 84%]
-app/tests/test_user_management.py::test_non_sysadmin_cannot_get_other_user PASSED [ 86%]
-app/tests/test_user_management.py::test_sysadmin_can_update_user_role PASSED [ 88%]
-app/tests/test_user_management.py::test_get_nonexistent_user_returns_404 PASSED [ 90%]
-app/tests/test_user_management.py::test_sysadmin_can_deactivate_user PASSED [ 92%]
-app/tests/test_user_management.py::test_sysadmin_cannot_deactivate_self PASSED [ 94%]
-app/tests/test_user_management.py::test_change_own_password_valid PASSED [ 96%]
-app/tests/test_user_management.py::test_change_password_wrong_current PASSED [ 98%]
-app/tests/test_user_management.py::test_change_password_too_short PASSED [100%]
+app/tests/t_user_mgmt.py::test_sysadmin_can_create_manager PASSED [ 69%]
+app/tests/t_user_mgmt.py::test_manager_cannot_create_user PASSED [ 71%]
+app/tests/t_user_mgmt.py::test_create_user_non_sysadmin_without_branch_rejected PASSED [ 73%]
+app/tests/t_user_mgmt.py::test_create_duplicate_username_returns_400 PASSED [ 75%]
+app/tests/t_user_mgmt.py::test_sysadmin_can_list_users PASSED   [ 76%]
+app/tests/t_user_mgmt.py::test_non_sysadmin_cannot_list_users PASSED [ 78%]
+app/tests/t_user_mgmt.py::test_list_users_filter_by_role PASSED [ 80%]
+app/tests/t_user_mgmt.py::test_sysadmin_can_get_any_user PASSED [ 82%]
+app/tests/t_user_mgmt.py::test_user_can_get_own_profile PASSED  [ 84%]
+app/tests/t_user_mgmt.py::test_non_sysadmin_cannot_get_other_user PASSED [ 86%]
+app/tests/t_user_mgmt.py::test_sysadmin_can_update_user_role PASSED [ 88%]
+app/tests/t_user_mgmt.py::test_get_nonexistent_user_returns_404 PASSED [ 90%]
+app/tests/t_user_mgmt.py::test_sysadmin_can_deactivate_user PASSED [ 92%]
+app/tests/t_user_mgmt.py::test_sysadmin_cannot_deactivate_self PASSED [ 94%]
+app/tests/t_user_mgmt.py::test_change_own_password_valid PASSED [ 96%]
+app/tests/t_user_mgmt.py::test_change_password_wrong_current PASSED [ 98%]
+app/tests/t_user_mgmt.py::test_change_password_too_short PASSED [100%]
 
 ====================== 52 passed, 196 warnings in 20.59s =======================
 ```

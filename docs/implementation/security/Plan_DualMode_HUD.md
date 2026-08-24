@@ -42,15 +42,15 @@ Operators wanted visual confirmation of the HUD on the Login screen, but with ze
 - **Dual-State Presentation**: Clear distinction between `!isAuthenticated` (Security Ready portal banner) and `isAuthenticated` (Live Contextual Intelligence).
 
 ## 7. Proposed Design
-- Update `ContextualInspectorHUD.tsx` with conditional dual-mode render.
+- Update `CtxInspectorHUD.tsx` with conditional dual-mode render.
 - Update `ActiveFieldContext.tsx` to safely handle focus events on login inputs.
-- Ensure `GlobalSearch.tsx` and `GlobalF2BrowseModal.tsx` remain available and 100% functional when logged in.
+- Ensure `GlobalSearch.tsx` and `GlobalF2BrowseDlg.tsx` remain available and 100% functional when logged in.
 
 ## 8. Files Created
 None.
 
 ## 9. Files Modified
-- `src/components/drilldown/ContextualInspectorHUD.tsx`
+- `src/components/drilldown/CtxInspectorHUD.tsx`
 - `src/context/ActiveFieldContext.tsx`
 - `src/App.tsx`
 - `docs/implementation/README.md`
@@ -88,4 +88,4 @@ Completed
 - ADR-0017: Dual-State Contextual Intelligence & Zero-Leak Login HUD.
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/security/Security_DualMode_HUD_ZeroData_Login_FullActive_Session_v6.14.0.md`.
+- `docs/walkthrough/security/Sec_DualMode_HUD.md`.

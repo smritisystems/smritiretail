@@ -27,19 +27,19 @@ This audit records the inventory, classification, and reorganization of root-lev
 
 | FILE | CATEGORY | ACTION (KEEP/MOVE/REMOVE) | REASON | RISK |
 |---|---|---|---|---|
-| `CONSIGNMENT_AUDIT_REPORT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Consignment module historical audit evidence | NONE |
+| `CONSIGNMENT_AUDIT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Consignment module historical audit evidence | NONE |
 | `ERP_AUDIT_REPORT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | ERP platform historical audit evidence | NONE |
-| `SMRITI_BUSINESS_AUDIT_REPORT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Business workflow historical audit evidence | NONE |
-| `SMRITI_ERP_AUDIT_REPORT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | ERP audit historical report | NONE |
-| `SMRITI_EXISTING_SYSTEM_AUDIT_REPORT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Legacy system audit report | NONE |
-| `SMRITI_INTERNAL_ROLE_DASHBOARDS_AUDIT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Role dashboards audit evidence | NONE |
-| `SMRITI_MASTER_AUDIT_REPORT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Master audit master report | NONE |
-| `SMRITI_MEASUREMENT_VARIANT_AUDIT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Variant audit evidence | NONE |
+| `BUSINESS_AUDIT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Business workflow historical audit evidence | NONE |
+| `SMRITI_ERP_AUDIT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | ERP audit historical report | NONE |
+| `EXISTING_SYSTEM.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Legacy system audit report | NONE |
+| `INTERNAL_ROLE.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Role dashboards audit evidence | NONE |
+| `MASTER_AUDIT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Master audit master report | NONE |
+| `MEASUREMENT.md` | D. ARCHITECTURE / GOVERNANCE DOCUMENTATION | MOVE -> `docs/audits/` | Variant audit evidence | NONE |
 | `generate_jwt.py` | K. SECURITY-SENSITIVE UTILITIES / ADMIN | MOVE -> `scripts/admin/` | Developer JWT generator tool | NONE |
-| `inspect_test_user_password.py` | K. SECURITY-SENSITIVE UTILITIES / ADMIN | MOVE -> `scripts/admin/` | User password hash inspection utility | NONE |
+| `inspect_test_user.py` | K. SECURITY-SENSITIVE UTILITIES / ADMIN | MOVE -> `scripts/admin/` | User password hash inspection utility | NONE |
 | `query_user_details.py` | K. SECURITY-SENSITIVE UTILITIES / ADMIN | MOVE -> `scripts/admin/` | User details query utility | NONE |
 | `query_users_root.py` | K. SECURITY-SENSITIVE UTILITIES / ADMIN | MOVE -> `scripts/admin/` | Root user query utility | NONE |
-| `frontend_backend_route_audit.py` | F. DEVELOPMENT SCRIPTS | MOVE -> `scripts/dev/` | Route audit script | NONE |
+| `route_audit.py` | F. DEVELOPMENT SCRIPTS | MOVE -> `scripts/dev/` | Route audit script | NONE |
 | `frontend_backend_route_audit2.py` | F. DEVELOPMENT SCRIPTS | MOVE -> `scripts/dev/` | Route audit script v2 | NONE |
 | `temp_legacy_check.py` | F. DEVELOPMENT SCRIPTS | MOVE -> `scripts/dev/` | Legacy route checker script | NONE |
 | `temp_route_inventory.py` | F. DEVELOPMENT SCRIPTS | MOVE -> `scripts/dev/` | Route inventory tool | NONE |

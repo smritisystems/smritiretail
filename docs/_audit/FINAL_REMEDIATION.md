@@ -15,9 +15,9 @@
 
 > **SUPERSEDED AUDIT ARTIFACT — SEE FINAL CERTIFICATION**  
 > This report reflects the intermediate state prior to final integration closure and data migration.  
-> Canonical Architecture: [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
-> Final Architecture Certification (336/336 tests passed, Exit code 0): [`docs/_audit/FINAL_ARCHITECTURE_CERTIFICATION.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_ARCHITECTURE_CERTIFICATION.md)  
-> Final Data Migration Report: [`docs/_audit/FINAL_DATA_MIGRATION_REPORT.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_DATA_MIGRATION_REPORT.md)
+> Canonical Architecture: [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
+> Final Architecture Certification (336/336 tests passed, Exit code 0): [`docs/_audit/FINAL_2.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_2.md)  
+> Final Data Migration Report: [`docs/_audit/FINAL_DATA.md`](file:///F:/SMRITRretailNX/docs/_audit/FINAL_DATA.md)
 
 **Date:** 2026-08-17
 **Branch:** smritiNX | **Commit:** 16898442
@@ -82,7 +82,7 @@ PSV is functionally working (tests pass) but is currently co-located in smritisy
 PARTIALLY_VERIFIED
 
 Evidence:
-grep backend/app for USE_MULTI_DB_ROUTER: found ONLY in config.py (definition) + test_production_certification_suite.py (assertion)
+grep backend/app for USE_MULTI_DB_ROUTER: found ONLY in config.py (definition) + t_prod_cert.py (assertion)
 Flag is NOT consumed anywhere in routing logic.
 
 Reality: CompanyDatabaseResolver routes unconditionally by querying smritisys.company_database_registries.
@@ -145,7 +145,7 @@ Cross-company data access is rejected at resolver level.
 PASS
 
 Evidence:
-test_01 through test_09 in test_company_control_center_security.py: ALL PASSED
+test_01 through test_09 in t_comp_ctr_sec.py: ALL PASSED
 Anonymous: 401
 Spoofed header: 401
 Invalid token: 401
@@ -161,7 +161,7 @@ PASS (code + DB tables confirmed; runtime API tests passing)
 Evidence:
 barcode_providers, identity_rules, product_identities: CONFIRMED IN smritisys
 test_barcode.py: PASSED (in app/tests/ suite)
-test_product_identity.py: PASSED
+t_prod_identity.py: PASSED
 
 Note: GS1/EAN-13 NOT implemented -- confirmed by grep; no claim was made for it.
 
@@ -235,12 +235,12 @@ PARTIAL
 Updated/Created:
 - docs/_audit/ (9 files): DONE (committed 16898442)
 - docs/_audit/REMEDIATION_TRACKER.md: DONE (this session)
-- docs/_audit/FINAL_REMEDIATION_REPORT.md: DONE (this file)
+- docs/_audit/FINAL_REMEDIATION.md: DONE (this file)
 
 Pending (MEDIUM priority):
-- PRODUCT_IDENTITY_ENGINE.md: update migration status to PASS (tables confirmed)
-- SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md: document flag as placeholder
-- Create SMRITI_PSV_ARCHITECTURE_v1.0.md with co-location finding
+- PRODUCT_IDENTITY_13.md: update migration status to PASS (tables confirmed)
+- DATABASE_ROUTING.md: document flag as placeholder
+- Create PSV_ARCHITECTURE.md with co-location finding
 - DEVELOPMENT_STATUS.md: add Product Identity Engine row
 
 ---

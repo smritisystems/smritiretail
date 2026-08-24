@@ -19,7 +19,7 @@ import {
   computeSkuSellThrough,
   computeTotalLyingWithPartner,
   computeOverallSellThrough
-} from "../services/partnerSellThroughEngine.ts";
+} from "../services/partnerSellThru.ts";
 import { PSVParty, PSVPartySkuTracking } from "../types.ts";
 
 describe("Party Stock Visibility (PSV) & Partner Sell-Through Engine", () => {

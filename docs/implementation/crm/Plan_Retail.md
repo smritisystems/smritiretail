@@ -40,7 +40,7 @@ Previous customer screens were basic CRUD tables lacking retail-specific attribu
 
 ## 6. Architecture Impact
 * New domain components under `src/components/customer/`.
-* Updated `CustomerMasterTab.tsx` to mount `SmritiCustomerMasterWorkspace.tsx`.
+* Updated `CustomerMasterTab.tsx` to mount `CustMasterWs.tsx`.
 * Local storage persistence for zero-latency offline browsing and synchronization.
 
 ## 7. Proposed Design
@@ -48,12 +48,12 @@ Adopts high-density enterprise layout with primary deep blue (`#00355f`), crisp 
 
 ## 8. Files Created
 * `src/components/customer/types.ts`
-* `src/components/customer/SmritiCustomerFormTab.tsx`
-* `src/components/customer/SmritiCustomerRetailDetailsTab.tsx`
-* `src/components/customer/SmritiCustomerAdditionalDetailsTab.tsx`
-* `src/components/customer/SmritiCustomerMailingModal.tsx`
-* `src/components/customer/SmritiAdvancedCustomerSearchModal.tsx`
-* `src/components/customer/SmritiCustomerMasterWorkspace.tsx`
+* `src/components/customer/CustFormTab.tsx`
+* `src/components/customer/CustRetailDetTab.tsx`
+* `src/components/customer/CustAddlDetTab.tsx`
+* `src/components/customer/CustMailingDlg.tsx`
+* `src/components/customer/AdvancedCustSearch.tsx`
+* `src/components/customer/CustMasterWs.tsx`
 
 ## 9. Files Modified
 * `src/components/CustomerMasterTab.tsx`
@@ -95,4 +95,4 @@ Completed
 * `ADR-0014`: Platform Abstraction Layer & UI Standard.
 
 ## 19. Related Walkthroughs
-* `docs/walkthrough/crm/Retail_Customer_Catalogue_v5.5.0.md`
+* `docs/walkthrough/crm/Retail_Customer.md`

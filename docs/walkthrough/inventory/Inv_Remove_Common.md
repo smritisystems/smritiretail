@@ -19,18 +19,18 @@ Permanently remove the "Common Fields Setup" module and all associated tab refer
 
 ## 2. Scope
 - Deletion of `SmritiCommonFieldsSetup.tsx` and `tabs/CommonFieldsTab.tsx`.
-- Refactoring `SmritiItemMasterWorkspace.tsx` navigation sidebar to remove the Common Fields tab.
-- Removal of `CommonFieldsData` interface and props from `SmritiItemDetailsGrid.tsx` and `ItemMasterEntryView.tsx`.
-- Updating keyboard shortcut mappings in `SmritiKeyboardShortcutsModal.tsx` and global shortcut event handlers.
+- Refactoring `ItemMasterWs.tsx` navigation sidebar to remove the Common Fields tab.
+- Removal of `CommonFieldsData` interface and props from `ItemDetGrid.tsx` and `ItemMasterEntryVie.tsx`.
+- Updating keyboard shortcut mappings in `KeyboardKeysDlg.tsx` and global shortcut event handlers.
 
 ## 3. Files Created
 None.
 
 ## 4. Files Modified
-- `src/components/itemMaster/SmritiItemMasterWorkspace.tsx`: Removed Common Fields sidebar button, canvas render condition, and state.
-- `src/components/itemMaster/SmritiItemDetailsGrid.tsx`: Removed `CommonFieldsData` import and props.
-- `src/components/itemMaster/ItemMasterEntryView.tsx`: Removed `CommonFieldsTab` subtab and render block.
-- `src/components/itemMaster/SmritiKeyboardShortcutsModal.tsx`: Updated keyboard guide.
+- `src/components/itemMaster/ItemMasterWs.tsx`: Removed Common Fields sidebar button, canvas render condition, and state.
+- `src/components/itemMaster/ItemDetGrid.tsx`: Removed `CommonFieldsData` import and props.
+- `src/components/itemMaster/ItemMasterEntryVie.tsx`: Removed `CommonFieldsTab` subtab and render block.
+- `src/components/itemMaster/KeyboardKeysDlg.tsx`: Updated keyboard guide.
 - `src/components/itemMaster/types.ts`: Removed `"common"` from `ItemMasterActiveSubTab`.
 - `docs/implementation/README.md`: Registered plan in master index table.
 - `docs/walkthrough/README.md`: Registered walkthrough in master index table.
@@ -46,7 +46,7 @@ None.
 
 ## 7. Implementation Summary
 1. Removed `SmritiCommonFieldsSetup.tsx` and `CommonFieldsTab.tsx` from the codebase.
-2. Updated `SmritiItemMasterWorkspace.tsx` to streamline the left sidebar navigation into:
+2. Updated `ItemMasterWs.tsx` to streamline the left sidebar navigation into:
    - `Item Details`
    - `View Configuration`
    - `Imports & Bulk Paste`

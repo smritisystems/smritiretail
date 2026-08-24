@@ -30,16 +30,16 @@ Unify Price Book resolution, volume break pricing tiers, statutory document sequ
 ## 3. Files Created
 1. `backend/app/models/pricing.py`: Canonical `PriceBook`, `PriceBookEntry`, and `CustomerPriceTier` models.
 2. `backend/app/models/payment_ledger.py`: Canonical `PaymentTransaction` and `PaymentAllocation` models.
-3. `backend/app/services/unified_pricing_payment_service.py`: Domain service handling hierarchical price resolution, atomic sequence number allocation, and idempotent payment settlements.
-4. `backend/tests/test_unified_pricing_payment_engine.py`: Automated verification suite certifying pricing tiers, volume breaks, gapless numbering sequences, payment idempotency, and tenant isolation.
-5. `docs/implementation/foundation/Platform_Refactor_Slice4_Pricing_GST_Payments_Plan_v1.0.md`: Master 19-section implementation plan for Slice 4.
+3. `backend/app/services/pricing_payment.py`: Domain service handling hierarchical price resolution, atomic sequence number allocation, and idempotent payment settlements.
+4. `backend/tests/t_pricing_eng.py`: Automated verification suite certifying pricing tiers, volume breaks, gapless numbering sequences, payment idempotency, and tenant isolation.
+5. `docs/implementation/foundation/Platform_Refactor_3.md`: Master 19-section implementation plan for Slice 4.
 
 ---
 
 ## 4. Files Modified
 1. `backend/app/models/__init__.py`: Exported Pricing, Payment Ledger, and Document Series models.
 2. `docs/implementation/README.md`: Appended Slice 4 implementation plan to master index.
-3. `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Updated platform tracker with verified Slice 4 status.
+3. `docs/architecture/PLATFORM.md`: Updated platform tracker with verified Slice 4 status.
 4. `docs/walkthrough/README.md`: Appended Slice 4 walkthrough to chronological master index.
 
 ---
@@ -76,7 +76,7 @@ Separating pricing, numbering, and payment ledgers from application presentation
 ---
 
 ## 8. Tests Executed
-1. `backend/tests/test_unified_pricing_payment_engine.py`:
+1. `backend/tests/t_pricing_eng.py`:
    - `test_pricing_hierarchy_price_book_and_volume_breaks` (Passed)
    - `test_document_numbering_gapless_sequence_allocation` (Passed)
    - `test_idempotent_multi_tender_payment_settlement` (Passed)
@@ -97,22 +97,22 @@ plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 77 items
 
-backend\tests\test_unified_pricing_payment_engine.py ....                [  5%]
-backend\tests\test_unified_sales_ledger.py ....                          [ 10%]
-backend\tests\test_universal_party_master.py ...                         [ 14%]
-backend\tests\test_universal_item_master.py ...                          [ 18%]
-backend\tests\test_routing_boundary_canonical.py .............           [ 35%]
-backend\tests\test_company_db_runtime_routing.py .......                 [ 44%]
-backend\tests\test_company_db_naming_convention.py ......                [ 51%]
-backend\tests\test_get_company_db_wiring.py .....                        [ 58%]
-backend\tests\test_multi_company_database_architecture.py ......         [ 66%]
-backend\tests\test_company_db_provisioning.py .....                      [ 72%]
-backend\tests\test_menu_governance.py .                                  [ 74%]
-backend\tests\test_security_menu_access.py ..                            [ 76%]
+backend\tests\t_pricing_eng.py ....                [  5%]
+backend\tests\t_sales_ledger.py ....                          [ 10%]
+backend\tests\t_univ_party.py ...                         [ 14%]
+backend\tests\t_univ_item.py ...                          [ 18%]
+backend\tests\t_route_boundary.py .............           [ 35%]
+backend\tests\t_comp_db_route.py .......                 [ 44%]
+backend\tests\t_comp_db_name.py ......                [ 51%]
+backend\tests\t_comp_db_wire.py .....                        [ 58%]
+backend\tests\t_multi_comp_db.py ......         [ 66%]
+backend\tests\t_comp_db_prov.py .....                      [ 72%]
+backend\tests\t_menu_gov.py .                                  [ 74%]
+backend\tests\t_sec_menu.py ..                            [ 76%]
 backend\tests\test_wms_phase1.py ....                                    [ 81%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 85%]
-backend\tests\test_wms_phase3_eway_bill.py .....                         [ 92%]
-backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
+backend\tests\t_wms_phase2.py ...                           [ 85%]
+backend\tests\t_wms_phase3.py .....                         [ 92%]
+backend\tests\t_wms_phase4.py ......             [100%]
 
 ======================= 77 passed, 1 warning in 29.09s ========================
 ```

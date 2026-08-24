@@ -25,9 +25,9 @@
 | AGENTS.md header | 3.16.0 | 2026-07-12 |
 | DEVELOPMENT_STATUS.md | 3.16.0 (generated 2026-08-17) | 2026-08-17 |
 | conftest.py | 3.21.0 | 2026-08-17 |
-| test_company_control_center_security.py | 3.16.0 | 2026-08-15 |
-| test_masters_consolidation.py | 3.17.0 | 2026-07-14 |
-| psv_projection_service.py | 3.21.0 | 2026-08-14 |
+| t_comp_ctr_sec.py | 3.16.0 | 2026-08-15 |
+| t_masters_consol.py | 3.17.0 | 2026-07-14 |
+| psv_projection.py | 3.21.0 | 2026-08-14 |
 | product_identity.py | 1.0.0 | 2026-08-15 |
 | DHI reconciliation doc | 3.25.0 | 2026-08-15 |
 | Barcode refactor walkthrough | 3.28.0 | 2026-08-16 |
@@ -44,14 +44,14 @@
 
 | Document | Stated Status | Accuracy |
 |---|---|---|
-| SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md | (not stated) | ALIGNED with code |
-| SMRITISYS_DATABASE_IDENTITY_AUDIT_v1.0.md | AUDIT_COMPLETE | ALIGNED |
-| SMRITI_COMPANY_DATABASE_PROVISIONING_ENGINE_v1.0.md | DRY_RUN_PASSED / PENDING_HUMAN_APPROVAL | ALIGNED (still in pending state) |
-| SMRITI_COMPANY_DATABASE_LIFECYCLE_v1.0.md | LIFECYCLE_ARCHITECTURE_AUDITED_PENDING_UI_GATE | ALIGNED (lifecycle partially implemented per table) |
-| SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md | AUDIT_COMPLETE | ALIGNED |
-| SMRITI_CONTROL_PLANE_AUDIT_v1.0.md | AUDIT_COMPLETE | PARTIALLY_VERIFIED (248-table claim unverifiable from code) |
-| SMRITI_CONFIGURATION_OWNERSHIP_MATRIX_v1.0.md | AUDIT_COMPLETE / PENDING_HUMAN_DECISION | ALIGNED |
-| PRODUCT_IDENTITY_ENGINE.md | (implied IMPLEMENTED) | DISCREPANCY -- migration FAILED |
+| MULTI_COMPANY.md | (not stated) | ALIGNED with code |
+| SMRITISYS.md | AUDIT_COMPLETE | ALIGNED |
+| COMPANY_DATABASE.md | DRY_RUN_PASSED / PENDING_HUMAN_APPROVAL | ALIGNED (still in pending state) |
+| COMPANY_DATABASE_2.md | LIFECYCLE_ARCHITECTURE_AUDITED_PENDING_UI_GATE | ALIGNED (lifecycle partially implemented per table) |
+| DATABASE_ROUTING.md | AUDIT_COMPLETE | ALIGNED |
+| CONTROL_PLANE_2_3.md | AUDIT_COMPLETE | PARTIALLY_VERIFIED (248-table claim unverifiable from code) |
+| CONFIGURATION.md | AUDIT_COMPLETE / PENDING_HUMAN_DECISION | ALIGNED |
+| PRODUCT_IDENTITY_13.md | (implied IMPLEMENTED) | DISCREPANCY -- migration FAILED |
 
 ---
 
@@ -88,7 +88,7 @@
 
 ## 5. Lifecycle Operations Implementation Gap
 
-### From SMRITI_COMPANY_DATABASE_LIFECYCLE_v1.0.md:
+### From COMPANY_DATABASE_2.md:
 | Operations | Status |
 |---|---|
 | 1-10: Creation Pipeline | IMPLEMENTED |
@@ -107,7 +107,7 @@
 
 ### Finding: The feature flag USE_MULTI_DB_ROUTER defaults to False.
 ### No architecture document explicitly documents this flag or its effects on single-DB test mode vs. multi-DB production mode.
-### The routing architecture doc (SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md) is only 25 lines and omits this detail.
+### The routing architecture doc (DATABASE_ROUTING.md) is only 25 lines and omits this detail.
 ### Status: PARTIALLY_VERIFIED (flag exists in code; undocumented in architecture docs)
 
 ---

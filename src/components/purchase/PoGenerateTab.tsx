@@ -21,7 +21,7 @@ import {
   PurchaseOrderSizePivotRow,
   PurchaseOrderSummaryTotals
 } from "./types.ts";
-import { PurchaseProductBrowseModal } from "./PurchaseProductBrowseModal.tsx";
+import { PurchBrowseDlg } from "./PurchBrowseDlg.tsx";
 
 interface PurchaseOrderGenerationTabProps {
   products?: Product[];
@@ -32,7 +32,7 @@ interface PurchaseOrderGenerationTabProps {
 
 const DEFAULT_SIZES = ["36", "37", "38", "39", "40", "41", "42", "43", "44"];
 
-export const PurchaseOrderGenerationTab: React.FC<PurchaseOrderGenerationTabProps> = ({
+export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   products: initialProducts = [],
   currentUser,
   onNotification,
@@ -1097,7 +1097,7 @@ export const PurchaseOrderGenerationTab: React.FC<PurchaseOrderGenerationTabProp
       </footer>
 
       {/* F2 Product Browse Modal */}
-      <PurchaseProductBrowseModal
+      <PurchBrowseDlg
         products={products}
         isOpen={showBrowseModal}
         onClose={() => setShowBrowseModal(false)}
@@ -1107,4 +1107,4 @@ export const PurchaseOrderGenerationTab: React.FC<PurchaseOrderGenerationTabProp
   );
 };
 
-export default PurchaseOrderGenerationTab;
+export default PoGenerateTab;

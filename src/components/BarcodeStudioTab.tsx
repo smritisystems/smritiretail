@@ -15,7 +15,7 @@
  */
 
 import React from "react";
-import { TagLabelPrintingTab } from "./barcode/TagLabelPrintingTab.tsx";
+import { TagLabelPrintingTab } from "./barcode/TagLabelPrintingTa.tsx";
 import { Product } from "../types.ts";
 
 interface BarcodeStudioTabProps {

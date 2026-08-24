@@ -31,7 +31,7 @@ were identified and fixed in a single atomic commit (`29359fb`).
 | API | `exchange.py` — `last_run` timezone mismatch fix |
 | Service | `reports.py` — purchase_summary N+1 → 3-query batch load |
 | Tests | `conftest.py` — `clear_db` includes workflow + exchange models |
-| Tests | `test_tenant_isolation.py` — fixture isolation + barcode race fix |
+| Tests | `t_tenant_isolate.py` — fixture isolation + barcode race fix |
 
 ---
 
@@ -53,7 +53,7 @@ were identified and fixed in a single atomic commit (`29359fb`).
 | `backend/app/models/__init__.py` | Export `WorkflowEvent` |
 | `backend/app/services/reports.py` | N+1 → 3-query purchase_summary |
 | `backend/app/tests/conftest.py` | `clear_db` adds `WorkflowEvent`, `DataExchangeTask`, `DataExchangeFieldMapping` |
-| `backend/app/tests/test_tenant_isolation.py` | `clear_db` autouse + barcode race rewrite |
+| `backend/app/tests/t_tenant_isolate.py` | `clear_db` autouse + barcode race rewrite |
 
 ---
 
@@ -127,7 +127,7 @@ task.last_run = datetime.now(timezone.utc).replace(tzinfo=None)
 # O(1) lookup per order — no per-row queries
 ```
 
-### 7.4 test_tenant_isolation.py — barcode race
+### 7.4 t_tenant_isolate.py — barcode race
 ```python
 _session_factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -156,7 +156,7 @@ Targeted verifications:
 | Test | Result |
 |---|---|
 | `test_exchange.py::test_execute_product_export_task` | PASS |
-| `test_tenant_isolation.py::test_concurrent_duplicate_barcode_returns_400_not_500` | PASS |
+| `t_tenant_isolate.py::test_concurrent_duplicate_barcode_returns_400_not_500` | PASS |
 | `test_seef.py + barcode test (minimal contamination pair)` | 5 PASS |
 
 ---

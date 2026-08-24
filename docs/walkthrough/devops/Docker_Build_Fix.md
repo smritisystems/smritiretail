@@ -24,12 +24,12 @@ This document details the configuration fixes and user seeding routines implemen
 - Extend UI Login quick actions with the newly requested `super` user (Administrator / `whynothing`).
 
 ## 3. Files Created
-- [Docker_Build_Fix_And_Default_User_Seeding_v3.16.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/devops/Docker_Build_Fix_And_Default_User_Seeding_v3.16.0.md): Walkthrough of changes.
+- [Docker_Build_Fix.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/devops/Docker_Build_Fix.md): Walkthrough of changes.
 
 ## 4. Files Modified
 - [package.json](file:///d:/IMP/GitHub/SMRITRretailNX/package.json): Upgraded project version to `3.16.0`.
 - [src/db/memory/MemoryRepositories.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/memory/MemoryRepositories.ts): Resolved read-only ESM namespace assignment error in `saveCollection`.
-- [src/db/postgres/PostgresRepositories.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/postgres/PostgresRepositories.ts): Resolved read-only ESM namespace assignment error in `saveCollection`.
+- [src/db/postgres/PgRepos.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/db/postgres/PgRepos.ts): Resolved read-only ESM namespace assignment error in `saveCollection`.
 - [src/state/store.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/state/store.ts): Seeded default users (`super`, `manager`, `cashier`) in flat-file database initialization.
 - [src/components/LoginScreen.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/LoginScreen.tsx): Extended Login helper quick links and buttons with `super` user credentials.
 

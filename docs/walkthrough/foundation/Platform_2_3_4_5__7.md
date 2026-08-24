@@ -28,18 +28,18 @@ Extend the Authoritative Double-Entry Accounting Engine to support international
   - `calculate_unrealized_fx_revaluation`: Enforces fiscal period open check and periodic MTM run idempotency (`is_idempotent_cached`).
   - `assert_voucher_immutable`: Enforces append-only immutable ledger policy (`SMRITI-GL-015`).
 - REST API router endpoints in `backend/app/api/v1/accounting.py` protected by RBAC `require_role(UserRole.SYSADMIN, UserRole.MANAGER)`.
-- Automated test suites: `backend/tests/test_multicurrency_fx.py` (12/12 passed) and `backend/tests/test_accounting_api.py` (9/9 passed).
+- Automated test suites: `backend/tests/t_multicurrency.py` (12/12 passed) and `backend/tests/test_accounting_api.py` (9/9 passed).
 - Master platform regression suite: 104/104 passed across all 17 test suites.
 
 ## 3. Files Created
 - `backend/alembic/versions/v1345_multicurrency_fx.py` — Symmetrical migration creating `currency_exchange_rates` and altering `journal_vouchers` and `general_ledger_entries`.
-- `backend/tests/test_multicurrency_fx.py` — Dedicated multi-currency and FX governance test suite.
-- `docs/walkthrough/foundation/Platform_Accounting_MultiCurrency_FX_v6.16.0.md` — This walkthrough document.
+- `backend/tests/t_multicurrency.py` — Dedicated multi-currency and FX governance test suite.
+- `docs/walkthrough/foundation/Platform_2_3_4_5__7.md` — This walkthrough document.
 
 ## 4. Files Modified
 - `backend/app/models/accounting.py` — Added `CurrencyExchangeRate` model and multi-currency fields on `JournalVoucher` and `GeneralLedgerEntry`.
 - `backend/app/models/__init__.py` — Exported `CurrencyExchangeRate`.
-- `backend/app/services/unified_accounting_ledger_service.py` — Added FX accounts (`4030`, `4040`, `5050`, `5060`), currency validation, foreign balancing invariant, settlement allocation bounds, settlement pair idempotency, MTM run idempotency, and immutability guard.
+- `backend/app/services/unified_ledger.py` — Added FX accounts (`4030`, `4040`, `5050`, `5060`), currency validation, foreign balancing invariant, settlement allocation bounds, settlement pair idempotency, MTM run idempotency, and immutability guard.
 - `backend/app/schemas/accounting.py` — Added Pydantic v2 schemas for exchange rates and FX revaluation.
 - `backend/app/api/v1/accounting.py` — Added REST API routes with RBAC role authorization guards.
 - `backend/tests/test_accounting_api.py` — Added API integration and RBAC 403 authorization rejection test cases.
@@ -73,12 +73,12 @@ Decoupled multi-currency storage at the line level allows mixed-currency complex
 
 ## 8. Tests Executed
 ```powershell
-python -m pytest tests/test_multicurrency_fx.py tests/test_accounting_api.py -v
-python -m pytest tests/test_routing_boundary_canonical.py tests/test_universal_party_master.py tests/test_universal_item_master.py tests/test_unified_sales_ledger.py tests/test_unified_pricing_payment_engine.py tests/test_unified_approval_communicator.py tests/test_unified_workspace_capability.py tests/test_unified_outbox_analytics.py tests/test_wms_phase1.py tests/test_wms_phase2_grn_sales.py tests/test_wms_phase3_eway_bill.py tests/test_wms_phase4_audit_reconciliation.py tests/test_security_menu_access.py tests/test_unified_accounting_ledger.py tests/test_fiscal_period_brs.py tests/test_accounting_api.py tests/test_multicurrency_fx.py -v
+python -m pytest tests/t_multicurrency.py tests/test_accounting_api.py -v
+python -m pytest tests/t_route_boundary.py tests/t_univ_party.py tests/t_univ_item.py tests/t_sales_ledger.py tests/t_pricing_eng.py tests/t_approval_comm.py tests/t_workspace_cap.py tests/t_outbox_stats.py tests/test_wms_phase1.py tests/t_wms_phase2.py tests/t_wms_phase3.py tests/t_wms_phase4.py tests/t_sec_menu.py tests/t_unified_ledger.py tests/t_fiscal_period.py tests/test_accounting_api.py tests/t_multicurrency.py -v
 ```
 
 ## 9. Verification Results
-- `tests/test_multicurrency_fx.py`: 12/12 PASSED.
+- `tests/t_multicurrency.py`: 12/12 PASSED.
 - `tests/test_accounting_api.py`: 9/9 PASSED.
 - Master Platform Regression Suite: 104/104 PASSED in 59.69s across 17 test suites.
 

@@ -23,11 +23,11 @@ This walkthrough documents the implementation of Milestone **v3.22.0: Multi-Comp
 * Context switching logic in `AuthService.switch_context()` with assignment validation for non-SYSADMIN roles.
 * FastAPI request context dependency (`get_tenant_context`) active assignment verification in database.
 * ORM session preservation via `sqlalchemy.orm.attributes.set_committed_value` during context resolution in `get_current_user`.
-* Automated test suite `backend/app/tests/test_multi_company_tenant_isolation.py` validating login resolution, context switching, 403 authorization guard, and assignment revocation.
+* Automated test suite `backend/app/tests/t_tenant_iso.py` validating login resolution, context switching, 403 authorization guard, and assignment revocation.
 
 ## 3. Files Created
-* `docs/walkthrough/foundation/Foundation_Multi_Company_Assignment_And_Tenant_Isolation_v3.22.0.md`
-* `backend/app/tests/test_multi_company_tenant_isolation.py`
+* `docs/walkthrough/foundation/Fdn_Multi_Company.md`
+* `backend/app/tests/t_tenant_iso.py`
 
 ## 4. Files Modified
 * `backend/app/schemas/auth.py`
@@ -36,7 +36,7 @@ This walkthrough documents the implementation of Milestone **v3.22.0: Multi-Comp
 * `backend/app/api/deps.py`
 * `backend/app/models/user_assignment.py`
 * `backend/app/models/crm.py`
-* `backend/app/tests/test_tenant_isolation.py`
+* `backend/app/tests/t_tenant_isolate.py`
 * `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions
@@ -57,7 +57,7 @@ Multi-store and multi-company enterprise operations require flexible employee as
 ## 8. Tests Executed
 Ran pytest suite across multi-company, tenant isolation, and user management test suites:
 ```bash
-python -m pytest backend/app/tests/test_multi_company_tenant_isolation.py backend/app/tests/test_tenant_isolation.py backend/app/tests/test_user_management.py -v
+python -m pytest backend/app/tests/t_tenant_iso.py backend/app/tests/t_tenant_isolate.py backend/app/tests/t_user_mgmt.py -v
 ```
 
 ## 9. Verification Results
@@ -67,29 +67,29 @@ platform win32 -- Python 3.13.11, pytest-9.1.1, pluggy-1.6.0
 rootdir: F:\SMRITRretailNX\backend
 configfile: pyproject.toml
 
-backend\app\tests\test_multi_company_tenant_isolation.py::test_default_tenant_resolution_on_login PASSED [  4%]
-backend\app\tests\test_multi_company_tenant_isolation.py::test_context_switch_to_assigned_company PASSED [  8%]
-backend\app\tests\test_multi_company_tenant_isolation.py::test_context_switch_denied_for_unassigned_company PASSED [ 13%]
-backend\app\tests\test_multi_company_tenant_isolation.py::test_tenant_context_dependency_validates_assignment PASSED [ 17%]
-backend\app\tests\test_tenant_isolation.py::test_header_validation PASSED [ 21%]
-backend\app\tests\test_tenant_isolation.py::test_read_isolation PASSED   [ 26%]
-backend\app\tests\test_tenant_isolation.py::test_write_validation PASSED [ 30%]
-backend\app\tests\test_tenant_isolation.py::test_service_layer_isolation PASSED [ 34%]
-backend\app\tests\test_tenant_isolation.py::test_cross_tenant_branch_validation PASSED [ 39%]
-backend\app\tests\test_tenant_isolation.py::test_concurrent_duplicate_barcode_returns_400_not_500 PASSED [ 43%]
-backend\app\tests\test_user_management.py::test_sysadmin_can_create_manager PASSED [ 47%]
-backend\app\tests\test_user_management.py::test_cashier_cannot_create_user PASSED [ 52%]
-backend\app\tests\test_user_management.py::test_create_duplicate_username_returns_400 PASSED [ 56%]
-backend\app\tests\test_user_management.py::test_sysadmin_can_list_users PASSED [ 60%]
-backend\app\tests\test_user_management.py::test_cashier_cannot_list_users PASSED [ 65%]
-backend\app\tests\test_user_management.py::test_sysadmin_can_get_any_user PASSED [ 69%]
-backend\app\tests\test_user_management.py::test_user_can_get_own_profile PASSED [ 73%]
-backend\app\tests\test_user_management.py::test_cashier_cannot_get_other_user PASSED [ 78%]
-backend\app\tests\test_user_management.py::test_sysadmin_can_update_user_role PASSED [ 82%]
-backend\app\tests\test_user_management.py::test_get_nonexistent_user_returns_404 PASSED [ 86%]
-backend\app\tests\test_user_management.py::test_sysadmin_can_deactivate_user PASSED [ 91%]
-backend\app\tests\test_user_management.py::test_sysadmin_cannot_deactivate_self PASSED [ 95%]
-backend\app\tests\test_user_management.py::test_change_own_password_valid PASSED [100%]
+backend\app\tests\t_tenant_iso.py::test_default_tenant_resolution_on_login PASSED [  4%]
+backend\app\tests\t_tenant_iso.py::test_context_switch_to_assigned_company PASSED [  8%]
+backend\app\tests\t_tenant_iso.py::test_context_switch_denied_for_unassigned_company PASSED [ 13%]
+backend\app\tests\t_tenant_iso.py::test_tenant_context_dependency_validates_assignment PASSED [ 17%]
+backend\app\tests\t_tenant_isolate.py::test_header_validation PASSED [ 21%]
+backend\app\tests\t_tenant_isolate.py::test_read_isolation PASSED   [ 26%]
+backend\app\tests\t_tenant_isolate.py::test_write_validation PASSED [ 30%]
+backend\app\tests\t_tenant_isolate.py::test_service_layer_isolation PASSED [ 34%]
+backend\app\tests\t_tenant_isolate.py::test_cross_tenant_branch_validation PASSED [ 39%]
+backend\app\tests\t_tenant_isolate.py::test_concurrent_duplicate_barcode_returns_400_not_500 PASSED [ 43%]
+backend\app\tests\t_user_mgmt.py::test_sysadmin_can_create_manager PASSED [ 47%]
+backend\app\tests\t_user_mgmt.py::test_cashier_cannot_create_user PASSED [ 52%]
+backend\app\tests\t_user_mgmt.py::test_create_duplicate_username_returns_400 PASSED [ 56%]
+backend\app\tests\t_user_mgmt.py::test_sysadmin_can_list_users PASSED [ 60%]
+backend\app\tests\t_user_mgmt.py::test_cashier_cannot_list_users PASSED [ 65%]
+backend\app\tests\t_user_mgmt.py::test_sysadmin_can_get_any_user PASSED [ 69%]
+backend\app\tests\t_user_mgmt.py::test_user_can_get_own_profile PASSED [ 73%]
+backend\app\tests\t_user_mgmt.py::test_cashier_cannot_get_other_user PASSED [ 78%]
+backend\app\tests\t_user_mgmt.py::test_sysadmin_can_update_user_role PASSED [ 82%]
+backend\app\tests\t_user_mgmt.py::test_get_nonexistent_user_returns_404 PASSED [ 86%]
+backend\app\tests\t_user_mgmt.py::test_sysadmin_can_deactivate_user PASSED [ 91%]
+backend\app\tests\t_user_mgmt.py::test_sysadmin_cannot_deactivate_self PASSED [ 95%]
+backend\app\tests\t_user_mgmt.py::test_change_own_password_valid PASSED [100%]
 
 ================= 23 passed, 122 warnings in 67.30s (0:01:07) =================
 ```

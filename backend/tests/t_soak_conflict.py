@@ -15,13 +15,13 @@ PURPOSE
 -------
 This is the ACTUAL concurrent offline soak test suite for SMRITI.
 
-Unlike the sequential scenario tests in test_offline_conflict_resolution_scenarios.py,
+Unlike the sequential scenario tests in t_conflict_res.py,
 every test here fires multiple simultaneous coroutines via asyncio.gather (or, for the
 REST surface, via concurrent httpx calls) so that the engine processes competing writes
 against the same shared resource at the same time.
 
 This directly verifies the named gap that was cited in
-docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md:
+docs/architecture/PLATFORM.md:
   "Long-running multi-client conflict resolution under genuine concurrent offline drift
    (asyncio.gather / concurrent writes to the same record) has not been verified and
    requires physical soak testing before this row can move to Verified."
@@ -51,7 +51,7 @@ from app.schemas.sync import (
     SyncOperationItem,
     SyncResolutionStatus,
 )
-from app.services.offline_conflict_resolution_engine import OfflineConflictResolutionEngine
+from app.services.conflict_engine import OfflineConflictResolutionEngine
 
 
 # ---------------------------------------------------------------------------

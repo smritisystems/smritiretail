@@ -27,19 +27,19 @@ Document the comprehensive hardening of the Customer Flow across the frontend PO
 - **Orphan Customer Reconciler**:
   - Added `backend/app/core/reconcile_customers.py` to audit and auto-repair any detached historical invoice records.
 - **Automated Verification**:
-  - Created `src/tests/customerPolicyEnforcement.test.ts` (5 tests covering credit limits, warning thresholds, credit hold, and Price Group policies).
+  - Created `src/tests/custPolicy.test.ts` (5 tests covering credit limits, warning thresholds, credit hold, and Price Group policies).
 
 ## 3. Files Created
-- `src/tests/customerPolicyEnforcement.test.ts`
+- `src/tests/custPolicy.test.ts`
 - `backend/app/core/reconcile_customers.py`
-- `docs/walkthrough/crm/CRM_Customer_Flow_Policy_Enforcement_And_Referential_Integrity_v6.15.0.md`
+- `docs/walkthrough/crm/CRM_Customer_Flow.md`
 
 ## 4. Files Modified
 - `backend/app/db/seed_customers.py`
 - `backend/app/services/crm.py`
 - `backend/app/services/sales.py`
 - `src/services/customerStore.ts`
-- `src/tests/customerFlowIntegrity.test.ts`
+- `src/tests/custFlow.test.ts`
 - `docs/implementation/README.md`
 - `docs/walkthrough/README.md`
 - `CHANGELOG.md`
@@ -55,12 +55,12 @@ None.
 1. Seeded `CUST-WALKIN` in `CANONICAL_CUSTOMERS` (`seed_customers.py`).
 2. Updated `sales.py` to auto-resolve `customer_id` and execute `crm_service.check_credit_limit`.
 3. Created `reconcile_customers.py` database repair utility.
-4. Added Vitest unit test suite `customerPolicyEnforcement.test.ts`.
+4. Added Vitest unit test suite `custPolicy.test.ts`.
 5. Built production bundle and deployed containers.
 
 ## 8. Tests Executed
-- `npx vitest run src/tests/customerPolicyEnforcement.test.ts` (5/5 passed).
-- `npx vitest run src/tests/customerFlowIntegrity.test.ts` (4/4 passed).
+- `npx vitest run src/tests/custPolicy.test.ts` (5/5 passed).
+- `npx vitest run src/tests/custFlow.test.ts` (4/4 passed).
 - Full Vitest suite: `npx vitest run` (38 test files, 282/282 tests passed).
 - `npm run build`: Compiled in 25.43s.
 

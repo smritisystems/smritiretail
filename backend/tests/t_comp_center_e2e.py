@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import pytest
 from fastapi import HTTPException
 from app.models.auth import User, UserRole
-from app.api.v1.company_control_center import (
+from app.api.v1.company_center import (
     validate_company_code,
     get_company_detail,
     create_company_request,

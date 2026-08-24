@@ -37,7 +37,7 @@ from app.schemas.sync import (
     SyncConflictCategory,
     SyncConflictResolutionStrategy
 )
-from app.services.offline_conflict_resolution_engine import OfflineConflictResolutionEngine
+from app.services.conflict_engine import OfflineConflictResolutionEngine
 
 
 def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:

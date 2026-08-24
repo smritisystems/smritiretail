@@ -1,4 +1,4 @@
-MASTER COMMAND: MC-METADATA-ARCHITECTURE-DECISION_v1.1_precondition_patch
+MASTER COMMAND: MC-METADATA-ARCHIT
 PHASE: 2 of 2 (Architecture Decision + Evidence Standard)
 
 Revision note (v1.0 → v1.1): Adds a targeted ledger currency check to guard against stale evidence when the repository advances after the ledger was written.
@@ -7,7 +7,7 @@ Revision note (v1.0 → v1.1): Adds a targeted ledger currency check to guard ag
 
 Before doing anything else:
 
-1. Confirm `docs/governance/METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md` exists.
+1. Confirm `docs/governance/METADATA.md` exists.
 2. Confirm every claim in it is tagged VERIFIED / SELF-REPORTED / UNVERIFIED (per its own Evidence Standard section).
 3. Confirm Appendix A ("Prior Verified Findings") has been explicitly reconciled — confirmed or contradicted with citations, not silently repeated or dropped.
 4. NEW — Confirm the ledger's recorded repository fingerprint (commit SHA) still matches current HEAD.

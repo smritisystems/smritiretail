@@ -137,4 +137,4 @@ Every synced operation returns an explicit, machine-readable result adhering to 
 
 1. **No Silent Overwrites**: Every non-trivial conflict must emit an immutable SHA-256 compliance audit log in `compliance_immutable_audit_logs`.
 2. **Reconciliation Queue Visibility**: The Store Manager / Back-Office workspace must have real-time visibility into all items marked `NEEDS_REVIEW` or `ACCEPTED_WARN`.
-3. **Physical Hardware Independence**: The conflict resolution engine executes server-side within the transactional core (`backend/app/services/offline_conflict_resolution_engine.py`) and is verifiable via automated soak-test suites.
+3. **Physical Hardware Independence**: The conflict resolution engine executes server-side within the transactional core (`backend/app/services/conflict_engine.py`) and is verifiable via automated soak-test suites.

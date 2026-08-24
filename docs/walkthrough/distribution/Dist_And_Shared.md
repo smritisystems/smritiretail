@@ -35,15 +35,15 @@ This document establishes the implementation, database convergence, and test ver
 - `backend/app/models/distribution.py`: SQLAlchemy database models for territories, dealer assignments, distribution orders, and line items.
 - `backend/alembic/versions/v1365_distribution_core.py`: Forward-only migration creating distribution tables with `BaseEntity` contract.
 - `backend/app/services/pricing_engine.py`: Unified pricing resolver for price books, volume breaks, and customer tiers.
-- `backend/app/services/distribution_service.py`: Distribution business engine handling orders, credit checks, and stock movement dispatch.
+- `backend/app/services/distribution_svc.py`: Distribution business engine handling orders, credit checks, and stock movement dispatch.
 - `backend/app/api/v1/distribution.py`: FastAPI REST API endpoints for distribution domain.
-- `backend/tests/test_distribution_and_shared_pricing_engine.py`: Automated pytest verification suite covering pricing breaks, distribution orders, stock movements, and API endpoints.
+- `backend/tests/t_dist_pricing.py`: Automated pytest verification suite covering pricing breaks, distribution orders, stock movements, and API endpoints.
 
 ## 4. Files Modified
 - `backend/app/models/__init__.py`: Exported Distribution models (`DistributionTerritory`, `DealerAssignment`, `DistributionOrder`, `DistributionOrderItem`).
 - `backend/app/main.py`: Registered `distribution.router` under prefix `/api/v1/distribution`.
 - `backend/alembic/versions/v1364_party_item_snapshots.py`: Added clean-slate table creation for Universal Party, Item, and Pricing models.
-- `backend/tests/test_ephemeral_tenant_migration_harness.py`: Added distribution tables and head revision assertion for `v1365_distribution_core`.
+- `backend/tests/t_tenant_migr.py`: Added distribution tables and head revision assertion for `v1365_distribution_core`.
 
 ## 5. Architecture Decisions
 - **ADR-DIST-001 (Unified Order Structure):** Primary (Manufacturer to Distributor) and Secondary (Distributor to Retailer) flows use a single canonical `DistributionOrder` entity differentiated by `order_type`, avoiding duplicate schemas while isolating operational flows.
@@ -61,7 +61,7 @@ This document establishes the implementation, database convergence, and test ver
 
 ## 8. Tests Executed
 ```bash
-python -m pytest tests/test_distribution_and_shared_pricing_engine.py tests/test_universal_party_and_item_convergence.py tests/test_governed_logic_and_reproducibility.py tests/test_workspace_menu_and_ui_registry.py tests/test_capability_and_module_registry.py tests/test_reference_data_and_localization.py tests/test_ephemeral_tenant_migration_harness.py tests/test_unified_pricing_payment_engine.py tests/test_unified_sales_ledger.py tests/test_unified_accounting_ledger.py tests/test_pos_shift_gl_integration.py -v --tb=short
+python -m pytest tests/t_dist_pricing.py tests/t_univ_converge.py tests/t_gov_logic.py tests/t_menu_registry.py tests/t_cap_registry.py tests/t_ref_data_loc.py tests/t_tenant_migr.py tests/t_pricing_eng.py tests/t_sales_ledger.py tests/t_unified_ledger.py tests/t_pos_shift_gl.py -v --tb=short
 ```
 
 ## 9. Verification Results

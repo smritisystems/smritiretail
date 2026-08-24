@@ -15,7 +15,7 @@ import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import pytest
-from app.services.company_database_resolver import (
+from app.services.db_resolver import (
     generate_company_database_name,
     validate_company_database_name,
     CompanyDatabaseResolver

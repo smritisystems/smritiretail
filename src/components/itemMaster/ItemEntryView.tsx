@@ -22,24 +22,24 @@ import {
   serializeProductAttributes,
   ItemMasterFieldDefinition
 } from "./types.ts";
-import { FieldSelectionViewTab } from "./tabs/FieldSelectionViewTab.tsx";
+import { FieldSelectTab } from "./tabs/FieldSelectViewTab.tsx";
 import { ItemDetailsGridTab } from "./tabs/ItemDetailsGridTab.tsx";
-import { SmritiItemMasterStudio } from "./SmritiItemMasterStudio.tsx";
-import { ItemMasterSaveWarningModal } from "./modals/ItemMasterSaveWarningModal.tsx";
+import { ItemMasterStudio } from "./ItemMasterStudio.tsx";
+import { ItemSaveWarnDlg } from "./modals/ItemSaveWarnDlg.tsx";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { Product, AttributeDefinition } from "../../types.ts";
 
 const STORAGE_KEY_SELECTED_FIELDS = "smriti_item_master_selected_fields_v1";
 const STORAGE_KEY_COMMON_FIELDS = "smriti_item_master_common_fields_v1";
 
-interface ItemMasterEntryViewProps {
+interface ItemEntryViewwProps {
   onRefreshProducts?: () => Promise<void>;
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
   currentUser?: { role: string; name: string } | null;
   existingProducts?: Product[];
 }
 
-export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
+export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
   onRefreshProducts,
   onNotification,
   currentUser,
@@ -59,7 +59,7 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
           setDynamicDefinitions(defs);
         }
       } catch (err) {
-        console.warn("Could not load dynamic attribute definitions for ItemMasterEntryView:", err);
+        console.warn("Could not load dynamic attribute definitions for ItemEntryView:", err);
       }
     };
     loadDynamicAttributes();
@@ -365,7 +365,7 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
       {/* Sub-Tab View Switching */}
       <div className="flex-1 overflow-hidden min-h-[500px]">
         {activeSubTab === "view" && (
-          <FieldSelectionViewTab
+          <FieldSelectTab
             selectedFieldIds={selectedFieldIds}
             onSaveSelection={handleSaveFieldSelection}
             onCancel={() => setActiveSubTab("details")}
@@ -389,7 +389,7 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
         )}
 
         {(activeSubTab as string) === "bulk_studio" && (
-          <SmritiItemMasterStudio
+          <ItemMasterStudio
             onNotification={onNotification}
             onRefreshProducts={onRefreshProducts}
             currentUser={currentUser}
@@ -399,7 +399,7 @@ export const ItemMasterEntryView: React.FC<ItemMasterEntryViewProps> = ({
       </div>
 
       {/* Warning / Combination Confirmation Modal */}
-      <ItemMasterSaveWarningModal
+      <ItemSaveWarnDlg
         isOpen={warningModalState.isOpen}
         message={warningModalState.message}
         onConfirm={() => executeCommitItems(warningModalState.pendingItems)}

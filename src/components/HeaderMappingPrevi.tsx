@@ -28,7 +28,7 @@ import {
 import { SMRITI_ITEM_MASTER_FIELDS, addCustomAlias } from "../lib/headerMapping/HeaderAliasRegistry";
 import { defaultHeaderMappingEngine } from "../lib/headerMapping/HeaderMappingEngine";
 
-interface HeaderMappingPreviewModalProps {
+interface HeaderMapPrevewModalProps {
   isOpen: boolean;
   mappingResult: HeaderMappingEngineResult | null;
   availableFields?: SmritiFieldDefinition[];
@@ -44,7 +44,7 @@ interface MultiTargetConfirmDialogState {
   targets: MappingTarget[];
 }
 
-export const HeaderMappingPreviewModal: React.FC<HeaderMappingPreviewModalProps> = ({
+export const HeaderMapPrevewModal: React.FC<HeaderMapPrevewModalProps> = ({
   isOpen,
   mappingResult,
   availableFields = SMRITI_ITEM_MASTER_FIELDS,

@@ -17,10 +17,10 @@ def test_supplier_dashboard_component_zero_state_remediation():
     """
     Test Blocker #8 P2 Data Trust: Wire/Remove All Identified Mock Business KPI Data.
     Asserts:
-    - SupplierDashboardTab.tsx file does not contain hardcoded demo figures ('4,25,800', 'TechCorp Distributors')
+    - SupplierDashTab.tsx file does not contain hardcoded demo figures ('4,25,800', 'TechCorp Distributors')
     - Zero-record state renders honest zeroes ('₹0.00', '0 Open POs', '0.0 Days')
     """
-    filepath = r"F:\SMRITRretailNX\src\components\SupplierDashboardTab.tsx"
+    filepath = r"F:\SMRITRretailNX\src\components\SupplierDashTab.tsx"
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
 

@@ -21,7 +21,7 @@ from httpx import AsyncClient, ASGITransport
 
 from app.main import app
 from app.core.config import settings, Settings
-from app.services.company_database_resolver import CompanyDatabaseResolver
+from app.services.db_resolver import CompanyDatabaseResolver
 
 
 @pytest.mark.asyncio

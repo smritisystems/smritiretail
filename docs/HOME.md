@@ -36,9 +36,9 @@ Welcome to the **SMRITI Retail OS** integrated knowledge base. This wiki is auto
 | 👤 **User Guide** | [User Guide & Help Manual](user_guide/USER_GUIDE.md) | Cashier operations, keyboard shortcuts, POS workflows, CRM ledger |
 | 🛠️ **Developer Guide** | [Developer & Architecture Guide](developer_guide/DEVELOPER_GUIDE.md) | Core architecture, PAL, CRM sync, ledger allocations |
 | 🔍 **Troubleshooting** | [Troubleshooting & Support Manual](troubleshooting/TROUBLESHOOTING.md) | Common issues, resolutions, CRM sync, hotkey fixes |
-| 🏗️ **Architecture** | [Platform Adapter Rules](architecture/PLATFORM_ADAPTER_RULES.md) | Framework isolation, PAL adapter coding rules |
+| 🏗️ **Architecture** | [Platform Adapter Rules](architecture/PLATFORM_ADAPTER.md) | Framework isolation, PAL adapter coding rules |
 | 📖 **Walkthroughs** | [Walkthrough Index](walkthrough/README.md) | Versioned development walkthroughs index |
-| 📋 **Consolidated Walkthroughs** | [All Walkthroughs Ledger](walkthrough/CONSOLIDATED_WALKTHROUGHS.md) | Master chronological walkthrough ledger |
+| 📋 **Consolidated Walkthroughs** | [All Walkthroughs Ledger](walkthrough/CONSOLIDATED.md) | Master chronological walkthrough ledger |
 | 🗂️ **Implementation Plans** | [Implementation Plans Index](implementation/README.md) | Versioned implementation plans index |
 | 📋 **Consolidated Plans** | [All Plans Ledger](implementation/CONSOLIDATED_PLANS.md) | Master chronological implementation plans ledger |
 

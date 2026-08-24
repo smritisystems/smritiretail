@@ -22,7 +22,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_ROUTING = r"F:\SMRITRretailNX\docs\architecture\SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md"
+DOC_ROUTING = r"F:\SMRITRretailNX\docs\architecture\DATABASE_ROUTING.md"
 
 def audit_business_endpoint_routing():
     print("============================================================")

@@ -23,11 +23,11 @@ Implement an enterprise-wide, zero-dependency **Global Export Center** across th
 - Reusable UI Components & Dialogs: `src/components/export/ExportButton.tsx`, `src/components/export/ExportCenterModal.tsx`
 - Reusable React Integration Hook: `src/hooks/useGlobalExport.ts`
 - Workspace Integrations:
-  - Item Master (`src/components/itemMaster/SmritiItemDetailsGrid.tsx`)
-  - Customer Master (`src/components/customer/SmritiCustomerMasterWorkspace.tsx`)
+  - Item Master (`src/components/itemMaster/ItemDetGrid.tsx`)
+  - Customer Master (`src/components/customer/CustMasterWs.tsx`)
   - Universal Ledger Framework (`src/components/global/ledger/LedgerScreen.tsx`) covering Stock Ledger, Business Ledger, and Audit Logs
   - BI & Report Designer (`src/components/ReportDesignerTab.tsx`)
-- Automated Vitest Test Suite: `src/tests/globalExportService.test.ts` (11 passing tests)
+- Automated Vitest Test Suite: `src/tests/globalExport.test.ts` (11 passing tests)
 
 ## 3. Files Created
 - `src/components/export/types.ts` — TypeScript definitions for export formats, scopes, columns, metadata, and progress state.
@@ -35,15 +35,15 @@ Implement an enterprise-wide, zero-dependency **Global Export Center** across th
 - `src/components/export/ExportButton.tsx` — Reusable dropdown trigger offering quick exports and advanced modal launch.
 - `src/components/export/ExportCenterModal.tsx` — Interactive configuration modal with format, scope, column checklist, filter preview, live progress bar, and cancellation support.
 - `src/hooks/useGlobalExport.ts` — Clean React hook providing 1-line export integration.
-- `src/tests/globalExportService.test.ts` — Vitest unit & integration test suite.
-- `docs/walkthrough/foundation/Global_Export_Center_Multi_Format_Multi_Scope_v3.25.0.md` — This walkthrough document.
+- `src/tests/globalExport.test.ts` — Vitest unit & integration test suite.
+- `docs/walkthrough/foundation/Global_Export.md` — This walkthrough document.
 
 ## 4. Files Modified
-- `src/components/itemMaster/SmritiItemDetailsGrid.tsx` — Integrated `ExportButton` into the footer action bar and catalog mappings.
-- `src/components/customer/SmritiCustomerMasterWorkspace.tsx` — Integrated `ExportButton` into customer master workspace toolbar.
+- `src/components/itemMaster/ItemDetGrid.tsx` — Integrated `ExportButton` into the footer action bar and catalog mappings.
+- `src/components/customer/CustMasterWs.tsx` — Integrated `ExportButton` into customer master workspace toolbar.
 - `src/components/global/ledger/LedgerScreen.tsx` — Upgraded standard ledger export toolbar from static CSV to full `ExportButton`.
 - `src/components/ReportDesignerTab.tsx` — Replaced manual blob generation with `GlobalExportService.exportDataset`.
-- `src/tests/itemMasterTacticalGrid.test.ts` — Updated mandatory fields check to include all 9 required attributes.
+- `src/tests/itemGrid.test.ts` — Updated mandatory fields check to include all 9 required attributes.
 - `docs/walkthrough/README.md` — Appended master index.
 
 ## 5. Architecture Decisions
@@ -68,9 +68,9 @@ Implement an enterprise-wide, zero-dependency **Global Export Center** across th
   - **Selected Rows**: Exports checked/selected records.
 
 ## 8. Tests Executed
-- `npx vitest run src/tests/globalExportService.test.ts` (11/11 passed in 64ms).
+- `npx vitest run src/tests/globalExport.test.ts` (11/11 passed in 64ms).
 - `npx vitest run` (319/319 tests passed across 41 test files in 12.44s).
-- `$env:PYTHONPATH="backend"; pytest backend/tests/test_item_master_required_validation.py backend/tests/test_universal_item_master.py -v` (43/43 backend tests passed).
+- `$env:PYTHONPATH="backend"; pytest backend/tests/t_item_val.py backend/tests/t_univ_item.py -v` (43/43 backend tests passed).
 - `npm run build` (Production Vite bundle compiled in 25.57s with 0 errors).
 
 ## 9. Verification Results

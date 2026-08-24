@@ -142,9 +142,9 @@ src/
 ## 8. Files Created
 - `src/core/interfaces/db.ts` — Core repository interfaces.
 - `src/core/domain/entities.ts` — Clean entity schemas.
-- `src/db/postgres/PostgresRepositories.ts` — PostgreSQL implementation of database ports.
+- `src/db/postgres/PgRepos.ts` — PostgreSQL implementation of database ports.
 - `src/db/sqlite/SqliteRepositories.ts` — SQLite stub implementations.
-- `src/db/indexeddb/IndexedDbRepositories.ts` — IndexedDB stub implementations.
+- `src/db/indexeddb/IdbRepos.ts` — IndexedDB stub implementations.
 - `src/core/sync/SyncEngine.ts` — Offline-first local-first write queue and reconciliation loops.
 - `src/bootstrap/di.ts` — Bootstrapper injecting repositories into Express handlers at startup.
 
@@ -206,4 +206,4 @@ Completed.
 ---
 
 ## 19. Related Walkthroughs
-- [Clean Architecture & Sync Engine Walkthrough](../../walkthrough/foundation/Clean_Architecture_And_Offline_First_Walkthrough_v3.0.0.md)
+- [Clean Architecture & Sync Engine Walkthrough](../../walkthrough/foundation/Clean_Arch_And.md)

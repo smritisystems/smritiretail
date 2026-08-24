@@ -48,12 +48,12 @@ Provide enterprise-grade business intelligence across Sales, Purchase, Inventory
 
 ## 8. Files Created
 - `backend/app/models/reporting.py`
-- `backend/tests/test_reporting_and_dashboard_engine.py`
-- `backend/tests/test_report_execution_and_data_integrity.py`
-- `scripts/audit_reporting_dashboard_engine.py`
-- `scripts/audit_report_execution_data_integrity.py`
-- `docs/architecture/SMRITI_REPORTING_DASHBOARD_ENGINE_v1.0.md`
-- `docs/architecture/SMRITI_REPORT_EXECUTION_DATA_INTEGRITY_v1.0.md`
+- `backend/tests/t_report_engine.py`
+- `backend/tests/t_report_exec.py`
+- `scripts/audit_reporting.py`
+- `scripts/audit_report_exec.py`
+- `docs/architecture/REPORTING.md`
+- `docs/architecture/REPORT_EXECUTION.md`
 
 ## 9. Files Modified
 - `backend/app/models/__init__.py`
@@ -73,13 +73,13 @@ Provide enterprise-grade business intelligence across Sales, Purchase, Inventory
 
 ## 13. Verification Plan
 - Executed Pytest across all 25 backend test suites (75 passed).
-- Executed audit scripts (`scripts/audit_report_execution_data_integrity.py`).
+- Executed audit scripts (`scripts/audit_report_exec.py`).
 
 ## 14. Test Plan
 - Unit tests, integration tests, cross-company isolation tests, data integrity reconciliation tests.
 
 ## 15. Documentation Impact
-- Added Walkthrough: [`docs/walkthrough/reports/Reporting_Platform_And_Data_Integrity_v1.0.md`](file:///F:/SMRITRretailNX/docs/walkthrough/reports/Reporting_Platform_And_Data_Integrity_v1.0.md).
+- Added Walkthrough: [`docs/walkthrough/reports/Reporting.md`](file:///F:/SMRITRretailNX/docs/walkthrough/reports/Reporting.md).
 - Updated Master Indexes: `docs/walkthrough/README.md`, `docs/implementation/README.md`.
 
 ## 16. Deployment Plan
@@ -92,4 +92,4 @@ Completed
 - ADR-001 Platform Architecture & Multi-Tenant Separation
 
 ## 19. Related Walkthroughs
-- [`docs/walkthrough/reports/Reporting_Platform_And_Data_Integrity_v1.0.md`](file:///F:/SMRITRretailNX/docs/walkthrough/reports/Reporting_Platform_And_Data_Integrity_v1.0.md)
+- [`docs/walkthrough/reports/Reporting.md`](file:///F:/SMRITRretailNX/docs/walkthrough/reports/Reporting.md)

@@ -20,11 +20,11 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from backend.app.services.company_database_provisioner import CompanyDatabaseProvisioner
+from backend.app.services.db_provisioner import CompanyDatabaseProvisioner
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_PROVISIONING = r"F:\SMRITRretailNX\docs\architecture\SMRITI_COMPANY_DATABASE_PROVISIONING_ENGINE_v1.0.md"
+DOC_PROVISIONING = r"F:\SMRITRretailNX\docs\architecture\COMPANY_DATABASE.md"
 
 def run_provisioning_audit():
     print("============================================================")
@@ -78,7 +78,7 @@ def run_provisioning_audit():
         "LIFECYCLE": pd.DataFrame([{"states": "PROVISIONING -> READY -> SUSPENDED -> ARCHIVED -> DECOMMISSIONED"}]),
         "BACKUP_RECOVERY": pd.DataFrame([{"strategy": "Pre-migration backup & fail-safe rollback"}]),
         "PROVISIONING_AUDIT": pd.DataFrame([{"audit_table": "smritisys.smriti_audit_log"}]),
-        "PROVISIONING_TESTS": pd.DataFrame([{"suite": "test_company_db_provisioning.py", "status": "5/5 PASSED"}]),
+        "PROVISIONING_TESTS": pd.DataFrame([{"suite": "t_comp_db_prov.py", "status": "5/5 PASSED"}]),
         "PROVISIONING_DECISION": p_summary
     }
 
@@ -117,7 +117,7 @@ def run_provisioning_audit():
     wb.save(EXCEL_OUTPUT)
     wb.close()
 
-    # 5. Write Documentation Spec: SMRITI_COMPANY_DATABASE_PROVISIONING_ENGINE_v1.0.md
+    # 5. Write Documentation Spec: COMPANY_DATABASE.md
     with open(DOC_PROVISIONING, "w", encoding="utf-8") as f:
         f.write(f"""<!--
   Project      : SMRITI Retail OS

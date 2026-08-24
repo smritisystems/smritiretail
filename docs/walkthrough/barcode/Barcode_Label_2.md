@@ -25,8 +25,8 @@ This release provides a production-grade upgrade for Tag & Barcode Label Printin
   - Asynchronous print job acknowledgment endpoint (`POST /api/v1/barcode/print-jobs/{job_id}/ack`) tracking actual hardware spooling status in `PrintHistory`.
 - **Frontend Clients:**
   - Integration of official `qz-tray` JavaScript client in `src/utils/qzTrayClient.ts` with certificate/signature promise resolution against FastAPI backend.
-  - Live QZ Tray daemon diagnostic testing, Windows printer enumeration, and calibration test printing in `src/components/barcode/BarcodePrinterSelectModal.tsx`.
-  - High-density 5-step tag printing workflow with Item Master criteria filters, 3-state sorting, safety validation gating, and multi-route dispatching in `src/components/barcode/TagLabelPrintingTab.tsx`.
+  - Live QZ Tray daemon diagnostic testing, Windows printer enumeration, and calibration test printing in `src/components/barcode/BarcodePrinterSele.tsx`.
+  - High-density 5-step tag printing workflow with Item Master criteria filters, 3-state sorting, safety validation gating, and multi-route dispatching in `src/components/barcode/TagLabelPrintingTa.tsx`.
 
 ## 3. Files Created
 - `backend/app/services/qz_security.py`
@@ -37,8 +37,8 @@ This release provides a production-grade upgrade for Tag & Barcode Label Printin
 - `backend/app/tests/conftest.py`
 - `backend/app/tests/test_barcode.py`
 - `src/utils/qzTrayClient.ts`
-- `src/components/barcode/BarcodePrinterSelectModal.tsx`
-- `src/components/barcode/TagLabelPrintingTab.tsx`
+- `src/components/barcode/BarcodePrinterSele.tsx`
+- `src/components/barcode/TagLabelPrintingTa.tsx`
 - `src/tests/qzTrayClient.test.ts`
 - `package.json`
 
@@ -61,7 +61,7 @@ This release provides a production-grade upgrade for Tag & Barcode Label Printin
 ## 8. Tests Executed
 - **Frontend Test Suites:**
   - `npx vitest run src/tests/qzTrayClient.test.ts` (6/6 passed)
-  - `npx vitest run src/tests/tagLabelPrinting.test.ts` (22/22 passed)
+  - `npx vitest run src/tests/tagPrinting.test.ts` (22/22 passed)
   - `npm run test -- --run` (308/308 tests passed across 40 test files)
   - `npm run build` (Production build completed with 0 errors)
 - **Backend Test Suites:**

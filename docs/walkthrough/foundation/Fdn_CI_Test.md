@@ -20,11 +20,11 @@ Enforce Python backend test suite runs in the GitHub Actions CI workflow, fix ba
 ## 2. Scope
 * **CI Workflow Configuration**: `.github/workflows/ci.yml` (Change Postgres DB service to `smritisys` and add migration + pytest run steps).
 * **Pytest Testpaths**: `backend/pyproject.toml` (Set testpaths to `app/tests`).
-* **Safe Database Cleaning**: `backend/app/tests/conftest.py` (Add `clear_db` FK-safe helper), and update test modules (`test_auth.py`, `test_pos.py`, `test_user_management.py`) to utilize it.
-* **SGIP Planning Status**: Append Phase 0 constitution-only status warnings to `SGIP_PRODUCT_CONSTITUTION_v1.0.md` and `SGIP_IMPLEMENTATION_PLAN_v1.0.md`.
+* **Safe Database Cleaning**: `backend/app/tests/conftest.py` (Add `clear_db` FK-safe helper), and update test modules (`test_auth.py`, `test_pos.py`, `t_user_mgmt.py`) to utilize it.
+* **SGIP Planning Status**: Append Phase 0 constitution-only status warnings to `SGIP_PRODUCT.md` and `SGIP_IMPLEMENTATION_PLAN_v1.0.md`.
 
 ## 3. Files Created
-1. **[Foundation_CI_Test_Enforcement_And_SGIP_Planning_v3.16.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Foundation_CI_Test_Enforcement_And_SGIP_Planning_v3.16.0.md)** — Walkthrough documentation.
+1. **[Fdn_CI_Test.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Fdn_CI_Test.md)** — Walkthrough documentation.
 
 ## 4. Files Modified
 1. **[.github/workflows/ci.yml](file:///d:/IMP/GitHub/SMRITRretailNX/.github/workflows/ci.yml)** — Added alembic migrations and pytest running.
@@ -32,8 +32,8 @@ Enforce Python backend test suite runs in the GitHub Actions CI workflow, fix ba
 3. **[backend/app/tests/conftest.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/conftest.py)** — Added safe `clear_db` utility.
 4. **[backend/app/tests/test_auth.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/test_auth.py)** — Integrated `clear_db`.
 5. **[backend/app/tests/test_pos.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/test_pos.py)** — Integrated `clear_db`.
-6. **[backend/app/tests/test_user_management.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/test_user_management.py)** — Integrated `clear_db`.
-7. **[SGIP_PRODUCT_CONSTITUTION_v1.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/foundation/SGIP_PRODUCT_CONSTITUTION_v1.0.md)** — Added Phase 0 planning header.
+6. **[backend/app/tests/t_user_mgmt.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/tests/t_user_mgmt.py)** — Integrated `clear_db`.
+7. **[SGIP_PRODUCT.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/foundation/SGIP_PRODUCT.md)** — Added Phase 0 planning header.
 8. **[SGIP_IMPLEMENTATION_PLAN_v1.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/foundation/SGIP_IMPLEMENTATION_PLAN_v1.0.md)** — Added Phase 0 planning header.
 9. **[README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/README.md)** — Walkthrough registry update.
 
@@ -66,7 +66,7 @@ None.
 None.
 
 ## 12. Related ADRs
-* [SGIP_ADR_001_Compliance_Architecture.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/architecture/decisions/SGIP_ADR_001_Compliance_Architecture.md)
+* [SGIP_ADR_001.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/architecture/decisions/SGIP_ADR_001.md)
 
 ## 13. Related RFCs
 None.

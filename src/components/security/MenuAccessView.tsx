@@ -31,13 +31,13 @@ import {
   syncPermissionsWithBackend,
   persistPermissionsToBackend,
   getHousekeepingSecurityConfig,
-} from "../../services/securityManagementStore";
+} from "../../services/securityStore";
 
-interface SmritiMenuAccessControlViewProps {
+interface SmritiMenuAccessViewiewProps {
   onClose: () => void;
 }
 
-export const SmritiMenuAccessControlView: React.FC<SmritiMenuAccessControlViewProps> = ({
+export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
   onClose,
 }) => {
   const [subjectType, setSubjectType] = useState<MenuAccessSubjectType>("User");

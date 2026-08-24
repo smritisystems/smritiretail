@@ -114,4 +114,4 @@ Output:
 ---
 
 ## 13. Related RFCs
-- SMRITI Containerization and Auto-Startup Implementation Plan (`Clean_Architecture_And_Offline_First_Plan_v3.0.0.md`).
+- SMRITI Containerization and Auto-Startup Implementation Plan (`Clean_Arch_And.md`).

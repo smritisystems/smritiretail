@@ -28,13 +28,13 @@ Establish the authoritative, authenticated application-level verification baseli
 - Master Test Regression Suite (338/338 PASS).
 
 ## 3. Files Created
-- `docs/_audit/SMRITI_USER_TRAINING_READINESS_MATRIX.md`
-- `backend/test_authenticated_training_e2e.py`
-- `docs/walkthrough/governance/Governance_User_Training_Readiness_And_E2E_Certification_v1.0.0.md`
+- `docs/_audit/USER_TRAINING.md`
+- `backend/test_authenticated.py`
+- `docs/walkthrough/governance/Gov_User_Training.md`
 
 ## 4. Files Modified
 - `backend/app/api/v1/ecom.py`
-- `docs/SMRITI_DOCUMENTATION_INDEX.md`
+- `docs/DOCUMENTATION.md`
 - `docs/walkthrough/README.md`
 - `DEVELOPMENT_STATUS.md`
 
@@ -60,7 +60,7 @@ A comprehensive authenticated test suite was executed against FastAPI applicatio
 9. Clean database teardown returning `smritisys`, `smriti001`, and `smriti002` to exact zero-delta states.
 
 ## 8. Tests Executed
-- `backend/test_authenticated_training_e2e.py`: 100% PASS (Exit Code 0).
+- `backend/test_authenticated.py`: 100% PASS (Exit Code 0).
 - `pytest tests/ -q`: 158 / 158 PASSED (Exit Code 0).
 - `pytest app/tests/ -q`: 180 / 180 PASSED (Exit Code 0).
 - Total Automated Tests: 338 / 338 PASSED (100%).

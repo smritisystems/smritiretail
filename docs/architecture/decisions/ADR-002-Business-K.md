@@ -7,7 +7,7 @@
   Status       : Draft
   Owner        : Enterprise Architecture
   Reviewers    : Product, Architecture, Engineering
-  Related Docs : PRODUCT_IDENTITY_ENGINE.md, PRODUCT_IDENTITY_ENGINE_CONFIGURATION.md
+  Related Docs : PRODUCT_IDENTITY_13.md, PRODUCT_IDENTITY_2.md
 -->
 
 # ADR-002: Business Key Strategy

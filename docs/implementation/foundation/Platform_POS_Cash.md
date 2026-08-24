@@ -55,9 +55,9 @@ Cashier Drawer
 
 ## 8. Files Created
 1. `backend/alembic/versions/v1346_pos_cash_denominations.py`
-2. `backend/tests/test_pos_cash_drawer_movements.py`
-3. `docs/walkthrough/foundation/Platform_Accounting_POS_Cash_Drawer_Movements_v6.16.0.md`
-4. `docs/implementation/foundation/Platform_POS_Cash_Drawer_Movements_Plan_v6.16.0.md`
+2. `backend/tests/t_pos_drawer.py`
+3. `docs/walkthrough/foundation/Platform_2.md`
+4. `docs/implementation/foundation/Platform_POS_Cash.md`
 
 ## 9. Files Modified
 1. `backend/alembic/env.py`
@@ -67,7 +67,7 @@ Cashier Drawer
 5. `backend/app/schemas/pos.py`
 6. `backend/app/services/pos.py`
 7. `backend/app/api/v1/pos.py`
-8. `backend/tests/test_ephemeral_tenant_migration_harness.py`
+8. `backend/tests/t_tenant_migr.py`
 
 ## 10. Dependencies
 - FastAPI Core backend
@@ -84,7 +84,7 @@ Cashier Drawer
 - Unit and integration tests for denomination calculation, GL voucher postings, API routes, and ephemeral multi-tenant databases.
 
 ## 14. Test Plan
-- `pytest tests/test_pos_cash_drawer_movements.py -v`
+- `pytest tests/t_pos_drawer.py -v`
 - Full 20-suite master regression test across the platform.
 
 ## 15. Documentation Impact
@@ -103,4 +103,4 @@ Completed
 - `ADR-0026-POS-Shift-Double-Entry-Reconciliation`
 
 ## 19. Related Walkthroughs
-- `Platform_Accounting_POS_Cash_Drawer_Movements_v6.16.0.md`
+- `Platform_2.md`

@@ -16,7 +16,7 @@ import React, { useState } from "react";
 import { CancelledBillRecord, ProPosCartItem } from "./types.ts";
 import { X, AlertTriangle, Search, ShieldAlert, CheckCircle } from "lucide-react";
 
-interface SmritiProPosCancellationModalProps {
+interface SmritiProPosCancelDlgProps {
   onCancelBill: (record: CancelledBillRecord) => void;
   onClose: () => void;
 }
@@ -32,7 +32,7 @@ const CANCELLATION_REASONS = [
   "Other Operational Reason"
 ];
 
-export const SmritiProPosCancellationModal: React.FC<SmritiProPosCancellationModalProps> = ({
+export const SmritiProPosCancelDlg: React.FC<SmritiProPosCancelDlgProps> = ({
   onCancelBill,
   onClose
 }) => {
@@ -278,4 +278,4 @@ export const SmritiProPosCancellationModal: React.FC<SmritiProPosCancellationMod
   );
 };
 
-export default SmritiProPosCancellationModal;
+export default SmritiProPosCancelDlg;

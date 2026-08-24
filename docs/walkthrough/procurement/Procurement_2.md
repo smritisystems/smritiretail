@@ -48,7 +48,7 @@ Implement recording payments made to suppliers, providing atomic decrement of su
 | `backend/app/schemas/supplier_payment.py` | Input validation and output serialization schemas |
 | `backend/app/services/supplier_payment.py` | Supplier payment logic and database operations |
 | `backend/app/api/v1/supplier_payment.py` | API endpoints router |
-| `backend/app/tests/test_supplier_payment.py` | 10 automated test cases |
+| `backend/app/tests/t_supp_payment.py` | 10 automated test cases |
 | `backend/alembic/versions/9862a004de1c_add_supplier_payments_table.py` | Migration file for supplier payments |
 
 ---
@@ -97,21 +97,21 @@ GET    /api/v1/supplier-payments/{id} → 200 SupplierPaymentResponse   [any aut
 
 **Command:**
 ```
-python -m pytest app/tests/test_supplier_payment.py -v
+python -m pytest app/tests/t_supp_payment.py -v
 ```
 
 **Output:**
 ```
-app/tests/test_supplier_payment.py::test_record_payment_decrements_outstanding PASSED
-app/tests/test_supplier_payment.py::test_record_payment_with_reference PASSED
-app/tests/test_supplier_payment.py::test_overpayment_is_rejected PASSED
-app/tests/test_supplier_payment.py::test_zero_amount_rejected_by_schema PASSED
-app/tests/test_supplier_payment.py::test_invalid_payment_mode_rejected PASSED
-app/tests/test_supplier_payment.py::test_cashier_cannot_record_payment PASSED
-app/tests/test_supplier_payment.py::test_payment_to_nonexistent_supplier_returns_404 PASSED
-app/tests/test_supplier_payment.py::test_list_payments_scoped_to_tenant PASSED
-app/tests/test_supplier_payment.py::test_list_payments_filter_by_supplier PASSED
-app/tests/test_supplier_payment.py::test_multiple_payments_accumulate_correctly PASSED
+app/tests/t_supp_payment.py::test_record_payment_decrements_outstanding PASSED
+app/tests/t_supp_payment.py::test_record_payment_with_reference PASSED
+app/tests/t_supp_payment.py::test_overpayment_is_rejected PASSED
+app/tests/t_supp_payment.py::test_zero_amount_rejected_by_schema PASSED
+app/tests/t_supp_payment.py::test_invalid_payment_mode_rejected PASSED
+app/tests/t_supp_payment.py::test_cashier_cannot_record_payment PASSED
+app/tests/t_supp_payment.py::test_payment_to_nonexistent_supplier_returns_404 PASSED
+app/tests/t_supp_payment.py::test_list_payments_scoped_to_tenant PASSED
+app/tests/t_supp_payment.py::test_list_payments_filter_by_supplier PASSED
+app/tests/t_supp_payment.py::test_multiple_payments_accumulate_correctly PASSED
 ```
 
 ---

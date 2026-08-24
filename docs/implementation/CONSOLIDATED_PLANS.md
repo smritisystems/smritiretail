@@ -31,7 +31,7 @@ This document serves as the master chronological repository of all technical imp
 
 ## [2026-07-10] v2.1.1 — Sales Studio Expansion
 
-*Original File: [Sales_Studio_Expansion_Plan_v2.1.1.md](./sales/Sales_Studio_Expansion_Plan_v2.1.1.md)*
+*Original File: [Sales_Studio.md](./sales/Sales_Studio.md)*
 
 ### 1. Objective
 Expand and modularize the Sales & Commerce Studio (`SalesStudioTab.tsx`) to match the structural patterns of SMRITI modules like `CrmLoyaltyTab.tsx`. This includes modernizing navigation, integrating smooth route animations, and standardizing scrolling behavior.
@@ -110,13 +110,13 @@ Completed.
 None.
 
 ### 19. Related Walkthroughs
-- [Sales Studio Expansion Walkthrough](../../walkthrough/sales/Sales_Studio_Expansion_Walkthrough_v2.1.1.md)
+- [Sales Studio Expansion Walkthrough](../../walkthrough/sales/Sales_Studio.md)
 
 ---
 
 ## [2026-07-11] v2.1.2 — CRM, Auditing, and POS Upgrades
 
-*Original File: [CRM_Audit_And_POS_Upgrades_Plan_v2.1.2.md](./sales/CRM_Audit_And_POS_Upgrades_Plan_v2.1.2.md)*
+*Original File: [CRM_Audit_And_POS.md](./sales/CRM_Audit_And_POS.md)*
 
 ### 1. Objective
 Upgrading the core architecture and user interface of SMRITI Retail OS, focusing on unified customer CRM data synchronization, global backend audit logging, and split-payment, keyboard-driven POS Terminal enhancements.
@@ -156,7 +156,7 @@ None.
 - `/server.ts`
 - `/src/App.tsx`
 - `/src/services/customerStore.ts`
-- `/src/components/AdvancedBillingEngine.tsx`
+- `/src/components/AdvancedBillingEng.tsx`
 - `/src/components/PosTerminalTab.tsx`
 
 ### 10. Dependencies
@@ -190,14 +190,14 @@ Completed.
 None.
 
 ### 19. Related Walkthroughs
-- [CRM, Auditing, and POS Upgrades Walkthrough](../../walkthrough/sales/Sales_CRM_Audit_And_POS_Upgrades_Walkthrough_v2.1.2.md)
+- [CRM, Auditing, and POS Upgrades Walkthrough](../../walkthrough/sales/Sales_CRM_Audit.md)
 
 ---
 
 ## [2026-07-11] v2.1.4 — PostgreSQL Standalone Modular Architecture
 
 *Area: `db` | Version: `v2.1.4` | Status: Completed*  
-*Original File: [POS_DeepReview_Fixes_Plan_v2.1.3.md](./pos/POS_DeepReview_Fixes_Plan_v2.1.3.md)*
+*Original File: [POS_DeepReview.md](./pos/POS_DeepReview.md)*
 
 ---
 
@@ -229,7 +229,7 @@ This document defines the approved architectural blueprint and implementation pl
 
 ### 7. Proposed Design
 See schema, pool connection, and products/checkout refactored endpoints in:
-`docs/walkthrough/db/PostgreSQL_Initialization_Walkthrough_v2.1.4.md`
+`docs/walkthrough/db/PostgreSQL.md`
 
 ### 8. Files Created
 | File Path | Description |
@@ -274,14 +274,14 @@ Completed.
 - None.
 
 ### 19. Related Walkthroughs
-- [PostgreSQL Standalone Connection & Seeding Walkthrough](../../walkthrough/db/PostgreSQL_Initialization_Walkthrough_v2.1.4.md)
+- [PostgreSQL Standalone Connection & Seeding Walkthrough](../../walkthrough/db/PostgreSQL.md)
 
 ---
 
 ## [2026-07-11] v3.1.0 — Docker Orchestration & Auto-Startup
 
 *Area: `devops` | Version: `v3.1.0` | Status: Completed*  
-*Original File: [Clean_Architecture_And_Offline_First_Plan_v3.0.0.md](./foundation/Clean_Architecture_And_Offline_First_Plan_v3.0.0.md)*
+*Original File: [Clean_Arch_And.md](./foundation/Clean_Arch_And.md)*
 
 ---
 
@@ -314,7 +314,7 @@ In retail shop environments, cashiers and managers should not be expected to man
 
 ### 7. Proposed Design
 See container configurations defined in:
-`docs/walkthrough/devops/Docker_Orchestration_And_Automatic_Startup_Walkthrough_v3.1.0.md`
+`docs/walkthrough/devops/Docker.md`
 
 ### 8. Files Created
 - `Dockerfile` — Production-grade multi-stage node builder.
@@ -347,11 +347,11 @@ Completed.
 - None.
 
 ### 17. Related Walkthroughs
-- [Docker Orchestration & Auto-Startup Walkthrough](../../walkthrough/devops/Docker_Orchestration_And_Automatic_Startup_Walkthrough_v3.1.0.md)
+- [Docker Orchestration & Auto-Startup Walkthrough](../../walkthrough/devops/Docker.md)
 
 ---
 ## [2026-07-11] v3.3.0 — Project Header Standardization
-*Area: `foundation` | Original File: [Project_Header_Standardization_Plan_v3.3.0.md](./foundation/Project_Header_Standardization_Plan_v3.3.0.md)*
+*Area: `foundation` | Original File: [Project_Header.md](./foundation/Project_Header.md)*
 
 # Implementation Plan: Project Header Standardization — v3.3.0
 
@@ -570,7 +570,7 @@ Completed.
 ---
 
 ## [2026-07-11] v3.4.0 — About SMRITI Retail OS
-*Area: `foundation` | Original File: [About_Module_Implementation_Plan_v3.4.0.md](./foundation/About_Module_Implementation_Plan_v3.4.0.md)*
+*Area: `foundation` | Original File: [About_Module_Plan.md](./foundation/About_Module_Plan.md)*
 
 # Implementation Plan: Complete "About SMRITI Retail OS" Module — v3.4.0
 
@@ -733,12 +733,12 @@ Completed.
 ---
 
 ## 19. Related Walkthroughs
-- [Foundation_About_Module_Walkthrough_v3.4.0.md](../walkthrough/foundation/Foundation_About_Module_Walkthrough_v3.4.0.md)
+- [Fdn_About_Module.md](../walkthrough/foundation/Fdn_About_Module.md)
 
 ---
 
 ## [2026-07-11] v3.5.0 — SMRITI Development Intelligence Center (SDIC)
-*Original File: [Dev_Tracker_Implementation_Plan_v3.5.0.md](./foundation/Dev_Tracker_Implementation_Plan_v3.5.0.md)*
+*Original File: [Dev_Tracker_Plan.md](./foundation/Dev_Tracker_Plan.md)*
 
 ### 1. Objective
 Design and implement an automated **SMRITI Development Intelligence Center (SDIC)** that scans codebase files, routers, schemas, tests, and documentation, generates 15 live markdown reports in the workspace root, tracks historical metrics, and renders an interactive dashboard page.
@@ -779,12 +779,12 @@ Completed.
 None.
 
 ### 8. Related Walkthroughs
-- [Foundation_Dev_Tracker_Walkthrough_v3.5.0.md](../walkthrough/foundation/Foundation_Dev_Tracker_Walkthrough_v3.5.0.md)
+- [Fdn_Dev_Tracker.md](../walkthrough/foundation/Fdn_Dev_Tracker.md)
 
 ---
 
 ## [2026-07-11] v3.6.0 — SMRITI FastAPI Core Backend
-*Original File: [SMRITI_FastAPI_Core_Implementation_Plan_v3.6.0.md](./foundation/SMRITI_FastAPI_Core_Implementation_Plan_v3.6.0.md)*
+*Original File: [FastAPI_Core_Plan.md](./foundation/FastAPI_Core_Plan.md)*
 
 ### 1. Objective
 Design and implement a top-level **FastAPI core backend** for SMRITI Retail OS, featuring SQLAlchemy 2.x, Alembic, Pydantic settings, security middleware, Ruff linting, and pytest suites.
@@ -829,6 +829,6 @@ Completed.
 None.
 
 ### 8. Related Walkthroughs
-- [Foundation_FastAPI_Core_Walkthrough_v3.6.0.md](../walkthrough/foundation/Foundation_FastAPI_Core_Walkthrough_v3.6.0.md)
+- [Fdn_FastAPI_Core.md](../walkthrough/foundation/Fdn_FastAPI_Core.md)
 
 

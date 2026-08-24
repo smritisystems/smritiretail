@@ -28,7 +28,7 @@ unreachable and the three unflagged fetch calls broken (404).
 |---|---|---|
 | SalesStudioTab.tsx | Remove 12 if/else blocks + import | 12 |
 | PurchaseStudioTab.tsx | Strip 18 if/else blocks + import (state-machine script) | 18 |
-| InventoryForecastWidget.tsx | Bug fix: broken Express fetch → apiFetchV1 | 2 |
+| InventoryForecastW.tsx | Bug fix: broken Express fetch → apiFetchV1 | 2 |
 | ApprovalMatrixTab.tsx | Bug fix: broken Express fetch → apiFetchV1 | 3 |
 | DrillDownSidePanel.tsx | Bug fix: broken Express fetch → apiFetchV1 | 2 |
 | src/config/flags.ts | Remove USE_FASTAPI_SALES and USE_FASTAPI_PURCHASE | 2 |
@@ -48,7 +48,7 @@ None.
 |---|---|
 | src/components/SalesStudioTab.tsx | Removed 12 if/else blocks; removed isFeatureEnabled import |
 | src/components/PurchaseStudioTab.tsx | Removed 18 if/else blocks; removed isFeatureEnabled import |
-| src/components/InventoryForecastWidget.tsx | Bug fix: Express → apiFetchV1 |
+| src/components/InventoryForecastW.tsx | Bug fix: Express → apiFetchV1 |
 | src/components/ApprovalMatrixTab.tsx | Bug fix: Express → apiFetchV1; added apiFetchV1 import |
 | src/components/drilldown/DrillDownSidePanel.tsx | Bug fix: Express → apiFetchV1; added apiFetchV1 import |
 | src/config/flags.ts | Removed 2 retired flag entries |

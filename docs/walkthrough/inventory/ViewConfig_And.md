@@ -21,23 +21,23 @@ This walkthrough documents the full suite of operational fixes and enhancements 
 * `src/lib/headerMapping/HeaderAliasRegistry.ts`
 * `src/lib/headerMapping/HeaderMappingEngine.ts`
 * `src/services/unifiedFieldCatalog.ts`
-* `src/components/itemMaster/SmritiItemMasterStudio.tsx`
-* `src/components/itemMaster/SmritiAttributeManagementStudio.tsx`
-* `src/components/itemMaster/SmritiViewConfiguration.tsx`
-* `src/components/itemMaster/SmritiItemMasterWorkspace.tsx`
+* `src/components/itemMaster/ItemMasterStudio.tsx`
+* `src/components/itemMaster/AttrMgmtStudio.tsx`
+* `src/components/itemMaster/ViewConfig.tsx`
+* `src/components/itemMaster/ItemMasterWs.tsx`
 
 ## 3. Files Created
-* `docs/implementation/inventory/Implementation_Plan_ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md`
-* `docs/walkthrough/inventory/ViewConfiguration_And_ExcelMapper_Stabilization_v5.6.0.md`
+* `docs/implementation/inventory/Plan_ViewConfig.md`
+* `docs/walkthrough/inventory/ViewConfig_And.md`
 
 ## 4. Files Modified
 * `src/lib/headerMapping/HeaderAliasRegistry.ts`
 * `src/lib/headerMapping/HeaderMappingEngine.ts`
 * `src/services/unifiedFieldCatalog.ts`
-* `src/components/itemMaster/SmritiItemMasterStudio.tsx`
-* `src/components/itemMaster/SmritiAttributeManagementStudio.tsx`
-* `src/components/itemMaster/SmritiViewConfiguration.tsx`
-* `src/components/itemMaster/SmritiItemMasterWorkspace.tsx`
+* `src/components/itemMaster/ItemMasterStudio.tsx`
+* `src/components/itemMaster/AttrMgmtStudio.tsx`
+* `src/components/itemMaster/ViewConfig.tsx`
+* `src/components/itemMaster/ItemMasterWs.tsx`
 * `CHANGELOG.md`
 * `docs/implementation/README.md`
 * `docs/walkthrough/README.md`
@@ -50,14 +50,14 @@ This walkthrough documents the full suite of operational fixes and enhancements 
 
 ### 2. Multi-Delimiter Parser & Normalized Header Row Detection
 * When pasting tabular data copied from non-Excel documents or space-separated files, rows were not split correctly and `isKnownHeader` failed due to unnormalized strings.
-* **Solution**: Enhanced `matrix` parsing in `SmritiItemMasterStudio.tsx` to detect tabs (`\t`), commas (CSV), semicolons, and multiple spaces (`\s{2,}`). Normalized strings inside `isKnownHeader` and `detectHeaderRow` so `Article CODE` correctly matches `article code`.
+* **Solution**: Enhanced `matrix` parsing in `ItemMasterStudio.tsx` to detect tabs (`\t`), commas (CSV), semicolons, and multiple spaces (`\s{2,}`). Normalized strings inside `isKnownHeader` and `detectHeaderRow` so `Article CODE` correctly matches `article code`.
 
 ### 3. Auto-Mapper Field Candidate Registry Fix
 * The auto-mapper candidate list was filtered with `f.canonicalKey`, which evaluated to `undefined` (the property name is `f.key`), leaving `mappingEngine.fields` empty (`[]`) and defaulting all column dropdowns to `(Skip Column)` in red.
-* **Solution**: Fixed filter in `SmritiItemMasterStudio.tsx` to check `isFieldGloballyVisible(cleanKey) || isFieldGloballyVisible(f.key)`, and synchronized custom/removed aliases in `getUnifiedHeaderMappingFields`.
+* **Solution**: Fixed filter in `ItemMasterStudio.tsx` to check `isFieldGloballyVisible(cleanKey) || isFieldGloballyVisible(f.key)`, and synchronized custom/removed aliases in `getUnifiedHeaderMappingFields`.
 
 ### 4. High-Density View Configuration & Global Arrangement Upgrade
-* Refactored `SmritiViewConfiguration.tsx` to dynamically load all system fields and dynamic attributes from `/attributes/definitions`.
+* Refactored `ViewConfig.tsx` to dynamically load all system fields and dynamic attributes from `/attributes/definitions`.
 * Added **Double-Click** transfers between Available (Hidden) and Selected (Visible) column lists.
 * Added **4-Way Reordering Controls**: Move to Top, Move Up, Move Down, Move to Bottom.
 * Added **Quick Presets**: Essential (8 Columns), Standard (14 Columns), and All Fields.
@@ -68,9 +68,9 @@ Provides intuitive, frictionless controls where spreadsheet data auto-maps insta
 
 ## 7. Implementation Summary
 * Updated header registry and alias suppression blacklist in `HeaderAliasRegistry.ts`.
-* Fixed normalization and delimiter detection in `HeaderMappingEngine.ts` and `SmritiItemMasterStudio.tsx`.
+* Fixed normalization and delimiter detection in `HeaderMappingEngine.ts` and `ItemMasterStudio.tsx`.
 * Synchronized alias mapping in `unifiedFieldCatalog.ts`.
-* Overhauled `SmritiViewConfiguration.tsx` with presets and 4-way reordering.
+* Overhauled `ViewConfig.tsx` with presets and 4-way reordering.
 * Rebuilt and deployed via Vite and Docker Compose.
 
 ## 8. Tests Executed

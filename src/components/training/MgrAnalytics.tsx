@@ -14,7 +14,7 @@
 import React from 'react';
 import { Users, Award, ShieldCheck, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 
-export const ManagerAnalyticsConsole: React.FC = () => {
+export const ManagerAnalyticsCo: React.FC = () => {
   const staffRoster = [
     { id: 'EMP-101', name: 'Rajesh Sharma', role: 'Cashier', progress: 100, status: 'Level 1 — Certified', score: 96.0, session: 'TRAIN-2026-101' },
     { id: 'EMP-102', name: 'Priya Verma', role: 'Inventory Clerk', progress: 72, status: 'In Training (Day 4)', score: 88.0, session: 'TRAIN-2026-102' },

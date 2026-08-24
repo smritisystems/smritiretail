@@ -44,8 +44,8 @@ Provide Indian distributors with logistics compliance tooling for goods movement
 
 ## 3. Files Created
 - `backend/app/services/eway_bill_service.py`: Core domain service generating statutory NIC E-Way Bill JSON payloads and Rule 55 Delivery Challans.
-- `backend/tests/test_wms_phase3_eway_bill.py`: Automated pytest suite covering transfer challans, transfer E-Way Bill JSON, and sales invoice E-Way Bill generation.
-- `docs/walkthrough/wms/WMS_Phase3_EWay_Bill_Delivery_Challan_Logistics_v6.16.0.md`: This walkthrough document.
+- `backend/tests/t_wms_phase3.py`: Automated pytest suite covering transfer challans, transfer E-Way Bill JSON, and sales invoice E-Way Bill generation.
+- `docs/walkthrough/wms/WMS_Phase3_EWay.md`: This walkthrough document.
 
 ---
 
@@ -70,7 +70,7 @@ Provide Indian distributors with logistics compliance tooling for goods movement
 5. **Action-Level RBAC Permissions**:
    - Guarded logistics endpoints with granular dependencies: `require_permission("stock_ledger", "VIEW")`, `require_permission("stock_ledger", "EDIT")`, and `require_permission("sales_billing", "VIEW")`.
 6. **Non-Destructive Test Isolation**:
-   - Hardened all test suites (`test_wms_phase1.py`, `test_wms_phase2_grn_sales.py`, `test_wms_phase3_eway_bill.py`) and the live smoke test script (`smoke_test_wms_api.py`) with dedicated test entities and guaranteed `try...finally:` teardown, ensuring 0 residual test rows across all databases.
+   - Hardened all test suites (`test_wms_phase1.py`, `t_wms_phase2.py`, `t_wms_phase3.py`) and the live smoke test script (`smoke_test_wms_api.py`) with dedicated test entities and guaranteed `try...finally:` teardown, ensuring 0 residual test rows across all databases.
 
 ---
 
@@ -92,7 +92,7 @@ Indian FMCG and consumer appliance distributors move goods between central distr
 ## 8. Tests Executed
 1. **Pytest Integration Suite (12/12 Clean Pass)**:
    ```powershell
-   $env:PYTHONPATH='backend'; python -m pytest backend/tests/test_menu_governance.py backend/tests/test_security_menu_access.py backend/tests/test_wms_phase1.py backend/tests/test_wms_phase2_grn_sales.py backend/tests/test_wms_phase3_eway_bill.py
+   $env:PYTHONPATH='backend'; python -m pytest backend/tests/t_menu_gov.py backend/tests/t_sec_menu.py backend/tests/test_wms_phase1.py backend/tests/t_wms_phase2.py backend/tests/t_wms_phase3.py
    ```
    **Output**: `12 passed, 1 warning in 6.39s` (100% green).
 2. **13-Step Non-Destructive Live HTTP Smoke Test**:

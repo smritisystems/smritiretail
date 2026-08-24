@@ -27,7 +27,7 @@ Reorganize the 34 Control Plane menu records into 8 clean navigation groups, est
 - **Timestamped Immutable Backup**: Pre-migration backup captures complete `smriti_menus` table state, schema metadata, constraints, row count, AND latest `sha256_hash` and `prev_hash` from `smriti_audit_log`.
 - **Single Transactional Apply**: All operations execute inside a single PostgreSQL transaction (`BEGIN ... COMMIT`) with automatic `ROLLBACK` on any error.
 - **Audit Hash Integrity**: Structural edits log change entries to `smriti_audit_log` with `sha256_hash` and `prev_hash` chain preservation.
-- **Hardened Audited Rollback**: `scripts/rollback_menu_migration.py` performs transactional rollback by restoring pre-migration values AND writing audit entries with `change_type = 'ROLLBACK'`.
+- **Hardened Audited Rollback**: `scripts/rollback_menu.py` performs transactional rollback by restoring pre-migration values AND writing audit entries with `change_type = 'ROLLBACK'`.
 - **Protected Defaults Preserved**: `menu-dashboard`, `menu-inventory`, `menu-sales`, `menu-reports` identities remain immutable.
 
 ## 4. Current State
@@ -46,7 +46,7 @@ Reorganize the 34 Control Plane menu records into 8 clean navigation groups, est
 - Preserves all 34 primary key menu IDs (`menu-dashboard`, `menu-pos`, `menu-sales`, etc.).
 
 ## 7. Proposed Design
-Controlled dry-run and execution pipeline via `scripts/migrate_menu_governance_v1.py`:
+Controlled dry-run and execution pipeline via `scripts/migr_menu_gov.py`:
 1. **Pre-migration Backup**: Exports database state snapshot to `scratch/backups/smriti_menus_backup_YYYYMMDD_HHMMSS.json`.
 2. **Dry-Run Diff**: Generates exact SQL update statements and prints proposed human decision diff.
 3. **Transactional Apply**: Executes updates inside a single PostgreSQL transaction (`BEGIN ... COMMIT`).
@@ -54,9 +54,9 @@ Controlled dry-run and execution pipeline via `scripts/migrate_menu_governance_v
 5. **Post-migration Verification**: Asserts 34 total records remain active, 4 protected rows preserved, and parent-child parent_id links valid.
 
 ## 8. Files Created
-- `scripts/migrate_menu_governance_v1.py`
-- `scripts/rollback_menu_migration.py`
-- `scripts/verify_menu_migration.py`
+- `scripts/migr_menu_gov.py`
+- `scripts/rollback_menu.py`
+- `scripts/verify_menu_migr.py`
 
 ## 9. Files Modified
 - `docs/implementation/README.md`
@@ -72,26 +72,26 @@ Controlled dry-run and execution pipeline via `scripts/migrate_menu_governance_v
 - *Mitigation*: Fail-closed validation halts execution before any mutation if drift or missing IDs are detected.
 
 ## 12. Rollback Strategy
-Hardened transactional rollback script `scripts/rollback_menu_migration.py` restores pre-migration snapshot values and logs explicit `change_type = 'ROLLBACK'` audit records to `smriti_audit_log`.
+Hardened transactional rollback script `scripts/rollback_menu.py` restores pre-migration snapshot values and logs explicit `change_type = 'ROLLBACK'` audit records to `smriti_audit_log`.
 
 ## 13. Verification Plan
-- `python scripts/verify_menu_migration.py` (Exact 34 IDs, protected defaults, 0 orphans).
-- `pytest backend/tests/test_menu_governance.py`.
-- `python scripts/test_menu_security_matrix.py`.
-- `python scripts/test_browser_navigation_e2e.py`.
+- `python scripts/verify_menu_migr.py` (Exact 34 IDs, protected defaults, 0 orphans).
+- `pytest backend/tests/t_menu_gov.py`.
+- `python scripts/test_menu_sec.py`.
+- `python scripts/test_browser_e2e.py`.
 - `npx vite build`.
 
 ## 14. Test Plan
-- Execution of dry-run mode: `python scripts/migrate_menu_governance_v1.py --dry-run` (PASSED).
+- Execution of dry-run mode: `python scripts/migr_menu_gov.py --dry-run` (PASSED).
 
 ## 15. Documentation Impact
 Update documentation registry and issue migration walkthrough report.
 
 ## 16. Deployment Plan
-1. Run dry-run mode: `python scripts/migrate_menu_governance_v1.py --dry-run`
+1. Run dry-run mode: `python scripts/migr_menu_gov.py --dry-run`
 2. Review human decision diff and SQL diff with human architect.
-3. Run apply mode ONLY UPON EXPLICIT HUMAN APPROVAL: `python scripts/migrate_menu_governance_v1.py --apply`
-4. Run verification suite: `python scripts/verify_menu_migration.py`
+3. Run apply mode ONLY UPON EXPLICIT HUMAN APPROVAL: `python scripts/migr_menu_gov.py --apply`
+4. Run verification suite: `python scripts/verify_menu_migr.py`
 
 ## 17. Status
 DRY_RUN_PASSED / READY_FOR_APPROVAL
@@ -100,4 +100,4 @@ DRY_RUN_PASSED / READY_FOR_APPROVAL
 - ADR-014: Control Plane Security & Single Workspace Architecture.
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Menu_Management_Governance_v1.0.md`
+- `docs/walkthrough/foundation/Menu_Mgmt_Gov_v1.0.md`

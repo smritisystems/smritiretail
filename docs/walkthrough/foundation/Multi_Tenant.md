@@ -23,23 +23,23 @@ Resolve remaining regression test failure clusters in the SMRITI multi-tenant pl
 ---
 
 ## 2. Scope
-- `backend/app/db/control_plane_seeder.py`: Sentinel platform company insertion (`comp-default`) to satisfy `smriti_themes.company_id` foreign key constraints on the Control Plane.
+- `backend/app/db/ctrl_seeder.py`: Sentinel platform company insertion (`comp-default`) to satisfy `smriti_themes.company_id` foreign key constraints on the Control Plane.
 - `backend/app/schemas/sales.py`: Pydantic `SalesInvoiceBase.is_interstate` field nullability normalization (`Optional[bool]`).
-- `backend/tests/test_sales_invoice_contract_suite.py`: Multi-tenant routing target alignment (`COMP-002`), suite-level test DB cleanup, stock initialization, and tax-exclusive pricing assertion.
+- `backend/tests/t_sales_contract.py`: Multi-tenant routing target alignment (`COMP-002`), suite-level test DB cleanup, stock initialization, and tax-exclusive pricing assertion.
 - PostgreSQL Control & Data Planes: `smriti002` provisioning and migration up to `v1370_tcb_status (head)`.
 
 ---
 
 ## 3. Files Created
-- `docs/walkthrough/foundation/Multi_Tenant_Sales_Contract_And_Workspace_Themes_Remediation_v3.26.0.md`
+- `docs/walkthrough/foundation/Multi_Tenant.md`
 
 ---
 
 ## 4. Files Modified
-- `backend/app/db/control_plane_seeder.py`
+- `backend/app/db/ctrl_seeder.py`
 - `backend/app/schemas/sales.py`
-- `backend/tests/test_sales_invoice_contract_suite.py`
-- `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`
+- `backend/tests/t_sales_contract.py`
+- `docs/architecture/PLATFORM.md`
 - `docs/walkthrough/README.md`
 
 ---
@@ -62,14 +62,14 @@ Resolve remaining regression test failure clusters in the SMRITI multi-tenant pl
 - Migrated `smriti002` database to Alembic head `v1370_tcb_status`.
 - Registered `COMP-002` in `smritisys.company_database_registries`.
 - Corrected `SalesInvoiceBase.is_interstate` field definition.
-- Updated `test_sales_invoice_contract_suite.py` with one-time cleanup fixture and explicit tax-exclusive item configuration.
+- Updated `t_sales_contract.py` with one-time cleanup fixture and explicit tax-exclusive item configuration.
 
 ---
 
 ## 8. Tests Executed
 ```bash
-python -m pytest tests/test_workspace_menu_and_ui_registry.py -v --tb=short
-python -m pytest tests/test_sales_invoice_contract_suite.py -v --tb=short
+python -m pytest tests/t_menu_registry.py -v --tb=short
+python -m pytest tests/t_sales_contract.py -v --tb=short
 python -m pytest tests/ --no-header -q
 ```
 
@@ -77,29 +77,29 @@ python -m pytest tests/ --no-header -q
 
 ## 9. Verification Results
 
-### `test_workspace_menu_and_ui_registry.py` (6/6 Passed)
+### `t_menu_registry.py` (6/6 Passed)
 ```text
-tests/test_workspace_menu_and_ui_registry.py::test_themes_and_variants_api PASSED
-tests/test_workspace_menu_and_ui_registry.py::test_workspace_profiles_api PASSED
-tests/test_workspace_menu_and_ui_registry.py::test_my_workspace_profile_persona_resolution PASSED
-tests/test_workspace_menu_and_ui_registry.py::test_resolved_menus_sysadmin_full_access PASSED
-tests/test_workspace_menu_and_ui_registry.py::test_resolved_menus_cashier_pruning_and_security PASSED
-tests/test_workspace_menu_and_ui_registry.py::test_database_backed_workspace_templates PASSED
+tests/t_menu_registry.py::test_themes_and_variants_api PASSED
+tests/t_menu_registry.py::test_workspace_profiles_api PASSED
+tests/t_menu_registry.py::test_my_workspace_profile_persona_resolution PASSED
+tests/t_menu_registry.py::test_resolved_menus_sysadmin_full_access PASSED
+tests/t_menu_registry.py::test_resolved_menus_cashier_pruning_and_security PASSED
+tests/t_menu_registry.py::test_database_backed_workspace_templates PASSED
 ======================== 6 passed, 5 warnings in 7.45s ========================
 ```
 
-### `test_sales_invoice_contract_suite.py` (10/10 Passed)
+### `t_sales_contract.py` (10/10 Passed)
 ```text
-tests/test_sales_invoice_contract_suite.py::test_01_multi_tenant_routing_company_a PASSED
-tests/test_sales_invoice_contract_suite.py::test_02_multi_tenant_routing_company_b PASSED
-tests/test_sales_invoice_contract_suite.py::test_03_header_tampering_and_cross_tenant_isolation_forbidden PASSED
-tests/test_sales_invoice_contract_suite.py::test_04_create_invoice_and_verify_stock_deduction PASSED
-tests/test_sales_invoice_contract_suite.py::test_05_create_invoice_outbox_event PASSED
-tests/test_sales_invoice_contract_suite.py::test_06_get_invoice_detail_authoritative PASSED
-tests/test_sales_invoice_contract_suite.py::test_07_get_html_preview_matches_db PASSED
-tests/test_sales_invoice_contract_suite.py::test_08_get_pdf_rendered_successfully PASSED
-tests/test_sales_invoice_contract_suite.py::test_09_print_preview_structure PASSED
-tests/test_sales_invoice_contract_suite.py::test_10_double_submit_idempotency_semantics PASSED
+tests/t_sales_contract.py::test_01_multi_tenant_routing_company_a PASSED
+tests/t_sales_contract.py::test_02_multi_tenant_routing_company_b PASSED
+tests/t_sales_contract.py::test_03_header_tampering_and_cross_tenant_isolation_forbidden PASSED
+tests/t_sales_contract.py::test_04_create_invoice_and_verify_stock_deduction PASSED
+tests/t_sales_contract.py::test_05_create_invoice_outbox_event PASSED
+tests/t_sales_contract.py::test_06_get_invoice_detail_authoritative PASSED
+tests/t_sales_contract.py::test_07_get_html_preview_matches_db PASSED
+tests/t_sales_contract.py::test_08_get_pdf_rendered_successfully PASSED
+tests/t_sales_contract.py::test_09_print_preview_structure PASSED
+tests/t_sales_contract.py::test_10_double_submit_idempotency_semantics PASSED
 ======================= 10 passed, 5 warnings in 9.75s ========================
 ```
 
@@ -117,8 +117,8 @@ Net Delta: +17 tests turned GREEN
 ---
 
 ## 11. Future Work
-- Execute batch invoice PDF export generator to populate the physical disk artifact directories for `test_canonical_tax_invoice_frozen.py` and `test_tt_batch_74_103_verification.py`.
-- Reconcile item master variant collection attribute mapping in `test_universal_item_master.py`.
+- Execute batch invoice PDF export generator to populate the physical disk artifact directories for `t_canonical_tax.py` and `t_tt_batch_74_103.py`.
+- Reconcile item master variant collection attribute mapping in `t_univ_item.py`.
 
 ---
 

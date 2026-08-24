@@ -31,7 +31,7 @@ This document serves as the master chronological repository of all development w
 
 ## [2026-07-10] v2.1.1 — Sales Studio Expansion
 
-*Original File: [Sales_Studio_Expansion_Walkthrough_v2.1.1.md](./sales/Sales_Studio_Expansion_Walkthrough_v2.1.1.md)*
+*Original File: [Sales_Studio.md](./sales/Sales_Studio.md)*
 
 ### 1. Purpose
 This walkthrough documents the aesthetic modernization of the SMRITI Sales & Commerce Studio (`SalesStudioTab.tsx`) subview selector to bring it in line with standard SMRITI visual and UX patterns.
@@ -84,7 +84,7 @@ None.
 
 ## [2026-07-11] v2.1.2 — CRM, Auditing, and POS Upgrades
 
-*Original File: [Sales_CRM_Audit_And_POS_Upgrades_Walkthrough_v2.1.2.md](./sales/Sales_CRM_Audit_And_POS_Upgrades_Walkthrough_v2.1.2.md)*
+*Original File: [Sales_CRM_Audit.md](./sales/Sales_CRM_Audit.md)*
 
 ### 1. Purpose
 This walkthrough documents the full-stack updates implemented to resolve the operational and architectural gaps identified in SMRITI Retail OS. This includes backend audit logging automation, remote database CRM synchronization, and POS checkout enhancements (split payments, hotkeys event listeners, and on-screen toolbar shortcuts).
@@ -103,7 +103,7 @@ None.
 - `/server.ts`
 - `/src/App.tsx`
 - `/src/services/customerStore.ts`
-- `/src/components/AdvancedBillingEngine.tsx`
+- `/src/components/AdvancedBillingEng.tsx`
 - `/src/components/PosTerminalTab.tsx`
 
 ### 5. Architecture Decisions
@@ -155,7 +155,7 @@ None.
 ## [2026-07-11] v2.1.4 — PostgreSQL Standalone Connection & Tables Seeding
 
 *Area: `db` | Version: `v2.1.4` | Status: Completed*  
-*Original File: [PostgreSQL_Initialization_Walkthrough_v2.1.4.md](./db/PostgreSQL_Initialization_Walkthrough_v2.1.4.md)*
+*Original File: [PostgreSQL.md](./db/PostgreSQL.md)*
 
 ---
 
@@ -225,14 +225,14 @@ Output:
 - None.
 
 ### 13. Related RFCs
-- PostgreSQL stand-alone migration plan (`POS_DeepReview_Fixes_Plan_v2.1.3.md`).
+- PostgreSQL stand-alone migration plan (`POS_DeepReview.md`).
 
 ---
 
 ## [2026-07-11] v3.0.0 — Clean Architecture & Offline-First Sync Engine
 
 *Area: `foundation` | Version: `v3.0.0` | Status: Completed*  
-*Original File: [Clean_Architecture_And_Offline_First_Walkthrough_v3.0.0.md](./foundation/Clean_Architecture_And_Offline_First_Walkthrough_v3.0.0.md)*
+*Original File: [Clean_Arch_And.md](./foundation/Clean_Arch_And.md)*
 
 ---
 
@@ -258,9 +258,9 @@ This walkthrough documents the implementation of the Ports and Adapters (Hexagon
 | `src/core/services/BillingService.ts` | Billing use-case class encapsulating POS checkout business rules |
 | `src/core/sync/SyncEngine.ts` | Background polling sync coordinator with retry handling |
 | `src/bootstrap/di.ts` | Platform Abstraction Layer DI Bootstrapper mapping repositories |
-| `src/db/postgres/PostgresRepositories.ts` | PostgreSQL implementation of database ports |
+| `src/db/postgres/PgRepos.ts` | PostgreSQL implementation of database ports |
 | `src/db/sqlite/SqliteRepositories.ts` | SQLite stub repositories for Android |
-| `src/db/indexeddb/IndexedDbRepositories.ts` | IndexedDB stub repositories for Web/PWA |
+| `src/db/indexeddb/IdbRepos.ts` | IndexedDB stub repositories for Web/PWA |
 
 ### 4. Files Modified
 | File Path | Description |
@@ -310,14 +310,14 @@ Output:
 - None.
 
 ### 13. Related RFCs
-- SMRITI Clean Architecture Implementation Plan (`Clean_Architecture_And_Offline_First_Plan_v3.0.0.md`).
+- SMRITI Clean Architecture Implementation Plan (`Clean_Arch_And.md`).
 
 ---
 
 ## [2026-07-11] v3.1.0 — Docker Orchestration & Automatic Startup
 
 *Area: `devops` | Version: `v3.1.0` | Status: Completed*  
-*Original File: [Docker_Orchestration_And_Automatic_Startup_Walkthrough_v3.1.0.md](./devops/Docker_Orchestration_And_Automatic_Startup_Walkthrough_v3.1.0.md)*
+*Original File: [Docker.md](./devops/Docker.md)*
 
 ---
 
@@ -386,11 +386,11 @@ Output:
 - None.
 
 ### 13. Related RFCs
-- SMRITI Containerization and Auto-Startup Implementation Plan (`Clean_Architecture_And_Offline_First_Plan_v3.0.0.md`).
+- SMRITI Containerization and Auto-Startup Implementation Plan (`Clean_Arch_And.md`).
 
 ---
 ## [2026-07-11] v3.3.0 — Project Header Standardization
-*Area: `foundation` | Original File: [Project_Header_Standardization_Walkthrough_v3.3.0.md](./foundation/Project_Header_Standardization_Walkthrough_v3.3.0.md)*
+*Area: `foundation` | Original File: [Project_Header.md](./foundation/Project_Header.md)*
 
 # Walkthrough: Project Header Standardization — v3.3.0
 
@@ -467,11 +467,11 @@ Output:
 ---
 
 ## 13. Related RFCs
-- SMRITI Project Header Standardization Implementation Plan (`Project_Header_Standardization_Plan_v3.3.0.md`).
+- SMRITI Project Header Standardization Implementation Plan (`Project_Header.md`).
 
 ---
 ## [2026-07-11] v3.4.0 — About SMRITI Retail OS
-*Area: `foundation` | Original File: [Foundation_About_Module_Walkthrough_v3.4.0.md](./foundation/Foundation_About_Module_Walkthrough_v3.4.0.md)*
+*Area: `foundation` | Original File: [Fdn_About_Module.md](./foundation/Fdn_About_Module.md)*
 
 # Walkthrough: Complete "About SMRITI Retail OS" Module — v3.4.0
 
@@ -563,12 +563,12 @@ Output:
 ---
 
 ## 13. Related RFCs
-- SMRITI About Module Implementation Plan (`About_Module_Implementation_Plan_v3.4.0.md`).
+- SMRITI About Module Implementation Plan (`About_Module_Plan.md`).
 
 ---
 
 ## [2026-07-11] v3.5.0 — SMRITI Development Intelligence Center (SDIC)
-*Area: `foundation` | Original File: [Foundation_Dev_Tracker_Walkthrough_v3.5.0.md](./foundation/Foundation_Dev_Tracker_Walkthrough_v3.5.0.md)*
+*Area: `foundation` | Original File: [Fdn_Dev_Tracker.md](./foundation/Fdn_Dev_Tracker.md)*
 
 ### 1. Purpose
 Design and implement an automated development intelligence, diagnostics, and code quality scanner that tracks completeness and outputs status pages directly in the workspace.
@@ -635,12 +635,12 @@ Incorporate dynamic pre-commit hooks to automatically execute scans.
 None.
 
 ### 13. Related RFCs
-- SMRITI SDIC Implementation Plan (`Dev_Tracker_Implementation_Plan_v3.5.0.md`).
+- SMRITI SDIC Implementation Plan (`Dev_Tracker_Plan.md`).
 
 ---
 
 ## [2026-07-11] v3.6.0 — SMRITI FastAPI Core Backend
-*Area: `foundation` | Original File: [Foundation_FastAPI_Core_Walkthrough_v3.6.0.md](./foundation/Foundation_FastAPI_Core_Walkthrough_v3.6.0.md)*
+*Area: `foundation` | Original File: [Fdn_FastAPI_Core.md](./foundation/Fdn_FastAPI_Core.md)*
 
 ### 1. Purpose
 Evolve SMRITI backend architecture by setting up a dedicated Python FastAPI core application in the root directory.
@@ -707,6 +707,6 @@ Migrate Express data services to FastAPI.
 None.
 
 ### 13. Related RFCs
-- SMRITI FastAPI Core Plan (`SMRITI_FastAPI_Core_Implementation_Plan_v3.6.0.md`).
+- SMRITI FastAPI Core Plan (`FastAPI_Core_Plan.md`).
 
 

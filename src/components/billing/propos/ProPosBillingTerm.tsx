@@ -23,22 +23,22 @@ import {
   POSZReportData,
   ShiftCashMovementRecord
 } from "./types.ts";
-import { SmritiProPosSettlementModal } from "./SmritiProPosSettlementModal.tsx";
-import { SmritiProPosRecallModal } from "./SmritiProPosRecallModal.tsx";
-import { SmritiProPosCancellationModal } from "./SmritiProPosCancellationModal.tsx";
-import { SmritiProPosLoyaltyLookupModal } from "./SmritiProPosLoyaltyLookupModal.tsx";
-import { SmritiProPosSalesReturnModal } from "./SmritiProPosSalesReturnModal.tsx";
-import { SmritiProPosTaxInvoiceReceipt } from "./SmritiProPosTaxInvoiceReceipt.tsx";
-import { SmritiProPosPdtImportModal } from "./SmritiProPosPdtImportModal.tsx";
-import { SmritiCustomerBrowseModal } from "./SmritiCustomerBrowseModal.tsx";
-import { SmritiProPosHotkeysModal } from "./SmritiProPosHotkeysModal.tsx";
-import { SmritiProPosReprintModal } from "./SmritiProPosReprintModal.tsx";
-import { SmritiProPosCashMovementsModal } from "./SmritiProPosCashMovementsModal.tsx";
-import { SmritiProPosShiftCloseModal } from "./SmritiProPosShiftCloseModal.tsx";
+import { SmritiPosSettlement } from "./ProPosSettlementDl.tsx";
+import { SmritiProPosRecallDlg } from "./ProPosRecallDlg.tsx";
+import { SmritiProPosCancelDlg } from "./ProPosCancellation.tsx";
+import { SmritiLoyaltyLookupDlgpModal } from "./ProPosLoyaltyLooku.tsx";
+import { SmritiProPosSalesReturnModal } from "./ProPosSalesReturnD.tsx";
+import { SmritiProPosTaxInvoiceReceipt } from "./ProPosTaxInvoiceRc.tsx";
+import { SmritiPdtImportDlg } from "./ProPosPdtImportDlg.tsx";
+import { SmritiCustomerBrowseModal } from "./CustBrowseDlg.tsx";
+import { SmritiProPosHotkeysDlg } from "./ProPosHotkeysDlg.tsx";
+import { SmritiProPosReprintDlg } from "./ProPosReprintDlg.tsx";
+import { SmritiProPosCashMovementsModal } from "./ProPosCashMovesDlg.tsx";
+import { SmritiProPosShiftCloseModal } from "./ProPosShiftCloseDl.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../../utils/gstEngine.ts";
 import { searchBackendProducts, AutoPopulateProductResult } from "../../../services/autoPopulateService.ts";
-import { SmritiItemTypeaheadDropdown } from "../../common/SmritiItemTypeaheadDropdown.tsx";
+import { SmritiItemTypeaheadDropdown } from "../../common/ItemTypeaheadDrop.tsx";
 import { 
   Barcode, 
   Search, 
@@ -70,11 +70,11 @@ import {
   Lock
 } from "lucide-react";
 
-interface SmritiProPosBillingTerminalProps {
+interface SmritiProPosBillinginalProps {
   onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
 }
 
-export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalProps> = ({
+export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = ({
   onNotification
 }) => {
   // --- POS Mode & Activity State ---
@@ -1648,13 +1648,13 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       {/* 4. MODALS & POPUPS (Customer Browse, PDT Import, Recall, Void, Settle)    */}
       {/* ========================================================================= */}
       {showHotkeysModal && (
-        <SmritiProPosHotkeysModal
+        <SmritiProPosHotkeysDlg
           onClose={() => setShowHotkeysModal(false)}
         />
       )}
 
       {showReprintModal && (
-        <SmritiProPosReprintModal
+        <SmritiProPosReprintDlg
           onReprintBill={(docType, docNo) => {
             onNotification?.("Document Reprinted", `${docType} #${docNo} sent to thermal printer.`, "success");
           }}
@@ -1673,14 +1673,14 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       )}
 
       {showPdtImportModal && (
-        <SmritiProPosPdtImportModal
+        <SmritiPdtImportDlg
           onImportItems={handlePdtImportSuccess}
           onClose={() => setShowPdtImportModal(false)}
         />
       )}
 
       {showSettlementModal && (
-        <SmritiProPosSettlementModal
+        <SmritiPosSettlement
           netAmount={netPayableAmount}
           customer={customer}
           onSettle={handleSettlementSuccess}
@@ -1689,7 +1689,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       )}
 
       {showRecallModal && (
-        <SmritiProPosRecallModal
+        <SmritiProPosRecallDlg
           suspendedBills={suspendedBills}
           onRecallBill={handleRecallBill}
           onDeleteSuspendedBill={(id) => setSuspendedBills(prev => prev.filter(b => b.id !== id))}
@@ -1698,7 +1698,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       )}
 
       {showCancelModal && (
-        <SmritiProPosCancellationModal
+        <SmritiProPosCancelDlg
           onCancelBill={(rec) => {
             onNotification?.("Invoice Cancelled", `Bill ${rec.billNo} voided successfully.`, "info");
           }}
@@ -1707,7 +1707,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       )}
 
       {showLoyaltyModal && (
-        <SmritiProPosLoyaltyLookupModal
+        <SmritiLoyaltyLookupDlgpModal
           currentCustomer={customer}
           onSelectCustomer={(c) => setCustomer(c)}
           onApplyLoyaltyPoints={(pts, amt) => {
@@ -1777,4 +1777,4 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   );
 };
 
-export default SmritiProPosBillingTerminal;
+export default SmritiProPosBillinginal;

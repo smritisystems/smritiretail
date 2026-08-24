@@ -27,8 +27,8 @@ from app.models.governed_logic import (
     PolicyDefinition,
     WorkflowDefinition,
 )
-from app.services.governed_rule_engine import GovernedRuleEngine
-from app.services.transaction_reproducibility_service import TransactionReproducibilityService
+from app.services.governed_rules import GovernedRuleEngine
+from app.services.tx_reproduce_svc import TransactionReproducibilityService
 
 router = APIRouter()
 

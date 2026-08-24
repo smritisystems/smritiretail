@@ -14,11 +14,11 @@ import React, { useState } from "react";
 import { Lock, ArrowRight, AlertTriangle } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetch.ts";
 
-interface PasswordResetScreenProps {
+interface PasswordResetnProps {
   onResetSuccess: () => void;
 }
 
-export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ onResetSuccess }) => {
+export const PasswordReset: React.FC<PasswordResetnProps> = ({ onResetSuccess }) => {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

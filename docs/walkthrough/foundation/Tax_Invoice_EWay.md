@@ -22,7 +22,7 @@ This walkthrough documents the implementation of the layout-aware, native PDF Ac
 - PDF Export Engine post-processing (`scratch/generate_canonical_reference_pdfs.py`).
 - Print Template HTML Anchor (`src/print_engine/templates/StandardInvoiceA4.tsx`).
 - Sales Studio Invoice Creation & Details View (`src/components/SalesStudioTab.tsx`).
-- Database mapping & FastAPI schema aliases (`backend/app/schemas/sales.py`, `src/db/postgres/PostgresRepositories.ts`).
+- Database mapping & FastAPI schema aliases (`backend/app/schemas/sales.py`, `src/db/postgres/PgRepos.ts`).
 - Verification & Test Automation Suite (`scratch/test_eway_bill_pdf_acroform.py`, `scratch/inspect_exported_pdf_acroforms.py`).
 
 ---
@@ -39,7 +39,7 @@ This walkthrough documents the implementation of the layout-aware, native PDF Ac
 2. `scratch/generate_canonical_reference_pdfs.py` — Added `dom_to_pdf_coords()` coordinate mapper, duplicate widget check, and PyMuPDF `fitz.Widget()` text field injection.
 3. `src/components/SalesStudioTab.tsx` — Restricted E-Way Bill inputs to 13-digit numeric `/^\d*$/` and added inline editable field in Selected Invoice view.
 4. `backend/app/schemas/sales.py` — Added `AliasChoices` validation alias for camelCase / snake_case payloads.
-5. `src/db/postgres/PostgresRepositories.ts` — Mapped `eway_bill_no` column across PostgreSQL queries.
+5. `src/db/postgres/PgRepos.ts` — Mapped `eway_bill_no` column across PostgreSQL queries.
 
 ---
 

@@ -48,14 +48,14 @@ Previously, View Configuration saved the custom column arrangement locally for t
 * All catalog, matrix, and report viewer tables consume `isFieldGloballyVisible(key)` and `getGloballyVisibleFields()`.
 
 ## 8. Files Created
-* `docs/implementation/inventory/Implementation_Plan_Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md`
-* `docs/walkthrough/inventory/Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md`
+* `docs/implementation/inventory/Plan_Universal.md`
+* `docs/walkthrough/inventory/Universal.md`
 
 ## 9. Files Modified
 * `src/services/unifiedFieldCatalog.ts`
-* `src/components/itemMaster/SmritiItemDetailsGrid.tsx`
-* `src/components/itemMaster/SmritiItemCatalogGrid.tsx`
-* `src/components/itemMaster/SmritiViewConfiguration.tsx`
+* `src/components/itemMaster/ItemDetGrid.tsx`
+* `src/components/itemMaster/ItemCatGrid.tsx`
+* `src/components/itemMaster/ViewConfig.tsx`
 * `src/components/ReportDesignerTab.tsx`
 * `docs/implementation/README.md`
 * `docs/walkthrough/README.md`
@@ -91,4 +91,4 @@ Completed.
 * `ADR-0045-Global-Column-Ordering-Engine`
 
 ## 19. Related Walkthroughs
-* `docs/walkthrough/inventory/Universal_ViewConfiguration_GlobalSchemaControl_v5.4.0.md`
+* `docs/walkthrough/inventory/Universal.md`

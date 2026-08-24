@@ -22,7 +22,7 @@ from app.main import app
 from app.api.deps import get_company_db, get_tenant_context, TenantContext, get_current_user
 from app.db.session import get_company_sessionmaker
 from app.models.auth import User, UserRole
-from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from app.services.unified_ledger import UnifiedAccountingLedgerService
 
 
 @pytest.fixture

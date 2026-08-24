@@ -22,7 +22,7 @@ This plan consolidates SMRITI's master and organizational data storage onto the 
 > **Security Behavior Change (Authorization Gates):** We are adding `require_role(MANAGER, SYSADMIN)` and `get_current_user` dependencies to all write paths (create, update, delete) in both Tier-1 (lookup values) and Tier-2 (companies, branches, stores, warehouses) master API endpoints. On the legacy Express side, Tier-1 write endpoints lacked role-based authorization check. This is a security hardening action that will be audited before go-live.
 
 > [!NOTE]
-> **Preserving Contract Shapes:** All new FastAPI endpoints under `/api/v1/masters/...` will return identical JSON payloads matching what the Express masters API returned field-for-field (e.g. mapping boolean properties to status strings/camelCase keys where required) to prevent code churn inside the frontend `MasterManagementTab.tsx`.
+> **Preserving Contract Shapes:** All new FastAPI endpoints under `/api/v1/masters/...` will return identical JSON payloads matching what the Express masters API returned field-for-field (e.g. mapping boolean properties to status strings/camelCase keys where required) to prevent code churn inside the frontend `MasterMgmtTab.tsx`.
 
 ## Open Questions
 
@@ -69,7 +69,7 @@ This plan consolidates SMRITI's master and organizational data storage onto the 
 
 ### Frontend Components (React & Layout Engine)
 
-#### [MODIFY] [MasterManagementTab.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/MasterManagementTab.tsx)
+#### [MODIFY] [MasterMgmtTab.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/MasterMgmtTab.tsx)
 * Change backend base URL fetches from `/api/masters/...` to `/api/v1/masters/...`.
 
 ---

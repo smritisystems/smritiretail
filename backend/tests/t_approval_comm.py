@@ -20,7 +20,7 @@ import pytest
 from decimal import Decimal
 from sqlalchemy import select, delete
 from app.db.session import get_company_sessionmaker
-from app.services.unified_approval_communicator_service import UnifiedApprovalCommunicatorService
+from app.services.unified_approval import UnifiedApprovalCommunicatorService
 from app.models.approval import ApprovalPolicy, ApprovalRequest, ApprovalAction
 from app.models.communicator import CommunicatorTemplate, CommunicatorLog
 

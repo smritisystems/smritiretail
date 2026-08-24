@@ -25,7 +25,7 @@ This walkthrough documents the visual refactor of the **POS Billing & Quick Chec
 - **Business Logic & Hotkeys**: Retained 100% of shift register lifecycle operations (Open Shift, Close Register), held bill slots (sessionStorage backing), keyboard shortcuts (`Esc`, `F2`, `F3`, `F12`), customer loyalty lookup, and calculation engine.
 
 ## 3. Files Created
-- `docs/walkthrough/pos/POS_Billing_Terminal_Refactor_v3.28.0.md`
+- `docs/walkthrough/pos/POS_Billing.md`
 
 ## 4. Files Modified
 - `src/components/PosTerminalTab.tsx` (Version 3.28.0 header block updated, Lucide icons added, Shift control bar, search/catalog, cart desk, and locked register views refactored).

@@ -50,7 +50,7 @@ Dependencies point inward. Express acts as the proxy gateway, capturing and vali
 
 ## 9. Files Modified
 - `backend/app/models/auth.py`
-- `src/db/postgres/PostgresRepositories.ts`
+- `src/db/postgres/PgRepos.ts`
 - `src/state/store.ts`
 - `db_store.json`
 - `server.ts`
@@ -91,4 +91,4 @@ Completed.
 None.
 
 ## 19. Related Walkthroughs
-- [Foundation_Report_User_Role_And_Audit_Logging_v3.16.0.md](../../walkthrough/foundation/Foundation_Report_User_Role_And_Audit_Logging_v3.16.0.md)
+- [Fdn_Report_User.md](../../walkthrough/foundation/Fdn_Report_User.md)

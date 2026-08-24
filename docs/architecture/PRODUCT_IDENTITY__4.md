@@ -5,8 +5,8 @@
   Owner: Architecture & Data Migration
   Reviewers: Product, Engineering, Operations
   Last Updated: 2026-07-18
-  Dependencies: PRODUCT_IDENTITY_ENGINE.md, PRODUCT_IDENTITY_ENGINE_CONFIGURATION.md
-  Related Documents: PRODUCT_IDENTITY_ENGINE_TEST_PLAN.md, PRODUCT_IDENTITY_ENGINE_NFR.md
+  Dependencies: PRODUCT_IDENTITY_13.md, PRODUCT_IDENTITY_2.md
+  Related Documents: PRODUCT_IDENTITY__5.md, PRODUCT_IDENTITY_12.md
   Change History:
     - v1.0 2026-07-18 Created.
 -->

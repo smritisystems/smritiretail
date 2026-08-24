@@ -14,8 +14,8 @@
 # SMRITI RETAIL OS — GLOBAL DOCUMENTATION RECONCILIATION REPORT
 
 **Audit Protocol:** Repository-Wide Documentation Reconciliation & Baseline Synchronization  
-**Canonical Architecture:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
-**Documentation Index:** [`docs/SMRITI_DOCUMENTATION_INDEX.md`](file:///F:/SMRITRretailNX/docs/SMRITI_DOCUMENTATION_INDEX.md)  
+**Canonical Architecture:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
+**Documentation Index:** [`docs/DOCUMENTATION.md`](file:///F:/SMRITRretailNX/docs/DOCUMENTATION.md)  
 **Date:** 2026-08-17  
 **Status:** **DOCUMENTATION RECONCILIATION COMPLETE**
 
@@ -89,25 +89,25 @@ A full audit and synchronization of all repository documentation was conducted t
 
 | Question | Authoritative Answer | Canonical Reference |
 |---|---|---|
-| Q1: Where is Control Plane? | **`smritisys`** | `SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md` |
-| Q2: Where is Company 001 operational state? | **`smriti001`** | `SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md` |
-| Q3: Where is Company 001 PSV? | **`smriti001`** | `PSV_COMPANY_LOCAL_ARCHITECTURE_CERTIFICATION.md` |
-| Q4: Where is Company 002 PSV? | **`smriti002`** | `PSV_COMPANY_LOCAL_ARCHITECTURE_CERTIFICATION.md` |
-| Q5: Is there a shared SmritiPSV operational DB? | **NO (Dropped & Superseded)** | `PSV_COMPANY_LOCAL_ARCHITECTURE_CERTIFICATION.md` |
-| Q6: Is eCommerce a core SMRITI capability? | **YES (Core Channel)** | `ECOMMERCE_CORE_CAPABILITY_AUDIT.md` |
-| Q7: Is eCommerce a separate ERP? | **NO (Converges on Company DB)** | `AI_AGENT_ARCHITECTURE_RULES.md` (Rule 11) |
+| Q1: Where is Control Plane? | **`smritisys`** | `MULTI_COMPANY_2.md` |
+| Q2: Where is Company 001 operational state? | **`smriti001`** | `MULTI_COMPANY_2.md` |
+| Q3: Where is Company 001 PSV? | **`smriti001`** | `PSV_COMPANY_LOCAL.md` |
+| Q4: Where is Company 002 PSV? | **`smriti002`** | `PSV_COMPANY_LOCAL.md` |
+| Q5: Is there a shared SmritiPSV operational DB? | **NO (Dropped & Superseded)** | `PSV_COMPANY_LOCAL.md` |
+| Q6: Is eCommerce a core SMRITI capability? | **YES (Core Channel)** | `ECOMMERCE_CORE.md` |
+| Q7: Is eCommerce a separate ERP? | **NO (Converges on Company DB)** | `AI_AGENT.md` (Rule 11) |
 | Q8: Is eCommerce inventory authoritative? | **NO (Projection / Reservation)** | `EcomInventoryReservationService` |
-| Q9: Is tenant_id physical DB isolation? | **NO (Physical DB isolation via Resolver)** | `AI_AGENT_ARCHITECTURE_RULES.md` (Rule 3) |
-| Q10: Who routes Company DB access? | **`CompanyDatabaseResolver`** | `SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md` |
-| Q11: Can historical documents be rewritten? | **NO (Preserved with Banners)** | `AI_AGENT_ARCHITECTURE_RULES.md` (Rule 9) |
-| Q12: Can an unverified feature be marked VERIFIED? | **NO (Evidence-Based Only)** | `AI_AGENT_ARCHITECTURE_RULES.md` (Rule 8) |
+| Q9: Is tenant_id physical DB isolation? | **NO (Physical DB isolation via Resolver)** | `AI_AGENT.md` (Rule 3) |
+| Q10: Who routes Company DB access? | **`CompanyDatabaseResolver`** | `DATABASE_ROUTING.md` |
+| Q11: Can historical documents be rewritten? | **NO (Preserved with Banners)** | `AI_AGENT.md` (Rule 9) |
+| Q12: Can an unverified feature be marked VERIFIED? | **NO (Evidence-Based Only)** | `AI_AGENT.md` (Rule 8) |
 
 ---
 
 ## 5. Formal Governance Conclusion (Rule 9)
 
 ### Evidence
-- All current canonical documents (`SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`, `AI_AGENT_ARCHITECTURE_RULES.md`, `SMRITI_DOCUMENTATION_INDEX.md`, `DEVELOPMENT_STATUS.md`, `README.md`) have been synchronized with the live PostgreSQL 17 cluster state.
+- All current canonical documents (`MULTI_COMPANY_2.md`, `AI_AGENT.md`, `DOCUMENTATION.md`, `DEVELOPMENT_STATUS.md`, `README.md`) have been synchronized with the live PostgreSQL 17 cluster state.
 - Automated tests across both suites execute with **336 passed / 336 total (Exit Code 0)**.
 - Live python execution tests verified company-local PSV projections and eCommerce inventory reservations with zero cross-company leakage and zero writes to `smritisys`.
 
@@ -116,5 +116,5 @@ A full audit and synchronization of all repository documentation was conducted t
 - Any new developer or AI coding agent reading the canonical documentation will arrive at the exact same architectural conclusions without ambiguity.
 
 ### Recommendation
-- Enforce the 11 Golden Architecture Rules in `docs/AI_AGENT_ARCHITECTURE_RULES.md` for all future development sessions.
+- Enforce the 11 Golden Architecture Rules in `docs/AI_AGENT.md` for all future development sessions.
 - Do not modify or drop legacy/scaffolding tables in `smritisys` without an approved retirement plan.

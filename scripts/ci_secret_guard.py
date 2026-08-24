@@ -43,7 +43,7 @@ IGNORED_PATHS = {
     "package-lock.json",
     "pnpm-lock.yaml",
     "db_store.json",
-    "scripts/ci_secret_and_reachability_guard.py",
+    "scripts/ci_secret_guard.py",
 }
 
 # Operational routers that MUST NOT bypass get_company_db for transactional operations

@@ -43,7 +43,7 @@ PSV is an optional observability/projection layer (shadow inventory).
 
 ---
 
-## 3. PSV Projection Service (backend/app/services/psv_projection_service.py)
+## 3. PSV Projection Service (backend/app/services/psv_projection.py)
 
 ### Class: PSVProjectionService
 ### Methods confirmed:
@@ -110,7 +110,7 @@ Tests confirmed present:
 ### Claim: PSV does NOT modify core inventory tables directly
 ### Evidence:
 - PSVProjectionService.project_psv_stock_event() modifies ONLY PSVStockEvent and PSVStockBalance
-- No calls to StockMovement, Product, or inventory tables found in psv_projection_service.py
+- No calls to StockMovement, Product, or inventory tables found in psv_projection.py
 
 ### Status: ALIGNED
 
@@ -119,15 +119,15 @@ Tests confirmed present:
 ## 8. PSV Documentation Coverage
 
 ### Documents found containing PSV:
-- docs/walkthrough/db/PostgreSQL_Initialization_Walkthrough_v2.1.4.md
-- docs/walkthrough/CONSOLIDATED_WALKTHROUGHS.md
-- docs/implementation/foundation/SMRITI_MULTI_DB_PLATFORM_ARCHITECTURE_V1.1.md
+- docs/walkthrough/db/PostgreSQL.md
+- docs/walkthrough/CONSOLIDATED.md
+- docs/implementation/foundation/MULTI_DB_PLATFORM.md
 - docs/implementation/CONSOLIDATED_PLANS.md
-- docs/architecture/SMRITI_COMPANY_001_FUNCTIONAL_READINESS_v1.0.md
-- docs/audits/SMRITI_INTERNAL_ROLE_DASHBOARDS_AUDIT.md
-- docs/audits/SMRITI_ERP_AUDIT_REPORT.md
-- docs/audits/CONSIGNMENT_AUDIT_REPORT.md
+- docs/architecture/COMPANY_001.md
+- docs/audits/INTERNAL_ROLE.md
+- docs/audits/SMRITI_ERP_AUDIT.md
+- docs/audits/CONSIGNMENT_AUDIT.md
 
 ### FINDING: No dedicated PSV architecture document found in docs/architecture/. PSV is described in walkthroughs and implementation plans but lacks a standalone PSV_ARCHITECTURE spec.
-### Recommendation: Create SMRITI_PSV_ARCHITECTURE_v1.0.md in docs/architecture/ (document-only change -- no code changes).
+### Recommendation: Create PSV_ARCHITECTURE.md in docs/architecture/ (document-only change -- no code changes).
 ### Status: PARTIALLY_VERIFIED (system implemented; standalone architecture doc missing)

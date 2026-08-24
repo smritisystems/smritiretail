@@ -30,7 +30,7 @@ This runbook provides the definitive, step-by-step operating procedure for deplo
 - **Inventory & Sourcing:** Item Master & Catalog, Supplier Directory, Purchase Studio, Stock Movement Ledger.
 - **Documents & Data:** Barcode Studio, Document Series Engine, Commercial Terms Engine, Approval Matrix, Security & Audit Logs.
 
-*Note: All other 15 secondary modules remain in Preview/Staging mode per [PHASE1_PILOT_SUPPORTED_MODULES.md](PHASE1_PILOT_SUPPORTED_MODULES.md).*
+*Note: All other 15 secondary modules remain in Preview/Staging mode per [PHASE1_PILOT.md](PHASE1_PILOT.md).*
 
 ---
 

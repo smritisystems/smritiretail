@@ -13,11 +13,11 @@ License      : Proprietary Commercial Software
 """
 
 """
-scripts/add_author_designation_header.py
+scripts/add_author_header.py
 One-off repo hygiene sweep. Idempotent — safe to re-run;
 already-compliant files are left untouched.
-Usage: python add_author_designation_header.py --dry-run
-       python add_author_designation_header.py            (applies changes)
+Usage: python add_author_header.py --dry-run
+       python add_author_header.py            (applies changes)
 """
 import re
 import subprocess

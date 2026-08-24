@@ -14,8 +14,8 @@
 # SMRITI RETAIL OS — ECOMMERCE / OMNICHANNEL CORE CAPABILITY AUDIT REPORT
 
 **Audit Protocol:** Canonical Product Architecture & Runtime Capability Audit  
-**Canonical Architecture:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)  
-**Governance Directive:** [`docs/AI_AGENT_ARCHITECTURE_RULES.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT_ARCHITECTURE_RULES.md) (Rule 11)  
+**Canonical Architecture:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)  
+**Governance Directive:** [`docs/AI_AGENT.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT.md) (Rule 11)  
 **Date:** 2026-08-17  
 **Overall eCommerce Capability Status:** **`Partially Verified`**
 
@@ -61,7 +61,7 @@ eCommerce and Omnichannel Commerce are **FIRST-CLASS CORE CAPABILITIES** of SMRI
 
 | # | Capability | Evidence | Status |
 |---|---|---|---|
-| 1 | **eCommerce Architecture** | Canonical channel model defined in [`SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md) | **`Partially Verified`** |
+| 1 | **eCommerce Architecture** | Canonical channel model defined in [`MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md) | **`Partially Verified`** |
 | 2 | **Online Storefront** | No consumer web application package currently tracked in repository tree | **`Unverified`** |
 | 3 | **Product Catalogue Exposure** | `GET /api/v1/inventory/products` with dynamic company routing | **`Done`** |
 | 4 | **Customer Account** | Universal Customer model (`customers` table in `smriti<Code>`) | **`Done`** |
@@ -142,7 +142,7 @@ A live forensic audit was executed against the running PostgreSQL cluster during
 
 ### Evidence
 - PostgreSQL 17 direct query confirmed that `control_ecom_configs` does not exist in `smritisys` (`information_schema.tables` check returned `False`).
-- Source code inspection confirms `backend/app/services/ecom_reservation_service.py` performs atomic `SELECT ... FOR UPDATE` stock reservations and transactional outbox event emission to `ECOM_QUEUE`.
+- Source code inspection confirms `backend/app/services/ecom_reservation.py` performs atomic `SELECT ... FOR UPDATE` stock reservations and transactional outbox event emission to `ECOM_QUEUE`.
 - Live forensic execution confirmed that reservation of 3 units on SKU `CH-24-G-BLACK-36` in `smriti001` resulted in **EXACTLY 0 operational writes to `smritisys`** and **0 writes to `smriti002`**.
 - Test regression suites executed with **336 passed / 336 total (Exit Code: 0)**.
 

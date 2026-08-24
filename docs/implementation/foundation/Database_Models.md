@@ -61,7 +61,7 @@ Formalizing database model definitions in Python unlocks advanced SQL constraint
 ---
 
 ## 8. Files Created
-* `[NEW]` [Database_Models_And_Repositories_Implementation_Plan_v3.7.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/foundation/Database_Models_And_Repositories_Implementation_Plan_v3.7.0.md)
+* `[NEW]` [Database_Models.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/foundation/Database_Models.md)
 * `[NEW]` [Foundation_Database_Models_And_Repositories_Walkthrough_v3.7.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Foundation_Database_Models_And_Repositories_Walkthrough_v3.7.0.md)
 
 ---
@@ -79,7 +79,7 @@ Formalizing database model definitions in Python unlocks advanced SQL constraint
 * `[MODIFY]` [README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/README.md) — Register plan in index.
 * `[MODIFY]` [CONSOLIDATED_PLANS.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/CONSOLIDATED_PLANS.md) — Consolidate plan.
 * `[MODIFY]` [README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/README.md) — Register walkthrough in index.
-* `[MODIFY]` [CONSOLIDATED_WALKTHROUGHS.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/CONSOLIDATED_WALKTHROUGHS.md) — Consolidate walkthrough.
+* `[MODIFY]` [CONSOLIDATED.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/CONSOLIDATED.md) — Consolidate walkthrough.
 
 ---
 

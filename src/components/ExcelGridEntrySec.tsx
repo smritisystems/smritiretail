@@ -21,8 +21,8 @@ import { AttributeGroup, AttributeDefinition } from "../types.js";
 import { defaultHeaderMappingEngine, HeaderMappingEngine } from "../lib/headerMapping/HeaderMappingEngine";
 import { getSmritiItemMasterFields } from "../lib/headerMapping/HeaderAliasRegistry";
 import { HeaderMappingEngineResult, ColumnMappingResult } from "../lib/headerMapping/types";
-import { HeaderMappingPreviewModal } from "./HeaderMappingPreviewModal";
-import { HeaderAliasManagerModal } from "./HeaderAliasManagerModal";
+import { HeaderMapPrevewModal } from "./HeaderMappingPrevi.tsx";
+import { HeaderAliasDlgModal } from "./HeaderAliasManager.tsx";
 import { generateSkuCode, SkuConfigOptions, DEFAULT_SKU_CONFIG, SkuGenerationMode } from "../services/skuGenerationEngine.ts";
 import { serializeProductAttributes } from "../services/unifiedFieldCatalog.ts";
 
@@ -1270,7 +1270,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
       </div>
 
       {/* Header Auto-Mapping Preview & Review Modal */}
-      <HeaderMappingPreviewModal
+      <HeaderMapPrevewModal
         isOpen={isMappingModalOpen}
         mappingResult={pendingMappingEngineResult}
         availableFields={getSmritiItemMasterFields([
@@ -1347,7 +1347,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
       )}
 
       {/* Header Alias Manager Modal */}
-      <HeaderAliasManagerModal
+      <HeaderAliasDlgModal
         isOpen={showAliasManagerModal}
         onClose={() => setShowAliasManagerModal(false)}
         availableFields={getSmritiItemMasterFields([

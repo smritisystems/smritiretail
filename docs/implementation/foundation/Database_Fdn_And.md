@@ -89,8 +89,8 @@ This milestone will NOT:
 ---
 
 ## 9. Files Created
-- `[NEW]` [Database_Foundation_And_Domain_Layer_Plan_v3.7.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/foundation/Database_Foundation_And_Domain_Layer_Plan_v3.7.0.md) (this file)
-- `[NEW]` [Foundation_Database_Foundation_And_Domain_Layer_Walkthrough_v3.7.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Foundation_Database_Foundation_And_Domain_Layer_Walkthrough_v3.7.0.md)
+- `[NEW]` [Database_Fdn_And.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/foundation/Database_Fdn_And.md) (this file)
+- `[NEW]` [Fdn_Database_Fdn.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Fdn_Database_Fdn.md)
 - `[NEW]` [base.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/repositories/base.py)
 - `[NEW]` [crm.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/schemas/crm.py)
 - `[NEW]` [inventory.py](file:///d:/IMP/GitHub/SMRITRretailNX/backend/app/schemas/inventory.py)
@@ -121,7 +121,7 @@ This milestone will NOT:
 - `[MODIFY]` [README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/README.md) — Register plan.
 - `[MODIFY]` [CONSOLIDATED_PLANS.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/implementation/CONSOLIDATED_PLANS.md) — Consolidate plan.
 - `[MODIFY]` [README.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/README.md) — Register walkthrough.
-- `[MODIFY]` [CONSOLIDATED_WALKTHROUGHS.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/CONSOLIDATED_WALKTHROUGHS.md) — Consolidate walkthrough.
+- `[MODIFY]` [CONSOLIDATED.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/CONSOLIDATED.md) — Consolidate walkthrough.
 
 ---
 

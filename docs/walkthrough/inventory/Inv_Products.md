@@ -40,8 +40,8 @@ Migrated the Inventory/Products module (Tier 2 of strangler-fig migration) from 
 - `src/App.tsx`
 - `src/components/ItemMasterTab.tsx`
 - `src/components/StockLedgerTab.tsx`
-- `src/components/BarcodeMappingSection.tsx`
-- `src/components/InventoryForecastWidget.tsx`
+- `src/components/BarcodeMappingSec.tsx`
+- `src/components/InventoryForecastW.tsx`
 
 ## 5. Architecture Decisions
 - **HTTP POST Proxying for Legacy Modules:** To resolve dual-writer database anomalies, the Express `recordStockMovement` helper issues HTTP POST queries to FastAPI's trusted `POST /api/v1/inventory/stock-movements` route. FastAPI remains the sole database writer.

@@ -26,7 +26,7 @@ Migrate print templates, print profiles, terms library, terms defaults, terms sn
 - Add a new comprehensive unit test file `src/tests/termsAndPrintMigration.test.ts` to validate CRUD endpoints.
 
 ## 3. Files Created
-- [SMRITI_Master_Framework_Phase_F_3_Walkthrough_v3.16.0.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/SMRITI_Master_Framework_Phase_F_3_Walkthrough_v3.16.0.md)
+- [Master_Framework__3.md](file:///d:/IMP/GitHub/SMRITRretailNX/docs/walkthrough/foundation/Master_Framework__3.md)
 - [termsAndPrintMigration.test.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/tests/termsAndPrintMigration.test.ts)
 
 ## 4. Files Modified

@@ -14,7 +14,7 @@
 # SMRITI Walkthrough — Test Fixture Environment Dependency & Routing Fix (v3.29.0)
 
 ## 1. Purpose
-Resolve test fixture environment dependencies and test isolation gaps across the multi-tenant security test suites (`test_e2e_tenant_security_and_routing.py`, `test_ecom_connectors.py`, `test_company_control_center_security.py`) to guarantee deterministic 20/20 test execution on fresh databases and clean environments without silent fixture swallowing.
+Resolve test fixture environment dependencies and test isolation gaps across the multi-tenant security test suites (`t_tenant_sec.py`, `t_ecom_connect.py`, `t_comp_ctr_sec.py`) to guarantee deterministic 20/20 test execution on fresh databases and clean environments without silent fixture swallowing.
 
 ## 2. Scope
 - `backend/tests/conftest.py`: Test environment fixture bootstrap and routing registry seeding.
@@ -23,7 +23,7 @@ Resolve test fixture environment dependencies and test isolation gaps across the
 - Cross-test state leakage remediation between unit/ecom fixtures and security suites.
 
 ## 3. Files Created
-- `docs/walkthrough/foundation/Foundation_Test_Fixture_Environment_Dependency_Fix_v3.29.0.md` (this document)
+- `docs/walkthrough/foundation/Fdn_Test_Fixture.md` (this document)
 
 ## 4. Files Modified
 - `backend/tests/conftest.py`
@@ -32,12 +32,12 @@ Resolve test fixture environment dependencies and test isolation gaps across the
 
 ## 5. Architecture Decisions
 1. **Explicit Routing Registry Seeding (RC2)**:
-   - In accordance with `SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md`, company database routing maps `COMP-001 -> smriti001` via the `company_database_registries` table in `smritisys`.
+   - In accordance with `MULTI_COMPANY.md`, company database routing maps `COMP-001 -> smriti001` via the `company_database_registries` table in `smritisys`.
    - On a fresh database migration, `company_database_registries` contains no rows. Conftest now deterministically seeds `COMP-001 -> smriti001` in `READY` status during fixture setup.
 2. **Fail-Fast Setup Policy (RC3)**:
    - Replaced all silent `try/except` warnings with immediate `pytest.fail()`. Any environmental failure (unmigrated database, missing PostgreSQL connection, foreign key breach) halts execution loudly with actionable troubleshooting guidance.
 3. **Per-Test Function Scoping for Control Plane Seeding**:
-   - Switched `seed_control_plane_test_assignments` from `scope="session"` to `scope="function"` to ensure that per-test teardowns (e.g., `clear_db()` in `test_ecom_connectors.py`) do not cause downstream authorization failures (such as `test_04` 403 Forbidden) in subsequent tests.
+   - Switched `seed_control_plane_test_assignments` from `scope="session"` to `scope="function"` to ensure that per-test teardowns (e.g., `clear_db()` in `t_ecom_connect.py`) do not cause downstream authorization failures (such as `test_04` 403 Forbidden) in subsequent tests.
 
 ## 6. Design Rationale
 - Multi-database enterprise systems require a clean distinction between the governance control plane (`smritisys`) and tenant operational databases (`smriti001`).
@@ -51,7 +51,7 @@ Resolve test fixture environment dependencies and test isolation gaps across the
 
 ## 8. Tests Executed
 ```bash
-pytest backend/tests/test_e2e_tenant_security_and_routing.py backend/app/tests/test_ecom_connectors.py backend/tests/test_company_control_center_security.py --tb=short -q
+pytest backend/tests/t_tenant_sec.py backend/app/tests/t_ecom_connect.py backend/tests/t_comp_ctr_sec.py --tb=short -q
 ```
 
 ## 9. Verification Results
@@ -69,7 +69,7 @@ pytest backend/tests/test_e2e_tenant_security_and_routing.py backend/app/tests/t
 - Extend automated test bootstrap scripts to automatically execute `CompanyDatabaseProvisioner(dry_run=False)` if `smriti001` is not detected in PostgreSQL.
 
 ## 12. Related ADRs
-- `docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md`
+- `docs/architecture/MULTI_COMPANY.md`
 - `docs/architecture/SMRITI_GOVERNMENT_INTEGRATION_PLATFORM_ADR_v1.0.md`
 
 ## 13. Related RFCs

@@ -34,7 +34,7 @@ None.
 - `src/components/ItemMasterTab.tsx`
 - `src/layout_engine/layout_store.tsx`
 - `src/App.tsx`
-- `src/components/AdvancedBillingEngine.tsx`
+- `src/components/AdvancedBillingEng.tsx`
 
 ## 5. Architecture Decisions
 - **Semantic CSS Token Consumption:** All background, surface, text, border, divider, and selection colors consume semantic CSS variables (`var(--c-theme-...)`) from `src/index.css` rather than static Tailwind classes.

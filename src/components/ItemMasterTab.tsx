@@ -16,7 +16,7 @@
 
 import React from "react";
 import { Product } from "../types.ts";
-import { SmritiItemMasterWorkspace } from "./itemMaster/SmritiItemMasterWorkspace.tsx";
+import { ItemMasterWs } from "./itemMaster/ItemMasterWs.tsx";
 
 export interface ItemMasterTabProps {
   products?: Product[];
@@ -35,7 +35,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   onClose
 }) => {
   return (
-    <SmritiItemMasterWorkspace
+    <ItemMasterWs
       products={products}
       onRefreshProducts={onRefreshProducts}
       onNotification={onNotification}

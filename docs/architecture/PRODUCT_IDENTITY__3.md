@@ -5,8 +5,8 @@
   Owner: Enterprise Architecture
   Reviewers: Product, Architecture, Engineering
   Last Updated: 2026-07-18
-  Dependencies: PRODUCT_IDENTITY_ENGINE.md
-  Related Documents: PRODUCT_IDENTITY_ENGINE_SEQUENCE.md, PRODUCT_IDENTITY_ENGINE_ERRORS.md
+  Dependencies: PRODUCT_IDENTITY_13.md
+  Related Documents: PRODUCT_IDENTITY__8.md, PRODUCT_IDENTITY_10.md
   Change History:
     - v1.0 2026-07-18 Created.
 -->

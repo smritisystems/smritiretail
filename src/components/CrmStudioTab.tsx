@@ -19,7 +19,7 @@ import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { LeadManager } from "./crm/LeadManager.tsx";
-import { OpportunityPipeline } from "./crm/OpportunityPipeline.tsx";
+import { OpportunityPipeline } from "./crm/OppPipe.tsx";
 import { 
   Users, 
   TrendingUp, 

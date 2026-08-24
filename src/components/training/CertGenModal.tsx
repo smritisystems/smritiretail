@@ -22,7 +22,7 @@ interface CertificateModalProps {
   traineeName: string;
 }
 
-export const CertificateGeneratorModal: React.FC<CertificateModalProps> = ({
+export const CertGenModal: React.FC<CertificateModalProps> = ({
   isOpen,
   onClose,
   sessionId,

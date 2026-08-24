@@ -18,7 +18,7 @@ from typing import Dict, Any, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from ...services.localization_service import LocalizationService
+from ...services.localization_svc import LocalizationService
 
 router = APIRouter(prefix="/reference", tags=["Global Reference Data & Localization"])
 

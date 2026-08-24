@@ -82,16 +82,16 @@ In large retail networks and distribution operations, high-value purchase orders
 ## 8. Files Created
 - `backend/app/models/approval.py`: Canonical ApprovalPolicy, ApprovalRequest, ApprovalAction models.
 - `backend/app/models/communicator.py`: Canonical CommunicatorTemplate, CommunicatorLog models.
-- `backend/app/services/unified_approval_communicator_service.py`: Domain service orchestrating approval workflows, evaluation against policies, and template rendering/dispatch.
-- `backend/tests/test_unified_approval_communicator.py`: Automated verification suite certifying approval state transitions, threshold triggers, communicator rendering, and tenant isolation.
-- `docs/implementation/foundation/Platform_Refactor_Slice5_Approval_Workflow_Communicator_Plan_v1.0.md`: This implementation plan.
+- `backend/app/services/unified_approval.py`: Domain service orchestrating approval workflows, evaluation against policies, and template rendering/dispatch.
+- `backend/tests/t_approval_comm.py`: Automated verification suite certifying approval state transitions, threshold triggers, communicator rendering, and tenant isolation.
+- `docs/implementation/foundation/Platform_Refactor.md`: This implementation plan.
 
 ---
 
 ## 9. Files Modified
 - `backend/app/models/__init__.py`: Export Approval and Communicator models.
 - `docs/implementation/README.md`: Append Slice 5 plan to master index.
-- `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Track Slice 5 verification.
+- `docs/architecture/PLATFORM.md`: Track Slice 5 verification.
 
 ---
 
@@ -123,14 +123,14 @@ Additive DDL tables. If rollback is required, existing invoice workflows execute
 ---
 
 ## 14. Test Plan
-- Run `backend/tests/test_unified_approval_communicator.py`.
+- Run `backend/tests/t_approval_comm.py`.
 - Run full 81+ test multi-module regression suite.
 
 ---
 
 ## 15. Documentation Impact
-- Update `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
-- Generate Walkthrough `docs/walkthrough/foundation/Platform_Approval_Workflow_Communicator_v6.16.0.md`.
+- Update `docs/architecture/PLATFORM.md`.
+- Generate Walkthrough `docs/walkthrough/foundation/Platform_Approval.md`.
 - Update `docs/walkthrough/README.md`.
 
 ---
@@ -154,4 +154,4 @@ Additive DDL tables. If rollback is required, existing invoice workflows execute
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Platform_Pricing_GST_Payments_Unification_v6.16.0.md`.
+- `docs/walkthrough/foundation/Platform_Pricing.md`.

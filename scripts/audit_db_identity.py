@@ -18,7 +18,7 @@ import psycopg2
 sys.stdout.reconfigure(encoding='utf-8')
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
-DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITISYS_DATABASE_IDENTITY_AUDIT_v1.0.md"
+DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITISYS.md"
 
 OLD_DB_NAME = "smriti_retail_db"
 NEW_DB_NAME = "smritisys"
@@ -47,10 +47,10 @@ def run_database_identity_audit():
     legacy_occurrences = []
 
     ignore_files = [
-        "migrate_db_to_smritisys.py",
-        "update_db_references_to_smritisys.py",
-        "SMRITISYS_DATABASE_IDENTITY_AUDIT_v1.0.md",
-        "audit_smritisys_database_identity.py"
+        "migr_db_to_sys.py",
+        "update_db_refs.py",
+        "SMRITISYS.md",
+        "audit_db_identity.py"
     ]
 
     for root, dirs, files in os.walk(root_dir):
@@ -176,7 +176,7 @@ This architectural audit verifies that the official SMRITI Control Plane databas
 - [x] **Criterion 3**: No Docker configuration defaults to `smriti_retail_db`.
 - [x] **Criterion 4**: No backend production configuration defaults to `smriti_retail_db`.
 - [x] **Criterion 5**: No seed/migration script targets `smriti_retail_db` after migration.
-- [x] **Criterion 6**: Existing database rename executed via controlled migration (`scripts/migrate_db_to_smritisys.py`).
+- [x] **Criterion 6**: Existing database rename executed via controlled migration (`scripts/migr_db_to_sys.py`).
 - [x] **Criterion 7**: Company Business DB remains separate and decoupled from `smritisys`.
 - [x] **Criterion 8**: Zero database mutations performed during this audit.
 

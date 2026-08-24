@@ -13,7 +13,7 @@
 
 # SMRITI Retail OS — Naming Governance Policy
 
-**Policy ID:** NGP-v1.0
+**Policy ID:** NGP-v2.0
 **Status:** FROZEN — MANDATORY — ALL agents, ALL sessions, ALL tasks, ALL contributors
 **Effective:** 2026-08-24
 
@@ -28,7 +28,7 @@
 > intentionally refactored. If the responsibility cannot be clearly established, creation must stop
 > until the responsibility is defined.
 >
-> Filenames shall not exceed 100 characters, with 80 characters as the preferred maximum.
+> Filenames shall not exceed 22 characters, with 16 characters as the preferred maximum (including extension).
 > Names such as `new`, `old`, `final`, `latest`, `temp`, `copy`, `backup`, arbitrary numbering,
 > or similar development-state terminology are prohibited unless explicitly required by the
 > architecture.
@@ -98,14 +98,15 @@ Do not name a file after:
 
 ---
 
-## 4. Filename Length Limits
+## 4. Filename Length Limits (NGP-v2.0)
 
 | Limit | Characters (including extension) |
 |---|---|
-| **Hard maximum** | 100 |
-| **Preferred maximum** | 80 |
+| **Hard maximum** | 22 |
+| **Preferred maximum** | 16 |
 
-If a logical name exceeds 100 characters, **redesign the name** using the actual domain and
+Any filename longer than 22 characters is a strict naming violation.
+If a logical name exceeds 22 characters, **redesign the name** using the actual domain and
 responsibility. Do not arbitrarily truncate it.
 
 ---
@@ -371,7 +372,7 @@ The naming guard checks:
 | Layer | Mechanism |
 |---|---|
 | AI Agent Instruction | This document + `.agents/AGENTS.md` |
-| Repository Policy | `docs/governance/SMRITI_NAMING_POLICY.md` |
+| Repository Policy | `docs/governance/NAMING_POLICY.md` |
 | Automated Guard | `scripts/smriti_naming_guard.py` |
 | CI Gate | `.github/workflows/ci.yml` — naming guard step |
 

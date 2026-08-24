@@ -14,7 +14,7 @@
 
 import React, { useState, useEffect } from "react";
 import { CashDenominations, POSZReportData } from "./types.ts";
-import { SmritiProPosDenominationInput, calculateDenominationTotal } from "./SmritiProPosDenominationInput.tsx";
+import ProPosDenomination, { calculateDenominationTotal } from "./ProPosDenomination.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import {
   Lock,
@@ -326,7 +326,7 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
 
             {/* Step 1: Physical Denomination Counter */}
             <div>
-              <SmritiProPosDenominationInput
+              <ProPosDenomination
                 denominations={denominations}
                 onChange={(updated) => setDenominations(updated)}
                 expectedCash={expectedCash}

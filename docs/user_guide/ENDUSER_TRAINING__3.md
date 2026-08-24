@@ -68,5 +68,5 @@
 
 ## Recommended Training Additions
 - Link to the main user guide: `docs/user_guide/USER_GUIDE.md`
-- Link to company/demo setup details: `docs/user_guide/ENDUSER_TRAINING_COMPANY_DETAILS.md`
+- Link to company/demo setup details: `docs/user_guide/ENDUSER_TRAINING.md`
 - Keep author and product version details updated whenever the release changes.

@@ -14,7 +14,7 @@
 # SMRITI RETAIL OS ? PARALLEL DEVELOPMENT + ARCHITECTURE CERTIFICATION STATUS
 
 **Master Execution Policy:** Continuous Product Development in Parallel with Certification Remediation  
-**Governance Directive Reference:** [`docs/AI_AGENT_ARCHITECTURE_RULES.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT_ARCHITECTURE_RULES.md)  
+**Governance Directive Reference:** [`docs/AI_AGENT.md`](file:///F:/SMRITRretailNX/docs/AI_AGENT.md)  
 **Date:** 2026-08-17  
 **Official Status:** **`P0 CERTIFICATION GATES PASSED / DEVELOPMENT CONTINUING`**
 
@@ -70,12 +70,12 @@ TRACK 2 ARCHITECTURE CERTIFICATION STATUS
 - [x] Database router exclusivity scan (0 unauthorized bypasses) (**PASS**)
 
 ### Priority P1 (Architecture Clarification & Scaffolding Classification) ? **ALL COMPLETED**
-- [x] 179 legacy table runtime retirement classification report ([`LEGACY_TABLE_RUNTIME_CERTIFICATION.md`](file:///F:/SMRITRretailNX/docs/_audit/LEGACY_TABLE_RUNTIME_CERTIFICATION.md)) (**DONE**)
+- [x] 179 legacy table runtime retirement classification report ([`LEGACY_TABLE.md`](file:///F:/SMRITRretailNX/docs/_audit/LEGACY_TABLE.md)) (**DONE**)
 - [x] 79 operational residue tables in `smritisys` audited (**DONE**)
 - [x] PSV company-local shadow projection certified (**DONE**)
 - [x] eCommerce company-local core channel certified (**DONE**)
 - [x] Barcode software pipeline certified; physical printer hardware marked pending (**DONE**)
 
 ### Priority P2 (Process Acceptance & Documentation Governance) ? **ALL COMPLETED**
-- [x] 3-Day user training business process acceptance matrix ([`SMRITI_BUSINESS_PROCESS_ACCEPTANCE_MATRIX.md`](file:///F:/SMRITRretailNX/docs/_audit/SMRITI_BUSINESS_PROCESS_ACCEPTANCE_MATRIX.md)) (**DONE**)
+- [x] 3-Day user training business process acceptance matrix ([`BUSINESS_PROCESS.md`](file:///F:/SMRITRretailNX/docs/_audit/BUSINESS_PROCESS.md)) (**DONE**)
 - [x] Documentation registry and master index cross-links updated (**DONE**)

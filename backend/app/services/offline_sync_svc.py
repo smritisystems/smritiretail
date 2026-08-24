@@ -25,9 +25,9 @@ from ..models.payment_ledger import PaymentTransaction
 from ..models.crm import Customer
 from ..models.party import Party
 from ..models.sync import POSOfflineSyncQueue
-from .unified_sales_ledger_service import UnifiedSalesLedgerService
-from .universal_party_service import UniversalPartyService
-from .universal_item_service import UniversalItemService
+from .sales_ledger_svc import UnifiedSalesLedgerService
+from .univ_party_svc import UniversalPartyService
+from .univ_item_svc import UniversalItemService
 
 
 class OfflineSyncService:

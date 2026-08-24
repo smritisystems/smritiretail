@@ -16,7 +16,7 @@ import React, { useState, useEffect } from "react";
 import { User, MapPin, Store, FileText, Tag, Layers, CheckSquare, Sliders } from "lucide-react";
 import { RetailCustomerRecord, CustomerPriceGroup } from "./types.ts";
 import { getCustomerPriceGroups } from "../../services/customerStore.ts";
-import { SmritiCustomerPriceGroupModal } from "./SmritiCustomerPriceGroupModal.tsx";
+import { SmritiCustomerPriceGroupModal } from "./CustPriceGroupDlg.tsx";
 
 interface SmritiCustomerFormTabProps {
   customer: RetailCustomerRecord;

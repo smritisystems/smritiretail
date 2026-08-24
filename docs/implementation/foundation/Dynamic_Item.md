@@ -43,7 +43,7 @@ Dynamic layouts on the frontend compile columns by reading Attribute Group colle
 
 ## 8. Files Created
 - `backend/alembic/versions/d4e5f6a7b8c9_extend_attribute_definitions.py`
-- `src/components/ExcelGridEntrySection.tsx`
+- `src/components/ExcelGridEntrySec.tsx`
 
 ## 9. Files Modified
 - `backend/app/models/attributes.py`
@@ -53,12 +53,12 @@ Dynamic layouts on the frontend compile columns by reading Attribute Group colle
 - `backend/app/repositories/product.py`
 - `src/types.ts`
 - `src/core/interfaces/db.ts`
-- `src/db/postgres/PostgresRepositories.ts`
+- `src/db/postgres/PgRepos.ts`
 - `src/db/memory/MemoryRepositories.ts`
 - `src/db/sqlite/SqliteRepositories.ts`
-- `src/db/indexeddb/IndexedDbRepositories.ts`
+- `src/db/indexeddb/IdbRepos.ts`
 - `src/components/ItemMasterTab.tsx`
-- `src/components/AttributeManagerSection.tsx`
+- `src/components/AttrManagerSec.tsx`
 - `server.ts`
 
 ## 10. Dependencies

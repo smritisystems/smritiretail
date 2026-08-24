@@ -97,7 +97,7 @@ Schedule v3.20.0 to remove deprecated legacy routes.
 - ADR-003: Default-rate source priority (last GRN > last PO)
 
 ## 13. Related Walkthroughs
-- MC2_Phase4A_URL_Contract_Alignment_v3.19.0.md
+- MC2_Phase4A_URL.md
 
 ## Addendum — Model Column Fix (commit d3501c9)
 

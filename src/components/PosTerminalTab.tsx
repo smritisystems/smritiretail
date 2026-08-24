@@ -14,7 +14,7 @@
 
 import React from "react";
 import { Product, POSProfile, Shift } from "../types.ts";
-import { SmritiProPosWorkspace } from "./billing/propos/SmritiProPosWorkspace.tsx";
+import { ProPosWs } from "./billing/propos/ProPosWs.tsx";
 
 interface PosTerminalTabProps {
   products?: Product[];
@@ -32,7 +32,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   onNotification
 }) => {
   return (
-    <SmritiProPosWorkspace
+    <ProPosWs
       products={products}
       profiles={profiles}
       shifts={shifts}

@@ -24,8 +24,8 @@ In retail POS and wholesale operations, cashiers encounter different workflows: 
 - **Backend Product Search Expansion**: `ProductRepository.search` extended across `name`, `code`, `barcode`, `sku`, `style_code`, `brand`, `category`, `hsn_code`, and `attributes`.
 - **Frontend Universal Auto-Populate Service**: `searchBackendProducts` enriched to map 14+ item attributes into `AutoPopulateProductResult`.
 - **Universal Reusable Inspection Component**: Created `SmritiItemTypeaheadDropdown` featuring keyboard navigation (Up/Down, Enter, Esc), visual preview images, stock status, tax tags, and extended metadata.
-- **ProPOS Billing Terminal Integration**: Dual inputs for `Barcode / Scan` and `Stock No / SKU` in `SmritiProPosBillingTerminal.tsx` with live inspection ribbon and instant auto-population.
-- **Distributor Invoicing Integration**: Dual inputs in `SmritiBillingTerminal.tsx` with live typeahead and automatic field binding.
+- **ProPOS Billing Terminal Integration**: Dual inputs for `Barcode / Scan` and `Stock No / SKU` in `ProPosBillingTerm.tsx` with live inspection ribbon and instant auto-population.
+- **Distributor Invoicing Integration**: Dual inputs in `BillingTerm.tsx` with live typeahead and automatic field binding.
 - **Automated Test Coverage**: Vitest unit suite covering dual-field lookup and 14+ attribute extraction.
 
 ## 4. Current State
@@ -49,14 +49,14 @@ Previously, item lookups were primarily triggered upon manual Enter in the Stock
   - **Extended Metadata**: Brand, Category, HSN Code, Pricing Mode, Tracking Mode, Weight, Image Preview.
 
 ## 8. Files Created
-- `src/components/common/SmritiItemTypeaheadDropdown.tsx`: Reusable universal item search dropdown and inspection HUD.
+- `src/components/common/ItemTypeaheadDrop.tsx`: Reusable universal item search dropdown and inspection HUD.
 
 ## 9. Files Modified
 - `backend/app/repositories/product.py`: Expanded `ProductRepository.search` filter criteria.
 - `src/services/autoPopulateService.ts`: Enriched `AutoPopulateProductResult` and `mapToProductResult`.
-- `src/components/billing/propos/SmritiProPosBillingTerminal.tsx`: Integrated dual search fields and live HUD ribbon.
-- `src/components/billing/SmritiBillingTerminal.tsx`: Integrated dual search fields and typeahead in Distributor Invoicing.
-- `src/tests/autoPopulateService.test.ts`: Added unit tests for dual lookup and attribute mapping.
+- `src/components/billing/propos/ProPosBillingTerm.tsx`: Integrated dual search fields and live HUD ribbon.
+- `src/components/billing/BillingTerm.tsx`: Integrated dual search fields and typeahead in Distributor Invoicing.
+- `src/tests/autoPopulate.test.ts`: Added unit tests for dual lookup and attribute mapping.
 
 ## 10. Dependencies
 - React 18, Lucide React icons, TailwindCSS, Vitest, FastAPI, SQLAlchemy, PostgreSQL.
@@ -73,8 +73,8 @@ Revert frontend terminal inputs to previous single-input layout if necessary; ba
 - Verification of 14+ fields in dropdown inspect card.
 
 ## 14. Test Plan
-- Run `npx vitest run src/tests/autoPopulateService.test.ts`.
-- Run `npx vitest run src/tests/smritiBillingTerminal.test.ts src/tests/proPosKeyboardShortcuts.test.ts`.
+- Run `npx vitest run src/tests/autoPopulate.test.ts`.
+- Run `npx vitest run src/tests/billingTerm.test.ts src/tests/proPosKeys.test.ts`.
 
 ## 15. Documentation Impact
 - Update `docs/implementation/README.md`.
@@ -92,4 +92,4 @@ Completed
 - ADR-0014: High-Performance In-Memory Client Caching with PostgreSQL Sync.
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/pos/POS_Dual_Field_Item_AutoSearch_And_Attribute_Inspector_v6.11.0.md`.
+- `docs/walkthrough/pos/POS_Dual_Field.md`.

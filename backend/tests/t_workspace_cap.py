@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 from sqlalchemy import select, delete
 from app.db.session import get_company_sessionmaker, async_session
-from app.services.unified_workspace_capability_service import UnifiedWorkspaceCapabilityService
+from app.services.workspace_cap_svc import UnifiedWorkspaceCapabilityService
 from app.models.capability_template import (
     PlatformCapability,
     WorkspaceTemplate,

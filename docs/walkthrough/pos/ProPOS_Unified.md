@@ -20,26 +20,26 @@ Documents the complete implementation and deployment of the **ProPOS Unified Ent
 ## 2. Scope
 * `src/components/billing/propos/*`
 * `src/components/PosTerminalTab.tsx`
-* `src/components/AdvancedBillingEngine.tsx`
+* `src/components/AdvancedBillingEng.tsx`
 
 ## 3. Files Created
 1. `src/components/billing/propos/types.ts`
-2. `src/components/billing/propos/SmritiProPosWorkspace.tsx`
-3. `src/components/billing/propos/SmritiProPosBillingTerminal.tsx`
-4. `src/components/billing/propos/SmritiProPosSettlementModal.tsx`
-5. `src/components/billing/propos/SmritiProPosRecallModal.tsx`
-6. `src/components/billing/propos/SmritiProPosCancellationModal.tsx`
-7. `src/components/billing/propos/SmritiProPosLoyaltyLookupModal.tsx`
-8. `src/components/billing/propos/SmritiProPosSalesReturnModal.tsx`
-9. `src/components/billing/propos/SmritiProPosEodReportView.tsx`
-10. `src/components/billing/propos/SmritiProPosDailyReportsDashboard.tsx`
-11. `src/components/billing/propos/SmritiProPosPromotionEngine.tsx`
-12. `src/components/billing/propos/SmritiProPosCommissionBuilder.tsx`
-13. `src/components/billing/propos/SmritiProPosTaxInvoiceReceipt.tsx`
+2. `src/components/billing/propos/ProPosWs.tsx`
+3. `src/components/billing/propos/ProPosBillingTerm.tsx`
+4. `src/components/billing/propos/ProPosSettlementDl.tsx`
+5. `src/components/billing/propos/ProPosRecallDlg.tsx`
+6. `src/components/billing/propos/ProPosCancellation.tsx`
+7. `src/components/billing/propos/ProPosLoyaltyLooku.tsx`
+8. `src/components/billing/propos/ProPosSalesReturnD.tsx`
+9. `src/components/billing/propos/ProPosEodReportVie.tsx`
+10. `src/components/billing/propos/ProPosDailyReports.tsx`
+11. `src/components/billing/propos/ProPosPromotionEng.tsx`
+12. `src/components/billing/propos/ProPosCommissionBu.tsx`
+13. `src/components/billing/propos/ProPosTaxInvoiceRc.tsx`
 
 ## 4. Files Modified
 1. `src/components/PosTerminalTab.tsx` — Direct mount of `SmritiProPosWorkspace`.
-2. `src/components/AdvancedBillingEngine.tsx` — Direct mount of `SmritiProPosWorkspace`.
+2. `src/components/AdvancedBillingEng.tsx` — Direct mount of `SmritiProPosWorkspace`.
 
 ## 5. Architecture Decisions
 * Modular dialog sub-components isolated under `src/components/billing/propos/`.

@@ -33,18 +33,18 @@ This walkthrough details the implementation of Section 11 (Analytics & Intellige
 1. `backend/app/models/analytics.py` — `AnalyticsDailySalesFact` ORM model.
 2. `backend/app/models/audit.py` — `ComplianceImmutableAuditLog` ORM model.
 3. `backend/alembic/versions/v1367_analytics_and_integration.py` — Forward-only Alembic migration.
-4. `backend/app/services/analytical_intelligence_service.py` — Analytical aggregation service.
-5. `backend/app/services/tally_integration_service.py` — TallyPrime XML export generator.
-6. `backend/app/services/compliance_audit_service.py` — Cryptographic SHA-256 audit service.
+4. `backend/app/services/analytics_svc.py` — Analytical aggregation service.
+5. `backend/app/services/tally_service.py` — TallyPrime XML export generator.
+6. `backend/app/services/compliance_audit.py` — Cryptographic SHA-256 audit service.
 7. `backend/app/api/v1/analytics.py` — Analytics REST API router.
 8. `backend/app/api/v1/integration.py` — Integration Hub & Audit REST API router.
-9. `backend/tests/test_analytics_and_integration_hub.py` — 6-part test suite.
-10. `docs/implementation/analytics/Analytics_Integration_Hub_And_Audit_Plan_v3.23.0.md` — Implementation plan.
+9. `backend/tests/t_analytics_hub.py` — 6-part test suite.
+10. `docs/implementation/analytics/Analytics.md` — Implementation plan.
 
 ## 4. Files Modified
 1. `backend/app/models/__init__.py` — Exported `AnalyticsDailySalesFact` and `ComplianceImmutableAuditLog`.
 2. `backend/app/main.py` — Registered `analytics.router` and `integration.router`.
-3. `backend/tests/test_ephemeral_tenant_migration_harness.py` — Added `v1367` revision and table assertions.
+3. `backend/tests/t_tenant_migr.py` — Added `v1367` revision and table assertions.
 4. `CHANGELOG.md` — Documented v3.23.0 release notes.
 5. `docs/implementation/README.md` — Appended implementation plan to master table.
 6. `docs/walkthrough/README.md` — Appended walkthrough to master table.
@@ -66,26 +66,26 @@ This walkthrough details the implementation of Section 11 (Analytics & Intellige
 
 ## 8. Tests Executed
 ```bash
-python -m pytest tests/test_analytics_and_integration_hub.py tests/test_psv_cge_and_offline_sync.py tests/test_distribution_and_shared_pricing_engine.py tests/test_universal_party_and_item_convergence.py tests/test_governed_logic_and_reproducibility.py tests/test_workspace_menu_and_ui_registry.py tests/test_capability_and_module_registry.py tests/test_reference_data_and_localization.py tests/test_unified_pricing_payment_engine.py tests/test_unified_sales_ledger.py tests/test_unified_accounting_ledger.py tests/test_unified_outbox_analytics.py tests/test_ephemeral_tenant_migration_harness.py -v --tb=short
+python -m pytest tests/t_analytics_hub.py tests/t_psv_sync.py tests/t_dist_pricing.py tests/t_univ_converge.py tests/t_gov_logic.py tests/t_menu_registry.py tests/t_cap_registry.py tests/t_ref_data_loc.py tests/t_pricing_eng.py tests/t_sales_ledger.py tests/t_unified_ledger.py tests/t_outbox_stats.py tests/t_tenant_migr.py -v --tb=short
 ```
 
 ## 9. Verification Results
 ```text
 ================= 87 passed, 27 warnings in 91.06s (0:01:31) ==================
 ```
-- `test_analytics_and_integration_hub.py`: 6/6 passed.
-- `test_psv_cge_and_offline_sync.py`: 6/6 passed.
-- `test_distribution_and_shared_pricing_engine.py`: 4/4 passed.
-- `test_universal_party_and_item_convergence.py`: 5/5 passed.
-- `test_governed_logic_and_reproducibility.py`: 6/6 passed.
-- `test_workspace_menu_and_ui_registry.py`: 6/6 passed.
-- `test_capability_and_module_registry.py`: 6/6 passed.
-- `test_reference_data_and_localization.py`: 11/11 passed.
-- `test_unified_pricing_payment_engine.py`: 4/4 passed.
-- `test_unified_sales_ledger.py`: 4/4 passed.
-- `test_unified_accounting_ledger.py`: 13/13 passed.
-- `test_unified_outbox_analytics.py`: 10/10 passed.
-- `test_ephemeral_tenant_migration_harness.py`: 6/6 passed.
+- `t_analytics_hub.py`: 6/6 passed.
+- `t_psv_sync.py`: 6/6 passed.
+- `t_dist_pricing.py`: 4/4 passed.
+- `t_univ_converge.py`: 5/5 passed.
+- `t_gov_logic.py`: 6/6 passed.
+- `t_menu_registry.py`: 6/6 passed.
+- `t_cap_registry.py`: 6/6 passed.
+- `t_ref_data_loc.py`: 11/11 passed.
+- `t_pricing_eng.py`: 4/4 passed.
+- `t_sales_ledger.py`: 4/4 passed.
+- `t_unified_ledger.py`: 13/13 passed.
+- `t_outbox_stats.py`: 10/10 passed.
+- `t_tenant_migr.py`: 6/6 passed.
 
 ## 10. Known Limitations
 - Tally import requires standard UTF-8 XML parser in TallyPrime.

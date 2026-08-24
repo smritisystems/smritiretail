@@ -347,7 +347,7 @@ class POSService:
         #   an inline POS guard.
         # ──────────────────────────────────────────────────────────────────────────
 
-        from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
+        from .unified_ledger import UnifiedAccountingLedgerService
         await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
             self.db, self.tenant.company_id, self.tenant.branch_id
         )
@@ -526,7 +526,7 @@ class POSService:
                 detail=f"Insufficient cash in drawer ({available_cash:.2f}) for requested amount ({req.amount:.2f})."
             )
 
-        from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
+        from .unified_ledger import UnifiedAccountingLedgerService
         await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
             self.db, self.tenant.company_id, self.tenant.branch_id
         )
@@ -705,7 +705,7 @@ class POSService:
                 detail=f"Insufficient cash in drawer ({available_cash:.2f}) for requested amount ({req.amount:.2f})."
             )
 
-        from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
+        from .unified_ledger import UnifiedAccountingLedgerService
         await UnifiedAccountingLedgerService.seed_default_chart_of_accounts(
             self.db, self.tenant.company_id, self.tenant.branch_id
         )
@@ -917,7 +917,7 @@ class POSService:
         await self.db.flush()
 
         # Trigger automated double-entry GL balancing voucher for shift close variance
-        from .unified_accounting_ledger_service import UnifiedAccountingLedgerService
+        from .unified_ledger import UnifiedAccountingLedgerService
         await UnifiedAccountingLedgerService.post_shift_close_to_gl(
             session=self.db,
             company_id=self.tenant.company_id,

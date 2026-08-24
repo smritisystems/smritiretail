@@ -25,7 +25,7 @@ This walkthrough documents the visual refactor of the **Create Purchase Order (B
 - **Business Logic & Calculations**: Preserved full calculation formulas for subtotal, item discounts, taxable value, GST calculation, freight, other charges, and grand total.
 
 ## 3. Files Created
-- `docs/walkthrough/procurement/Create_Purchase_Order_Refactor_v3.28.0.md`
+- `docs/walkthrough/procurement/Create_Purchase.md`
 
 ## 4. Files Modified
 - `src/components/PurchaseStudioTab.tsx` (Version 3.28.0 header updated, imported icons added, state variables added for PO header and charges, active sub-tab `create` view refactored to match benchmark).

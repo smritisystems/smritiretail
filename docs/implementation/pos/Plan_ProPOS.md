@@ -15,24 +15,24 @@
 # Implementation Plan — ProPOS Unified Enterprise Billing Suite v6.0.0
 
 ## 1. Objective
-Replace legacy, fragmented Billing (`SmritiBillingTerminal.tsx`), Tax Invoice, and older POS dialogs with the modern, high-speed, enterprise **ProPOS Billing Suite** adhering to the designs in `F:\SMRITI\Smriti_billing_Plus_More\stitch_shoper9_billing_configuration_guide`.
+Replace legacy, fragmented Billing (`BillingTerm.tsx`), Tax Invoice, and older POS dialogs with the modern, high-speed, enterprise **ProPOS Billing Suite** adhering to the designs in `F:\SMRITI\Smriti_billing_Plus_More\stitch_shoper9_billing_configuration_guide`.
 
 ## 2. Business Motivation
 Provide cashiers, store operators, and managers with an ultra-responsive, keyboard-driven retail checkout terminal supporting split multi-tenders, suspended bill queues, customer loyalty redemptions, sales returns, EOD Z-reports, and promotion schemes.
 
 ## 3. Scope
-* High-Speed POS Billing Terminal (`SmritiProPosBillingTerminal.tsx`)
-* Multi-Tender Settlement Screen (`SmritiProPosSettlementModal.tsx`)
-* Suspended Bill Queue & Recall (`SmritiProPosRecallModal.tsx`)
-* Invoice Cancellation / Void with Audit Codes (`SmritiProPosCancellationModal.tsx`)
-* Customer Loyalty & Tier Redemption (`SmritiProPosLoyaltyLookupModal.tsx`)
-* Sales Returns & Blind Returns (`SmritiProPosSalesReturnModal.tsx`)
-* End-of-Day Z-Report Closeout (`SmritiProPosEodReportView.tsx`)
-* Daily Sales & Shift Analytics (`SmritiProPosDailyReportsDashboard.tsx`)
-* Promotion Engine Dashboard (`SmritiProPosPromotionEngine.tsx`)
-* Sales Staff Commission Rules (`SmritiProPosCommissionBuilder.tsx`)
-* Modern Thermal & Laser Tax Invoice Receipt (`SmritiProPosTaxInvoiceReceipt.tsx`)
-* Unified Workspace Shell (`SmritiProPosWorkspace.tsx`)
+* High-Speed POS Billing Terminal (`ProPosBillingTerm.tsx`)
+* Multi-Tender Settlement Screen (`ProPosSettlementDl.tsx`)
+* Suspended Bill Queue & Recall (`ProPosRecallDlg.tsx`)
+* Invoice Cancellation / Void with Audit Codes (`ProPosCancellation.tsx`)
+* Customer Loyalty & Tier Redemption (`ProPosLoyaltyLooku.tsx`)
+* Sales Returns & Blind Returns (`ProPosSalesReturnD.tsx`)
+* End-of-Day Z-Report Closeout (`ProPosEodReportVie.tsx`)
+* Daily Sales & Shift Analytics (`ProPosDailyReports.tsx`)
+* Promotion Engine Dashboard (`ProPosPromotionEng.tsx`)
+* Sales Staff Commission Rules (`ProPosCommissionBu.tsx`)
+* Modern Thermal & Laser Tax Invoice Receipt (`ProPosTaxInvoiceRc.tsx`)
+* Unified Workspace Shell (`ProPosWs.tsx`)
 
 ## 4. Current State
 Previous POS implementation used outdated dialog overlays with limited split-tender support and lacked dedicated Z-Report reconciliation and recall queues.
@@ -44,7 +44,7 @@ Previous POS implementation used outdated dialog overlays with limited split-ten
 * Missing direct sales return reference lookups.
 
 ## 6. Architecture Impact
-Components reside under `src/components/billing/propos/` and are cleanly integrated into `PosTerminalTab.tsx` and `AdvancedBillingEngine.tsx`.
+Components reside under `src/components/billing/propos/` and are cleanly integrated into `PosTerminalTab.tsx` and `AdvancedBillingEng.tsx`.
 
 ## 7. Proposed Design
 Adopts Material-3 high-density retail tokens:
@@ -54,22 +54,22 @@ Adopts Material-3 high-density retail tokens:
 
 ## 8. Files Created
 1. `src/components/billing/propos/types.ts`
-2. `src/components/billing/propos/SmritiProPosWorkspace.tsx`
-3. `src/components/billing/propos/SmritiProPosBillingTerminal.tsx`
-4. `src/components/billing/propos/SmritiProPosSettlementModal.tsx`
-5. `src/components/billing/propos/SmritiProPosRecallModal.tsx`
-6. `src/components/billing/propos/SmritiProPosCancellationModal.tsx`
-7. `src/components/billing/propos/SmritiProPosLoyaltyLookupModal.tsx`
-8. `src/components/billing/propos/SmritiProPosSalesReturnModal.tsx`
-9. `src/components/billing/propos/SmritiProPosEodReportView.tsx`
-10. `src/components/billing/propos/SmritiProPosDailyReportsDashboard.tsx`
-11. `src/components/billing/propos/SmritiProPosPromotionEngine.tsx`
-12. `src/components/billing/propos/SmritiProPosCommissionBuilder.tsx`
-13. `src/components/billing/propos/SmritiProPosTaxInvoiceReceipt.tsx`
+2. `src/components/billing/propos/ProPosWs.tsx`
+3. `src/components/billing/propos/ProPosBillingTerm.tsx`
+4. `src/components/billing/propos/ProPosSettlementDl.tsx`
+5. `src/components/billing/propos/ProPosRecallDlg.tsx`
+6. `src/components/billing/propos/ProPosCancellation.tsx`
+7. `src/components/billing/propos/ProPosLoyaltyLooku.tsx`
+8. `src/components/billing/propos/ProPosSalesReturnD.tsx`
+9. `src/components/billing/propos/ProPosEodReportVie.tsx`
+10. `src/components/billing/propos/ProPosDailyReports.tsx`
+11. `src/components/billing/propos/ProPosPromotionEng.tsx`
+12. `src/components/billing/propos/ProPosCommissionBu.tsx`
+13. `src/components/billing/propos/ProPosTaxInvoiceRc.tsx`
 
 ## 9. Files Modified
 1. `src/components/PosTerminalTab.tsx`
-2. `src/components/AdvancedBillingEngine.tsx`
+2. `src/components/AdvancedBillingEng.tsx`
 
 ## 10. Dependencies
 * `lucide-react` icons
@@ -107,4 +107,4 @@ Completed
 * ADR-008: Platform Abstraction Layer (PAL)
 
 ## 19. Related Walkthroughs
-* `docs/walkthrough/pos/ProPOS_Unified_Billing_Suite_v6.0.0.md`
+* `docs/walkthrough/pos/ProPOS_Unified.md`

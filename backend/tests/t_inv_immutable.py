@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.future import select
 
-from app.services.smrititaxinvoice_frozen_spec import (
+from app.services.tax_invoice_spec import (
     SMRITITAXINVOICE_TEMPLATE_CODE,
     SMRITITAXINVOICE_VERSION,
     SMRITITAXINVOICE_STATUS,
@@ -44,7 +44,7 @@ from app.services.smrititaxinvoice_frozen_spec import (
     verify_golden_css_integrity,
     load_golden_css,
 )
-from app.models.tax_invoice_template import TaxInvoiceTemplate, TaxInvoiceTemplateVersion
+from app.models.tax_inv_template import TaxInvoiceTemplate, TaxInvoiceTemplateVersion
 from app.services.invoice_pdf_service import InvoicePdfService, paginate_items
 
 DB_SYNC_URL = "postgresql://postgres:postgres@localhost:5432/smriti001"
@@ -119,7 +119,7 @@ def test_04_python_spec_cryptographic_integrity_hash():
 
 
 def test_04b_golden_css_artifact_integrity():
-    """Verifies smrititaxinvoice_v1.golden.css matches its integrity manifest."""
+    """Verifies tax_invoice_v1.css matches its integrity manifest."""
     assert verify_golden_css_integrity() is True
     css = load_golden_css(verify=False)
     assert "@page" in css

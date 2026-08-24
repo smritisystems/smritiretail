@@ -30,7 +30,7 @@
 | **`uq_variant_identity_active`** | `PRESENT_CODE` | `PRESENT_DB` | `PRESENT_DB` | Partial unique index on active products |
 | **`idx_products_variant_id`** | `PRESENT_CODE` | `PRESENT_DB` | `PRESENT_DB` | B-tree index on `variant_id` |
 | **`report_flat_inventory_sales`** | `PRESENT_CODE` | `PRESENT_DB` | `PRESENT_DB` | Canonical SQL catalog view (588 rows returned) |
-| **`alias_preview_fe`** | `PRESENT` | N/A | N/A | `HeaderAliasRegistry.ts` & `HeaderMappingPreviewModal.tsx` |
+| **`alias_preview_fe`** | `PRESENT` | N/A | N/A | `HeaderAliasRegistry.ts` & `HeaderMappingPrevi.tsx` |
 | **Alembic Migrations** | `PRESENT_CODE` | `APPLIED` | `APPLIED` | `v1336_variant_identity_view` + `v1337_backfill_variant_id` |
 
 ---

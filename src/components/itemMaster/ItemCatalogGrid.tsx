@@ -35,7 +35,7 @@ interface SmritiItemCatalogGridProps {
   onNavigateToPaste?: () => void;
 }
 
-export const SmritiItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
+export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   products = [],
   onRefreshProducts,
   onNotification,
@@ -336,4 +336,4 @@ export const SmritiItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   );
 };
 
-export default SmritiItemCatalogGrid;
+export default ItemCatalogGrid;

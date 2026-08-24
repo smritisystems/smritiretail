@@ -26,7 +26,7 @@ import {
   PieChart
 } from "lucide-react";
 
-export const SmritiProPosDailyReportsDashboard: React.FC = () => {
+export const SmritiDailyReportsDashDashboard: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
   const HOURLY_SALES = [
@@ -153,4 +153,4 @@ export const SmritiProPosDailyReportsDashboard: React.FC = () => {
   );
 };
 
-export default SmritiProPosDailyReportsDashboard;
+export default SmritiDailyReportsDashDashboard;

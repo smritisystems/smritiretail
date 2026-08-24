@@ -110,16 +110,16 @@ CREATE TABLE IF NOT EXISTS price_book_entries (
 ## 8. Files Created
 - `backend/app/models/pricing.py`: Canonical PriceBook, PriceBookEntry, CustomerPriceTier models.
 - `backend/app/models/payment_ledger.py`: Canonical PaymentTransaction, PaymentAllocation models.
-- `backend/app/services/unified_pricing_payment_service.py`: Domain service for pricing resolution, atomic document numbering, and idempotent multi-tender payment recording.
-- `backend/tests/test_unified_pricing_payment_engine.py`: Automated verification suite for pricing tiers, idempotent payments, sequence numbers, and tenant isolation.
-- `docs/implementation/foundation/Platform_Refactor_Slice4_Pricing_GST_Payments_Plan_v1.0.md`: This implementation plan.
+- `backend/app/services/pricing_payment.py`: Domain service for pricing resolution, atomic document numbering, and idempotent multi-tender payment recording.
+- `backend/tests/t_pricing_eng.py`: Automated verification suite for pricing tiers, idempotent payments, sequence numbers, and tenant isolation.
+- `docs/implementation/foundation/Platform_Refactor_3.md`: This implementation plan.
 
 ---
 
 ## 9. Files Modified
 - `backend/app/models/__init__.py`: Export Pricing and Payment Ledger models.
 - `docs/implementation/README.md`: Append Slice 4 plan to master index.
-- `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Track Slice 4 verification.
+- `docs/architecture/PLATFORM.md`: Track Slice 4 verification.
 
 ---
 
@@ -151,14 +151,14 @@ Additive DDL tables. If rollback is required, existing invoice tables continue t
 ---
 
 ## 14. Test Plan
-- Run `backend/tests/test_unified_pricing_payment_engine.py`.
+- Run `backend/tests/t_pricing_eng.py`.
 - Run full 77+ test multi-module regression suite.
 
 ---
 
 ## 15. Documentation Impact
-- Update `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
-- Generate Walkthrough `docs/walkthrough/foundation/Platform_Pricing_GST_Payments_Unification_v6.16.0.md`.
+- Update `docs/architecture/PLATFORM.md`.
+- Generate Walkthrough `docs/walkthrough/foundation/Platform_Pricing.md`.
 - Update `docs/walkthrough/README.md`.
 
 ---
@@ -182,4 +182,4 @@ Additive DDL tables. If rollback is required, existing invoice tables continue t
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Platform_Sales_POS_Ledger_Unification_v6.16.0.md`.
+- `docs/walkthrough/foundation/Platform_Sales.md`.

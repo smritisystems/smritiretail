@@ -46,7 +46,7 @@ from .api.v1 import (
     capability_registry,
     cge,
     changelog,
-    company_control_center,
+    company_center,
     crm,
     database_manager,
     dev_tracker,
@@ -164,7 +164,7 @@ app.include_router(security.router,         prefix=settings.API_V1_STR + "/secur
 app.include_router(ui_control_plane.router, prefix=settings.API_V1_STR + "/ui",            tags=["UI Control Plane"])
 app.include_router(training.router,         prefix=settings.API_V1_STR,                     tags=["Training Academy"])
 app.include_router(ecom.router,             prefix=settings.API_V1_STR,                     tags=["eCommerce / Omnichannel Engine"])
-app.include_router(company_control_center.router, prefix=settings.API_V1_STR, tags=["Company Control Center"])
+app.include_router(company_center.router, prefix=settings.API_V1_STR, tags=["Company Control Center"])
 app.include_router(database_manager.router,       prefix=settings.API_V1_STR + "/database-manager", tags=["Database Manager"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 app.include_router(approval_matrix.router,  prefix=settings.API_V1_STR + "/approval-matrix", tags=["Approval Matrix"])

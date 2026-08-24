@@ -17,13 +17,13 @@
 **Overall Status:** `READY WITH EXPLICIT GAPS`  
 **Audit Date:** 2026-08-17  
 **Verification Level:** Level A (Direct FastAPI Application HTTP Endpoints + PostgreSQL Ledger Validation + Zero Residual Delta)  
-**Applicable Architecture Constitution:** 11 Immutable Golden Rules (`docs/AI_AGENT_ARCHITECTURE_RULES.md`)
+**Applicable Architecture Constitution:** 11 Immutable Golden Rules (`docs/AI_AGENT.md`)
 
 ---
 
 ## 1. Executive Summary & Readiness Gates
 
-This document establishes the authoritative User Training Readiness Matrix for the 3-Day SMRITI Retail OS User Training Program. Every business operation has been evaluated through real, authenticated FastAPI application APIs (`test_authenticated_training_e2e.py`), live PostgreSQL transaction audits, and the full 338-test regression baseline.
+This document establishes the authoritative User Training Readiness Matrix for the 3-Day SMRITI Retail OS User Training Program. Every business operation has been evaluated through real, authenticated FastAPI application APIs (`test_authenticated.py`), live PostgreSQL transaction audits, and the full 338-test regression baseline.
 
 ```
 ================================================================================

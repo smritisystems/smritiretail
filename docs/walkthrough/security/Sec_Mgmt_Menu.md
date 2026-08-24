@@ -39,16 +39,16 @@ This release delivers the complete enterprise **Security Management System** (`S
 
 ## 3. Files Created
 - [`src/components/security/types.ts`](file:///F:/SMRITRretailNX/src/components/security/types.ts)
-- [`src/components/security/SmritiMenuAccessControlView.tsx`](file:///F:/SMRITRretailNX/src/components/security/SmritiMenuAccessControlView.tsx)
-- [`src/components/security/SmritiSecurityConfigurationView.tsx`](file:///F:/SMRITRretailNX/src/components/security/SmritiSecurityConfigurationView.tsx)
-- [`src/components/security/SmritiSecurityManagementModal.tsx`](file:///F:/SMRITRretailNX/src/components/security/SmritiSecurityManagementModal.tsx)
-- [`src/services/securityManagementStore.ts`](file:///F:/SMRITRretailNX/src/services/securityManagementStore.ts)
-- [`src/tests/securityMenuAccessControl.test.ts`](file:///F:/SMRITRretailNX/src/tests/securityMenuAccessControl.test.ts)
+- [`src/components/security/MenuAccessControlV.tsx`](file:///F:/SMRITRretailNX/src/components/security/MenuAccessControlV.tsx)
+- [`src/components/security/SecurityConfigView.tsx`](file:///F:/SMRITRretailNX/src/components/security/SecurityConfigView.tsx)
+- [`src/components/security/SecurityMgmtDlg.tsx`](file:///F:/SMRITRretailNX/src/components/security/SecurityMgmtDlg.tsx)
+- [`src/services/securityStore.ts`](file:///F:/SMRITRretailNX/src/services/securityStore.ts)
+- [`src/tests/menuAccess.test.ts`](file:///F:/SMRITRretailNX/src/tests/menuAccess.test.ts)
 - [`backend/app/models/security.py`](file:///F:/SMRITRretailNX/backend/app/models/security.py)
 - [`backend/app/schemas/security.py`](file:///F:/SMRITRretailNX/backend/app/schemas/security.py)
 - [`backend/app/api/v1/security.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/security.py)
-- [`backend/tests/test_security_menu_access.py`](file:///F:/SMRITRretailNX/backend/tests/test_security_menu_access.py)
-- [`docs/walkthrough/security/Security_Management_Menu_Access_Control_And_Configuration_v6.16.0.md`](file:///F:/SMRITRretailNX/docs/walkthrough/security/Security_Management_Menu_Access_Control_And_Configuration_v6.16.0.md)
+- [`backend/tests/t_sec_menu.py`](file:///F:/SMRITRretailNX/backend/tests/t_sec_menu.py)
+- [`docs/walkthrough/security/Sec_Mgmt_Menu.md`](file:///F:/SMRITRretailNX/docs/walkthrough/security/Sec_Mgmt_Menu.md)
 
 ---
 
@@ -77,15 +77,15 @@ Retail supervisory operations require fine-grained authorization. A cashier may 
 
 ## 7. Implementation Summary
 1. **API Layer**: `/api/v1/security/menu-access` and `/api/v1/security/config` endpoints backed by SQLAlchemy models `SmritiPermission` and `SmritiAuditLog`.
-2. **State & Offline Cache Engine**: `securityManagementStore.ts` provides instant optimistic local state caching while asynchronously synchronizing with the FastAPI backend.
-3. **UI Engine**: `SmritiSecurityManagementModal.tsx` integrates the classic ERP left navigation sidebar with responsive view switching, expand/collapse tree management, and granular checkbox propagation.
+2. **State & Offline Cache Engine**: `securityStore.ts` provides instant optimistic local state caching while asynchronously synchronizing with the FastAPI backend.
+3. **UI Engine**: `SecurityMgmtDlg.tsx` integrates the classic ERP left navigation sidebar with responsive view switching, expand/collapse tree management, and granular checkbox propagation.
 
 ---
 
 ## 8. Tests Executed
-- `python -m pytest backend/tests/test_menu_governance.py` (1/1 passed)
-- `python -m pytest backend/tests/test_security_menu_access.py` (1/1 passed)
-- `npx vitest run src/tests/securityMenuAccessControl.test.ts` (6/6 passed)
+- `python -m pytest backend/tests/t_menu_gov.py` (1/1 passed)
+- `python -m pytest backend/tests/t_sec_menu.py` (1/1 passed)
+- `npx vitest run src/tests/menuAccess.test.ts` (6/6 passed)
 - `npx vitest run` (39/39 test suites passed, 288/288 tests passed)
 - `npm run build` (compiled in 24.67s with 0 errors)
 

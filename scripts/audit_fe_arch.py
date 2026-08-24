@@ -23,7 +23,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_FRONTEND_VITE_REACT_GATE_v1.0.md"
+DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\FRONTEND_VITE.md"
 SRC_DIR = r"F:\SMRITRretailNX\src"
 DIST_DIR = r"F:\SMRITRretailNX\dist"
 

@@ -5,8 +5,8 @@
   Owner: Product & Architecture
   Reviewers: Engineering, Operations
   Last Updated: 2026-07-18
-  Dependencies: PRODUCT_IDENTITY_ENGINE.md, PRODUCT_IDENTITY_ENGINE_IMPLEMENTATION_PLAN.md
-  Related Documents: PRODUCT_IDENTITY_ENGINE_NFR.md, PRODUCT_IDENTITY_ENGINE_TEST_PLAN.md
+  Dependencies: PRODUCT_IDENTITY_13.md, PRODUCT_IDENTITY.md
+  Related Documents: PRODUCT_IDENTITY_12.md, PRODUCT_IDENTITY__5.md
   Change History:
     - v1.0 2026-07-18 Created.
 -->

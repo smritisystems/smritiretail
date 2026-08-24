@@ -27,7 +27,7 @@
 import {
   EntityContextType,
   getContextDescriptor,
-} from "./fieldContextRegistry.ts";
+} from "./fieldContext.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

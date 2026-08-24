@@ -21,11 +21,11 @@ EXCEL_PATH = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 
 DOCS = [
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONTROL_PLANE_BOUNDARY_v1.0.md",
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONTROL_PLANE_AUDIT_v1.0.md",
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_BUSINESS_BEHAVIOR_CONTROL_PLANE_v1.0.md",
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONFIGURATION_OWNERSHIP_MATRIX_v1.0.md",
-    r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONTROL_PLANE_MIGRATION_PLAN_v1.0.md"
+    r"F:\SMRITRretailNX\docs\architecture\CONTROL_PLANE_2.md",
+    r"F:\SMRITRretailNX\docs\architecture\CONTROL_PLANE_2_3.md",
+    r"F:\SMRITRretailNX\docs\architecture\BUSINESS_BEHAVIOR.md",
+    r"F:\SMRITRretailNX\docs\architecture\CONFIGURATION.md",
+    r"F:\SMRITRretailNX\docs\architecture\CONTROL_PLANE.md"
 ]
 
 def verify_decision_gate_audit():

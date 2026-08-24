@@ -25,13 +25,13 @@ import {
   TrendingUp,
   AlertCircle
 } from 'lucide-react';
-import { trainingSandboxStore, TrainingSession } from '../../services/trainingSandboxStore';
-import { Day1MasterSimulator } from './Day1MasterSimulator';
+import { trainingStore, TrainingSession } from '../../services/trainingStore';
+import { Day1MasterSim } from './Day1MasterSim';
 import { Day2POSimulator } from './Day2POSimulator';
 import { Day3GRNSimulator } from './Day3GRNSimulator';
-import { Day4BillingSimulator } from './Day4BillingSimulator';
-import { Day5LifecycleTestEngine } from './Day5LifecycleTestEngine';
-import { CertificateGeneratorModal } from './CertificateGeneratorModal';
+import { Day4BillingSim } from './Day4BillingSim';
+import { Day5Lifecycle } from './Day5Lifecycle';
+import { CertGenModal } from './CertGenModal';
 
 interface TrainingDayModule {
   day: number;
@@ -42,7 +42,7 @@ interface TrainingDayModule {
 }
 
 export const TrainingAcademyTab: React.FC = () => {
-  const [session, setSession] = useState<TrainingSession>(trainingSandboxStore.getCurrentSession());
+  const [session, setSession] = useState<TrainingSession>(trainingStore.getCurrentSession());
   const [activeDay, setActiveDay] = useState<number>(1);
   const [activeStep, setActiveStep] = useState<number>(1);
   const [day5Result, setDay5Result] = useState<any>(null);
@@ -69,14 +69,14 @@ export const TrainingAcademyTab: React.FC = () => {
   ];
 
   const handleResetSession = () => {
-    const newSession = trainingSandboxStore.initSession(session.traineeName);
+    const newSession = trainingStore.initSession(session.traineeName);
     setSession({ ...newSession });
     setDay5Result(null);
   };
 
   const handleRunDay5Test = () => {
     // Seed test sandbox data for Day 5 evaluation
-    trainingSandboxStore.addSimulatedItem({
+    trainingStore.addSimulatedItem({
       sku: 'SKU-SUGAR-01',
       name: 'Refined Sugar 1kg Pack',
       hsn: '17019990',
@@ -84,7 +84,7 @@ export const TrainingAcademyTab: React.FC = () => {
       mrp: 50,
       purchaseRate: 40,
     });
-    trainingSandboxStore.createSimulatedPO({
+    trainingStore.createSimulatedPO({
       poNumber: 'PO-TEST-5001',
       supplierCode: 'SUP-RAJ-TRADERS',
       sku: 'SKU-SUGAR-01',
@@ -92,7 +92,7 @@ export const TrainingAcademyTab: React.FC = () => {
       rate: 40,
       status: 'Draft',
     });
-    trainingSandboxStore.processSimulatedGRN({
+    trainingStore.processSimulatedGRN({
       grnNumber: 'GRN-TEST-9001',
       poNumber: 'PO-TEST-5001',
       receivedQty: 48,
@@ -100,7 +100,7 @@ export const TrainingAcademyTab: React.FC = () => {
       excessQty: 0,
       receivedDate: new Date().toISOString(),
     });
-    trainingSandboxStore.processSimulatedSale({
+    trainingStore.processSimulatedSale({
       invoiceNumber: 'INV-TEST-7001',
       customerName: 'Walk-in Retail Customer',
       sku: 'SKU-SUGAR-01',
@@ -112,7 +112,7 @@ export const TrainingAcademyTab: React.FC = () => {
       paymentMode: 'CASH',
     });
 
-    const result = trainingSandboxStore.verifyDay5Lifecycle('SKU-SUGAR-01');
+    const result = trainingStore.verifyDay5Lifecycle('SKU-SUGAR-01');
     setDay5Result(result);
   };
 
@@ -243,11 +243,11 @@ export const TrainingAcademyTab: React.FC = () => {
             </div>
 
             <div className="bg-slate-900/60 border border-slate-700/80 rounded-lg p-4 text-xs text-slate-300 leading-relaxed">
-              {activeDay === 1 && <Day1MasterSimulator onCompleteStep={() => setActiveStep(prev => Math.min(7, prev + 1))} />}
+              {activeDay === 1 && <Day1MasterSim onCompleteStep={() => setActiveStep(prev => Math.min(7, prev + 1))} />}
               {activeDay === 2 && <Day2POSimulator onCompleteStep={() => setActiveStep(prev => Math.min(7, prev + 1))} />}
               {activeDay === 3 && <Day3GRNSimulator onCompleteStep={() => setActiveStep(prev => Math.min(7, prev + 1))} />}
-              {activeDay === 4 && <Day4BillingSimulator onCompleteStep={() => setActiveStep(prev => Math.min(7, prev + 1))} />}
-              {activeDay === 5 && <Day5LifecycleTestEngine onComplete={() => setActiveStep(7)} />}
+              {activeDay === 4 && <Day4BillingSim onCompleteStep={() => setActiveStep(prev => Math.min(7, prev + 1))} />}
+              {activeDay === 5 && <Day5Lifecycle onComplete={() => setActiveStep(7)} />}
               {activeDay >= 6 && (
                 <p>
                   Training lesson guidance for Day {activeDay} ({modules[activeDay - 1].title}). Follow the interactive sandbox steps to complete module evaluation.
@@ -316,7 +316,7 @@ export const TrainingAcademyTab: React.FC = () => {
       </div>
 
       {/* Certificate Modal */}
-      <CertificateGeneratorModal
+      <CertGenModal
         isOpen={showCertificate}
         onClose={() => setShowCertificate(false)}
         sessionId={session.sessionId}

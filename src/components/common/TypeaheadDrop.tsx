@@ -43,7 +43,7 @@ export const SmritiTypeaheadDropdown: React.FC<SmritiTypeaheadDropdownProps> = (
   onSelect,
   onClose,
   isLoading = false,
-  emptyMessage = "No matching records found in database"
+  emptyMessage = "No matching records found"
 }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -136,3 +136,4 @@ export const SmritiTypeaheadDropdown: React.FC<SmritiTypeaheadDropdownProps> = (
     </div>
   );
 };
+export { SmritiTypeaheadDropdown as TypeaheadDrop };

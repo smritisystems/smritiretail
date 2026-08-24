@@ -301,7 +301,7 @@ class PurchaseService:
                 detail="A purchase receipt must contain at least one item.",
             )
 
-        from .inventory_wms_service import InventoryWmsService
+        from .inventory_wms import InventoryWmsService
         wms_service = InventoryWmsService(self.db, self.tenant)
         warehouse_id = req.warehouse_id or "wh-central-001"
 

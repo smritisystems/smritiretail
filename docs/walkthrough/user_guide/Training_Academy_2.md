@@ -17,19 +17,19 @@
 This walkthrough documents the successful implementation of **Phase 1 Foundation** for the **SMRITI Training Academy** (`src/components/training/TrainingAcademyTab.tsx`), providing an operational, interactive onboarding and certification system embedded inside SMRITI Retail OS with **100% strict isolation from production business data**.
 
 ## 2. Scope
-- Session-based sandbox store implementation (`src/services/trainingSandboxStore.ts`).
+- Session-based sandbox store implementation (`src/services/trainingStore.ts`).
 - Academy UI tab component (`src/components/training/TrainingAcademyTab.tsx`) with 7-day curriculum grid, 7-step methodology runner, and Live Training State View.
 - FastAPI backend routes (`backend/app/api/v1/training.py`) and `SmritiTraining` schema models (`backend/app/models/training.py`).
 - Public certificate verification endpoint (`GET /api/v1/training/certificates/{certificate_id}/verify`).
-- Production isolation test suite (`backend/tests/test_production_isolation.py`).
+- Production isolation test suite (`backend/tests/t_prod_isolate.py`).
 
 ## 3. Files Created
-- [`src/services/trainingSandboxStore.ts`](file:///F:/SMRITRretailNX/src/services/trainingSandboxStore.ts): Session-based isolated training store (`TRAIN-YYYY-XXX`).
+- [`src/services/trainingStore.ts`](file:///F:/SMRITRretailNX/src/services/trainingStore.ts): Session-based isolated training store (`TRAIN-YYYY-XXX`).
 - [`src/components/training/TrainingAcademyTab.tsx`](file:///F:/SMRITRretailNX/src/components/training/TrainingAcademyTab.tsx): Interactive Academy UI container with 7-day roadmap, methodology runner, and Live Training State View.
 - [`backend/app/models/training.py`](file:///F:/SMRITRretailNX/backend/app/models/training.py): SQLAlchemy models for `SmritiTraining` database schema.
 - [`backend/app/api/v1/training.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/training.py): FastAPI training routes, session management, and public certificate verification endpoint.
-- [`backend/tests/test_production_isolation.py`](file:///F:/SMRITRretailNX/backend/tests/test_production_isolation.py): Automated production isolation test suite.
-- [`docs/walkthrough/user_guide/SMRITI_Training_Academy_Phase1_Walkthrough_v1.0.md`](file:///F:/SMRITRretailNX/docs/walkthrough/user_guide/SMRITI_Training_Academy_Phase1_Walkthrough_v1.0.md): This walkthrough document.
+- [`backend/tests/t_prod_isolate.py`](file:///F:/SMRITRretailNX/backend/tests/t_prod_isolate.py): Automated production isolation test suite.
+- [`docs/walkthrough/user_guide/Training_Academy_2.md`](file:///F:/SMRITRretailNX/docs/walkthrough/user_guide/Training_Academy_2.md): This walkthrough document.
 
 ## 4. Files Modified
 - [`src/App.tsx`](file:///F:/SMRITRretailNX/src/App.tsx): Mounted `TrainingAcademyTab` in main workspace tab router.
@@ -54,16 +54,16 @@ Teaching software through interactive simulation rather than static videos impro
 
 ## 8. Tests Executed
 ```bash
-python -m pytest tests/test_production_isolation.py -v
+python -m pytest tests/t_prod_isolate.py -v
 npx vite build
 ```
 
 ## 9. Verification Results
 ```text
-tests/test_production_isolation.py::test_training_session_creation_isolation PASSED
-tests/test_production_isolation.py::test_production_header_rejection PASSED
-tests/test_production_isolation.py::test_certificate_issuance_and_public_verification PASSED
-tests/test_production_isolation.py::test_zero_production_data_mutation_isolation PASSED
+tests/t_prod_isolate.py::test_training_session_creation_isolation PASSED
+tests/t_prod_isolate.py::test_production_header_rejection PASSED
+tests/t_prod_isolate.py::test_certificate_issuance_and_public_verification PASSED
+tests/t_prod_isolate.py::test_zero_production_data_mutation_isolation PASSED
 ✓ 4/4 passed in 4.10s
 ✓ Vite build completed cleanly in 33.06s
 ```

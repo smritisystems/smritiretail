@@ -15,7 +15,7 @@
 # Walkthrough: Dynamic Item Attributes Unification & Single Source of Truth v3.29.1
 
 ## 1. Purpose
-Establish the backend Attribute Definition (`/api/v1/attributes/definitions`) as the authoritative, single source of truth across all retail catalog entry interfaces, ensuring that dynamically created attributes (e.g. `Fabric Type`, `Care Instructions`) automatically appear, validate, import, persist to `products.attributes` JSONB, and handle deactivation consistently across both **Item Master Entry (Prime)** (`ItemMasterEntryView.tsx`) and **Excel Quick Entry** (`ExcelGridEntrySection.tsx`).
+Establish the backend Attribute Definition (`/api/v1/attributes/definitions`) as the authoritative, single source of truth across all retail catalog entry interfaces, ensuring that dynamically created attributes (e.g. `Fabric Type`, `Care Instructions`) automatically appear, validate, import, persist to `products.attributes` JSONB, and handle deactivation consistently across both **Item Master Entry (Prime)** (`ItemMasterEntryVie.tsx`) and **Excel Quick Entry** (`ExcelGridEntrySec.tsx`).
 
 ## 2. Scope
 - Unified consumption of dynamic attribute definitions from `GET /api/v1/attributes/definitions`.
@@ -26,16 +26,16 @@ Establish the backend Attribute Definition (`/api/v1/attributes/definitions`) as
 - Graceful deactivation (`isEnabled: false`) filtering active entry while preserving historical records.
 
 ## 3. Files Created
-- `src/tests/dynamicItemAttributes.test.ts`
-- `backend/app/tests/test_dynamic_attributes_persistence.py`
-- `docs/walkthrough/inventory/Inventory_DynamicItemAttributes_Unification_v3.29.1.md`
+- `src/tests/itemAttrs.test.ts`
+- `backend/app/tests/t_dyn_attr.py`
+- `docs/walkthrough/inventory/Inv.md`
 
 ## 4. Files Modified
 - `src/components/itemMaster/types.ts`
-- `src/components/itemMaster/ItemMasterEntryView.tsx`
-- `src/components/itemMaster/tabs/FieldSelectionViewTab.tsx`
+- `src/components/itemMaster/ItemMasterEntryVie.tsx`
+- `src/components/itemMaster/tabs/FieldSelectViewTab.tsx`
 - `src/components/itemMaster/tabs/ItemDetailsGridTab.tsx`
-- `src/components/ExcelGridEntrySection.tsx`
+- `src/components/ExcelGridEntrySec.tsx`
 - `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions
@@ -54,10 +54,10 @@ Prior to this refactoring, `ItemMasterEntryView` relied on a static TypeScript l
 5. **Deactivation Filter**: Excluded `isEnabled: false` definitions from active column lists while maintaining read compatibility for historical records.
 
 ## 8. Tests Executed
-- `vitest run src/tests/dynamicItemAttributes.test.ts` (11/11 passed)
+- `vitest run src/tests/itemAttrs.test.ts` (11/11 passed)
 - `npm test` (155/155 passed across 24 test suites)
 - `npm run lint` (`tsc --noEmit` passed with 0 errors)
-- `pytest backend/app/tests/test_dynamic_attributes_persistence.py` (1/1 passed)
+- `pytest backend/app/tests/t_dyn_attr.py` (1/1 passed)
 
 ## 9. Verification Results
 - **Evidence Level A**: Full automated test verification on both frontend (Vitest) and backend (Pytest) with literal terminal outputs and zero regressions.

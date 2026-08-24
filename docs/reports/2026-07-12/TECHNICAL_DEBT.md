@@ -22,20 +22,20 @@
 
 ### Large Components (> 500 lines)
 - ⚠️ `src/components/AboutSmritiTab.tsx (1079 lines)`
-- ⚠️ `src/components/AdvancedBillingEngine.tsx (1671 lines)`
+- ⚠️ `src/components/AdvancedBillingEng.tsx (1671 lines)`
 - ⚠️ `src/components/ApprovalMatrixTab.tsx (508 lines)`
-- ⚠️ `src/components/AttributeManagerSection.tsx (707 lines)`
+- ⚠️ `src/components/AttrManagerSec.tsx (707 lines)`
 - ⚠️ `src/components/BarcodeStudioTab.tsx (1021 lines)`
 - ⚠️ `src/components/CrmLoyaltyTab.tsx (531 lines)`
 - ⚠️ `src/components/DashboardTab.tsx (1677 lines)`
 - ⚠️ `src/components/DataExchangeTab.tsx (1289 lines)`
 - ⚠️ `src/components/DocumentSeriesTab.tsx (859 lines)`
 - ⚠️ `src/components/drilldown/DrillDownSidePanel.tsx (711 lines)`
-- ⚠️ `src/components/ExcelGridEntrySection.tsx (610 lines)`
+- ⚠️ `src/components/ExcelGridEntrySec.tsx (610 lines)`
 - ⚠️ `src/components/FloatingWindowHost.tsx (527 lines)`
 - ⚠️ `src/components/ItemMasterTab.tsx (1157 lines)`
-- ⚠️ `src/components/LabelPrintingSection.tsx (583 lines)`
-- ⚠️ `src/components/MasterManagementTab.tsx (755 lines)`
+- ⚠️ `src/components/LabelPrintingSec.tsx (583 lines)`
+- ⚠️ `src/components/MasterMgmtTab.tsx (755 lines)`
 - ⚠️ `src/components/PosTerminalTab.tsx (699 lines)`
 - ⚠️ `src/components/PrintPreviewModal.tsx (2128 lines)`
 - ⚠️ `src/components/PurchaseStudioTab.tsx (2328 lines)`
@@ -47,6 +47,6 @@
 - ⚠️ `src/components/StaffManagementTab.tsx (978 lines)`
 - ⚠️ `src/components/TermsEngineTab.tsx (1493 lines)`
 - ⚠️ `src/components/UserProfileTab.tsx (743 lines)`
-- ⚠️ `src/components/VariantTemplateSection.tsx (682 lines)`
+- ⚠️ `src/components/VariantTemplateSec.tsx (682 lines)`
 - ⚠️ `src/components/WikiTab.tsx (520 lines)`
 - ⚠️ `src/components/WorkspaceTaskbar.tsx (844 lines)`

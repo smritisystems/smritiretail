@@ -47,16 +47,16 @@ Deliver the authoritative business logic and backend engines for Section 9 (Publ
 - Calculate PDT velocity by querying outward sales movements directly.
 
 ## 8. Files Created
-- `backend/app/services/commercial_growth_service.py`
-- `backend/app/services/pdt_analytics_service.py`
-- `backend/app/services/offline_sync_service.py`
+- `backend/app/services/commercial_growth.py`
+- `backend/app/services/pdt_analytics.py`
+- `backend/app/services/offline_sync_svc.py`
 - `backend/app/api/v1/cge.py`
 - `backend/app/api/v1/sync.py`
-- `backend/tests/test_psv_cge_and_offline_sync.py`
+- `backend/tests/t_psv_sync.py`
 
 ## 9. Files Modified
 - `backend/app/main.py`
-- `backend/app/services/psv_projection_service.py`
+- `backend/app/services/psv_projection.py`
 
 ## 10. Dependencies
 - FastAPI Core, SQLAlchemy Async, PostgreSQL.
@@ -81,7 +81,7 @@ Deliver the authoritative business logic and backend engines for Section 9 (Publ
 ## 15. Documentation Impact
 - Update Walkthrough master index (`docs/walkthrough/README.md`).
 - Update Implementation master index (`docs/implementation/README.md`).
-- Generate walkthrough document (`docs/walkthrough/cge/PSV_CGE_PDT_And_Offline_Sync_v3.22.0.md`).
+- Generate walkthrough document (`docs/walkthrough/cge/PSV_CGE_PDT_And.md`).
 
 ## 16. Deployment Plan
 - Deploy code to development branch, execute test suite, and merge to main.
@@ -94,4 +94,4 @@ Deliver the authoritative business logic and backend engines for Section 9 (Publ
 - ADR-042: Deterministic PDT Velocity Analytics
 
 ## 19. Related Walkthroughs
-- [`docs/walkthrough/cge/PSV_CGE_PDT_And_Offline_Sync_v3.22.0.md`](file:///F:/SMRITRretailNX/docs/walkthrough/cge/PSV_CGE_PDT_And_Offline_Sync_v3.22.0.md)
+- [`docs/walkthrough/cge/PSV_CGE_PDT_And.md`](file:///F:/SMRITRretailNX/docs/walkthrough/cge/PSV_CGE_PDT_And.md)

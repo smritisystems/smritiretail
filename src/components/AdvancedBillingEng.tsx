@@ -14,7 +14,7 @@
 
 import React from "react";
 import { Product, POSProfile, Shift, Bill } from "../types.ts";
-import { SmritiProPosWorkspace } from "./billing/propos/SmritiProPosWorkspace.tsx";
+import { ProPosWs } from "./billing/propos/ProPosWs.tsx";
 
 export interface AdvancedCustomer {
   type: "Registered" | "Unregistered";
@@ -58,7 +58,7 @@ interface AdvancedBillingEngineProps {
 }
 
 export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = () => {
-  return <SmritiProPosWorkspace />;
+  return <ProPosWs />;
 };
 
 export default AdvancedBillingEngine;

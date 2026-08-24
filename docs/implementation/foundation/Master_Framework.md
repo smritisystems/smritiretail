@@ -97,7 +97,7 @@ Both `PrintTemplate` and `PrintProfile` SQLAlchemy models must extend `BaseEntit
 * Validate CRUD APIs `/api/terms/clauses`, `/api/terms/defaults`, `/api/terms/snapshots`, `/api/barcode/templates`, `/api/barcode/profiles`.
 
 ## 15. Documentation Impact
-* Generate Walkthrough at `docs/walkthrough/foundation/SMRITI_Master_Framework_Phase_F_3_Walkthrough_v3.16.0.md` and update index in `docs/walkthrough/README.md`.
+* Generate Walkthrough at `docs/walkthrough/foundation/Master_Framework__3.md` and update index in `docs/walkthrough/README.md`.
 
 ## 16. Deployment Plan
 * Apply migrations during container/server startup.

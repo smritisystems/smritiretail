@@ -30,7 +30,7 @@ The purpose of this walkthrough is to document the final integration phase of th
 
 ## 4. Files Modified
 - [masters_registry.ts](file:///d:/IMP/GitHub/SMRITRretailNX/src/masters_registry.ts) - Cleared Tier-1 configs and static dropdown options to rely solely on dynamic resolution.
-- [MasterManagementTab.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/MasterManagementTab.tsx) - Dynamic state mapping, generic fetch flow, form rendering schema parser, and backend integration.
+- [MasterMgmtTab.tsx](file:///d:/IMP/GitHub/SMRITRretailNX/src/components/MasterMgmtTab.tsx) - Dynamic state mapping, generic fetch flow, form rendering schema parser, and backend integration.
 
 ## 5. Architecture Decisions
 - **Dynamic Configuration Merge:** We merge static configuration definitions for Tier-2 masters with dynamically-fetched lookup type descriptors from `/api/masters/lookup-types` at component mount.

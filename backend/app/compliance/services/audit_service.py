@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
 from app.compliance.models.compliance import ComplianceAuditLog
-from app.compliance.repositories.audit_log_repository import ComplianceAuditLogRepository
+from app.compliance.repositories.audit_log_repo import ComplianceAuditLogRepository
 
 
 class AuditService:

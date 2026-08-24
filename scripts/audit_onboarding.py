@@ -20,12 +20,12 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from backend.app.services.company_database_resolver import CompanyDatabaseResolver, generate_company_database_name
+from backend.app.services.db_resolver import CompanyDatabaseResolver, generate_company_database_name
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 TARGET_DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smriti001"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_COMPANY_ONBOARDING_PRODUCTION_READINESS_v1.0.md"
+DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\COMPANY.md"
 DIST_DIR = r"F:\SMRITRretailNX\dist"
 
 def audit_onboarding_production_readiness():

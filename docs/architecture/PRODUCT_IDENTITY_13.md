@@ -25,7 +25,7 @@
 
 # SMRITI Product Identity Engine (PIE)
 
-> **CANONICAL REFERENCE:** [`docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md`](file:///F:/SMRITRretailNX/docs/architecture/SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)
+> **CANONICAL REFERENCE:** [`docs/architecture/MULTI_COMPANY_2.md`](file:///F:/SMRITRretailNX/docs/architecture/MULTI_COMPANY_2.md)
 
 **Status:** **IMPLEMENTED / DATABASE_VERIFIED** (Alembic `j6k7l8m9n0o` applied; tables present in `smritisys`)
 
@@ -181,7 +181,7 @@ The engine assigns a confidence score based on match quality:
 
 ## 5. Data Model
 
-> See also: [Product Identity Engine ERD](./PRODUCT_IDENTITY_ENGINE_ERD.md) for entity relationships and implementation planning.
+> See also: [Product Identity Engine ERD](./PRODUCT_IDENTITY_11.md) for entity relationships and implementation planning.
 
 
 ### 5.1 Tables / Entities
@@ -486,7 +486,7 @@ CREATE INDEX idx_identity_decisions_fingerprint ON identity_decisions(fingerprin
 
 ## 6. API Contract
 
-> See detailed API definitions in [PRODUCT_IDENTITY_ENGINE_API_SPEC.md](./PRODUCT_IDENTITY_ENGINE_API_SPEC.md).
+> See detailed API definitions in [PRODUCT_IDENTITY__6.md](./PRODUCT_IDENTITY__6.md).
 
 ### Identity Rule Management
 
@@ -796,7 +796,7 @@ Sections:
 
 ## 11. Phased Roadmap
 
-> See also: [Product Identity Engine Implementation Plan](./PRODUCT_IDENTITY_ENGINE_IMPLEMENTATION_PLAN.md) for phased deliverables, tasks, and acceptance criteria.
+> See also: [Product Identity Engine Implementation Plan](./PRODUCT_IDENTITY.md) for phased deliverables, tasks, and acceptance criteria.
 
 
 ### Phase 1 (MVP)

@@ -28,12 +28,12 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from ..models.sales import SalesInvoice, SalesInvoiceItem
-from ..models.tax_invoice_template import (
+from ..models.tax_inv_template import (
     TaxInvoiceTemplate,
     TaxInvoiceTemplateVersion,
     InvoiceDocumentArtifact,
 )
-from .smrititaxinvoice_frozen_spec import (
+from .tax_invoice_spec import (
     SMRITITAXINVOICE_TEMPLATE_CODE,
     SMRITITAXINVOICE_VERSION,
     SMRITITAXINVOICE_STATUS,

@@ -253,7 +253,7 @@ async def test_wms_service_async_lifecycle():
     import uuid
     from sqlalchemy import text
     from app.api.deps import TenantContext
-    from app.services.inventory_wms_service import InventoryWmsService
+    from app.services.inventory_wms import InventoryWmsService
     from app.models.inventory import Product, Warehouse
     from app.db.session import get_company_sessionmaker
 

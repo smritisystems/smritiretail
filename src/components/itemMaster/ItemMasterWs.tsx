@@ -24,12 +24,12 @@ import {
   FileSpreadsheet
 } from "lucide-react";
 import { Product } from "../../types.ts";
-import { SmritiItemDetailsGrid } from "./SmritiItemDetailsGrid.tsx";
-import { SmritiViewConfiguration, ViewConfigState } from "./SmritiViewConfiguration.tsx";
-import { SmritiItemMasterStudio } from "./SmritiItemMasterStudio.tsx";
-import { SmritiAttributeManagementStudio } from "./SmritiAttributeManagementStudio.tsx";
-import { SmritiImagePathConfigStudio } from "./SmritiImagePathConfigStudio.tsx";
-import { VariantTemplateSection } from "../VariantTemplateSection.tsx";
+import { ItemDetailsGrid } from "./ItemDetailsGrid.tsx";
+import { ItemViewConfig, ItemViewConfigState } from "./ItemViewConfig.tsx";
+import { ItemMasterStudio } from "./ItemMasterStudio.tsx";
+import { AttrMgmtStudio } from "./AttrMgmtStudio.tsx";
+import { ImgPathStudio } from "./ImgPathStudio.tsx";
+import { VariantTplSec } from "../VariantTemplateSec.tsx";
 
 interface SmritiItemMasterWorkspaceProps {
   products?: Product[];
@@ -41,7 +41,7 @@ interface SmritiItemMasterWorkspaceProps {
 
 type WorkspaceNavTab = "item_details" | "view_config" | "imports" | "attributes" | "image_config" | "variants";
 
-export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps> = ({
+export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   products = [],
   onRefreshProducts,
   onNotification,
@@ -50,7 +50,7 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
 }) => {
   const [activeNav, setActiveNav] = useState<WorkspaceNavTab>("item_details");
 
-  const [viewConfig, setViewConfig] = useState<ViewConfigState>({
+  const [viewConfig, setItemViewConfig] = useState<ItemViewConfigState>({
     viewMode: "grid",
     visibleColumns: [
       "code", "barcode", "name", "brand", "styleCode", "colour", "size",
@@ -242,20 +242,20 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
         {/* Dynamic Workspace Canvas */}
         <main className="flex-1 overflow-hidden min-h-0 bg-[#faf9ff] dark:bg-[#191c1e]">
           {activeNav === "item_details" && (
-            <SmritiItemDetailsGrid
+            <ItemDetailsGrid
               products={products}
               viewConfig={viewConfig}
               onRefreshProducts={handleRefresh}
               onNotification={handleNotify}
-              onNavigateToViewConfig={() => setActiveNav("view_config")}
+              onNavigateToItemViewConfig={() => setActiveNav("view_config")}
             />
           )}
 
           {activeNav === "view_config" && (
-            <SmritiViewConfiguration
+            <ItemViewConfig
               currentConfig={viewConfig}
               onSaveConfig={(cfg) => {
-                setViewConfig(cfg);
+                setItemViewConfig(cfg);
                 setActiveNav("item_details");
               }}
               onNotification={handleNotify}
@@ -263,7 +263,7 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
           )}
 
           {activeNav === "imports" && (
-            <SmritiItemMasterStudio
+            <ItemMasterStudio
               onRefreshProducts={handleRefresh}
               onNotification={handleNotify}
               currentUser={currentUser}
@@ -272,20 +272,20 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
           )}
 
           {activeNav === "attributes" && (
-            <SmritiAttributeManagementStudio
+            <AttrMgmtStudio
               onNotification={handleNotify}
             />
           )}
 
           {activeNav === "image_config" && (
-            <SmritiImagePathConfigStudio
+            <ImgPathStudio
               onNotification={handleNotify}
             />
           )}
 
           {activeNav === "variants" && (
             <div className="h-full overflow-y-auto p-4 custom-scrollbar">
-              <VariantTemplateSection
+              <VariantTplSec
                 products={products}
                 onRefreshProducts={handleRefresh}
                 onNotification={handleNotify}
@@ -299,4 +299,4 @@ export const SmritiItemMasterWorkspace: React.FC<SmritiItemMasterWorkspaceProps>
   );
 };
 
-export default SmritiItemMasterWorkspace;
+export default ItemMasterWs;

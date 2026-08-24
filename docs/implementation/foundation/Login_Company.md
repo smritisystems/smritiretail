@@ -21,7 +21,7 @@ Provide an enterprise post-authentication user experience where operators choose
 
 ## 3. Scope
 - Refine backend `GET /api/v1/auth/tenants` to return only active companies with `status = READY` in `company_database_registries`.
-- Create `CompanySelectionScreen.tsx` supporting 1-company auto-select (Case B), multi-company card selection (Case C), and unassigned guidance (Case D).
+- Create `CompanySelectScree.tsx` supporting 1-company auto-select (Case B), multi-company card selection (Case C), and unassigned guidance (Case D).
 - Integrate company selection gate into `App.tsx`.
 - Update header `CompanySelector.tsx` to use `POST /api/v1/auth/switch-context` for live JWT re-issuance.
 
@@ -42,13 +42,13 @@ LOGIN → AUTHENTICATION SUCCESS → GET /auth/tenants (READY ONLY) → [AUTO-SE
 ```
 
 ## 8. Files Created
-- `src/components/CompanySelectionScreen.tsx`
-- `backend/app/tests/test_login_company_selector_flow.py`
-- `docs/implementation/foundation/Login_Company_Selector_Flow_Plan_v3.25.0.md`
-- `docs/walkthrough/foundation/Login_Company_Selector_Flow_v3.25.0.md`
+- `src/components/CompanySelectScree.tsx`
+- `backend/app/tests/t_company_select.py`
+- `docs/implementation/foundation/Login_Company.md`
+- `docs/walkthrough/foundation/Login_Company.md`
 
 ## 9. Files Modified
-- `backend/app/models/company_database_registry.py`
+- `backend/app/models/company_registry.py`
 - `backend/app/api/v1/auth.py`
 - `backend/app/tests/test_auth.py`
 - `src/App.tsx`
@@ -66,7 +66,7 @@ Low. All existing auth and tenant isolation tests continue to pass. Orphan recor
 Revert code changes via Git commit history if regressions occur.
 
 ## 13. Verification Plan
-- Automated backend pytest test suites (`test_auth.py`, `test_multi_company_tenant_isolation.py`, `test_login_company_selector_flow.py`).
+- Automated backend pytest test suites (`test_auth.py`, `t_tenant_iso.py`, `t_company_select.py`).
 - Frontend production bundle build (`npm run build`).
 - Live API endpoint validation.
 
@@ -86,4 +86,4 @@ Completed.
 - ADR-002: Multi-Company Control Plane Database Architecture
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Login_Company_Selector_Flow_v3.25.0.md`
+- `docs/walkthrough/foundation/Login_Company.md`

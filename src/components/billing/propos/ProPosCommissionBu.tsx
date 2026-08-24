@@ -16,7 +16,7 @@ import React, { useState } from "react";
 import { CommissionRule } from "./types.ts";
 import { Award, Plus, Trash2, Save, User, Percent, ShieldCheck } from "lucide-react";
 
-export const SmritiProPosCommissionBuilder: React.FC = () => {
+export const SmritiCommissionBuildilder: React.FC = () => {
   const [commissionRules, setCommissionRules] = useState<CommissionRule[]>([
     {
       id: "comm-1",
@@ -148,4 +148,4 @@ export const SmritiProPosCommissionBuilder: React.FC = () => {
   );
 };
 
-export default SmritiProPosCommissionBuilder;
+export default SmritiCommissionBuildilder;

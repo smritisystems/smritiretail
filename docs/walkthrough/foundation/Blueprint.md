@@ -28,7 +28,7 @@ Close the two named implementation gaps identified during the formal Blueprint v
 | SQLAlchemy models | ui_control_plane.py (extended), integration_hub.py (new) |
 | Control plane seeder | seed_icon_registry(), seed_integration_providers() |
 | FastAPI API | ui_control_plane.py (+4 endpoints), integration.py (+3 endpoints) |
-| Architecture tracker | SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md |
+| Architecture tracker | PLATFORM.md |
 
 ## 3. Files Created
 
@@ -43,10 +43,10 @@ Close the two named implementation gaps identified during the formal Blueprint v
 | File | Change |
 |---|---|
 | backend/app/models/ui_control_plane.py | Added 5 new ORM models (ScreenDefinition, FieldDefinition, ActionDefinition, LayoutDefinition, IconRegistry) |
-| backend/app/db/control_plane_seeder.py | Added seed_icon_registry() (35 icons), seed_integration_providers() (6 providers); wired into seed_all() |
+| backend/app/db/ctrl_seeder.py | Added seed_icon_registry() (35 icons), seed_integration_providers() (6 providers); wired into seed_all() |
 | backend/app/api/v1/ui_control_plane.py | Added GET /screens, /fields, /actions, /icons endpoints |
 | backend/app/api/v1/integration.py | Added GET /hub/providers, /hub/connectors, /hub/integrations endpoints |
-| docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md | Added Milestone 5, ss54 rules adherence table, updated review date |
+| docs/architecture/PLATFORM.md | Added Milestone 5, ss54 rules adherence table, updated review date |
 
 ## 5. Architecture Decisions
 
@@ -73,7 +73,7 @@ Phase 2: v1368 migration created — 5 tables, 13 indexes.
 Phase 3: v1369 migration created — 6 tables, 9 indexes.
 Phase 4: ui_control_plane.py extended — 5 new ORM models.
 Phase 5: integration_hub.py created — 6 ORM models.
-Phase 6: control_plane_seeder.py updated — 2 new seed methods, seed_all() updated.
+Phase 6: ctrl_seeder.py updated — 2 new seed methods, seed_all() updated.
 Phase 7: ui_control_plane.py API extended — 4 endpoints.
 Phase 8: integration.py API extended — 3 endpoints.
 
@@ -91,10 +91,10 @@ backend/alembic/versions/v1368_ui_experience_engine.py      | 243 ++++++++++++++
 backend/alembic/versions/v1369_integration_hub_registry.py  | 186 ++++++++++++++++
 backend/app/api/v1/integration.py                           | 119 +++++++++-
 backend/app/api/v1/ui_control_plane.py                      | 157 ++++++++++++-
-backend/app/db/control_plane_seeder.py                      | 157 ++++++++++++-
+backend/app/db/ctrl_seeder.py                      | 157 ++++++++++++-
 backend/app/models/integration_hub.py                       | 184 ++++++++++++++++
 backend/app/models/ui_control_plane.py                      | 208 +++++++++++++++++-
-docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md  |  49 ++++-
+docs/architecture/PLATFORM.md  |  49 ++++-
 8 files changed, 1288 insertions(+), 15 deletions(-)
 `
 

@@ -22,7 +22,7 @@ interface PurchaseProductBrowseModalProps {
   onSelectProduct: (product: Product) => void;
 }
 
-export const PurchaseProductBrowseModal: React.FC<PurchaseProductBrowseModalProps> = ({
+export const PurchBrowseDlg: React.FC<PurchaseProductBrowseModalProps> = ({
   products,
   isOpen,
   onClose,

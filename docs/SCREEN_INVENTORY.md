@@ -20,27 +20,27 @@
   - **Forms**: Username/Email, Password, Store/Counter selector.
   - **Primary Action**: Login -> POST `/api/v1/auth/token`.
   - **Taskbar Isolation**: Taskbar unmounts completely on this screen.
-- **`PasswordResetScreen`** (`src/components/PasswordResetScreen.tsx`)
+- **`PasswordResetScreen`** (`src/components/PasswordResetScree.tsx`)
   - **Purpose**: Password recovery & reset.
   - **Forms**: User email, OTP verification, New password input.
   - **Primary Action**: Reset Password -> POST `/api/v1/auth/reset-password`.
 
 ## 2. Core Operational Workspaces
-- **`PosTerminalTab` & `AdvancedBillingEngine`** (`src/components/PosTerminalTab.tsx`, `AdvancedBillingEngine.tsx`)
+- **`PosTerminalTab` & `AdvancedBillingEngine`** (`src/components/PosTerminalTab.tsx`, `AdvancedBillingEng.tsx`)
   - **Purpose**: Rapid billing & POS checkout desk.
   - **Primary Actions**: Item barcode scan, cart line item qty edit, customer lookup, apply discount, tender payment, print invoice.
-  - **Modals**: Process Sales Return (`ProcessSalesReturnModal.tsx`), Print Preview (`PrintPreviewModal.tsx`).
+  - **Modals**: Process Sales Return (`ProcessSalesReturn.tsx`), Print Preview (`PrintPreviewModal.tsx`).
 - **`SalesStudioTab`** (`src/components/SalesStudioTab.tsx`)
   - **Purpose**: Sales order management, quotation, delivery challans, credit notes.
-  - **Primary Actions**: Create Sales Order, Convert Quote to Invoice, Dispatch Order (`PrepareDispatchModal.tsx`).
+  - **Primary Actions**: Create Sales Order, Convert Quote to Invoice, Dispatch Order (`PrepareDispatchDlg.tsx`).
   - **Tables**: Filterable sales documents with status badges (Draft, Confirmed, Invoiced, Cancelled).
 - **`PurchaseStudioTab`** (`src/components/PurchaseStudioTab.tsx`)
   - **Purpose**: Procurement, GRN, vendor invoice entry, debit notes.
-  - **Primary Actions**: Create Purchase Order, Receive GRN, Record Supplier Invoice, Create Debit Note (`CreateDebitNoteModal.tsx`).
+  - **Primary Actions**: Create Purchase Order, Receive GRN, Record Supplier Invoice, Create Debit Note (`CreateDebitNoteDlg.tsx`).
   - **Tables**: Purchase documents list, vendor selection modal (`CreateSupplierModal.tsx`).
 - **`ItemMasterTab`** (`src/components/ItemMasterTab.tsx`)
   - **Purpose**: SKU catalog, price list, variant matrix, HSN mapping.
-  - **Primary Actions**: New Item Entry, Excel Grid Batch Entry (`ExcelGridEntrySection.tsx`), Variant Template Generator (`VariantTemplateSection.tsx`), Barcode Mapping (`BarcodeMappingSection.tsx`).
+  - **Primary Actions**: New Item Entry, Excel Grid Batch Entry (`ExcelGridEntrySec.tsx`), Variant Template Generator (`VariantTemplateSec.tsx`), Barcode Mapping (`BarcodeMappingSec.tsx`).
 
 ## 3. Administrative & Financial Workspaces
 - **`CustomerMasterTab` & `CrmStudioTab`** (`src/components/CustomerMasterTab.tsx`, `CrmStudioTab.tsx`)

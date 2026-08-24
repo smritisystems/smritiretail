@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Callable
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.outbox import IntegrationOutboxEvent
-from .unified_outbox_analytics_service import UnifiedOutboxAnalyticsService
+from .outbox_analytics import UnifiedOutboxAnalyticsService
 from ..db.session import get_company_sessionmaker
 
 logger = logging.getLogger("smriti.outbox_worker")

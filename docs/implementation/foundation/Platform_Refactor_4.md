@@ -69,7 +69,7 @@ In retail and distributor operations, stock balances and sales records must neve
 
 ## 7. Proposed Design
 
-### A. Sales Ledger Service (`backend/app/services/unified_sales_ledger_service.py`)
+### A. Sales Ledger Service (`backend/app/services/sales_ledger_svc.py`)
 - `post_sales_invoice_with_stock_ledger`:
   1. Validate party (customer) status.
   2. Compute line-level statutory GST splits (Intra-state CGST+SGST vs Inter-state IGST).
@@ -85,15 +85,15 @@ In retail and distributor operations, stock balances and sales records must neve
 ---
 
 ## 8. Files Created
-- `backend/app/services/unified_sales_ledger_service.py`: Domain service orchestrating atomic sales invoice creation, POS checkout, stock ledger posting, and reversals.
-- `backend/tests/test_unified_sales_ledger.py`: Automated test suite certifying B2B sales posting, POS session checkout, stock movements, tax snapshots, and cancellation reversals.
-- `docs/implementation/foundation/Platform_Refactor_Slice3_Sales_POS_Ledger_Plan_v1.0.md`: This implementation plan.
+- `backend/app/services/sales_ledger_svc.py`: Domain service orchestrating atomic sales invoice creation, POS checkout, stock ledger posting, and reversals.
+- `backend/tests/t_sales_ledger.py`: Automated test suite certifying B2B sales posting, POS session checkout, stock movements, tax snapshots, and cancellation reversals.
+- `docs/implementation/foundation/Platform_Refactor_4.md`: This implementation plan.
 
 ---
 
 ## 9. Files Modified
 - `docs/implementation/README.md`: Append Slice 3 plan to master index.
-- `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Track Slice 3 verification.
+- `docs/architecture/PLATFORM.md`: Track Slice 3 verification.
 
 ---
 
@@ -126,20 +126,20 @@ Database transactions operate within explicit unit-of-work boundaries (`session.
 ---
 
 ## 14. Test Plan
-- Execute `backend/tests/test_unified_sales_ledger.py`.
+- Execute `backend/tests/t_sales_ledger.py`.
 - Execute full 70+ test multi-module regression suite.
 
 ---
 
 ## 15. Documentation Impact
-- Update `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
-- Generate Walkthrough `docs/walkthrough/foundation/Platform_Sales_POS_Ledger_Unification_v6.16.0.md`.
+- Update `docs/architecture/PLATFORM.md`.
+- Generate Walkthrough `docs/walkthrough/foundation/Platform_Sales.md`.
 - Update `docs/walkthrough/README.md`.
 
 ---
 
 ## 16. Deployment Plan
-1. Deploy `unified_sales_ledger_service.py`.
+1. Deploy `sales_ledger_svc.py`.
 2. Run test verification suite.
 3. Validate operational state.
 
@@ -157,4 +157,4 @@ Database transactions operate within explicit unit-of-work boundaries (`session.
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/Platform_Universal_Party_Item_Master_v6.16.0.md`.
+- `docs/walkthrough/foundation/Platform_2_3_4_5__8.md`.

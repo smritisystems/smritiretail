@@ -18,17 +18,17 @@
 Provide an automated, isolated CI/CD testing harness that dynamically provisions ephemeral PostgreSQL tenant databases, executes symmetrical forward/downgrade Alembic migrations, validates clean-slate schema parity, seeds authoritative Chart of Accounts and baseline organizations, and guarantees clean teardown.
 
 ## 2. Scope
-- Python backend test and provisioning harness (`backend/app/db/ephemeral_tenant_harness.py`).
+- Python backend test and provisioning harness (`backend/app/db/tenant_harness.py`).
 - Subprocess-isolated Alembic migration upgrade (`head`) and symmetrical downgrade (`base`) execution.
 - Fixes to legacy Alembic downgrade operations (`cc8a527deb42`, `931451e6eea2`, `8cf33df7b76a`, `a1b2c3d4e5f6`, `v1343_accounting_gl`) with cascading table drops.
 - Registration of unified platform tables in `backend/alembic/env.py` (`include_object`).
 - Dynamic session management with `NullPool` and Control Plane registry cache injection.
-- End-to-end integration test suite (`backend/tests/test_ephemeral_tenant_migration_harness.py`).
+- End-to-end integration test suite (`backend/tests/t_tenant_migr.py`).
 
 ## 3. Files Created
-- `backend/app/db/ephemeral_tenant_harness.py`: Core ephemeral database provisioning and migration lifecycle management class.
-- `backend/tests/test_ephemeral_tenant_migration_harness.py`: 6-scenario integration test suite verifying clean-slate schema parity, symmetrical migration downgrades, COA completeness, multi-currency FX posting, and concurrent tenant isolation.
-- `docs/walkthrough/foundation/Platform_Ephemeral_Tenant_Harness_Migration_Verification_v6.16.0.md`: This governance walkthrough document.
+- `backend/app/db/tenant_harness.py`: Core ephemeral database provisioning and migration lifecycle management class.
+- `backend/tests/t_tenant_migr.py`: 6-scenario integration test suite verifying clean-slate schema parity, symmetrical migration downgrades, COA completeness, multi-currency FX posting, and concurrent tenant isolation.
+- `docs/walkthrough/foundation/Platform.md`: This governance walkthrough document.
 
 ## 4. Files Modified
 - `backend/alembic/env.py`: Added 18 canonical platform tables (`accounts`, `journal_vouchers`, `general_ledger_entries`, `account_balance_snapshots`, `fiscal_years`, `fiscal_periods`, `bank_statements`, `bank_statement_lines`, `currency_exchange_rates`, `pricing_rules`, `price_books`, `payment_transactions`, `approval_rules`, `communication_templates`, `integration_outbox_events`) to `include_object`.
@@ -58,7 +58,7 @@ In a multi-database multi-tenant ERP/Retail OS, testing solely against static pr
 
 ## 8. Tests Executed
 ```bash
-python -m pytest tests/test_ephemeral_tenant_migration_harness.py -v
+python -m pytest tests/t_tenant_migr.py -v
 ```
 All 6 test cases passed:
 1. `test_ephemeral_clean_slate_schema_verification`: All 24+ core tables and alembic head revision verified on fresh database.

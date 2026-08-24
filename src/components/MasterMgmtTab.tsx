@@ -16,7 +16,7 @@
 
 import React, { useState, useEffect } from "react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
-import { masterLookupConfig, MasterLookupItem } from "./global/configs/masterLookup.config.tsx";
+import { masterLookupConfig, MasterLookupItem } from "./global/configs/masterLookup.confi.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 
 export interface MasterManagementTabProps {

@@ -16,7 +16,7 @@
 
 import React from "react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
-import { supplierMasterConfig } from "./global/configs/supplierMaster.config.tsx";
+import { supplierMasterConfig } from "./global/configs/supplierMaster.con.tsx";
 
 export interface SupplierDashboardTabProps {
   currentUser?: { role: string; name: string } | null;

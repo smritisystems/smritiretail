@@ -33,12 +33,12 @@ from app.models.pos import CashRegister, Shift, ShiftCashTransaction
 from app.models.sales import SalesInvoice
 from app.models.accounting import JournalVoucher, GeneralLedgerEntry, Account
 from app.services.pos import POSService
-from app.services.unified_accounting_ledger_service import UnifiedAccountingLedgerService
+from app.services.unified_ledger import UnifiedAccountingLedgerService
 from app.schemas.pos import (
     ShiftOpen, ShiftClose, CashRegisterCreate,
     CashDenominationBreakdown, ShiftCashInRequest, ShiftCashDropRequest, ShiftTillExpenseRequest
 )
-from app.db.ephemeral_tenant_harness import EphemeralTenantHarness
+from app.db.tenant_harness import EphemeralTenantHarness
 
 
 async def ensure_test_cashier(session: AsyncSession, cashier_id: str = "usr-cashier-drawers") -> str:

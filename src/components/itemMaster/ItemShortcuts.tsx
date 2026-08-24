@@ -20,7 +20,7 @@ interface SmritiKeyboardShortcutsModalProps {
   onClose: () => void;
 }
 
-export const SmritiKeyboardShortcutsModal: React.FC<SmritiKeyboardShortcutsModalProps> = ({
+export const ItemShortcuts: React.FC<SmritiKeyboardShortcutsModalProps> = ({
   isOpen,
   onClose
 }) => {
@@ -107,4 +107,4 @@ export const SmritiKeyboardShortcutsModal: React.FC<SmritiKeyboardShortcutsModal
   );
 };
 
-export default SmritiKeyboardShortcutsModal;
+export default ItemShortcuts;

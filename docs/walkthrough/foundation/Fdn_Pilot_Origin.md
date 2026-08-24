@@ -28,20 +28,20 @@ This implementation completes the formal pre-flight hardening, origin-truth veri
 ## 2. Scope
 - **D1 (Version SSOT):** Single source of truth for application version (`APP_VERSION = "3.29.0"`).
 - **D2 (Dual-Run Note):** Documented dual-run architecture for `DocumentStudioScreen` vs legacy `SalesStudioTab`/`PurchaseStudioTab`.
-- **D3 (Smoke Checklist):** Standardized commercial pilot smoke test protocol (`docs/PILOT_SMOKE_CHECKLIST.md`).
+- **D3 (Smoke Checklist):** Standardized commercial pilot smoke test protocol (`docs/PILOT_SMOKE.md`).
 - **D4 (Deny-by-Default RBAC):** Fixed privilege escalation fallback in Fiori Launchpad and navigation resolver (`(role || "SYSADMIN")` removed).
-- **D5 (Scope Freeze):** Established formal commercial pilot scope boundary (Section 6 of `docs/PHASE1_PILOT_SUPPORTED_MODULES.md`).
+- **D5 (Scope Freeze):** Established formal commercial pilot scope boundary (Section 6 of `docs/PHASE1_PILOT.md`).
 - **D6 (Database Migration Requirement):** Updated `CompanyDatabaseProvisioner` to require `alembic upgrade head` with minimum revision `v1337_backfill_variant_id`.
 - **Database Migration:** Discovered and upgraded all operational and control plane databases (`smritisys`, `smriti001`, `smriti_test_fresh`) to Alembic HEAD (`v1338_company_isolated_barcodes`).
-- **Runbook:** Authored end-to-end commercial pilot go-live runbook (`docs/PILOT_GO_LIVE_RUNBOOK.md`).
+- **Runbook:** Authored end-to-end commercial pilot go-live runbook (`docs/PILOT_GO_LIVE.md`).
 
 ---
 
 ## 3. Files Created
-1. `docs/PILOT_SMOKE_CHECKLIST.md` — Commercial pilot smoke test checklist with pre-flight gates, Tier A operational paths, and RBAC negative checks.
+1. `docs/PILOT_SMOKE.md` — Commercial pilot smoke test checklist with pre-flight gates, Tier A operational paths, and RBAC negative checks.
 2. `docs/PILOT_SMOKE_RESULTS.md` — Test execution results matrix recording `GO_SOFTWARE` verdict.
-3. `docs/PILOT_DB_MIGRATE_RESULTS.md` — Multi-tenant database discovery, Alembic HEAD status, and variant ID integrity evidence.
-4. `docs/PILOT_GO_LIVE_RUNBOOK.md` — Store deployment, operator provisioning, checkout happy path, non-destructive backup/recovery, and emergency escalation procedures.
+3. `docs/PILOT_DB_MIGRATE.md` — Multi-tenant database discovery, Alembic HEAD status, and variant ID integrity evidence.
+4. `docs/PILOT_GO_LIVE.md` — Store deployment, operator provisioning, checkout happy path, non-destructive backup/recovery, and emergency escalation procedures.
 
 ---
 
@@ -50,10 +50,10 @@ This implementation completes the formal pre-flight hardening, origin-truth veri
 2. `src/components/launchpad/FioriLaunchpad.tsx` — Replaced duplicate role filter with canonical helper; replaced admin fallback with unassigned.
 3. `src/App.tsx` — Removed `System Admin` fallback.
 4. `src/components/shell/navigationResolver.ts` — Removed `System Admin` fallback.
-5. `backend/app/services/company_database_provisioner.py` — Added `alembic_required: True`, `alembic_min_revision: "v1337_backfill_variant_id"`, and `schema_version: "3.29.0"`.
-6. `backend/tests/test_company_db_provisioning.py` — Added test asserting Alembic migration head requirement and schema version.
+5. `backend/app/services/db_provisioner.py` — Added `alembic_required: True`, `alembic_min_revision: "v1337_backfill_variant_id"`, and `schema_version: "3.29.0"`.
+6. `backend/tests/t_comp_db_prov.py` — Added test asserting Alembic migration head requirement and schema version.
 7. `src/tests/fioriLaunchpad.test.ts` — Added test suite asserting deny-by-default behavior for null, undefined, and empty roles.
-8. `docs/PHASE1_PILOT_SUPPORTED_MODULES.md` — Appended Section 6 (Pilot Scope Freeze & Production Boundary).
+8. `docs/PHASE1_PILOT.md` — Appended Section 6 (Pilot Scope Freeze & Production Boundary).
 
 ---
 
@@ -81,9 +81,9 @@ This implementation completes the formal pre-flight hardening, origin-truth veri
 ## 8. Tests Executed
 1. `npm run lint` (`tsc --noEmit`) — 0 errors.
 2. `npx vitest run` — 20 test files, 128 tests passed.
-3. `pytest backend/tests/test_company_db_provisioning.py` — 5/5 tests passed.
+3. `pytest backend/tests/t_comp_db_prov.py` — 5/5 tests passed.
 4. `pytest backend/tests/ -k "barcode"` — 5/5 router tests passed.
-5. `pytest backend/tests/test_e2e_tenant_security_and_routing.py backend/app/tests/test_ecom_connectors.py backend/tests/test_company_control_center_security.py backend/tests/test_company_db_provisioning.py backend/tests/test_indian_number_words.py` — 39/39 tests passed.
+5. `pytest backend/tests/t_tenant_sec.py backend/app/tests/t_ecom_connect.py backend/tests/t_comp_ctr_sec.py backend/tests/t_comp_db_prov.py backend/tests/t_number_words.py` — 39/39 tests passed.
 
 ---
 

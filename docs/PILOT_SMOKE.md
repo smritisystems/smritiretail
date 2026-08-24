@@ -25,7 +25,7 @@
 |---|---|---|---|---|
 | PF-01 | Node / TS Lint | `npm run lint` (`tsc --noEmit`) | Clean compilation, 0 TypeScript errors | PASS |
 | PF-02 | Vitest Test Suite | `npx vitest run` | All test files pass (128/128 tests) | PASS |
-| PF-03 | Pytest Security Suite | `pytest backend/tests/test_e2e_tenant_security_and_routing.py backend/app/tests/test_ecom_connectors.py backend/tests/test_company_control_center_security.py` | 20/20 multi-tenant security tests pass | PASS |
+| PF-03 | Pytest Security Suite | `pytest backend/tests/t_tenant_sec.py backend/app/tests/t_ecom_connect.py backend/tests/t_comp_ctr_sec.py` | 20/20 multi-tenant security tests pass | PASS |
 | PF-04 | Database Schema Migration | `cd backend && alembic upgrade head` | Database migrated through `v1337_backfill_variant_id` / head | PASS |
 | PF-05 | Version Uniformity | `src/config/version.ts`, `package.json`, UI headers | Uniform `3.29.0` version display across all screens | PASS |
 
@@ -44,7 +44,7 @@
 | TA-07 | **Sales Studio** | `/api/v1/sales/` | Sales invoice register, return processing, multi-tender transactions. | AUTOMATED | PASS |
 | TA-08 | **Create Tax Invoice** | `/api/v1/sales/invoices`, `TaxInvoiceA4.tsx` | B2B statutory invoice, customer GSTIN verification, Place of Supply, Indian words amount, printable A4 format. | AUTOMATED | PASS |
 | TA-09 | **Purchase Studio** | `/api/v1/purchase/` | Vendor purchase orders, Goods Receipt Notes (GRN), inventory batch receiving. | AUTOMATED | PASS |
-| TA-10 | **Barcode Studio** | `/api/v1/barcode/`, `LabelPrintingSection.tsx` | Label layout selection, dynamic printer IP from SystemConfig (no hardcoded IP), print dispatch. | AUTOMATED | PASS |
+| TA-10 | **Barcode Studio** | `/api/v1/barcode/`, `LabelPrintingSec.tsx` | Label layout selection, dynamic printer IP from SystemConfig (no hardcoded IP), print dispatch. | AUTOMATED | PASS |
 | TA-11 | **Stock Movement Ledger** | `/api/v1/inventory/ledger`, `LedgerScreen.tsx` | Immutable stock movement ledger, date filtering, movement type breakdown, CSV export. | AUTOMATED | PASS |
 | TA-12 | **Security & Audit Logs** | `/api/v1/audit-logs`, `LedgerScreen.tsx` | Immutable user audit logs, login events, CRUD traces. | AUTOMATED | PASS |
 

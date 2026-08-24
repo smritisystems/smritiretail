@@ -92,17 +92,17 @@ This confirmed FastAPI endpoints are complete and correct before cleanup.
 |---|---|---|
 | ItemMasterTab.tsx | apiFetchV1('/inventory/'), apiFetchV1('/products/'), DELETE /inventory/{id} | ✅ |
 | BarcodeStudioTab.tsx | apiFetchV1('/barcode/...') | ✅ |
-| BarcodeMappingSection.tsx | apiFetchV1('/inventory/{id}/barcodes') | ✅ |
-| LabelPrintingSection.tsx | apiFetchV1('/barcode/layouts'), /printer-settings, /print-history, /print | ✅ |
-| ExcelGridEntrySection.tsx | apiFetchV1('/products/') | ✅ |
-| InventoryForecastWidget.tsx | apiFetchV1('/inventory') | ✅ |
+| BarcodeMappingSec.tsx | apiFetchV1('/inventory/{id}/barcodes') | ✅ |
+| LabelPrintingSec.tsx | apiFetchV1('/barcode/layouts'), /printer-settings, /print-history, /print | ✅ |
+| ExcelGridEntrySec.tsx | apiFetchV1('/products/') | ✅ |
+| InventoryForecastW.tsx | apiFetchV1('/inventory') | ✅ |
 
 ---
 
 ## 8. Tests Executed
 
 `
-Command: python -m pytest app/tests/test_inventory.py app/tests/test_tenant_isolation.py -v
+Command: python -m pytest app/tests/test_inventory.py app/tests/t_tenant_isolate.py -v
 Result : 8 passed, 46 warnings in 13.45s
 
 Command: python -m pytest app/tests/ --tb=short -q

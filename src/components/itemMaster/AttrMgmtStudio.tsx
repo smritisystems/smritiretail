@@ -44,7 +44,7 @@ interface SmritiAttributeManagementStudioProps {
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
 }
 
-export const SmritiAttributeManagementStudio: React.FC<SmritiAttributeManagementStudioProps> = ({
+export const AttrMgmtStudio: React.FC<SmritiAttributeManagementStudioProps> = ({
   onNotification
 }) => {
   const [attributes, setAttributes] = useState<AttributeDefinition[]>([]);
@@ -542,4 +542,4 @@ export const SmritiAttributeManagementStudio: React.FC<SmritiAttributeManagement
   );
 };
 
-export default SmritiAttributeManagementStudio;
+export default AttrMgmtStudio;

@@ -26,7 +26,7 @@ export interface TaxInvoiceDocumentPanelProps {
   staffList?: { id: string; name: string }[];
 }
 
-export const TaxInvoiceDocumentPanel: React.FC<TaxInvoiceDocumentPanelProps> = ({
+export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
   docState,
   onChange,
   onCustomerSearchOpen,

@@ -14,7 +14,7 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
-from backend.app.models.company_database_registry import DatabaseStatus
+from backend.app.models.company_registry import DatabaseStatus
 
 class CompanyDatabaseRegistryBase(BaseModel):
     company_id: str

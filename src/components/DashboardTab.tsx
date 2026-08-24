@@ -43,7 +43,7 @@ import { Product, Formula, PSVParty } from "../types";
 
 import { DrillableLink } from "./drilldown/DrillableLink.tsx";
 import { AboutSmritiWidget } from "./AboutSmritiWidget.tsx";
-import { InventoryForecastWidget } from "./InventoryForecastWidget.tsx";
+import { InvForecastidget } from "./InventoryForecastW.tsx";
 import { AuditActivityFeed } from "./AuditActivityFeed.tsx";
 import { QuickReportsWidget } from "./QuickReportsWidget.tsx";
 
@@ -1706,7 +1706,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </button>
           </div>
         </div>
-        <div className="h-80"><InventoryForecastWidget /></div>
+        <div className="h-80"><InvForecastidget /></div>
         <AboutSmritiWidget />
       </div>
       </div>

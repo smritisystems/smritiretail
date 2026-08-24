@@ -15,7 +15,7 @@
 import React from "react";
 import { X, Keyboard, Check, Command } from "lucide-react";
 
-interface SmritiProPosHotkeysModalProps {
+interface SmritiProPosHotkeysDlgProps {
   onClose: () => void;
 }
 
@@ -58,7 +58,7 @@ const HOTKEY_GROUPS = [
   }
 ];
 
-export const SmritiProPosHotkeysModal: React.FC<SmritiProPosHotkeysModalProps> = ({ onClose }) => {
+export const SmritiProPosHotkeysDlg: React.FC<SmritiProPosHotkeysDlgProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
       <div className="bg-white dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-[#c4c5d5] dark:border-[#444653] max-h-[85vh]">
@@ -123,4 +123,4 @@ export const SmritiProPosHotkeysModal: React.FC<SmritiProPosHotkeysModalProps> =
   );
 };
 
-export default SmritiProPosHotkeysModal;
+export default SmritiProPosHotkeysDlg;

@@ -17,16 +17,16 @@
 This walkthrough documents the full completion of **Phases 3–5** for the **SMRITI Training Academy** (`src/components/training/TrainingAcademyTab.tsx`), incorporating the **Day 5 Signature Competency Engine**, **Server-Authoritative PDF Certification Engine**, and **Store Manager Staff Analytics Console**.
 
 ## 2. Scope
-- Authoring `Day5LifecycleTestEngine.tsx` for deterministic verification of the complete transaction lifecycle (`Master → PO 50 → GRN 48 → Short 2 → Stock +48 → POS Sale 5 → Expected Stock 43`).
-- Authoring `CertificateGeneratorModal.tsx` for rendering server-signed PDF certificates with SHA-256 cryptographic hashes and QR verification URLs (`GET /api/v1/training/certificates/{id}/verify`).
-- Authoring `ManagerAnalyticsConsole.tsx` for store owner & manager staff training roster oversight.
+- Authoring `Day5LifecycleTestE.tsx` for deterministic verification of the complete transaction lifecycle (`Master → PO 50 → GRN 48 → Short 2 → Stock +48 → POS Sale 5 → Expected Stock 43`).
+- Authoring `CertificateGenerat.tsx` for rendering server-signed PDF certificates with SHA-256 cryptographic hashes and QR verification URLs (`GET /api/v1/training/certificates/{id}/verify`).
+- Authoring `ManagerAnalyticsCo.tsx` for store owner & manager staff training roster oversight.
 - Updating `TrainingAcademyTab.tsx` and implementation indices.
 
 ## 3. Files Created
-- [`src/components/training/Day5LifecycleTestEngine.tsx`](file:///F:/SMRITRretailNX/src/components/training/Day5LifecycleTestEngine.tsx): Signature Day 5 transaction lifecycle evaluator.
-- [`src/components/training/CertificateGeneratorModal.tsx`](file:///F:/SMRITRretailNX/src/components/training/CertificateGeneratorModal.tsx): PDF certificate viewer & QR verification link launcher.
-- [`src/components/training/ManagerAnalyticsConsole.tsx`](file:///F:/SMRITRretailNX/src/components/training/ManagerAnalyticsConsole.tsx): Store manager staff training roster dashboard.
-- [`docs/walkthrough/user_guide/SMRITI_Training_Academy_Phases3_5_Walkthrough_v1.0.md`](file:///F:/SMRITRretailNX/docs/walkthrough/user_guide/SMRITI_Training_Academy_Phases3_5_Walkthrough_v1.0.md): This walkthrough document.
+- [`src/components/training/Day5LifecycleTestE.tsx`](file:///F:/SMRITRretailNX/src/components/training/Day5LifecycleTestE.tsx): Signature Day 5 transaction lifecycle evaluator.
+- [`src/components/training/CertificateGenerat.tsx`](file:///F:/SMRITRretailNX/src/components/training/CertificateGenerat.tsx): PDF certificate viewer & QR verification link launcher.
+- [`src/components/training/ManagerAnalyticsCo.tsx`](file:///F:/SMRITRretailNX/src/components/training/ManagerAnalyticsCo.tsx): Store manager staff training roster dashboard.
+- [`docs/walkthrough/user_guide/Training_Academy.md`](file:///F:/SMRITRretailNX/docs/walkthrough/user_guide/Training_Academy.md): This walkthrough document.
 
 ## 4. Files Modified
 - [`src/components/training/TrainingAcademyTab.tsx`](file:///F:/SMRITRretailNX/src/components/training/TrainingAcademyTab.tsx): Integrated Day 5 engine, Certificate Modal, and Manager Analytics.
@@ -48,14 +48,14 @@ Enforcing deterministic state verification guarantees that trainees understand t
 
 ## 8. Tests Executed
 ```bash
-python -m pytest tests/test_production_isolation.py tests/test_training_academy_e2e_suite.py -v
+python -m pytest tests/t_prod_isolate.py tests/t_training_e2e.py -v
 npx vite build
 ```
 
 ## 9. Verification Results
 ```text
-tests/test_production_isolation.py: 4/4 PASSED
-tests/test_training_academy_e2e_suite.py: 15/15 PASSED (TA-01 to TA-15)
+tests/t_prod_isolate.py: 4/4 PASSED
+tests/t_training_e2e.py: 15/15 PASSED (TA-01 to TA-15)
 Total Backend Battery: 19/19 PASSED in 3.75s
 ✓ Vite build completed cleanly in 20.02s
 ```

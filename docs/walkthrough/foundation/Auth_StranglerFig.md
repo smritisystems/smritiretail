@@ -120,7 +120,7 @@ Create/update payloads mapped from camelCase to snake_case (full_name, branch_id
 ## 8. Tests Executed
 
 `
-Command: pytest test_auth.py test_user_management.py -v
+Command: pytest test_auth.py t_user_mgmt.py -v
 Result : 27 passed, 120 warnings in 20.32s
 
 Command: pytest app/tests/ --tb=short -q

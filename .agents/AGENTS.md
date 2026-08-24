@@ -1015,7 +1015,7 @@ The canonical statutory Tax Invoice layout and rendering standard named **`SMRIT
 - PostgreSQL database trigger protection (`trg_prevent_tax_template_mutation`) preventing update or deletion of `SMRITITAXINVOICE`.
 
 ## 2. Integrity Verification
-Any modification attempting to alter `backend/app/services/smrititaxinvoice_frozen_spec.py` or mutate the template in `tax_invoice_templates` must be rejected by `pytest backend/tests/test_smrititaxinvoice_immutability_guard.py`.
+Any modification attempting to alter `backend/app/services/tax_invoice_spec.py` or mutate the template in `tax_invoice_templates` must be rejected by `pytest backend/tests/t_inv_immutable.py`.
 
 ---
 

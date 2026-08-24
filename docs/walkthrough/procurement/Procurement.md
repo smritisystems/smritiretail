@@ -18,17 +18,17 @@
 This walkthrough documents the complete replacement of legacy Purchase Studio interfaces with the official **SMRITI 9 Purchase Order Generation & Size Pivot Terminal** (`F:\SMRITI\Purchase Order\stitch_invoice_management_system`).
 
 ## 2. Scope
-- Purchase Order Generation master terminal (`src/components/purchase/PurchaseOrderGenerationTab.tsx`).
+- Purchase Order Generation master terminal (`src/components/purchase/PurchOrderGenTab.tsx`).
 - Type contracts for PO Header, Line Items, Size Pivot Rows, and Summary Totals (`src/components/purchase/types.ts`).
-- F2 Stock Items Browse Modal overlay (`src/components/purchase/PurchaseProductBrowseModal.tsx`).
+- F2 Stock Items Browse Modal overlay (`src/components/purchase/PurchProductBrowse.tsx`).
 - Re-export and route integration in `src/components/PurchaseStudioTab.tsx`.
-- Automated regression test suite (`src/tests/purchaseOrderGeneration.test.ts`).
+- Automated regression test suite (`src/tests/poGenerate.test.ts`).
 
 ## 3. Files Created
 - `src/components/purchase/types.ts`: TypeScript contracts for `PurchaseOrderHeader`, `PurchaseOrderLineItem`, `PurchaseOrderSizePivotRow`, and `PurchaseOrderSummaryTotals`.
-- `src/components/purchase/PurchaseProductBrowseModal.tsx`: Keyboard-driven modal for browsing and selecting catalog stock items (`F2`).
-- `src/components/purchase/PurchaseOrderGenerationTab.tsx`: Master terminal supporting Document & Supplier header, Picture thumbnail box, Standard line item grid, Size Pivot matrix grid, live summary counters, action bar, operational buttons, and backend persistence.
-- `src/tests/purchaseOrderGeneration.test.ts`: Automated regression tests for line item calculations, taxes, size pivot row aggregation, and multi-line summary calculations.
+- `src/components/purchase/PurchProductBrowse.tsx`: Keyboard-driven modal for browsing and selecting catalog stock items (`F2`).
+- `src/components/purchase/PurchOrderGenTab.tsx`: Master terminal supporting Document & Supplier header, Picture thumbnail box, Standard line item grid, Size Pivot matrix grid, live summary counters, action bar, operational buttons, and backend persistence.
+- `src/tests/poGenerate.test.ts`: Automated regression tests for line item calculations, taxes, size pivot row aggregation, and multi-line summary calculations.
 
 ## 4. Files Modified
 - `src/components/PurchaseStudioTab.tsx`: Re-exports and mounts `PurchaseOrderGenerationTab`.
@@ -50,7 +50,7 @@ Faithfully reproduces the layout and aesthetics from `F:\SMRITI\Purchase Order\s
 - Connected hotkeys: `F2 - Browse`, `F4 - Delete Row`, `F6 - Copy Previous Row`.
 
 ## 8. Tests Executed
-1. `npm test` / `vitest run src/tests/purchaseOrderGeneration.test.ts`: 3/3 unit tests passed.
+1. `npm test` / `vitest run src/tests/poGenerate.test.ts`: 3/3 unit tests passed.
 2. Full Vitest Suite: 28 test files passed (179/179 tests passed).
 3. TypeScript validation: `npm run lint` (`tsc --noEmit`) returned 0 errors.
 4. Production bundle build: `npm run build` completed in 20.05s with 0 errors.

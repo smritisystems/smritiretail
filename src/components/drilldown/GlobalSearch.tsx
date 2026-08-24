@@ -40,12 +40,12 @@ import {
   EntityContextType,
   getContextDescriptor,
   getEntityTabs,
-} from "../../services/globalContext/fieldContextRegistry.ts";
+} from "../../services/globalContext/fieldContext.ts";
 import {
   useGlobalSearch,
   SearchResult,
 } from "../../services/globalContext/GlobalSearchService.ts";
-import { FlexibleContextGrid, FlexibleGridFooter } from "../common/FlexibleContextGrid.tsx";
+import { FlexContextGrid, FlexibleGridFooter } from "../common/FlexContextGrid.tsx";
 
 // Re-export prewarm from the registry so callers don't need an extra import
 function prewarm(t: EntityContextType) {
@@ -76,7 +76,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   const { results, isLoading } = useGlobalSearch(contextType, query);
 
   return (
-    <FlexibleContextGrid
+    <FlexContextGrid
       columns={descriptor.columns}
       results={results}
       isLoading={isLoading}
@@ -395,7 +395,7 @@ const SearchPanelConnected: React.FC<SearchPanelConnectedProps> = ({
   }, [results, isLoading]);
 
   return (
-    <FlexibleContextGrid
+    <FlexContextGrid
       columns={descriptor.columns}
       results={results}
       isLoading={isLoading}

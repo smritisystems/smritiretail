@@ -24,7 +24,7 @@ from sqlalchemy import text
 from app.api.deps import TenantContext
 from app.services.purchase import PurchaseService
 from app.services.sales import SalesService
-from app.services.inventory_wms_service import InventoryWmsService
+from app.services.inventory_wms import InventoryWmsService
 from app.models.inventory import Product, ProductBatchStock
 from app.models.purchase import Supplier
 from app.models.crm import Customer, CustomerGroup

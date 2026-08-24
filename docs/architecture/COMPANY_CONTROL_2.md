@@ -23,7 +23,7 @@
 ## 1. Executive Summary & Security Isolation
 
 ```text
-Browser / React Frontend (CompanyControlCenter.tsx)
+Browser / React Frontend (CompanyControlCent.tsx)
         │
         ▼ (Selected company_id = COMP-001)
 FastAPI Backend (CompanyDatabaseResolver)
@@ -32,7 +32,7 @@ FastAPI Backend (CompanyDatabaseResolver)
 PostgreSQL Database smriti001
 ```
 
-- **Frontend Component**: [`src/components/CompanyControlCenter.tsx`](file:///F:/SMRITRretailNX/src/components/CompanyControlCenter.tsx)
+- **Frontend Component**: [`src/components/CompanyControlCent.tsx`](file:///F:/SMRITRretailNX/src/components/CompanyControlCent.tsx)
 - **Credential Leakage Status**: **ZERO Credentials or Passwords Exposed in Frontend**
 - **Security Boundary**: **FastAPI `HTTPException(403)` Server-Side Authorization Gate**
 - **Unapproved DBs Created**: **0**

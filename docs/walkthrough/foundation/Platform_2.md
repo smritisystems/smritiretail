@@ -29,9 +29,9 @@ This document details the architecture, data models, real-time double-entry gene
 
 ## 3. Files Created
 1. `backend/alembic/versions/v1346_pos_cash_denominations.py` — Alembic revision adding `cash_drops_total`, `till_expenses_total`, `cash_in_total`, and `denominations` to `shifts` table, and creating `shift_cash_transactions` table with indexes and foreign keys.
-2. `backend/tests/test_pos_cash_drawer_movements.py` — Comprehensive integration and API test suite covering physical denominations, cash drops, till expenses, combined variance balancing, REST endpoints, and ephemeral database validation.
-3. `docs/walkthrough/foundation/Platform_Accounting_POS_Cash_Drawer_Movements_v6.16.0.md` — This walkthrough document.
-4. `docs/implementation/foundation/Platform_POS_Cash_Drawer_Movements_Plan_v6.16.0.md` — Implementation plan document.
+2. `backend/tests/t_pos_drawer.py` — Comprehensive integration and API test suite covering physical denominations, cash drops, till expenses, combined variance balancing, REST endpoints, and ephemeral database validation.
+3. `docs/walkthrough/foundation/Platform_2.md` — This walkthrough document.
+4. `docs/implementation/foundation/Platform_POS_Cash.md` — Implementation plan document.
 
 ## 4. Files Modified
 1. `backend/alembic/env.py` — Included `shift_cash_transactions` in schema inclusion filter.
@@ -41,7 +41,7 @@ This document details the architecture, data models, real-time double-entry gene
 5. `backend/app/schemas/pos.py` — Added Pydantic schemas for cash denominations, cash drops, till expenses, and enriched Z-Report responses.
 6. `backend/app/services/pos.py` — Added `record_cash_drop`, `record_till_expense`, updated `close_shift` with denomination summation and net expected cash formula, and expanded `get_z_report`.
 7. `backend/app/api/v1/pos.py` — Added REST API routes for `/pos/shifts/{shift_id}/cash-drop` and `/pos/shifts/{shift_id}/till-expense`.
-8. `backend/tests/test_ephemeral_tenant_migration_harness.py` — Updated schema assertion for `shift_cash_transactions` and target head revision `v1346_pos_cash_denominations`.
+8. `backend/tests/t_tenant_migr.py` — Updated schema assertion for `shift_cash_transactions` and target head revision `v1346_pos_cash_denominations`.
 
 ## 5. Architecture Decisions
 - **Real-Time Synchronous GL Posting for Cash Movements**: Mid-shift cash drops and till expenses generate immediate double-entry journal vouchers in `journal_vouchers` and `general_ledger_entries`, maintaining an exact real-time trial balance.
@@ -66,7 +66,7 @@ This document details the architecture, data models, real-time double-entry gene
 
 ## 8. Tests Executed
 ```bash
-python -m pytest tests/test_pos_cash_drawer_movements.py -v
+python -m pytest tests/t_pos_drawer.py -v
 ```
 All 6 tests passed:
 1. `test_physical_cash_denominations_calculation_and_closing` — PASSED
@@ -78,7 +78,7 @@ All 6 tests passed:
 
 Full platform 20-suite regression test:
 ```bash
-python -m pytest tests/test_routing_boundary_canonical.py tests/test_universal_party_master.py tests/test_universal_item_master.py tests/test_unified_sales_ledger.py tests/test_unified_pricing_payment_engine.py tests/test_unified_approval_communicator.py tests/test_unified_workspace_capability.py tests/test_unified_outbox_analytics.py tests/test_wms_phase1.py tests/test_wms_phase2_grn_sales.py tests/test_wms_phase3_eway_bill.py tests/test_wms_phase4_audit_reconciliation.py tests/test_security_menu_access.py tests/test_unified_accounting_ledger.py tests/test_fiscal_period_brs.py tests/test_accounting_api.py tests/test_multicurrency_fx.py tests/test_pos_shift_gl_integration.py tests/test_ephemeral_tenant_migration_harness.py tests/test_pos_cash_drawer_movements.py -v
+python -m pytest tests/t_route_boundary.py tests/t_univ_party.py tests/t_univ_item.py tests/t_sales_ledger.py tests/t_pricing_eng.py tests/t_approval_comm.py tests/t_workspace_cap.py tests/t_outbox_stats.py tests/test_wms_phase1.py tests/t_wms_phase2.py tests/t_wms_phase3.py tests/t_wms_phase4.py tests/t_sec_menu.py tests/t_unified_ledger.py tests/t_fiscal_period.py tests/test_accounting_api.py tests/t_multicurrency.py tests/t_pos_shift_gl.py tests/t_tenant_migr.py tests/t_pos_drawer.py -v
 ```
 **Result**: `123 passed, 23 warnings in 139.79s (0:02:19)`
 

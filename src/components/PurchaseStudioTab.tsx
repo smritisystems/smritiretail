@@ -15,7 +15,7 @@
  */
 
 import React from "react";
-import { PurchaseOrderGenerationTab } from "./purchase/PurchaseOrderGenerationTab.tsx";
+import { PoGenerateTab } from "./purchase/PoGenerateTab.tsx";
 import { Product } from "../types.ts";
 
 interface PurchaseStudioTabProps {
@@ -34,7 +34,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   onClose
 }) => {
   return (
-    <PurchaseOrderGenerationTab
+    <PoGenerateTab
       products={products}
       currentUser={currentUser}
       onNotification={onNotification}

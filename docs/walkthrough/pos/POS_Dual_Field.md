@@ -24,14 +24,14 @@ Provide seamless, zero-friction item identification and auto-population across t
 - Real-time auto-population of rate, description, MRP, tax rate, and stock balance upon item selection.
 
 ## 3. Files Created
-- `src/components/common/SmritiItemTypeaheadDropdown.tsx`: Reusable universal item typeahead dropdown with keyboard navigation and multi-attribute inspection.
+- `src/components/common/ItemTypeaheadDrop.tsx`: Reusable universal item typeahead dropdown with keyboard navigation and multi-attribute inspection.
 
 ## 4. Files Modified
 - `backend/app/repositories/product.py`: Expanded search query across all product columns (`sku`, `style_code`, `hsn_code`, `brand`, `category`, `attributes`).
 - `src/services/autoPopulateService.ts`: Upgraded `AutoPopulateProductResult` schema and mapping function to support all 14+ item fields.
-- `src/components/billing/propos/SmritiProPosBillingTerminal.tsx`: Integrated dual search inputs, dropdown popups, and live selected item HUD banner.
-- `src/components/billing/SmritiBillingTerminal.tsx`: Integrated dual inputs and typeahead dropdown in Distributor Invoicing.
-- `src/tests/autoPopulateService.test.ts`: Added unit tests verifying dual lookup and complete attribute mapping.
+- `src/components/billing/propos/ProPosBillingTerm.tsx`: Integrated dual search inputs, dropdown popups, and live selected item HUD banner.
+- `src/components/billing/BillingTerm.tsx`: Integrated dual inputs and typeahead dropdown in Distributor Invoicing.
+- `src/tests/autoPopulate.test.ts`: Added unit tests verifying dual lookup and complete attribute mapping.
 - `docs/implementation/README.md`: Appended new plan to master index table.
 - `docs/walkthrough/README.md`: Appended new walkthrough to master index table.
 - `CHANGELOG.md`: Added release notes for v6.11.0.
@@ -49,14 +49,14 @@ Provide seamless, zero-friction item identification and auto-population across t
 - This layout ensures both retail cashiers and warehouse supervisors have all required operational context at a glance.
 
 ## 7. Implementation Summary
-1. Built `SmritiItemTypeaheadDropdown.tsx` with high-density styling, arrow-key navigation, and visual badge indicators.
+1. Built `ItemTypeaheadDrop.tsx` with high-density styling, arrow-key navigation, and visual badge indicators.
 2. Updated `searchBackendProducts` to search across `code`, `barcode`, `sku`, `style_code`, `name`, `category`, and `brand`.
-3. Integrated dual input layout in `SmritiProPosBillingTerminal.tsx` with a live HUD inspection ribbon.
-4. Integrated dual search in `SmritiBillingTerminal.tsx` with auto-population of line rates and totals.
+3. Integrated dual input layout in `ProPosBillingTerm.tsx` with a live HUD inspection ribbon.
+4. Integrated dual search in `BillingTerm.tsx` with auto-population of line rates and totals.
 
 ## 8. Tests Executed
-- Vitest unit tests: `src/tests/autoPopulateService.test.ts` (6/6 PASS).
-- Billing terminal vitest tests: `src/tests/smritiBillingTerminal.test.ts` & `src/tests/proPosKeyboardShortcuts.test.ts` (20/20 PASS).
+- Vitest unit tests: `src/tests/autoPopulate.test.ts` (6/6 PASS).
+- Billing terminal vitest tests: `src/tests/billingTerm.test.ts` & `src/tests/proPosKeys.test.ts` (20/20 PASS).
 
 ## 9. Verification Results
 - Searching by Stock No (`STK-SHIRT-01` or `TSHIRT`) returns matching products with all 14 attributes populated.

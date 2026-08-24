@@ -28,13 +28,13 @@ None.
 ## 4. Files Modified
 - `src/App.tsx`
 - `src/components/CrmLoyaltyTab.tsx`
-- `src/components/LabelPrintingSection.tsx`
+- `src/components/LabelPrintingSec.tsx`
 - `src/components/ItemMasterTab.tsx`
 - `src/components/PurchaseStudioTab.tsx`
 - `src/components/PsvTab.tsx`
 - `src/components/BusinessLedgerTab.tsx`
 - `src/components/StockLedgerTab.tsx`
-- `src/components/SupplierDashboardTab.tsx`
+- `src/components/SupplierDashTab.tsx`
 - `src/components/StaffManagementTab.tsx`
 
 ## 5. Architecture Decisions

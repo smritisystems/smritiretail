@@ -34,13 +34,13 @@ Owner: Chief Software Architect
 - JWT access tokens contain tenant claims.
 - `get_tenant_context()` enforcement is verified via tenant-scoped endpoint access.
 - Unassigned users are denied access with `403`.
-- Regression coverage added in `backend/app/tests/test_api_v1_migration.py`.
+- Regression coverage added in `backend/app/tests/t_api_v1_migr.py`.
 
 ## Files Changed
 - `backend/app/api/v1/system.py`
 - `backend/app/services/user.py`
 - `backend/app/services/numbering.py`
-- `backend/app/tests/test_api_v1_migration.py`
+- `backend/app/tests/t_api_v1_migr.py`
 
 ## Validation
 - New regression tests implemented

@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_company_db, get_current_user
-from ...services.distribution_service import DistributionService
+from ...services.distribution_svc import DistributionService
 from ...services.pricing_engine import PricingEngine
 
 router = APIRouter()

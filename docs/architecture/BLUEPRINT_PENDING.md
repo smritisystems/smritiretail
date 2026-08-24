@@ -18,7 +18,7 @@
 **Baseline status:** Frozen  
 **Roadmap status:** Active implementation plan  
 **Date:** 2026-08-23  
-**Authority:** `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`
+**Authority:** `docs/architecture/PLATFORM.md`
 
 This roadmap converts the frozen blueprint into dependency-ordered delivery work. It does not redesign or overwrite the architecture baseline.
 
@@ -382,7 +382,7 @@ Until then, the accurate declaration is:
 
 ## Related Evidence
 
-- [Current implementation tracker](SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md)
-- [Canonical multi-company architecture](SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE.md)
-- [Mandatory architecture rules](../AI_AGENT_ARCHITECTURE_RULES.md)
-- [POS FK deferral ADR](../adr/ADR-POS-002-ShiftCashTransaction-FK-Deferral.md)
+- [Current implementation tracker](PLATFORM.md)
+- [Canonical multi-company architecture](MULTI_COMPANY_2.md)
+- [Mandatory architecture rules](../AI_AGENT.md)
+- [POS FK deferral ADR](../adr/ADR-POS-002-ShiftC.md)

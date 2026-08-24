@@ -30,7 +30,7 @@ Consolidate all transactional outbox event capture across the repository onto th
 
 ## 3. Files Created
 1. `backend/alembic/versions/v1342_canonical_outbox.py`: Authoritative Alembic migration consolidating outbox columns on `integration_outbox_events` and dropping deprecated tables.
-2. `docs/implementation/foundation/Platform_Refactor_Slice7_Outbox_Analytics_Plan_v1.0.md`: Master 19-section implementation plan for Slice 7.
+2. `docs/implementation/foundation/Platform_Refactor_5.md`: Master 19-section implementation plan for Slice 7.
 
 ---
 
@@ -38,8 +38,8 @@ Consolidate all transactional outbox event capture across the repository onto th
 1. `backend/app/models/outbox.py`: Consolidated `IntegrationOutboxEvent` with canonical fields (`event_type`, `aggregate_type`, `aggregate_id`, `company_id`, `branch_id`, `error_message`), `synonym` aliases, and `OutboxEvent` alias.
 2. `backend/alembic/env.py`: Added dynamic target database URL resolution via `-x db=<name>` or `-x db_url=<url>`.
 3. `backend/app/services/outbox_service.py`: Added `event_type`, `aggregate_type`, `aggregate_id`, `company_id`, `branch_id` parameters to `record_event()`.
-4. `backend/app/services/unified_outbox_analytics_service.py`: Updated `stage_outbox_event()` and `get_authoritative_operational_summary()` with `IntegrationOutboxEvent`, added `dispatcher_callback` and channel filtering in `dispatch_pending_outbox_events()`.
-5. `backend/tests/test_unified_outbox_analytics.py`: Comprehensive test suite certifying domain transaction atomicity, rollback guarantees, dispatcher callbacks, DLQ transitions, and tenant isolation.
+4. `backend/app/services/outbox_analytics.py`: Updated `stage_outbox_event()` and `get_authoritative_operational_summary()` with `IntegrationOutboxEvent`, added `dispatcher_callback` and channel filtering in `dispatch_pending_outbox_events()`.
+5. `backend/tests/t_outbox_stats.py`: Comprehensive test suite certifying domain transaction atomicity, rollback guarantees, dispatcher callbacks, DLQ transitions, and tenant isolation.
 6. `docs/implementation/README.md`: Appended Slice 7 implementation plan to master index.
 7. `docs/walkthrough/README.md`: Appended Slice 7 walkthrough to chronological master index.
 
@@ -70,7 +70,7 @@ Consolidating existing disparate outbox references into a unified model eliminat
 ---
 
 ## 8. Tests Executed
-1. `backend/tests/test_unified_outbox_analytics.py`:
+1. `backend/tests/t_outbox_stats.py`:
    - `test_real_domain_service_sales_invoice_outbox_atomicity` (Passed)
    - `test_real_domain_service_sales_invoice_cancellation_outbox_atomicity` (Passed)
    - `test_outbox_transaction_rollback_guarantee` (Passed)
@@ -97,14 +97,14 @@ plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collecting ... collected 44 items
 
-tests/test_routing_boundary_canonical.py .............                  [ 29%]
-tests/test_universal_party_master.py ...                                [ 36%]
-tests/test_universal_item_master.py ...                                 [ 43%]
-tests/test_unified_sales_ledger.py ....                                 [ 52%]
-tests/test_unified_pricing_payment_engine.py ....                       [ 61%]
-tests/test_unified_approval_communicator.py ....                        [ 70%]
-tests/test_unified_workspace_capability.py ....                         [ 79%]
-tests/test_unified_outbox_analytics.py .........                        [100%]
+tests/t_route_boundary.py .............                  [ 29%]
+tests/t_univ_party.py ...                                [ 36%]
+tests/t_univ_item.py ...                                 [ 43%]
+tests/t_sales_ledger.py ....                                 [ 52%]
+tests/t_pricing_eng.py ....                       [ 61%]
+tests/t_approval_comm.py ....                        [ 70%]
+tests/t_workspace_cap.py ....                         [ 79%]
+tests/t_outbox_stats.py .........                        [100%]
 
 ============================= 44 passed in 35.03s =============================
 ```

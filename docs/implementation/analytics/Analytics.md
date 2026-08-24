@@ -35,7 +35,7 @@ Establish an isolated downstream Analytics & Intelligence Plane and an authorita
 
 ## 4. Current State
 - Transactional ledgers (Sales, Stock, POS, General Ledger) operate authoritatively in Postgres.
-- Outbox events are dispatched asynchronously via `unified_outbox_analytics_service.py`.
+- Outbox events are dispatched asynchronously via `outbox_analytics.py`.
 - No dedicated materialized fact table or standardized Tally XML generation existed prior to v3.23.0.
 
 ## 5. Gap Analysis
@@ -55,17 +55,17 @@ Establish an isolated downstream Analytics & Intelligence Plane and an authorita
 - `backend/app/models/analytics.py`
 - `backend/app/models/audit.py`
 - `backend/alembic/versions/v1367_analytics_and_integration.py`
-- `backend/app/services/analytical_intelligence_service.py`
-- `backend/app/services/tally_integration_service.py`
-- `backend/app/services/compliance_audit_service.py`
+- `backend/app/services/analytics_svc.py`
+- `backend/app/services/tally_service.py`
+- `backend/app/services/compliance_audit.py`
 - `backend/app/api/v1/analytics.py`
 - `backend/app/api/v1/integration.py`
-- `backend/tests/test_analytics_and_integration_hub.py`
+- `backend/tests/t_analytics_hub.py`
 
 ## 9. Files Modified
 - `backend/app/models/__init__.py`
 - `backend/app/main.py`
-- `backend/tests/test_ephemeral_tenant_migration_harness.py`
+- `backend/tests/t_tenant_migr.py`
 - `CHANGELOG.md`
 - `docs/implementation/README.md`
 - `docs/walkthrough/README.md`
@@ -83,7 +83,7 @@ Establish an isolated downstream Analytics & Intelligence Plane and an authorita
 - Automated testing via Pytest asserting exact fact values, XML schema validity, SHA-256 tamper-evidence, and HTTP endpoints.
 
 ## 14. Test Plan
-- `backend/tests/test_analytics_and_integration_hub.py` (6 tests).
+- `backend/tests/t_analytics_hub.py` (6 tests).
 - Clean-slate ephemeral tenant test harness (6 tests).
 - 13-suite master regression test (87 tests).
 
@@ -101,4 +101,4 @@ Establish an isolated downstream Analytics & Intelligence Plane and an authorita
 - `ADR-POS-002`: Authoritative Double-Entry Accounting & Ledger Truth.
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/analytics/Analytics_Integration_Hub_And_Audit_v3.23.0.md`
+- `docs/walkthrough/analytics/Analytics.md`

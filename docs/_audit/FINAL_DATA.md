@@ -30,7 +30,7 @@ The data migration and architectural separation between the central Control Plan
 | **Control Plane Tables** | 23 Tables (`users`, `companies`, `branches`, `company_database_registries`, `smriti_menus`, etc.) authoritative in `smritisys`. | **VERIFIED** |
 | **Central Master Tables** | 1 Table (`smriti_banks`) authoritative in `smritisys`. | **VERIFIED** |
 | **Company Operational Tables** | 76 Tables mapped, 99 domain tables provisioned across Company DBs (`smriti001`, `smriti002`). | **VERIFIED** |
-| **Data Migration Exceptions** | `docs/_audit/DATA_MIGRATION_EXCEPTIONS.md` cataloged with 0 orphan transactional rows. | **VERIFIED** |
+| **Data Migration Exceptions** | `docs/_audit/DATA_MIGRATION.md` cataloged with 0 orphan transactional rows. | **VERIFIED** |
 | **Multi-Dimensional Checksums** | `smriti001` (843 products / 84,300 stock qty / 54 invoices / ₹9,373,715.55 grand total / ₹968,764.05 tax total). | **VERIFIED** |
 | **Runtime Write Verification** | Company A writes → `smriti001`; Company B writes → `smriti002`; `smritisys` mutations = 0. | **VERIFIED** |
 | **Cross-Company Isolation** | A → A PASS, A → B 403 / Inaccessible, B → B PASS, B → A 403 / Inaccessible. | **VERIFIED** |

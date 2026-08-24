@@ -34,7 +34,7 @@ To deliver and verify the full operational matrix for SMRITI Retail OS Barcode L
 
 ## 2. Scope
 - **Source Mode Sub-Panels**: Dynamic workspace rendering based on selected `sourceOption`.
-- **Transaction & PO Query Engine (`barcodeTransactionStore.ts`)**: Fast retrieval and cumulative quantity aggregation across documents.
+- **Transaction & PO Query Engine (`barcodeTransactionS.ts`)**: Fast retrieval and cumulative quantity aggregation across documents.
 - **Master Date Range Dialog**: Interactive 3-way modal prompting whether to display only unprinted items or all items in period.
 - **Direct Scan Engine**: Instant barcode lookup, scan log history table, and configurable label count override.
 - **Sequential 4-Way Item Navigation (`|<<`, `<`, `>`, `>>|`)**: Synchronized across all source modes with real-time active item preview.
@@ -43,13 +43,13 @@ To deliver and verify the full operational matrix for SMRITI Retail OS Barcode L
 ---
 
 ## 3. Files Created
-- `src/components/barcode/barcodeTransactionStore.ts`: In-memory store and query utilities for transactions, purchase orders, master items with creation timestamps, and label printed status.
+- `src/components/barcode/barcodeTransactionS.ts`: In-memory store and query utilities for transactions, purchase orders, master items with creation timestamps, and label printed status.
 
 ---
 
 ## 4. Files Modified
-- `src/components/barcode/TagLabelPrintingTab.tsx`: Integrated dynamic sub-panels, direct scan forms, date range dialogs, and manifest table rendering across all modes.
-- `src/tests/tagLabelPrinting.test.ts`: Expanded automated test suite to 14 test cases covering all 6 source modes.
+- `src/components/barcode/TagLabelPrintingTa.tsx`: Integrated dynamic sub-panels, direct scan forms, date range dialogs, and manifest table rendering across all modes.
+- `src/tests/tagPrinting.test.ts`: Expanded automated test suite to 14 test cases covering all 6 source modes.
 - `CHANGELOG.md`: Added release notes for v6.5.0.
 - `docs/walkthrough/README.md`: Appended master index entry.
 
@@ -76,7 +76,7 @@ Retail cashiers and warehouse receiving staff require different workflows at dif
 
 ## 8. Tests Executed
 ```powershell
-npx vitest run src/tests/tagLabelPrinting.test.ts
+npx vitest run src/tests/tagPrinting.test.ts
 ```
 
 ---
@@ -85,7 +85,7 @@ npx vitest run src/tests/tagLabelPrinting.test.ts
 ```text
  RUN  v4.1.10 F:/SMRITRretailNX
 
- ✓ src/tests/tagLabelPrinting.test.ts (14 tests) 18ms
+ ✓ src/tests/tagPrinting.test.ts (14 tests) 18ms
 
  Test Files  1 passed (1)
       Tests  14 passed (14)

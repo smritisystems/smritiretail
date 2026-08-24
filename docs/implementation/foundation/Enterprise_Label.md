@@ -46,7 +46,7 @@ Dependencies point inwards. Socket printing is handled by FastAPI service backgr
 
 ## 8. Files Created
 - `backend/alembic/versions/e5f6g7h8i9j0_add_print_history.py`
-- `src/components/LabelPrintingSection.tsx`
+- `src/components/LabelPrintingSec.tsx`
 
 ## 9. Files Modified
 - `backend/app/models/barcode.py`

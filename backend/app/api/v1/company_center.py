@@ -16,23 +16,23 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
 try:
-    from app.services.company_database_resolver import (
+    from app.services.db_resolver import (
         CompanyDatabaseResolver,
         generate_company_database_name,
         validate_company_database_name
     )
-    from app.services.company_code_allocator import CompanyCodeAllocator
-    from app.services.company_database_provisioner import CompanyDatabaseProvisioner
+    from app.services.code_allocator import CompanyCodeAllocator
+    from app.services.db_provisioner import CompanyDatabaseProvisioner
     from app.api.deps import get_current_user, require_role
     from app.models.auth import User, UserRole
 except ImportError:
-    from backend.app.services.company_database_resolver import (
+    from backend.app.services.db_resolver import (
         CompanyDatabaseResolver,
         generate_company_database_name,
         validate_company_database_name
     )
-    from backend.app.services.company_code_allocator import CompanyCodeAllocator
-    from backend.app.services.company_database_provisioner import CompanyDatabaseProvisioner
+    from backend.app.services.code_allocator import CompanyCodeAllocator
+    from backend.app.services.db_provisioner import CompanyDatabaseProvisioner
     from backend.app.api.deps import get_current_user, require_role
     from backend.app.models.auth import User, UserRole
 

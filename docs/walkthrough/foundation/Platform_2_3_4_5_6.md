@@ -29,16 +29,16 @@ Establish the governed Business Capability Catalog and Industry Workspace Templa
 
 ## 3. Files Created
 1. `backend/app/models/capability_template.py`: Canonical `PlatformCapability`, `WorkspaceTemplate`, `TenantCapabilityBinding`, and `UserWorkspaceConfig` models.
-2. `backend/app/services/unified_workspace_capability_service.py`: Domain service handling control catalog seeding, tenant capability binding, and cross-plane workspace layout resolution.
-3. `backend/tests/test_unified_workspace_capability.py`: Automated verification suite certifying template seeding in `smritisys`, capability filtering in `smriti001`, layout resolution, and tenant isolation.
-4. `docs/implementation/foundation/Platform_Refactor_Slice6_Capability_Template_Workspace_Plan_v1.0.md`: Master 19-section implementation plan for Slice 6.
+2. `backend/app/services/workspace_cap_svc.py`: Domain service handling control catalog seeding, tenant capability binding, and cross-plane workspace layout resolution.
+3. `backend/tests/t_workspace_cap.py`: Automated verification suite certifying template seeding in `smritisys`, capability filtering in `smriti001`, layout resolution, and tenant isolation.
+4. `docs/implementation/foundation/Platform_Refactor_2.md`: Master 19-section implementation plan for Slice 6.
 
 ---
 
 ## 4. Files Modified
 1. `backend/app/models/__init__.py`: Exported Capability and Workspace models.
 2. `docs/implementation/README.md`: Appended Slice 6 implementation plan to master index.
-3. `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`: Updated platform tracker with verified Slice 6 status.
+3. `docs/architecture/PLATFORM.md`: Updated platform tracker with verified Slice 6 status.
 4. `docs/walkthrough/README.md`: Appended Slice 6 walkthrough to chronological master index.
 
 ---
@@ -68,7 +68,7 @@ Separating the capability catalog from tenant subscriptions allows SMRITI to int
 ---
 
 ## 8. Tests Executed
-1. `backend/tests/test_unified_workspace_capability.py`:
+1. `backend/tests/t_workspace_cap.py`:
    - `test_control_plane_capability_and_template_seeding` (Passed)
    - `test_tenant_capability_binding_and_filtering` (Passed)
    - `test_user_workspace_layout_cross_plane_resolution` (Passed)
@@ -89,24 +89,24 @@ plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 85 items
 
-backend\tests\test_unified_workspace_capability.py ....                  [  4%]
-backend\tests\test_unified_approval_communicator.py ....                 [  9%]
-backend\tests\test_unified_pricing_payment_engine.py ....                [ 14%]
-backend\tests\test_unified_sales_ledger.py ....                          [ 18%]
-backend\tests\test_universal_party_master.py ...                         [ 22%]
-backend\tests\test_universal_item_master.py ...                          [ 25%]
-backend\tests\test_routing_boundary_canonical.py .............           [ 41%]
-backend\tests\test_company_db_runtime_routing.py .......                 [ 49%]
-backend\tests\test_company_db_naming_convention.py ......                [ 56%]
-backend\tests\test_get_company_db_wiring.py .....                        [ 62%]
-backend\tests\test_multi_company_database_architecture.py ......         [ 69%]
-backend\tests\test_company_db_provisioning.py .....                      [ 75%]
-backend\tests\test_menu_governance.py .                                  [ 76%]
-backend\tests\test_security_menu_access.py ..                            [ 78%]
+backend\tests\t_workspace_cap.py ....                  [  4%]
+backend\tests\t_approval_comm.py ....                 [  9%]
+backend\tests\t_pricing_eng.py ....                [ 14%]
+backend\tests\t_sales_ledger.py ....                          [ 18%]
+backend\tests\t_univ_party.py ...                         [ 22%]
+backend\tests\t_univ_item.py ...                          [ 25%]
+backend\tests\t_route_boundary.py .............           [ 41%]
+backend\tests\t_comp_db_route.py .......                 [ 49%]
+backend\tests\t_comp_db_name.py ......                [ 56%]
+backend\tests\t_comp_db_wire.py .....                        [ 62%]
+backend\tests\t_multi_comp_db.py ......         [ 69%]
+backend\tests\t_comp_db_prov.py .....                      [ 75%]
+backend\tests\t_menu_gov.py .                                  [ 76%]
+backend\tests\t_sec_menu.py ..                            [ 78%]
 backend\tests\test_wms_phase1.py ....                                    [ 83%]
-backend\tests\test_wms_phase2_grn_sales.py ...                           [ 87%]
-backend\tests\test_wms_phase3_eway_bill.py .....                         [ 92%]
-backend\tests\test_wms_phase4_audit_reconciliation.py ......             [100%]
+backend\tests\t_wms_phase2.py ...                           [ 87%]
+backend\tests\t_wms_phase3.py .....                         [ 92%]
+backend\tests\t_wms_phase4.py ......             [100%]
 
 ======================= 85 passed, 1 warning in 36.48s ========================
 ```

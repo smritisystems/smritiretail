@@ -24,11 +24,11 @@ sys.stdout.reconfigure(encoding='utf-8')
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
 
-DOC_MULTI_COMPANY = r"F:\SMRITRretailNX\docs\architecture\SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md"
-DOC_ROUTING = r"F:\SMRITRretailNX\docs\architecture\SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md"
-DOC_LIFECYCLE = r"F:\SMRITRretailNX\docs\architecture\SMRITI_COMPANY_DATABASE_LIFECYCLE_v1.0.md"
-DOC_BOUNDARY = r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONTROL_PLANE_BOUNDARY_v1.0.md"
-DOC_MATRIX = r"F:\SMRITRretailNX\docs\architecture\SMRITI_CONFIGURATION_OWNERSHIP_MATRIX_v1.0.md"
+DOC_MULTI_COMPANY = r"F:\SMRITRretailNX\docs\architecture\MULTI_COMPANY.md"
+DOC_ROUTING = r"F:\SMRITRretailNX\docs\architecture\DATABASE_ROUTING.md"
+DOC_LIFECYCLE = r"F:\SMRITRretailNX\docs\architecture\COMPANY_DATABASE_2.md"
+DOC_BOUNDARY = r"F:\SMRITRretailNX\docs\architecture\CONTROL_PLANE_2.md"
+DOC_MATRIX = r"F:\SMRITRretailNX\docs\architecture\CONFIGURATION.md"
 
 def run_multi_company_audit():
     print("============================================================")
@@ -165,7 +165,7 @@ def run_multi_company_audit():
     # 4. Generate 5 Multi-Company Architecture Markdown Specification Files
     os.makedirs(os.path.dirname(DOC_MULTI_COMPANY), exist_ok=True)
 
-    # A. SMRITI_MULTI_COMPANY_DATABASE_ARCHITECTURE_v1.0.md
+    # A. MULTI_COMPANY.md
     with open(DOC_MULTI_COMPANY, "w", encoding="utf-8") as f:
         f.write(f"""<!--
   Project      : SMRITI Retail OS
@@ -213,7 +213,7 @@ User → Tenant Context → Company → CompanyDatabaseResolver → Target Compa
 ```
 """)
 
-    # B. SMRITI_DATABASE_ROUTING_ARCHITECTURE_v1.0.md
+    # B. DATABASE_ROUTING.md
     with open(DOC_ROUTING, "w", encoding="utf-8") as f:
         f.write(f"""<!--
   Project      : SMRITI Retail OS
@@ -241,7 +241,7 @@ User → Tenant Context → Company → CompanyDatabaseResolver → Target Compa
 - No cross-company database query execution.
 """)
 
-    # C. SMRITI_COMPANY_DATABASE_LIFECYCLE_v1.0.md
+    # C. COMPANY_DATABASE_2.md
     with open(DOC_LIFECYCLE, "w", encoding="utf-8") as f:
         f.write(f"""<!--
   Project      : SMRITI Retail OS

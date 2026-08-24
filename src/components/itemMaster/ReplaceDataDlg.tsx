@@ -22,7 +22,7 @@ interface SmritiReplaceDataModalProps {
   fields: { key: string; label: string }[];
 }
 
-export const SmritiReplaceDataModal: React.FC<SmritiReplaceDataModalProps> = ({
+export const ReplaceDataDlg: React.FC<SmritiReplaceDataModalProps> = ({
   isOpen,
   onClose,
   onReplace,
@@ -136,4 +136,4 @@ export const SmritiReplaceDataModal: React.FC<SmritiReplaceDataModalProps> = ({
   );
 };
 
-export default SmritiReplaceDataModal;
+export default ReplaceDataDlg;

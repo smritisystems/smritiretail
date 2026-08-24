@@ -30,7 +30,7 @@ import backend.app.models
 CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
 TARGET_DB_URL = "postgresql://postgres:postgres@localhost:5432/smriti001"
 EXCEL_OUTPUT = r"F:\SMRITRretailNX\SMRITI_Control_Plane_Architecture_Review.xlsx"
-DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\SMRITI_COMPANY_001_FUNCTIONAL_READINESS_v1.0.md"
+DOC_OUTPUT = r"F:\SMRITRretailNX\docs\architecture\COMPANY_001.md"
 
 def reconcile_schema_and_functional_readiness():
     print("============================================================")

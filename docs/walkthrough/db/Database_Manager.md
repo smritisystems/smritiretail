@@ -29,10 +29,10 @@ This walkthrough documents the design, architecture, implementation, and verific
 ## 3. Files Created
 1. `backend/app/schemas/database_manager.py`: Pydantic models for database summary, table summary, column schema, table data, migrations, and SQL query execution.
 2. `backend/app/api/v1/database_manager.py`: FastAPI router providing 6 administrative endpoints.
-3. `backend/app/tests/test_database_manager.py`: Pytest suite covering all database manager endpoints and security role gates.
+3. `backend/app/tests/t_db_manager.py`: Pytest suite covering all database manager endpoints and security role gates.
 4. `src/components/DatabaseManagerTab.tsx`: Modern Fiori Horizon styled workspace for database administration.
-5. `src/tests/databaseManager.test.ts`: Vitest suite verifying launchpad catalog registration and role-based access.
-6. `docs/walkthrough/db/Database_Manager_Studio_Walkthrough_v3.29.0.md`: Formal WGP walkthrough document.
+5. `src/tests/dbManager.test.ts`: Vitest suite verifying launchpad catalog registration and role-based access.
+6. `docs/walkthrough/db/Database_Manager.md`: Formal WGP walkthrough document.
 
 ## 4. Files Modified
 1. `backend/app/main.py`: Imported and mounted `database_manager.router` at `/api/v1/database-manager`.
@@ -57,8 +57,8 @@ Retail administrators frequently need to inspect database state, confirm Alembic
 - **Role Gating:** Only users with `SYSADMIN` role can access the endpoints and launchpad tile.
 
 ## 8. Tests Executed
-1. `backend/app/tests/test_database_manager.py`: 5 passed.
-2. `src/tests/databaseManager.test.ts`: 3 passed.
+1. `backend/app/tests/t_db_manager.py`: 5 passed.
+2. `src/tests/dbManager.test.ts`: 3 passed.
 3. `src/tests/fioriLaunchpad.test.ts`: 9 passed.
 4. `npx vitest run`: 22 test files, 134 tests passed.
 5. `npx tsc --noEmit`: 0 errors.

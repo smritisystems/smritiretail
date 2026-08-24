@@ -6,10 +6,10 @@ Version: 1.0
 Authority Order
 
 1. `IMPLEMENTATION_GATE.md`
-2. `GOVERNANCE_FREEZE_CHECKLIST.md`
-3. `ADR-002-SMRITI-METADATA-ARCHITECTURE.md`
-4. `METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md`
-5. `AI_IMPLEMENTATION_STANDARD.md`
+2. `GOVERNANCE_FREEZE.md`
+3. `ADR-002-SMRITI-MET.md`
+4. `METADATA.md`
+5. `AI_IMPLEMENTATION.md`
 
 If any instruction in this document conflicts with a higher-priority document, the higher-priority document prevails.
 
@@ -24,9 +24,9 @@ This document defines the operating standard for AI implementation agents workin
 
 ## Authority (highest to lowest)
 1. `IMPLEMENTATION_GATE.md`
-2. `GOVERNANCE_FREEZE_CHECKLIST.md`
-3. `ADR-002-SMRITI-METADATA-ARCHITECTURE.md`
-4. `METADATA_ARCHITECTURE_EVIDENCE_LEDGER.md`
+2. `GOVERNANCE_FREEZE.md`
+3. `ADR-002-SMRITI-MET.md`
+4. `METADATA.md`
 
 ## Mission
 Implement approved functionality.
@@ -93,7 +93,7 @@ Implementation requests should follow a repeatable module workflow.
 Use this checklist before beginning implementation:
 
 - [ ] `IMPLEMENTATION_GATE.md` reviewed
-- [ ] `ADR-002-SMRITI-METADATA-ARCHITECTURE.md` reviewed
+- [ ] `ADR-002-SMRITI-MET.md` reviewed
 - [ ] Module dependencies satisfied
 - [ ] Scope limited to one module
 - [ ] No architectural changes planned

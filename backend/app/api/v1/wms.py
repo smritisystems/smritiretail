@@ -33,7 +33,7 @@ from ...schemas.wms import (
     StockAuditCreate, StockAuditResponse, StockAuditItemResponse,
     StockAuditCountItemRequest, StockAuditBulkCountRequest, StockAuditBarcodeScanRequest
 )
-from ...services.inventory_wms_service import InventoryWmsService
+from ...services.inventory_wms import InventoryWmsService
 from ...services.eway_bill_service import EWayBillService
 from ...services.stock_audit_service import StockAuditService
 

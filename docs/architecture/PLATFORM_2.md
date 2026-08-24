@@ -14,7 +14,7 @@
 
 **Status:** Target architecture for a long-lived, cross-domain SMRITI Platform.
 
-> See also: [Architecture Docs README](./README.md) and [Product Identity Engine](./PRODUCT_IDENTITY_ENGINE.md) — governance-grade product identity, barcode assignment, and master data rule management for the modular platform.
+> See also: [Architecture Docs README](./README.md) and [Product Identity Engine](./PRODUCT_IDENTITY_13.md) — governance-grade product identity, barcode assignment, and master data rule management for the modular platform.
 
 ## Vision
 

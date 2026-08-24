@@ -21,10 +21,10 @@ Provide full desktop ERP fidelity for Customer Price Groups and enforce PostgreS
 Price groups control commercial terms, credit limits, credit days, destination tax types, and billing permissions (Credit, Cash, Tax Exclusive, and Misc. Issues). The audit revealed discrepancies between frontend mock arrays and the PostgreSQL database; fixing this ensures accurate pricing, invoicing, and tax compliance.
 
 ## 3. Scope
-* Frontend Customer Price Group Modal (`SmritiCustomerPriceGroupModal.tsx`)
-* Form Tab selector integration (`SmritiCustomerFormTab.tsx`)
+* Frontend Customer Price Group Modal (`CustPriceGroupDlg.tsx`)
+* Form Tab selector integration (`CustFormTab.tsx`)
 * Customer store service (`customerStore.ts`)
-* Billing terminal and ProPOS customer lookup (`SmritiBillingTerminal.tsx`, `SmritiCustomerBrowseModal.tsx`)
+* Billing terminal and ProPOS customer lookup (`BillingTerm.tsx`, `CustBrowseDlg.tsx`)
 * Backend tenant context and CRM service (`deps.py`, `crm.py`, `schemas/crm.py`)
 * Database seeding (`seed_customers.py`)
 
@@ -48,20 +48,20 @@ Previously, frontend stores fell back to hardcoded `initialCustomers` and `DEFAU
 * Direct seeding script preserving invoice-linked customer IDs (`cust-rrl-192b561d`).
 
 ## 8. Files Created
-* `src/components/customer/SmritiCustomerPriceGroupModal.tsx`
+* `src/components/customer/CustPriceGroupDlg.tsx`
 * `backend/app/db/seed_customers.py`
-* `src/tests/customerPriceGroup.test.ts`
-* `src/tests/customerFlowIntegrity.test.ts`
-* `docs/walkthrough/crm/Customer_Price_Group_And_Database_Integrity_v6.9.0.md`
-* `docs/implementation/crm/Customer_Price_Group_And_Database_Integrity_Plan_v6.9.0.md`
+* `src/tests/custPriceGrp.test.ts`
+* `src/tests/custFlow.test.ts`
+* `docs/walkthrough/crm/Customer_Price.md`
+* `docs/implementation/crm/Customer_Price.md`
 
 ## 9. Files Modified
 * `src/types.ts`
 * `src/components/customer/types.ts`
 * `src/services/customerStore.ts`
-* `src/components/customer/SmritiCustomerFormTab.tsx`
-* `src/components/billing/SmritiBillingTerminal.tsx`
-* `src/components/billing/propos/SmritiCustomerBrowseModal.tsx`
+* `src/components/customer/CustFormTab.tsx`
+* `src/components/billing/BillingTerm.tsx`
+* `src/components/billing/propos/CustBrowseDlg.tsx`
 * `backend/app/api/deps.py`
 * `backend/app/services/crm.py`
 * `backend/app/schemas/crm.py`
@@ -106,4 +106,4 @@ Previously, frontend stores fell back to hardcoded `initialCustomers` and `DEFAU
 * ADR-034: Removal of In-Memory Mock Fallbacks in Production Billing
 
 ## 19. Related Walkthroughs
-* `docs/walkthrough/crm/Customer_Price_Group_And_Database_Integrity_v6.9.0.md`
+* `docs/walkthrough/crm/Customer_Price.md`
