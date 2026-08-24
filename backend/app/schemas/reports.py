@@ -84,3 +84,115 @@ class PurchaseSummaryLine(BaseModel):
     total_ordered: Decimal
     total_received: Decimal
     outstanding:   Decimal
+
+# ---------------------------------------------------------------------------
+# Sprint 8a P1 Schemas -- Tax & Compliance (Shoper9 parity)
+# Sh9 EXE: SR202400 SR202200 SR202300 SR210200 SR238400
+# ---------------------------------------------------------------------------
+
+class BillWiseSalesLine(BaseModel):
+    invoice_id:     str
+    invoice_number: str
+    invoice_date:   str
+    customer_name:  Optional[str] = None
+    payment_mode:   Optional[str] = None
+    gross_amount:   Decimal
+    discount:       Decimal
+    net_amount:     Decimal
+    tax_amount:     Decimal
+    items_count:    int
+
+class BillWiseSalesReport(BaseModel):
+    """RPT-TAX-002 -- Shoper9 SR202400 Bill-wise Sales."""
+    from_date:      str
+    to_date:        str
+    generated_at:   str
+    total_bills:    int
+    total_gross:    Decimal
+    total_discount: Decimal
+    total_net:      Decimal
+    total_tax:      Decimal
+    lines:          List[BillWiseSalesLine]
+
+class ItemWiseSalesLine(BaseModel):
+    product_id:   str
+    product_code: str
+    product_name: str
+    hsn_code:     Optional[str] = None
+    qty_sold:     Decimal
+    gross_amount: Decimal
+    discount:     Decimal
+    net_amount:   Decimal
+    tax_amount:   Decimal
+    return_qty:   Decimal = Decimal("0")
+
+class ItemWiseSalesReport(BaseModel):
+    """RPT-TAX-003 -- Shoper9 SR202200 Item-wise Sales."""
+    from_date:    str
+    to_date:      str
+    generated_at: str
+    total_items:  int
+    total_qty:    Decimal
+    total_net:    Decimal
+    lines:        List[ItemWiseSalesLine]
+
+class TaxRegisterLine(BaseModel):
+    invoice_number: str
+    invoice_date:   str
+    customer_name:  Optional[str] = None
+    taxable_amount: Decimal
+    cgst_rate:      Decimal = Decimal("0")
+    cgst_amount:    Decimal = Decimal("0")
+    sgst_rate:      Decimal = Decimal("0")
+    sgst_amount:    Decimal = Decimal("0")
+    igst_rate:      Decimal = Decimal("0")
+    igst_amount:    Decimal = Decimal("0")
+    total_tax:      Decimal
+    net_amount:     Decimal
+
+class TaxRegisterReport(BaseModel):
+    """RPT-TAX-001 -- Shoper9 SR202300 Tax Register."""
+    from_date:      str
+    to_date:        str
+    generated_at:   str
+    total_invoices: int
+    total_taxable:  Decimal
+    total_cgst:     Decimal
+    total_sgst:     Decimal
+    total_igst:     Decimal
+    total_tax:      Decimal
+    lines:          List[TaxRegisterLine]
+
+class CancelledBillLine(BaseModel):
+    invoice_number:  str
+    invoice_date:    str
+    cancelled_at:    Optional[str] = None
+    cancelled_by:    Optional[str] = None
+    cancel_reason:   Optional[str] = None
+    original_amount: Decimal
+    customer_name:   Optional[str] = None
+
+class CancelledBillsReport(BaseModel):
+    """RPT-TAX-004 -- Shoper9 SR210200 Cancelled Bills."""
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_cancelled:    int
+    total_value_voided: Decimal
+    lines:              List[CancelledBillLine]
+
+class SalespersonDiscountLine(BaseModel):
+    salesperson_name: str
+    total_bills:      int
+    total_sales:      Decimal
+    total_discount:   Decimal
+    discount_pct:     Decimal
+
+class SalespersonDiscountReport(BaseModel):
+    """RPT-MIS-005 -- Shoper9 SR238400 Salesperson-wise Discount."""
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_salespersons: int
+    total_discount:     Decimal
+    lines:              List[SalespersonDiscountLine]
