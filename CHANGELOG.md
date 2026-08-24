@@ -628,6 +628,32 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - 75/75 tests pass
 
 
+## [3.36.0] - 2026-08-25
+
+### Added -- Sprint 21: LoyaltyAdjPanel Member Search + Alembic v1375 Back-fill (commit 971f2581)
+
+#### CrmStudioTab.tsx: LoyaltyAdjPanel Member Search (v3.29.0 -> v3.30.0)
+- CustomerHit interface added: { id, name, mobile?, code? }
+- Replaced free-text memberId input with debounced search-to-select widget
+    State: searchQ, searchResults, searching, selectedMember, debounceRef
+    useEffect: 350ms debounce -> GET /crm/customers/search?q=&limit=5
+    Dropdown: up to 5 results, each id=lyl-member-hit-{id}
+    Selected card: name + id + mobile, X button (id=lyl-clear-member)
+    Submit guard: disabled={!selectedMember} -- no empty-ID submissions
+    Flash: uses selectedMember.name in success message
+    Import: X icon added from lucide-react (fixes TS2304)
+
+#### Alembic v1375: SalesReturn.customer_id Back-fill (new file)
+- backend/alembic/versions/v1375_backfill_sales_return_cust.py
+    revision=v1375, down_revision=v1374
+    upgrade(): UPDATE sales_returns SET customer_id = si.customer_id
+      FROM sales_invoices si WHERE original_invoice_id = si.id
+      AND customer_id IS NULL AND si.customer_id IS NOT NULL
+    downgrade(): no-op (non-destructive; v1374 handles column removal)
+    Chain: v1372 -> v1373 -> v1374 -> v1375 (verified)
+    Python ast.parse: OK
+
+TSC: exit code 0 (0 errors). NGP: 0 violations.
 ## [3.35.0] - 2026-08-25
 
 ### Added -- Sprint 20: PHY-008 Barcode Scan-to-Count + CRM Loyalty Adjustment UI (commit f2c9726b)
