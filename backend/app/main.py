@@ -48,6 +48,7 @@ from .api.v1 import (
     changelog,
     company_center,
     crm,
+    crm_reports,
     database_manager,
     dev_tracker,
     distribution,
@@ -76,6 +77,7 @@ from .api.v1 import (
     sales,
     sales_reports,
     security,
+    staff,
     supplier_payment,
     sync,
     system,
@@ -142,8 +144,10 @@ app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inve
 app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/products",           tags=["Inventory"])
 app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory/products", tags=["Inventory"])
 app.include_router(inventory_reports.router, prefix=settings.API_V1_STR,                          tags=["Inventory Reports"])
-app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
-app.include_router(crm.router,       prefix=settings.API_V1_STR + "/crm",          tags=["CRM"])
+app.include_router(crm.router,          prefix=settings.API_V1_STR,           tags=["CRM"])
+app.include_router(crm.router,          prefix=settings.API_V1_STR + "/crm",  tags=["CRM"])
+app.include_router(crm_reports.router,  prefix=settings.API_V1_STR,           tags=["CRM Reports"])
+app.include_router(staff.router,        prefix=settings.API_V1_STR,           tags=["Staff Management"])
 app.include_router(sales.router,         prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated -- remove at v3.20.0
 app.include_router(sales.router,         prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Contract URL (Phase 4A)
 app.include_router(sales.router,         prefix=settings.API_V1_STR + "/tattly",         tags=["Tattly Invoices"])
