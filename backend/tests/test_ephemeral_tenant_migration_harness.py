@@ -116,10 +116,21 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         assert "analytics_daily_sales_facts" in tables
         assert "compliance_immutable_audit_logs" in tables
 
-        # Check alembic revision is at latest head
+        # UI/Experience Engine tables (v1368)
+        assert "screen_definitions" in tables
+        assert "action_definitions" in tables
+        assert "layout_definitions" in tables
+        assert "icon_registry" in tables
+
+        # Integration Hub Registry tables (v1369)
+        assert "provider_registry" in tables
+        assert "connector_registry" in tables
+        assert "integration_registry" in tables
+
+        # Check alembic revision is at latest head (v1370 as of 2026-08-24)
         rev_res = await session.execute(text("SELECT version_num FROM alembic_version;"))
         rev = rev_res.scalar()
-        assert rev == "v1367_analytics_and_integration"
+        assert rev == "v1370_tcb_status"
 
         # Verify database-level FK constraints on shift_cash_transactions (v1360 / ADR-POS-002)
         fk_res = await session.execute(text("""
