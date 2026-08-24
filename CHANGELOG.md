@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.17.0
+  * Version    : 3.27.0
   * Created    : 2026-07-11
-  * Modified   : 2026-07-14
+  * Modified   : 2026-08-24
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -85,11 +85,28 @@ migration stack. Covers extraction, classification, database, API, and frontend.
   Tile `legacy-migration` added — title "Shoper9 → SMRITI Migration",
   group "System & Operations", roles: [MANAGER, SYSADMIN], accentColor: violet.
 
+**Sprint 7 — Migration Bugfix & Live DB Seed (commit: 29e6d569)**
+- `v1371_legacy_menu_map.py`: fixed `down_revision` mismatch.
+  Root cause: v1370's `revision = "v1370_tcb_status"` (short form)
+  but v1371 referenced `"v1370_tenant_capability_binding_status"` (filename stem).
+  Caused `KeyError` in Alembic revision map on `alembic current` and `upgrade head`.
+- `alembic upgrade head` applied successfully:
+  `Running upgrade v1370_tcb_status -> v1371_legacy_menu_map`.
+- `alembic current` post-upgrade: `v1371_legacy_menu_map (head)`.
+- `sh9_seed.py` live run — literal output:
+  `Inserted: 265 / Updated: 0 / Errors: 0 / Total: 265/265`.
+- DB verification (live Postgres, `information_schema.columns`):
+  30 columns confirmed, 265 rows total.
+  Status: MAPPED=201, MERGED=27, DEPRECATED=14, REPLACED=10, PENDING=8, NOT_APPLIC=5.
+  Multi-instance (`sh9_multi_inst=1`): 4 entries.
+- Pushed: `d57844b6..29e6d569 smritiNX -> smritiNX`.
+
 **Governance:**
-- NGP naming guard: 0 violations across all 6 sprints.
+- NGP naming guard: 0 violations across all 7 sprints.
 - WGP walkthrough: `docs/walkthrough/foundation/Legacy_Shoper9_SMRITI_Migration_v1.0.0.md`.
 - Deployment guide: `docs/implementation/foundation/Legacy_Migration_Deploy_v1.0.0.md`.
-- DB seeded in test environment: **Unverified** (requires Sprint 6 deployment run).
+- DB seeded in live Postgres: **Done** — 265 rows, 0 errors.
+- Walkthrough index: **Done** (updated from Partially Verified).
 
 ### [3.26.0] - 2026-08-24
 
