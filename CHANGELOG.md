@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -19,23 +19,23 @@
   * Version    : 3.27.0
   * Created    : 2026-07-11
   * Modified   : 2026-08-24
-  * Copyright  : © SMRITIBooks.com. All Rights Reserved.
+  * Copyright  : Â© SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
 -->
 
-# SMRITI Retail OS — Changelog
+# SMRITI Retail OS â€” Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
 ### [3.27.0] - 2026-08-24
 
-#### Shoper9 → SMRITI Legacy Menu Migration — Sprints 0–5 Complete
+#### Shoper9 â†’ SMRITI Legacy Menu Migration â€” Sprints 0â€“5 Complete
 
-Full end-to-end implementation of the Shoper9 (EE) vaMenu → SMRITI workspace
+Full end-to-end implementation of the Shoper9 (EE) vaMenu â†’ SMRITI workspace
 migration stack. Covers extraction, classification, database, API, and frontend.
 
-**Sprint 0 — Legacy Extraction (commits: f7384642, b7c877bc, 17e67f2b)**
+**Sprint 0 â€” Legacy Extraction (commits: f7384642, b7c877bc, 17e67f2b)**
 - `scripts/sh9_extract.py` v2: S9Q parser with INSERT + DELETE handling,
   ZIP-vs-disk source conflict resolution (ZIP takes priority).
 - 7 governance CSVs produced (immutable): `SH9_MENU_CATALOG.csv` (265 active),
@@ -44,24 +44,24 @@ migration stack. Covers extraction, classification, database, API, and frontend.
   (18 ghost entries), `SH9_USERS.csv`.
 - `.gitignore` updated: `!docs/legacy/**/*.csv` unignored.
 
-**Sprint 1 — Mapping Matrix (commit: 03423dec)**
+**Sprint 1 â€” Mapping Matrix (commit: 03423dec)**
 - `scripts/sh9_map.py`: classifies all 265 entries against `CANONICAL_34_MENU_MATRIX`.
 - `SH9_MAP_MATRIX.csv` + `SH9_MENU_MAP.md` produced.
-- Coverage: **265/265 (100%)** — MAPPED:201, MERGED:27, PENDING:8,
+- Coverage: **265/265 (100%)** â€” MAPPED:201, MERGED:27, PENDING:8,
   DEPRECATED:14, REPLACED:10, NOT_APPLIC:5.
 - Key findings: 8 MultiInstance entries need multi-tab session support;
   9 SMRITI-new capabilities have no Shoper predecessor.
 
-**Sprint 2 — Database Schema (commit: cf0788a6)**
+**Sprint 2 â€” Database Schema (commit: cf0788a6)**
 - `backend/app/models/legacy_menu_map.py`: `LegacyMenuMap` SQLAlchemy model.
 - `backend/alembic/versions/v1371_legacy_menu_map.py`: Alembic migration.
   Creates `smriti_legacy_menu_map` (29 columns, 2 CHECK constraints, 4 indexes).
-  Revision chain: v1370 → v1371. Idempotent upgrade.
+  Revision chain: v1370 â†’ v1371. Idempotent upgrade.
 - `scripts/sh9_seed.py`: idempotent INSERT-or-UPDATE seed script.
   Dry-run validated: 265 rows parsed, 0 errors.
 - `backend/app/models/__init__.py`: registered `LegacyMenuMap`.
 
-**Sprint 3 — API Layer (commit: 957ae753)**
+**Sprint 3 â€” API Layer (commit: 957ae753)**
 - `backend/app/api/v1/legacy_menu_map.py`: 5 read-only GET endpoints.
   - `GET /api/v1/legacy-menu-map/stats` (MANAGER+)
   - `GET /api/v1/legacy-menu-map/` (paginated, filterable)
@@ -72,20 +72,20 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - Write path blocked at API level; seed-only governance.
 - OpenAPI: 5/5 endpoints confirmed.
 
-**Sprint 4 — Frontend Dashboard (commit: 670c966d)**
+**Sprint 4 â€” Frontend Dashboard (commit: 670c966d)**
 - `src/components/LegacyMigDashTab.tsx`: React migration dashboard.
-  - Overview: arc-gauge (coverage %), 6 status chips (clickable → browse),
+  - Overview: arc-gauge (coverage %), 6 status chips (clickable â†’ browse),
     module bar chart, multi-instance alert, source info card.
   - Browse: paginated table, search, status filter pills, pagination.
 - `src/App.tsx`: route `case 'legacy-migration'` registered.
 - `src/components/shell/AppShell.tsx`: `'legacy-migration'` in system nav group.
 
-**Sprint 5 — Launchpad Tile (commit: 2589fb83)**
+**Sprint 5 â€” Launchpad Tile (commit: 2589fb83)**
 - `src/components/launchpad/launchpadCatalog.ts` v4.2.0:
-  Tile `legacy-migration` added — title "Shoper9 → SMRITI Migration",
+  Tile `legacy-migration` added â€” title "Shoper9 â†’ SMRITI Migration",
   group "System & Operations", roles: [MANAGER, SYSADMIN], accentColor: violet.
 
-**Sprint 7 — Migration Bugfix & Live DB Seed (commit: 29e6d569)**
+**Sprint 7 â€” Migration Bugfix & Live DB Seed (commit: 29e6d569)**
 - `v1371_legacy_menu_map.py`: fixed `down_revision` mismatch.
   Root cause: v1370's `revision = "v1370_tcb_status"` (short form)
   but v1371 referenced `"v1370_tenant_capability_binding_status"` (filename stem).
@@ -93,7 +93,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - `alembic upgrade head` applied successfully:
   `Running upgrade v1370_tcb_status -> v1371_legacy_menu_map`.
 - `alembic current` post-upgrade: `v1371_legacy_menu_map (head)`.
-- `sh9_seed.py` live run — literal output:
+- `sh9_seed.py` live run â€” literal output:
   `Inserted: 265 / Updated: 0 / Errors: 0 / Total: 265/265`.
 - DB verification (live Postgres, `information_schema.columns`):
   30 columns confirmed, 265 rows total.
@@ -105,27 +105,27 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - NGP naming guard: 0 violations across all 7 sprints.
 - WGP walkthrough: `docs/walkthrough/foundation/Legacy_Shoper9_SMRITI_Migration_v1.0.0.md`.
 - Deployment guide: `docs/implementation/foundation/Legacy_Migration_Deploy_v1.0.0.md`.
-- DB seeded in live Postgres: **Done** — 265 rows, 0 errors.
+- DB seeded in live Postgres: **Done** â€” 265 rows, 0 errors.
 - Walkthrough index: **Done** (updated from Partially Verified).
 
 ### [3.26.0] - 2026-08-24
 
 
-#### Blueprint v1.0 — UI/Experience Engine & Integration Hub: Migrations Applied, Seeded, Verified
+#### Blueprint v1.0 â€” UI/Experience Engine & Integration Hub: Migrations Applied, Seeded, Verified
 
 - **Migrations executed:** `alembic upgrade head` applied `v1368_ui_experience_engine` and `v1369_integration_hub_registry` against smritisys. `alembic current` confirms `v1369_integration_hub_registry (head)`. 11 new tables created in smritisys Control Plane database.
-- **Seeder extended — Phase 9 (`ctrl_seeder.py`):**
-  - `seed_layout_definitions()` — 6 canonical layout templates (FULL_WIDTH, SIDEBAR_LEFT, SPLIT, DETAIL, DASHBOARD, WIZARD_STEPS).
-  - `seed_screen_definitions()` — 5 top business flow screens: POS Billing Terminal, Sales Invoice List, Purchase Order List, Inventory Dashboard, Party Master List. Each carries `layout_config`, `capability_code`, `route_path`, and `icon_key` linkages.
-  - `seed_action_definitions()` — 18 toolbar and row actions across all 5 screens. Action types: NAVIGATE, API_CALL, DOWNLOAD, PRINT, WORKFLOW_TRANSITION. Role-gated and capability-gated per Blueprint Rule 09.
+- **Seeder extended â€” Phase 9 (`ctrl_seeder.py`):**
+  - `seed_layout_definitions()` â€” 6 canonical layout templates (FULL_WIDTH, SIDEBAR_LEFT, SPLIT, DETAIL, DASHBOARD, WIZARD_STEPS).
+  - `seed_screen_definitions()` â€” 5 top business flow screens: POS Billing Terminal, Sales Invoice List, Purchase Order List, Inventory Dashboard, Party Master List. Each carries `layout_config`, `capability_code`, `route_path`, and `icon_key` linkages.
+  - `seed_action_definitions()` â€” 18 toolbar and row actions across all 5 screens. Action types: NAVIGATE, API_CALL, DOWNLOAD, PRINT, WORKFLOW_TRANSITION. Role-gated and capability-gated per Blueprint Rule 09.
   - All seed methods are idempotent (`SELECT to_regclass()` guard + duplicate key skip).
 - **Database row counts (verified by literal terminal query output):** `icon_registry`: 36, `provider_registry`: 6, `layout_definitions`: 6, `screen_definitions`: 5, `action_definitions`: 18. Total: 71 rows seeded in 8 smritisys tables.
 - **alembic `env.py` updated:** 11 new table names added to `include_object` filter; `ScreenDefinition`, `FieldDefinition`, `ActionDefinition`, `LayoutDefinition`, `IconRegistry`, `ProviderRegistry`, `ConnectorRegistry`, `IntegrationRegistry`, `IntegrationCredentialReference`, `IntegrationPolicy`, `IntegrationVersion` models registered for autogenerate correctness.
-- **Architecture tracker:** UI/Experience Engine (§11) promoted from **Partial** → **Verified**. Integration Hub Connector Registry (§45) promoted from **Partial** → **Verified**. Milestone 6 appended to `SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
+- **Architecture tracker:** UI/Experience Engine (Â§11) promoted from **Partial** â†’ **Verified**. Integration Hub Connector Registry (Â§45) promoted from **Partial** â†’ **Verified**. Milestone 6 appended to `SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
 
 ### [3.25.0] - 2026-08-24
 
-#### Blueprint v1.0 — UI/Experience Engine Schema & Integration Hub Registry
+#### Blueprint v1.0 â€” UI/Experience Engine Schema & Integration Hub Registry
 - **Blueprint ss54 Rules Cross-Check (2026-08-24)**: All 25 architecture rules verified against source code and migration chain. 25-rule adherence table added to `SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
 - **UI/Experience Engine smritisys schema (`v1368_ui_experience_engine.py`)**: Created 5 smritisys-resident tables: `screen_definitions`, `field_definitions`, `action_definitions`, `layout_definitions`, `icon_registry`. Closes Blueprint ss11 named gap.
 - **Integration Hub Connector Registry smritisys schema (`v1369_integration_hub_registry.py`)**: Created 6 smritisys-resident tables: `integration_registry`, `connector_registry`, `provider_registry`, `integration_credentials_reference`, `integration_policies`, `integration_versions`. Closes Blueprint ss45 named gap.
@@ -136,7 +136,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.23.0] - 2026-08-23
 
-#### Enterprise Blueprint Delivery — Sections 11 & 12 (Analytics & Intelligence Plane, Integration Hub & Compliance Audit)
+#### Enterprise Blueprint Delivery â€” Sections 11 & 12 (Analytics & Intelligence Plane, Integration Hub & Compliance Audit)
 - **Analytics & Intelligence Plane (`v1367`, `analytics.py`, `analytics_svc.py`)**:
   - Implemented `analytics_daily_sales_facts` downstream aggregate table to decouple analytical metric calculations from core transactional tables.
   - Implemented `AnalyticalIntelligenceService` computing invoice counts, total revenue, tax totals, payment mode breakdowns (cash, digital, credit), estimated COGS, and gross margin percentages.
@@ -154,7 +154,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.22.0] - 2026-08-23
 
-#### Enterprise Blueprint Delivery — Sections 9 & 10 (PSV, CGE, PDT, and Durable Offline Sync Queue)
+#### Enterprise Blueprint Delivery â€” Sections 9 & 10 (PSV, CGE, PDT, and Durable Offline Sync Queue)
 - **Durable Tenant-Local Offline Sync Queue (`v1366`, `sync.py`, `offline_sync_svc.py`)**:
   - Implemented `pos_offline_sync_queue` table in all tenant databases via forward-only migration `v1366_cge_pdt_offline_sync.py`.
   - Upgraded `/api/v1/sync/push` and `/api/v1/cge/*` routes to route through `get_company_db`, ensuring offline transactions and CGE records are persisted authoritatively in tenant-isolated databases.
@@ -173,7 +173,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.16.0] - 2026-08-23
 
-#### ProPOS & Accounting — Physical Denominations, Mid-Shift Cash Movements, Concurrency & Multi-Tenant Routing Hardening
+#### ProPOS & Accounting â€” Physical Denominations, Mid-Shift Cash Movements, Concurrency & Multi-Tenant Routing Hardening
 - **Company Multi-Tenant Database Routing (`pos.py`)**:
   - Replaced control-plane `get_db` session dependency with `get_company_db` across all operational endpoints (`/registers/`, `/pos/shifts/open`, `/pos/shifts/close/{id}`, `/pos/shifts/{id}/cash-in`, `/pos/shifts/{id}/cash-drop`, `/pos/shifts/{id}/till-expense`, `/pos/shifts/{id}/z-report`, `/pos/checkout`).
 - **PostgreSQL Row-Level Locking & Concurrency Control (`pos.py`, `services/pos.py`)**:
@@ -191,7 +191,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
   - 14/14 automated test suites in `backend/tests/t_pos_drawer.py` passed in 32.03s.
   - `npm run lint` and `npm run build` passed with zero errors.
 
-#### Warehouse & Logistics — WMS Phase 4: Physical Inventory Audit, Stock Discrepancy Reconciliation & Barcode Batch Counting
+#### Warehouse & Logistics â€” WMS Phase 4: Physical Inventory Audit, Stock Discrepancy Reconciliation & Barcode Batch Counting
 - **Stock Audit Domain & Baseline Snapshotting Engine (`stock_audit_service.py`, `inventory.py`)**:
   - Implemented `StockAudit` and `StockAuditItem` models in PostgreSQL (`smriti001` and `smritisys`) with scoped unique indexes.
   - Snapshotting engine captures baseline on-hand batch quantities (`system_qty`), ensuring mathematical variance stability during counts without locking godown operations.
@@ -208,7 +208,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - **Verification & Test Coverage**:
   - Added automated test suite `t_wms_phase4.py` (4 tests) and live HTTP smoke test `smoke_test_wms_phase4.py` (7 steps). Full 19/19 multi-module pytest suite passed in 9.14s.
 
-#### Security & Access Control — Security Management: Menu Access Control & Security Configuration
+#### Security & Access Control â€” Security Management: Menu Access Control & Security Configuration
 - **Menu Access Control Workspace (`MenuAccessControlV.tsx`)**:
   - Unified User / Group / Node selector with browsing and company-wise scoping.
   - Multi-level hierarchical expandable menu tree over existing `smriti_menus` PostgreSQL table.
@@ -218,14 +218,14 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - **Backend Security Authority (`security.py`, `deps.py`)**:
   - Endpoints `/api/v1/security/menu-access` and `/api/v1/security/config` backed by `smriti_permissions`, `system_configs`, and `smriti_audit_log`.
   - Added action-level RBAC guard factory `require_permission(resource, action)` returning `SMRITI-AUTH-001` 403 Forbidden rejection when unauthorized.
-  - Zero duplicate tables or engines created — 100% database reuse.
+  - Zero duplicate tables or engines created â€” 100% database reuse.
 - **Verification & Testing**:
   - Added unit test suite `menuAccess.test.ts` (6 tests) and backend test `t_sec_menu.py` (1 test).
   - All 39 test suites passing (288/288 tests). Frontend built in 24.67s.
 
 ### [6.15.0] - 2026-08-22
 
-#### CRM & Sales — Customer Flow, Policy Enforcement & Database Referential Integrity Hardening
+#### CRM & Sales â€” Customer Flow, Policy Enforcement & Database Referential Integrity Hardening
 - **Backend Credit Limit & Credit Hold Enforcement (`crm.py`, `sales.py`)**:
   - Implemented transactional credit validation in `CrmService.check_credit_limit`.
   - Blocks invoicing and returns structured business errors `SMRITI-CREDIT-001` (credit limit exceeded) and `SMRITI-CREDIT-002` (credit hold active) when limits are breached.
@@ -238,9 +238,9 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.14.0] - 2026-08-22
 
-#### Security & Shell — Dual-Mode Contextual Inspector HUD (Zero Data on Login & Full Active Capabilities in Session)
+#### Security & Shell â€” Dual-Mode Contextual Inspector HUD (Zero Data on Login & Full Active Capabilities in Session)
 - **Dual-Mode HUD Architecture (`CtxInspectorHUD.tsx`)**:
-  - **Login Screen Mode**: Displays a secure "SMRITI Security Portal • Authentication Required" banner with 0 business data, 0 invoice text, and 0 credentials exposure.
+  - **Login Screen Mode**: Displays a secure "SMRITI Security Portal â€¢ Authentication Required" banner with 0 business data, 0 invoice text, and 0 credentials exposure.
   - **Authenticated Session Mode**: Activates all 18+ contextual master categories, live query inspections, and Ctrl+K search integration.
 - **Safe Authentication Input Tracking (`ActiveFieldContext.tsx`)**:
   - Automatically isolates login/password fields to generic security category without value tracking or data query broadcasting.
@@ -249,7 +249,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.13.0] - 2026-08-22
 
-#### Security & Shell — Public Data Exposure Hardening & Bottom Workspace Taskbar Removal
+#### Security & Shell â€” Public Data Exposure Hardening & Bottom Workspace Taskbar Removal
 - **Zero-Trust Auth Guards on Context Overlays**:
   - Moved `ContextRenderer`, `GlobalSearch`, `GlobalF2BrowseModal`, `ContextualInspectorHUD`, `DrillDownSidePanel`, and `ShortcutPalette` inside `<AppShell>` inside the authenticated `AppContent` session.
   - Injected direct token authentication guards (`smriti_jwt_token` / `smriti_session_token`) across `ContextualInspectorHUD`, `GlobalSearch`, `GlobalF2BrowseModal`, and `ActiveFieldContext`.
@@ -260,7 +260,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.12.0] - 2026-08-22
 
-#### Inventory & Item Master — Decommissioning & Removal of "Common Fields Setup" Module
+#### Inventory & Item Master â€” Decommissioning & Removal of "Common Fields Setup" Module
 - **Module Purge**: Permanently removed `SmritiCommonFieldsSetup.tsx` and `tabs/CommonFieldsTab.tsx`.
 - **Item Master Workspace Streamlining (`ItemMasterWs.tsx`)**:
   - Removed "Common Fields" from the left navigation sidebar.
@@ -272,7 +272,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.11.0] - 2026-08-22
 
-#### POS & Inventory — Dual-Field Item Auto-Search, Auto-Population & 14+ Attribute Inspection
+#### POS & Inventory â€” Dual-Field Item Auto-Search, Auto-Population & 14+ Attribute Inspection
 - **Universal Multi-Attribute Typeahead Overlay (`ItemTypeaheadDrop.tsx`)**:
   - Reusable dropdown displaying **5 Key Identifiers** (Barcode, Stock No, Code, SKU, Name/Description), **6 Core Commercial Details** (MRP, Rate, Cost Price, Stock, Size, Color, GST%), and **6 Extended Tactical Attributes** (Brand, Category, HSN, Pricing Mode, Tracking Mode, Weight, Image Preview).
   - Smooth keyboard navigation (Arrow Up/Down, Enter selection, Escape dismissal) with auto-scroll.
@@ -285,7 +285,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.10.0] - 2026-08-22
 
-#### Sales & POS — Zero-Touch Automated GST & Customer Classification Engine
+#### Sales & POS â€” Zero-Touch Automated GST & Customer Classification Engine
 - **Centralized GST Engines (`backend/app/core/gst_engine.py` & `src/utils/gstEngine.ts`)**:
   - Implemented automatic 2x2 matrix calculation: Registered (B2B) vs. Unregistered (B2C) across Intra-State (CGST+SGST) and Inter-State (IGST).
   - High-precision decimal calculations with banker's rounding for Gross Total, Taxable Value, CGST, SGST, IGST, and Net Total.
@@ -304,7 +304,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.9.0] - 2026-08-22
 
-#### CRM & Customer Master — Customer Price Group Master & Database Flow Integrity
+#### CRM & Customer Master â€” Customer Price Group Master & Database Flow Integrity
 - **Customer Price Group Master Window (`CustPriceGroupDlg.tsx`)**:
   - Implemented authentic desktop ERP layout for managing Customer Price Groups.
   - Fields: `Code`, `Description`, `Payment Terms`, `Credit Days`, `Dest-Wise Tax Type`, `Credit Limit`, `Item Classification-wise Price Factor Applicable`.
@@ -329,7 +329,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.7.0] - 2026-08-22
 
-#### POS & Billing — Distributor Invoicing, Settlement & PDT Import Integration (Stitch UX)
+#### POS & Billing â€” Distributor Invoicing, Settlement & PDT Import Integration (Stitch UX)
 - **Distributor Invoicing Terminal (`BillingTerm.tsx`)**:
   - Implemented the authentic Stitch layout from `invoicing_smritisystems/code.html`.
   - Header: `Bill Type`, `Transaction`, `Doc Prefix` (`D1DS13`), `Doc No.`, `Import`, `Recall`, `Customer` with `F2` search, Name display & `Add` button, `Sales Staff`.
@@ -348,7 +348,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.6.0] - 2026-08-22
 
-#### Barcode & Inventory — Stitch Barcode Label Designer & Printer Replacement
+#### Barcode & Inventory â€” Stitch Barcode Label Designer & Printer Replacement
 - **Complete Module Replacement (`TagLabelPrintingTa.tsx` & `BarcodeScriptGenVi.tsx`)**:
   - Fully replaced previous implementation with the authentic **Stitch Barcode Label Designer & Printer** module from `F:\SMRITI\barcode_label_designer_and_printer_Final\stitch_barcode_label_designer_and_printer`.
   - Implemented the **Industrial Logic** design system tokens (Deep Navy `#041632`, Slate Blue `#3e5f90`, Soft Grey Surface `#fbf8fb`, High-Contrast Error `#ba1a1a`).
@@ -362,7 +362,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.5.0] - 2026-08-22
 
-#### Barcode & Inventory — Full Multi-Source Printing Engine (Transactions, PO, Masters by Date, Direct Scan)
+#### Barcode & Inventory â€” Full Multi-Source Printing Engine (Transactions, PO, Masters by Date, Direct Scan)
 - **Against Transactions (`TagLabelPrintingTa.tsx` & `barcodeTransactionS.ts`)**:
   - Added support for filtering items across transaction types (`Purchase Inward (GRN)`, `Sales Return Inward`, `Stock Transfer Inward`, `POS Exchange`), Doc No prefix, and document number ranges.
   - Manifest table displays transaction references, stock details, and transaction quantities.
@@ -381,7 +381,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.4.0] - 2026-08-22
 
-#### Barcode & Inventory — Printing Against Purchase (PT File) & Sequential Manifest
+#### Barcode & Inventory â€” Printing Against Purchase (PT File) & Sequential Manifest
 - **PT File Parser & Ingestion (`ptFileParser.ts`)**:
   - Supports delimited text/CSV PT files with column mapping for SKU, Product, Brand, Style, Shade, Size, Purchase Qty, MRP, and Barcode.
 - **Purchase Transaction Manifest Table**:
@@ -391,7 +391,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.3.0] - 2026-08-21
 
-#### UI / UX & Launchpad — Enterprise Look & Feel Modernization
+#### UI / UX & Launchpad â€” Enterprise Look & Feel Modernization
 - **Fiori Launchpad Redesign (`FioriLaunchpad.tsx`)**:
   - Replaced flat white workspace cards with category-accented cards (`border-l-4` color indicators for Retail Operations, Master Data, Finance, Administration, and Analytics).
   - Enhanced card hover depth with subtle vertical lift (`hover:-translate-y-1`), elevated drop-shadow (`hover:shadow-md`), and category-matched animated forward arrows.
@@ -404,7 +404,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.2.0] - 2026-08-21
 
-#### Barcode & Inventory — Industrial Logic Barcode Label Designer & Printing Modernization
+#### Barcode & Inventory â€” Industrial Logic Barcode Label Designer & Printing Modernization
 - **Dual-Workspace Architecture (`TagLabelPrintingTa.tsx` & `BarcodeStudioTab.tsx`)**:
   - Implemented 12-column industrial layout based on Stitch **Industrial Logic** design system.
   - Divided workspace into **Tag & Barcode Printing Terminal** and **Barcode Script Generation & Compiler Studio**.
@@ -422,10 +422,10 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.1.0] - 2026-08-21
 
-#### Inventory & Master Data — Non-Editable SKU & Barcode Enforcement
+#### Inventory & Master Data â€” Non-Editable SKU & Barcode Enforcement
 - **Item Master Details Grid (`ItemDetGrid.tsx`)**:
   - Locked SKU (`code`, `sku`, `stockNo`) and Barcode (`barcode`) inputs as read-only with disabled cursor styling and helper tooltips in Edit Mode (`activeMode === "edit"`).
-  - Maintained full editability for all other attributes (Name, Brand, Style, Shade, Size, MRP, Sale Price, Cost Price, Tax Rate, HSN Code, UOM, and Dynamic Attributes a1–a9).
+  - Maintained full editability for all other attributes (Name, Brand, Style, Shade, Size, MRP, Sale Price, Cost Price, Tax Rate, HSN Code, UOM, and Dynamic Attributes a1â€“a9).
   - Enforced read-only locking on Stock No and Barcode in Classic Single-Record inspector view.
 - **Global Master Form Drawer (`MasterFormDrawer.tsx` & `itemMaster.config.tsx`)**:
   - Propagated `isEdit` boolean into field `disabled` callbacks across generic master entities.
@@ -435,7 +435,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.0.0] - 2026-08-21
 
-#### POS & Invoicing — ProPOS Unified Enterprise Billing Suite
+#### POS & Invoicing â€” ProPOS Unified Enterprise Billing Suite
 - **ProPOS Billing Terminal (`ProPosBillingTerm.tsx`)**:
   - Implemented high-speed retail checkout terminal based on Stitch ProPOS specifications.
   - Rapid item scanning with quantity stepping, salesperson tagging, and live calculation summary.
@@ -462,7 +462,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [5.6.0] - 2026-08-21
 
-#### Item Master & Platform — View Configuration, Excel Mapper & Alias Stabilization
+#### Item Master & Platform â€” View Configuration, Excel Mapper & Alias Stabilization
 - **Persistent Alias Suppression Engine (`HeaderAliasRegistry.ts`)**:
   - Implemented `REMOVED_ALIASES_STORAGE_KEY` blacklist to permanently suppress deleted default or custom aliases.
   - Automatically un-blacklists aliases upon re-addition and provides per-attribute "Reset Defaults" action in Attribute Management Studio.
@@ -481,7 +481,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [5.5.0] - 2026-08-21
 
-#### Retail CRM & Customer Master — Retail Customer Catalogue & Advanced Search Suite
+#### Retail CRM & Customer Master â€” Retail Customer Catalogue & Advanced Search Suite
 - **Retail Customer Catalogue Architecture (`src/components/customer/CustMasterWs.tsx`)**:
   - Implemented 3-tab central customer account manager:
     - **1. The "Form" Tab (`CustFormTab.tsx`)**: General details (Customer Code, Name, Price Group, Mail List summary), Classification (Religion, Ethnicity, Age Group, Profession, Customer Type), Profile notes & preferences, and Shoper environment parameters (Comp Code, Environment, Flat File Format, Delimiter, Buying/Selling factor).
@@ -497,7 +497,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [5.4.0] - 2026-08-21
 
-#### UI Platform & Inventory — Universal View Configuration as Global Schema & Visibility Control
+#### UI Platform & Inventory â€” Universal View Configuration as Global Schema & Visibility Control
 - **Global Field Visibility & Ordering Engine (`unifiedFieldCatalog.ts`)**:
   - `saveGlobalFieldVisibility` persists visible columns and sequence ordering across client state.
   - `isFieldGloballyVisible` and `getGloballyVisibleFields` dynamically filter and sort catalog definitions.
@@ -512,11 +512,11 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [5.3.0] - 2026-08-21
 
-#### Inventory & Catalog — Item Master Stitch Management System Architecture & Image Resolver
+#### Inventory & Catalog â€” Item Master Stitch Management System Architecture & Image Resolver
 - **Item Master Management System Suite (`Itemmaster3`)**: Integrated complete suite from `F:\SMRITI\Itemmaster3\stitch_item_master_management_system`:
   - **Item Details Master Grid (`ItemDetGrid.tsx`)**: High-density matrix grid and classic single-record view, inline Add/Duplicate/Delete row actions, `F1` keyboard shortcuts guide, and `F2` SKU/Barcode generator.
   - **Common Fields Baseline Setup (`SmritiCommonFieldsSetup.tsx`)**: Session-level baseline presets (Category, Brand, Vendor, HSN, Tax %, UOM) that auto-fill all newly entered items.
-  - **Dual-List View Configuration (`ViewConfig.tsx`)**: Dual-list column selector, order manager, and frozen column count selector (0–6).
+  - **Dual-List View Configuration (`ViewConfig.tsx`)**: Dual-list column selector, order manager, and frozen column count selector (0â€“6).
   - **Full CRUD Lifecycle Safeguards**: Mode selector for Adding, Editing (with non-editable greyed Stock No and Data Loading confirmation modal), and Deleting (with transaction protection guard preventing hard deletion of items with sales history).
   - **Global Find & Replace Data Utility (`ReplaceDataDlg.tsx`)**: Global batch find and replace across all matrix columns and dynamic attributes.
   - **Product Image Filename & Resolver Studio (`ImagePathConfigStu.tsx`)**: Operators only enter image filenames (`imageName`). Configured base paths for SMRITI Server (`/api/v1/products/images/`), Cloud CDN, and Local Network paths with interactive live resolution tester and hover thumbnail previews.
@@ -525,37 +525,37 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.29.0] - 2026-08-21
 
-#### Inventory & Catalog — Item Master Entry Tactical Grid Refactor (Smriti Prime Specification)
+#### Inventory & Catalog â€” Item Master Entry Tactical Grid Refactor (Smriti Prime Specification)
 - **Smriti Prime Three-Tab Catalog Workflow**: Refactored Item Master Entry to match the high-velocity tactical layout from `stitch_invoice_management_system` (`src/components/itemMaster/`):
-  - **Tab 1: View (`Alt+1`)** — Field Selection: Dual list (Unselected Fields ↔ Selected Fields) with transfer controls (`>`, `>>`, `<`, `<<`), reordering controls (`Move Up`, `Move Down`), and mandatory lock rules for `stockNo`, `product`, and `mrp`.
-  - **Tab 2: Common Fields (`Alt+2`)** — Batch Common Presets: Form controls for Brand, Category, Sub-Category, Tax Rate %, Supplier, Season, Department, and Status that auto-apply to item rows.
-  - **Tab 3: Item Details (`Alt+3`)** — Tactical Spreadsheet Grid: High-speed matrix table featuring customizable sticky frozen columns (0–6), inline cell editing, row indicators ("Row X of Y"), Auto-SKU generator, and "Paste from Excel" multi-column TSV clipboard parsing.
+  - **Tab 1: View (`Alt+1`)** â€” Field Selection: Dual list (Unselected Fields â†” Selected Fields) with transfer controls (`>`, `>>`, `<`, `<<`), reordering controls (`Move Up`, `Move Down`), and mandatory lock rules for `stockNo`, `product`, and `mrp`.
+  - **Tab 2: Common Fields (`Alt+2`)** â€” Batch Common Presets: Form controls for Brand, Category, Sub-Category, Tax Rate %, Supplier, Season, Department, and Status that auto-apply to item rows.
+  - **Tab 3: Item Details (`Alt+3`)** â€” Tactical Spreadsheet Grid: High-speed matrix table featuring customizable sticky frozen columns (0â€“6), inline cell editing, row indicators ("Row X of Y"), Auto-SKU generator, and "Paste from Excel" multi-column TSV clipboard parsing.
 - **Save Warning & Rights Confirmation Dialog**: Integrated `ItemMasterSaveWarn.tsx` displaying a clean confirmation dialog when creating unverified Brand/Category matrix combinations.
 - **Persistence & Backend Integration**: Saved field layout and common defaults to `localStorage`, directly persisting rows to FastAPI backend (`/api/v1/products/`) via `apiFetchV1`.
 - **Automated Test Coverage**: Added `src/tests/itemGrid.test.ts` (10 tests) covering mandatory attributes, column reordering, common presets, TSV parsing, and payload transformation (all 23 test suites passing 100%).
 
-#### Database & Operations — SMRITI Database Manager & Studio (DB Studio)
+#### Database & Operations â€” SMRITI Database Manager & Studio (DB Studio)
 - **Multi-Tenant PostgreSQL Studio**: Introduced a dedicated, enterprise-grade Database Manager (`src/components/DatabaseManagerTab.tsx`) allowing `SYSADMIN` operators to switch between control plane and tenant databases (`smritisys`, `smriti001`, `smriti002`, `smriti_test_fresh`) with live size, table count, and row count telemetry.
 - **Table Data Grid & Column Schema Inspector**: Built an interactive paginated table data browser with column search, dynamic sorting, JSON row detail inspector drawer, and one-click CSV export, alongside a complete column schema and foreign key constraint viewer.
 - **Alembic Migration Version Tracking**: Added real-time tracking of current `alembic_version` versus head migration revision with sync status indicators.
 - **Safe Read-Only SQL Query Console**: Implemented an administrative SQL execution console (`POST /api/v1/database-manager/query`) supporting `SELECT`, `WITH`, and `EXPLAIN` statements with automatic execution time measurement and strict rejection of destructive DDL/DML operations.
 - **Strict Role Authorization**: Gated all backend endpoints and frontend launchpad tiles strictly to `SYSADMIN` with deny-by-default access for non-admin roles and zero exposure of database connection credentials.
 
-#### Printing & Hardware — Optional QZ Tray Print Dispatch (Spike + Hybrid)
+#### Printing & Hardware â€” Optional QZ Tray Print Dispatch (Spike + Hybrid)
 - **Hybrid Tri-Mode Dispatch Architecture**: Implemented support for `server_tcp` (default backend port 9100 socket transport), `qz_tray` (feature-flagged browser WebSocket dispatch), and `prn` (direct offline script download) in `backend/app/services/printer_service.py` and `backend/app/api/v1/barcode.py`.
 - **Asynchronous Print Job Acknowledgment**: Added `POST /api/v1/barcode/print-jobs/{job_id}/ack` route allowing the browser client to report execution status (`Success` or `Failed`), updating `PrintHistory` audit logs idempotently with strict tenant isolation.
 - **Feature-Flagged Frontend Client (`qzTrayClient.ts`)**: Created `src/utils/qzTrayClient.ts` gated by `VITE_ENABLE_QZ_TRAY` (default `false`), implementing official `qz-tray.js` SDK hooks with a native WebSocket RPC fallback on `ws://localhost:8182`.
 - **Barcode & Label Studio Integration**: Updated `LabelPrintingSec.tsx` with a dispatch mode toggle, live QZ Tray flag indicator badge, and automated ACK triggers on print completion or failure.
 - **Zero Invariant Regressions**: Server TCP remains the default; POS billing, item master, and launchpad are completely untouched. Verified with 6 backend Pytest tests, 3 frontend Vitest tests, and clean `tsc --noEmit`.
 
-#### Governance & Field Readiness — Commercial Pilot Origin-Gap Remediation & Hardening
-- **Origin-Truth Deliverables (D1–D6)**: Standardized application version SSOT (`APP_VERSION = "3.29.0"`), documented dual-run architecture for `DocumentStudioScreen`, created formal pilot smoke checklist (`docs/PILOT_SMOKE_CHECKLIST.md`), froze commercial pilot scope boundary (Section 6 of `docs/PHASE1_PILOT_SUPPORTED_MODULES.md`), and updated `CompanyDatabaseProvisioner` to require Alembic migration head ≥ `v1337_backfill_variant_id`.
+#### Governance & Field Readiness â€” Commercial Pilot Origin-Gap Remediation & Hardening
+- **Origin-Truth Deliverables (D1â€“D6)**: Standardized application version SSOT (`APP_VERSION = "3.29.0"`), documented dual-run architecture for `DocumentStudioScreen`, created formal pilot smoke checklist (`docs/PILOT_SMOKE_CHECKLIST.md`), froze commercial pilot scope boundary (Section 6 of `docs/PHASE1_PILOT_SUPPORTED_MODULES.md`), and updated `CompanyDatabaseProvisioner` to require Alembic migration head â‰¥ `v1337_backfill_variant_id`.
 - **Deny-by-Default Role-Based Access Control (RBAC)**: Eliminated `(role || "SYSADMIN")` fallback elevations in `launchpadCatalog.ts`, `FioriLaunchpad.tsx`, `App.tsx`, and `navigationResolver.ts`. Users with null/blank roles are strictly restricted to public/unrestricted tiles.
 - **Multi-Tenant Database Discovery & Alembic HEAD**: Discovered and migrated all control plane and company databases (`smritisys`, `smriti001`, `smriti_test_fresh`) to Alembic HEAD (`v1338_company_isolated_barcodes`). Confirmed 0 NULL `variant_id`s across 588 products in `smriti001`. Recorded evidence in `docs/PILOT_DB_MIGRATE_RESULTS.md`.
 - **Commercial Pilot Go-Live Runbook**: Authored `docs/PILOT_GO_LIVE_RUNBOOK.md` detailing environment variable prerequisites, operator provisioning, checkout happy path, non-destructive `pg_dump`/`pg_restore` backup/rollback strategy, hardware pairing, and emergency support escalation.
 - **Smoke Test Results Sign-Off**: Recorded formal `GO_SOFTWARE` sign-off in `docs/PILOT_SMOKE_RESULTS.md` with 20 Vitest files (128 tests) and 39 Pytest tests passing 100%.
 
-#### Security & Quality — UI/UX Duplication & Hardcode Remediation
+#### Security & Quality â€” UI/UX Duplication & Hardcode Remediation
 - **Hardcoded Credential Elimination**: Removed hardcoded plaintext passwords (`whynothing`) from `src/state/store.ts` and `src/db/init.ts`. Confirmed zero remaining occurrences in `src/`.
 - **Canonical Indian Currency Words Formatter**: Extracted `numberToIndianWords` into `src/utils/indianNumberWords.ts` and updated Python `number_to_indian_words` in `backend/app/services/invoice_pdf_service.py` to identically handle sub-rupee values (`0.50` -> `"Zero Rupees and Fifty Paisa Only"`) and singular/plural rupees (`1.00` -> `"One Rupee Only"`). Added matching 14-test parity suites in Vitest and Pytest.
 - **Invoice Template Decoupling**: Decoupled `TaxInvoiceA4.tsx` (dedicated statutory GST invoice) and `StandardInvoiceA4.tsx` (generic Print Studio design catalog), removing duplicate formatting code and dead imports.
@@ -563,7 +563,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - **Single Source of Truth for Application Version**: Established `src/config/version.ts` exporting `APP_VERSION`, `APP_RELEASE_STAGE`, and `APP_VERSION_LABEL`. Replaced all hand-typed version strings across the UI (`LoginScreen.tsx`, `CompanySelectScree.tsx`, `layout_manager.tsx`, `DashboardTab.tsx`, `QuickReportsWidget.tsx`, `PrintPreviewModal.tsx`) and synchronized `package.json` to 3.29.0.
 - **Centralized API Target Host Configuration**: Created `src/config/api.ts` managing `FASTAPI_BASE_URL` with environment and Docker container network resolution, replacing duplicate fallback strings in `helpers.ts`.
 
-#### Testing & Infrastructure — Test Fixture Environment Dependency & Multi-Tenant Routing
+#### Testing & Infrastructure â€” Test Fixture Environment Dependency & Multi-Tenant Routing
 - **Deterministic 20/20 Test Suite**: Stabilized `t_tenant_sec.py`, `t_ecom_connect.py`, and `t_comp_ctr_sec.py` across full multi-suite test runs.
 - **Explicit Routing Registry Seeding (RC2)**: Seeded `company_database_registries` with `COMP-001 -> smriti001` in conftest so dynamic database resolution (`CompanyDatabaseResolver`) functions out-of-the-box on fresh database migrations.
 - **Fail-Fast Fixture Execution (RC3)**: Replaced silent `try/except` fixture warning prints with immediate `pytest.fail()` calls to surface environmental and setup failures loudly.
@@ -572,7 +572,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.26.0] - 2026-08-20
 
-#### Security — Multi-Tenant Database Routing & Credential Sanitization
+#### Security â€” Multi-Tenant Database Routing & Credential Sanitization
 - **Hardened `get_company_db` Dependency**: Removed all raw unvalidated client header (`X-Company-Id`) and query parameter parsing. Tenant resolution strictly composes with `get_tenant_context(get_current_user)`, deriving tenant database scope from cryptographic JWT verification and database assignments in `smritisys`.
 - **100% Operational Router Wiring**: Replaced legacy `get_db` with `get_company_db` across all operational endpoints in `sales.py`, `inventory.py`, `purchase.py`, and `barcode.py`. Zero occurrences of `get_db` remain in operational routes.
 - **Barcode Subsystem Tenant Isolation**: Isolated `BarcodeLayout` CRUD, printer connection configuration (`printer_connection_{company_id}`), diagnostics, test-prints, and `PrintHistory` audit logging by tenant `company_id` and `branch_id`.
@@ -583,13 +583,13 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.25.0] - 2026-08-15
 
-#### Security — Company Control Center Authentication & Authorization Hardening
+#### Security â€” Company Control Center Authentication & Authorization Hardening
 - **Eliminated Header Spoofing**: Replaced unauthenticated `x-user-id` header defaults with server-verified OAuth2 Bearer JWT authentication (`Depends(get_current_user)`).
 - **Enforced Role-Based Access Control**: Restricted administrative company control center operations (`/companies`, `/companies/create-request`, `/lifecycle/action`) and development intelligence endpoints (`/dev-tracker`, `/dev-tracker/scan`) to `UserRole.SYSADMIN`.
 - **Tenant Scope Isolation**: Enforced company context validation for ordinary users attempting to access company detail or module entitlements (`company_id == current_user.company_id`).
 - **Security Regression Test Suite**: Added `t_comp_ctr_sec.py` verifying HTTP 401/403 fail-closed protection for anonymous, spoofed, or unauthorized calls.
 
-#### Added — SMRITI Fiori Light Enterprise UI Redesign & Visual QA Gate
+#### Added â€” SMRITI Fiori Light Enterprise UI Redesign & Visual QA Gate
 - **Light Mode Only Baseline**: Locked application theme to Light Enterprise Mode (`#f8f9fa` base background, `#ffffff` surface, `#0070f2` action blue, `#32363a` slate text, `#d9d9d9` crisp borders). Completely eliminated dark mode, theme toggles, `#1c222b`, and `prefers-color-scheme` overrides.
 - **Fiori Horizon Application Shell**: Refactored global App Shell with Fiori header bar, global search, company selector dropdown, notification popover, workspace navigation, breadcrumbs, and page filter bars.
 - **10 Core Visual Screens QA Verified**: Verified Application Shell, POS/Billing, Item Master, Customer/CRM, Purchase, Fulfillment, Promotions, Report Studio, Dashboard Manager, and Excel Grid.
@@ -597,7 +597,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.24.0] - 2026-08-15
 
-#### Added — SMRITI Reporting Platform & Data Integrity Engine Architecture
+#### Added â€” SMRITI Reporting Platform & Data Integrity Engine Architecture
 - **Reporting Engine & Flexi Studio**: Excel-style analytical grid (filters, column drag, multi-sort, group-by, subtotals, pivot, copy/paste to Excel), Flexi report builder with Dimensions & Measures, and user saved views (`ReportSavedView`).
 - **Chart Visualizer & Dashboard Manager**: Multi-chart visual abstraction (Bar, Line, Pie, Area, Stacked, Combo, Scatter, KPI, Funnel, Ranking) and Dashboard Manager for CEO, Sales, Store Manager, CRM, and Profitability dashboards (`DashboardWidget`).
 - **Single Authoritative Dataset Rule Locked**: Guaranteed dataset metric consistency where `Grid total = Chart total = Pivot total = Dashboard KPI total = Export total`.
@@ -605,7 +605,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.23.0] - 2026-08-15
 
-#### Added — Commercial Growth, Customer 360, Operations & Fulfillment, and Cost Profitability Engine Architecture
+#### Added â€” Commercial Growth, Customer 360, Operations & Fulfillment, and Cost Profitability Engine Architecture
 - **Commercial Growth & Customer 360**: Co-located CRM, Loyalty Program (CGE), Promotions & Campaigns, Referral Engine, and Universal Incentive & Commission Engine (SICE) inside `smriti001`.
 - **Promotion Conflict & Pricing Resolution Engine**: Priority ranking, exclusivity override (`is_exclusive`), stacking rules, maximum combined discount cap (50%), and evaluation audit snapshots (`evaluated_campaigns_snapshot`).
 - **Operations & Fulfillment Engine**: Order Pick & Pack (`packing_slips`), Dispatch manifests & driver assignments (`dispatches`), driver delivery commission settlement (`delivery_commission_settlements`), and reverse logistics returns with stock restock and commission reversal (`reverse_logistics_returns`).
@@ -628,6 +628,65 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - 75/75 tests pass
 
 
+## [3.31.0] - 2026-08-24
+
+### Added -- Sprints 8-13: Shoper9 Legacy Migration Parity (Phase 1 Complete)
+
+**Shoper9 EXE Parity Coverage:** 200+ menu entries analyzed across MnuNo 100/200/350/410/430/460/612/613/650.
+**New API Files:** 7 new files. **New Endpoints:** 57 across 9 commits.
+**Alembic migration:** v1372 (4 new tables: stock_takes, stock_count_lines, sales_invoice_lines, loyalty_transactions).
+
+#### Sprint 8a -- Reports Portal (commit 0bad6f91)
+- `reports.py` extended: 5 P1 endpoints covering 22 RPT IDs, 5 Studios (Billing, Inventory, Finance, CRM, Compliance)
+
+#### Sprint 8b -- Business Ledger / Finance (commit a70c400b)
+- `finance.py` [NEW]: 5 cash/counter report endpoints
+- `GET /finance/cash-transactions` RPT-FIN-001 (SR210900)
+- `GET /finance/counter-wise` RPT-FIN-002 (SR241700)
+- `GET /finance/credit-note-status` RPT-FIN-003 (SR242000)
+- `GET /finance/counter-summary` RPT-FIN-004 (SR241500)
+- `GET /finance/advance-receipts` RPT-FIN-005 (SR231300)
+
+#### Sprint 8c -- Governance Masters (commit 7dfd338b)
+- `governance.py` [NEW]: 10 endpoints -- tax codes, HSN/SAC, GSTIN, payment terms, business rules, audit
+
+#### Sprint 8d -- Inventory Reports (commit d2eec9e8)
+- `inventory_reports.py` [NEW]: 6 RPT-INV endpoints
+- balance (SR232100), movement (SR209800), availability (SR232200), aging (SR234200), goods-register (SR237400)
+
+#### Sprint 9 -- Sales Reports + Finance Extensions (commit 73c63406)
+- `sales_reports.py` [NEW]: 6 endpoints -- top-selling, day-wise, salesperson-sales/summary, returned-bills, node-wise
+- `finance.py` extended: 4 new endpoints -- reconciliation, till-status, till-activity, credit-sale
+
+#### Sprint 10 -- CRM Reports + Staff Management (commit 14ab50be)
+- `crm_reports.py` [NEW]: walk-in register, mailer list, outstanding, bill-items (JSONB fallback)
+- `staff.py` [NEW]: personnel catalogue, incentive definition (GET+POST), programs list
+- Backed by confirmed DB tables: commission_participants, commission_rules, customers, loyalty_members
+
+#### Sprint 11 -- Loyalty + Returns + Stock Adjustments (commit 219da0be)
+- `inventory_reports.py` extended: returns (SR210200/SR239800), adjustments (SR211600/SR233700)
+- `crm_reports.py` extended: loyalty member report, loyalty tier summary
+
+#### Sprint 12 -- Physical Stock Management + Alembic v1372 (commit 627ce349)
+- Migration v1372: stock_takes, stock_count_lines, sales_invoice_lines, loyalty_transactions
+- `physical_stock.py` [NEW]: 5 endpoints
+  - `GET /physical-stock/sessions` PHY-001 (SR323400)
+  - `POST /physical-stock/sessions` PHY-002 (auto-numbered, MANAGER role guard)
+  - `GET /physical-stock/sessions/{id}` PHY-003 (detail + lines)
+  - `GET /physical-stock/variance` PHY-004 (SR211000 Physical vs Computed)
+  - `PATCH /physical-stock/sessions/{id}/approve` PHY-005
+
+#### Sprint 13 -- Sales Line-item + Loyalty Ledger (commit 5800c713)
+- `sales_reports.py` extended: bill-items-live (RPT-SAL-013), size-wise (RPT-SAL-014), item-returns-live (RPT-SAL-015)
+- `crm_reports.py` extended: loyalty-ledger (CRM-006, loyalty_transactions table)
+
+### Technical Notes
+- All table presence verified by live information_schema probe before each sprint
+- SalesInvoice confirmed: no salesperson_id/discount_amount/net_amount columns (getattr fallbacks correct)
+- sales_invoice_lines absent until Sprint 12; bill-items JSONB fallback superseded by bill-items-live
+- NGP: 0 violations across all 9 commits; full 7-router regression passed every sprint
+
+
 ## [3.20.0] - 2026-07-15
 
 ### Changed -- MC2 Phase 5: Express Business Route Retirement
@@ -635,15 +694,15 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 **Architecture:** Express is now a pure Auth Enforcement Gateway + SPA host.
 All /api/v1/* business requests: Browser -> Express (auth check) -> FastAPI proxy -> FastAPI.
 
-**Phase 5A — Audit-log migrated to FastAPI:**
+**Phase 5A â€” Audit-log migrated to FastAPI:**
 - POST /api/v1/system/audit-logs (new FastAPI endpoint)
 - apiFetch.ts recordAuditAction now calls apiFetchV1 (not Express)
 
-**Phase 5B — 10 Express route modules unmounted from server.ts:**
+**Phase 5B â€” 10 Express route modules unmounted from server.ts:**
 pos, sales, purchase, inventory, numbering, terms, exchange, barcode, reports, customers
 (Files tagged DEPRECATED, not deleted -- safe to remove v3.21.0)
 
-**Phase 5C — flags.ts updated to v3.20.0:**
+**Phase 5C â€” flags.ts updated to v3.20.0:**
 12 new USE_FASTAPI_* flags added (all true, removal v3.21.0)
 
 **Tests:** 75/75 passed
@@ -656,7 +715,7 @@ pos, sales, purchase, inventory, numbering, terms, exchange, barcode, reports, c
 
 ## [3.19.1-fix1] - 2026-07-15
 
-### Fixed — MC2 Phase 4B model column corrections
+### Fixed â€” MC2 Phase 4B model column corrections
 
 - purchase service: self.tenant_ctx -> self.tenant
 - PurchaseOrderItem FK: purchase_order_id -> order_id
@@ -685,51 +744,51 @@ sales/quotations/convert/{id}, workflow/{docType}/{id}/{action}
 
 ## [3.19.0] - 2026-07-15
 
-### Added — MC2 Phase 4A: URL Contract Alignment
+### Added â€” MC2 Phase 4A: URL Contract Alignment
 
 **Compatibility aliases (dual-mount, backward-safe):**
-- `POST /api/v1/pos/shifts/open` — canonical POS shift open
-- `POST /api/v1/pos/shifts/close/{id}` — canonical POS shift close
-- `GET/POST /api/v1/sales/invoices` — canonical sales invoice list/create
-- `GET/POST /api/v1/purchase/orders/` — canonical purchase order list/create
-- `GET /api/v1/purchase/suppliers/` — canonical supplier list
-- `GET /api/v1/health/flags` — feature flag health check endpoint
+- `POST /api/v1/pos/shifts/open` â€” canonical POS shift open
+- `POST /api/v1/pos/shifts/close/{id}` â€” canonical POS shift close
+- `GET/POST /api/v1/sales/invoices` â€” canonical sales invoice list/create
+- `GET/POST /api/v1/purchase/orders/` â€” canonical purchase order list/create
+- `GET /api/v1/purchase/suppliers/` â€” canonical supplier list
+- `GET /api/v1/health/flags` â€” feature flag health check endpoint
 
 **Deprecated (removal: v3.20.0):**
-- `POST /api/v1/shifts/open` → use `/pos/shifts/open`
-- `POST /api/v1/shifts/{id}/close` → use `/pos/shifts/close/{id}`
-- `GET/POST /api/v1/sales-invoices/` → use `/sales/invoices`
-- `GET/POST /api/v1/purchase-orders/` → use `/purchase/orders/`
+- `POST /api/v1/shifts/open` â†’ use `/pos/shifts/open`
+- `POST /api/v1/shifts/{id}/close` â†’ use `/pos/shifts/close/{id}`
+- `GET/POST /api/v1/sales-invoices/` â†’ use `/sales/invoices`
+- `GET/POST /api/v1/purchase-orders/` â†’ use `/purchase/orders/`
 
 **Tests:** 65/65 passed (57 legacy + 8 new contract URL tests)
 
 
 ## [3.18.3] - 2026-07-15
 
-### Refactored — Architectural Debt Cleanup
+### Refactored â€” Architectural Debt Cleanup
 
 - `datetime.utcnow()` -> `datetime.now(timezone.utc)` across 8 first-party files
 - Pydantic `class Config` -> `model_config = ConfigDict(...)` in 7 schema files (21 occurrences)
 - FastAPI `@app.on_event("startup")` -> `asynccontextmanager lifespan()` in `main.py`
 
 **Result:** Deprecation warnings: 680 -> 304 (55% reduction, 376 eliminated)
-**Tests:** 57/57 passed — no regressions
+**Tests:** 57/57 passed â€” no regressions
 
 
 ## [3.18.2] - 2026-07-15
 
-### Added — MC2 Phase 3: Purchase CANCEL/AMEND/Supplier UPDATE+DELETE
+### Added â€” MC2 Phase 3: Purchase CANCEL/AMEND/Supplier UPDATE+DELETE
 
-- `POST /api/v1/purchase-orders/{id}/cancel` — cancel a Confirmed PO (status=CANCELLED, soft-delete)
-- `POST /api/v1/purchase-orders/{id}/amend`  — cancel original, create new Confirmed PO (strangler-fig pattern)
-- `PUT  /api/v1/suppliers/{id}`              — partial update supplier contact details
-- `DELETE /api/v1/suppliers/{id}`            — soft-delete supplier
+- `POST /api/v1/purchase-orders/{id}/cancel` â€” cancel a Confirmed PO (status=CANCELLED, soft-delete)
+- `POST /api/v1/purchase-orders/{id}/amend`  â€” cancel original, create new Confirmed PO (strangler-fig pattern)
+- `PUT  /api/v1/suppliers/{id}`              â€” partial update supplier contact details
+- `DELETE /api/v1/suppliers/{id}`            â€” soft-delete supplier
 
 ### Service
-- `PurchaseService.cancel_purchase_order()` — with RECEIVED guard
-- `PurchaseService.amend_purchase_order()` — atomic cancel+create
-- `PurchaseService.update_supplier()` — partial patch
-- `PurchaseService.delete_supplier()` — soft-delete
+- `PurchaseService.cancel_purchase_order()` â€” with RECEIVED guard
+- `PurchaseService.amend_purchase_order()` â€” atomic cancel+create
+- `PurchaseService.update_supplier()` â€” partial patch
+- `PurchaseService.delete_supplier()` â€” soft-delete
 
 ### Schemas
 - `SupplierUpdate`, `PurchaseOrderCancelRequest`, `PurchaseOrderAmendRequest`
@@ -738,156 +797,156 @@ sales/quotations/convert/{id}, workflow/{docType}/{id}/{action}
 - 8 new integration tests; combined regression: 57/57 passed (POS+Sales+Purchase)
 
 
-## [3.17.0] — 2026-07-14 — Master Data Consolidation
+## [3.17.0] â€” 2026-07-14 â€” Master Data Consolidation
 
 ### Added
-- **FastAPI Tier-1 Dynamic Lookups (`backend/app/models/master_lookup.py`, `backend/app/schemas/master_lookup.py`, `backend/app/api/v1/master_lookup.py`)** — Added dynamic schema-driven Master Type and Master Value persistence on FastAPI + PostgreSQL with JSON Schema validators cache and soft-delete features.
-- **FastAPI Tier-2 Organization Structure (`backend/app/schemas/masters_tier2.py`, `backend/app/api/v1/masters.py`)** — Created REST endpoints and Pydantic validation schemas for Company, Branch, Store, and Warehouse.
-- **Database Migrations (`backend/alembic/versions/93e07a92812b_add_master_values_soft_delete.py`, `backend/alembic/versions/96b45b17b8b1_drop_master_entities.py`)** — Generated migrations to add soft-delete fields to `master_values` and drop the decommissioned `master_entities` table.
-- **Unit & Integration Tests (`backend/app/tests/t_masters_consol.py`)** — Built complete backend integration test suite.
+- **FastAPI Tier-1 Dynamic Lookups (`backend/app/models/master_lookup.py`, `backend/app/schemas/master_lookup.py`, `backend/app/api/v1/master_lookup.py`)** â€” Added dynamic schema-driven Master Type and Master Value persistence on FastAPI + PostgreSQL with JSON Schema validators cache and soft-delete features.
+- **FastAPI Tier-2 Organization Structure (`backend/app/schemas/masters_tier2.py`, `backend/app/api/v1/masters.py`)** â€” Created REST endpoints and Pydantic validation schemas for Company, Branch, Store, and Warehouse.
+- **Database Migrations (`backend/alembic/versions/93e07a92812b_add_master_values_soft_delete.py`, `backend/alembic/versions/96b45b17b8b1_drop_master_entities.py`)** â€” Generated migrations to add soft-delete fields to `master_values` and drop the decommissioned `master_entities` table.
+- **Unit & Integration Tests (`backend/app/tests/t_masters_consol.py`)** â€” Built complete backend integration test suite.
 
 ### Changed
-- **Frontend Master Management Cutover (`src/components/MasterMgmtTab.tsx`)** — Repointed all organizational and lookup fetches to `/api/v1/masters/...` using `apiFetchV1` to ensure token propagation and HREP alignment.
-- **Alembic env config (`backend/alembic/env.py`)** — Added `master_types` and `master_values` tables to the allowed tables filter.
+- **Frontend Master Management Cutover (`src/components/MasterMgmtTab.tsx`)** â€” Repointed all organizational and lookup fetches to `/api/v1/masters/...` using `apiFetchV1` to ensure token propagation and HREP alignment.
+- **Alembic env config (`backend/alembic/env.py`)** â€” Added `master_types` and `master_values` tables to the allowed tables filter.
 
 ### Decommissioned
-- **Express-side legacy master code** — Deleted `src/routes/masters.ts`, `src/routes/masterLookup.ts`, and `src/repositories/masterRepository.ts` and unmounted them from `server.ts`.
-- **FastAPI legacy master model scaffolding** — Removed `backend/app/models/masters.py` and `backend/app/schemas/masters.py`.
+- **Express-side legacy master code** â€” Deleted `src/routes/masters.ts`, `src/routes/masterLookup.ts`, and `src/repositories/masterRepository.ts` and unmounted them from `server.ts`.
+- **FastAPI legacy master model scaffolding** â€” Removed `backend/app/models/masters.py` and `backend/app/schemas/masters.py`.
 
 
-## [3.16.0] — 2026-07-13 — Backend Tier 4 FastAPI Migration
+## [3.16.0] â€” 2026-07-13 â€” Backend Tier 4 FastAPI Migration
 
 ### Added
-- **SMRITI Product Image Framework (SPIF) v1.0 (`backend/app/services/spif.py`, `src/components/common/ProductImage.tsx`, `src/components/common/ImageDisplayPolicy.tsx`)** — Centralized product image support, auto-optimization (WebP transcode, maximum bounds scaling, and alpha channel flattening), tenant-isolated storage path persistence, React thumbnail/preview rendering, and dynamic configuration policies.
-- **SMRITI Master Framework — Phase F.3 (`backend/app/models/barcode.py`, `src/routes/terms.ts`, `src/routes/barcode.ts`, `src/routes/system.ts`)** — Migrated terms library, terms defaults, terms snapshots, approval workflow logs, print templates, and print profiles configurations from memory arrays to PostgreSQL.
-- **SMRITI Master Framework — Phase F.2 (`backend/app/services/numbering.py`, `src/routes/numbering.ts`, `src/lib/helpers.ts`)** — Migrated document number series configuration and atomic allocation engine to PostgreSQL and FastAPI `FOR UPDATE` transaction locks.
-- **SMRITI Master Framework — Phase F.1 (`backend/app/models/inventory.py`, `src/routes/masters.ts`, `src/state/store.ts`)** — Migrated stores and warehouses master entities from legacy in-memory arrays to PostgreSQL tables via Alembic.
-- **Masters Module (`backend/app/models/masters.py`)** — Added organizational branch/department master entities.
-- **Numbering Engine (`backend/app/models/numbering.py`)** — Atomic sequence generation with select-for-update locking.
-- **Terms & Conditions Engine (`backend/app/models/terms.py`)** — Defaults, snapshots, default resolution service.
-- **Attributes & Variants (`backend/app/models/attributes.py`)** — Variant Cartesian generation service and schema definitions.
-- **Barcode Studio (`backend/app/models/barcode.py`)** — Barcode definitions and layout designer stubs.
-- **Data Exchange Hub (`backend/app/models/exchange.py`)** — DB table CSV dump/restore importer converter stubs.
-- **AI Assistant (`backend/app/api/v1/ai.py`)** — Analytical AI forecasting stubs.
-- **SMRITIDocker Repository** — Created standalone private Git repository for containerization, orchestration, and startup automation files.
-- **One-Command Installers (`install.ps1`, `install.sh`)** — Added automated single-command installers for Windows, Linux, and macOS with prerequisite checking, stable Python detection, and visual branding.
-- **System Configs & Tally (`backend/app/models/system.py`)** — Global system configurations registry.
-- **Roles Module (`backend/app/models/role.py`)** — Permissions matrix mapping database entities.
-- **Alembic Migration (`backend/alembic/versions/6bc445ac1554_add_tier_4_domains.py`)** — Automated schema changes for long-tail domains.
-- **Regression Tests (`backend/app/tests/test_exchange.py`, `backend/app/tests/t_staff_verify.py`)** — Regression testing for data exchange task execution and staff response schemas.
-- **Indian Market Formatters (`src/utils/indianFormat.ts`, `src/utils/hsnMaster.ts`)** — Frontend utility functions for lakh/crore grouping and HSN code GST rate determination.
-- **Excel manual data entry grid (`src/components/ExcelGridEntrySec.tsx`)** — Spreadsheet-style grid interface supporting Arrow keyboard navigation, Excel copy-paste, and auto row creation.
-- **Dynamic Business Templates (`backend/app/services/attributes.py`)** — Auto-seeding templates for Apparel, Footwear, Grocery, Electronics, and Jewellery directly into Postgres.
-- **Extended Attributes (`backend/alembic/versions/d4e5f6a7b8c9_extend_attribute_definitions.py`)** — Added searchable, filterable, display order, default values, and tooltips columns in Postgres.
-- **Dynamic Attributes Search (`backend/app/repositories/product.py`)** — Cast JSONB properties to text for global matching in PostgreSQL GIN indexes.
-- **Enterprise Label Printing Framework (ELPF) (`backend/app/models/barcode.py`, `src/components/LabelPrintingSec.tsx`)** — 3-step thermal ZPL print wizard, raw TCP/IP socket connection dispatcher, print history logger, and system config settings persistence.
-- **Dynamic Barcode PRN Template Mapping (`backend/app/api/v1/barcode.py`, `src/components/LabelPrintingSec.tsx`)** — Replaced hardcoded print field replacements with dynamic key traversal of all item attributes, preserved all pasted CSV column headers in state, and added an interactive variable insertion guide with standard and dynamic column click badges.
-- **Default User Seeding (`src/state/store.ts`)** — Seeded default users (`super` / `whynothing`, `manager`, `cashier`) in flat-file database initialization.
-- **Login Quick Actions (`src/components/LoginScreen.tsx`)** — Added `super` user quick login button with System Admin access level.
-- **Report User Role & Audit Logging** — Added read-only `Report User` role with write-block Express middleware protection, visual warning banners, disabled creation/edit inputs, context menu role mappings, and integration test coverage for audit logs.
-- **Save Barcode as PRN File** — Extended PrintRequest schema and barcode REST api with an optional `saveAsPrn` flag to bypass thermal printer communication and download ZPL commands directly as a `.prn` file from the browser.
+- **SMRITI Product Image Framework (SPIF) v1.0 (`backend/app/services/spif.py`, `src/components/common/ProductImage.tsx`, `src/components/common/ImageDisplayPolicy.tsx`)** â€” Centralized product image support, auto-optimization (WebP transcode, maximum bounds scaling, and alpha channel flattening), tenant-isolated storage path persistence, React thumbnail/preview rendering, and dynamic configuration policies.
+- **SMRITI Master Framework â€” Phase F.3 (`backend/app/models/barcode.py`, `src/routes/terms.ts`, `src/routes/barcode.ts`, `src/routes/system.ts`)** â€” Migrated terms library, terms defaults, terms snapshots, approval workflow logs, print templates, and print profiles configurations from memory arrays to PostgreSQL.
+- **SMRITI Master Framework â€” Phase F.2 (`backend/app/services/numbering.py`, `src/routes/numbering.ts`, `src/lib/helpers.ts`)** â€” Migrated document number series configuration and atomic allocation engine to PostgreSQL and FastAPI `FOR UPDATE` transaction locks.
+- **SMRITI Master Framework â€” Phase F.1 (`backend/app/models/inventory.py`, `src/routes/masters.ts`, `src/state/store.ts`)** â€” Migrated stores and warehouses master entities from legacy in-memory arrays to PostgreSQL tables via Alembic.
+- **Masters Module (`backend/app/models/masters.py`)** â€” Added organizational branch/department master entities.
+- **Numbering Engine (`backend/app/models/numbering.py`)** â€” Atomic sequence generation with select-for-update locking.
+- **Terms & Conditions Engine (`backend/app/models/terms.py`)** â€” Defaults, snapshots, default resolution service.
+- **Attributes & Variants (`backend/app/models/attributes.py`)** â€” Variant Cartesian generation service and schema definitions.
+- **Barcode Studio (`backend/app/models/barcode.py`)** â€” Barcode definitions and layout designer stubs.
+- **Data Exchange Hub (`backend/app/models/exchange.py`)** â€” DB table CSV dump/restore importer converter stubs.
+- **AI Assistant (`backend/app/api/v1/ai.py`)** â€” Analytical AI forecasting stubs.
+- **SMRITIDocker Repository** â€” Created standalone private Git repository for containerization, orchestration, and startup automation files.
+- **One-Command Installers (`install.ps1`, `install.sh`)** â€” Added automated single-command installers for Windows, Linux, and macOS with prerequisite checking, stable Python detection, and visual branding.
+- **System Configs & Tally (`backend/app/models/system.py`)** â€” Global system configurations registry.
+- **Roles Module (`backend/app/models/role.py`)** â€” Permissions matrix mapping database entities.
+- **Alembic Migration (`backend/alembic/versions/6bc445ac1554_add_tier_4_domains.py`)** â€” Automated schema changes for long-tail domains.
+- **Regression Tests (`backend/app/tests/test_exchange.py`, `backend/app/tests/t_staff_verify.py`)** â€” Regression testing for data exchange task execution and staff response schemas.
+- **Indian Market Formatters (`src/utils/indianFormat.ts`, `src/utils/hsnMaster.ts`)** â€” Frontend utility functions for lakh/crore grouping and HSN code GST rate determination.
+- **Excel manual data entry grid (`src/components/ExcelGridEntrySec.tsx`)** â€” Spreadsheet-style grid interface supporting Arrow keyboard navigation, Excel copy-paste, and auto row creation.
+- **Dynamic Business Templates (`backend/app/services/attributes.py`)** â€” Auto-seeding templates for Apparel, Footwear, Grocery, Electronics, and Jewellery directly into Postgres.
+- **Extended Attributes (`backend/alembic/versions/d4e5f6a7b8c9_extend_attribute_definitions.py`)** â€” Added searchable, filterable, display order, default values, and tooltips columns in Postgres.
+- **Dynamic Attributes Search (`backend/app/repositories/product.py`)** â€” Cast JSONB properties to text for global matching in PostgreSQL GIN indexes.
+- **Enterprise Label Printing Framework (ELPF) (`backend/app/models/barcode.py`, `src/components/LabelPrintingSec.tsx`)** â€” 3-step thermal ZPL print wizard, raw TCP/IP socket connection dispatcher, print history logger, and system config settings persistence.
+- **Dynamic Barcode PRN Template Mapping (`backend/app/api/v1/barcode.py`, `src/components/LabelPrintingSec.tsx`)** â€” Replaced hardcoded print field replacements with dynamic key traversal of all item attributes, preserved all pasted CSV column headers in state, and added an interactive variable insertion guide with standard and dynamic column click badges.
+- **Default User Seeding (`src/state/store.ts`)** â€” Seeded default users (`super` / `whynothing`, `manager`, `cashier`) in flat-file database initialization.
+- **Login Quick Actions (`src/components/LoginScreen.tsx`)** â€” Added `super` user quick login button with System Admin access level.
+- **Report User Role & Audit Logging** â€” Added read-only `Report User` role with write-block Express middleware protection, visual warning banners, disabled creation/edit inputs, context menu role mappings, and integration test coverage for audit logs.
+- **Save Barcode as PRN File** â€” Extended PrintRequest schema and barcode REST api with an optional `saveAsPrn` flag to bypass thermal printer communication and download ZPL commands directly as a `.prn` file from the browser.
 
 ### Modified
-- **`backend/app/models/auth.py`** — Extended User schema with 27 profile and setting fields.
-- **`backend/app/tests/t_user_mgmt.py`** — Updated unit test assertions to match REST specifications.
-- **`docker-compose.yml`** — Forwarded `SGIP_VAULT_MASTER_KEY` env parameters to Python container.
-- **Data Exchange Backend (`backend/app/api/v1/exchange.py`)** — Fixed timezone offset database update constraint violation.
-- **Staff User Schemas (`backend/app/schemas/user.py`)** — Standardized PaymentDetails schema to declare Aadhaar, PAN, PF UAN, ESIC, Father/Spouse name, Marital Status, Blood Group, and Permanent Address.
-- **PAL Repository Layer (`src/core/interfaces/db.ts`, `src/bootstrap/di.ts`, `src/db/`)** — Implemented `IStateRepository` to abstract Express legacy `saveDb()` mutations and ensure 0 routes call `saveDb()` directly.
-- **Express route unmount (`server.ts`, `src/routes/attributes.ts`)** — Retired all legacy attributes Express routing, migrating completely to FastAPI + Postgres.
-- **`src/db/memory/MemoryRepositories.ts` & `src/db/postgres/PgRepos.ts`** — Fixed esbuild compilation failures on read-only ESM namespace property reassignments.
-- **`src/masters_registry.ts` & `src/components/MasterMgmtTab.tsx`** — Refactored configuration schemas and Master Management tab to dynamically retrieve and render schema-driven lookup data generically from backend meta registries.
+- **`backend/app/models/auth.py`** â€” Extended User schema with 27 profile and setting fields.
+- **`backend/app/tests/t_user_mgmt.py`** â€” Updated unit test assertions to match REST specifications.
+- **`docker-compose.yml`** â€” Forwarded `SGIP_VAULT_MASTER_KEY` env parameters to Python container.
+- **Data Exchange Backend (`backend/app/api/v1/exchange.py`)** â€” Fixed timezone offset database update constraint violation.
+- **Staff User Schemas (`backend/app/schemas/user.py`)** â€” Standardized PaymentDetails schema to declare Aadhaar, PAN, PF UAN, ESIC, Father/Spouse name, Marital Status, Blood Group, and Permanent Address.
+- **PAL Repository Layer (`src/core/interfaces/db.ts`, `src/bootstrap/di.ts`, `src/db/`)** â€” Implemented `IStateRepository` to abstract Express legacy `saveDb()` mutations and ensure 0 routes call `saveDb()` directly.
+- **Express route unmount (`server.ts`, `src/routes/attributes.ts`)** â€” Retired all legacy attributes Express routing, migrating completely to FastAPI + Postgres.
+- **`src/db/memory/MemoryRepositories.ts` & `src/db/postgres/PgRepos.ts`** â€” Fixed esbuild compilation failures on read-only ESM namespace property reassignments.
+- **`src/masters_registry.ts` & `src/components/MasterMgmtTab.tsx`** â€” Refactored configuration schemas and Master Management tab to dynamically retrieve and render schema-driven lookup data generically from backend meta registries.
 
 
-## [3.16.0] — 2026-07-12 — Form Standardization & Setup Defaults
-
-### Added
-- **`backend/app/templates/errors/`** — Created branded HTML base layout, landing page, and status code error templates for SEEF v1.0.
-- **`backend/app/tests/test_seef.py`** — Added integration tests validating content negotiation and HTML/JSON status outputs.
-- **`docs/implementation/foundation/SMRITI_Error_Experience_Framework_v1.0_Plan.md`** — SEEF v1.0 implementation plan.
-- **`docs/walkthrough/foundation/Foundation_SEEF_v1.0_Error_Experience_v3.16.0.md`** — Walkthrough document for SEEF v1.0.
-- **`src/constants/indianStates.ts`** — Shared Indian state constants.
-- **`src/utils/validators.ts`** — Indian-market form validators (GSTIN, PIN, Mobile).
-- **`src/utils/formatters.ts`** — Regional display formatters (date, datetime, currency).
-- **`src/tests/validators.test.ts`** — Unit tests for the new validators and formatters.
-- **`backend/app/compliance/`** — Built the complete bounded context compliance framework (Milestone 1 foundation) containing model persistence, cryptographically isolated credential vault, and registry system.
-- **`backend/app/tests/test_inventory.py`** — Added regression testing for the product soft-delete API.
-- **`backend/mypy-baseline.txt`** — Configured a mypy type error baseline to track legacy type warnings.
-- **`docs/walkthrough/foundation/Foundation_SGIP_Milestone1_Compliance_Foundation_v3.16.0.md`** — Walkthrough document for SGIP Milestone 1.
-
-### Changed
-- **`backend/production.txt`** — Added `jinja2==3.1.4` dependency.
-- **`backend/app/core/errors.py`** — Expanded HREP error dictionary catalog to support custom titles and new error families (SMRITI-AUTH, SMRITI-CONN, SMRITI-CFG, SMRITI-INT).
-- **`backend/app/core/error_handlers.py`** — Integrated template rendering, content negotiation (`Accept: text/html` vs `application/json`), and backward-compatible JSON error formats.
-- **`backend/app/main.py`** — Registered `GET /` API landing page endpoint displaying service diagnostic parameters, tracked application uptime, and consolidated import structures.
-- **`backend/app/api/v1/inventory.py`** — Fixed a runtime crash (`AttributeError` on `TenantContext.user_id`) in product soft-deletion by correctly extracting user identity from request dependencies.
-- **`backend/app/repositories/base.py`** — Type-safely bound repository models to `BaseEntity`.
-- **`backend/pyproject.toml` & `.github/workflows/ci.yml`** — Enforced automated baseline-filtered MyPy type checks in the build pipeline.
-- **Setup Wizard Defaults** — Updated default demo seeding company to "AITDL NETWORKS" located at GIDA Gorakhpur, Uttar Pradesh, with "Pushpa" (9324117007) as default contact.
-- **Form Controls** — Integrated street address, landmark, and state selection dropdowns into the setup wizard store registration form. Enforced GSTIN and Pincode validation gates before transitioning wizard steps.
-- **Validation Standardization** — Replaced ad hoc regular expression checks in `SalesStudioTab.tsx` and `src/routes/customers.ts` with shared helpers.
-- **`backend/app/tests/conftest.py`** — Set up a session-scoped event loop to prevent async loop mismatch issues across test suites.
-- **`backend/pyproject.toml`** — Wired python paths and silenced FastAPI parameter warnings.
-
-## [3.15.0] — 2026-07-12 — Database Unification & Security Hardening
+## [3.16.0] â€” 2026-07-12 â€” Form Standardization & Setup Defaults
 
 ### Added
-- **`src/middleware/sessionResolver.ts`** — New global Express middleware decoding session tokens, mounting active user objects, and enriching downstream request headers with permission context.
-- **`src/tests/helpers.test.ts` & `src/tests/auth.test.ts`** — Standalone characterization test suites to protect password verification and failed-attempt account locking pipelines.
-- **`src/tests/numbering.test.ts` & `src/tests/gst.test.ts`** — Unit tests covering the voucher numbering sequences and the dynamic GST 2.0 price-tier tax calculations.
-- **`.github/workflows/ci.yml`** — Continuous integration pipeline running linter and Vitest suite on push/pull requests.
+- **`backend/app/templates/errors/`** â€” Created branded HTML base layout, landing page, and status code error templates for SEEF v1.0.
+- **`backend/app/tests/test_seef.py`** â€” Added integration tests validating content negotiation and HTML/JSON status outputs.
+- **`docs/implementation/foundation/SMRITI_Error_Experience_Framework_v1.0_Plan.md`** â€” SEEF v1.0 implementation plan.
+- **`docs/walkthrough/foundation/Foundation_SEEF_v1.0_Error_Experience_v3.16.0.md`** â€” Walkthrough document for SEEF v1.0.
+- **`src/constants/indianStates.ts`** â€” Shared Indian state constants.
+- **`src/utils/validators.ts`** â€” Indian-market form validators (GSTIN, PIN, Mobile).
+- **`src/utils/formatters.ts`** â€” Regional display formatters (date, datetime, currency).
+- **`src/tests/validators.test.ts`** â€” Unit tests for the new validators and formatters.
+- **`backend/app/compliance/`** â€” Built the complete bounded context compliance framework (Milestone 1 foundation) containing model persistence, cryptographically isolated credential vault, and registry system.
+- **`backend/app/tests/test_inventory.py`** â€” Added regression testing for the product soft-delete API.
+- **`backend/mypy-baseline.txt`** â€” Configured a mypy type error baseline to track legacy type warnings.
+- **`docs/walkthrough/foundation/Foundation_SGIP_Milestone1_Compliance_Foundation_v3.16.0.md`** â€” Walkthrough document for SGIP Milestone 1.
 
 ### Changed
-- **Database Refactoring** — Decoupled route modules (`auth`, `users`, `customers`, `pos`, `sales`, `purchase`) from direct `saveDb()` flat-file persistence, routing operations through Platform Abstraction Layer (PAL) DI container stubs.
-- **FastAPI CORS Hardening** — Restricted FastAPI middleware origins using dynamic configuration properties and enforced strict `JWT_SECRET_KEY` requirements.
-- **Security Hardening** — Upgraded PBKDF2 hash strength to 600,000 iterations and replaced all string-based RBAC cashier checks in `reports.ts`, `exchange.ts`, and `assistant.ts` with permission checks (`hasPermission`).
+- **`backend/production.txt`** â€” Added `jinja2==3.1.4` dependency.
+- **`backend/app/core/errors.py`** â€” Expanded HREP error dictionary catalog to support custom titles and new error families (SMRITI-AUTH, SMRITI-CONN, SMRITI-CFG, SMRITI-INT).
+- **`backend/app/core/error_handlers.py`** â€” Integrated template rendering, content negotiation (`Accept: text/html` vs `application/json`), and backward-compatible JSON error formats.
+- **`backend/app/main.py`** â€” Registered `GET /` API landing page endpoint displaying service diagnostic parameters, tracked application uptime, and consolidated import structures.
+- **`backend/app/api/v1/inventory.py`** â€” Fixed a runtime crash (`AttributeError` on `TenantContext.user_id`) in product soft-deletion by correctly extracting user identity from request dependencies.
+- **`backend/app/repositories/base.py`** â€” Type-safely bound repository models to `BaseEntity`.
+- **`backend/pyproject.toml` & `.github/workflows/ci.yml`** â€” Enforced automated baseline-filtered MyPy type checks in the build pipeline.
+- **Setup Wizard Defaults** â€” Updated default demo seeding company to "AITDL NETWORKS" located at GIDA Gorakhpur, Uttar Pradesh, with "Pushpa" (9324117007) as default contact.
+- **Form Controls** â€” Integrated street address, landmark, and state selection dropdowns into the setup wizard store registration form. Enforced GSTIN and Pincode validation gates before transitioning wizard steps.
+- **Validation Standardization** â€” Replaced ad hoc regular expression checks in `SalesStudioTab.tsx` and `src/routes/customers.ts` with shared helpers.
+- **`backend/app/tests/conftest.py`** â€” Set up a session-scoped event loop to prevent async loop mismatch issues across test suites.
+- **`backend/pyproject.toml`** â€” Wired python paths and silenced FastAPI parameter warnings.
+
+## [3.15.0] â€” 2026-07-12 â€” Database Unification & Security Hardening
+
+### Added
+- **`src/middleware/sessionResolver.ts`** â€” New global Express middleware decoding session tokens, mounting active user objects, and enriching downstream request headers with permission context.
+- **`src/tests/helpers.test.ts` & `src/tests/auth.test.ts`** â€” Standalone characterization test suites to protect password verification and failed-attempt account locking pipelines.
+- **`src/tests/numbering.test.ts` & `src/tests/gst.test.ts`** â€” Unit tests covering the voucher numbering sequences and the dynamic GST 2.0 price-tier tax calculations.
+- **`.github/workflows/ci.yml`** â€” Continuous integration pipeline running linter and Vitest suite on push/pull requests.
+
+### Changed
+- **Database Refactoring** â€” Decoupled route modules (`auth`, `users`, `customers`, `pos`, `sales`, `purchase`) from direct `saveDb()` flat-file persistence, routing operations through Platform Abstraction Layer (PAL) DI container stubs.
+- **FastAPI CORS Hardening** â€” Restricted FastAPI middleware origins using dynamic configuration properties and enforced strict `JWT_SECRET_KEY` requirements.
+- **Security Hardening** â€” Upgraded PBKDF2 hash strength to 600,000 iterations and replaced all string-based RBAC cashier checks in `reports.ts`, `exchange.ts`, and `assistant.ts` with permission checks (`hasPermission`).
 
 ### Removed
-- **Flat-File Serials** — Eliminated active disk-writing of sessions into flat-file databases (`db_store.json`), migrating authorization context to transient in-memory structures.
+- **Flat-File Serials** â€” Eliminated active disk-writing of sessions into flat-file databases (`db_store.json`), migrating authorization context to transient in-memory structures.
 
 ---
 
-## [3.14.4] — 2026-07-11 — Alembic Schema Unification
+## [3.14.4] â€” 2026-07-11 â€” Alembic Schema Unification
 
 ### Added
-- **`backend/alembic/versions/a1b2c3d4e5f6_add_missing_core_tables.py`** — New root-level migration creating all missing core tables with default auto-generated UUID columns.
-- **Node-compatibility Columns** — Added columns `cashier`, `warehouse`, `branch`, `start_time`, `end_time`, `opening_cash`, `closing_cash`, `sales_count`, `sales_value` to `shifts` table to ensure seamless dual API support.
+- **`backend/alembic/versions/a1b2c3d4e5f6_add_missing_core_tables.py`** â€” New root-level migration creating all missing core tables with default auto-generated UUID columns.
+- **Node-compatibility Columns** â€” Added columns `cashier`, `warehouse`, `branch`, `start_time`, `end_time`, `opening_cash`, `closing_cash`, `sales_count`, `sales_value` to `shifts` table to ensure seamless dual API support.
 
 ### Changed
-- **`src/db/init.ts`** — Removed direct schema.sql DDL executions, moving database connection check and flat-file seeding to bootstrap.
-- **`Dockerfile` & `docker-compose.yml`** — Removed COPY statements for `schema.sql`. Added wait health checks so Node standalone container initializes only after python-core schema migrations finish.
-- **`db_store.json`** — Resolved data integrity and foreign key constraints for initial product IDs.
+- **`src/db/init.ts`** â€” Removed direct schema.sql DDL executions, moving database connection check and flat-file seeding to bootstrap.
+- **`Dockerfile` & `docker-compose.yml`** â€” Removed COPY statements for `schema.sql`. Added wait health checks so Node standalone container initializes only after python-core schema migrations finish.
+- **`db_store.json`** â€” Resolved data integrity and foreign key constraints for initial product IDs.
 
 ### Removed
-- **`src/db/schema.sql`** — Deprecated and deleted from the repository.
+- **`src/db/schema.sql`** â€” Deprecated and deleted from the repository.
 
 ---
 
-## [3.13.0] — 2026-07-11 — Supplier Payments
+## [3.13.0] â€” 2026-07-11 â€” Supplier Payments
 
 ### Added
-- **`POST /api/v1/supplier-payments/`** — MANAGER/SYSADMIN records a payment to a supplier. Atomically decrements `supplier.outstanding` in the same transaction.
-- **`GET /api/v1/supplier-payments/`** — Lists all payments; optional `?supplier_id=` filter.
-- **`GET /api/v1/supplier-payments/{id}`** — Gets a single payment record.
-- **`models/supplier_payment.py`** — `SupplierPayment` entity (extends `BaseEntity`).
-- **`schemas/supplier_payment.py`** — `SupplierPaymentCreate` with Pydantic validators for amount > 0 and valid `payment_mode`; `SupplierPaymentResponse`.
-- **`services/supplier_payment.py`** — `SupplierPaymentService` with overpayment guard and atomic outstanding decrement.
-- **`alembic/versions/9862a004de1c`** — Creates `supplier_payments` table (19 columns).
+- **`POST /api/v1/supplier-payments/`** â€” MANAGER/SYSADMIN records a payment to a supplier. Atomically decrements `supplier.outstanding` in the same transaction.
+- **`GET /api/v1/supplier-payments/`** â€” Lists all payments; optional `?supplier_id=` filter.
+- **`GET /api/v1/supplier-payments/{id}`** â€” Gets a single payment record.
+- **`models/supplier_payment.py`** â€” `SupplierPayment` entity (extends `BaseEntity`).
+- **`schemas/supplier_payment.py`** â€” `SupplierPaymentCreate` with Pydantic validators for amount > 0 and valid `payment_mode`; `SupplierPaymentResponse`.
+- **`services/supplier_payment.py`** â€” `SupplierPaymentService` with overpayment guard and atomic outstanding decrement.
+- **`alembic/versions/9862a004de1c`** â€” Creates `supplier_payments` table (19 columns).
 - **10 new tests** in `t_supp_payment.py`.
 
 ### Business Rules Enforced
-- Amount must be > 0 (Pydantic `field_validator` → 422 on failure).
+- Amount must be > 0 (Pydantic `field_validator` â†’ 422 on failure).
 - `payment_mode` must be one of: `CASH`, `BANK_TRANSFER`, `CHEQUE`, `UPI` (422 on unknown mode).
-- Payment amount must not exceed `supplier.outstanding` (overpayment guard → 400).
+- Payment amount must not exceed `supplier.outstanding` (overpayment guard â†’ 400).
 - `supplier.outstanding` is decremented atomically within the same DB transaction as the payment record.
 - CASHIER role cannot record payments (403).
 - All queries scoped to `company_id + branch_id` tenant.
 
 ### Changed
-- `models/__init__.py`, `alembic/env.py` — Added `SupplierPayment` imports; version → 3.13.0.
-- `main.py` — Registered `supplier_payment.router`; version → 3.13.0.
-- `config.py` — `VERSION = "3.13.0"`.
-- `t_supp_payment.py` — Fixture expanded to clean purchase tables (FK-safe order) before suppliers, preventing FK violations from `test_purchase.py` leftovers.
+- `models/__init__.py`, `alembic/env.py` â€” Added `SupplierPayment` imports; version â†’ 3.13.0.
+- `main.py` â€” Registered `supplier_payment.router`; version â†’ 3.13.0.
+- `config.py` â€” `VERSION = "3.13.0"`.
+- `t_supp_payment.py` â€” Fixture expanded to clean purchase tables (FK-safe order) before suppliers, preventing FK violations from `test_purchase.py` leftovers.
 
 ### Test Results
 ```
@@ -899,18 +958,18 @@ sales/quotations/convert/{id}, workflow/{docType}/{id}/{action}
 
 
 ### Added
-- **`POST /api/v1/registers/`** — MANAGER/SYSADMIN creates a new POS cash register (physical counter).
-- **`GET /api/v1/registers/`** — Lists all registers for the current tenant.
-- **`GET /api/v1/registers/{id}`** — Gets a single register.
-- **`POST /api/v1/shifts/open`** — Any authenticated user opens a shift on a register with an opening cash balance. Only one shift may be OPEN per register at a time.
-- **`POST /api/v1/shifts/{id}/close`** — Closes an open shift: aggregates all linked `SalesInvoice` records by `payment_mode` (CASH/CARD/UPI), computes `expected_cash = opening_balance + cash_sales_total`, `variance = closing_balance − expected_cash`.
-- **`GET /api/v1/shifts/active/{register_id}`** — Gets the currently open shift for a register; returns 404 if none (POS UI cue to prompt shift open).
-- **`GET /api/v1/shifts/`** — Lists all shifts; optional `?register_id=` filter.
-- **`GET /api/v1/shifts/{id}`** — Gets a specific shift by ID.
-- **`models/pos.py`** — `CashRegister`, `Shift` (both extend `BaseEntity`).
-- **`schemas/pos.py`** — `CashRegisterCreate/Response`, `ShiftOpen`, `ShiftClose`, `ShiftResponse`.
-- **`services/pos.py`** — `POSService` with full validation, one-open-shift guard, and shift close reconciliation.
-- **`alembic/versions/cc8a527deb42`** — Creates `cash_registers`, `shifts`; adds `shift_id` and `payment_mode` columns to `sales_invoices`.
+- **`POST /api/v1/registers/`** â€” MANAGER/SYSADMIN creates a new POS cash register (physical counter).
+- **`GET /api/v1/registers/`** â€” Lists all registers for the current tenant.
+- **`GET /api/v1/registers/{id}`** â€” Gets a single register.
+- **`POST /api/v1/shifts/open`** â€” Any authenticated user opens a shift on a register with an opening cash balance. Only one shift may be OPEN per register at a time.
+- **`POST /api/v1/shifts/{id}/close`** â€” Closes an open shift: aggregates all linked `SalesInvoice` records by `payment_mode` (CASH/CARD/UPI), computes `expected_cash = opening_balance + cash_sales_total`, `variance = closing_balance âˆ’ expected_cash`.
+- **`GET /api/v1/shifts/active/{register_id}`** â€” Gets the currently open shift for a register; returns 404 if none (POS UI cue to prompt shift open).
+- **`GET /api/v1/shifts/`** â€” Lists all shifts; optional `?register_id=` filter.
+- **`GET /api/v1/shifts/{id}`** â€” Gets a specific shift by ID.
+- **`models/pos.py`** â€” `CashRegister`, `Shift` (both extend `BaseEntity`).
+- **`schemas/pos.py`** â€” `CashRegisterCreate/Response`, `ShiftOpen`, `ShiftClose`, `ShiftResponse`.
+- **`services/pos.py`** â€” `POSService` with full validation, one-open-shift guard, and shift close reconciliation.
+- **`alembic/versions/cc8a527deb42`** â€” Creates `cash_registers`, `shifts`; adds `shift_id` and `payment_mode` columns to `sales_invoices`.
 - **10 new tests** in `test_pos.py`.
 
 ### Business Rules Enforced
@@ -918,21 +977,21 @@ sales/quotations/convert/{id}, workflow/{docType}/{id}/{action}
 - Opening balance must be >= 0.
 - Closing a CLOSED shift returns 400.
 - `expected_cash = opening_balance + cash_sales_total` (only CASH mode sales count towards expected float).
-- `variance = closing_balance − expected_cash` (positive = overage, negative = short).
+- `variance = closing_balance âˆ’ expected_cash` (positive = overage, negative = short).
 - Register and shift both scoped to `company_id + branch_id` tenant.
 - CASHIER role cannot create registers (403); any authenticated user can open/close a shift.
 
 ### Changed
-- `models/sales.py` — Added `shift_id` (nullable FK to `shifts`) and `payment_mode` (`CASH|CARD|UPI|CREDIT`, default `CASH`).
-- `main.py` — Registered `pos.router` at `/api/v1`; version → 3.12.0.
-- `config.py` — `VERSION` bumped to `3.12.0`.
-- `models/__init__.py`, `alembic/env.py` — Added POS model imports.
+- `models/sales.py` â€” Added `shift_id` (nullable FK to `shifts`) and `payment_mode` (`CASH|CARD|UPI|CREDIT`, default `CASH`).
+- `main.py` â€” Registered `pos.router` at `/api/v1`; version â†’ 3.12.0.
+- `config.py` â€” `VERSION` bumped to `3.12.0`.
+- `models/__init__.py`, `alembic/env.py` â€” Added POS model imports.
 
 ### Migration Note
 The pre-existing `shifts` table (from an earlier, different schema with `profile_id`, `sales_count`) was detected during `alembic autogenerate`. It was dropped and recreated with the correct schema via a direct SQL repair script. The `CREATE TABLE IF NOT EXISTS` guard was used in the migration to handle idempotency.
 
 ### Test Isolation Fix
-The `test_pos.py` autouse fixture was upgraded to a `try/finally` teardown pattern that cleans POS tables in FK-safe order (`sales_invoices` → `shifts` → `cash_registers` → `users`) after every test, preventing FK violations in subsequent test modules.
+The `test_pos.py` autouse fixture was upgraded to a `try/finally` teardown pattern that cleans POS tables in FK-safe order (`sales_invoices` â†’ `shifts` â†’ `cash_registers` â†’ `users`) after every test, preventing FK violations in subsequent test modules.
 
 ### Test Results
 ```
@@ -942,38 +1001,38 @@ The `test_pos.py` autouse fixture was upgraded to a `try/finally` teardown patte
 
 ---
 
-## [3.11.0] — 2026-07-11 — Purchase Module
+## [3.11.0] â€” 2026-07-11 â€” Purchase Module
 
 ### Added
-- **`POST /api/v1/suppliers/`** — MANAGER/SYSADMIN creates a new supplier master record.
-- **`GET /api/v1/suppliers/`** — Lists all suppliers scoped to the current tenant.
-- **`GET /api/v1/suppliers/{supplier_id}`** — Retrieves a single supplier.
-- **`POST /api/v1/purchase-orders/`** — MANAGER/SYSADMIN creates a confirmed Purchase Order; calculates subtotal, tax, and grand total per line item. Stock is NOT updated at this stage.
-- **`GET /api/v1/purchase-orders/`** — Lists all purchase orders for the tenant.
-- **`GET /api/v1/purchase-orders/{order_id}`** — Retrieves a purchase order with line items.
-- **`POST /api/v1/purchase-receipts/`** — MANAGER/SYSADMIN posts a Goods Receipt Note (GRN); atomically increments `product.stock` by `quantity_received` and increments `supplier.outstanding` by `grand_total`.
-- **`GET /api/v1/purchase-receipts/`** — Lists all GRNs for the tenant.
-- **`GET /api/v1/purchase-receipts/{receipt_id}`** — Retrieves a GRN with line items.
-- **`models/purchase.py`** — `Supplier`, `PurchaseOrder`, `PurchaseOrderItem`, `PurchaseReceipt`, `PurchaseReceiptItem` (all extend `BaseEntity` for automatic tenant scope).
-- **`schemas/purchase.py`** — Full Pydantic input/output schemas for all purchase entities.
-- **`services/purchase.py`** — `PurchaseService` with full validation: supplier/product tenant ownership, non-empty items, positive quantities, PO linkage.
-- **Alembic migration `59cbc26b919c`** — Creates all 5 purchase tables.
+- **`POST /api/v1/suppliers/`** â€” MANAGER/SYSADMIN creates a new supplier master record.
+- **`GET /api/v1/suppliers/`** â€” Lists all suppliers scoped to the current tenant.
+- **`GET /api/v1/suppliers/{supplier_id}`** â€” Retrieves a single supplier.
+- **`POST /api/v1/purchase-orders/`** â€” MANAGER/SYSADMIN creates a confirmed Purchase Order; calculates subtotal, tax, and grand total per line item. Stock is NOT updated at this stage.
+- **`GET /api/v1/purchase-orders/`** â€” Lists all purchase orders for the tenant.
+- **`GET /api/v1/purchase-orders/{order_id}`** â€” Retrieves a purchase order with line items.
+- **`POST /api/v1/purchase-receipts/`** â€” MANAGER/SYSADMIN posts a Goods Receipt Note (GRN); atomically increments `product.stock` by `quantity_received` and increments `supplier.outstanding` by `grand_total`.
+- **`GET /api/v1/purchase-receipts/`** â€” Lists all GRNs for the tenant.
+- **`GET /api/v1/purchase-receipts/{receipt_id}`** â€” Retrieves a GRN with line items.
+- **`models/purchase.py`** â€” `Supplier`, `PurchaseOrder`, `PurchaseOrderItem`, `PurchaseReceipt`, `PurchaseReceiptItem` (all extend `BaseEntity` for automatic tenant scope).
+- **`schemas/purchase.py`** â€” Full Pydantic input/output schemas for all purchase entities.
+- **`services/purchase.py`** â€” `PurchaseService` with full validation: supplier/product tenant ownership, non-empty items, positive quantities, PO linkage.
+- **Alembic migration `59cbc26b919c`** â€” Creates all 5 purchase tables.
 - **10 new tests** in `test_purchase.py`.
 
 ### Business Rules Enforced
 - Supplier must belong to the same tenant (company + branch) as the order/receipt.
 - Products must belong to the same tenant before they can be ordered or received.
-- PO creation does NOT update stock — only a posted GRN updates stock.
+- PO creation does NOT update stock â€” only a posted GRN updates stock.
 - `quantity_received` must be > 0; zero quantity returns 400.
 - GRN increments `supplier.outstanding` (accounts-payable liability tracker).
-- CASHIER role cannot create suppliers, purchase orders, or GRNs — returns 403.
+- CASHIER role cannot create suppliers, purchase orders, or GRNs â€” returns 403.
 - Duplicate order_no / receipt_no returns 400 with a plain business message.
 
 ### Changed
-- `main.py` — registered `purchase.router` at `/api/v1`; version → 3.11.0.
-- `config.py` — `VERSION` bumped to `3.11.0`.
-- `models/__init__.py` — added purchase model exports.
-- `alembic/env.py` — added purchase model imports.
+- `main.py` â€” registered `purchase.router` at `/api/v1`; version â†’ 3.11.0.
+- `config.py` â€” `VERSION` bumped to `3.11.0`.
+- `models/__init__.py` â€” added purchase model exports.
+- `alembic/env.py` â€” added purchase model imports.
 
 ### Migration Note
 The autogenerate produced an empty migration (models were registered in `env.py` after `autogenerate` scanned). The migration DDL was written manually and verified against the SQLAlchemy model column definitions. Tables were confirmed present in PostgreSQL before tests were run.
@@ -986,23 +1045,23 @@ The autogenerate produced an empty migration (models were registered in `env.py`
 
 ---
 
-## [3.10.0] — 2026-07-11 — User Management
+## [3.10.0] â€” 2026-07-11 â€” User Management
 
 ### Added
-- **`POST /api/v1/users/`** — SYSADMIN creates a new platform user with role + tenant assignment.
-- **`GET /api/v1/users/`** — SYSADMIN lists all users with optional `?role=` and `?company_id=` filters and pagination (`skip`, `limit`).
-- **`GET /api/v1/users/{user_id}`** — SYSADMIN can retrieve any user; non-SYSADMIN may only retrieve their own profile.
-- **`PATCH /api/v1/users/{user_id}`** — SYSADMIN updates email, mobile, role, is_active, company/branch assignment.
-- **`POST /api/v1/users/{user_id}/deactivate`** — SYSADMIN soft-deactivates a user (sets `is_active=False`, `is_deleted=True`); blocked for self-deactivation.
-- **`PATCH /api/v1/users/me/password`** — Any authenticated user changes their own password; requires correct current password and minimum 8-character length.
-- **`UserService`** (`services/user.py`) — create, list, get, update, deactivate, change_password; all DB mutations wrapped in `IntegrityError` handlers per HREP.
-- **`schemas/user.py`** — `UserCreate`, `UserUpdate`, `PasswordChange`, `UserResponse`, `UserListResponse`.
-- **17 new tests** in `t_user_mgmt.py` — CRUD, RBAC guards, duplicate username rejection, self-deactivate protection, wrong-password and short-password rejection.
+- **`POST /api/v1/users/`** â€” SYSADMIN creates a new platform user with role + tenant assignment.
+- **`GET /api/v1/users/`** â€” SYSADMIN lists all users with optional `?role=` and `?company_id=` filters and pagination (`skip`, `limit`).
+- **`GET /api/v1/users/{user_id}`** â€” SYSADMIN can retrieve any user; non-SYSADMIN may only retrieve their own profile.
+- **`PATCH /api/v1/users/{user_id}`** â€” SYSADMIN updates email, mobile, role, is_active, company/branch assignment.
+- **`POST /api/v1/users/{user_id}/deactivate`** â€” SYSADMIN soft-deactivates a user (sets `is_active=False`, `is_deleted=True`); blocked for self-deactivation.
+- **`PATCH /api/v1/users/me/password`** â€” Any authenticated user changes their own password; requires correct current password and minimum 8-character length.
+- **`UserService`** (`services/user.py`) â€” create, list, get, update, deactivate, change_password; all DB mutations wrapped in `IntegrityError` handlers per HREP.
+- **`schemas/user.py`** â€” `UserCreate`, `UserUpdate`, `PasswordChange`, `UserResponse`, `UserListResponse`.
+- **17 new tests** in `t_user_mgmt.py` â€” CRUD, RBAC guards, duplicate username rejection, self-deactivate protection, wrong-password and short-password rejection.
 
 ### Changed
-- `main.py` — registered `users.router` at `/api/v1/users`; version bumped to 3.10.0.
-- `config.py` — `VERSION` bumped to `3.10.0`.
-- `test_auth.py` fixture — added explicit `DELETE FROM users` + `DELETE FROM refresh_token_blacklist` before each test to prevent bootstrap-blocked false positives across runs.
+- `main.py` â€” registered `users.router` at `/api/v1/users`; version bumped to 3.10.0.
+- `config.py` â€” `VERSION` bumped to `3.10.0`.
+- `test_auth.py` fixture â€” added explicit `DELETE FROM users` + `DELETE FROM refresh_token_blacklist` before each test to prevent bootstrap-blocked false positives across runs.
 
 ### Business Rules Enforced
 - Non-SYSADMIN roles (MANAGER, CASHIER, VIEWER) **must** receive both `company_id` and `branch_id`; creating one without them returns 400.
@@ -1018,30 +1077,30 @@ All 35 prior tests continue to pass. 17 new user management tests added.
 
 ---
 
-## [3.9.0] — 2026-07-11 — Authentication Layer
+## [3.9.0] â€” 2026-07-11 â€” Authentication Layer
 
 ### Added
-- **JWT Authentication** (`python-jose[cryptography]`) — HS256-signed access tokens (60-min) and refresh tokens (7-day).
-- **`POST /api/v1/auth/bootstrap`** — first-run SYSADMIN account creation; blocked when users exist.
-- **`POST /api/v1/auth/login`** — returns `access_token` + `refresh_token` + `role`.
-- **`POST /api/v1/auth/refresh`** — exchange refresh token for new access token; rejects blacklisted tokens.
-- **`POST /api/v1/auth/logout`** — writes token JTI to `refresh_token_blacklist` table; idempotent.
-- **`GET /api/v1/auth/me`** — returns authenticated user profile.
-- **`User` model** (`users` table) — id, uuid, username, email, mobile, hashed_password, role (SYSADMIN/MANAGER/CASHIER/VIEWER), company_id, branch_id, is_active.
-- **`RefreshTokenBlacklist` model** (`refresh_token_blacklist` table) — JTI-based revocation.
-- **`get_current_user` dependency** — decodes Bearer JWT, loads User from DB, raises 401 on invalid/expired tokens.
-- **`require_role(*roles)` guard factory** — raises 403 if caller's role is not in the allowed set.
-- **Role enforcement on write endpoints**: `POST /products/` → MANAGER/SYSADMIN only; `POST /customers` → CASHIER+; `POST /customer-groups` → MANAGER+; `POST /sales-invoices/` → CASHIER+.
+- **JWT Authentication** (`python-jose[cryptography]`) â€” HS256-signed access tokens (60-min) and refresh tokens (7-day).
+- **`POST /api/v1/auth/bootstrap`** â€” first-run SYSADMIN account creation; blocked when users exist.
+- **`POST /api/v1/auth/login`** â€” returns `access_token` + `refresh_token` + `role`.
+- **`POST /api/v1/auth/refresh`** â€” exchange refresh token for new access token; rejects blacklisted tokens.
+- **`POST /api/v1/auth/logout`** â€” writes token JTI to `refresh_token_blacklist` table; idempotent.
+- **`GET /api/v1/auth/me`** â€” returns authenticated user profile.
+- **`User` model** (`users` table) â€” id, uuid, username, email, mobile, hashed_password, role (SYSADMIN/MANAGER/CASHIER/VIEWER), company_id, branch_id, is_active.
+- **`RefreshTokenBlacklist` model** (`refresh_token_blacklist` table) â€” JTI-based revocation.
+- **`get_current_user` dependency** â€” decodes Bearer JWT, loads User from DB, raises 401 on invalid/expired tokens.
+- **`require_role(*roles)` guard factory** â€” raises 403 if caller's role is not in the allowed set.
+- **Role enforcement on write endpoints**: `POST /products/` â†’ MANAGER/SYSADMIN only; `POST /customers` â†’ CASHIER+; `POST /customer-groups` â†’ MANAGER+; `POST /sales-invoices/` â†’ CASHIER+.
 - **All read endpoints** now require authentication (any valid role).
-- **Alembic migration** `8cf33df7b76a_add_users_and_token_blacklist` — creates `users` and `refresh_token_blacklist` tables.
-- **14 new tests** in `test_auth.py` — bootstrap, login, /me, refresh, logout+blacklist, RBAC guards.
-- `passlib[bcrypt]==1.7.4` — replaces custom PBKDF2 hashing.
+- **Alembic migration** `8cf33df7b76a_add_users_and_token_blacklist` â€” creates `users` and `refresh_token_blacklist` tables.
+- **14 new tests** in `test_auth.py` â€” bootstrap, login, /me, refresh, logout+blacklist, RBAC guards.
+- `passlib[bcrypt]==1.7.4` â€” replaces custom PBKDF2 hashing.
 
 ### Changed
-- `core/security.py` — fully rewritten: `hash_password` now uses bcrypt; `create_access_token` uses `python-jose`; new `create_refresh_token()` and `decode_token()` added.
-- `api/deps.py` — `get_tenant_context` now reads `company_id`/`branch_id` from the validated JWT token (not X-Company-Id/X-Branch-Id headers).
-- `config.py` — `ACCESS_TOKEN_EXPIRE_MINUTES` set to 60; `REFRESH_TOKEN_EXPIRE_DAYS=7` added.
-- `t_tenant_isolate.py` — autouse fixture now also overrides `get_current_user` and `get_tenant_context`; tests use `set_test_tenant()` contextvar helper instead of HTTP headers.
+- `core/security.py` â€” fully rewritten: `hash_password` now uses bcrypt; `create_access_token` uses `python-jose`; new `create_refresh_token()` and `decode_token()` added.
+- `api/deps.py` â€” `get_tenant_context` now reads `company_id`/`branch_id` from the validated JWT token (not X-Company-Id/X-Branch-Id headers).
+- `config.py` â€” `ACCESS_TOKEN_EXPIRE_MINUTES` set to 60; `REFRESH_TOKEN_EXPIRE_DAYS=7` added.
+- `t_tenant_isolate.py` â€” autouse fixture now also overrides `get_current_user` and `get_tenant_context`; tests use `set_test_tenant()` contextvar helper instead of HTTP headers.
 - All version headers bumped to 3.9.0.
 
 ### Test Results
@@ -1052,7 +1111,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.8.0] — 2026-07-11
+## [3.8.0] â€” 2026-07-11
 
 ### Added
 - Plumbed `TenantContext` in `backend/app/api/deps.py` extracting and validating `X-Company-Id` and `X-Branch-Id` headers against active records.
@@ -1061,18 +1120,18 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 - Created `CustomerRepository` and `SalesInvoiceRepository` extending `BaseRepository` with tenant-scoped searches.
 - Implemented REST API routers for inventory (`/api/v1/products`), crm (`/api/v1/customers` and `/api/v1/customer-groups`), and sales (`/api/v1/sales-invoices`).
 - Added robust integration/unit tests in `backend/app/tests/t_tenant_isolate.py` validating 6 tenant isolation constraints including a concurrent-write race-condition test.
-- Created `backend/Dockerfile` and `backend/entrypoint.sh` — runs `alembic upgrade head` then starts gunicorn with UvicornWorker.
+- Created `backend/Dockerfile` and `backend/entrypoint.sh` â€” runs `alembic upgrade head` then starts gunicorn with UvicornWorker.
 - Added `python-core` service to `docker-compose.yml` wiring the FastAPI backend with healthcheck and `db` dependency.
 
 ### Changed
 - Refactored `BaseRepository` query layer to automatically inject tenant filters on reads and stamp tenant IDs on creations.
 - Plumbed `TenantContext` propagation through `InventoryService`, `CrmService`, and `SalesService` checking duplicates and stock levels within tenant boundaries.
 - Updated FastAPI bootstrap in `backend/app/main.py` and Alembic config in `backend/alembic/env.py`.
-- Wrapped `await self.db.commit()` in `create_product`, `create_customer_group`, `create_customer`, and `create_sales_invoice` with `try/except IntegrityError` — concurrent duplicate inserts return HTTP 400 with business-language detail instead of an unhandled 500 traceback (per HREP Rule 1).
+- Wrapped `await self.db.commit()` in `create_product`, `create_customer_group`, `create_customer`, and `create_sales_invoice` with `try/except IntegrityError` â€” concurrent duplicate inserts return HTTP 400 with business-language detail instead of an unhandled 500 traceback (per HREP Rule 1).
 
 ---
 
-## [3.7.0] — 2026-07-11
+## [3.7.0] â€” 2026-07-11
 
 ### Added
 - Configured SQLAlchemy 2.0-compatible `BaseEntity` mixin declaring audit trail, multi-tenant workspace keys, and soft delete hooks.
@@ -1088,7 +1147,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.6.0] — 2026-07-11
+## [3.6.0] â€” 2026-07-11
 
 ### Added
 - Created top-level `backend/` folder separating Python backend services from Node resources.
@@ -1106,7 +1165,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.5.0] — 2026-07-11
+## [3.5.0] â€” 2026-07-11
 
 ### Added
 - Implemented **SMRITI Development Intelligence Center (SDIC)** module at `src/modules/dev_tracker/`.
@@ -1123,7 +1182,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.4.0] — 2026-07-11
+## [3.4.0] â€” 2026-07-11
 
 ### Added
 - Created backend Express router GET `/api/changelog` in `server.ts` to dynamically serve the changelog text content.
@@ -1140,7 +1199,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.3.0] — 2026-07-11
+## [3.3.0] â€” 2026-07-11
 
 ### Changed
 - Standardized project-wide headers across all eligible first-party source, script, style, and documentation files to uniform AITDL NETWORKS branding, copyright, and founding leadership metadata.
@@ -1150,7 +1209,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 - Created implementation plan `Project_Header_Standardization_Plan_v3.3.0.md` and walkthrough `Project_Header_Standardization_Walkthrough_v3.3.0.md`.
 - Consolidated plans| Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 2026-08-24 | v3.25.0 | Blueprint UI/Experience Engine & Integration Hub Registry | [Walkthrough](./foundation/Blueprint_UIExperience_IntegrationHub_v1.0.md) | — | Completed |
+| 2026-08-24 | v3.25.0 | Blueprint UI/Experience Engine & Integration Hub Registry | [Walkthrough](./foundation/Blueprint_UIExperience_IntegrationHub_v1.0.md) | â€” | Completed |
 
 ### Added
 - Created `src/db/pool.ts` to manage PostgreSQL connection pools.
@@ -1159,7 +1218,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [2.1.4] — 2026-07-11
+## [2.1.4] â€” 2026-07-11
 
 ### Added
 - Created `src/db/pool.ts` to manage PostgreSQL connection pools.
@@ -1176,7 +1235,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [2.1.3] — 2026-07-11
+## [2.1.3] â€” 2026-07-11
 
 ### Added
 - Created `src/components/ErrorBoundary.tsx` component to handle individual workspace tab crashes.
@@ -1193,7 +1252,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [2.1.2] — 2026-07-11
+## [2.1.2] â€” 2026-07-11
 
 ### Added
 - Integrated central middleware audit logging on all backend mutating HTTP endpoints (POST, PUT, DELETE).
@@ -1205,7 +1264,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [2.1.1] — 2026-07-10
+## [2.1.1] â€” 2026-07-10
 
 ### Changed
 - Modernized subview layouts and animations in the Sales & Commerce Studio (`SalesStudioTab.tsx`).
