@@ -37,6 +37,8 @@ import { SmritiCustomerRetailDetailsTab } from "./SmritiCustomerRetailDetailsTab
 import { SmritiCustomerAdditionalDetailsTab } from "./SmritiCustomerAdditionalDetailsTab.tsx";
 import { SmritiCustomerMailingModal } from "./SmritiCustomerMailingModal.tsx";
 import { SmritiAdvancedCustomerSearchModal } from "./SmritiAdvancedCustomerSearchModal.tsx";
+import { ExportButton } from "../export/ExportButton.tsx";
+import { ExportColumnDefinition } from "../export/types.ts";
 
 const DEFAULT_MAILING_ADDRESS: CustomerAddressEntry = {
   code: "001",
@@ -387,6 +389,21 @@ export const SmritiCustomerMasterWorkspace: React.FC<SmritiCustomerMasterWorkspa
     if (currentIndex < customers.length - 1) setCurrentIndex(currentIndex + 1);
   };
 
+  const customerExportColumns = useMemo<ExportColumnDefinition[]>(() => [
+    { key: "code", label: "Customer Code", datatype: "text", width: 12 },
+    { key: "name", label: "Customer Name", datatype: "text", width: 25 },
+    { key: "mobile", label: "Mobile No.", datatype: "text", width: 15 },
+    { key: "email", label: "Email Address", datatype: "text", width: 22 },
+    { key: "customerCategory", label: "Category", datatype: "text", width: 15 },
+    { key: "creditLimit", label: "Credit Limit", datatype: "currency", isSummary: true, width: 14 },
+    { key: "currentBalance", label: "Current Balance", datatype: "currency", isSummary: true, width: 14 },
+    { key: "loyaltyPoints", label: "Loyalty Points", datatype: "number", isSummary: true, width: 12 },
+    { key: "city", label: "City", datatype: "text", width: 15 },
+    { key: "state", label: "State", datatype: "text", width: 15 },
+    { key: "gstin", label: "GSTIN", datatype: "text", width: 18 },
+    { key: "status", label: "Status", datatype: "text", width: 10 },
+  ], []);
+
   // Keyboard Shortcuts Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -509,6 +526,19 @@ export const SmritiCustomerMasterWorkspace: React.FC<SmritiCustomerMasterWorkspa
             <span>Search</span>
             <kbd className="text-[9px] px-1 bg-[#f2f4f6] dark:bg-[#191c1e] rounded text-[#76777d]">F2</kbd>
           </button>
+
+          {/* Export Button */}
+          <ExportButton
+            moduleTitle="Customer Master"
+            columns={customerExportColumns}
+            data={customers}
+            selectedRows={[currentCustomer]}
+            totalRecordsCount={customers.length}
+            filteredRecordsCount={customers.length}
+            searchTerm={searchTerm}
+            companyName="SMRITI Retail"
+            onNotification={onNotification}
+          />
 
           {/* Save Button */}
           <button

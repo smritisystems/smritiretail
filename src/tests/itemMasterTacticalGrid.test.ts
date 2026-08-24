@@ -25,12 +25,18 @@ import { itemMasterConfig } from "../components/global/configs/itemMaster.config
 describe("Item Master Tactical Grid (Smriti Prime Specification)", () => {
 
   describe("1. Field Definitions & Mandatory Attributes", () => {
-    it("should have Stock No, Product, and MRP as required mandatory fields", () => {
+    it("should have Stock No, Product, MRP, Barcode, Selling Price, Buying Price, Cost Price, GST, and HSN as required mandatory fields", () => {
       const mandatoryIds = DEFAULT_MANDATORY_FIELDS.map(f => f.id);
       expect(mandatoryIds).toContain("stockNo");
       expect(mandatoryIds).toContain("product");
       expect(mandatoryIds).toContain("mrp");
-      expect(mandatoryIds.length).toBe(3);
+      expect(mandatoryIds).toContain("barcode");
+      expect(mandatoryIds).toContain("sellingPrice");
+      expect(mandatoryIds).toContain("buyingPrice");
+      expect(mandatoryIds).toContain("costPrice");
+      expect(mandatoryIds).toContain("productTax");
+      expect(mandatoryIds).toContain("hsnCode");
+      expect(mandatoryIds.length).toBe(9);
     });
 
     it("should register all retail attributes in ALL_AVAILABLE_ITEM_FIELDS", () => {

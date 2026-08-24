@@ -48,6 +48,8 @@ import { SmritiCodeSelectionDialog } from "./SmritiCodeSelectionDialog.tsx";
 import { SmritiKeyboardShortcutsModal } from "./SmritiKeyboardShortcutsModal.tsx";
 import { SmritiDataLoadingConfirmationModal } from "./SmritiDataLoadingConfirmationModal.tsx";
 import { ViewConfigState } from "./SmritiViewConfiguration.tsx";
+import { ExportButton } from "../export/ExportButton.tsx";
+import { ExportColumnDefinition } from "../export/types.ts";
 
 export type MasterEntryMode = "add" | "edit" | "delete";
 export type SortDirection = "asc" | "desc";
@@ -406,6 +408,35 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
     }
     return catalogFields.slice(0, 13);
   }, [viewConfig, catalogFields, visibilityVersion]);
+
+  const itemMasterExportColumns = useMemo<ExportColumnDefinition[]>(() => {
+    return catalogFields.map(f => {
+      let dt: any = "text";
+      if (
+        f.key === "mrp" ||
+        f.key === "price" ||
+        f.key === "sellingPrice" ||
+        f.key === "buying_price" ||
+        f.key === "buyingPrice" ||
+        f.key === "cost_price" ||
+        f.key === "costPrice" ||
+        f.key === "dealerPrice"
+      ) {
+        dt = "currency";
+      } else if (f.key === "gst_percentage" || f.key === "gstPercentage") {
+        dt = "percentage";
+      } else if (f.key === "stock" || f.key === "quantity" || f.key === "weight") {
+        dt = "number";
+      }
+      return {
+        key: f.key,
+        label: f.label,
+        datatype: dt,
+        isSummary: dt === "currency" || dt === "number",
+        isVisible: true
+      };
+    });
+  }, [catalogFields]);
 
   const frozenCount = viewConfig?.frozenColumns ?? 2;
 
@@ -1749,6 +1780,19 @@ export const SmritiItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             <Printer size={13} />
             Print
           </button>
+
+          <ExportButton
+            moduleTitle="Item Master"
+            columns={itemMasterExportColumns}
+            data={gridRows}
+            selectedRows={gridRows.filter((_, idx) => selectedRowIndices.has(idx))}
+            totalRecordsCount={products.length}
+            filteredRecordsCount={gridRows.length}
+            apiEndpoint="/products"
+            searchTerm={searchFilter}
+            companyName="SMRITI Retail"
+            onNotification={onNotification}
+          />
 
           <button
             type="button"
