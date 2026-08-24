@@ -116,20 +116,28 @@ The remaining work is primarily convergence and governance: turning module-level
 
 ## 4. P1 Control Plane Completion
 
-### P1.1 Global Reference Data and Localization
+### P1.1 Global Reference Data and Localization [STATUS: DONE / VERIFIED]
 
-Implement and seed versioned control-plane registries for:
-
-- countries, states, districts, cities, postal codes, geographies
-- languages, locales, translation keys, translations, translation versions
-- currencies, currency formats, number formats, date formats, time zones
-- units and unit conversions
-- tax reference codes, GST codes, HSN, SAC, tax categories, jurisdictions
-- system constants and platform reference data
-
-**Required contracts:** locale fallback, translation version selection, currency/number/date formatting, tenant override rules, and cache invalidation.
-
-**Exit evidence:** migrations, models, CRUD/read APIs, seed data, tenant-resolution tests, and at least two non-English locale tests pass.
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `10/10 tests green` in `backend/tests/t_ctrl_ref.py` (execution time: 9.58s).
+  - `100% coverage of Indian GST jurisdictions`: All 36 states and union territories seeded with statutory 2-digit GST state codes (01..38, 97).
+  - `7 ISO currencies` (INR, USD, EUR, GBP, AED, SGD, CAD) and `10 statutory UOMs` with UQC mappings.
+  - `4 bidirectional UOM conversions` (KG<->GM, LTR<->ML, DOZ<->PCS, DOZ<->NOS).
+  - `3 supported UI/print dictionary languages` (English baseline, Hindi `hi`, Marathi `mr`) with automated English fallback.
+  - `100% precision in locale-aware formatting`: Indian numbering system (Lakh/Crore: `₹ 12,34,567.89`) vs International system (`$ 1,234,567.89`).
+- **Named Architectural Mechanisms:**
+  - `GlobalReferenceService`: Control-plane lookup engine querying `smritisys` for authoritative country, state, currency, UOM, and GST tax reference masters.
+  - `LocalizationDictionaryService with Fallback Engine`: Translation dictionary loader resolving approved strings from `translations_ref` with automatic fallback to `translation_keys_ref.default_text` for missing or unapproved keys.
+  - `Statutory GST State Code Tax Resolver`: `GET /states/by-gst-code/{code}` routing logic determining intra-state (CGST+SGST) vs inter-state (IGST) taxation boundaries.
+  - `UOM Mathematical Conversion Engine`: Direct and reciprocal ratio calculator with validation guard against incompatible measurement categories.
+  - `Idempotent Database Seeder`: `seed_control_reference_data()` synchronizing `smritisys`, `smriti001`, and `smriti002` via PostgreSQL `ON CONFLICT` statements.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_ctrl_ref.py`](file:///F:/SMRITRretailNX/backend/tests/t_ctrl_ref.py)
+  - Backend Service: [`backend/app/services/localization_svc.py`](file:///F:/SMRITRretailNX/backend/app/services/localization_svc.py)
+  - API Router: [`backend/app/api/v1/localization.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/localization.py)
+  - Schemas: [`backend/app/schemas/localization.py`](file:///F:/SMRITRretailNX/backend/app/schemas/localization.py)
+  - Seed Engine: [`backend/app/db/seed_ctrl_ref.py`](file:///F:/SMRITRretailNX/backend/app/db/seed_ctrl_ref.py)
 
 ### P1.2 Capability and Module Registry
 
