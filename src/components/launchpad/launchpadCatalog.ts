@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.1.0
+ * Version      : 4.2.0
  * Created      : 2026-08-20
- * Modified     : 2026-08-20
+ * Modified     : 2026-08-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -401,6 +401,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Academy",
     badgeType: "info",
     group: "System & Operations",
+  },
+  {
+    id: "legacy-migration",
+    title: "Shoper9 → SMRITI Migration",
+    subtitle: "Legacy vaMenu lineage registry: 265 entries classified, coverage tracking & workspace parity dashboard",
+    icon: "alt_route",
+    tag: "Migration",
+    badgeType: "warning",
+    group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "violet",
   },
 ];
 
