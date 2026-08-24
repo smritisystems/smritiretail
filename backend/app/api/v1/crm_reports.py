@@ -1,4 +1,4 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Repository   : SMRITIRetailNX
 Organization : AITDL NETWORKS
@@ -346,4 +346,146 @@ async def bill_wise_items(
         "note":         "Line items sourced from rule_snapshots JSONB; sales_invoice_lines table pending migration",
         "total_bills":  len(lines),
         "lines":        lines,
+    }
+
+# ---------------------------------------------------------------------------
+# CRM-004: Customer Loyalty Report  (MnuNo 650/658 loyalty extension)
+# GET /api/v1/crm-reports/loyalty
+# ---------------------------------------------------------------------------
+
+@router.get("/loyalty")
+async def customer_loyalty_report(
+    tier_id:     Optional[str] = Query(default=None, description="Filter by loyalty tier ID"),
+    min_balance: Optional[float] = Query(default=None, description="Min current points balance"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    CRM-004 -- Customer Loyalty Report (Loyalty extension of MnuNo 650/658).
+    Lists all loyalty members with points balance, lifetime spend, tier, and card number.
+    """
+    params: Dict[str, Any] = {}
+    clauses = ["lm.is_deleted = false", "lm.is_active = true"]
+    if tenant and tenant.company_id:
+        clauses.append("lm.company_id = :company_id")
+        params["company_id"] = tenant.company_id
+    if tier_id:
+        clauses.append("lm.loyalty_tier_id = :tier_id")
+        params["tier_id"] = tier_id
+    if min_balance is not None:
+        clauses.append("lm.current_points_balance >= :min_balance")
+        params["min_balance"] = min_balance
+
+    where = " AND ".join(clauses)
+    sql = f"""
+        SELECT
+            lm.id, lm.customer_id,
+            COALESCE(c.name, 'Unknown')         AS customer_name,
+            COALESCE(c.mobile, '')              AS mobile,
+            COALESCE(lm.card_number, '')        AS card_number,
+            COALESCE(lt.name, 'Standard')       AS tier_name,
+            lm.total_points_earned,
+            lm.total_points_redeemed,
+            lm.current_points_balance,
+            COALESCE(lm.total_lifetime_spend, 0) AS lifetime_spend,
+            lm.joined_date
+        FROM loyalty_members lm
+        LEFT JOIN customers c  ON c.id  = lm.customer_id
+        LEFT JOIN loyalty_tiers lt ON lt.id = lm.loyalty_tier_id
+        WHERE {where}
+        ORDER BY lm.current_points_balance DESC
+        LIMIT 1000
+    """
+    try:
+        rows = (await db.execute(text(sql), params)).fetchall()
+        lines = [
+            {
+                "member_id":       r[0],
+                "customer_id":     r[1],
+                "customer_name":   r[2],
+                "mobile":          r[3],
+                "card_number":     r[4],
+                "tier":            r[5],
+                "points_earned":   float(r[6] or 0),
+                "points_redeemed": float(r[7] or 0),
+                "points_balance":  float(r[8] or 0),
+                "lifetime_spend":  float(r[9] or 0),
+                "joined_date":     str(r[10]) if r[10] else "",
+            }
+            for r in rows
+        ]
+    except Exception:
+        lines = []
+
+    return {
+        "report_id":       "CRM-004",
+        "generated_at":    datetime.now(timezone.utc).isoformat(),
+        "total_members":   len(lines),
+        "total_points_outstanding": round(sum(l["points_balance"] for l in lines), 2),
+        "total_lifetime_spend": round(sum(l["lifetime_spend"] for l in lines), 2),
+        "lines":           lines,
+    }
+
+
+# ---------------------------------------------------------------------------
+# CRM-005: Loyalty Tier Summary
+# GET /api/v1/crm-reports/loyalty-tiers
+# ---------------------------------------------------------------------------
+
+@router.get("/loyalty-tiers")
+async def loyalty_tier_summary(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    CRM-005 -- Loyalty Tier Summary.
+    Aggregated member counts and points per tier.
+    """
+    params: Dict[str, Any] = {}
+    cmp_clause = ""
+    if tenant and tenant.company_id:
+        cmp_clause = "AND lm.company_id = :company_id"
+        params["company_id"] = tenant.company_id
+
+    sql = f"""
+        SELECT
+            COALESCE(lt.name, 'Standard')         AS tier_name,
+            COUNT(lm.id)                           AS member_count,
+            SUM(lm.current_points_balance)         AS total_points,
+            SUM(lm.total_lifetime_spend)           AS total_spend,
+            COALESCE(lt.min_spend, 0)              AS min_spend,
+            COALESCE(lt.earn_multiplier, 1.0)      AS earn_multiplier,
+            COALESCE(lt.redemption_ratio, 1.0)     AS redemption_ratio
+        FROM loyalty_members lm
+        LEFT JOIN loyalty_tiers lt ON lt.id = lm.loyalty_tier_id
+        WHERE lm.is_deleted = false AND lm.is_active = true
+          {cmp_clause}
+        GROUP BY tier_name, lt.min_spend, lt.earn_multiplier, lt.redemption_ratio
+        ORDER BY total_spend DESC
+    """
+    try:
+        rows = (await db.execute(text(sql), params)).fetchall()
+        tiers = [
+            {
+                "tier":             r[0],
+                "member_count":     int(r[1] or 0),
+                "total_points":     float(r[2] or 0),
+                "total_spend":      float(r[3] or 0),
+                "min_spend":        float(r[4] or 0),
+                "earn_multiplier":  float(r[5] or 1),
+                "redemption_ratio": float(r[6] or 1),
+            }
+            for r in rows
+        ]
+    except Exception:
+        tiers = []
+
+    return {
+        "report_id":       "CRM-005",
+        "generated_at":    datetime.now(timezone.utc).isoformat(),
+        "total_tiers":     len(tiers),
+        "total_members":   sum(t["member_count"] for t in tiers),
+        "tiers":           tiers,
     }
