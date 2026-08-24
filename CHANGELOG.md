@@ -28,7 +28,71 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.27.0] - 2026-08-24
+
+#### Shoper9 → SMRITI Legacy Menu Migration — Sprints 0–5 Complete
+
+Full end-to-end implementation of the Shoper9 (EE) vaMenu → SMRITI workspace
+migration stack. Covers extraction, classification, database, API, and frontend.
+
+**Sprint 0 — Legacy Extraction (commits: f7384642, b7c877bc, 17e67f2b)**
+- `scripts/sh9_extract.py` v2: S9Q parser with INSERT + DELETE handling,
+  ZIP-vs-disk source conflict resolution (ZIP takes priority).
+- 7 governance CSVs produced (immutable): `SH9_MENU_CATALOG.csv` (265 active),
+  `SH9_MENU_TREE.csv`, `SH9_MENU_EXEC.csv` (177 executables),
+  `SH9_TXN_TYPES.csv` (63 codes), `SH9_SYSPARAM.csv`, `SH9_MENU_DELETES.csv`
+  (18 ghost entries), `SH9_USERS.csv`.
+- `.gitignore` updated: `!docs/legacy/**/*.csv` unignored.
+
+**Sprint 1 — Mapping Matrix (commit: 03423dec)**
+- `scripts/sh9_map.py`: classifies all 265 entries against `CANONICAL_34_MENU_MATRIX`.
+- `SH9_MAP_MATRIX.csv` + `SH9_MENU_MAP.md` produced.
+- Coverage: **265/265 (100%)** — MAPPED:201, MERGED:27, PENDING:8,
+  DEPRECATED:14, REPLACED:10, NOT_APPLIC:5.
+- Key findings: 8 MultiInstance entries need multi-tab session support;
+  9 SMRITI-new capabilities have no Shoper predecessor.
+
+**Sprint 2 — Database Schema (commit: cf0788a6)**
+- `backend/app/models/legacy_menu_map.py`: `LegacyMenuMap` SQLAlchemy model.
+- `backend/alembic/versions/v1371_legacy_menu_map.py`: Alembic migration.
+  Creates `smriti_legacy_menu_map` (29 columns, 2 CHECK constraints, 4 indexes).
+  Revision chain: v1370 → v1371. Idempotent upgrade.
+- `scripts/sh9_seed.py`: idempotent INSERT-or-UPDATE seed script.
+  Dry-run validated: 265 rows parsed, 0 errors.
+- `backend/app/models/__init__.py`: registered `LegacyMenuMap`.
+
+**Sprint 3 — API Layer (commit: 957ae753)**
+- `backend/app/api/v1/legacy_menu_map.py`: 5 read-only GET endpoints.
+  - `GET /api/v1/legacy-menu-map/stats` (MANAGER+)
+  - `GET /api/v1/legacy-menu-map/` (paginated, filterable)
+  - `GET /api/v1/legacy-menu-map/{id}`
+  - `GET /api/v1/legacy-menu-map/sh9/{mnu_no}/{menu_opt}`
+  - `GET /api/v1/legacy-menu-map/by-workspace/{smriti_menu_id}`
+- `backend/app/schemas/legacy_menu_map.py`: Pydantic read-only schemas.
+- Write path blocked at API level; seed-only governance.
+- OpenAPI: 5/5 endpoints confirmed.
+
+**Sprint 4 — Frontend Dashboard (commit: 670c966d)**
+- `src/components/LegacyMigDashTab.tsx`: React migration dashboard.
+  - Overview: arc-gauge (coverage %), 6 status chips (clickable → browse),
+    module bar chart, multi-instance alert, source info card.
+  - Browse: paginated table, search, status filter pills, pagination.
+- `src/App.tsx`: route `case 'legacy-migration'` registered.
+- `src/components/shell/AppShell.tsx`: `'legacy-migration'` in system nav group.
+
+**Sprint 5 — Launchpad Tile (commit: 2589fb83)**
+- `src/components/launchpad/launchpadCatalog.ts` v4.2.0:
+  Tile `legacy-migration` added — title "Shoper9 → SMRITI Migration",
+  group "System & Operations", roles: [MANAGER, SYSADMIN], accentColor: violet.
+
+**Governance:**
+- NGP naming guard: 0 violations across all 6 sprints.
+- WGP walkthrough: `docs/walkthrough/foundation/Legacy_Shoper9_SMRITI_Migration_v1.0.0.md`.
+- Deployment guide: `docs/implementation/foundation/Legacy_Migration_Deploy_v1.0.0.md`.
+- DB seeded in test environment: **Unverified** (requires Sprint 6 deployment run).
+
 ### [3.26.0] - 2026-08-24
+
 
 #### Blueprint v1.0 — UI/Experience Engine & Integration Hub: Migrations Applied, Seeded, Verified
 
