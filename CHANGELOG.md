@@ -628,6 +628,51 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - 75/75 tests pass
 
 
+## [3.34.0] - 2026-08-25
+
+### Added -- Sprint 19: PHY-007 + Loyalty BONUS/EXPIRY + TSC Zero-Error Fix
+
+#### Sprint 19 -- PHY-007 Complete Endpoint + Loyalty Adjustments (commit 65a4950f)
+- backend/app/api/v1/physical_stock.py: PHY-007 PATCH /physical-stock/sessions/{id}/complete
+    Guards: OPEN or IN_PROGRESS + at least 1 counted_qty set (SMRITI-VAL-002)
+    Action: status -> COMPLETED, completed_by recorded
+    Returns: { id, status, completed_by, counted_lines, message }
+    Closes CompleteBtn gap from PhysicalStockTab.tsx v1.1
+- backend/app/services/sales_hook.py: write_loyalty_bonus + write_loyalty_expiry (2 new helpers, total 5)
+    BONUS: INSERT loyalty_transactions(type=BONUS), balance += points, total_earned += points
+    EXPIRY: INSERT loyalty_transactions(type=EXPIRY), balance -= points (clamped >= 0)
+    Both: graceful silent swallow on exception
+- backend/app/api/v1/crm.py: LYL-ADJ-001 POST /crm/loyalty/members/{id}/bonus (MANAGER+)
+    LYL-ADJ-002 POST /crm/loyalty/members/{id}/expire (MANAGER+)
+    get_current_user added to deps import (NameError fix)
+
+### Fixed -- TSC Zero-Error Remediation (commit f12b82e5)
+
+#### Root cause: Sprint 17 launchpad tile insert truncated export functions
+- src/components/launchpad/launchpadCatalog.ts [FIXED]
+    Restored getVisibleLaunchpadTiles() and getQuickActionTiles() exports
+    Fixes: FioriLaunchpad.tsx TS2305 x2, TS2345, TS2322 x3
+- src/components/barcode/types.ts [FIXED]
+    PortType union: added 'PRN File Download'
+    Fixes: TagLabelPrintingTa.tsx TS2367 x4
+- src/components/sales/components/TaxHeaderBar.tsx [FIXED]
+    ExportButton: removed invalid 'filename' and 'buttonLabel' props
+    Fixes: TS2322 x2
+- src/components/sales/DistTaxInvoice.tsx [FIXED]
+    billType default: 'Product' -> 'Tax Invoice'
+    transactionMode default: 'Credit' -> 'Tax Invoice'
+    exportColumns: header/alignment/type -> label/align/datatype
+    Fixes: TS2322 x3
+- src/components/global/ledger/LedgerScreen.tsx [FIXED]
+    onNotification: narrowed to 'error'|'success' only
+    Fixes: TS2345
+- src/components/itemMaster/types.ts [FIXED]
+    ItemMasterCommonFieldValues: added optional hsnCode?: string
+    Fixes: TS2339
+- src/components/itemMaster/ItemEntryView.tsx [FIXED]
+    Default commonFieldValues: added hsnCode: ''
+
+TSC: 14 errors -> 0 errors. Exit code 0.
 ## [3.33.0] - 2026-08-25
 
 ### Added -- Sprints 17-18: Physical Stock Count UI + Inline Count Entry + Alembic v1374
