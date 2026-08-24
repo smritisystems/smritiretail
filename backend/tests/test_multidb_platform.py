@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.21.0
+Version      : 3.26.0
 Created      : 2026-08-14
-Modified     : 2026-08-14
+Modified     : 2026-08-24
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -39,14 +39,17 @@ async def test_sanitize_company_db_name():
 
 @pytest.mark.asyncio
 async def test_control_registry_url_building():
+    """
+    Verifies that ControlDatabaseRegistryService.build_connection_url()
+    constructs the correct asyncpg DSN from ControlCompanyDatabase fields.
+    Uses actual model column names: database_id, host_reference, port_reference.
+    """
     dummy = ControlCompanyDatabase(
-        id="cdb_1",
         company_id="comp_1",
-        company_code="TATTLY",
+        database_id="cdb_1",
         database_name="Smritibus_TATTLY",
-        host="localhost",
-        port=5432,
-        db_user="postgres"
+        host_reference="localhost",
+        port_reference=5432,
     )
     url = ControlDatabaseRegistryService.build_connection_url(dummy)
     assert url == "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_TATTLY"
