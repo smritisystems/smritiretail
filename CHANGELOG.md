@@ -628,6 +628,32 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - 75/75 tests pass
 
 
+## [3.38.0] - 2026-08-25
+
+### Verified & Hardened -- Sprint 22: P0 Production Blockers Stabilization
+
+#### Financial POS Foreign Key Constraints (P0.1)
+- Certified 1360_pos_sct_fk_constraints across tenant databases (smriti001, smriti002, smritisys)
+- Verified DEFERRABLE INITIALLY DEFERRED Foreign Key constraints on shift_cash_transactions (k_sct_account_id -> ccounts.id, k_sct_gl_voucher_id -> journal_vouchers.id)
+- Asserted 0 orphan account references and 0 orphan journal vouchers in all active tenant databases
+- Validated ADR-POS-002 forward-only migration governance blocking backward downgrades
+- Added dedicated test suite ackend/tests/t_pos_sct_fk.py (4/4 tests green)
+
+#### Secure eCommerce Omnichannel Routing & Ingress (P0.2)
+- Certified ackend/app/api/v1/ecom.py and CompanyDatabaseResolver ensuring zero credential leakage
+- Validated HMAC-SHA256 signature verification for Shopify (X-Shopify-Hmac-Sha256) and WooCommerce (X-WC-Webhook-Signature)
+- Enforced database-level idempotency via unique correlation IDs in integration_outbox_events
+- Verified test suite ackend/tests/t_ecom_webhooks.py (5/5 tests green)
+
+#### Fail-Closed Production Security Configuration (P0.3)
+- Validated Settings.load_settings() fail-closed guard raising ValueError on development default keys in production
+- Enforced minimum 32-character length on JWT_SECRET_KEY and INTERNAL_SERVICE_KEY
+- Validated test suite ackend/tests/t_prod_sec.py (6/6 tests green)
+
+#### Architecture Governance Update
+- Transitioned Section 3 (P0.1, P0.2, P0.3) of docs/architecture/BLUEPRINT_PENDING.md to Done / Verified per Rule 11
+- Fixed test fixture in ackend/tests/test_wms_phase1.py (4/4 tests green)
+- Generated WGP Walkthrough docs/walkthrough/foundation/Sprint22_P0_Production_Blockers_v1.0.0.md
 ## [3.37.0] - 2026-08-25
 
 ### Added -- Tattly Threads Batch 2 Tax Invoices (TT2026-2027/129 to 137)

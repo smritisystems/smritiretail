@@ -282,7 +282,10 @@ async def test_wms_service_async_lifecycle():
                 category="Test",
                 barcode=f"BAR-ISO-{unique_suffix}",
                 cost_price=Decimal("150.00"),
+                mrp=Decimal("250.00"),
                 price=Decimal("250.00"),
+                hsn_code="64041990",
+                reserved_stock=Decimal("0.0000"),
                 stock=0
             )
             session.add(prod)
