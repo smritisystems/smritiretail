@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -35,8 +35,10 @@ import {
   Gift,
   Minus,
   Star,
-  Loader2
+  Loader2,
+  X
 } from "lucide-react";
+
 import { apiFetchV1 } from "../lib/apiFetchV1";
 
 
@@ -255,51 +257,80 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
 // Allows MANAGER+ to grant BONUS or expire points for a loyalty member.
 // Calls: POST /api/v1/crm/loyalty/members/{id}/bonus|expire
 
+interface CustomerHit {
+  id: string;
+  name: string;
+  mobile?: string | null;
+  code?: string | null;
+}
+
 interface LoyaltyAdjPanelProps {
   currentUser?: { role: string; name: string } | null;
 }
 
 const LoyaltyAdjPanel: React.FC<LoyaltyAdjPanelProps> = ({ currentUser }) => {
-  const [memberId, setMemberId]   = useState("");
-  const [adjType, setAdjType]     = useState<"bonus" | "expire">("bonus");
-  const [points, setPoints]       = useState("");
-  const [reason, setReason]       = useState("");
-  const [refId, setRefId]         = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [flash, setFlash]         = useState<{ msg: string; ok: boolean } | null>(null);
+  const [searchQ, setSearchQ]               = useState("");
+  const [searchResults, setSearchResults]   = useState<CustomerHit[]>([]);
+  const [searching, setSearching]           = useState(false);
+  const [selectedMember, setSelectedMember] = useState<CustomerHit | null>(null);
+  const debounceRef                         = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const role = (currentUser?.role || "").toUpperCase();
+  const [adjType, setAdjType] = useState<"bonus" | "expire">("bonus");
+  const [points, setPoints]   = useState("");
+  const [reason, setReason]   = useState("");
+  const [refId, setRefId]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [flash, setFlash]     = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const role      = (currentUser?.role || "").toUpperCase();
   const canAdjust = ["ADMIN","SYSADMIN","SUPERADMIN","MANAGER"].includes(role);
+  const memberId  = selectedMember?.id ?? "";
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!searchQ.trim() || searchQ.length < 2) { setSearchResults([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const hits = await apiFetchV1<CustomerHit[]>(
+          `/crm/customers/search?q=${encodeURIComponent(searchQ)}&limit=5`
+        );
+        setSearchResults(hits ?? []);
+      } catch { setSearchResults([]); }
+      finally { setSearching(false); }
+    }, 350);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQ]);
+
+  const selectMember = (hit: CustomerHit) => {
+    setSelectedMember(hit); setSearchQ(""); setSearchResults([]);
+  };
+  const clearMember = () => {
+    setSelectedMember(null); setSearchQ(""); setSearchResults([]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!memberId.trim()) { setFlash({ msg: "Member ID is required.", ok: false }); return; }
+    if (!memberId) { setFlash({ msg: "Select a member before submitting.", ok: false }); return; }
     const pts = parseFloat(points);
     if (isNaN(pts) || pts <= 0) { setFlash({ msg: "Points must be a positive number.", ok: false }); return; }
     if (!reason.trim()) { setFlash({ msg: "Reason is required.", ok: false }); return; }
-
-    setLoading(true);
-    setFlash(null);
+    setLoading(true); setFlash(null);
     try {
-      const endpoint = `/crm/loyalty/members/${memberId.trim()}/${adjType}`;
-      await apiFetchV1(endpoint, {
+      await apiFetchV1(`/crm/loyalty/members/${memberId}/${adjType}`, {
         method: "POST",
         body: JSON.stringify({ points: pts, reason, reference_id: refId.trim() || undefined }),
       });
       const action = adjType === "bonus" ? "granted" : "expired";
-      setFlash({ msg: `${pts} pts ${action} for member ${memberId}.`, ok: true });
+      setFlash({ msg: `${pts} pts ${action} for ${selectedMember?.name ?? memberId}.`, ok: true });
       setPoints(""); setReason(""); setRefId("");
     } catch (err: any) {
-      const msg = err?.detail?.message || err?.message || "Request failed.";
-      setFlash({ msg, ok: false });
-    } finally {
-      setLoading(false);
-    }
+      setFlash({ msg: err?.detail?.message || err?.message || "Request failed.", ok: false });
+    } finally { setLoading(false); }
   };
 
   return (
     <div className="space-y-6 max-w-xl">
-      {/* Title */}
       <div className="flex items-center gap-2">
         <Star size={16} className="text-amber-500" />
         <h3 className="text-xs font-bold text-theme-body uppercase tracking-wider font-mono">
@@ -315,125 +346,91 @@ const LoyaltyAdjPanel: React.FC<LoyaltyAdjPanelProps> = ({ currentUser }) => {
 
       {canAdjust && (
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Adjustment type toggle */}
+          {/* Toggle */}
           <div className="flex gap-2">
-            <button
-              type="button"
-              id="lyl-adj-bonus-btn"
-              onClick={() => setAdjType("bonus")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${
-                adjType === "bonus"
-                  ? "bg-emerald-600 border-emerald-500 text-white"
-                  : "bg-theme-surface-1 border-theme-border text-theme-muted hover:text-theme-body"
-              }`}
-            >
+            <button type="button" id="lyl-adj-bonus-btn" onClick={() => setAdjType("bonus")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${adjType === "bonus" ? "bg-emerald-600 border-emerald-500 text-white" : "bg-theme-surface-1 border-theme-border text-theme-muted hover:text-theme-body"}`}>
               <Gift size={13} /> Grant Bonus
             </button>
-            <button
-              type="button"
-              id="lyl-adj-expire-btn"
-              onClick={() => setAdjType("expire")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${
-                adjType === "expire"
-                  ? "bg-red-600 border-red-500 text-white"
-                  : "bg-theme-surface-1 border-theme-border text-theme-muted hover:text-theme-body"
-              }`}
-            >
+            <button type="button" id="lyl-adj-expire-btn" onClick={() => setAdjType("expire")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${adjType === "expire" ? "bg-red-600 border-red-500 text-white" : "bg-theme-surface-1 border-theme-border text-theme-muted hover:text-theme-body"}`}>
               <Minus size={13} /> Expire Points
             </button>
           </div>
 
-          {/* Member ID */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">
-              Loyalty Member ID *
-            </label>
-            <input
-              id="lyl-member-id"
-              type="text"
-              value={memberId}
-              onChange={e => setMemberId(e.target.value)}
-              placeholder="e.g. MEM-001234"
-              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm font-mono outline-none focus:border-theme-primary"
-              required
-            />
+          {/* Member Search */}
+          <div className="space-y-1 relative">
+            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">Search Member *</label>
+            {selectedMember ? (
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <div>
+                  <span className="text-sm font-semibold text-emerald-800">{selectedMember.name}</span>
+                  <span className="ml-2 text-xs text-emerald-600 font-mono">{selectedMember.id}{selectedMember.mobile ? ` · ${selectedMember.mobile}` : ""}</span>
+                </div>
+                <button type="button" id="lyl-clear-member" onClick={clearMember} className="text-emerald-500 hover:text-red-500 ml-2 transition-colors">
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="relative">
+                  <input id="lyl-member-search" type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                    placeholder="Name, mobile, or member code…"
+                    className="w-full px-3 py-2 pr-8 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm outline-none focus:border-theme-primary"
+                    autoComplete="off" />
+                  {searching && <Loader2 size={14} className="absolute right-2.5 top-2.5 animate-spin text-theme-muted" />}
+                </div>
+                {searchResults.length > 0 && (
+                  <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-theme-surface-1 border border-theme-border rounded-xl shadow-lg overflow-hidden">
+                    {searchResults.map(hit => (
+                      <button key={hit.id} type="button" id={`lyl-member-hit-${hit.id}`} onClick={() => selectMember(hit)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-theme-surface-hover border-b border-theme-border/50 last:border-0 transition-colors">
+                        <span className="text-sm font-semibold text-theme-body">{hit.name}</span>
+                        <span className="ml-2 text-xs text-theme-muted font-mono">{hit.id}{hit.mobile ? ` · ${hit.mobile}` : ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {searchQ.length >= 2 && !searching && searchResults.length === 0 && (
+                  <p className="text-xs text-theme-muted mt-1 pl-1">No members found for &quot;{searchQ}&quot;.</p>
+                )}
+              </>
+            )}
           </div>
 
           {/* Points */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">
-              Points *
-            </label>
-            <input
-              id="lyl-points"
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={points}
-              onChange={e => setPoints(e.target.value)}
+            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">Points *</label>
+            <input id="lyl-points" type="number" min="0.01" step="0.01" value={points} onChange={e => setPoints(e.target.value)}
               placeholder="e.g. 250"
-              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm font-mono outline-none focus:border-theme-primary"
-              required
-            />
+              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm font-mono outline-none focus:border-theme-primary" required />
           </div>
 
           {/* Reason */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">
-              Reason *
-            </label>
-            <input
-              id="lyl-reason"
-              type="text"
-              value={reason}
-              onChange={e => setReason(e.target.value)}
+            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">Reason *</label>
+            <input id="lyl-reason" type="text" value={reason} onChange={e => setReason(e.target.value)}
               placeholder="e.g. Birthday bonus / Points expired after 1 year"
-              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm outline-none focus:border-theme-primary"
-              required
-            />
+              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm outline-none focus:border-theme-primary" required />
           </div>
 
-          {/* Reference ID (optional) */}
+          {/* Reference ID */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">
-              Reference ID <span className="text-theme-muted/60">(optional)</span>
-            </label>
-            <input
-              id="lyl-ref-id"
-              type="text"
-              value={refId}
-              onChange={e => setRefId(e.target.value)}
+            <label className="text-xs font-semibold text-theme-muted font-mono uppercase tracking-wider">Reference ID <span className="text-theme-muted/60">(optional)</span></label>
+            <input id="lyl-ref-id" type="text" value={refId} onChange={e => setRefId(e.target.value)}
               placeholder="e.g. Campaign ID, Invoice No."
-              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm font-mono outline-none focus:border-theme-primary"
-            />
+              className="w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface-1 text-theme-body text-sm font-mono outline-none focus:border-theme-primary" />
           </div>
 
-          {/* Flash */}
           {flash && (
-            <div className={`rounded-lg px-4 py-2.5 text-sm font-mono ${
-              flash.ok
-                ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                : "bg-red-50 border border-red-200 text-red-700"
-            }`}>
+            <div className={`rounded-lg px-4 py-2.5 text-sm font-mono ${flash.ok ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-red-50 border border-red-200 text-red-700"}`}>
               {flash.msg}
             </div>
           )}
 
-          {/* Submit */}
-          <button
-            id="lyl-adj-submit"
-            type="submit"
-            disabled={loading}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-colors disabled:opacity-50 ${
-              adjType === "bonus"
-                ? "bg-emerald-600 hover:bg-emerald-500"
-                : "bg-red-600 hover:bg-red-500"
-            }`}
-          >
-            {loading
-              ? <Loader2 size={14} className="animate-spin" />
-              : adjType === "bonus" ? <Gift size={14} /> : <Minus size={14} />
-            }
+          <button id="lyl-adj-submit" type="submit" disabled={loading || !selectedMember}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-colors disabled:opacity-50 ${adjType === "bonus" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500"}`}>
+            {loading ? <Loader2 size={14} className="animate-spin" /> : adjType === "bonus" ? <Gift size={14} /> : <Minus size={14} />}
             {adjType === "bonus" ? "Grant Bonus Points" : "Expire Points"}
           </button>
         </form>
