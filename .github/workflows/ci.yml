@@ -4,7 +4,7 @@
 # Websites     : smritibooks.com | erpnbook.com | aitdl.com
 # Version      : 3.16.0
 # Created      : 2026-07-12
-# Modified     : 2026-07-12
+# Modified     : 2026-08-24
 # Copyright    : © SMRITIBooks.com. All Rights Reserved.
 # License      : Proprietary Commercial Software
 #
@@ -41,6 +41,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
+      - name: Run SMRITI Naming Guard (NGP-v1.0)
+        run: python scripts/smriti_naming_guard.py --root .
 
       - name: Run Gitleaks Secret Scanner
         uses: gitleaks/gitleaks-action@v2
