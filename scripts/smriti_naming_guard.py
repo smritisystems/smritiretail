@@ -65,7 +65,7 @@ SCANNED_EXTENSIONS: set = {
     ".ts", ".tsx", ".py", ".js", ".jsx", ".css", ".md"
 }
 
-SCAN_DIRS: list = ["src", "backend"]
+SCAN_DIRS: list = ["src", "backend", "scripts"]
 
 SKIP_DIRS: set = {
     "node_modules", "__pycache__", ".venv", ".git",
@@ -127,14 +127,10 @@ PROHIBITED_SUFFIXES: list = [
 
 # ── Whitelist: exempt despite matching a rule ──────────────────────────────
 WHITELIST: set = {
+    # The governance policy doc and this guard script reference prohibited
+    # words by necessity in their content -- they are exempted by design.
     "docs/governance/SMRITI_NAMING_POLICY.md",
     "scripts/smriti_naming_guard.py",
-    # Pre-policy legacy scripts (exist before NGP-v1.0 was introduced)
-    "scripts/debug_insert.py",
-    "scripts/dev/temp_legacy_check.py",
-    "scripts/dev/temp_route_inventory.py",
-    "scripts/dev/frontend_backend_route_audit2.py",
-    "scripts/audit_item_master_db2.py",
 }
 
 
