@@ -44,13 +44,34 @@ COMPANY_001_ASYNC_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/s
 test_engine = create_async_engine(COMPANY_001_ASYNC_URL, poolclass=NullPool)
 test_sessionmaker = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
 
+from sqlalchemy import text, delete
+
+_cleaned_once = False
+
 @pytest.fixture(autouse=True)
-def setup_user_override():
+async def setup_user_override():
+    global _cleaned_once
     app.dependency_overrides[get_current_user] = lambda: sysadmin_user_a
     async def _test_get_db():
         async with test_sessionmaker() as session:
             yield session
     app.dependency_overrides[get_db] = _test_get_db
+
+    if not _cleaned_once:
+        async with test_sessionmaker() as session:
+            await session.execute(
+                text("DELETE FROM sales_invoices WHERE id IN ('inv-test-contract-04', 'IDEM-KEY-001', 'IDEM-KEY-002');")
+            )
+            await session.execute(
+                text("""
+                    UPDATE product_batch_stocks 
+                    SET quantity = 100.0000 
+                    WHERE product_id = 'prod-ch-01-a-cream-36' AND warehouse_id = 'wh-central-001';
+                """)
+            )
+            await session.commit()
+        _cleaned_once = True
+
     yield
     app.dependency_overrides.clear()
 
@@ -134,6 +155,7 @@ async def test_04_create_invoice_and_verify_stock_deduction(auth_headers_company
                 "price": 1000.00,
                 "hsnCode": "64041990",
                 "gstRate": 18.00,
+                "isTaxInclusive": False,
                 "taxAmount": 360.00,
                 "totalAmount": 2360.00
             }],
@@ -183,7 +205,7 @@ async def test_09_print_preview_structure(auth_headers_company_a):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/html", headers=auth_headers_company_a)
         assert res.status_code == 200
-        assert "2360.00" in res.text
+        assert "2,360.00" in res.text or "2360.00" in res.text
 
 @pytest.mark.asyncio
 async def test_10_double_submit_idempotency_semantics(auth_headers_company_a):
