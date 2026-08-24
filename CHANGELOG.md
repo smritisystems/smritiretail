@@ -628,6 +628,32 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - 75/75 tests pass
 
 
+## [3.35.0] - 2026-08-25
+
+### Added -- Sprint 20: PHY-008 Barcode Scan-to-Count + CRM Loyalty Adjustment UI (commit f2c9726b)
+
+#### PHY-008: Barcode Scan-to-Count in PhysicalStockTab.tsx (v1.1.0 -> v1.2.0)
+- src/components/PhysicalStockTab.tsx: ScanBar component (new, ~75 lines)
+    Input: id='phy-scan-input', autoFocus, Enter key submits
+    Lookup: matches scanned value against count_lines by sku or product_id
+    Action: PATCH PHY-006 /sessions/:id/lines/:lid with counted_qty = current + 1
+    Flash: green 'Product -> N pcs' on success; red 'SKU not found' on miss; 2s auto-clear
+    Guard: editable=false returns null (only shown for OPEN/IN_PROGRESS sessions)
+    Render: inserted above Count Lines Table (after filter chips)
+    Import: ScanLine icon added from lucide-react
+    Header: v1.2.0 -- API endpoint list updated PHY-001..008
+
+#### CRM Loyalty Adjustment UI in CrmStudioTab.tsx (v3.28.0 -> v3.29.0)
+- src/components/CrmStudioTab.tsx: LoyaltyAdjPanel component (new, ~155 lines)
+    Tab: 'Loyalty Adjustments' pill with Star icon added to sub-nav bar
+    Toggle: BONUS (emerald) / EXPIRE (red) button pair (id: lyl-adj-bonus-btn, lyl-adj-expire-btn)
+    Fields: memberId (id: lyl-member-id), points (id: lyl-points), reason, reference_id (optional)
+    Guard: role not in [ADMIN,SYSADMIN,SUPERADMIN,MANAGER] shows amber warning banner
+    Submit: POST /api/v1/crm/loyalty/members/{id}/bonus|expire (LYL-ADJ-001/002)
+    Flash: green on success (granted/expired message), red on API error message
+    Imports: Gift, Minus, Star, Loader2 (lucide-react) + apiFetchV1
+
+TSC: exit code 0 (0 errors). NGP: 0 violations.
 ## [3.34.0] - 2026-08-25
 
 ### Added -- Sprint 19: PHY-007 + Loyalty BONUS/EXPIRY + TSC Zero-Error Fix
