@@ -408,6 +408,8 @@
   --color-on-error-container: #93000a;
 }
 
+.bg-background { background-color: #fbf8fb; }
+.text-on-background { color: #1b1b1e; }
 .bg-surface { background-color: #fbf8fb; }
 .bg-surface-dim { background-color: #dbd9dc; }
 .bg-surface-container-lowest { background-color: #ffffff; }
@@ -415,18 +417,23 @@
 .bg-surface-container { background-color: #efedf0; }
 .bg-surface-container-high { background-color: #eae7ea; }
 .bg-surface-container-highest { background-color: #e4e2e5; }
+.bg-surface-variant { background-color: #e4e2e5; }
 .text-on-surface { color: #1b1b1e; }
 .text-on-surface-variant { color: #44474d; }
 .border-outline { border-color: #75777e; }
 .border-outline-variant { border-color: #c5c6ce; }
 .border-surface-variant { border-color: #e4e2e5; }
 .bg-primary { background-color: #041632; }
+.text-primary { color: #041632; }
+.text-primary-fixed { color: #d7e2ff; }
 .text-on-primary { color: #ffffff; }
 .bg-primary-container { background-color: #1b2b48; }
 .text-on-primary-container { color: #8393b5; }
 .bg-secondary { background-color: #3e5f90; }
 .text-secondary { color: #3e5f90; }
 .text-on-secondary { color: #ffffff; }
+.bg-secondary-container { background-color: #a7c8ff; }
+.text-on-secondary-container { color: #315384; }
 .bg-secondary-fixed { background-color: #d5e3ff; }
 .text-on-secondary-fixed { color: #001b3c; }
 .border-error { border-color: #ba1a1a; }
@@ -441,12 +448,18 @@
 .font-body-sm { font-family: Inter, sans-serif; font-size: 13px; font-weight: 400; line-height: 18px; }
 .font-label-caps { font-family: Inter, sans-serif; font-size: 12px; font-weight: 700; line-height: 16px; letter-spacing: 0.05em; text-transform: uppercase; }
 .font-code-md { font-family: "JetBrains Mono", monospace; font-size: 13px; font-weight: 400; line-height: 20px; }
-.text-title-sm { font-size: 16px; }
-.text-body-md { font-size: 14px; }
-.text-body-sm { font-size: 13px; }
-.text-label-caps { font-size: 12px; letter-spacing: 0.05em; }
-.text-code-md { font-size: 13px; }
+.text-headline-lg { font-size: 24px; line-height: 32px; }
+.text-title-sm { font-size: 16px; line-height: 24px; }
+.text-body-md { font-size: 14px; line-height: 20px; }
+.text-body-sm { font-size: 13px; line-height: 18px; }
+.text-label-caps { font-size: 12px; line-height: 16px; letter-spacing: 0.05em; }
+.text-code-md { font-size: 13px; line-height: 20px; }
 .p-margin-page { padding: 24px; }
 .px-margin-page { padding-left: 24px; padding-right: 24px; }
+.p-stack-gap { padding: 12px; }
 .gap-stack-gap { gap: 12px; }
+.gap-gutter { gap: 16px; }
+.gap-unit { gap: 4px; }
+.max-w-container-max-width { max-width: 1280px; }
+
 
