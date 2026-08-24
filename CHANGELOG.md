@@ -28,6 +28,31 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.26.0] - 2026-08-24
+
+#### Blueprint v1.0 — UI/Experience Engine & Integration Hub: Migrations Applied, Seeded, Verified
+
+- **Migrations executed:** `alembic upgrade head` applied `v1368_ui_experience_engine` and `v1369_integration_hub_registry` against smritisys. `alembic current` confirms `v1369_integration_hub_registry (head)`. 11 new tables created in smritisys Control Plane database.
+- **Seeder extended — Phase 9 (`control_plane_seeder.py`):**
+  - `seed_layout_definitions()` — 6 canonical layout templates (FULL_WIDTH, SIDEBAR_LEFT, SPLIT, DETAIL, DASHBOARD, WIZARD_STEPS).
+  - `seed_screen_definitions()` — 5 top business flow screens: POS Billing Terminal, Sales Invoice List, Purchase Order List, Inventory Dashboard, Party Master List. Each carries `layout_config`, `capability_code`, `route_path`, and `icon_key` linkages.
+  - `seed_action_definitions()` — 18 toolbar and row actions across all 5 screens. Action types: NAVIGATE, API_CALL, DOWNLOAD, PRINT, WORKFLOW_TRANSITION. Role-gated and capability-gated per Blueprint Rule 09.
+  - All seed methods are idempotent (`SELECT to_regclass()` guard + duplicate key skip).
+- **Database row counts (verified by literal terminal query output):** `icon_registry`: 36, `provider_registry`: 6, `layout_definitions`: 6, `screen_definitions`: 5, `action_definitions`: 18. Total: 71 rows seeded in 8 smritisys tables.
+- **alembic `env.py` updated:** 11 new table names added to `include_object` filter; `ScreenDefinition`, `FieldDefinition`, `ActionDefinition`, `LayoutDefinition`, `IconRegistry`, `ProviderRegistry`, `ConnectorRegistry`, `IntegrationRegistry`, `IntegrationCredentialReference`, `IntegrationPolicy`, `IntegrationVersion` models registered for autogenerate correctness.
+- **Architecture tracker:** UI/Experience Engine (§11) promoted from **Partial** → **Verified**. Integration Hub Connector Registry (§45) promoted from **Partial** → **Verified**. Milestone 6 appended to `SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
+
+### [3.25.0] - 2026-08-24
+
+#### Blueprint v1.0 — UI/Experience Engine Schema & Integration Hub Registry
+- **Blueprint ss54 Rules Cross-Check (2026-08-24)**: All 25 architecture rules verified against source code and migration chain. 25-rule adherence table added to `SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
+- **UI/Experience Engine smritisys schema (`v1368_ui_experience_engine.py`)**: Created 5 smritisys-resident tables: `screen_definitions`, `field_definitions`, `action_definitions`, `layout_definitions`, `icon_registry`. Closes Blueprint ss11 named gap.
+- **Integration Hub Connector Registry smritisys schema (`v1369_integration_hub_registry.py`)**: Created 6 smritisys-resident tables: `integration_registry`, `connector_registry`, `provider_registry`, `integration_credentials_reference`, `integration_policies`, `integration_versions`. Closes Blueprint ss45 named gap.
+- **SQLAlchemy models**: `ui_control_plane.py` extended with `ScreenDefinition`, `FieldDefinition`, `ActionDefinition`, `LayoutDefinition`, `IconRegistry`. New `integration_hub.py` with `ProviderRegistry`, `ConnectorRegistry`, `IntegrationRegistry`, `IntegrationCredentialReference`, `IntegrationPolicy`, `IntegrationVersion`.
+- **Control Plane Seeder**: Added `seed_icon_registry()` (35 platform icons, Material Symbols Outlined) and `seed_integration_providers()` (6 providers: GSTN, NIC E-Way Bill, TallyPrime, Shopify, WooCommerce, Twilio) to `ControlPlaneSeeder.seed_all()`.
+- **API**: `ui_control_plane.py` extended with 4 new Control Plane read endpoints (`GET /ui/screens`, `/ui/fields`, `/ui/actions`, `/ui/icons`). `integration.py` extended with 3 Integration Hub registry endpoints (`GET /integration/hub/providers`, `/hub/connectors`, `/hub/integrations`).
+- **Architecture tracker**: Added Milestone 5, Blueprint ss54 rules table (25 rows), and two new gap rows to `SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
+
 ### [3.23.0] - 2026-08-23
 
 #### Enterprise Blueprint Delivery — Sections 11 & 12 (Analytics & Intelligence Plane, Integration Hub & Compliance Audit)
@@ -1042,8 +1067,14 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ### Documentation
 - Created implementation plan `Project_Header_Standardization_Plan_v3.3.0.md` and walkthrough `Project_Header_Standardization_Walkthrough_v3.3.0.md`.
-- Consolidated plans and walkthroughs.
-- Updated master indices and changelogs.
+- Consolidated plans| Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-24 | v3.25.0 | Blueprint UI/Experience Engine & Integration Hub Registry | [Walkthrough](./foundation/Blueprint_UIExperience_IntegrationHub_v1.0.md) | — | Completed |
+
+### Added
+- Created `src/db/pool.ts` to manage PostgreSQL connection pools.
+- Created `src/db/schema.sql` defining database schemas, relational foreign keys, GIN-indexed JSONB columns, and optimized computed fields.
+- Created `src/db/init.ts` containing automatic database migration execution and JSON data seeding scripts.
 
 ---
 
