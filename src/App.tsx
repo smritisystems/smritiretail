@@ -81,6 +81,8 @@ import { TermsEngineTab } from "./components/TermsEngineTab.tsx";
 import { DataExchangeTab } from "./components/DataExchangeTab.tsx";
 import { DatabaseManagerTab } from "./components/DatabaseManagerTab.tsx";
 import { LegacyMigDashTab } from "./components/LegacyMigDashTab.tsx";
+import { PhysicalStockTab } from "./components/PhysicalStockTab.tsx";
+
 import { WmsStudioTab } from "./components/wms/WmsStudioTab.tsx";
 import { useLayoutModuleRegistration } from "./components/SmritiBaseModule.tsx";
 import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext.tsx";
@@ -572,6 +574,12 @@ const AppContent: React.FC = () => {
         return <DatabaseManagerTab onNotification={addNotification} />;
       case "legacy-migration":
         return <LegacyMigDashTab />;
+
+      case "physical-stock":
+      case "stock-count":
+      case "physical-inventory":
+        return <PhysicalStockTab />;
+
 
       case "wms":
       case "wms-dashboard":
