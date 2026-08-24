@@ -92,6 +92,28 @@ The remaining work is primarily convergence and governance: turning module-level
   - Test Suite: [`backend/tests/t_prod_sec.py`](file:///F:/SMRITRretailNX/backend/tests/t_prod_sec.py)
   - Configuration: [`backend/app/core/config.py`](file:///F:/SMRITRretailNX/backend/app/core/config.py)
 
+---
+
+### Sprint 23 Reports Portal Gap Closure (Shoper9 Sales & Audit Parity) [STATUS: DONE / VERIFIED]
+
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `9/9 tests green` in `backend/tests/t_reports_parity.py` (execution time: 11.66s).
+  - `8 missing Shoper9 sales & audit reports closed` with 100% parity across FastAPI endpoints, Pydantic schemas, and React UI data tables.
+  - `MnuNo 410 parity score`: 14 VERIFIED / 1 GAP (up from 6 VERIFIED / 8 GAP).
+  - `0 type errors` in `ReportDesignerTab.tsx` frontend verification.
+- **Named Architectural Mechanisms:**
+  - `ReportsService Async Query Aggregator`: Multi-table joins across `SalesInvoice`, `SalesInvoiceItem`, `SalesReturn`, `SalesReturnItem`, and `Product` with tenant company isolation filters (`_tenant_filter`) and date-range constraints (`_date_filter`).
+  - `Eager Relationship Loading`: `selectinload(SalesInvoice.items)` preventing greenlet I/O collisions in async SQLAlchemy.
+  - `Alembic Schema Convergence`: Migrations `v1371` through `v1375_backfill_sales_return_cust` executed across `smriti001`, `smriti002`, and `smritisys` providing denormalized `customer_id` on `sales_returns` and extended `sales_invoices` audit attributes (`salesperson_id`, `terminal_id`, `discount_amount`, `net_amount`).
+  - `Universal Report Designer Viewer`: Responsive React data table renderers with KPI stat banners and dynamic dataset export pipelines (`GlobalExportService`) for CSV/XLSX/TXT.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_reports_parity.py`](file:///F:/SMRITRretailNX/backend/tests/t_reports_parity.py)
+  - Backend Service: [`backend/app/services/reports.py`](file:///F:/SMRITRretailNX/backend/app/services/reports.py)
+  - Backend API: [`backend/app/api/v1/reports.py`](file:///F:/F:/SMRITRretailNX/backend/app/api/v1/reports.py)
+  - Frontend UI: [`src/components/ReportDesignerTab.tsx`](file:///F:/SMRITRretailNX/src/components/ReportDesignerTab.tsx)
+  - Parity Audit: [`docs/legacy/shoper/SH9_PARITY_GAPS.md`](file:///F:/SMRITRretailNX/docs/legacy/shoper/SH9_PARITY_GAPS.md)
+
 ## 4. P1 Control Plane Completion
 
 ### P1.1 Global Reference Data and Localization

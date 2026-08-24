@@ -33,6 +33,10 @@ from ...schemas.reports import (
     TaxRegisterReport,
     CancelledBillsReport,
     SalespersonDiscountReport,
+    BillWiseItemsReport,
+    DiscountSummaryReport,
+    ItemWiseReturnsReport,
+    AttributeSizeSalesReport,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
 from ...services.reports import ReportsService
@@ -247,6 +251,51 @@ async def salesperson_discount(
 ):
     """RPT-MIS-005 — Salesperson-wise Discount (Shoper9: SR238400.EXE)."""
     return await ReportsService(db, tenant).salesperson_discount(from_date, to_date)
+
+@router.get("/bill-wise-items", response_model=BillWiseItemsReport)
+async def bill_wise_items(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-TAX-005 — Bill-wise Items Detail (Shoper9: SR202000.EXE)."""
+    return await ReportsService(db, tenant).bill_wise_items(from_date, to_date)
+
+@router.get("/discount-summary", response_model=DiscountSummaryReport)
+async def discount_summary(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-OPS-001 — Discount Given Summary (Shoper9: SR202100.EXE)."""
+    return await ReportsService(db, tenant).discount_summary(from_date, to_date)
+
+@router.get("/item-wise-returns", response_model=ItemWiseReturnsReport)
+async def item_wise_returns(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-MRC-003 — Item-wise Sales Returns (Shoper9: SR214100.EXE)."""
+    return await ReportsService(db, tenant).item_wise_returns(from_date, to_date)
+
+@router.get("/attribute-size-sales", response_model=AttributeSizeSalesReport)
+async def attribute_size_sales(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-MRC-001 — Attribute+Size wise Sales (Shoper9: SR236300.EXE)."""
+    return await ReportsService(db, tenant).attribute_size_sales(from_date, to_date)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Flexi Report Studio & Report Definitions API
