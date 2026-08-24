@@ -190,7 +190,8 @@ export function LedgerScreen<T extends Record<string, any>>({
             searchTerm={searchQuery}
             appliedFilters={activeFilters}
             dateRange={dateRange.startDate ? { start: dateRange.startDate, end: dateRange.endDate } : undefined}
-            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" || type === "warning" ? "success" : type || "info")}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, (type === "error" ? "error" : "success"))}
+
           />
 
           {/* Popout External Window Button */}

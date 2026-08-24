@@ -98,8 +98,10 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
       season: "Core / All Season",
       status: "active",
       department: "Unisex",
-      merchandiseCategory: ""
+      merchandiseCategory: "",
+      hsnCode: "",
     };
+
   });
 
   // Grid rows state

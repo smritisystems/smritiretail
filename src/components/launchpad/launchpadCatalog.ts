@@ -426,3 +426,31 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     accentColor: "emerald",
   },
 ];
+/**
+ * Filter catalog by user role with strict deny-by-default semantics.
+ * - Missing/null/empty role -> only tiles with NO role restriction (tile.roles undefined or empty)
+ * - SYSADMIN / ADMIN -> sees all tiles
+ * - Specific role -> sees tiles explicitly allowing that role
+ */
+export function getVisibleLaunchpadTiles(userRoleRaw?: string | null): TileData[] {
+  if (!userRoleRaw || typeof userRoleRaw !== "string" || !userRoleRaw.trim()) {
+    // Deny-by-default: anonymous / unassigned users only see unrestricted tiles (if any)
+    return LAUNCHPAD_CATALOG.filter((tile) => !tile.roles || tile.roles.length === 0);
+  }
+
+  const userRole = userRoleRaw.toUpperCase().trim();
+  const isSysAdmin = userRole === "SYSADMIN" || userRole === "SYSTEM ADMIN" || userRole === "ADMIN";
+  const isManager = userRole === "MANAGER" || userRole === "STORE MANAGER" || isSysAdmin;
+
+  return LAUNCHPAD_CATALOG.filter((tile) => {
+    if (!tile.roles || tile.roles.length === 0 || isSysAdmin) return true;
+    return tile.roles.some((r) => r.toUpperCase() === userRole || (r === "MANAGER" && isManager));
+  });
+}
+
+/**
+ * Get primary quick action tiles.
+ */
+export function getQuickActionTiles(userRoleRaw?: string | null): TileData[] {
+  return getVisibleLaunchpadTiles(userRoleRaw).filter((t) => t.isQuickAction);
+}
