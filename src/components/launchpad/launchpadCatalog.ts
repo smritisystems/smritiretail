@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 4.2.0
  * Created      : 2026-08-20
  * Modified     : 2026-08-24
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -149,7 +149,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   },
   {
     id: "crm",
-    title: "CRM Studio (360°)",
+    title: "CRM Studio (360Â°)",
     subtitle: "Customer 360 profile, interaction history, credit limits & account statements",
     icon: "groups",
     tag: "CRM",
@@ -404,7 +404,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   },
   {
     id: "legacy-migration",
-    title: "Shoper9 → SMRITI Migration",
+    title: "Shoper9 â†’ SMRITI Migration",
     subtitle: "Legacy vaMenu lineage registry: 265 entries classified, coverage tracking & workspace parity dashboard",
     icon: "alt_route",
     tag: "Migration",
@@ -413,33 +413,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["MANAGER", "SYSADMIN"],
     accentColor: "violet",
   },
+  {
+    // Sprint 17 -- Shoper9 SR323400 MnuNo 350/351 parity
+    id: "physical-stock",
+    title: "Physical Stock Count",
+    subtitle: "Conduct physical inventory audits: create count sessions, record counted quantities, approve variances",
+    icon: "fact_check",
+    tag: "Inventory",
+    badgeType: "info",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "emerald",
+  },
 ];
-
-/**
- * Filter catalog by user role with strict deny-by-default semantics.
- * - Missing/null/empty role -> only tiles with NO role restriction (tile.roles undefined or empty)
- * - SYSADMIN / ADMIN -> sees all tiles
- * - Specific role -> sees tiles explicitly allowing that role
- */
-export function getVisibleLaunchpadTiles(userRoleRaw?: string | null): TileData[] {
-  if (!userRoleRaw || typeof userRoleRaw !== "string" || !userRoleRaw.trim()) {
-    // Deny-by-default: anonymous / unassigned users only see unrestricted tiles (if any)
-    return LAUNCHPAD_CATALOG.filter((tile) => !tile.roles || tile.roles.length === 0);
-  }
-
-  const userRole = userRoleRaw.toUpperCase().trim();
-  const isSysAdmin = userRole === "SYSADMIN" || userRole === "SYSTEM ADMIN" || userRole === "ADMIN";
-  const isManager = userRole === "MANAGER" || userRole === "STORE MANAGER" || isSysAdmin;
-
-  return LAUNCHPAD_CATALOG.filter((tile) => {
-    if (!tile.roles || tile.roles.length === 0 || isSysAdmin) return true;
-    return tile.roles.some((r) => r.toUpperCase() === userRole || (r === "MANAGER" && isManager));
-  });
-}
-
-/**
- * Get primary quick action tiles.
- */
-export function getQuickActionTiles(userRoleRaw?: string | null): TileData[] {
-  return getVisibleLaunchpadTiles(userRoleRaw).filter((t) => t.isQuickAction);
-}
