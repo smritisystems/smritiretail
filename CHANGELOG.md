@@ -628,6 +628,51 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - 75/75 tests pass
 
 
+## [3.33.0] - 2026-08-25
+
+### Added -- Sprints 17-18: Physical Stock Count UI + Inline Count Entry + Alembic v1374
+
+#### Sprint 17 -- Physical Stock Count React Workspace (commit 66ba0b2f)
+- src/components/PhysicalStockTab.tsx [NEW 585 lines]
+  Shoper9 SR323400 MnuNo 350/351 parity React workspace
+  - Session List tab: status badges, variance count chip, sorted OPEN->IN_PROGRESS->COMPLETED->APPROVED
+  - New Session Modal (POST PHY-002): warehouse, date, description, notes fields
+  - Session Detail Panel: meta grid, count lines table (read-only v1.0)
+  - Variance Report tab (GET PHY-004): full table with color-coded variance
+  - Approve CTA (PATCH PHY-005): MANAGER role guard
+- src/App.tsx: PhysicalStockTab registered for workspace keys physical-stock, stock-count, physical-inventory
+- backend/app/services/sales.py: REDEEM hook customer_id resolved from orig_invoice (not db_sr)
+- backend/alembic/versions/v1373_sales_invoice_ext.py: already landed Sprint 14
+
+#### Sprint 17 Governance (commit ba259696)
+- docs/walkthrough/Legacy_Shoper9_SMRITI_Migration_v1.2.0.md [NEW]
+  WGP 13-section walkthrough for Sprints 14-17
+- docs/walkthrough/README.md: v1.2.0 row appended
+- src/components/launchpad/launchpadCatalog.ts: physical-stock tile added
+  id='physical-stock', icon=fact_check, group='Master Data & Stock', roles=MANAGER+SYSADMIN, accentColor=emerald
+
+#### Sprint 18 -- Inline Count Entry + PHY-006 + Alembic v1374 (commit 81da1375)
+- backend/app/api/v1/physical_stock.py [MODIFIED: +90 lines]
+  PHY-006: PATCH /api/v1/physical-stock/sessions/{take_id}/lines/{line_id}
+    Pydantic: CountLineUpdate { counted_qty, notes }
+    Guards: session OPEN or IN_PROGRESS; line belongs to session
+    Updates counted_qty, recalculates variance_qty = counted_qty - computed_qty
+    Side-effect: transitions session OPEN -> IN_PROGRESS on first edit
+    Returns { id, counted_qty, variance_qty, status }
+- backend/alembic/versions/v1374_sales_return_cust.py [NEW]
+  down_revision: v1373_sales_invoice_ext
+  upgrade: ADD COLUMN customer_id String(50) nullable + ix_sales_returns_customer_id index
+  downgrade: drop index + column
+- backend/app/models/sales.py [MODIFIED]
+  SalesReturn.customer_id = Column(String(50), nullable=True, index=True)  # v1374
+- backend/app/services/sales.py [MODIFIED]
+  db_sr constructor: customer_id=orig_invoice.customer_id if orig_invoice else None
+- src/components/PhysicalStockTab.tsx [MODIFIED: 585 -> 631 lines, v1.1.0]
+  CountCell: click-to-edit counted_qty, Enter=save, Esc=cancel, PATCH PHY-006
+  Progress bar: X/total lines counted
+  Filter chips: All | Not Counted | Has Variance
+  Row color: yellow=not counted, red=variance
+  CompleteBtn: IN_PROGRESS sessions only
 ## [3.32.0] - 2026-08-25
 
 ### Added -- Sprints 14-16: SalesInvoice schema extension, transaction hooks, ORM mapping
