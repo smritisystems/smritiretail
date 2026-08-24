@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Repository   : SMRITIRetailNX
 Organization : AITDL NETWORKS
@@ -59,21 +59,23 @@ def _d(stmt, model, from_date, to_date):
     return stmt
 
 def _row(inv) -> Dict[str, Any]:
-    """Safely extract invoice scalar fields."""
+    """Safely extract invoice scalar fields -- v1373 ORM columns confirmed."""
     return {
         "invoice_id":    inv.id,
-        "invoice_no":    getattr(inv, "invoice_number", None) or inv.id,
+        "invoice_no":    inv.invoice_no or inv.id,
         "date":          str(inv.created_at)[:10] if inv.created_at else "",
-        "customer_id":   getattr(inv, "customer_id", None) or "",
-        "customer_name": getattr(inv, "customer_name", None) or "Walk-in",
-        "salesperson":   getattr(inv, "salesperson_name", None) or getattr(inv, "salesperson_id", None) or "",
-        "branch":        getattr(inv, "branch_id", None) or "",
-        "node":          getattr(inv, "terminal_id", None) or getattr(inv, "counter_id", None) or "",
-        "total":         float(getattr(inv, "total_amount", None) or 0),
-        "discount":      float(getattr(inv, "discount_amount", None) or 0),
-        "tax":           float(getattr(inv, "tax_amount", None) or 0),
-        "net":           float(getattr(inv, "net_amount", None) or 0),
-        "status":        getattr(inv, "status", None) or "",
+        "customer_id":   inv.customer_id  or "",
+        "customer_name": inv.customer_name or "Walk-in",
+        "salesperson":   inv.salesperson_name or inv.salesperson_id or "",
+        "terminal":      inv.terminal_id   or inv.counter_id or "",
+        "branch":        inv.branch_id     or "",
+        "gross":         float(inv.grand_total    or 0),
+        "discount":      float(inv.discount_amount or 0),
+        "tax":           float(inv.tax_total       or 0),
+        "net":           float(inv.net_amount      or 0),
+        "paid":          float(inv.paid_amount     or 0),
+        "balance":       float(inv.balance_amount  or 0),
+        "status":        inv.status or "",
     }
 
 
@@ -269,13 +271,13 @@ async def salesperson_sales(
     by_sp: Dict[str, dict] = {}
     lines = []
     for inv in invs:
-        sp = getattr(inv, "salesperson_name", None) or getattr(inv, "salesperson_id", None) or "Unassigned"
-        net = float(getattr(inv, "net_amount", None) or 0)
-        disc = float(getattr(inv, "discount_amount", None) or 0)
+        sp   = inv.salesperson_name or inv.salesperson_id or "Unassigned"
+        net  = float(inv.net_amount  or 0)
+        disc = float(inv.discount_amount or 0)
         if sp not in by_sp:
             by_sp[sp] = {"salesperson": sp, "bill_count": 0, "net_sales": 0.0, "total_discount": 0.0}
-        by_sp[sp]["bill_count"] += 1
-        by_sp[sp]["net_sales"] += net
+        by_sp[sp]["bill_count"]    += 1
+        by_sp[sp]["net_sales"]     += net
         by_sp[sp]["total_discount"] += disc
         lines.append({**_row(inv), "salesperson": sp})
 
@@ -324,12 +326,12 @@ async def salesperson_summary(
     sql = f"""
         SELECT
             COALESCE(salesperson_name, salesperson_id, 'Unassigned') AS sp,
-            COUNT(id)                             AS bill_count,
-            SUM(COALESCE(total_amount, 0))        AS gross_sales,
-            SUM(COALESCE(discount_amount, 0))     AS total_discount,
-            SUM(COALESCE(tax_amount, 0))          AS total_tax,
-            SUM(COALESCE(net_amount, 0))          AS net_sales,
-            AVG(COALESCE(net_amount, 0))          AS avg_bill_value
+            COUNT(id)                              AS bill_count,
+            SUM(COALESCE(grand_total,   0))        AS gross_sales,
+            SUM(COALESCE(discount_amount, 0))      AS total_discount,
+            SUM(COALESCE(tax_total,     0))        AS total_tax,
+            SUM(COALESCE(net_amount,    0))        AS net_sales,
+            AVG(COALESCE(grand_total,   0))        AS avg_bill_value
         FROM sales_invoices
         WHERE {where}
         GROUP BY sp

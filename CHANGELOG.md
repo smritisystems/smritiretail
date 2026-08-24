@@ -628,6 +628,38 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - 75/75 tests pass
 
 
+## [3.32.0] - 2026-08-25
+
+### Added -- Sprints 14-16: SalesInvoice schema extension, transaction hooks, ORM mapping
+
+#### Sprint 14 -- SalesInvoice schema extension + Sales line hooks (commit 0f7624a4)
+- Alembic v1373: 8 new columns on sales_invoices (salesperson_id, salesperson_name, terminal_id, counter_id, paid_amount, balance_amount, discount_amount, net_amount), 2 new indexes
+- backend/app/services/sales_hook.py [NEW]: write_invoice_lines + write_loyalty_earn
+  - write_invoice_lines: writes one sales_invoice_lines row per item on every POST /sales/invoices
+  - write_loyalty_earn: writes loyalty_transactions EARN row + updates loyalty_members balance
+  - Both injected atomically pre-commit in SalesService.create_sales_invoice
+- backend/app/services/sales.py: db_invoice constructor wired with v1373 fields (getattr backward-compat)
+
+#### Sprint 15 -- Loyalty REVERSAL hook + schema addendum (commit f28ca801)
+- backend/app/schemas/sales.py: SalesInvoiceBase extended with 8 Optional v1373 fields (AliasChoices camelCase)
+- backend/app/services/sales_hook.py: write_loyalty_redeem added
+  - Reverses earn points on sales return, clamps to zero minimum
+  - Inserts loyalty_transactions REVERSAL row + deducts loyalty_members.current_points_balance
+  - Injected atomically pre-commit in SalesService.create_sales_return
+- backend/app/services/sales.py: Sprint 15 REVERSAL hook at lines 630-642
+
+#### Sprint 16 -- ORM model mapping + salesperson report SQL fix (commit this)
+- backend/app/models/sales.py: SalesInvoice ORM model -- 8 v1373 columns declared (all with server_default=0 for numeric)
+- backend/app/api/v1/sales_reports.py: _row() helper rewritten -- all getattr fallbacks removed
+  - invoice_number -> invoice_no (confirmed ORM field)
+  - total_amount   -> grand_total (correct sales_invoices column)
+  - tax_amount     -> tax_total   (correct sales_invoices column)
+  - Added: terminal, gross, paid, balance fields to _row() output
+- backend/app/api/v1/sales_reports.py: salesperson-summary SQL corrected
+  - SUM(total_amount) -> SUM(grand_total)
+  - SUM(tax_amount)   -> SUM(tax_total)
+  - AVG(net_amount)   -> AVG(grand_total)
+- backend/app/api/v1/sales_reports.py: salesperson-sales ORM -- getattr fallbacks removed
 ## [3.31.0] - 2026-08-24
 
 ### Added -- Sprints 8-13: Shoper9 Legacy Migration Parity (Phase 1 Complete)
