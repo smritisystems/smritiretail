@@ -70,6 +70,7 @@ import { PrintStudioTab } from "./print_engine/PrintStudioTab.tsx";
 import { PrintHistoryTab } from "./print_engine/PrintHistoryTab.tsx";
 import { AboutSmritiTab } from "./components/AboutSmritiTab.tsx";
 import { TaxInvoicePrintPage } from "./components/TaxInvoicePrintPage.tsx";
+import { SmritiDistributorTaxInvoiceWorkspace } from "./components/sales/SmritiDistributorTaxInvoiceWorkspace.tsx";
 import { TrainingAcademyTab } from "./components/training/TrainingAcademyTab.tsx";
 import { DevTrackerTab } from "./modules/dev_tracker/ui/DevTrackerTab.tsx";
 import { AccountingSyncTab } from "./components/AccountingSyncTab.tsx";
@@ -538,6 +539,15 @@ const AppContent: React.FC = () => {
         return <PrintHistoryTab />;
       case "about-smriti":
         return <AboutSmritiTab />;
+      case "tax-invoice":
+      case "distributor-tax-invoice":
+      case "tax-invoice-workspace":
+        return (
+          <SmritiDistributorTaxInvoiceWorkspace
+            onNotification={addNotification}
+            currentUser={currentUser}
+          />
+        );
       case "tax-invoice-print":
       case "statutory-a4":
         return <TaxInvoicePrintPage />;
