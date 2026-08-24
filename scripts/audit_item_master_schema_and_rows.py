@@ -1,7 +1,26 @@
 """
-SMRITI Item Master Database Audit Script - Full Output to File
-Phase 1 - Read Only Discovery
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.30.0
+Created      : 2026-08-24
+Modified     : 2026-08-24
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal
+
+audit_item_master_schema_and_rows.py
+======================================
+Read-only discovery audit: inspects all item-master-related tables across
+all registered SMRITI databases (smriti001, smriti002, smritisys), reporting
+column definitions, row counts, and sample rows. Output is written to
+scripts/item_master_db_audit.txt.
+
+Usage:
+    python scripts/audit_item_master_schema_and_rows.py
 """
+
 import psycopg2
 import sys
 
@@ -46,14 +65,19 @@ ITEM_RELATED_TABLES = [
     "purchase_return_items",
 ]
 
+OUTPUT_FILE = "scripts/item_master_db_audit.txt"
+
 
 def get_columns(cur, table_name):
-    cur.execute("""
+    cur.execute(
+        """
         SELECT column_name, data_type, character_maximum_length, is_nullable, column_default
         FROM information_schema.columns
         WHERE table_name = %s
         ORDER BY ordinal_position;
-    """, (table_name,))
+        """,
+        (table_name,),
+    )
     return cur.fetchall()
 
 
@@ -71,27 +95,29 @@ def get_sample_rows(cur, table_name, limit=2):
         cols = [d[0] for d in cur.description]
         rows = cur.fetchall()
         return cols, rows
-    except Exception as e:
+    except Exception:
         return [], []
 
 
 def audit_database(db_name, db_url, out):
-    out.write(f"\n{'='*80}\n")
+    out.write(f"\n{'=' * 80}\n")
     out.write(f"DATABASE: {db_name}\n")
-    out.write(f"{'='*80}\n")
+    out.write(f"{'=' * 80}\n")
 
     try:
         conn = psycopg2.connect(db_url)
         cur = conn.cursor()
-    except Exception as e:
-        out.write(f"  CONNECTION FAILED: {e}\n")
+    except Exception as err:
+        out.write(f"  CONNECTION FAILED: {err}\n")
         return
 
-    cur.execute("""
+    cur.execute(
+        """
         SELECT table_name FROM information_schema.tables
         WHERE table_schema = 'public'
         ORDER BY table_name;
-    """)
+        """
+    )
     all_tables = [r[0] for r in cur.fetchall()]
     out.write(f"\nAll tables ({len(all_tables)}): {all_tables}\n")
 
@@ -110,19 +136,22 @@ def audit_database(db_name, db_url, out):
             type_str = f"{dtype}({max_len})" if max_len else dtype
             out.write(f"  {col_name:<45} {type_str:<35} nullable={nullable}\n")
 
-        if row_count > 0 and row_count <= 5000:
+        if 0 < row_count <= 5000:
             sample_cols, sample_rows = get_sample_rows(cur, table, 2)
             if sample_rows:
                 out.write(f"  SAMPLE COLS: {sample_cols}\n")
                 for r in sample_rows[:1]:
-                    vals = {sample_cols[i]: str(r[i])[:80] for i in range(min(15, len(sample_cols)))}
+                    vals = {
+                        sample_cols[i]: str(r[i])[:80]
+                        for i in range(min(15, len(sample_cols)))
+                    }
                     out.write(f"  SAMPLE ROW: {vals}\n")
 
     out.write(f"\nItem-related tables found in {db_name}: {found_tables}\n")
 
     # Detailed audit: sales_invoice_items in smriti001
     if db_name == "smriti001" and "sales_invoice_items" in all_tables:
-        out.write(f"\n{'='*40}\n")
+        out.write(f"\n{'=' * 40}\n")
         out.write("SALES INVOICE ITEMS - Sample Rows\n")
         sample_cols, sample_rows = get_sample_rows(cur, "sales_invoice_items", 5)
         if sample_cols:
@@ -131,9 +160,8 @@ def audit_database(db_name, db_url, out):
             vals = {sample_cols[i]: str(r[i])[:60] for i in range(len(sample_cols))}
             out.write(f"  Row: {vals}\n")
 
-    # Check products sample in smriti001
     if db_name == "smriti001" and "products" in all_tables:
-        out.write(f"\n{'='*40}\n")
+        out.write(f"\n{'=' * 40}\n")
         out.write("PRODUCTS - Sample Rows (first 3)\n")
         sample_cols, sample_rows = get_sample_rows(cur, "products", 3)
         if sample_cols:
@@ -142,9 +170,8 @@ def audit_database(db_name, db_url, out):
             vals = {sample_cols[i]: str(r[i])[:60] for i in range(len(sample_cols))}
             out.write(f"  Row: {vals}\n")
 
-    # Check stock_movements
     if db_name == "smriti001" and "stock_movements" in all_tables:
-        out.write(f"\n{'='*40}\n")
+        out.write(f"\n{'=' * 40}\n")
         out.write("STOCK MOVEMENTS - Sample Rows\n")
         sample_cols, sample_rows = get_sample_rows(cur, "stock_movements", 3)
         if sample_cols:
@@ -156,13 +183,11 @@ def audit_database(db_name, db_url, out):
     conn.close()
 
 
-def main():
-    output_file = "scripts/item_master_db_audit.txt"
-    with open(output_file, "w", encoding="utf-8") as out:
+def main() -> None:
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as out:
         for db_name, db_url in DATABASES.items():
             audit_database(db_name, db_url, out)
-
-    print(f"Audit written to {output_file}")
+    print(f"Audit written to {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
