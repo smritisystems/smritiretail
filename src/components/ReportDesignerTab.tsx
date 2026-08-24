@@ -18,6 +18,7 @@ import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { isFieldGloballyVisible } from "../services/unifiedFieldCatalog.ts";
 import { recordAuditAction } from "../lib/apiFetch";
+import { GlobalExportService } from "../services/globalExportService.ts";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, 
@@ -248,52 +249,56 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     }
   };
 
-  const handleTriggerExport = (format: string) => {
+  const handleTriggerExport = async (format: string) => {
     if (activeRole === "Cashier") {
       showNotification("error", "Rule 10 Restricted: Cashiers are denied document export privileges.");
       return;
     }
     recordAuditAction("EXPORT", "reports", selectedReport?.id || "RPT-GEN", `Report exported: ${selectedReport?.title || "Standard Report"} (Format: ${format.toUpperCase()})`);
-    showNotification("success", `Compiling dataset... generating SMRITI high-fidelity .${format.toLowerCase()} package.`);
-    
-    setTimeout(() => {
-      let content = "";
-      let mimeType = "text/plain";
-      const ext = format.toLowerCase();
 
-      if (ext === "csv" || ext === "tsv" || ext === "xlsx") {
-        const headers = ["Report Code", "Report Title", "Category", "Format", "Export Date", "Drill Level", "Filter"];
-        const row = [
-          selectedReport?.id || "",
-          `"${(selectedReport?.title || "").replace(/"/g, '""')}"`,
-          selectedReport?.category || "",
-          selectedReport?.format || "",
-          new Date().toISOString(),
-          drillLevel || "0",
-          `"${(drillFilter || "").replace(/"/g, '""')}"`
-        ];
-        const delimiter = ext === "tsv" ? "\t" : ",";
-        content = `${headers.join(delimiter)}\n${row.join(delimiter)}\n`;
-        mimeType = ext === "tsv" ? "text/tab-separated-values" : "text/csv";
-      } else {
-        content = JSON.stringify({
-          report: selectedReport,
-          timestamp: new Date().toISOString(),
-          drillLevel,
-          drillFilter
-        }, null, 2);
-        mimeType = "application/json";
-      }
+    const exportFormat: any = format.toLowerCase() === "xlsx" ? "xlsx" : format.toLowerCase() === "csv" || format.toLowerCase() === "tsv" ? "csv" : "txt";
 
-      const element = document.createElement("a");
-      const file = new Blob([content], { type: mimeType });
-      element.href = URL.createObjectURL(file);
-      element.download = `${selectedReport?.id || "RPT"}_Export.${ext}`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-      showNotification("success", `File download completed: ${selectedReport?.id || "RPT"}_Export.${ext}`);
-    }, 500);
+    const reportCols = [
+      { key: "code", label: "Report Code", datatype: "text" as const, width: 14 },
+      { key: "title", label: "Report Title", datatype: "text" as const, width: 28 },
+      { key: "category", label: "Category", datatype: "text" as const, width: 16 },
+      { key: "format", label: "Visual Format", datatype: "text" as const, width: 14 },
+      { key: "drillLevel", label: "Drill Level", datatype: "number" as const, width: 12 },
+      { key: "drillFilter", label: "Active Drill Filter", datatype: "text" as const, width: 22 },
+      { key: "exportDate", label: "Export Timestamp", datatype: "datetime" as const, width: 20 },
+    ];
+
+    const reportRows = [
+      {
+        code: selectedReport?.id || "RPT-GEN",
+        title: selectedReport?.title || "Standard Report",
+        category: selectedReport?.category || "Financial",
+        format: selectedReport?.format || "Grid",
+        drillLevel: drillLevel || 0,
+        drillFilter: drillFilter || "None",
+        exportDate: new Date().toISOString(),
+      },
+    ];
+
+    const result = await GlobalExportService.exportDataset({
+      moduleName: selectedReport?.title || "Report_Export",
+      format: exportFormat,
+      scope: "currentPage",
+      columns: reportCols,
+      data: reportRows,
+      metadata: {
+        moduleTitle: selectedReport?.title || "Report Export",
+        companyName: "SMRITI Enterprise",
+        searchTerm: drillFilter || undefined,
+        exportTimestamp: new Date().toLocaleString(),
+      },
+    });
+
+    if (result.success) {
+      showNotification("success", `File download completed: ${result.filename}`);
+    } else {
+      showNotification("error", result.errorMessage || "Failed to generate report export.");
+    }
   };
 
   const handleShareReport = (e: React.FormEvent) => {

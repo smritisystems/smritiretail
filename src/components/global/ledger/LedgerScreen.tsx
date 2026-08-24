@@ -21,6 +21,8 @@ import { LedgerConfig } from "./types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { formatDateTime } from "../../../utils/formatters.ts";
 import { useWorkspace } from "../../../contexts/WorkspaceContext.tsx";
+import { ExportButton } from "../../export/ExportButton.tsx";
+import { ExportColumnDefinition } from "../../export/types.ts";
 
 export interface LedgerScreenProps<T = any> {
   config: LedgerConfig<T>;
@@ -128,29 +130,29 @@ export function LedgerScreen<T extends Record<string, any>>({
     return filteredItems.slice(start, start + pageSize);
   }, [filteredItems, page, pageSize]);
 
-  // CSV Export
-  const handleExportCSV = () => {
-    if (filteredItems.length === 0) return;
-
-    const headers = config.columns.map((c) => `"${c.label}"`).join(",");
-    const rows = filteredItems.map((item) =>
-      config.columns
-        .map((c) => {
-          const val = item[c.key];
-          return `"${String(val ?? "").replace(/"/g, '""')}"`;
-        })
-        .join(",")
-    );
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${config.exportFileName || config.entityName.toLowerCase()}_export.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const ledgerExportColumns = useMemo<ExportColumnDefinition[]>(() => {
+    return config.columns.map((c) => {
+      const lower = c.key.toLowerCase();
+      let dt: any = "text";
+      if (lower.includes("amount") || lower.includes("balance") || lower.includes("rate") || lower.includes("price") || lower.includes("total")) {
+        dt = "currency";
+      } else if (lower.includes("date") || lower.includes("time") || lower.includes("timestamp")) {
+        dt = "datetime";
+      } else if (lower.includes("qty") || lower.includes("quantity") || lower.includes("count") || lower.includes("stock")) {
+        dt = "number";
+      } else if (lower.includes("percentage") || lower.includes("tax_rate") || lower.includes("taxrate")) {
+        dt = "percentage";
+      }
+      return {
+        key: c.key,
+        label: c.label,
+        align: c.align,
+        datatype: dt,
+        isSummary: dt === "currency" || dt === "number",
+        isVisible: true,
+      };
+    });
+  }, [config.columns]);
 
   return (
     <div className="flex-1 bg-theme-surface-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
@@ -178,15 +180,18 @@ export function LedgerScreen<T extends Record<string, any>>({
             <span>Refresh</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            disabled={filteredItems.length === 0}
-            className="px-3 py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-primary rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <Download size={13} />
-            <span>Export CSV</span>
-          </button>
+          <ExportButton
+            moduleTitle={config.title}
+            columns={ledgerExportColumns}
+            data={filteredItems}
+            totalRecordsCount={items.length}
+            filteredRecordsCount={filteredItems.length}
+            apiEndpoint={config.apiEndpoint}
+            searchTerm={searchQuery}
+            appliedFilters={activeFilters}
+            dateRange={dateRange.startDate ? { start: dateRange.startDate, end: dateRange.endDate } : undefined}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" || type === "warning" ? "success" : type || "info")}
+          />
 
           {/* Popout External Window Button */}
           <button
