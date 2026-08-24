@@ -1,13 +1,13 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.1 (Phase 2 — Sales UPDATE/DELETE/CANCEL)
+Version      : 3.18.1 (Phase 2 â€” Sales UPDATE/DELETE/CANCEL)
 Created      : 2026-07-11
 Modified     : 2026-07-15 (Phase 2)
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
+Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
@@ -63,9 +63,9 @@ class SalesService:
         self.crm_service = CrmService(db, tenant_ctx)
         self.inventory_service = InventoryService(db, tenant_ctx)
 
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Invoice
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate, idempotency_key: Optional[str] = None) -> SalesInvoice:
         # Auto-generate ID and invoice_no if missing; use idempotency_key as primary invoice_id if supplied
@@ -289,6 +289,28 @@ class SalesService:
             },
             causation_id=db_invoice.invoice_no
         )
+        # -- Sprint 14: Sales line-item + Loyalty earn hooks (atomic, pre-commit) --
+        from .sales_hook import write_invoice_lines, write_loyalty_earn
+        _creator = getattr(self.tenant_ctx, "user_id", None) or "system"
+        await write_invoice_lines(
+            db=self.db,
+            invoice_id=db_invoice.id,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            creator=_creator,
+            items=invoice_in.items,
+            warehouse_id=warehouse_id,
+        )
+        await write_loyalty_earn(
+            db=self.db,
+            invoice_id=db_invoice.id,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            customer_id=db_invoice.customer_id,
+            grand_total=calculated_grand_total,
+            creator=_creator,
+        )
+        # -- End Sprint 14 hooks --
         try:
             await self.db.commit()
         except Exception as e:
@@ -307,9 +329,9 @@ class SalesService:
         )
         return res.scalars().first()
 
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Quotation
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def create_sales_quotation(self, q_in: SalesQuotationCreate) -> SalesQuotation:
         existing = await self.db.execute(
@@ -402,9 +424,9 @@ class SalesService:
             raise HTTPException(status_code=404, detail="Sales quotation not found")
         return q, q.items
 
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Order
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def create_sales_order(self, so_in: SalesOrderCreate) -> SalesOrder:
         existing = await self.db.execute(
@@ -497,9 +519,9 @@ class SalesService:
             raise HTTPException(status_code=404, detail="Sales order not found")
         return so, so.items
 
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Return
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def create_sales_return(self, sr_in: SalesReturnCreate) -> SalesReturn:
         # Check original invoice exists
@@ -648,11 +670,11 @@ class SalesService:
             raise HTTPException(status_code=404, detail="Sales return not found")
         return sr, sr.items
 
-    # ───────────────────────────────────────────────────────────────
-    # Phase 2 — UPDATE / CANCEL / DELETE
-    # ───────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Phase 2 â€” UPDATE / CANCEL / DELETE
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    # ── Invoice UPDATE ──────────────────────────────────────────────
+    # â”€â”€ Invoice UPDATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def update_sales_invoice(
         self, invoice_id: str, update_in: SalesInvoiceUpdate
@@ -689,7 +711,7 @@ class SalesService:
                 setattr(invoice, attr, val)
 
         if update_in.items is not None:
-            # Reassign the collection — delete-orphan cascade handles deleting old items
+            # Reassign the collection â€” delete-orphan cascade handles deleting old items
             # and the unit-of-work inserts new ones in the correct order.
             tax_total   = Decimal("0.00")
             grand_total = Decimal("0.00")
@@ -725,7 +747,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    # ── Invoice CANCEL (DELETE) ─────────────────────────────────────
+    # â”€â”€ Invoice CANCEL (DELETE) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def cancel_sales_invoice(self, invoice_id: str) -> SalesInvoice:
         """
@@ -787,7 +809,7 @@ class SalesService:
         await self.db.refresh(invoice)
         return invoice
 
-    # ── Quotation UPDATE ────────────────────────────────────────────
+    # â”€â”€ Quotation UPDATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def update_sales_quotation(
         self, q_id: str, update_in: SalesQuotationUpdate
@@ -847,7 +869,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    # ── Quotation DELETE ────────────────────────────────────────────
+    # â”€â”€ Quotation DELETE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def delete_sales_quotation(self, q_id: str) -> None:
         res = await self.db.execute(
@@ -866,7 +888,7 @@ class SalesService:
         self.db.add(q)
         await self.db.commit()
 
-    # ── Order UPDATE ────────────────────────────────────────────────
+    # â”€â”€ Order UPDATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def update_sales_order(
         self, so_id: str, update_in: SalesOrderUpdate
@@ -926,7 +948,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    # ── Order DELETE ────────────────────────────────────────────────
+    # â”€â”€ Order DELETE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def delete_sales_order(self, so_id: str) -> None:
         res = await self.db.execute(
@@ -945,7 +967,7 @@ class SalesService:
         self.db.add(so)
         await self.db.commit()
 
-    # ── Return UPDATE ───────────────────────────────────────────────
+    # â”€â”€ Return UPDATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def update_sales_return(
         self, sr_id: str, update_in: SalesReturnUpdate
@@ -1006,7 +1028,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    # ── Return DELETE ───────────────────────────────────────────────
+    # â”€â”€ Return DELETE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def delete_sales_return(self, sr_id: str) -> None:
         res = await self.db.execute(
@@ -1026,11 +1048,11 @@ class SalesService:
         await self.db.commit()
 
 
-    # ─────────────────────────── Phase 4B: Workflow ─────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Phase 4B: Workflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def approve_sales_invoice(self, invoice_id: str) -> SalesInvoice:
         """
-        Approve a sales invoice: Draft → Confirmed.
+        Approve a sales invoice: Draft â†’ Confirmed.
         Sets status='Confirmed' and updates modified_at.
         """
         res = await self.db.execute(
@@ -1056,7 +1078,7 @@ class SalesService:
         await self.db.refresh(invoice)
         return invoice
 
-    # ─────────────────────────── Phase 4B: Convert Quotation ────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Phase 4B: Convert Quotation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def convert_quotation_to_invoice(self, q_id: str) -> SalesInvoice:
         """

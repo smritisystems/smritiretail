@@ -1,0 +1,229 @@
+"""
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 1.0.0
+Created      : 2026-08-25
+Modified     : 2026-08-25
+Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+
+Sprint 14 -- Sales creation hooks.
+
+Provides two async helper functions called INSIDE the sales transaction
+(before commit) to atomically write:
+  1. sales_invoice_lines  -- one row per invoice item (from SalesInvoiceItemCreate)
+  2. loyalty_transactions -- one EARN row per invoice (if customer has loyalty_member)
+
+Both helpers accept the raw SQLAlchemy session and MUST NOT commit --
+commit is owned by the caller (SalesService.create_sales_invoice).
+
+Called via:
+    from ...services.sales_hook import write_invoice_lines, write_loyalty_earn
+"""
+
+import uuid as _uuid
+from decimal import Decimal
+from typing import Any, List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+
+
+def _sid() -> str:
+    return str(_uuid.uuid4())[:20]
+
+
+async def write_invoice_lines(
+    db: AsyncSession,
+    invoice_id: str,
+    company_id: Optional[str],
+    branch_id: Optional[str],
+    creator: str,
+    items: List[Any],  # List[SalesInvoiceItemCreate]
+    warehouse_id: Optional[str] = None,
+) -> int:
+    """
+    Write one sales_invoice_lines row per item in the invoice payload.
+    Called atomically BEFORE commit in SalesService.create_sales_invoice.
+    Returns count of rows inserted.
+
+    Column mapping from SalesInvoiceItemCreate:
+      product_id     <- item.product_id
+      product_name   <- item.name
+      sku            <- item.code
+      hsn_code       <- item.hsn_code
+      quantity       <- item.quantity
+      unit_price     <- item.price
+      mrp            <- item.mrp
+      discount_pct   <- item.disc_pct
+      discount_amount <- derived: quantity * unit_price * disc_pct / 100
+      taxable_value  <- item.taxable_value or (qty * price - discount)
+      tax_rate       <- item.gst_rate
+      tax_amount     <- item.tax_amount
+      net_amount     <- item.total_amount
+      line_no        <- item.line_no or idx
+    """
+    inserted = 0
+    for idx, item in enumerate(items, start=1):
+        line_id = _sid()
+        qty        = Decimal(str(item.quantity))
+        price      = Decimal(str(item.price))
+        disc_pct   = Decimal(str(item.disc_pct or 0))
+        disc_amt   = (qty * price * disc_pct / 100).quantize(Decimal("0.01"))
+        taxable    = item.taxable_value if item.taxable_value is not None \
+                     else (qty * price - disc_amt)
+        tax_rate   = Decimal(str(item.gst_rate or 0))
+        tax_amt    = Decimal(str(item.tax_amount or 0))
+        net_amt    = Decimal(str(item.total_amount or 0))
+        line_no    = item.line_no if item.line_no is not None else idx
+
+        try:
+            await db.execute(text("""
+                INSERT INTO sales_invoice_lines (
+                    id, company_id, branch_id,
+                    invoice_id, line_no,
+                    product_id, product_name, sku, hsn_code,
+                    quantity, unit_price, mrp,
+                    discount_pct, discount_amount,
+                    taxable_value, tax_rate, tax_amount, net_amount,
+                    warehouse_id,
+                    created_by, updated_by,
+                    created_at, modified_at,
+                    is_active, is_deleted, version
+                ) VALUES (
+                    :id, :company_id, :branch_id,
+                    :invoice_id, :line_no,
+                    :product_id, :product_name, :sku, :hsn_code,
+                    :qty, :price, :mrp,
+                    :disc_pct, :disc_amt,
+                    :taxable, :tax_rate, :tax_amt, :net_amt,
+                    :warehouse_id,
+                    :creator, :creator,
+                    NOW(), NOW(),
+                    true, false, 1
+                )
+                ON CONFLICT DO NOTHING
+            """), {
+                "id": line_id, "company_id": company_id, "branch_id": branch_id,
+                "invoice_id": invoice_id, "line_no": line_no,
+                "product_id": item.product_id or item.code,
+                "product_name": item.name or "",
+                "sku": item.code or "",
+                "hsn_code": item.hsn_code or None,
+                "qty": float(qty), "price": float(price),
+                "mrp": float(item.mrp) if item.mrp else None,
+                "disc_pct": float(disc_pct), "disc_amt": float(disc_amt),
+                "taxable": float(taxable),
+                "tax_rate": float(tax_rate), "tax_amt": float(tax_amt),
+                "net_amt": float(net_amt),
+                "warehouse_id": warehouse_id,
+                "creator": creator,
+            })
+            inserted += 1
+        except Exception:
+            # Never fail the invoice commit due to line-item hook
+            pass
+
+    return inserted
+
+
+async def write_loyalty_earn(
+    db: AsyncSession,
+    invoice_id: str,
+    company_id: Optional[str],
+    branch_id: Optional[str],
+    customer_id: Optional[str],
+    grand_total: Decimal,
+    creator: str,
+) -> bool:
+    """
+    Write a EARN row to loyalty_transactions if the customer has a loyalty_member.
+    Points = floor(grand_total / earn_unit) where earn_unit comes from loyalty_rules.
+    Called atomically BEFORE commit in SalesService.create_sales_invoice.
+    Returns True if a loyalty row was written, False otherwise.
+
+    Graceful: any exception is silently swallowed so it never fails the invoice.
+    """
+    if not customer_id or customer_id == "CUST-WALKIN":
+        return False
+
+    try:
+        # Fetch member + tier earn_multiplier
+        row = (await db.execute(text("""
+            SELECT lm.id, lm.current_points_balance,
+                   COALESCE(lt.earn_multiplier, 1.0) AS earn_mult,
+                   COALESCE(lt.points_per_unit_spend, 1.0) AS points_per_unit
+            FROM loyalty_members lm
+            LEFT JOIN loyalty_tiers lt ON lt.id = lm.loyalty_tier_id
+            WHERE lm.customer_id = :customer_id
+              AND lm.is_deleted = false
+              AND lm.is_active = true
+            LIMIT 1
+        """), {"customer_id": customer_id})).fetchone()
+
+        if not row:
+            return False
+
+        member_id     = row[0]
+        cur_balance   = Decimal(str(row[1] or 0))
+        earn_mult     = Decimal(str(row[2] or 1))
+        points_per_unit = Decimal(str(row[3] or 1))
+
+        # Points = floor(grand_total * points_per_unit * earn_multiplier)
+        points_earned = (grand_total * points_per_unit * earn_mult).quantize(
+            Decimal("0.01")
+        )
+        new_balance = cur_balance + points_earned
+
+        tx_id = _sid()
+        await db.execute(text("""
+            INSERT INTO loyalty_transactions (
+                id, company_id, branch_id,
+                member_id, customer_id, transaction_type,
+                points, balance_after,
+                reference_type, reference_id, invoice_amount,
+                narration,
+                created_by, updated_by,
+                created_at, modified_at,
+                is_active, is_deleted, version
+            ) VALUES (
+                :id, :company_id, :branch_id,
+                :member_id, :customer_id, 'EARN',
+                :points, :balance_after,
+                'SALES_INVOICE', :invoice_id, :invoice_amount,
+                :narration,
+                :creator, :creator,
+                NOW(), NOW(),
+                true, false, 1
+            )
+        """), {
+            "id": tx_id, "company_id": company_id, "branch_id": branch_id,
+            "member_id": member_id, "customer_id": customer_id,
+            "points": float(points_earned), "balance_after": float(new_balance),
+            "invoice_id": invoice_id, "invoice_amount": float(grand_total),
+            "narration": f"Points earned on invoice {invoice_id}",
+            "creator": creator,
+        })
+
+        # Update loyalty_members balance atomically
+        await db.execute(text("""
+            UPDATE loyalty_members
+            SET current_points_balance = :new_balance,
+                total_points_earned    = total_points_earned + :points,
+                total_lifetime_spend   = total_lifetime_spend + :spend,
+                modified_at            = NOW()
+            WHERE id = :member_id
+        """), {
+            "new_balance": float(new_balance),
+            "points": float(points_earned),
+            "spend": float(grand_total),
+            "member_id": member_id,
+        })
+
+        return True
+
+    except Exception:
+        # Never fail the invoice commit due to loyalty hook
+        return False
