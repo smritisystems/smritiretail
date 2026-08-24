@@ -60,6 +60,7 @@ from .api.v1 import (
     health_flags,
     integration,
     inventory,
+    inventory_reports,
     legacy_menu_map,
     master_lookup,
     masters,
@@ -136,9 +137,10 @@ app.include_router(changelog.router, prefix=settings.API_V1_STR)
 app.include_router(dev_tracker.router, prefix=settings.API_V1_STR)
 app.include_router(auth.router,      prefix=settings.API_V1_STR + "/auth",          tags=["Authentication"])
 app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",         tags=["User Management"])
-app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",          tags=["Inventory"])
-app.include_router(inventory.router, prefix=settings.API_V1_STR + "/products",           tags=["Inventory"])
-app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory/products", tags=["Inventory"])
+app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory",          tags=["Inventory"])
+app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/products",           tags=["Inventory"])
+app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory/products", tags=["Inventory"])
+app.include_router(inventory_reports.router, prefix=settings.API_V1_STR,                          tags=["Inventory Reports"])
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
 app.include_router(crm.router,       prefix=settings.API_V1_STR + "/crm",          tags=["CRM"])
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated — remove at v3.20.0
