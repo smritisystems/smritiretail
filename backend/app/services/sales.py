@@ -542,9 +542,9 @@ class SalesService:
                 SalesInvoice.is_deleted == False
             )
         )
-        if not inv_res.scalars().first():
+        orig_invoice = inv_res.scalars().first()
+        if not orig_invoice:
             raise HTTPException(status_code=404, detail="Original sales invoice not found")
-
         existing = await self.db.execute(
             select(SalesReturn).filter(
                 SalesReturn.return_no == sr_in.return_no,
@@ -644,7 +644,7 @@ class SalesService:
             return_id=db_sr.id,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
-            customer_id=getattr(db_sr, "customer_id", None),
+            customer_id=orig_invoice.customer_id if orig_invoice else None,
             return_total=grand_total,
             creator=_ret_creator,
         )
