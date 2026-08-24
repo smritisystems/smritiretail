@@ -4,19 +4,20 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.22.0
-Created      : 2026-08-23
-Modified     : 2026-08-23
+Version      : 3.40.0
+Created      : 2026-08-25
+Modified     : 2026-08-25
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+from typing import List, Optional, Dict, Any, Tuple
 from decimal import Decimal
 from datetime import datetime, date
-from typing import Dict, Any, Optional, List, Tuple
-from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, or_, func
+from sqlalchemy.orm import selectinload
 
 from ..models.localization import (
     CountryRef,
@@ -36,264 +37,326 @@ from ..models.localization import (
 )
 
 
-class LocalizationService:
+class GlobalReferenceService:
     """
-    Authoritative Global Localization & Reference Data Engine (P1.1).
-    Provides locale fallback, translation version selection, currency/number formatting,
-    standard UOM conversion, and statutory GST tax reference resolution.
+    Control Plane Global Reference Data Registry Service.
+    Operates against smritisys / control-plane connection for master reference lookup.
     """
 
-    # Static baseline dictionary for high-throughput zero-latency caching
-    _BASELINE_TRANSLATIONS: Dict[str, Dict[str, str]] = {
-        "pos.shift.open": {
-            "en": "Open Shift",
-            "hi": "शिफ्ट खोलें",
-            "mr": "शिफ्ट सुरू करा",
-            "gu": "શિફ્ટ શરૂ કરો",
-        },
-        "pos.shift.close": {
-            "en": "Close Shift",
-            "hi": "शिफ्ट बंद करें",
-            "mr": "शिफ्ट बंद करा",
-            "gu": "શિફ્ટ બંધ કરો",
-        },
-        "pos.cash_drop": {
-            "en": "Cash Drop (Safe Deposit)",
-            "hi": "कैश ड्रॉप (तिजोरी जमा)",
-            "mr": "कॅश ड्रॉप (तिजोरी जमा)",
-            "gu": "કેશ ડ્રોપ (તિજોરી જમા)",
-        },
-        "pos.till_expense": {
-            "en": "Till Expense (Petty Cash)",
-            "hi": "तिजोरी खर्च (छोटा खर्च)",
-            "mr": "किरकोळ खर्च",
-            "gu": "પરચૂરણ ખર્ચ",
-        },
-        "pos.cash_in": {
-            "en": "Cash In (Float Addition)",
-            "hi": "कैश इन (अतिरिक्त फ्लोट)",
-            "mr": "कॅश इन (अतिरिक्त रोकड)",
-            "gu": "કેશ ઇન (વધારાની રોકડ)",
-        },
-        "billing.tax_invoice": {
-            "en": "Tax Invoice",
-            "hi": "टैक्स चालान / बीजक",
-            "mr": "कर बीजक (Tax Invoice)",
-            "gu": "ટેક્સ ઇનવોઇસ",
-        },
-        "billing.grand_total": {
-            "en": "Grand Total",
-            "hi": "कुल योग",
-            "mr": "एकूण रक्कम",
-            "gu": "કુલ રકમ",
-        },
-        "billing.payment_received": {
-            "en": "Payment Received",
-            "hi": "भुगतान प्राप्त हुआ",
-            "mr": "पेमेंट प्राप्त झाले",
-            "gu": "ચુકવણી પ્રાપ્ત થઈ",
-        },
-        "common.save": {
-            "en": "Save",
-            "hi": "सहेजें",
-            "mr": "जतन करा",
-            "gu": "સાચવો",
-        },
-        "common.cancel": {
-            "en": "Cancel",
-            "hi": "रद्द करें",
-            "mr": "रद्द करा",
-            "gu": "રદ કરો",
-        },
-        "common.success": {
-            "en": "Operation completed successfully.",
-            "hi": "कार्य सफलतापूर्वक पूरा हुआ।",
-            "mr": "प्रक्रिया यशस्वीरीत्या पूर्ण झाली.",
-            "gu": "કામગીરી સફળતાપૂર્વક પૂર્ણ થઈ.",
-        },
-    }
+    def __init__(self, db: AsyncSession):
+        self.db = db
 
-    # Standard UOM conversion factors
-    _STATIC_UOM_FACTORS: Dict[Tuple[str, str], Decimal] = {
-        ("KG", "GM"): Decimal("1000"),
-        ("GM", "KG"): Decimal("0.001"),
-        ("LTR", "ML"): Decimal("1000"),
-        ("ML", "LTR"): Decimal("0.001"),
-        ("MTR", "CM"): Decimal("100"),
-        ("CM", "MTR"): Decimal("0.01"),
-        ("DOZ", "PCS"): Decimal("12"),
-        ("PCS", "DOZ"): Decimal("0.083333333333"),
-        ("BOX", "PCS"): Decimal("10"),
-    }
+    async def get_countries(self, active_only: bool = True) -> List[CountryRef]:
+        stmt = select(CountryRef)
+        if active_only:
+            stmt = stmt.where(CountryRef.is_active == True)
+        result = await self.db.execute(stmt.order_by(CountryRef.name))
+        return list(result.scalars().all())
 
-    @classmethod
-    def format_indian_number(cls, amount: Decimal, decimals: int = 2) -> str:
+    async def get_states(self, country_code: str = "IN", active_only: bool = True) -> List[StateRef]:
+        stmt = select(StateRef).where(StateRef.country_code == country_code.upper())
+        if active_only:
+            stmt = stmt.where(StateRef.is_active == True)
+        result = await self.db.execute(stmt.order_by(StateRef.name))
+        return list(result.scalars().all())
+
+    async def get_state_by_gst_code(self, gst_state_code: str, country_code: str = "IN") -> Optional[StateRef]:
+        stmt = select(StateRef).where(
+            StateRef.country_code == country_code.upper(),
+            StateRef.gst_state_code == str(gst_state_code).zfill(2),
+            StateRef.is_active == True,
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_districts(self, state_id: Optional[str] = None) -> List[DistrictRef]:
+        stmt = select(DistrictRef).where(DistrictRef.is_active == True)
+        if state_id:
+            stmt = stmt.where(DistrictRef.state_id == state_id)
+        result = await self.db.execute(stmt.order_by(DistrictRef.name))
+        return list(result.scalars().all())
+
+    async def get_postal_code(self, postal_code: str, country_code: str = "IN") -> Optional[PostalCodeRef]:
+        stmt = select(PostalCodeRef).where(
+            PostalCodeRef.country_code == country_code.upper(),
+            PostalCodeRef.postal_code == postal_code.strip(),
+            PostalCodeRef.is_active == True,
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_currencies(self, active_only: bool = True) -> List[CurrencyRef]:
+        stmt = select(CurrencyRef)
+        if active_only:
+            stmt = stmt.where(CurrencyRef.is_active == True)
+        result = await self.db.execute(stmt.order_by(CurrencyRef.code))
+        return list(result.scalars().all())
+
+    async def get_currency(self, code: str) -> Optional[CurrencyRef]:
+        stmt = select(CurrencyRef).where(CurrencyRef.code == code.upper(), CurrencyRef.is_active == True)
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_uoms(self, active_only: bool = True) -> List[UnitOfMeasurementRef]:
+        stmt = select(UnitOfMeasurementRef)
+        if active_only:
+            stmt = stmt.where(UnitOfMeasurementRef.is_active == True)
+        result = await self.db.execute(stmt.order_by(UnitOfMeasurementRef.code))
+        return list(result.scalars().all())
+
+    async def convert_uom(self, from_uom: str, to_uom: str, quantity: Decimal) -> Tuple[Decimal, Decimal]:
         """
-        Formats numbers using the Indian numbering system (Lakhs & Crores):
-        Example: 12345678.50 -> "1,23,45,678.50"
+        Calculates UOM conversion.
+        Returns (conversion_factor, converted_quantity).
         """
-        amt = Decimal(str(amount))
-        sign = "-" if amt < 0 else ""
-        amt = abs(amt)
+        f_uom = from_uom.strip().upper()
+        t_uom = to_uom.strip().upper()
 
-        # Quantize to required decimals
-        fmt_spec = f".{decimals}f"
-        val_str = f"{amt:{fmt_spec}}"
-        parts = val_str.split(".")
-        int_part = parts[0]
-        dec_part = f".{parts[1]}" if len(parts) > 1 else ""
+        if f_uom == t_uom:
+            return Decimal("1.0"), quantity
 
-        if len(int_part) <= 3:
-            return f"{sign}{int_part}{dec_part}"
+        # Direct conversion lookup
+        stmt = select(UOMConversionRef).where(
+            UOMConversionRef.from_uom == f_uom,
+            UOMConversionRef.to_uom == t_uom,
+        )
+        res = (await self.db.execute(stmt)).scalars().first()
+        if res:
+            factor = res.conversion_factor
+            return factor, quantity * factor
 
-        last_three = int_part[-3:]
-        remaining = int_part[:-3]
+        # Inverse conversion lookup
+        stmt_inv = select(UOMConversionRef).where(
+            UOMConversionRef.from_uom == t_uom,
+            UOMConversionRef.to_uom == f_uom,
+        )
+        res_inv = (await self.db.execute(stmt_inv)).scalars().first()
+        if res_inv and res_inv.conversion_factor != 0:
+            factor = Decimal("1.0") / res_inv.conversion_factor
+            return factor, quantity * factor
 
-        # Group remaining digits in sets of 2
-        groups = []
-        while len(remaining) > 2:
-            groups.insert(0, remaining[-2:])
-            remaining = remaining[:-2]
-        if remaining:
-            groups.insert(0, remaining)
+        raise ValueError(f"No conversion ratio configured between '{from_uom}' and '{to_uom}'")
 
-        formatted_int = ",".join(groups) + "," + last_three
-        return f"{sign}{formatted_int}{dec_part}"
+    async def get_tax_references(self, active_only: bool = True) -> List[TaxReferenceRef]:
+        stmt = select(TaxReferenceRef)
+        if active_only:
+            stmt = stmt.where(TaxReferenceRef.is_active == True)
+        result = await self.db.execute(stmt.order_by(TaxReferenceRef.rate))
+        return list(result.scalars().all())
 
-    @classmethod
-    def format_international_number(cls, amount: Decimal, decimals: int = 2) -> str:
+    async def get_hsn_sac(self, query: Optional[str] = None, limit: int = 50) -> List[HsnSacCodeRef]:
+        stmt = select(HsnSacCodeRef).where(HsnSacCodeRef.is_active == True)
+        if query:
+            q = f"%{query.strip()}%"
+            stmt = stmt.where(or_(HsnSacCodeRef.code.ilike(q), HsnSacCodeRef.description.ilike(q)))
+        result = await self.db.execute(stmt.order_by(HsnSacCodeRef.code).limit(limit))
+        return list(result.scalars().all())
+
+    async def get_platform_references(self, category: str, active_only: bool = True) -> List[PlatformReferenceData]:
+        stmt = select(PlatformReferenceData).where(PlatformReferenceData.category == category.upper())
+        if active_only:
+            stmt = stmt.where(PlatformReferenceData.is_active == True)
+        result = await self.db.execute(stmt.order_by(PlatformReferenceData.sort_order, PlatformReferenceData.label))
+        return list(result.scalars().all())
+
+
+class LocalizationDictionaryService:
+    """
+    Control Plane Multi-Lingual Dictionary & Locale Formatting Service.
+    Resolves translations with automatic English fallback and handles number/currency/date formatting.
+    """
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def get_languages(self, active_only: bool = True) -> List[LanguageRef]:
+        stmt = select(LanguageRef)
+        if active_only:
+            stmt = stmt.where(LanguageRef.is_active == True)
+        result = await self.db.execute(stmt.order_by(LanguageRef.name))
+        return list(result.scalars().all())
+
+    async def get_locales(self, active_only: bool = True) -> List[LocaleRef]:
+        stmt = select(LocaleRef)
+        if active_only:
+            stmt = stmt.where(LocaleRef.is_active == True)
+        result = await self.db.execute(stmt.order_by(LocaleRef.code))
+        return list(result.scalars().all())
+
+    async def get_dictionary(self, language_code: str = "en") -> Dict[str, Any]:
         """
-        Formats numbers using International million grouping:
-        Example: 12345678.50 -> "12,345,678.50"
+        Loads all translation keys and resolves them for the target language.
+        If a translation key is missing in the target language, falls back to the English default_text.
         """
-        amt = Decimal(str(amount))
-        fmt_spec = f",.{decimals}f"
-        return f"{amt:{fmt_spec}}"
+        lang = language_code.strip().lower()
 
-    @classmethod
-    def format_currency(
-        cls,
-        amount: Decimal,
-        currency_code: str = "INR",
-        locale_code: str = "en-IN"
-    ) -> str:
-        """
-        Formats currency with authoritative symbol placement and locale-specific numbering.
-        """
-        symbols = {
-            "INR": "₹",
-            "USD": "$",
-            "EUR": "€",
-            "GBP": "£",
-            "AED": "د.إ",
-            "SGD": "S$",
-            "CAD": "C$",
-            "AUD": "A$",
+        # Fetch all baseline translation keys
+        stmt_keys = select(TranslationKeyRef)
+        keys = (await self.db.execute(stmt_keys)).scalars().all()
+
+        # Fetch approved translations for the target language
+        stmt_trans = select(TranslationRef).where(
+            TranslationRef.language_code == lang,
+            TranslationRef.is_approved == True,
+        )
+        trans_rows = (await self.db.execute(stmt_trans)).scalars().all()
+        trans_map = {t.key_id: t.translation_text for t in trans_rows}
+
+        dictionary: Dict[str, str] = {}
+        fallback_count = 0
+
+        for k in keys:
+            if k.id in trans_map and lang != "en":
+                dictionary[k.key] = trans_map[k.id]
+            else:
+                dictionary[k.key] = k.default_text
+                if lang != "en":
+                    fallback_count += 1
+
+        return {
+            "language_code": lang,
+            "is_fallback": fallback_count > 0,
+            "fallback_language": "en" if lang != "en" and fallback_count > 0 else None,
+            "total_keys": len(dictionary),
+            "translations": dictionary,
         }
-        sym = symbols.get(currency_code.upper(), currency_code.upper())
-        is_indian = "IN" in locale_code.upper() or currency_code.upper() == "INR"
 
-        if is_indian:
-            num_str = cls.format_indian_number(amount, decimals=2)
+    def format_indian_number(self, num: Decimal, decimal_places: int = 2) -> str:
+        """
+        Formats numbers in the Indian numbering system (Lakh/Crore: 12,34,567.89).
+        """
+        s = f"{num:.{decimal_places}f}"
+        parts = s.split(".")
+        integer_part = parts[0]
+        dec_part = parts[1] if len(parts) > 1 else ""
+
+        is_neg = False
+        if integer_part.startswith("-"):
+            is_neg = True
+            integer_part = integer_part[1:]
+
+        if len(integer_part) <= 3:
+            res = integer_part
         else:
-            num_str = cls.format_international_number(amount, decimals=2)
+            last3 = integer_part[-3:]
+            rest = integer_part[:-3]
+            chunks = []
+            while len(rest) > 2:
+                chunks.insert(0, rest[-2:])
+                rest = rest[:-2]
+            if rest:
+                chunks.insert(0, rest)
+            chunks.append(last3)
+            res = ",".join(chunks)
 
-        if currency_code.upper() == "AED":
-            return f"{num_str} {sym}"
-        return f"{sym} {num_str}"
+        if is_neg:
+            res = f"-{res}"
 
-    @classmethod
-    def format_date(cls, dt: Any, date_format: str = "DD/MM/YYYY") -> str:
-        """
-        Formats date according to locale format (DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY).
-        """
-        if not dt:
-            return ""
-        if isinstance(dt, str):
-            try:
-                dt = datetime.fromisoformat(dt)
-            except Exception:
-                return dt
+        return f"{res}.{dec_part}" if decimal_places > 0 else res
 
-        d = dt.date() if isinstance(dt, datetime) else dt
-        if date_format == "YYYY-MM-DD":
-            return d.strftime("%Y-%m-%d")
-        if date_format == "MM/DD/YYYY":
-            return d.strftime("%m/%d/%Y")
-        # Default DD/MM/YYYY
-        return d.strftime("%d/%m/%Y")
-
-    @classmethod
-    def translate(
-        cls,
-        key: str,
-        locale: str = "en-IN",
-        params: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """
-        Resolves translation for dictionary key with locale fallback:
-        locale (e.g. 'mr-IN') -> language ('mr') -> default English ('en').
-        Supports parameter interpolation (e.g. {order_id}).
-        """
-        clean_key = str(key).strip()
-        lang = locale.split("-")[0].lower() if "-" in locale else locale.lower()
-
-        text = None
-        if clean_key in cls._BASELINE_TRANSLATIONS:
-            translations = cls._BASELINE_TRANSLATIONS[clean_key]
-            text = translations.get(lang) or translations.get("en")
-
-        if not text:
-            # Fallback to humanized key name
-            text = clean_key.split(".")[-1].replace("_", " ").title()
-
-        if params:
-            for k, v in params.items():
-                text = text.replace(f"{{{k}}}", str(v))
-
-        return text
-
-    @classmethod
-    def convert_uom(
-        cls,
-        quantity: Decimal,
-        from_uom: str,
-        to_uom: str
-    ) -> Decimal:
-        """
-        Converts quantity between compatible units of measurement.
-        """
-        from_u = from_uom.strip().upper()
-        to_u = to_uom.strip().upper()
-
-        if from_u == to_u:
-            return quantity
-
-        pair = (from_u, to_u)
-        if pair in cls._STATIC_UOM_FACTORS:
-            return quantity * cls._STATIC_UOM_FACTORS[pair]
-
-        raise ValueError(f"Direct UOM conversion from '{from_u}' to '{to_u}' is not defined.")
-
-    @classmethod
-    def determine_gst_type(
-        cls,
-        supplier_gst_state_code: str,
-        recipient_gst_state_code: str
+    async def format_currency(
+        self, amount: Decimal, currency_code: str = "INR", locale_code: str = "en-IN"
     ) -> Dict[str, Any]:
         """
-        Statutory India GST Tax Determination Rule:
-        - If Supplier State == Recipient State -> INTRASTATE (CGST + SGST applied equally)
-        - If Supplier State != Recipient State -> INTERSTATE (IGST applied in full)
+        Formats a monetary amount based on currency symbol, position, and locale number system.
         """
-        supp = str(supplier_gst_state_code).strip().zfill(2)
-        recip = str(recipient_gst_state_code).strip().zfill(2)
+        curr = await GlobalReferenceService(self.db).get_currency(currency_code)
+        symbol = curr.symbol if curr else "₹"
+        dec_places = curr.decimal_places if curr else 2
+        position = curr.symbol_position if curr else "BEFORE"
 
-        is_intrastate = (supp == recip)
+        # Locale number system determination
+        if locale_code.upper() in ["EN-IN", "HI-IN", "MR-IN", "GU-IN", "TA-IN"]:
+            formatted_num = self.format_indian_number(amount, dec_places)
+        else:
+            # International Million format
+            formatted_num = f"{amount:,.{dec_places}f}"
+
+        if position == "BEFORE":
+            formatted_text = f"{symbol} {formatted_num}"
+        else:
+            formatted_text = f"{formatted_num} {symbol}"
+
         return {
-            "supply_type": "INTRASTATE" if is_intrastate else "INTERSTATE",
-            "is_intrastate": is_intrastate,
-            "supplier_gst_state_code": supp,
-            "recipient_gst_state_code": recip,
-            "tax_components": ["CGST", "SGST"] if is_intrastate else ["IGST"],
+            "amount": amount,
+            "currency_code": currency_code.upper(),
+            "symbol": symbol,
+            "formatted_text": formatted_text,
         }
+
+
+class LocalizationService:
+    """
+    Static helper and compatibility wrapper for fast in-memory localization & conversions.
+    """
+    _BASELINE_TRANSLATIONS: Dict[str, Dict[str, str]] = {
+        "common.save": {"en-IN": "Save", "hi-IN": "सहेजें", "mr-IN": "जतन करा", "gu-IN": "સાચવો"},
+        "common.cancel": {"en-IN": "Cancel", "hi-IN": "रद्द करें", "mr-IN": "रद्द करा", "gu-IN": "રદ કરો"},
+        "common.delete": {"en-IN": "Delete", "hi-IN": "हटाएं", "mr-IN": "हटवा", "gu-IN": "કાઢી નાખો"},
+        "common.success": {"en-IN": "Success", "hi-IN": "सफल", "mr-IN": "यशस्वी", "gu-IN": "સફળ"},
+        "pos.shift.open": {"en-IN": "Open POS Shift", "hi-IN": "पीओएस शिफ्ट खोलें", "mr-IN": "पीओएस शिफ्ट उघडा"},
+        "pos.shift.close": {"en-IN": "Close POS Shift", "hi-IN": "पीओएस शिफ्ट बंद करें", "mr-IN": "पीओएस शिफ्ट बंद करा"},
+        "billing.tax_invoice": {"en-IN": "Tax Invoice", "hi-IN": "टैक्स इनवॉयस", "mr-IN": "कर बीजक"},
+    }
+
+    @classmethod
+    def translate(cls, key: str, locale: str = "en-IN") -> str:
+        translations = cls._BASELINE_TRANSLATIONS.get(key, {})
+        return translations.get(locale, translations.get("en-IN", key))
+
+    @classmethod
+    def convert_uom(cls, quantity: Decimal, from_uom: str, to_uom: str) -> Decimal:
+        f = from_uom.strip().upper()
+        t = to_uom.strip().upper()
+        if f == t:
+            return quantity
+        if (f, t) in [("KG", "GM"), ("KGS", "GMS")]:
+            return quantity * Decimal("1000")
+        if (f, t) in [("GM", "KG"), ("GMS", "KGS")]:
+            return quantity / Decimal("1000")
+        if (f, t) in [("LTR", "ML"), ("LTR", "MLT")]:
+            return quantity * Decimal("1000")
+        if (f, t) in [("ML", "LTR"), ("MLT", "LTR")]:
+            return quantity / Decimal("1000")
+        if (f, t) in [("DOZ", "PCS"), ("DOZ", "NOS")]:
+            return quantity * Decimal("12")
+        if (f, t) in [("PCS", "DOZ"), ("NOS", "DOZ")]:
+            return quantity / Decimal("12")
+        raise ValueError(f"No conversion ratio configured between '{from_uom}' and '{to_uom}'")
+
+    @classmethod
+    def format_indian_number(cls, num: Decimal) -> str:
+        s = f"{num:.2f}"
+        parts = s.split(".")
+        integer_part = parts[0]
+        dec_part = parts[1] if len(parts) > 1 else "00"
+        if len(integer_part) <= 3:
+            res = integer_part
+        else:
+            last3 = integer_part[-3:]
+            rest = integer_part[:-3]
+            chunks = []
+            while len(rest) > 2:
+                chunks.insert(0, rest[-2:])
+                rest = rest[:-2]
+            if rest:
+                chunks.insert(0, rest)
+            chunks.append(last3)
+            res = ",".join(chunks)
+        return f"{res}.{dec_part}"
+
+    @classmethod
+    def format_international_number(cls, num: Decimal) -> str:
+        return f"{num:,.2f}"
+
+    @classmethod
+    def format_currency(cls, amount: Decimal, currency_code: str = "INR", locale_code: str = "en-IN") -> str:
+        symbol = "₹" if currency_code == "INR" else "$" if currency_code == "USD" else currency_code
+        num_str = cls.format_indian_number(amount) if "IN" in locale_code.upper() else cls.format_international_number(amount)
+        return f"{symbol} {num_str}"
+
+    @classmethod
+    def format_date(cls, dt: datetime, date_format: str = "DD/MM/YYYY") -> str:
+        if date_format == "MM/DD/YYYY":
+            return dt.strftime("%m/%d/%Y")
+        return dt.strftime("%d/%m/%Y")

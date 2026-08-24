@@ -19,14 +19,32 @@
   * Version    : 3.27.0
   * Created    : 2026-07-11
   * Modified   : 2026-08-24
-  * Copyright  : Â© SMRITIBooks.com. All Rights Reserved.
+  * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
 -->
 
-# SMRITI Retail OS â€” Changelog
+# SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.40.0] - 2026-08-25
+
+#### Sprint 24: P1.1 Control Plane Reference Data & Global Localization Engine
+- **Control Plane Registries & Master Schemas**:
+  - Added Pydantic models in `backend/app/schemas/localization.py` for `CountryResponse`, `StateResponse`, `CurrencyResponse`, `UOMResponse`, `UOMConversionResponse`, `TaxReferenceResponse`, `HsnSacCodeResponse`, `LanguageResponse`, `LocaleResponse`, `TranslationDictionaryResponse`, and `PlatformReferenceResponse`.
+  - Implemented `GlobalReferenceService` in `backend/app/services/localization_svc.py` providing fast master lookup for ISO countries, Indian states with statutory GST codes, currencies, UOMs, tax slabs, and HSN/SAC codes.
+  - Implemented `LocalizationDictionaryService` with multi-lingual dictionary resolution for English, Hindi (`hi`), and Marathi (`mr`) featuring automated fallback to English for missing or unapproved keys.
+  - Built locale-aware number formatters supporting both Indian numbering system (Lakh/Crore: `₹ 12,34,567.89`) and International system (Million/Billion: `$ 1,234,567.89`).
+- **REST Endpoints Exposed (`/api/v1/control/reference/`)**:
+  - Mounted `/countries`, `/states`, `/states/by-gst-code/{code}`, `/currencies`, `/uoms`, `/uoms/convert` (POST), `/tax-references`, `/hsn-sac`, `/languages`, `/locales`, `/translations/{code}`, `/platform/{category}`, and `/format/currency` (POST).
+- **Master Data Seeding**:
+  - Seeded all 36 Indian states and union territories with official GST 2-digit codes (`01` through `38`, `97`).
+  - Seeded 7 global currencies, 10 statutory UOMs with GST UQC codes, 4 bidirectional UOM conversion ratios, 6 statutory GST tax slabs, retail HSN codes, and initial multi-lingual translation dictionaries across `smritisys`, `smriti001`, and `smriti002`.
+- **Verification & Governance**:
+  - Added test suite `backend/tests/t_ctrl_ref.py` (10/10 tests green).
+  - Certified Blueprint Section 4.1 (`P1.1 Global Reference Data and Localization`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
 
 ### [3.39.0] - 2026-08-25
 
