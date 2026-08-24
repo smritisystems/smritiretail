@@ -342,3 +342,152 @@ class ReportsService:
         self.db.add(sched)
         await self.db.commit()
 
+
+    # ──────────────────────────────────────────────────────────────
+    # Sprint 8a P1 Report Methods -- Shoper9 parity Tax & Compliance
+    # ──────────────────────────────────────────────────────────────
+
+    def _date_filter(self, stmt, model, from_date, to_date):
+        if from_date:
+            stmt = stmt.where(model.date >= from_date)
+        if to_date:
+            stmt = stmt.where(model.date <= to_date)
+        return stmt
+
+    def _tenant_filter(self, stmt, model):
+        if self.tenant and self.tenant.company_id:
+            stmt = stmt.where(
+                (model.company_id == self.tenant.company_id)
+                | (model.company_id.is_(None))
+                | (model.company_id == "COMP-001")
+            )
+        if self.tenant and self.tenant.branch_id:
+            aliases = [self.tenant.branch_id, "MAIN", "BR-MAIN-001", "BR-001", "DEFAULT"]
+            stmt = stmt.where(
+                (model.branch_id.in_(aliases)) | (model.branch_id.is_(None))
+            )
+        return stmt
+
+    async def bill_wise_sales(self, from_date=None, to_date=None):
+        """RPT-TAX-002 -- Shoper9 SR202400 Bill-wise Sales."""
+        from ..schemas.reports import BillWiseSalesLine, BillWiseSalesReport
+        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+        stmt = self._tenant_filter(stmt, SalesInvoice)
+        stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
+        invoices = (await self.db.execute(stmt.order_by(SalesInvoice.date))).scalars().all()
+        lines, tg, td, tn, tt = [], Decimal(0), Decimal(0), Decimal(0), Decimal(0)
+        for inv in invoices:
+            g = Decimal(str(getattr(inv,"gross_amount",None) or getattr(inv,"total_amount",None) or getattr(inv,"grand_total","0") or "0"))
+            d = Decimal(str(getattr(inv,"discount_amount",None) or getattr(inv,"discount","0") or "0"))
+            n = Decimal(str(getattr(inv,"net_amount",None) or getattr(inv,"grand_total","0") or "0"))
+            t = Decimal(str(getattr(inv,"tax_amount",None) or getattr(inv,"gst_amount","0") or "0"))
+            tg+=g; td+=d; tn+=n; tt+=t
+            lines.append(BillWiseSalesLine(invoice_id=inv.id,
+                invoice_number=getattr(inv,"invoice_number",None) or inv.id,
+                invoice_date=str(getattr(inv,"date","") or ""),
+                customer_name=getattr(inv,"customer_name",None),
+                payment_mode=getattr(inv,"payment_mode",None),
+                gross_amount=g, discount=d, net_amount=n, tax_amount=t,
+                items_count=len(getattr(inv,"items",None) or [])))
+        return BillWiseSalesReport(from_date=str(from_date or ""), to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(), total_bills=len(lines),
+            total_gross=tg, total_discount=td, total_net=tn, total_tax=tt, lines=lines)
+
+    async def item_wise_sales(self, from_date=None, to_date=None):
+        """RPT-TAX-003 -- Shoper9 SR202200 Item-wise Sales."""
+        from ..schemas.reports import ItemWiseSalesLine, ItemWiseSalesReport
+        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+        stmt = self._tenant_filter(stmt, SalesInvoice)
+        stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
+        invoices = (await self.db.execute(stmt)).scalars().all()
+        agg: Dict[str, dict] = {}
+        for inv in invoices:
+            for item in (getattr(inv,"items",None) or []):
+                pid = getattr(item,"product_id",None) or "UNKNOWN"
+                qty = Decimal(str(getattr(item,"quantity",0) or 0))
+                net = Decimal(str(getattr(item,"net_amount",None) or getattr(item,"amount",0) or 0))
+                tax = Decimal(str(getattr(item,"tax_amount",0) or 0))
+                disc= Decimal(str(getattr(item,"discount_amount",0) or 0))
+                if pid not in agg:
+                    agg[pid]={"code":getattr(item,"product_code",""),"name":getattr(item,"product_name",pid),
+                              "hsn":getattr(item,"hsn_code",None),"qty":Decimal(0),"gross":Decimal(0),
+                              "disc":Decimal(0),"net":Decimal(0),"tax":Decimal(0),"rqty":Decimal(0)}
+                agg[pid]["qty"]+=qty; agg[pid]["net"]+=net; agg[pid]["tax"]+=tax; agg[pid]["disc"]+=disc
+        lines=[ItemWiseSalesLine(product_id=pid,product_code=d["code"],product_name=d["name"],
+                hsn_code=d["hsn"],qty_sold=d["qty"],gross_amount=d["gross"],discount=d["disc"],
+                net_amount=d["net"],tax_amount=d["tax"],return_qty=d["rqty"]) for pid,d in sorted(agg.items(),key=lambda x:-x[1]["net"])]
+        return ItemWiseSalesReport(from_date=str(from_date or ""),to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_items=len(lines),total_qty=sum(l.qty_sold for l in lines),
+            total_net=sum(l.net_amount for l in lines),lines=lines)
+
+    async def tax_register(self, from_date=None, to_date=None):
+        """RPT-TAX-001 -- Shoper9 SR202300 Tax Register."""
+        from ..schemas.reports import TaxRegisterLine, TaxRegisterReport
+        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+        stmt = self._tenant_filter(stmt, SalesInvoice)
+        stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
+        invoices = (await self.db.execute(stmt.order_by(SalesInvoice.date))).scalars().all()
+        lines,t_taxable,t_cgst,t_sgst,t_igst,t_tax = [],[Decimal(0)]*6
+        t_taxable,t_cgst,t_sgst,t_igst,t_tax = Decimal(0),Decimal(0),Decimal(0),Decimal(0),Decimal(0)
+        for inv in invoices:
+            taxable = Decimal(str(getattr(inv,"taxable_amount",None) or getattr(inv,"net_amount",None) or getattr(inv,"grand_total","0") or "0"))
+            cgst_a  = Decimal(str(getattr(inv,"cgst_amount","0") or "0"))
+            sgst_a  = Decimal(str(getattr(inv,"sgst_amount","0") or "0"))
+            igst_a  = Decimal(str(getattr(inv,"igst_amount","0") or "0"))
+            tax_tot = cgst_a+sgst_a+igst_a or Decimal(str(getattr(inv,"tax_amount","0") or "0"))
+            t_taxable+=taxable; t_cgst+=cgst_a; t_sgst+=sgst_a; t_igst+=igst_a; t_tax+=tax_tot
+            lines.append(TaxRegisterLine(invoice_number=getattr(inv,"invoice_number",None) or inv.id,
+                invoice_date=str(getattr(inv,"date","") or ""),customer_name=getattr(inv,"customer_name",None),
+                taxable_amount=taxable,cgst_rate=Decimal("9"),cgst_amount=cgst_a,
+                sgst_rate=Decimal("9"),sgst_amount=sgst_a,igst_rate=Decimal("0"),igst_amount=igst_a,
+                total_tax=tax_tot,net_amount=taxable+tax_tot))
+        return TaxRegisterReport(from_date=str(from_date or ""),to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),total_invoices=len(lines),
+            total_taxable=t_taxable,total_cgst=t_cgst,total_sgst=t_sgst,total_igst=t_igst,
+            total_tax=t_tax,lines=lines)
+
+    async def cancelled_bills(self, from_date=None, to_date=None):
+        """RPT-TAX-004 -- Shoper9 SR210200 Cancelled Bills."""
+        from ..schemas.reports import CancelledBillLine, CancelledBillsReport
+        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, SalesInvoice.status == "CANCELLED")
+        stmt = self._tenant_filter(stmt, SalesInvoice)
+        stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
+        invoices = (await self.db.execute(stmt.order_by(SalesInvoice.date))).scalars().all()
+        lines, total_voided = [], Decimal(0)
+        for inv in invoices:
+            amt = Decimal(str(getattr(inv,"grand_total",None) or getattr(inv,"total_amount","0") or "0"))
+            total_voided += amt
+            lines.append(CancelledBillLine(invoice_number=getattr(inv,"invoice_number",None) or inv.id,
+                invoice_date=str(getattr(inv,"date","") or ""),
+                cancelled_at=str(getattr(inv,"modified_at","") or ""),
+                cancelled_by=getattr(inv,"updated_by",None),
+                cancel_reason=getattr(inv,"cancel_reason",None) or getattr(inv,"remarks",None),
+                original_amount=amt,customer_name=getattr(inv,"customer_name",None)))
+        return CancelledBillsReport(from_date=str(from_date or ""),to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_cancelled=len(lines),total_value_voided=total_voided,lines=lines)
+
+    async def salesperson_discount(self, from_date=None, to_date=None):
+        """RPT-MIS-005 -- Shoper9 SR238400 Salesperson-wise Discount."""
+        from ..schemas.reports import SalespersonDiscountLine, SalespersonDiscountReport
+        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+        stmt = self._tenant_filter(stmt, SalesInvoice)
+        stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
+        invoices = (await self.db.execute(stmt)).scalars().all()
+        agg: Dict[str, dict] = {}
+        for inv in invoices:
+            sp   = getattr(inv,"salesperson_name",None) or getattr(inv,"cashier_name",None) or "Unknown"
+            disc = Decimal(str(getattr(inv,"discount_amount",None) or getattr(inv,"discount","0") or "0"))
+            net  = Decimal(str(getattr(inv,"net_amount",None) or getattr(inv,"grand_total","0") or "0"))
+            if sp not in agg:
+                agg[sp]={"bills":0,"sales":Decimal(0),"disc":Decimal(0)}
+            agg[sp]["bills"]+=1; agg[sp]["sales"]+=net; agg[sp]["disc"]+=disc
+        lines=[]
+        for name,d in sorted(agg.items(),key=lambda x:-x[1]["disc"]):
+            pct=(d["disc"]/d["sales"]*100).quantize(Decimal("0.01")) if d["sales"]>0 else Decimal(0)
+            lines.append(SalespersonDiscountLine(salesperson_name=name,total_bills=d["bills"],
+                total_sales=d["sales"],total_discount=d["disc"],discount_pct=pct))
+        return SalespersonDiscountReport(from_date=str(from_date or ""),to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_salespersons=len(lines),total_discount=sum(l.total_discount for l in lines),lines=lines)
