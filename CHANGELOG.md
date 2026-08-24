@@ -628,6 +628,20 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - 75/75 tests pass
 
 
+## [3.37.0] - 2026-08-25
+
+### Added -- Tattly Threads Batch 2 Tax Invoices (TT2026-2027/129 to 137)
+
+#### B2B Multi-Store Batch Invoicing (Sheet2 of RIL_Dispatch_09-08-2026-2.xlsx)
+- Generated 9 canonical A4 Tax Invoices (TT2026-2027/129 to TT2026-2027/137)
+- Total Quantity: 456 pairs across 10 cartons (213 through 222)
+- Total Taxable Value: ₹5,10,854.28 | Total IGST: ₹25,542.72 | Total Value: ₹5,36,397.00
+- 9 Destination Stores: TVB6, TMV9, TUK5, TVP2, TW97, TXSR, TXSU, TW07, TYAC
+- Created pre-generation confirmation register: Tax_Invoice_Store_PO_Address_Confirmation_Batch2_2026-08-25.xlsx
+- Rendered 9 high-fidelity A4 PDFs with Playwright, Code128 barcodes, and VERIFY INVOICE QR codes
+- Persisted records to smriti001 (sales_invoices, sales_invoice_items, invoice_document_artifacts)
+- System-wide total active TT tax invoices: 120 (TT2026-2027/18 through TT2026-2027/137)
+- Updated Dispatch Status column in Sheet2 of RIL_Dispatch_09-08-2026-2.xlsx
 ## [3.36.0] - 2026-08-25
 
 ### Added -- Sprint 21: LoyaltyAdjPanel Member Search + Alembic v1375 Back-fill (commit 971f2581)
