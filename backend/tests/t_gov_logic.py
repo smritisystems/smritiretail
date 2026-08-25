@@ -302,3 +302,68 @@ async def test_definition_validation_endpoint():
         assert res_invalid.status_code == 200
         assert res_invalid.json()["valid"] is False
         assert len(res_invalid.json()["errors"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_retail_store_policies_listing():
+    """Verify standard retail operational policies derived from Shoper 9 are active."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get(
+            "/api/v1/governed-logic/policies",
+            headers=_get_auth_headers(),
+        )
+        assert res.status_code == 200
+        policies = res.json()
+        codes = [p["code"] for p in policies]
+        assert "POLICY_BILLING_CONTROLS" in codes
+        assert "POLICY_BARCODE_COST_MASK" in codes
+        assert "POLICY_INWARDS_PROCUREMENT" in codes
+        assert "POLICY_CREDIT_MANAGEMENT" in codes
+
+
+@pytest.mark.asyncio
+async def test_cost_mask_preview_endpoint():
+    """Verify apparel hanging tag cost price mask encoder."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 450 with map 0:A, 1:B, 2:C, 3:D, 4:E, 5:F, 6:G, 7:H, 8:I, 9:J -> 4=E, 5=F, 0=A -> "EFA"
+        res = await client.post(
+            "/api/v1/governed-logic/policies/cost-mask/preview",
+            json={
+                "cost_price": 450.0,
+                "encoding_map": {"0": "A", "1": "B", "2": "C", "3": "D", "4": "E", "5": "F", "6": "G", "7": "H", "8": "I", "9": "J"}
+            },
+            headers=_get_auth_headers(),
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["original_cost"] == 450.0
+        assert data["encoded_string"] == "EFA"
+
+
+@pytest.mark.asyncio
+async def test_policy_update_endpoint():
+    """Verify updating policy parameters."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Get billing controls
+        res = await client.get(
+            "/api/v1/governed-logic/policies/POLICY_BILLING_CONTROLS",
+            headers=_get_auth_headers(),
+        )
+        assert res.status_code == 200
+        pol = res.json()
+        assert pol["code"] == "POLICY_BILLING_CONTROLS"
+
+        # Update billing controls parameter
+        updated_params = dict(pol["parameters"])
+        updated_params["enable_qty_only_editing"] = True
+        
+        res_put = await client.put(
+            "/api/v1/governed-logic/policies/POLICY_BILLING_CONTROLS",
+            json={"parameters": updated_params},
+            headers=_get_auth_headers(),
+        )
+        assert res_put.status_code == 200
+        assert res_put.json()["parameters"]["enable_qty_only_editing"] is True

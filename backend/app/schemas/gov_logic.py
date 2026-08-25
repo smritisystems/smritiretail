@@ -127,3 +127,21 @@ class DefinitionValidationRequest(BaseModel):
 class DefinitionValidationResponse(BaseModel):
     valid: bool
     errors: List[str] = Field(default_factory=list)
+
+
+class PolicyUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    parameters: Dict[str, Any]
+    status: Optional[str] = "ACTIVE"
+
+
+class CostMaskPreviewRequest(BaseModel):
+    cost_price: float
+    encoding_map: Dict[str, str] = Field(
+        default_factory=lambda: {"0": "A", "1": "B", "2": "C", "3": "D", "4": "E", "5": "F", "6": "G", "7": "H", "8": "I", "9": "J"}
+    )
+
+
+class CostMaskPreviewResponse(BaseModel):
+    original_cost: float
+    encoded_string: str

@@ -34,6 +34,9 @@ from app.schemas.gov_logic import (
     BusinessRuleEvalRequest,
     BusinessRuleEvalResponse,
     PolicyDefinitionResponse,
+    PolicyUpdateRequest,
+    CostMaskPreviewRequest,
+    CostMaskPreviewResponse,
     GstTaxPolicyEvalRequest,
     WorkflowDefinitionResponse,
     WorkflowTransitionRequest,
@@ -143,6 +146,70 @@ async def list_policy_definitions(
     stmt = stmt.order_by(PolicyDefinition.code)
     result = await db.execute(stmt)
     return result.scalars().all()
+
+
+@router.get("/policies/{policy_code}", response_model=PolicyDefinitionResponse)
+async def get_policy_definition(
+    policy_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve single policy definition by code."""
+    stmt = select(PolicyDefinition).where(
+        PolicyDefinition.code == policy_code.upper(),
+        PolicyDefinition.is_active == True,
+    ).order_by(PolicyDefinition.version.desc())
+    policy = (await db.execute(stmt)).scalars().first()
+    if not policy:
+        raise HTTPException(status_code=404, detail=f"Policy '{policy_code}' not found")
+    return policy
+
+
+@router.put("/policies/{policy_code}", response_model=PolicyDefinitionResponse)
+async def update_policy_definition(
+    policy_code: str,
+    req: PolicyUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update active policy parameters in Control Plane."""
+    stmt = select(PolicyDefinition).where(
+        PolicyDefinition.code == policy_code.upper(),
+        PolicyDefinition.is_active == True,
+    ).order_by(PolicyDefinition.version.desc())
+    policy = (await db.execute(stmt)).scalars().first()
+    if not policy:
+        raise HTTPException(status_code=404, detail=f"Policy '{policy_code}' not found")
+    
+    if req.name:
+        policy.name = req.name
+    policy.parameters = req.parameters
+    if req.status:
+        policy.status = req.status
+    
+    await db.commit()
+    await db.refresh(policy)
+    return policy
+
+
+@router.post("/policies/cost-mask/preview", response_model=CostMaskPreviewResponse)
+async def preview_cost_mask(
+    req: CostMaskPreviewRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Preview encoded cost price mask for apparel tags based on cipher map."""
+    # Convert number to integer or float representation, e.g. 450.00 -> "450"
+    num_str = str(int(req.cost_price)) if req.cost_price == int(req.cost_price) else f"{req.cost_price:.2f}".replace(".", "")
+    encoded_chars = []
+    for digit in num_str:
+        if digit in req.encoding_map:
+            encoded_chars.append(req.encoding_map[digit])
+        else:
+            encoded_chars.append(digit)
+    return CostMaskPreviewResponse(
+        original_cost=req.cost_price,
+        encoded_string="".join(encoded_chars)
+    )
 
 
 @router.post("/policies/gst/evaluate")
