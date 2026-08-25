@@ -118,10 +118,19 @@ STARTUP_TIME = time.time()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """SMRITI startup: log banner. Yield for request handling. Shutdown is a no-op."""
+    """SMRITI startup: log banner and ensure baseline users and company registries are seeded."""
     print(SMRITI_BANNER)
     logger.info(f"[SMRITI] Starting FastAPI Python Core on port {settings.PORT}...")
     logger.info(f"[SMRITI] Mode: {settings.EDITION} | Version: {settings.VERSION}")
+    
+    # Auto-seed baseline users and company registries idempotently on container startup
+    try:
+        from .db.seed_baseline_users import seed as seed_baseline_users
+        await seed_baseline_users()
+        logger.info("[SMRITI Startup] Baseline users, companies, and database registries verified/seeded successfully.")
+    except Exception as e:
+        logger.warning(f"[SMRITI Startup] Notice during baseline user auto-seeding: {e}")
+
     yield
 
 # Initialize FastAPI instance

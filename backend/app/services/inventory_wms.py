@@ -146,29 +146,53 @@ class InventoryWmsService:
 
         if not batch_stock:
             if qty_delta_dec < 0:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"SMRITI-STOCK-001: Cannot deduct from non-existent batch {batch_no} in warehouse {warehouse_id}."
+                # If product has aggregate stock >= requested deduction, initialize opening batch
+                agg_stock = Decimal(str(product.stock or 0))
+                if agg_stock >= abs(qty_delta_dec):
+                    batch_stock = ProductBatchStock(
+                        id=f"pbs-{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=self.tenant_ctx.company_id,
+                        branch_id=self.tenant_ctx.branch_id,
+                        product_id=product_id,
+                        warehouse_id=warehouse_id,
+                        batch_no=batch_no or "BATCH-OPENING",
+                        mfg_date=mfg_date,
+                        expiry_date=expiry_date,
+                        mrp=mrp or product.mrp,
+                        purchase_rate=purchase_rate or unit_cost or product.buying_price,
+                        sale_rate=sale_rate or product.price,
+                        quantity=agg_stock + qty_delta_dec,
+                        reserved_quantity=Decimal("0.0000"),
+                        damaged_quantity=Decimal("0.0000"),
+                        last_counted_date=datetime.now(timezone.utc),
+                    )
+                    self.db.add(batch_stock)
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"SMRITI-STOCK-001: Cannot deduct from non-existent batch {batch_no} in warehouse {warehouse_id}."
+                    )
+            else:
+                batch_stock = ProductBatchStock(
+                    id=f"pbs-{uuid.uuid4().hex[:12]}",
+                    uuid=str(uuid.uuid4()),
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                    product_id=product_id,
+                    warehouse_id=warehouse_id,
+                    batch_no=batch_no,
+                    mfg_date=mfg_date,
+                    expiry_date=expiry_date,
+                    mrp=mrp,
+                    purchase_rate=purchase_rate or unit_cost,
+                    sale_rate=sale_rate,
+                    quantity=qty_delta_dec,
+                    reserved_quantity=Decimal("0.0000"),
+                    damaged_quantity=Decimal("0.0000"),
+                    last_counted_date=datetime.now(timezone.utc),
                 )
-            batch_stock = ProductBatchStock(
-                id=f"pbs-{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id,
-                product_id=product_id,
-                warehouse_id=warehouse_id,
-                batch_no=batch_no,
-                mfg_date=mfg_date,
-                expiry_date=expiry_date,
-                mrp=mrp,
-                purchase_rate=purchase_rate or unit_cost,
-                sale_rate=sale_rate,
-                quantity=qty_delta_dec,
-                reserved_quantity=Decimal("0.0000"),
-                damaged_quantity=Decimal("0.0000"),
-                last_counted_date=datetime.now(timezone.utc),
-            )
-            self.db.add(batch_stock)
+                self.db.add(batch_stock)
         else:
             # Outward validation
             if qty_delta_dec < 0:

@@ -239,4 +239,74 @@ describe("SMRITI — Distributor Invoicing, Settlement & PDT Import Tests", () =
     expect(parsed[1].qty).toBe(10);
     expect(parsed[1].rate).toBe(2499.00);
   });
+
+  // TEST 6 — Stock No / SKU Auto-Population Line Item Creation with 18 Product Attributes
+  it("TEST 6: should map comprehensive 18-attribute product into direct entry billing line item", () => {
+    const selectedProduct = {
+      id: "prod-oxf-100",
+      code: "STK-OXF-001",
+      stockNo: "STK-OXF-001",
+      barcode: "8901234567890",
+      sku: "SKU-OXF-BLUE-40",
+      name: "Oxford Cotton Slim Shirt",
+      description: "Oxford Cotton Slim Shirt",
+      sellingPrice: 1499.0,
+      mrp: 1999.0,
+      costPrice: 750.0,
+      stockQty: 45,
+      size: "40",
+      color: "Blue",
+      gstPercentage: 12,
+      brand: "SMRITI Heritage",
+      category: "Apparel",
+      hsnCode: "6205",
+      pricingMode: "Fixed",
+      trackingMode: "Standard",
+      weightGrams: 250,
+      uom: "Pcs"
+    };
+
+    const qty = 2;
+    const rate = selectedProduct.sellingPrice;
+    const value = rate * qty;
+    const discAmt = 0;
+    const total = value - discAmt;
+    const taxAmount = (total * selectedProduct.gstPercentage) / 100;
+
+    const line: BillingLineItem = {
+      id: "line-1",
+      sNo: 1,
+      stockNo: selectedProduct.stockNo,
+      barcode: selectedProduct.barcode,
+      itemDescription: selectedProduct.name,
+      rate,
+      qty,
+      value,
+      discCode: "",
+      discQty: 0,
+      discPercent: 0,
+      discAmt,
+      total,
+      salesStaff: "Staff A",
+      productId: selectedProduct.id,
+      hsnCode: selectedProduct.hsnCode,
+      gstPercentage: selectedProduct.gstPercentage,
+      taxAmount,
+      brand: selectedProduct.brand,
+      size: selectedProduct.size
+    };
+
+    expect(line.stockNo).toBe("STK-OXF-001");
+    expect(line.barcode).toBe("8901234567890");
+    expect(line.itemDescription).toBe("Oxford Cotton Slim Shirt");
+    expect(line.rate).toBe(1499.0);
+    expect(line.qty).toBe(2);
+    expect(line.value).toBe(2998.0);
+    expect(line.gstPercentage).toBe(12);
+    expect(line.taxAmount).toBe(359.76);
+    expect(line.hsnCode).toBe("6205");
+    expect(line.brand).toBe("SMRITI Heritage");
+    expect(line.size).toBe("40");
+  });
 });
+

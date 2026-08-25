@@ -301,3 +301,118 @@ class AttributeSizeSalesReport(BaseModel):
     total_net:       Decimal
     lines:           List[AttributeSizeSalesLine]
 
+
+# ---------------------------------------------------------------------------
+# SMRITI Standard Statutory Tax Invoices & Footwear Matrix Schemas
+# ---------------------------------------------------------------------------
+
+class TaxInvoiceMasterRegisterLine(BaseModel):
+    """RPT-TAX-006 Line -- Master Statutory Tax Invoice Ledger Line."""
+    bill_no:            Optional[int] = None
+    invoice_number:     str
+    invoice_date:       str
+    status:             str
+    document_type:      str = "TAX INVOICE"
+    sis_code:           Optional[str] = None
+    supplier_name:      str = "Tattly Threads"
+    supplier_gstin:     str = "27AAXFT2508H1ZR"
+    supplier_state:     str = "Maharashtra (27)"
+    customer_name:      Optional[str] = None
+    customer_gstin:     Optional[str] = None
+    place_of_supply:    str
+    supply_type:        str
+    reverse_charge:     str = "No"
+    po_reference:       Optional[str] = None
+    eway_bill_no:       Optional[str] = None
+    irn:                Optional[str] = None
+    site_name:          Optional[str] = None
+    billing_address:    Optional[str] = None
+    shipping_address:   Optional[str] = None
+    items_count:        int
+    total_quantity:     Decimal
+    taxable_value:      Decimal
+    gst_rate:           Decimal = Decimal("5.00")
+    cgst_amount:        Decimal = Decimal("0.00")
+    sgst_amount:        Decimal = Decimal("0.00")
+    igst_amount:        Decimal = Decimal("0.00")
+    total_tax:          Decimal
+    round_off:          Decimal = Decimal("0.00")
+    grand_total:        Decimal
+    amount_in_words:    str
+
+
+class TaxInvoiceMasterRegisterReport(BaseModel):
+    """RPT-TAX-006 -- Statutory GST Tax Invoices Master Register."""
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_invoices:     int
+    completed_count:    int
+    cancelled_count:    int
+    total_quantity:     Decimal
+    total_taxable:      Decimal
+    total_cgst:         Decimal
+    total_sgst:         Decimal
+    total_igst:         Decimal
+    total_tax:          Decimal
+    total_grand_total:  Decimal
+    lines:              List[TaxInvoiceMasterRegisterLine]
+
+
+class ArticleColorSizeMatrixRow(BaseModel):
+    """RPT-MRC-005 Row -- Cross-tabulated variant curve row."""
+    article:        str
+    color:          str
+    size_36:        Decimal = Decimal("0")
+    size_37:        Decimal = Decimal("0")
+    size_38:        Decimal = Decimal("0")
+    size_39:        Decimal = Decimal("0")
+    size_40:        Decimal = Decimal("0")
+    size_41:        Decimal = Decimal("0")
+    size_42:        Decimal = Decimal("0")
+    total_units:    Decimal
+    taxable_value:  Decimal
+    tax_amount:     Decimal
+    gross_total:    Decimal
+
+
+class ArticleColorSizeMatrixReport(BaseModel):
+    """RPT-MRC-005 -- Article, Color & Size Variant Curve Matrix Report."""
+    from_date:       str
+    to_date:         str
+    generated_at:    str
+    total_variants:  int
+    total_units:     Decimal
+    total_taxable:   Decimal
+    total_tax:       Decimal
+    total_gross:     Decimal
+    rows:            List[ArticleColorSizeMatrixRow]
+
+
+class StoreWiseSummaryLine(BaseModel):
+    """RPT-OPS-006 Line -- Store/SIS Code Summary."""
+    sis_code:        str
+    site_name:       Optional[str] = None
+    total_invoices:  int
+    completed_count: int
+    cancelled_count: int
+    total_quantity:  Decimal
+    taxable_value:   Decimal
+    tax_amount:      Decimal
+    grand_total:     Decimal
+
+
+class StoreWiseSummaryReport(BaseModel):
+    """RPT-OPS-006 -- Store-Wise SIS Tax Invoice & Distribution Register."""
+    from_date:       str
+    to_date:         str
+    generated_at:    str
+    total_stores:    int
+    total_invoices:  int
+    total_units:     Decimal
+    total_taxable:   Decimal
+    total_tax:       Decimal
+    total_grand:     Decimal
+    lines:           List[StoreWiseSummaryLine]
+
+

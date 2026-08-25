@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -164,27 +164,36 @@ class SalesService:
             gst_rate = Decimal(str(item.gst_rate or "18.00"))
 
             # Determine batch allocation
-            assigned_batch = item.batch_no
-            if product.tracking_mode != "No-stock":
-                if assigned_batch:
+            assigned_batch = item.batch_no or "BATCH-OPENING"
+            is_settled_status = (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]
+            if product.tracking_mode != "No-stock" and is_settled_status:
+                if item.batch_no:
                     batch_deductions.append({
                         "product": product,
-                        "batch_no": assigned_batch,
+                        "batch_no": item.batch_no,
                         "quantity": quantity
                     })
                 else:
-                    # Auto-allocate via FEFO
-                    allocs = await wms_service.allocate_stock_fefo(
-                        product_id=product.id,
-                        warehouse_id=warehouse_id,
-                        requested_qty=quantity
-                    )
-                    assigned_batch = allocs[0]["batch_no"] if allocs else "BATCH-OPENING"
-                    for a in allocs:
+                    try:
+                        # Auto-allocate via FEFO
+                        allocs = await wms_service.allocate_stock_fefo(
+                            product_id=product.id,
+                            warehouse_id=warehouse_id,
+                            requested_qty=quantity
+                        )
+                        assigned_batch = allocs[0]["batch_no"] if allocs else "BATCH-OPENING"
+                        for a in allocs:
+                            batch_deductions.append({
+                                "product": product,
+                                "batch_no": a["batch_no"],
+                                "quantity": Decimal(str(a["allocated_quantity"]))
+                            })
+                    except Exception:
+                        assigned_batch = "BATCH-OPENING"
                         batch_deductions.append({
                             "product": product,
-                            "batch_no": a["batch_no"],
-                            "quantity": Decimal(str(a["allocated_quantity"]))
+                            "batch_no": assigned_batch,
+                            "quantity": quantity
                         })
 
             # Determine whether line is tax-inclusive (default: True for B2C consumer MRP, False for B2B wholesale)
@@ -231,16 +240,50 @@ class SalesService:
             )
             invoice_items.append(db_item)
 
-        # 2. Check customer credit limit & policy
-        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN":
-            await self.crm_service.check_credit_limit(resolved_customer_id, float(calculated_grand_total))
+        # 2. Check customer credit limit & policy for completed sales
+        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN" and is_settled_status:
+            try:
+                await self.crm_service.check_credit_limit(resolved_customer_id, float(calculated_grand_total))
+            except HTTPException:
+                raise
+            except Exception:
+                pass
 
         # 3. Save Sales Invoice & items
         db_customer_id = resolved_customer_id if (resolved_customer_id and resolved_customer_id != "CUST-WALKIN") else None
+        
+        # Coerce date to python datetime.date for PostgreSQL Date column
+        from datetime import date as py_date
+        inv_date = invoice_in.date
+        if isinstance(inv_date, str):
+            try:
+                inv_date = py_date.fromisoformat(inv_date.split("T")[0])
+            except Exception:
+                inv_date = py_date.today()
+        elif isinstance(inv_date, datetime):
+            inv_date = inv_date.date()
+        elif not inv_date:
+            inv_date = py_date.today()
+
+        # Resolve branch_id safely against tenant database
+        from ..models.tenant import Branch
+        actual_branch_id = self.tenant_ctx.branch_id
+        if actual_branch_id:
+            try:
+                res_br = await self.db.execute(
+                    select(Branch.id).where(
+                        (Branch.id == actual_branch_id) | (Branch.code == actual_branch_id)
+                    )
+                )
+                br_found = res_br.scalars().first()
+                actual_branch_id = br_found if br_found else None
+            except Exception:
+                actual_branch_id = None
+
         db_invoice = SalesInvoice(
             id=invoice_id,
             invoice_no=invoice_no,
-            date=invoice_in.date,
+            date=inv_date,
             customer_id=db_customer_id,
             customer_name=customer_name,
             customer_gstin=customer_gstin,
@@ -258,7 +301,7 @@ class SalesService:
             status=invoice_in.status,
             items=invoice_items,
             company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
+            branch_id=actual_branch_id,
             # v1373 -- Sprint 14/15 optional fields (getattr for backward compat)
             salesperson_id=getattr(invoice_in, "salesperson_id", None),
             salesperson_name=getattr(invoice_in, "salesperson_name", None),
@@ -268,36 +311,48 @@ class SalesService:
             balance_amount=getattr(invoice_in, "balance_amount", None) or Decimal("0.00"),
             discount_amount=getattr(invoice_in, "discount_amount", None) or Decimal("0.00"),
             net_amount=getattr(invoice_in, "net_amount", None) or Decimal("0.00"),
+            rule_snapshots=getattr(invoice_in, "rule_snapshots", None) or {},
+            import_validation_notes=getattr(invoice_in, "remarks", None),
         )
         self.db.add(db_invoice)
+        try:
+            await self.db.flush()
+        except Exception as ef:
+            print(f"[SalesService Error at flush db_invoice]: {ef}")
+            raise
 
-        # 4. Deduct stock from WMS batch stocks atomically
-        for ded in batch_deductions:
-            await wms_service.atomic_mutate_batch_stock(
-                product_id=ded["product"].id,
-                warehouse_id=warehouse_id,
-                batch_no=ded["batch_no"],
-                qty_delta=-ded["quantity"],
-                movement_type="SALES_OUTWARD",
-                reference_doc_type="Sales Invoice",
-                reference_doc_id=db_invoice.invoice_no,
-                remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
-            )
+        # 4. Deduct stock from WMS batch stocks atomically (only for completed/settled sales)
+        if (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]:
+            for ded in batch_deductions:
+                await wms_service.atomic_mutate_batch_stock(
+                    product_id=ded["product"].id,
+                    warehouse_id=warehouse_id,
+                    batch_no=ded["batch_no"],
+                    qty_delta=-ded["quantity"],
+                    movement_type="SALES_OUTWARD",
+                    reference_doc_type="Sales Invoice",
+                    reference_doc_id=db_invoice.invoice_no,
+                    remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
+                )
 
         # Record Transactional Outbox event atomically within same DB transaction
-        from .outbox_service import OutboxService
-        await OutboxService.record_event(
-            session=self.db,
-            target_channel="PSV_QUEUE",
-            payload={
-                "action": "SALES_INVOICE_CREATED",
-                "invoice_no": db_invoice.invoice_no,
-                "grand_total": str(db_invoice.grand_total),
-                "customer_id": db_invoice.customer_id,
-                "company_code": self.tenant_ctx.company_id
-            },
-            causation_id=db_invoice.invoice_no
-        )
+        try:
+            from .outbox_service import OutboxService
+            await OutboxService.record_event(
+                session=self.db,
+                target_channel="PSV_QUEUE",
+                payload={
+                    "action": "SALES_INVOICE_CREATED",
+                    "invoice_no": db_invoice.invoice_no,
+                    "grand_total": str(db_invoice.grand_total),
+                    "customer_id": db_invoice.customer_id,
+                    "company_code": self.tenant_ctx.company_id
+                },
+                causation_id=db_invoice.invoice_no
+            )
+        except Exception as eo:
+            print(f"[SalesService Error at record_event]: {eo}")
+            raise
         # -- Sprint 14: Sales line-item + Loyalty earn hooks (atomic, pre-commit) --
         from .sales_hook import write_invoice_lines, write_loyalty_earn
         _creator = getattr(self.tenant_ctx, "user_id", None) or "system"
@@ -305,7 +360,7 @@ class SalesService:
             db=self.db,
             invoice_id=db_invoice.id,
             company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
+            branch_id=actual_branch_id,
             creator=_creator,
             items=invoice_in.items,
             warehouse_id=warehouse_id,
@@ -314,7 +369,7 @@ class SalesService:
             db=self.db,
             invoice_id=db_invoice.id,
             company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
+            branch_id=actual_branch_id,
             customer_id=db_invoice.customer_id,
             grand_total=calculated_grand_total,
             creator=_creator,

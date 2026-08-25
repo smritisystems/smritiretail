@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.17.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-08-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -1324,6 +1324,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                     onClose={() => setIsProductSearchOpen(false)}
                     isLoading={isProductSearching}
                     searchFieldType="barcode"
+                    anchorRef={directBarcodeRef}
                   />
                 )}
               </div>
@@ -1351,6 +1352,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                     onClose={() => setIsProductSearchOpen(false)}
                     isLoading={isProductSearching}
                     searchFieldType="stockNo"
+                    anchorRef={directStockNoRef}
                   />
                 )}
               </div>

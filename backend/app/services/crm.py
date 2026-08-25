@@ -126,18 +126,24 @@ class CrmService:
         await self.db.refresh(db_customer)
         return db_customer
 
-    async def check_credit_limit(self, customer_id: str, new_amount: float) -> bool:
+    async def get_customer(self, customer_id: str) -> Optional[Customer]:
         stmt = select(Customer).filter(
             Customer.id == customer_id,
             Customer.is_deleted == False,
-            Customer.company_id == self.tenant_ctx.company_id,
-            Customer.branch_id == self.tenant_ctx.branch_id
         )
+        if self.tenant_ctx.company_id:
+            stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))
+        if self.tenant_ctx.branch_id:
+            stmt = stmt.filter((Customer.branch_id == self.tenant_ctx.branch_id) | (Customer.branch_id.is_(None)))
         res = await self.db.execute(stmt)
-        customer = res.scalars().first()
+        return res.scalars().first()
+
+    async def check_credit_limit(self, customer_id: str, new_amount: float) -> bool:
+        if customer_id == "CUST-WALKIN":
+            return True
+
+        customer = await self.get_customer(customer_id)
         if not customer:
-            if customer_id == "CUST-WALKIN":
-                return True
             raise HTTPException(status_code=404, detail="Customer not found")
         
         group_stmt = select(CustomerGroup).filter(

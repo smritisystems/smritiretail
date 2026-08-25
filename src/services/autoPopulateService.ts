@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.9.0
+ * Version      : 6.10.0
  * Created      : 2026-08-22
- * Modified     : 2026-08-22
+ * Modified     : 2026-08-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -97,9 +97,10 @@ export async function searchBackendCustomers(query: string): Promise<AutoPopulat
   }
 
   try {
-    const res = await apiFetchV1(`/customers/search?q=${encodeURIComponent(cleanQ)}&limit=15`);
-    if (Array.isArray(res) && res.length > 0) {
-      const enriched = enrichCustomersWithPriceGroups(res);
+    const res = await apiFetchV1(`/crm/customers/search?q=${encodeURIComponent(cleanQ)}&limit=15`);
+    const rawList = Array.isArray(res) ? res : (res?.items || []);
+    if (rawList.length > 0) {
+      const enriched = enrichCustomersWithPriceGroups(rawList);
       searchCache.set(cacheKey, { timestamp: Date.now(), data: enriched });
       return enriched;
     }
@@ -196,14 +197,25 @@ export async function searchBackendProducts(query: string, localProducts: Produc
 
   // 2. Query backend inventory products endpoint
   try {
-    const res = await apiFetchV1(`/inventory/products?q=${encodeURIComponent(cleanQ)}&limit=15`);
-    if (Array.isArray(res) && res.length > 0) {
-      const results = res.map(mapToProductResult);
+    const res = await apiFetchV1(`/products/search?q=${encodeURIComponent(cleanQ)}&limit=15`);
+    const rawList = Array.isArray(res) ? res : (res?.items || []);
+    if (rawList.length > 0) {
+      const results = rawList.map(mapToProductResult);
       searchCache.set(cacheKey, { timestamp: Date.now(), data: results });
       return results;
     }
   } catch {
-    // Backend offline
+    try {
+      const res2 = await apiFetchV1(`/products?q=${encodeURIComponent(cleanQ)}&page_size=15`);
+      const rawList2 = Array.isArray(res2) ? res2 : (res2?.items || []);
+      if (rawList2.length > 0) {
+        const results2 = rawList2.map(mapToProductResult);
+        searchCache.set(cacheKey, { timestamp: Date.now(), data: results2 });
+        return results2;
+      }
+    } catch {
+      // Backend offline fallback
+    }
   }
 
   return [];
@@ -227,7 +239,7 @@ function mapToProductResult(p: any): AutoPopulateProductResult {
     description: desc,
     sellingPrice: Number(p.sellingPrice || p.price || p.rate || p.mrp || 0),
     mrp: Number(p.mrp || p.sellingPrice || p.price || 0),
-    costPrice: Number(p.costPrice || p.cost_price || p.purchasePrice || 0),
+    costPrice: Number(p.costPrice || p.cost_price || p.buying_price || p.purchasePrice || 0),
     stockQty: Number(p.stockQty || p.stock || p.availableStock || 0),
     size: p.size || "Standard",
     color: p.color || "Standard",

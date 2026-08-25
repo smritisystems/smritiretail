@@ -7,7 +7,7 @@ Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.9.0
 Created      : 2026-07-11
 Modified     : 2026-07-11
-Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_db, get_tenant_context, TenantContext, require_role, get_current_user
+from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
 
 from ...models.auth import UserRole
 from ...models.crm import Customer
@@ -40,7 +40,7 @@ router = APIRouter()
 )
 async def create_customer(
     customer_in: CustomerCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a new customer. CASHIER, MANAGER, and SYSADMIN may create customers."""
@@ -58,7 +58,7 @@ class CustomerValidationRequest(BaseModel):
 )
 async def validate_customer_add(
     validation_request: CustomerValidationRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Validate a new customer payload before creation."""
@@ -69,10 +69,10 @@ async def validate_customer_add(
     seen_mobiles = set()
     seen_emails = set()
     for cust in existing_customers:
-        mobile = str(cust.get("mobile") or cust.get("phone") or "").strip()
+        m = str(cust.get("mobile") or "").strip().replace(" ", "").replace("-", "")
+        if m:
+            seen_mobiles.add(m)
         email = str(cust.get("email") or "").strip().lower()
-        if mobile:
-            seen_mobiles.add(mobile)
         if email:
             seen_emails.add(email)
 
@@ -128,7 +128,7 @@ async def validate_customer_add(
 async def list_customers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
@@ -140,7 +140,7 @@ async def search_customers(
     q: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
@@ -150,7 +150,7 @@ async def search_customers(
 @router.get("/customers/{customer_id}", response_model=CustomerResponse)
 async def get_customer(
     customer_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
@@ -170,7 +170,7 @@ async def get_customer(
 )
 async def create_customer_group(
     group_in: CustomerGroupCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a new customer group. Requires MANAGER or SYSADMIN role."""
@@ -182,7 +182,7 @@ async def create_customer_group(
 async def list_customer_groups(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerGroupRepository(db, tenant_ctx)
@@ -192,7 +192,7 @@ async def list_customer_groups(
 @router.get("/customer-groups/{group_id}", response_model=CustomerGroupResponse)
 async def get_customer_group(
     group_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerGroupRepository(db, tenant_ctx)

@@ -164,6 +164,15 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         } else if (selectedReport.id === "RPT-MRC-001") {
           const data = await apiFetchV1(`/reports/attribute-size-sales${params}`);
           setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-TAX-006") {
+          const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-MRC-005") {
+          const data = await apiFetchV1(`/reports/article-color-size-matrix${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-OPS-006") {
+          const data = await apiFetchV1(`/reports/store-wise-summary${params}`);
+          setGenericReportData(data);
         } else {
           setGenericReportData(null);
         }
@@ -1799,6 +1808,239 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
+            {/* RPT-TAX-006: Statutory GST Tax Invoices Master Register */}
+            {selectedReport.id === "RPT-TAX-006" && (
+              <div className="p-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-theme-surface-2 p-3.5 rounded-xl border border-theme-divider">
+                  <div>
+                    <h5 className="font-bold text-theme-body text-xs flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      Statutory GST Tax Invoices Master Register
+                    </h5>
+                    <p className="text-[10px] text-theme-muted font-mono mt-0.5">
+                      Seller: Tattly Threads (27AAXFT2508H1ZR) • Customer: Reliance Retail Limited • GST Rate: 5.00%
+                    </p>
+                  </div>
+                  <a
+                    href="/api/v1/reports/export/tax-invoices-excel"
+                    download
+                    className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Download size={13} /> Download Full 6-Sheet Excel (.xlsx)
+                  </a>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Invoices</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_invoices ?? 0} Bills</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Active / Cancelled</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">
+                      {genericReportData?.completed_count ?? 0} <span className="text-rose-400 font-normal text-xs">/ {genericReportData?.cancelled_count ?? 0}</span>
+                    </p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Pairs (Units)</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.total_quantity ?? 0).toLocaleString("en-IN")}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Taxable Value</span>
+                    <p className="text-sm font-black text-theme-body mt-1">₹{Number(genericReportData?.total_taxable ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total IGST (5%)</span>
+                    <p className="text-sm font-black text-purple-400 mt-1">₹{Number(genericReportData?.total_tax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Gross Grand Total</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_grand_total ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3 text-center">Bill #</th>
+                        <th className="p-3">Invoice No</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3 text-center">Status</th>
+                        <th className="p-3 text-center">SIS Code</th>
+                        <th className="p-3">Store Location</th>
+                        <th className="p-3">Place of Supply</th>
+                        <th className="p-3 text-right">Pairs</th>
+                        <th className="p-3 text-right">Taxable (₹)</th>
+                        <th className="p-3 text-right">IGST 5% (₹)</th>
+                        <th className="p-3 text-right">Grand Total (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={11} className="p-6 text-center text-theme-muted">No statutory tax invoices found in the selected range.</td></tr>
+                      ) : (
+                        genericReportData.lines.map((l: any, idx: number) => {
+                          const isCan = l.status === "CANCELLED";
+                          return (
+                            <tr key={idx} className={`hover:bg-theme-surface-hover transition-colors ${isCan ? "bg-rose-50/40 text-rose-900" : ""}`}>
+                              <td className="p-3 text-center font-mono font-bold">{l.bill_no || idx + 1}</td>
+                              <td className="p-3 font-mono font-bold text-blue-400">{l.invoice_number}</td>
+                              <td className="p-3 font-mono text-theme-muted">{l.invoice_date}</td>
+                              <td className="p-3 text-center">
+                                <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${isCan ? "bg-rose-100 text-rose-700 border border-rose-200" : "bg-emerald-100 text-emerald-700 border border-emerald-200"}`}>
+                                  {l.status}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center font-mono text-theme-muted">{l.sis_code || "—"}</td>
+                              <td className="p-3 text-theme-body font-medium truncate max-w-[180px]" title={l.site_name || l.shipping_address}>{l.site_name || l.shipping_address}</td>
+                              <td className="p-3 text-theme-muted text-[11px]">{l.place_of_supply}</td>
+                              <td className="p-3 text-right font-mono font-bold text-blue-400">{Number(l.total_quantity).toLocaleString("en-IN")}</td>
+                              <td className="p-3 text-right font-mono">{Number(l.taxable_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td className="p-3 text-right font-mono text-purple-400">{Number(l.total_tax).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RPT-MRC-005: Article, Color & Size Variant Matrix */}
+            {selectedReport.id === "RPT-MRC-005" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Variants</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_variants ?? 0} Styles</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Pairs Sold</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.total_units ?? 0).toLocaleString("en-IN")} Pairs</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Taxable Value</span>
+                    <p className="text-sm font-black text-theme-body mt-1">₹{Number(genericReportData?.total_taxable ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">IGST 5%</span>
+                    <p className="text-sm font-black text-purple-400 mt-1">₹{Number(genericReportData?.total_tax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Gross Total</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_gross ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3">Article Code</th>
+                        <th className="p-3">Color</th>
+                        <th className="p-3 text-right">Size 36</th>
+                        <th className="p-3 text-right">Size 37</th>
+                        <th className="p-3 text-right">Size 38</th>
+                        <th className="p-3 text-right">Size 39</th>
+                        <th className="p-3 text-right">Size 40</th>
+                        <th className="p-3 text-right">Size 41</th>
+                        <th className="p-3 text-right">Size 42</th>
+                        <th className="p-3 text-right">Total Units</th>
+                        <th className="p-3 text-right">Taxable (₹)</th>
+                        <th className="p-3 text-right">Tax 5% (₹)</th>
+                        <th className="p-3 text-right">Gross Total (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.rows || genericReportData.rows.length === 0) ? (
+                        <tr><td colSpan={13} className="p-6 text-center text-theme-muted">No article size curve data found for the selected filter.</td></tr>
+                      ) : (
+                        genericReportData.rows.map((r: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-mono font-bold text-blue-400">{r.article}</td>
+                            <td className="p-3 font-semibold text-theme-body">{r.color}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{Number(r.size_36).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{Number(r.size_37).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{Number(r.size_38).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{Number(r.size_39).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{Number(r.size_40).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{Number(r.size_41).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{Number(r.size_42).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono font-bold text-blue-400">{Number(r.total_units).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono">{Number(r.taxable_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono text-purple-400">{Number(r.tax_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(r.gross_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RPT-OPS-006: Store-Wise SIS Tax Register */}
+            {selectedReport.id === "RPT-OPS-006" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Active Stores</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_stores ?? 0} Stores</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Invoices</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{genericReportData?.total_invoices ?? 0} Bills</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Taxable Value</span>
+                    <p className="text-sm font-black text-theme-body mt-1">₹{Number(genericReportData?.total_taxable ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Revenue</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_grand ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3 text-center">SIS Code</th>
+                        <th className="p-3">Store Location Name</th>
+                        <th className="p-3 text-right">Invoices</th>
+                        <th className="p-3 text-right">Completed</th>
+                        <th className="p-3 text-right">Cancelled</th>
+                        <th className="p-3 text-right">Taxable (₹)</th>
+                        <th className="p-3 text-right">IGST 5% (₹)</th>
+                        <th className="p-3 text-right">Grand Total (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={8} className="p-6 text-center text-theme-muted">No store records found.</td></tr>
+                      ) : (
+                        genericReportData.lines.map((l: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 text-center font-mono font-bold text-blue-400">{l.sis_code}</td>
+                            <td className="p-3 text-theme-body font-medium">{l.site_name}</td>
+                            <td className="p-3 text-right font-mono font-bold">{l.total_invoices}</td>
+                            <td className="p-3 text-right font-mono text-emerald-400">{l.completed_count}</td>
+                            <td className="p-3 text-right font-mono text-rose-400">{l.cancelled_count}</td>
+                            <td className="p-3 text-right font-mono">{Number(l.taxable_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono text-purple-400">{Number(l.tax_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Fallback table if no specific prebuilt report viewer matches */}
             {![
               "RPT-SAL-001",
@@ -1808,10 +2050,13 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               "RPT-TAX-003",
               "RPT-TAX-004",
               "RPT-TAX-005",
+              "RPT-TAX-006",
               "RPT-MIS-005",
               "RPT-OPS-001",
+              "RPT-OPS-006",
               "RPT-MRC-003",
               "RPT-MRC-001",
+              "RPT-MRC-005",
             ].includes(selectedReport.id) && (
               <div className="p-8 text-center text-theme-muted text-xs space-y-4">
                 <AlertTriangle className="mx-auto text-amber-500 animate-pulse" size={32} />

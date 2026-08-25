@@ -22,6 +22,9 @@ else
     echo "SKIP_MIGRATIONS=true, skipping Alembic migrations."
 fi
 
+echo "Seeding baseline users and company registries..."
+python -m app.db.seed_baseline_users || echo "Notice: Seeding completed or skipped."
+
 echo "Starting SMRITI FastAPI Python Core..."
 exec gunicorn app.main:app \
         -k uvicorn.workers.UvicornWorker \

@@ -28,6 +28,48 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.65.0] - 2026-08-25
+
+#### Distributor Invoicing Screen Layout & Ergonomic Refactoring (1:1 Stitch code.html Parity)
+- **Top Header Bar Parity (`src/components/billing/BillingTerm.tsx`)**:
+  - Refactored top navigation bar with `receipt_long` icon, "Smriti Distributor" title, live digital clock and date badges (`font-code-md`), quick action toolbar (`New [Ctrl+N]`, `Void [Ctrl+V]`, `Return [Ctrl+R]`, `Reprint [Ctrl+P]`), notifications, item settings, help dialogs, and user avatar.
+- **Header Section Two-Row Card (`src/components/billing/BillingTerm.tsx`)**:
+  - Standardized two-row header card with `Bill Type` (Product/Service/Both), `Transaction` (Credit/Cash/Retail), `Doc Prefix`, `Doc No.`, `Import`, `Recall`, customer search input with F2 prefix, customer display, quick customer add modal, and `Sales Staff` selector.
+- **Detail Section Data Table & Direct Entry Row (`src/components/billing/BillingTerm.tsx`)**:
+  - Implemented high-contrast monospace tabular rows for `S.No`, `Stock No`, `Item Description`, `Rate`, `Qty`, `Value`, `Disc Code`, `Disc Qty`, `Disc %`, `Disc Amt`, `Total`, `Sales Staff`, and inline delete actions.
+  - Reorganized direct entry row (`F11`/`F1`) into the bottom docking slot with direct scanning, live item metadata preview ribbon, and quick commit button.
+- **Footer Section Tabbed Details & Right Totals Grid (`src/components/billing/BillingTerm.tsx`)**:
+  - Integrated 3-tab card (`Transporter Details`, `Payment Details`, `AddOns And Deductions`) with `border-t-2 border-t-primary` active tab indicator and document remarks field.
+  - Formatted right `Net Values` grid for `Sales`, `Discounts`, `Sales Tax`, `Add-ons`, and `Deductions`.
+- **High-Visibility Metric Status Strip (`src/components/billing/BillingTerm.tsx`)**:
+  - Implemented 9-metric dark blue status container (`No. of Items`, `Total Qty.`, `Sales Value`, `Item Lvl. Discount`, `Bill Discount`, `Total Tax`, `Total Addons`, `Total Deductions`, and `Net Amount` in `#315384` with 24px bold currency display).
+- **Invoice Settlement Studio Parity (`src/components/billing/InvoiceSettlementD.tsx`)**:
+  - Upgraded settlement dialog with high-visibility invoice header badges, multi-tender split grid, real-time denomination counter, and high-visibility net payable banner.
+- **Global ERP Keyboard Shortcuts (`src/components/billing/BillingTerm.tsx`, `InvoiceSettlementD.tsx`)**:
+  - Enforced unified ERP keyboard mappings (`F2: Search Customer`, `F11: Direct Entry`, `F8: Settlement`, `F12: Suspend / Hold`, `Ctrl+N: New Invoice`, `Ctrl+V: Void Bill`, `Ctrl+R: Return / Recall`, `Ctrl+P: Reprint Invoice`, `Ctrl+I: Import PDT`).
+- **Bill 136 Store & Address Synchronization (`TT2026-2027/136`)**:
+  - Re-anchored Bill 136 from store `TW07` to SIS Code `S4NN/8319` with official Tumkur Distribution Center delivery address and Bangalore Richmond Road corporate billing address.
+  - Re-rendered and saved canonical PDF archives (`SIS_8319_TaxInvoice_TT2026-2027_136.pdf`) across client and export repositories with updated SHA-256 verification hashes.
+  - Synchronized statutory Excel ledgers and store summaries across all distribution channels.
+
+### [3.64.0] - 2026-08-25
+
+#### Statutory GST Tax Invoices Master Register, Footwear Size Curve Matrix & Live Multi-Sheet Excel Streaming Engine
+- **Statutory GST Tax Invoices Master Register (`RPT-TAX-006`)**:
+  - Integrated full statutory GST audit register covering all 120 invoices (Bills 18 to 137, including active and cancelled) in Tax & Compliance Studio.
+  - Implemented 31 GST statutory attributes: Supplier/Buyer GSTINs, State Codes, Place of Supply, Reverse Charge Mechanism (RCM), PO references, E-Way Bill numbers, full multi-line billing/shipping addresses, round-offs, and English Amount in Words.
+- **Article, Color & Size Sales Curve Matrix (`RPT-MRC-005`)**:
+  - Created automated footwear variant parser (`<Article>-<Color>-<Size>`) binning sales distribution across Sizes 36 through 42 in Merchandise & Stock Studio.
+  - Built cross-tabulation table reporting per-variant pairs sold, taxable value, IGST 5%, and gross sales.
+- **Store-Wise SIS Tax Register (`RPT-OPS-006`)**:
+  - Added SIS store distribution summary aggregating total invoices, completed vs cancelled counts, pairs sold, and GST revenue across all 61 SIS store locations.
+- **Streaming Multi-Sheet Excel Export (`GET /api/v1/reports/export/tax-invoices-excel`)**:
+  - Implemented in-memory dynamic Excel workbook generator (`openpyxl`) producing a 6-worksheet audit ledger (`Executive Summary`, `Tax Invoices Register`, `Item Level Details`, `Article & Size Matrix`, `Cancelled Invoices Audit`, `Store-Wise Summary`).
+- **Frontend Reporting Studio UI (`src/components/ReportDesignerTab.tsx`)**:
+  - Implemented responsive KPI summary cards, Fiori-compliant data grids, and direct 1-click Excel download action buttons.
+- **Automated Test Suite (`backend/app/tests/test_reports.py`)**:
+  - Added 5 new async test fixtures achieving 100% test pass rate across catalog metadata, master invoice register, size matrix calculations, store summaries, and binary stream payloads.
+
 ### [3.63.0] - 2026-08-25
 
 #### Legacy Tally Shoper 9 Configuration Extractor, Retail Governance Policies & Tenant ETL Ingestion Engine
