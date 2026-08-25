@@ -262,44 +262,85 @@ class Shoper9TenantMigrator:
         }
 
 
+import csv
+import os
+
+
+async def load_csv_rows(file_path: str) -> List[Dict[str, Any]]:
+    """Loads CSV file rows into list of dictionaries."""
+    if not os.path.exists(file_path):
+        print(f"[!] Warning: File not found: {file_path}")
+        return []
+    rows = []
+    with open(file_path, "r", encoding="utf-8-sig", errors="ignore") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            rows.append({k.strip(): v.strip() for k, v in row.items() if k})
+    return rows
+
+
 async def main():
     parser = argparse.ArgumentParser(description="SMRITI Legacy Shoper 9 ETL Ingestion Engine")
     parser.add_argument("--tenant-db", default="smriti001", help="Target Tenant Database Name (e.g. smriti001)")
     parser.add_argument("--company-id", default="COMP-001", help="Target Company ID")
     parser.add_argument("--dry-run", action="store_true", help="Perform pre-flight validation without committing")
+    parser.add_argument("--csv-parties", help="Path to Customers/Vendors CSV export")
+    parser.add_argument("--csv-items", help="Path to Items/Products CSV export")
+    parser.add_argument("--csv-stock", help="Path to Opening Stock Batches CSV export")
+    parser.add_argument("--export-dir", help="Directory containing Shoper 9 dump files (CustMaster.csv, ItemMaster.csv, StockBal.csv)")
     args = parser.parse_args()
 
     print(f"[*] Initializing SMRITI Shoper 9 Migrator for {args.tenant_db} (Company: {args.company_id})...")
     migrator = Shoper9TenantMigrator(args.tenant_db, args.company_id, args.dry_run)
 
-    # Sample standard legacy retail dataset
-    sample_parties = [
-        {"code": "CUST-SH9-001", "name": "Rahul Verma", "party_type": "CUSTOMER", "credit_limit": 25000, "opening_balance": 1500},
-        {"code": "CUST-SH9-002", "name": "Priya Sharma", "party_type": "CUSTOMER", "credit_limit": 10000, "opening_balance": 0},
-        {"code": "VEND-SH9-001", "name": "Raymond Textiles Ltd", "party_type": "VENDOR", "opening_balance": 45000}
-    ]
+    # 1. Parties
+    parties_data: List[Dict[str, Any]] = []
+    if args.csv_parties:
+        parties_data = await load_csv_rows(args.csv_parties)
+    elif args.export_dir and os.path.exists(os.path.join(args.export_dir, "CustMaster.csv")):
+        parties_data = await load_csv_rows(os.path.join(args.export_dir, "CustMaster.csv"))
+    else:
+        parties_data = [
+            {"code": "CUST-SH9-001", "name": "Rahul Verma", "party_type": "CUSTOMER", "credit_limit": 25000, "opening_balance": 1500},
+            {"code": "CUST-SH9-002", "name": "Priya Sharma", "party_type": "CUSTOMER", "credit_limit": 10000, "opening_balance": 0},
+            {"code": "VEND-SH9-001", "name": "Raymond Textiles Ltd", "party_type": "VENDOR", "opening_balance": 45000}
+        ]
 
-    sample_items = [
-        {"item_code": "TSH-COT-001", "name": "Classic Cotton T-Shirt", "mrp": 799.0, "buying_price": 350.0, "hsn_code": "61091000", "size": "L", "color": "Navy"},
-        {"item_code": "DNM-SLM-002", "name": "Slim Fit Denim Jeans", "mrp": 1999.0, "buying_price": 900.0, "hsn_code": "62034200", "size": "32", "color": "Blue"}
-    ]
+    # 2. Items
+    items_data: List[Dict[str, Any]] = []
+    if args.csv_items:
+        items_data = await load_csv_rows(args.csv_items)
+    elif args.export_dir and os.path.exists(os.path.join(args.export_dir, "ItemMaster.csv")):
+        items_data = await load_csv_rows(os.path.join(args.export_dir, "ItemMaster.csv"))
+    else:
+        items_data = [
+            {"item_code": "TSH-COT-001", "name": "Classic Cotton T-Shirt", "mrp": 799.0, "buying_price": 350.0, "hsn_code": "61091000", "size": "L", "color": "Navy"},
+            {"item_code": "DNM-SLM-002", "name": "Slim Fit Denim Jeans", "mrp": 1999.0, "buying_price": 900.0, "hsn_code": "62034200", "size": "32", "color": "Blue"}
+        ]
 
-    sample_stock = [
-        {"sku_code": "TSH-COT-001", "quantity": 50, "cost_price": 350.0, "mrp": 799.0, "batch_no": "SH9-OPEN-2026"},
-        {"sku_code": "DNM-SLM-002", "quantity": 30, "cost_price": 900.0, "mrp": 1999.0, "batch_no": "SH9-OPEN-2026"}
-    ]
+    # 3. Stock
+    stock_data: List[Dict[str, Any]] = []
+    if args.csv_stock:
+        stock_data = await load_csv_rows(args.csv_stock)
+    elif args.export_dir and os.path.exists(os.path.join(args.export_dir, "StockBal.csv")):
+        stock_data = await load_csv_rows(os.path.join(args.export_dir, "StockBal.csv"))
+    else:
+        stock_data = [
+            {"sku_code": "TSH-COT-001", "quantity": 50, "cost_price": 350.0, "mrp": 799.0, "batch_no": "SH9-OPEN-2026"},
+            {"sku_code": "DNM-SLM-002", "quantity": 30, "cost_price": 900.0, "mrp": 1999.0, "batch_no": "SH9-OPEN-2026"}
+        ]
 
     session_factory = get_company_sessionmaker(args.tenant_db)
     async with session_factory() as session:
         try:
-            print("[*] Migrating Legacy Parties...")
-            await migrator.migrate_parties_from_data(session, sample_parties)
+            print(f"[*] Migrating Legacy Parties ({len(parties_data)} records)...")
+            await migrator.migrate_parties_from_data(session, parties_data)
 
-            print("[*] Migrating Legacy Items, Variants, and Barcodes...")
-            await migrator.migrate_items_from_data(session, sample_items)
+            print(f"[*] Migrating Legacy Items, Variants, and Barcodes ({len(items_data)} records)...")
+            await migrator.migrate_items_from_data(session, items_data)
 
-            print("[*] Migrating Opening Stock Batches...")
-            await migrator.migrate_opening_stock_from_data(session, sample_stock)
+            print(f"[*] Migrating Opening Stock Batches ({len(stock_data)} records)...")
+            await migrator.migrate_opening_stock_from_data(session, stock_data)
 
             print("[*] Executing Pre-flight & Ledger Invariant Verification...")
             report = await migrator.execute_dry_run_validation(session)
@@ -324,3 +365,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

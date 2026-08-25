@@ -82,6 +82,7 @@ import { DataExchangeTab } from "./components/DataExchangeTab.tsx";
 import { DatabaseManagerTab } from "./components/DatabaseManagerTab.tsx";
 import { LegacyMigDashTab } from "./components/LegacyMigDashTab.tsx";
 import { PhysicalStockTab } from "./components/PhysicalStockTab.tsx";
+import { StorePolicyStudio } from "./components/StorePolicyStudio.tsx";
 
 import { WmsStudioTab } from "./components/wms/WmsStudioTab.tsx";
 import { useLayoutModuleRegistration } from "./components/SmritiBaseModule.tsx";
@@ -579,6 +580,11 @@ const AppContent: React.FC = () => {
       case "stock-count":
       case "physical-inventory":
         return <PhysicalStockTab />;
+
+      case "store-policies":
+      case "governed-policies":
+      case "policy-studio":
+        return <StorePolicyStudio />;
 
 
       case "wms":
