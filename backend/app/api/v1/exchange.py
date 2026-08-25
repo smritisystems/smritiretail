@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_db, get_current_user, require_role, get_tenant_context, TenantContext
 from ...models.auth import User, UserRole
 from ...models.exchange import DataExchangeTask, DataExchangeFieldMapping
 from ...models.inventory import Product
@@ -468,6 +468,7 @@ async def execute_task(
     id: str,
     req: ExecuteTaskRequest,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -522,7 +523,10 @@ async def execute_task(
         export_data = []
         if task.entity_type == "Products":
             # Select actual products from Postgres
-            q = select(Product).where(Product.is_deleted == False).limit(10)
+            q = select(Product).where(Product.is_deleted == False)
+            if tenant_ctx and tenant_ctx.company_id:
+                q = q.where(Product.company_id == tenant_ctx.company_id)
+            q = q.limit(50)
             res = (await db.execute(q)).scalars().all()
             for p in res:
                 row = {"id": p.id, "code": p.code, "name": p.name, "price": float(p.price), "stock": p.stock}

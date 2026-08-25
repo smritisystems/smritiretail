@@ -50,18 +50,20 @@ async def override_db_and_tenant(db_session):
 
 
 async def _make_tenant(db_session, suffix):
-    comp = Company(id=f"comp-bar-{suffix}", name=f"Bar Co {suffix}",
+    s = f"{suffix}_{uuid.uuid4().hex[:6]}"
+    comp = Company(id=f"comp-bar-{s}", name=f"Bar Co {s}",
                    gst_number="27ABCDE1234F1Z5", is_active=True)
-    br   = Branch(id=f"br-bar-{suffix}", company_id=comp.id,
-                   name=f"Bar Br {suffix}", code=f"BRBAR-{suffix}", is_active=True)
+    br   = Branch(id=f"br-bar-{s}", company_id=comp.id,
+                   name=f"Bar Br {s}", code=f"BRBAR-{s}", is_active=True)
     db_session.add_all([comp, br])
     await db_session.commit()
     return comp, br
 
 
 async def _make_user(db_session, suffix, comp_id, br_id, role=UserRole.MANAGER):
+    s = f"{suffix}_{uuid.uuid4().hex[:6]}"
     user = User(
-        id=f"usr-bar-{suffix}", username=f"usr_bar_{suffix}",
+        id=f"usr-bar-{s}", username=f"usr_bar_{s}",
         hashed_password=hash_password("Test@1234"),
         role=role, is_active=True, is_deleted=False,
         company_id=comp_id, branch_id=br_id,
@@ -122,8 +124,9 @@ async def test_print_labels_recording_history(db_session):
     _set_tenant(db_session, comp.id, br.id)
 
     # Seed layout
+    lay_id = f"lay-test-print-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
-        id="lay-test-print",
+        id=lay_id,
         name="Test Print Layout",
         width_mm=50,
         height_mm=25,
@@ -139,9 +142,8 @@ async def test_print_labels_recording_history(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Trigger print labels
-        # Printer is offline so we expect 400 with a detailed connection refusal error, but logs must be captured!
         payload = {
-            "layoutId": "lay-test-print",
+            "layoutId": lay_id,
             "items": [
                 {
                     "code": "SKU-001",
@@ -183,8 +185,9 @@ async def test_print_labels_dynamic_placeholder_replacement(db_session):
         "elements": [],
         "prn_template": "^XA^FD{name}^FS^FD{custom_fabric}^FS^FD{custom_color}^FS^XZ"
     }
+    lay_id = f"lay-test-dynamic-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
-        id="lay-test-dynamic",
+        id=lay_id,
         name="Dynamic Print Layout",
         width_mm=50,
         height_mm=25,
@@ -200,7 +203,7 @@ async def test_print_labels_dynamic_placeholder_replacement(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         payload = {
-            "layoutId": "lay-test-dynamic",
+            "layoutId": lay_id,
             "items": [
                 {
                     "code": "SKU-002",
@@ -244,8 +247,9 @@ async def test_print_labels_qz_tray_mode(db_session):
     headers = _bearer(manager, comp.id, br.id)
     _set_tenant(db_session, comp.id, br.id)
 
+    lay_id = f"lay-qz-test-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
-        id="lay-qz-test",
+        id=lay_id,
         name="QZ Test Layout",
         width_mm=50,
         height_mm=25,
@@ -261,7 +265,7 @@ async def test_print_labels_qz_tray_mode(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         payload = {
-            "layoutId": "lay-qz-test",
+            "layoutId": lay_id,
             "dispatch_mode": "qz_tray",
             "items": [
                 {
@@ -302,8 +306,9 @@ async def test_print_labels_prn_mode(db_session):
     headers = _bearer(manager, comp.id, br.id)
     _set_tenant(db_session, comp.id, br.id)
 
+    lay_id = f"lay-prn-test-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
-        id="lay-prn-test",
+        id=lay_id,
         name="PRN Test Layout",
         width_mm=50,
         height_mm=25,
@@ -319,7 +324,7 @@ async def test_print_labels_prn_mode(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         payload = {
-            "layoutId": "lay-prn-test",
+            "layoutId": lay_id,
             "saveAsPrn": True,
             "items": [
                 {

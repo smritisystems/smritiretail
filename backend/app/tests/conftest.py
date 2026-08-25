@@ -219,6 +219,14 @@ async def clear_db(db_session: AsyncSession):
     """
     from sqlalchemy import text
     delete_order = [
+        "sales_invoice_lines",
+        "loyalty_transactions",
+        "loyalty_members",
+        "loyalty_tiers",
+        "spif_images",
+        "product_images",
+        "ecom_sync_logs",
+        "ecom_channels",
         "bank_statement_lines",
         "general_ledger_entries",
         "journal_vouchers",
@@ -230,7 +238,9 @@ async def clear_db(db_session: AsyncSession):
         "approval_actions",
         "approval_requests",
         "approval_policies",
+        "psv_sku_tracking",
         "psv_party_sku_tracking",
+        "psv_stock_events",
         "psv_parties",
         "sales_return_items",
         "sales_returns",
@@ -252,6 +262,14 @@ async def clear_db(db_session: AsyncSession):
         "supplier_payments",
         "suppliers",
         "stock_movements",
+        "inventory_batches",
+        "inventory_serials",
+        "inventory_stock",
+        "inventory_bins",
+        "inventory_zones",
+        "inventory_locations",
+        "warehouses",
+        "stores",
         "products",
         "customers",
         "customer_groups",
@@ -260,33 +278,37 @@ async def clear_db(db_session: AsyncSession):
         "print_history",
         "barcode_layouts",
         "system_config",
+        "system_settings",
         "data_exchange_tasks",
         "data_exchange_field_mappings",
+        "user_preferences",
         "user_company_assignments",
         "user_branch_assignments",
+        "report_schedules",
         "users",
-        "stores",
-        "warehouses",
         "master_values",
         "master_types",
         "invoice_document_artifacts",
         "tax_invoice_template_versions",
         "tax_invoice_templates",
-        "report_schedules",
         "branches",
         "company_financial_years",
         "company_tax_profiles",
+        "company_database_registry",
         "company_center",
         "smriti_theme_variants",
         "smriti_themes",
         "smriti_workspace_profiles",
         "smriti_menus",
         "smriti_audit_log",
+        "audit_logs",
+        "tenants",
         "companies"
     ]
     for tbl in delete_order:
         try:
-            await db_session.execute(text(f"DELETE FROM {tbl};"))
+            async with db_session.begin_nested():
+                await db_session.execute(text(f"DELETE FROM {tbl};"))
         except Exception:
             pass
     await db_session.commit()

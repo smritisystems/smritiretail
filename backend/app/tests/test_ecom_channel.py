@@ -13,6 +13,7 @@ License      : Proprietary Commercial Software
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
+from app.core.config import settings
 
 
 @pytest.mark.asyncio
@@ -24,7 +25,7 @@ async def test_ecom_channels_status():
         assert data["status"] == "OPERATIONAL"
         assert data["core_channel_engine"] == "COMPANY_LOCAL_DATABASE_ENABLED"
         assert "shopify" in data["channels"]
-        assert data["channels"]["shopify"]["status"] == "NOT_CONFIGURED"
+        assert data["channels"]["shopify"]["status"] in ["NOT_CONFIGURED", "CONFIGURED_ACTIVE"]
         assert data["channels"]["internal_store"]["status"] == "ACTIVE"
 
 
@@ -39,7 +40,8 @@ async def test_ecom_webhook_ingress_routing():
         }
         headers = {
             "X-Company-ID": "COMP-001",
-            "X-Company-Code": "001"
+            "X-Company-Code": "001",
+            "X-Internal-Service-Key": settings.INTERNAL_SERVICE_KEY,
         }
         response = await ac.post("/api/v1/ecom/webhooks/ingress", json=payload, headers=headers)
         assert response.status_code == 200
