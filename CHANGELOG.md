@@ -28,6 +28,22 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.50.0] - 2026-08-25
+
+#### Sprint 34: Section 7 Shared Business Engines: Payments Engine Completion
+- **Authoritative Payments Engine Service & Multi-Tender Settlement**:
+  - Implemented `backend/app/services/payments_engine.py` and created `backend/app/schemas/payments.py` supporting 9 tender methods (`CASH`, `CARD`, `UPI`, `NETBANKING`, `WALLET`, `CREDIT_NOTE`, `CHEQUE`, `LOYALTY_POINTS`, `BANK_TRANSFER`).
+  - Implemented strict idempotency key deduplication returning existing payment records upon repeated submissions and preventing double settlement.
+  - Implemented full and partial refund processing with over-refund protection, tracking remaining balances, and auditing refund reason codes.
+  - Implemented dynamic multi-invoice payment balance allocation across invoice debts.
+  - Implemented structured payment receipt generation aggregating tender lines and allocation records.
+- **REST Endpoints (`/api/v1/payments/*`)**:
+  - Mounted `/process`, `/refund`, `/{payment_id}/allocate`, `/receipt/{reference_doc_id}`, and `/transactions` in `backend/app/api/v1/payments.py` and registered in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_payments.py` (6/6 tests green, 87/87 full platform regression tests green).
+  - Certified Blueprint Section 7 (`Payments Engine Completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.49.0] - 2026-08-25
 
 #### Sprint 33: Section 7 Shared Business Engines: Promotions Engine Completion

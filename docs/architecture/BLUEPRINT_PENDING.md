@@ -351,9 +351,32 @@ The remaining work is primarily convergence and governance: turning module-level
   - Models: [`backend/app/models/promotions.py`](file:///F:/SMRITRretailNX/backend/app/models/promotions.py)
   - Schemas: [`backend/app/schemas/promotions.py`](file:///F:/SMRITRretailNX/backend/app/schemas/promotions.py)
 
+### Payments Engine [STATUS: DONE / VERIFIED]
+
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_payments.py` (execution time: 9.55s).
+  - `87/87 tests green` across complete control plane, data plane, boundaries, governed logic, pricing, promotions, payments, and reports regression suite.
+  - `9 supported tender payment methods` (`CASH`, `CARD`, `UPI`, `NETBANKING`, `WALLET`, `CREDIT_NOTE`, `CHEQUE`, `LOYALTY_POINTS`, `BANK_TRANSFER`).
+  - `100% strict idempotency key deduplication` (Submitting duplicate keys returns existing transactions and prevents double charging).
+  - `Full and partial refund balance guards` (Rejects refunds exceeding available balance; tracks remaining balances).
+  - `Multi-invoice payment allocations` distributing payments across invoice balances.
+  - `Structured payment receipts` with tender breakdown, gateway references, and allocation details.
+- **Named Architectural Mechanisms:**
+  - `PaymentsEngine.process_payment`: Atomic multi-tender settlement engine with idempotency token verification, `PaymentTransaction` creation, and automatic `PaymentAllocation`.
+  - `PaymentsEngine.process_refund`: Balance-guarded refund processor linking refund transaction rows to original payments with reason code logging.
+  - `PaymentsEngine.allocate_payment`: Dynamic unallocated payment balance distributor across invoices with over-allocation prevention.
+  - `PaymentsEngine.generate_payment_receipt`: Formal receipt generator compiling tender lines, invoice links, and settlement totals.
+  - `PaymentTransaction` & `PaymentAllocation`: Authoritative payment transaction ledger and multi-invoice settlement link models.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_payments.py`](file:///F:/SMRITRretailNX/backend/tests/t_payments.py)
+  - Backend Service: [`backend/app/services/payments_engine.py`](file:///F:/SMRITRretailNX/backend/app/services/payments_engine.py)
+  - API Router: [`backend/app/api/v1/payments.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/payments.py)
+  - Models: [`backend/app/models/payment_ledger.py`](file:///F:/SMRITRretailNX/backend/app/models/payment_ledger.py)
+  - Schemas: [`backend/app/schemas/payments.py`](file:///F:/SMRITRretailNX/backend/app/schemas/payments.py)
+
 ### Remaining Shared Business Engines:
 
-- **Payments:** methods, transactions, receipts, refunds, allocations, provider adapters, idempotency.
 - **Documents:** document types/categories/lifecycles, templates, rendering, printing, numbering, version binding.
 - **Fulfillment:** fulfillment orders, pick, pack, dispatch, delivery, tracking, returns.
 - **Barcode and Labels:** barcode formats/rules, batch/serial labels, print jobs and hardware adapters.
