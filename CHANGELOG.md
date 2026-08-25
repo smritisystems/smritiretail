@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.56.0
+  * Version    : 3.57.0
   * Created    : 2026-07-11
   * Modified   : 2026-08-25
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,25 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.57.0] - 2026-08-25
+
+#### Sprint 41: Section 7 Shared Business Engines: CRM / Commercial Growth Engine (CGE) Completion
+- **Authoritative CRM & Commercial Growth Engine (CGE)**:
+  - Implemented `backend/app/services/crm_engine.py` and created `backend/app/schemas/crm_cge.py` providing end-to-end governance for lead pipelines, deal opportunities, customer RFM value segmentation, immutable multi-tier loyalty points ledgers, salesperson and driver commission calculation rules, and referral reward credits.
+  - Implemented Lead & Opportunity pipeline management with unique sequence generation (`LED-YYYYMMDD-HEX`, `OPP-YYYYMMDD-HEX`), stage progression (`NEW`, `CONTACTED`, `QUALIFIED`, `PROPOSAL`, `WON`, `LOST`), and revenue forecasting.
+  - Implemented Customer RFM value segmentation algorithmically evaluating recency (days), frequency (order count), and monetary (lifetime gross spend) into 5 distinct customer tiers (`VIP`, `FREQUENT`, `NEW`, `AT_RISK`, `DORMANT`).
+  - Implemented Authoritative Loyalty Points Ledger engine supporting points earning, burning, bonus, and reversal with fail-closed non-negative balance protection.
+  - Implemented Universal Commission & Incentive calculation engine supporting salesperson percentage rates (2%), fixed delivery driver payouts (₹50.00), and custom partner tiers with immutable postings to `CommissionLedger`.
+  - Implemented Referral Relationship & Reward engine with code attribution and qualifying purchase order reward credits in `ReferralReward`.
+- **REST Endpoints (`/api/v1/crm-growth/*`)**:
+  - Mounted `/leads`, `/leads/{id}`, `/opportunities`, `/customers/{id}/segmentation`, `/loyalty/enroll-member`, `/loyalty/adjust-points`, `/loyalty/members/{id}/ledger`, `/commissions/calculate`, `/referrals/enroll`, and `/referrals/credit-reward` in `backend/app/api/v1/crm_cge.py` and registered in `backend/app/main.py`.
+- **Database Layer**:
+  - Synchronized `crm_leads`, `crm_opportunities`, `crm_campaigns`, and `crm_customer_activities` schemas across tenant databases `smriti001` and `smriti002`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_crm_cge.py` (6/6 tests green, 129/129 full platform regression tests green).
+  - Certified Blueprint Section 7 (`CRM / CGE Completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
 
 ### [3.56.0] - 2026-08-25
 
