@@ -28,6 +28,20 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.48.0] - 2026-08-25
+
+#### Sprint 32: Section 7 Shared Business Engines: Pricing Engine Completion
+- **Authoritative Pricing Engine Service & Hierarchical Resolution**:
+  - Upgraded `backend/app/services/pricing_engine.py` and created `backend/app/schemas/pricing.py` establishing 6-tier hierarchical price resolution (Volume Breaks -> Customer Price Tiers -> Variant Master -> Item Master -> Product Master).
+  - Implemented date validity gating (`valid_from` to `valid_to`) preventing expired price lists from altering active transactions.
+  - Implemented `calculate_bulk_pricing` for multi-line cart/order calculation and `generate_pricing_snapshot` for capturing frozen calculation snapshots with zero-drift historical replay.
+- **REST Endpoints (`/api/v1/pricing/*`)**:
+  - Mounted `/books`, `/books/{book_id}/entries`, `/tiers`, `/resolve`, `/resolve/bulk`, and `/snapshot` in `backend/app/api/v1/pricing.py` and registered in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_pricing_engine.py` (6/6 tests green, 75/75 full platform regression tests green).
+  - Certified Blueprint Section 7 (`Pricing Engine Completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.47.0] - 2026-08-25
 
 #### Sprint 31: P1.3 Authoritative Stock and Accounting Boundaries (Data Plane Convergence)
