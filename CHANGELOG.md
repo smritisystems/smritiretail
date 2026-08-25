@@ -28,6 +28,27 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.63.0] - 2026-08-25
+
+#### Legacy Tally Shoper 9 Configuration Extractor, Retail Governance Policies & Tenant ETL Ingestion Engine
+- **Shoper 9 Configuration & Schema Extraction Engine (`scripts/admin/sh9_cfg_extract.py`)**:
+  - Built ingestion pipeline parsing 185 `.S9Q` XML schema patch files and 596 UI parameter definition files (`SP_*.INI`) from `D:\Shoper9\ini` and `D:\Shoper9\ParamDef`.
+  - Extracted 78 core `SysParam` records categorized across 13 functional domains into structured JSON and Markdown catalogs (`SH9_CONFIG_CATALOG.json`, `SH9_CONFIG_SUMMARY.md`).
+  - Cataloged 320 legacy database DDL tables for migration mapping.
+- **Control Plane Retail Operational Policies (`backend/app/db/ctrl_seeder.py`)**:
+  - Seeded 4 battle-tested retail policies into `smritisys.policy_definitions`:
+    - `POLICY_BILLING_CONTROLS`: Scanning during suspended bill recall, quantity-only editing mode, unreferenced return rate alterations, strict stock checks.
+    - `POLICY_BARCODE_COST_MASK`: Encoded cost price hang-tag masking dictionary (`{"0":"A", "1":"B", ... "9":"J"}`).
+    - `POLICY_INWARDS_PROCUREMENT`: Automated purchase tax calculation and transporter verification.
+    - `POLICY_CREDIT_MANAGEMENT`: Customer credit limits, stop-billing flags, and manager pin override policies.
+- **Automated Shoper 9 Tenant Database Migrator (`scripts/admin/sh9_migrator.py`)**:
+  - Developed transactional ETL ingestion pipeline migrating legacy Customers/Vendors to `UniversalPartyMaster` (`Party`, `PartyRole`, `CustomerProfile`, `SupplierProfile`), Items/Classes/Barcodes to `UniversalItemMaster` (`Item`, `ItemVariant`, `ItemBarcode`, `Product`), and Opening Stock to `StockMovement`.
+  - Verified pre-flight dry-run execution against `smriti001` with `Balanced=True` ledger invariant assertion.
+- **Architecture Blueprint & Governance**:
+  - Published master migration blueprint `docs/architecture/SHOPER9_MIGRATION_BLUEPRINT.md`.
+  - Generated WGP Walkthrough `docs/walkthrough/foundation/Shoper9_Migration_Architecture_And_ETL_Engine_v1.0.0.md`.
+  - Updated `docs/walkthrough/README.md` master index.
+
 ### [3.62.0] - 2026-08-25
 
 #### Sprint 46: Section 13 Production Readiness & Final Frozen Blueprint Certification

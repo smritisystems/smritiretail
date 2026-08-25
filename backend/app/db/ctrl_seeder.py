@@ -577,6 +577,60 @@ class ControlPlaneSeeder:
                     "policy_type": "GST_TAX_POLICY",
                     "parameters": {"rounding_mode": "ROUND_HALF_UP", "precision": 2, "rcm_applicable": False},
                     "status": "ACTIVE"
+                },
+                {
+                    "id": "pol_billing_ctrl_v1",
+                    "code": "POLICY_BILLING_CONTROLS",
+                    "version": 1,
+                    "name": "Standard Retail POS Billing Controls & Return Policy",
+                    "policy_type": "RETAIL_BILLING_POLICY",
+                    "parameters": {
+                        "allow_item_scanning_with_recalling": True,
+                        "enable_qty_only_editing": False,
+                        "apply_lsq_for_return_wor": False,
+                        "allow_rate_alteration_sales_return_wor": True,
+                        "allow_return_wor_in_wr": True,
+                        "enforce_strict_stock_check": True
+                    },
+                    "status": "ACTIVE"
+                },
+                {
+                    "id": "pol_barcode_mask_v1",
+                    "code": "POLICY_BARCODE_COST_MASK",
+                    "version": 1,
+                    "name": "Garment Tag Encoded Cost Price Masking Policy",
+                    "policy_type": "BARCODE_PRINTING_POLICY",
+                    "parameters": {
+                        "encoding_map": {"0": "A", "1": "B", "2": "C", "3": "D", "4": "E", "5": "F", "6": "G", "7": "H", "8": "I", "9": "J"},
+                        "barcode_printing_type": 1
+                    },
+                    "status": "ACTIVE"
+                },
+                {
+                    "id": "pol_inwards_proc_v1",
+                    "code": "POLICY_INWARDS_PROCUREMENT",
+                    "version": 1,
+                    "name": "Procurement GRN & Inward Verification Policy",
+                    "policy_type": "PROCUREMENT_POLICY",
+                    "parameters": {
+                        "allow_edit_doc_act_qty": False,
+                        "auto_calculate_purchase_tax": True,
+                        "capture_transporter_details": True
+                    },
+                    "status": "ACTIVE"
+                },
+                {
+                    "id": "pol_credit_mgmt_v1",
+                    "code": "POLICY_CREDIT_MANAGEMENT",
+                    "version": 1,
+                    "name": "Customer Credit Limit & Ledger Hold Policy",
+                    "policy_type": "CREDIT_MANAGEMENT_POLICY",
+                    "parameters": {
+                        "enforce_credit_limit_stop_billing": True,
+                        "allow_manager_override_credit_limit": True,
+                        "default_credit_period_days": 30
+                    },
+                    "status": "ACTIVE"
                 }
             ]
             for p in policies:
