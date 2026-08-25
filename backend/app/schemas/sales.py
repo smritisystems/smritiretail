@@ -76,6 +76,8 @@ class SalesInvoiceBase(BaseModel):
     balance_amount:   Optional[Decimal] = Field(Decimal("0.00"),       validation_alias=AliasChoices("balance_amount",   "balanceAmount"))
     discount_amount:  Optional[Decimal] = Field(Decimal("0.00"),       validation_alias=AliasChoices("discount_amount",  "discountAmount"))
     net_amount:       Optional[Decimal] = Field(Decimal("0.00"),       validation_alias=AliasChoices("net_amount",       "netAmount"))
+    rule_snapshots:   Optional[dict]    = Field(default_factory=dict, validation_alias=AliasChoices("rule_snapshots", "ruleSnapshots", "metadata"))
+    remarks:          Optional[str]     = Field(None,                  validation_alias=AliasChoices("remarks", "notes", "importValidationNotes"))
 
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50)

@@ -4,16 +4,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.10.0
+ * Version      : 6.11.0
  * Created      : 2026-08-22
- * Modified     : 2026-08-22
+ * Modified     : 2026-08-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  * Source Module: Universal Item Auto-Search & Multi-Attribute Inspection Dropdown
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { AutoPopulateProductResult } from "../../services/autoPopulateService.ts";
 import { 
   Barcode, 
@@ -27,7 +28,8 @@ import {
   FileText, 
   Scale, 
   Palette, 
-  Maximize2 
+  Maximize2,
+  AlertCircle
 } from "lucide-react";
 
 interface SmritiItemTypeaheadDropdownProps {
@@ -37,7 +39,10 @@ interface SmritiItemTypeaheadDropdownProps {
   onSelect: (item: AutoPopulateProductResult) => void;
   onClose: () => void;
   isLoading?: boolean;
+  errorMessage?: string | null;
   searchFieldType?: "stockNo" | "barcode";
+  anchorEl?: HTMLElement | null;
+  anchorRef?: React.RefObject<HTMLElement | null>;
 }
 
 export const SmritiItemTypeaheadDropdown: React.FC<SmritiItemTypeaheadDropdownProps> = ({
@@ -47,21 +52,107 @@ export const SmritiItemTypeaheadDropdown: React.FC<SmritiItemTypeaheadDropdownPr
   onSelect,
   onClose,
   isLoading = false,
-  searchFieldType = "stockNo"
+  errorMessage = null,
+  searchFieldType = "stockNo",
+  anchorEl,
+  anchorRef
 }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const probeRef = useRef<HTMLSpanElement>(null);
+
+  const [coords, setCoords] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+    renderAbove: boolean;
+  }>({
+    top: 0,
+    left: 0,
+    width: 680,
+    maxHeight: 380,
+    renderAbove: false
+  });
+
+  const updatePosition = useCallback(() => {
+    const el = anchorEl || anchorRef?.current || probeRef.current?.parentElement;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+
+    const dropdownWidth = Math.min(680, viewportWidth - 24);
+    let left = rect.left;
+    if (left + dropdownWidth > viewportWidth - 12) {
+      left = Math.max(12, viewportWidth - dropdownWidth - 12);
+    }
+    if (left < 12) {
+      left = 12;
+    }
+
+    const spaceBelow = viewportHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    const renderAbove = spaceBelow < 260 && spaceAbove > spaceBelow;
+
+    let top: number | undefined;
+    let bottom: number | undefined;
+    let maxHeight = 380;
+
+    if (renderAbove) {
+      bottom = viewportHeight - rect.top + 6;
+      maxHeight = Math.min(380, Math.max(160, spaceAbove - 10));
+    } else {
+      top = rect.bottom + 6;
+      maxHeight = Math.min(380, Math.max(160, spaceBelow - 10));
+    }
+
+    setCoords({
+      top,
+      bottom,
+      left,
+      width: dropdownWidth,
+      maxHeight,
+      renderAbove
+    });
+  }, [anchorEl, anchorRef]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    updatePosition();
+
+    // Reposition on any ancestor scroll or window resize
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen, updatePosition]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const anchor = anchorEl || anchorRef?.current || probeRef.current?.parentElement;
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(target) &&
+        (!anchor || !anchor.contains(target))
+      ) {
         onClose();
       }
     };
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, onClose]);
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen, onClose, anchorEl, anchorRef]);
 
   // Scroll active item into view
   useEffect(() => {
@@ -75,19 +166,30 @@ export const SmritiItemTypeaheadDropdown: React.FC<SmritiItemTypeaheadDropdownPr
 
   if (!isOpen) return null;
 
-  return (
+  const dropdownContent = (
     <div
       ref={dropdownRef}
-      className="absolute left-0 top-full mt-1.5 w-[680px] max-w-[90vw] max-h-96 overflow-y-auto bg-white dark:bg-[#131b2e] border-2 border-[#00288e] dark:border-[#3b82f6] rounded-xl shadow-2xl z-50 divide-y divide-gray-100 dark:divide-gray-800 font-sans"
+      role="listbox"
+      aria-label="Stock No / SKU Product Suggestions"
+      style={{
+        position: "fixed",
+        left: `${coords.left}px`,
+        ...(coords.top !== undefined ? { top: `${coords.top}px` } : {}),
+        ...(coords.bottom !== undefined ? { bottom: `${coords.bottom}px` } : {}),
+        width: `${coords.width}px`,
+        maxHeight: `${coords.maxHeight}px`,
+        zIndex: 99999
+      }}
+      className="overflow-y-auto bg-white dark:bg-[#131b2e] border-2 border-[#00288e] dark:border-[#3b82f6] rounded-xl shadow-2xl divide-y divide-gray-100 dark:divide-gray-800 font-sans animate-in fade-in zoom-in-95 duration-100"
     >
       {/* Header Inspector Ribbon */}
-      <div className="px-3 py-1.5 bg-[#f0f4ff] dark:bg-[#1e293b] border-b border-[#dde1ff] dark:border-gray-700 flex justify-between items-center text-[11px] text-[#00288e] dark:text-[#a8b8ff] font-bold">
+      <div className="sticky top-0 z-10 px-3 py-1.5 bg-[#f0f4ff] dark:bg-[#1e293b] border-b border-[#dde1ff] dark:border-gray-700 flex justify-between items-center text-[11px] text-[#00288e] dark:text-[#a8b8ff] font-bold shadow-xs">
         <span className="flex items-center gap-1.5">
           <Barcode size={13} />
           <span>Live Item Search ({searchFieldType === "barcode" ? "Barcode Field" : "Stock No / SKU Field"})</span>
         </span>
-        <span className="text-[10px] opacity-75 font-mono">
-          {items.length} Matches Found • [↑↓ Navigate] • [Enter Select]
+        <span className="text-[10px] opacity-80 font-mono">
+          {items.length} Matches Found • [↑↓ Navigate] • [Enter Select] • [Esc Close]
         </span>
       </div>
 
@@ -95,6 +197,11 @@ export const SmritiItemTypeaheadDropdown: React.FC<SmritiItemTypeaheadDropdownPr
         <div className="px-4 py-6 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2.5">
           <div className="w-4 h-4 border-2 border-[#00288e] border-t-transparent rounded-full animate-spin" />
           <span className="font-semibold">Searching catalog by Barcode, Stock No, Code, and SKU...</span>
+        </div>
+      ) : errorMessage ? (
+        <div className="px-4 py-4 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 flex items-center gap-2">
+          <AlertCircle size={15} className="shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>{errorMessage}</span>
         </div>
       ) : items.length === 0 ? (
         <div className="px-4 py-6 text-xs text-gray-500 dark:text-gray-400 text-center font-medium">
@@ -105,7 +212,7 @@ export const SmritiItemTypeaheadDropdown: React.FC<SmritiItemTypeaheadDropdownPr
           const isSelected = idx === selectedIndex;
           return (
             <div
-              key={item.id || item.barcode || idx}
+              key={item.id || item.barcode || item.code || idx}
               data-item-index={idx}
               onMouseDown={(e) => {
                 e.preventDefault();
@@ -230,5 +337,14 @@ export const SmritiItemTypeaheadDropdown: React.FC<SmritiItemTypeaheadDropdownPr
       )}
     </div>
   );
+
+  return (
+    <>
+      <span ref={probeRef} className="hidden" aria-hidden="true" />
+      {typeof document !== "undefined" ? createPortal(dropdownContent, document.body) : null}
+    </>
+  );
 };
+
 export { SmritiItemTypeaheadDropdown as ItemTypeaheadDrop };
+

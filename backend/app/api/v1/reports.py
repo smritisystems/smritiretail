@@ -18,7 +18,7 @@ Founders
 
 from datetime import date
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, update
 
@@ -37,6 +37,9 @@ from ...schemas.reports import (
     DiscountSummaryReport,
     ItemWiseReturnsReport,
     AttributeSizeSalesReport,
+    TaxInvoiceMasterRegisterReport,
+    ArticleColorSizeMatrixReport,
+    StoreWiseSummaryReport,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
 from ...services.reports import ReportsService
@@ -96,6 +99,7 @@ SMRITI_STUDIOS = {
             {"id": "RPT-TAX-003", "code": "RPT-TAX-003", "title": "Item-wise Sales",          "description": "Consolidated sales quantity and value per item across all invoices in the period.",             "category": "Product",        "format": "Pivot",  "owner": "System", "drillDownEnabled": True,  "sh9_exe": "SR202200"},
             {"id": "RPT-TAX-004", "code": "RPT-TAX-004", "title": "Cancelled Bills",          "description": "All voided/cancelled invoices with cancellation reason and operator.",                         "category": "Audit",          "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False, "sh9_exe": "SR210200"},
             {"id": "RPT-TAX-005", "code": "RPT-TAX-005", "title": "Bill-wise Items Detail",   "description": "Each invoice line expanded: product, barcode, HSN, qty, rate, discount, net.",                "category": "Sales Detail",   "format": "Grid",   "owner": "System", "drillDownEnabled": False, "sh9_exe": "SR202000"},
+            {"id": "RPT-TAX-006", "code": "RPT-TAX-006", "title": "Statutory GST Tax Invoices Master Register", "description": "Complete statutory audit ledger of all tax invoices with buyer & seller GSTINs, Place of Supply, RCM, E-Way Bill, full billing/shipping addresses, round-off, and amount in words.", "category": "Tax & Compliance", "format": "Grid", "owner": "System", "drillDownEnabled": True},
         ],
     },
     # ── P2 Sprint 8a: MIS & Analytics ── SR203700/SR203900/SR215600/SR216000/SR238400
@@ -133,6 +137,7 @@ SMRITI_STUDIOS = {
             {"id": "RPT-MRC-002", "code": "RPT-MRC-002", "title": "Rate Variation",             "description": "Products sold below MRP or with price changes — price integrity audit.",                  "category": "Audit",          "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False, "sh9_exe": "SR203800"},
             {"id": "RPT-MRC-003", "code": "RPT-MRC-003", "title": "Item-wise Sales Returns",    "description": "Returns quantity and value per item — identifies high-return products.",                  "category": "Returns",        "format": "Grid",   "owner": "System", "drillDownEnabled": True,  "sh9_exe": "SR214100"},
             {"id": "RPT-MRC-004", "code": "RPT-MRC-004", "title": "Style Catalogue",            "description": "Printable product style catalogue with images, attributes, MRP, and barcode.",            "category": "Catalogue",      "format": "Grid",   "owner": "System", "drillDownEnabled": False, "sh9_exe": "SR430800"},
+            {"id": "RPT-MRC-005", "code": "RPT-MRC-005", "title": "Article, Color & Size Sales Matrix", "description": "Cross-tabulated variant curve matrix showing quantity distribution across sizes 36 to 42 for every Article and Color variant.", "category": "Merchandise", "format": "Matrix", "owner": "System", "drillDownEnabled": True},
         ],
     },
     # ── P3 Sprint 8a: Operations ── SR238400/SR231900/SR244700/SR234900/SR233500
@@ -146,6 +151,7 @@ SMRITI_STUDIOS = {
             {"id": "RPT-OPS-003", "code": "RPT-OPS-003", "title": "Incentive Analysis",         "description": "Staff incentive earned vs. targets achieved — payroll input report.",                     "category": "Staff Analysis", "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False, "sh9_exe": "SR244700"},
             {"id": "RPT-OPS-004", "code": "RPT-OPS-004", "title": "Sales Promotions Analysis",  "description": "Promotion campaign effectiveness: redemptions, revenue uplift, discount cost.",           "category": "Promotions",     "format": "Matrix", "owner": "System", "drillDownEnabled": True,  "sh9_exe": "SR234900"},
             {"id": "RPT-OPS-005", "code": "RPT-OPS-005", "title": "Bill Re-Print",              "description": "Reprint any historical invoice by bill number or date range — audit trail maintained.",    "category": "Operations",     "format": "Grid",   "owner": "System", "drillDownEnabled": False, "sh9_exe": "SR233500"},
+            {"id": "RPT-OPS-006", "code": "RPT-OPS-006", "title": "Store-Wise SIS Tax Register", "description": "Consolidated store-by-store sales, units, and GST distribution across all SIS store locations.", "category": "Operations", "format": "Grid", "owner": "System", "drillDownEnabled": True},
         ],
     },
 }
@@ -295,6 +301,75 @@ async def attribute_size_sales(
 ):
     """RPT-MRC-001 — Attribute+Size wise Sales (Shoper9: SR236300.EXE)."""
     return await ReportsService(db, tenant).attribute_size_sales(from_date, to_date)
+
+
+@router.get("/tax-invoices-master-register", response_model=TaxInvoiceMasterRegisterReport)
+async def tax_invoices_master_register(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    bill_from: Optional[int] = Query(default=None, description="Starting Bill Number"),
+    bill_to:   Optional[int] = Query(default=None, description="Ending Bill Number"),
+    status:    Optional[str] = Query(default=None, description="Status filter (COMPLETED/CANCELLED)"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-TAX-006 — Statutory GST Tax Invoices Master Register."""
+    return await ReportsService(db, tenant).tax_invoices_master_register(
+        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status_filter=status
+    )
+
+
+@router.get("/article-color-size-matrix", response_model=ArticleColorSizeMatrixReport)
+async def article_color_size_matrix(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    article:   Optional[str] = Query(default=None, description="Article filter"),
+    color:     Optional[str] = Query(default=None, description="Color filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-MRC-005 — Article, Color & Size Sales Curve Matrix."""
+    return await ReportsService(db, tenant).article_color_size_matrix(
+        from_date=from_date, to_date=to_date, article_filter=article, color_filter=color
+    )
+
+
+@router.get("/store-wise-summary", response_model=StoreWiseSummaryReport)
+async def store_wise_summary(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-OPS-006 — Store-Wise SIS Tax Register."""
+    return await ReportsService(db, tenant).store_wise_summary(from_date, to_date)
+
+
+@router.get("/export/tax-invoices-excel")
+async def export_tax_invoices_excel(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    bill_from: Optional[int] = Query(default=None, description="Starting Bill Number"),
+    bill_to:   Optional[int] = Query(default=None, description="Ending Bill Number"),
+    status:    Optional[str] = Query(default=None, description="Status filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Direct Excel export of Statutory GST Tax Invoices Master Workbook."""
+    excel_bytes = await ReportsService(db, tenant).export_tax_invoices_master_excel(
+        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status=status
+    )
+    filename = f"Tax_Invoices_Master_Report_{date.today().strftime('%Y%m%d')}.xlsx"
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

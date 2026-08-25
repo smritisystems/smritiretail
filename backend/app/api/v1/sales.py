@@ -58,12 +58,27 @@ async def create_sales_invoice_contract(
 async def list_sales_invoices_contract(
     skip: int = Query(0, ge=0),
     limit: int = Query(1000, ge=1, le=5000),
+    status: Optional[str] = Query(None),
+    customer_id: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """List sales invoices — canonical contract URL."""
+    """List sales invoices with optional status/customer filter — canonical contract URL."""
     repo = SalesInvoiceRepository(db, tenant_ctx)
+    if status or customer_id or q:
+        return await repo.search(invoice_no=q, customer_id=customer_id, status=status, skip=skip, limit=limit)
     return await repo.get_all(skip=skip, limit=limit)
+
+
+@router.get("/invoices/suspended", response_model=List[SalesInvoiceResponse], summary="List Suspended Invoices")
+async def list_suspended_sales_invoices(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List all currently suspended/held sales invoices for active tenant."""
+    repo = SalesInvoiceRepository(db, tenant_ctx)
+    return await repo.search(status="Suspended", limit=100)
 
 
 @router.get(

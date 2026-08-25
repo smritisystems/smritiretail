@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -66,65 +66,68 @@ async def write_invoice_lines(
       line_no        <- item.line_no or idx
     """
     inserted = 0
-    for idx, item in enumerate(items, start=1):
-        line_id = _sid()
-        qty        = Decimal(str(item.quantity))
-        price      = Decimal(str(item.price))
-        disc_pct   = Decimal(str(item.disc_pct or 0))
-        disc_amt   = (qty * price * disc_pct / 100).quantize(Decimal("0.01"))
-        taxable    = item.taxable_value if item.taxable_value is not None \
-                     else (qty * price - disc_amt)
-        tax_rate   = Decimal(str(item.gst_rate or 0))
-        tax_amt    = Decimal(str(item.tax_amount or 0))
-        net_amt    = Decimal(str(item.total_amount or 0))
-        line_no    = item.line_no if item.line_no is not None else idx
+    try:
+        async with db.begin_nested():
+            for idx, item in enumerate(items, start=1):
+                line_id = _sid()
+                qty        = Decimal(str(getattr(item, "quantity", 1) or 1))
+                price      = Decimal(str(getattr(item, "price", 0) or 0))
+                disc_pct   = Decimal(str(getattr(item, "disc_pct", 0) or 0))
+                disc_amt   = (qty * price * disc_pct / 100).quantize(Decimal("0.01"))
+                taxable_val = getattr(item, "taxable_value", None)
+                taxable    = taxable_val if taxable_val is not None else (qty * price - disc_amt)
+                tax_rate   = Decimal(str(getattr(item, "gst_rate", 0) or 0))
+                tax_amt    = Decimal(str(getattr(item, "tax_amount", 0) or 0))
+                net_amt_val = getattr(item, "total_amount", None)
+                net_amt    = Decimal(str(net_amt_val)) if net_amt_val is not None else Decimal(str(taxable + tax_amt))
+                line_no_val = getattr(item, "line_no", None)
+                line_no    = line_no_val if line_no_val is not None else idx
 
-        try:
-            await db.execute(text("""
-                INSERT INTO sales_invoice_lines (
-                    id, company_id, branch_id,
-                    invoice_id, line_no,
-                    product_id, product_name, sku, hsn_code,
-                    quantity, unit_price, mrp,
-                    discount_pct, discount_amount,
-                    taxable_value, tax_rate, tax_amount, net_amount,
-                    warehouse_id,
-                    created_by, updated_by,
-                    created_at, modified_at,
-                    is_active, is_deleted, version
-                ) VALUES (
-                    :id, :company_id, :branch_id,
-                    :invoice_id, :line_no,
-                    :product_id, :product_name, :sku, :hsn_code,
-                    :qty, :price, :mrp,
-                    :disc_pct, :disc_amt,
-                    :taxable, :tax_rate, :tax_amt, :net_amt,
-                    :warehouse_id,
-                    :creator, :creator,
-                    NOW(), NOW(),
-                    true, false, 1
-                )
-                ON CONFLICT DO NOTHING
-            """), {
-                "id": line_id, "company_id": company_id, "branch_id": branch_id,
-                "invoice_id": invoice_id, "line_no": line_no,
-                "product_id": item.product_id or item.code,
-                "product_name": item.name or "",
-                "sku": item.code or "",
-                "hsn_code": item.hsn_code or None,
-                "qty": float(qty), "price": float(price),
-                "mrp": float(item.mrp) if item.mrp else None,
-                "disc_pct": float(disc_pct), "disc_amt": float(disc_amt),
-                "taxable": float(taxable),
-                "tax_rate": float(tax_rate), "tax_amt": float(tax_amt),
-                "net_amt": float(net_amt),
-                "warehouse_id": warehouse_id,
-                "creator": creator,
-            })
-            inserted += 1
-        except Exception:
-            # Never fail the invoice commit due to line-item hook
-            pass
+                await db.execute(text("""
+                    INSERT INTO sales_invoice_lines (
+                        id, company_id, branch_id,
+                        invoice_id, line_no,
+                        product_id, product_name, sku, hsn_code,
+                        quantity, unit_price, mrp,
+                        discount_pct, discount_amount,
+                        taxable_value, tax_rate, tax_amount, net_amount,
+                        warehouse_id,
+                        created_by, updated_by,
+                        created_at, modified_at,
+                        is_active, is_deleted, version
+                    ) VALUES (
+                        :id, :company_id, :branch_id,
+                        :invoice_id, :line_no,
+                        :product_id, :product_name, :sku, :hsn_code,
+                        :qty, :price, :mrp,
+                        :disc_pct, :disc_amt,
+                        :taxable, :tax_rate, :tax_amt, :net_amt,
+                        :warehouse_id,
+                        :creator, :creator,
+                        NOW(), NOW(),
+                        true, false, 1
+                    )
+                    ON CONFLICT DO NOTHING
+                """), {
+                    "id": line_id, "company_id": company_id, "branch_id": branch_id,
+                    "invoice_id": invoice_id, "line_no": line_no,
+                    "product_id": getattr(item, "product_id", None) or getattr(item, "code", ""),
+                    "product_name": getattr(item, "name", "") or "",
+                    "sku": getattr(item, "code", "") or "",
+                    "hsn_code": getattr(item, "hsn_code", None) or None,
+                    "qty": float(qty), "price": float(price),
+                    "mrp": float(getattr(item, "mrp", 0)) if getattr(item, "mrp", None) else None,
+                    "disc_pct": float(disc_pct), "disc_amt": float(disc_amt),
+                    "taxable": float(taxable),
+                    "tax_rate": float(tax_rate), "tax_amt": float(tax_amt),
+                    "net_amt": float(net_amt),
+                    "warehouse_id": warehouse_id,
+                    "creator": creator,
+                })
+                inserted += 1
+    except Exception as e:
+        # Never fail the invoice commit due to line-item hook
+        pass
 
     return inserted
 
@@ -150,79 +153,80 @@ async def write_loyalty_earn(
         return False
 
     try:
-        # Fetch member + tier earn_multiplier
-        row = (await db.execute(text("""
-            SELECT lm.id, lm.current_points_balance,
-                   COALESCE(lt.earn_multiplier, 1.0) AS earn_mult,
-                   COALESCE(lt.points_per_unit_spend, 1.0) AS points_per_unit
-            FROM loyalty_members lm
-            LEFT JOIN loyalty_tiers lt ON lt.id = lm.loyalty_tier_id
-            WHERE lm.customer_id = :customer_id
-              AND lm.is_deleted = false
-              AND lm.is_active = true
-            LIMIT 1
-        """), {"customer_id": customer_id})).fetchone()
+        async with db.begin_nested():
+            # Fetch member + tier earn_multiplier
+            row = (await db.execute(text("""
+                SELECT lm.id, lm.current_points_balance,
+                       COALESCE(lt.earn_multiplier, 1.0) AS earn_mult,
+                       COALESCE(lt.points_per_unit_spend, 1.0) AS points_per_unit
+                FROM loyalty_members lm
+                LEFT JOIN loyalty_tiers lt ON lt.id = lm.loyalty_tier_id
+                WHERE lm.customer_id = :customer_id
+                  AND lm.is_deleted = false
+                  AND lm.is_active = true
+                LIMIT 1
+            """), {"customer_id": customer_id})).fetchone()
 
-        if not row:
-            return False
+            if not row:
+                return False
 
-        member_id     = row[0]
-        cur_balance   = Decimal(str(row[1] or 0))
-        earn_mult     = Decimal(str(row[2] or 1))
-        points_per_unit = Decimal(str(row[3] or 1))
+            member_id     = row[0]
+            cur_balance   = Decimal(str(row[1] or 0))
+            earn_mult     = Decimal(str(row[2] or 1))
+            points_per_unit = Decimal(str(row[3] or 1))
 
-        # Points = floor(grand_total * points_per_unit * earn_multiplier)
-        points_earned = (grand_total * points_per_unit * earn_mult).quantize(
-            Decimal("0.01")
-        )
-        new_balance = cur_balance + points_earned
-
-        tx_id = _sid()
-        await db.execute(text("""
-            INSERT INTO loyalty_transactions (
-                id, company_id, branch_id,
-                member_id, customer_id, transaction_type,
-                points, balance_after,
-                reference_type, reference_id, invoice_amount,
-                narration,
-                created_by, updated_by,
-                created_at, modified_at,
-                is_active, is_deleted, version
-            ) VALUES (
-                :id, :company_id, :branch_id,
-                :member_id, :customer_id, 'EARN',
-                :points, :balance_after,
-                'SALES_INVOICE', :invoice_id, :invoice_amount,
-                :narration,
-                :creator, :creator,
-                NOW(), NOW(),
-                true, false, 1
+            # Points = floor(grand_total * points_per_unit * earn_multiplier)
+            points_earned = (grand_total * points_per_unit * earn_mult).quantize(
+                Decimal("0.01")
             )
-        """), {
-            "id": tx_id, "company_id": company_id, "branch_id": branch_id,
-            "member_id": member_id, "customer_id": customer_id,
-            "points": float(points_earned), "balance_after": float(new_balance),
-            "invoice_id": invoice_id, "invoice_amount": float(grand_total),
-            "narration": f"Points earned on invoice {invoice_id}",
-            "creator": creator,
-        })
+            new_balance = cur_balance + points_earned
 
-        # Update loyalty_members balance atomically
-        await db.execute(text("""
-            UPDATE loyalty_members
-            SET current_points_balance = :new_balance,
-                total_points_earned    = total_points_earned + :points,
-                total_lifetime_spend   = total_lifetime_spend + :spend,
-                modified_at            = NOW()
-            WHERE id = :member_id
-        """), {
-            "new_balance": float(new_balance),
-            "points": float(points_earned),
-            "spend": float(grand_total),
-            "member_id": member_id,
-        })
+            tx_id = _sid()
+            await db.execute(text("""
+                INSERT INTO loyalty_transactions (
+                    id, company_id, branch_id,
+                    member_id, customer_id, transaction_type,
+                    points, balance_after,
+                    reference_type, reference_id, invoice_amount,
+                    narration,
+                    created_by, updated_by,
+                    created_at, modified_at,
+                    is_active, is_deleted, version
+                ) VALUES (
+                    :id, :company_id, :branch_id,
+                    :member_id, :customer_id, 'EARN',
+                    :points, :balance_after,
+                    'SALES_INVOICE', :invoice_id, :invoice_amount,
+                    :narration,
+                    :creator, :creator,
+                    NOW(), NOW(),
+                    true, false, 1
+                )
+            """), {
+                "id": tx_id, "company_id": company_id, "branch_id": branch_id,
+                "member_id": member_id, "customer_id": customer_id,
+                "points": float(points_earned), "balance_after": float(new_balance),
+                "invoice_id": invoice_id, "invoice_amount": float(grand_total),
+                "narration": f"Points earned on invoice {invoice_id}",
+                "creator": creator,
+            })
 
-        return True
+            # Update loyalty_members balance atomically
+            await db.execute(text("""
+                UPDATE loyalty_members
+                SET current_points_balance = :new_balance,
+                    total_points_earned    = total_points_earned + :points,
+                    total_lifetime_spend   = total_lifetime_spend + :spend,
+                    modified_at            = NOW()
+                WHERE id = :member_id
+            """), {
+                "new_balance": float(new_balance),
+                "points": float(points_earned),
+                "spend": float(grand_total),
+                "member_id": member_id,
+            })
+
+            return True
 
     except Exception:
         # Never fail the invoice commit due to loyalty hook

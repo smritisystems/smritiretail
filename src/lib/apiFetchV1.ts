@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.21.1
+ * Version      : 3.22.0
  * Created      : 2026-07-12
- * Modified     : 2026-08-18
+ * Modified     : 2026-08-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -102,7 +102,10 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
     cleanEndpoint = cleanEndpoint.replace(/^\/api\/v1/, "");
   }
 
-  const url = `/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`;
+  const baseUrl = typeof window !== "undefined" && window.location?.origin 
+    ? "" 
+    : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:8000");
+  const url = `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`;
 
   let response: Response;
   try {
