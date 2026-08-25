@@ -180,6 +180,9 @@ async def test_write_validation(db_session):
         "category": "Apparel",
         "barcode": f"BCN_{suffix}",
         "price": 150.0,
+        "mrp": 180.0,
+        "gst_percentage": 18.0,
+        "hsn_code": "6403",
         "stock": 5
     }
 
@@ -338,6 +341,9 @@ async def test_concurrent_duplicate_barcode_returns_400_not_500(db_session, db_e
                 "category": "Apparel",
                 "barcode": shared_barcode,
                 "price": 99.0,
+                "mrp": 120.0,
+                "gst_percentage": 18.0,
+                "hsn_code": "6403",
                 "stock": 5,
             }
             return await client.post("/api/v1/products/", json=payload)
