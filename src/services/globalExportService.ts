@@ -740,6 +740,7 @@ export class GlobalExportService {
         columns,
         data: allRecords,
         metadata: {
+          moduleTitle: moduleName,
           ...metadata,
           totalRecordsCount: allRecords.length,
         },

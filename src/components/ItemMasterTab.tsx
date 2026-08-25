@@ -21,7 +21,7 @@ import { ItemMasterWs } from "./itemMaster/ItemMasterWs.tsx";
 export interface ItemMasterTabProps {
   products?: Product[];
   onRefreshProducts?: () => Promise<void>;
-  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string } | null;
   initialSubTab?: string;
   onClose?: () => void;
