@@ -79,9 +79,11 @@ from .api.v1 import (
     pos,
     physical_stock,
     payments,
+    pdt,
     pricing,
     product_identity,
     promotions,
+    psv,
     purchase,
     reference_data,
     reports,
@@ -102,6 +104,7 @@ from .api.v1 import (
     wms,
     workflow,
     workspace_ui,
+    cge_unified,
 )
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
@@ -217,6 +220,9 @@ app.include_router(communicator.router, prefix=settings.API_V1_STR + "/communica
 app.include_router(crm_cge.router, prefix=settings.API_V1_STR + "/crm-growth", tags=["CRM & Commercial Growth Engine"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
 app.include_router(ecom.router, prefix=settings.API_V1_STR + "/ecom", tags=["eCommerce & Omnichannel Engine"])
+app.include_router(psv.router, prefix=settings.API_V1_STR, tags=["Projected Stock Visibility"])
+app.include_router(pdt.router, prefix=settings.API_V1_STR, tags=["Predictive Distribution Twin"])
+app.include_router(cge_unified.router, prefix=settings.API_V1_STR, tags=["CGE Unified Policies"])
 app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
 app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])
 app.include_router(analytics.router, prefix=settings.API_V1_STR + "/analytics", tags=["Analytics & Intelligence Plane"])
