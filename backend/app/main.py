@@ -74,6 +74,7 @@ from .api.v1 import (
     physical_stock,
     pricing,
     product_identity,
+    promotions,
     purchase,
     reference_data,
     reports,
@@ -197,6 +198,7 @@ app.include_router(governed_logic.router, prefix=settings.API_V1_STR + "/governe
 app.include_router(universal_master.router, prefix=settings.API_V1_STR + "/universal", tags=["Universal Party & Item Master"])
 app.include_router(boundaries.router, prefix=settings.API_V1_STR + "/boundaries", tags=["Stock & Accounting Boundaries"])
 app.include_router(pricing.router, prefix=settings.API_V1_STR + "/pricing", tags=["Pricing Engine"])
+app.include_router(promotions.router, prefix=settings.API_V1_STR + "/promotions", tags=["Promotions & Offers Engine"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
 app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
 app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])

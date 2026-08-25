@@ -328,9 +328,31 @@ The remaining work is primarily convergence and governance: turning module-level
   - Models: [`backend/app/models/pricing.py`](file:///F:/SMRITRretailNX/backend/app/models/pricing.py)
   - Schemas: [`backend/app/schemas/pricing.py`](file:///F:/SMRITRretailNX/backend/app/schemas/pricing.py)
 
+### Promotions Engine [STATUS: DONE / VERIFIED]
+
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_promotions.py` (execution time: 10.14s).
+  - `81/81 tests green` across complete control plane, data plane, boundaries, governed logic, pricing, promotions, and reports regression suite.
+  - `5 discount/offer rule mechanics supported` (`PERCENTAGE`, `FIXED_DISCOUNT`, `BUY_X_GET_Y`, `BUY_X_AT_PRICE`, `BUNDLE`).
+  - `3 conflict & stacking resolution strategies` (`EXCLUSIVE_OVERRIDE`, `BEST_BENEFIT`, `STACKABLE_COMBINED`).
+  - `100% coupon lifecycle & usage limit enforcement` (Automatic rejection once usage limit or expiry reached).
+  - `Immutable redemption audit ledger` recording all promotional redemptions with campaign snapshot binding.
+- **Named Architectural Mechanisms:**
+  - `PromotionsEngine.evaluate_promotions`: Authoritative cart discount evaluation engine with date gating, channel/store filtering, product eligibility matching, and BXGY bundle calculations.
+  - `PromotionsEngine.record_redemption`: Transaction-bound redemption ledger writer atomically logging `PromotionRedemption` and updating coupon usage counters.
+  - `Stacking & Conflict Policy Resolver`: Resolves exclusive campaign overrides, computes maximum non-exclusive candidate benefit, and enforces `max_stacked_discount_percent` safety caps.
+  - `PromotionCampaign` & `PromotionRule`: Rich promotional campaign and conditional discount rule models.
+  - `Coupon` & `PromotionRedemption`: Coupon code inventory and authoritative redemption transaction ledger.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_promotions.py`](file:///F:/SMRITRretailNX/backend/tests/t_promotions.py)
+  - Backend Service: [`backend/app/services/promotions_engine.py`](file:///F:/SMRITRretailNX/backend/app/services/promotions_engine.py)
+  - API Router: [`backend/app/api/v1/promotions.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/promotions.py)
+  - Models: [`backend/app/models/promotions.py`](file:///F:/SMRITRretailNX/backend/app/models/promotions.py)
+  - Schemas: [`backend/app/schemas/promotions.py`](file:///F:/SMRITRretailNX/backend/app/schemas/promotions.py)
+
 ### Remaining Shared Business Engines:
 
-- **Promotions:** promotion/discount/coupon conditions and actions with conflict/stacking policy.
 - **Payments:** methods, transactions, receipts, refunds, allocations, provider adapters, idempotency.
 - **Documents:** document types/categories/lifecycles, templates, rendering, printing, numbering, version binding.
 - **Fulfillment:** fulfillment orders, pick, pack, dispatch, delivery, tracking, returns.
