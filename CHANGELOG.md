@@ -28,6 +28,23 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.52.0] - 2026-08-25
+
+#### Sprint 36: Section 7 Shared Business Engines: Fulfillment Engine Completion
+- **Authoritative Fulfillment Engine Service & Logistics Dispatching**:
+  - Implemented `backend/app/services/fulfillment_engine.py` and created `backend/app/schemas/fulfillment.py` managing pick & pack slips, dispatch manifests, live AWB tracking, driver commission settlements, reverse logistics, and aggregated fulfillment timelines.
+  - Implemented pick & pack slip generation (`PackingSlip`, `PackingSlipItem`) tracking package counts, weight in kg, packer identity, and item quantities.
+  - Implemented dispatch manifesting (`Dispatch`, `DispatchItem`) with courier partner assignment (Delhivery, BlueDart, In-House Fleet), AWB tracking, delivery fees, and driver commissions.
+  - Implemented milestone delivery state transitions (`DISPATCHED` -> `IN_TRANSIT` -> `OUT_FOR_DELIVERY` -> `DELIVERED`), recording delivery timestamps and automatically settling driver commissions (`DeliveryCommissionSettlement`).
+  - Implemented reverse logistics return processing (`ReverseLogisticsReturn`) with restock categorization and commission clawback flags.
+  - Implemented chronological fulfillment lifecycle timeline aggregation (`get_fulfillment_timeline`).
+- **REST Endpoints (`/api/v1/fulfillment/*`)**:
+  - Mounted `/pack`, `/pack/{packing_slip_id}`, `/dispatch`, `/delivery/status`, `/tracking/{tracking_number}`, `/returns`, and `/timeline/{invoice_id}` in `backend/app/api/v1/fulfillment.py` and registered in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_fulfillment.py` (6/6 tests green, 99/99 full platform regression tests green).
+  - Certified Blueprint Section 7 (`Fulfillment Engine Completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.51.0] - 2026-08-25
 
 #### Sprint 35: Section 7 Shared Business Engines: Documents Engine Completion
