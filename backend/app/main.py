@@ -52,6 +52,7 @@ from .api.v1 import (
     communicator,
     company_center,
     crm,
+    crm_cge,
     crm_reports,
     database_manager,
     dev_tracker,
@@ -213,6 +214,7 @@ app.include_router(barcodes.router, prefix=settings.API_V1_STR + "/barcodes", ta
 app.include_router(approval.router, prefix=settings.API_V1_STR + "/approval", tags=["Approval Matrix Engine"])
 app.include_router(search.router, prefix=settings.API_V1_STR + "/search", tags=["Universal Search Engine"])
 app.include_router(communicator.router, prefix=settings.API_V1_STR + "/communicator", tags=["Communicator Engine"])
+app.include_router(crm_cge.router, prefix=settings.API_V1_STR + "/crm-growth", tags=["CRM & Commercial Growth Engine"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
 app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
 app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])

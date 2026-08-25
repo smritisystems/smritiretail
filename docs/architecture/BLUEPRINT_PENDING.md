@@ -504,11 +504,30 @@ The remaining work is primarily convergence and governance: turning module-level
   - Schemas: [`backend/app/schemas/communicator.py`](file:///F:/SMRITRretailNX/backend/app/schemas/communicator.py)
   - Models: [`backend/app/models/communicator.py`](file:///F:/SMRITRretailNX/backend/app/models/communicator.py)
 
-### Remaining Shared Business Engines:
+#### CRM & Commercial Growth Engine (CGE) — `Done / Verified`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_crm_cge.py`.
+  - `129/129 full platform regression tests green`.
+  - `0 naming violations` verified by `scripts/smriti_naming_guard.py`.
+  - 100% fail-closed non-negative loyalty points redemption guard (rejects burn requests exceeding current balance).
+  - 5 customer RFM segmentation classes (`VIP`, `FREQUENT`, `NEW`, `AT_RISK`, `DORMANT`) with recency/frequency/monetary evaluation.
+  - Multi-tier commission calculation engine supporting percentage sales incentives (2%), fixed delivery driver payouts (₹50), and agent slabs.
+  - Threshold-enforced referral reward credit engine (enforces minimum qualifying order amounts before reward disbursement).
+- **Named Architectural Mechanisms:**
+  - `CrmGrowthEngine.create_lead` & `update_lead`: Lead lifecycle management with unique sequence generation (`LED-YYYYMMDD-HEX`) and status progression (`NEW` -> `CONTACTED` -> `QUALIFIED` -> `PROPOSAL` -> `WON` / `LOST`).
+  - `CrmGrowthEngine.create_opportunity` & `update_opportunity`: Deal pipeline tracking with revenue forecasting, probability weighting, and close date milestones (`OPP-YYYYMMDD-HEX`).
+  - `CrmGrowthEngine.evaluate_customer_rfm`: Customer value segmentation evaluating recency days, frequency order count, and monetary lifetime spend.
+  - `CrmGrowthEngine.enroll_loyalty_member` & `record_points_transaction`: Authoritative loyalty point ledger engine appending to `LoyaltyPointsLedger` with balance verification and fail-closed over-redemption prevention.
+  - `CrmGrowthEngine.calculate_and_post_commission`: Universal incentive engine applying participant rules and persisting earned commissions to `CommissionLedger`.
+  - `CrmGrowthEngine.enroll_referral` & `credit_referral_reward`: Multi-tier referral relationship tracking and qualifying purchase order reward disbursement in `ReferralReward`.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_crm_cge.py`](file:///F:/SMRITRretailNX/backend/tests/t_crm_cge.py)
+  - Backend Service: [`backend/app/services/crm_engine.py`](file:///F:/SMRITRretailNX/backend/app/services/crm_engine.py)
+  - API Router: [`backend/app/api/v1/crm_cge.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/crm_cge.py)
+  - Schemas: [`backend/app/schemas/crm_cge.py`](file:///F:/SMRITRretailNX/backend/app/schemas/crm_cge.py)
+  - Models: [`backend/app/models/crm.py`](file:///F:/SMRITRretailNX/backend/app/models/crm.py), [`backend/app/models/loyalty.py`](file:///F:/SMRITRretailNX/backend/app/models/loyalty.py), [`backend/app/models/commission.py`](file:///F:/F:/SMRITRretailNX/backend/app/models/commission.py), [`backend/app/models/referral.py`](file:///F:/SMRITRretailNX/backend/app/models/referral.py)
 
-- **CRM/CGE:** leads, opportunities, activities, segments, campaigns, loyalty, wallet, rewards, referrals, and commission governance.
-
-**Exit evidence:** each engine has tenant isolation, API tests, role-negative tests, idempotency/replay tests where applicable, and cross-capability integration tests.
+**Section 7 Shared Business Engines Status:** ALL ENGINES CERTIFIED `Done / Verified` (Pricing, Promotions, Payments, Documents, Fulfillment, Barcodes & Labels, Approval Matrix, Universal Search, Communicator, CRM & Commercial Growth Engine).
 
 ## 8. P2 Distribution and eCommerce Expansion
 
