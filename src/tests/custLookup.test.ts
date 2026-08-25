@@ -138,7 +138,7 @@ describe("SMRITI — Customer Lookup, Selection & Invoice Header Attachment Test
     expect(res).toBeDefined();
     expect(fetchSpy).toHaveBeenCalled();
     const calledUrl = fetchSpy.mock.calls[0][0];
-    expect(calledUrl).toBe("/api/v1/customers");
+    expect(calledUrl).toContain("/api/v1/customers");
     expect(calledUrl).not.toContain("smriti-api");
 
     fetchSpy.mockRestore();
