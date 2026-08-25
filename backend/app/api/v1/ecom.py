@@ -497,3 +497,166 @@ async def get_customer_portal_orders(
         "orders_count": len(orders),
         "orders": orders
     }
+
+
+# ---------------------------------------------------------------------------
+# Section 8 eCommerce Expansion Endpoints
+# ---------------------------------------------------------------------------
+from ...services.ecom_engine import EcomGrowthEngine
+from ...schemas.ecom import (
+    ChannelCreateReq,
+    ChannelResponse,
+    SkuMappingReq,
+    SkuMappingResponse,
+    InboundOrderPayload,
+    OrderImportResponse,
+    OrderConvergenceResponse,
+    ReconciliationRunReq,
+    ReconciliationReportResponse,
+    DlqRetryReq,
+    DlqRetryResponse,
+)
+
+
+@router.post("/channels", response_model=ChannelResponse, summary="Configure eCommerce Channel")
+async def configure_channel(
+    req: ChannelCreateReq,
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    company_id = getattr(current_user, "company_id", "COMP-001") or "COMP-001"
+    user_id = getattr(current_user, "id", None)
+    channel = await EcomGrowthEngine.configure_channel(
+        session=session,
+        company_id=company_id,
+        req=req,
+        user_id=user_id,
+    )
+    return ChannelResponse(
+        id=channel.id,
+        channel_code=channel.channel_code,
+        name=channel.name,
+        channel_type=channel.channel_type,
+        store_url=channel.store_url,
+        is_active=channel.is_active,
+        sync_inventory=channel.sync_inventory,
+        sync_pricing=channel.sync_pricing,
+        auto_converge_orders=channel.auto_converge_orders,
+    )
+
+
+@router.post("/sku-mappings", response_model=SkuMappingResponse, summary="Map external marketplace SKU to SMRITI SKU")
+async def map_ecom_sku(
+    req: SkuMappingReq,
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    company_id = getattr(current_user, "company_id", "COMP-001") or "COMP-001"
+    user_id = getattr(current_user, "id", None)
+    mapping = await EcomGrowthEngine.map_sku(
+        session=session,
+        company_id=company_id,
+        req=req,
+        user_id=user_id,
+    )
+    return SkuMappingResponse(
+        id=mapping.id,
+        channel_code=mapping.channel_code,
+        external_sku=mapping.external_sku,
+        external_product_id=mapping.external_product_id,
+        smriti_sku=mapping.smriti_sku,
+        item_id=mapping.item_id,
+        variant_id=mapping.variant_id,
+        is_active=mapping.is_active,
+    )
+
+
+@router.post("/orders/inbound", response_model=OrderImportResponse, summary="Process Inbound eCommerce Order")
+async def process_inbound_order(
+    payload: InboundOrderPayload,
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    company_id = getattr(current_user, "company_id", "COMP-001") or "COMP-001"
+    try:
+        imp = await EcomGrowthEngine.process_inbound_order(
+            session=session,
+            company_id=company_id,
+            payload=payload,
+        )
+        return OrderImportResponse(
+            id=imp.id,
+            channel_code=imp.channel_code,
+            external_order_id=imp.external_order_id,
+            order_status=imp.order_status,
+            idempotency_key=imp.idempotency_key,
+            gross_amount=imp.gross_amount,
+            net_amount=imp.net_amount,
+            converged_invoice_id=imp.converged_invoice_id,
+            error_message=imp.error_message,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/orders/{import_id}/converge", response_model=OrderConvergenceResponse, summary="Converge order to SalesInvoice")
+async def converge_order(
+    import_id: str,
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    company_id = getattr(current_user, "company_id", "COMP-001") or "COMP-001"
+    user_id = getattr(current_user, "id", None)
+    try:
+        return await EcomGrowthEngine.converge_order(
+            session=session,
+            company_id=company_id,
+            import_id=import_id,
+            user_id=user_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/dlq/retry", response_model=DlqRetryResponse, summary="Retry failed or DLQ eCommerce imports")
+async def retry_dlq_imports(
+    req: DlqRetryReq,
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    company_id = getattr(current_user, "company_id", "COMP-001") or "COMP-001"
+    return await EcomGrowthEngine.retry_dlq_imports(
+        session=session,
+        company_id=company_id,
+        req=req,
+    )
+
+
+@router.post("/reconciliations/run", response_model=ReconciliationReportResponse, summary="Run Channel Financial Reconciliation")
+async def run_channel_reconciliation(
+    req: ReconciliationRunReq,
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    company_id = getattr(current_user, "company_id", "COMP-001") or "COMP-001"
+    user_id = getattr(current_user, "id", None)
+    rec = await EcomGrowthEngine.generate_channel_reconciliation(
+        session=session,
+        company_id=company_id,
+        req=req,
+        user_id=user_id,
+    )
+    return ReconciliationReportResponse(
+        id=rec.id,
+        reconciliation_no=rec.reconciliation_no,
+        channel_code=rec.channel_code,
+        period_start=rec.period_start,
+        period_end=rec.period_end,
+        channel_order_count=rec.channel_order_count,
+        channel_gross_revenue=rec.channel_gross_revenue,
+        smriti_order_count=rec.smriti_order_count,
+        smriti_gross_revenue=rec.smriti_gross_revenue,
+        variance_amount=rec.variance_amount,
+        status=rec.status,
+    )
+

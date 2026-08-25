@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.22.0
+Version      : 6.16.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-08-25
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -15,7 +15,7 @@ Classification: Internal
 import pytest
 import uuid
 from decimal import Decimal
-from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
@@ -32,17 +32,13 @@ from app.models.distribution import DistributionTerritory, DealerAssignment, Dis
 from app.models.inventory import StockMovement
 
 
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
 def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:
     """Helper to generate JWT auth headers with tenant claims."""
     token = create_access_token(
         data={
             "sub": "usr-super",
-            "role": UserRole.SYSADMIN.value,
+            "username": "usr_super",
+            "role": role,
             "company_id": company_id,
             "branch_id": branch_id,
             "tenant_id": "smriti001",
@@ -50,7 +46,11 @@ def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branc
             "is_active": True,
         }
     )
-    return {"Authorization": f"Bearer {token}"}
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-Company-ID": company_id,
+        "X-Company-Code": "001",
+    }
 
 
 @pytest.mark.asyncio
@@ -62,13 +62,18 @@ async def test_unified_pricing_engine_volume_breaks_and_tiers():
         sku = f"PRC-{uuid.uuid4().hex[:6].upper()}"
         item = Item(
             id=f"itm_{uuid.uuid4().hex[:12]}",
+            company_id="COMP-001",
             item_code=sku,
             item_name="Industrial Lubricant Drum",
             category="INDUSTRIAL",
+            hsn_code="5208",
             tax_rate=Decimal("18.00"),
             mrp=Decimal("5000.00"),
             selling_price=Decimal("4500.00"),
-            cost_price=Decimal("3000.00")
+            cost_price=Decimal("3000.00"),
+            status="ACTIVE",
+            is_active=True,
+            is_deleted=False,
         )
         session.add(item)
         await session.flush()
@@ -77,20 +82,26 @@ async def test_unified_pricing_engine_volume_breaks_and_tiers():
         pb_code = f"PB_WHOLESALE_{uuid.uuid4().hex[:4].upper()}"
         pb = PriceBook(
             id=f"pb_{uuid.uuid4().hex[:12]}",
+            company_id="COMP-001",
             code=pb_code,
             name="Wholesale Industrial Price List",
-            status="ACTIVE"
+            status="ACTIVE",
+            is_active=True,
+            is_deleted=False,
         )
         session.add(pb)
         await session.flush()
 
         pbe = PriceBookEntry(
             id=f"pbe_{uuid.uuid4().hex[:12]}",
+            company_id="COMP-001",
             price_book_id=pb.id,
             item_id=item.id,
             min_quantity=Decimal("10.0000"),
             selling_price=Decimal("4000.00"),
-            mrp=item.mrp
+            mrp=item.mrp,
+            is_active=True,
+            is_deleted=False,
         )
         session.add(pbe)
 
@@ -98,9 +109,12 @@ async def test_unified_pricing_engine_volume_breaks_and_tiers():
         tier_code = f"TIER_DEALER_{uuid.uuid4().hex[:4].upper()}"
         tier = CustomerPriceTier(
             id=f"tier_{uuid.uuid4().hex[:12]}",
+            company_id="COMP-001",
             code=tier_code,
             name="Gold Distributor Tier",
-            discount_percentage=Decimal("5.00")
+            discount_percentage=Decimal("5.00"),
+            is_active=True,
+            is_deleted=False,
         )
         session.add(tier)
         await session.commit()
@@ -129,26 +143,37 @@ async def test_distribution_order_creation_gst_and_governance_snapshots():
     """Verify DistributionOrder creation, statutory GST calculation, and governance snapshot persistence."""
     sessionmaker = get_company_sessionmaker("smriti001")
     async with sessionmaker() as session:
-        # Fetch or create dealer party
-        party_stmt = select(Party).where(Party.status == "ACTIVE")
-        party = (await session.execute(party_stmt)).scalars().first()
-        assert party is not None, "At least one converged party must exist in smriti001"
+        # Create dealer party
+        suffix = uuid.uuid4().hex[:6]
+        party = Party(
+            id=f"pty_prc_{suffix}",
+            company_id="COMP-001",
+            party_code=f"DLR-PRC-{suffix.upper()}",
+            legal_name=f"Pricing Test Dealer {suffix}",
+            party_type="ORGANIZATION",
+            status="ACTIVE",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(party)
 
-        # Fetch test item with selling_price > 0
-        item_stmt = select(Item).where(Item.status == "ACTIVE", Item.selling_price > 0)
-        item = (await session.execute(item_stmt)).scalars().first()
-        if not item:
-            item = Item(
-                id=f"itm_test_{uuid.uuid4().hex[:8]}",
-                item_code=f"SKU-TEST-{uuid.uuid4().hex[:4].upper()}",
-                item_name="Priced Distribution Sample Item",
-                category="GENERAL",
-                tax_rate=Decimal("18.00"),
-                mrp=Decimal("1000.00"),
-                selling_price=Decimal("800.00")
-            )
-            session.add(item)
-            await session.flush()
+        # Create item
+        item = Item(
+            id=f"itm_test_{suffix}",
+            company_id="COMP-001",
+            item_code=f"SKU-TEST-{suffix.upper()}",
+            item_name="Priced Distribution Sample Item",
+            category="GENERAL",
+            hsn_code="5208",
+            tax_rate=Decimal("18.00"),
+            mrp=Decimal("1000.00"),
+            selling_price=Decimal("800.00"),
+            status="ACTIVE",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(item)
+        await session.commit()
 
         # Create Distribution Order
         order = await DistributionService.create_distribution_order(
@@ -162,9 +187,9 @@ async def test_distribution_order_creation_gst_and_governance_snapshots():
                 {"item_id": item.id, "quantity": 5.0}
             ],
             supplier_state="27",
-            recipient_state="27"
+            recipient_state="27",
+            company_id="COMP-001",
         )
-        await session.commit()
 
         # Query back and verify order & snapshot
         stmt = select(DistributionOrder).options(
@@ -185,28 +210,41 @@ async def test_distribution_order_dispatch_and_authoritative_stock_movement():
     """Verify that dispatching a distribution order records an authoritative OUTWARD StockMovement."""
     sessionmaker = get_company_sessionmaker("smriti001")
     async with sessionmaker() as session:
-        party = (await session.execute(select(Party).where(Party.status == "ACTIVE"))).scalars().first()
-        item = (await session.execute(select(Item).where(Item.status == "ACTIVE", Item.selling_price > 0))).scalars().first()
-        if not item:
-            item = Item(
-                id=f"itm_test_{uuid.uuid4().hex[:8]}",
-                item_code=f"SKU-TEST-{uuid.uuid4().hex[:4].upper()}",
-                item_name="Priced Distribution Sample Item",
-                category="GENERAL",
-                tax_rate=Decimal("18.00"),
-                mrp=Decimal("1000.00"),
-                selling_price=Decimal("800.00")
-            )
-            session.add(item)
-            await session.flush()
+        suffix = uuid.uuid4().hex[:6]
+        party = Party(
+            id=f"pty_dsp_{suffix}",
+            company_id="COMP-001",
+            party_code=f"DLR-DSP-{suffix.upper()}",
+            legal_name=f"Dispatch Test Dealer {suffix}",
+            party_type="ORGANIZATION",
+            status="ACTIVE",
+            is_active=True,
+            is_deleted=False,
+        )
+        item = Item(
+            id=f"itm_dsp_{suffix}",
+            company_id="COMP-001",
+            item_code=f"SKU-DSP-{suffix.upper()}",
+            item_name="Priced Distribution Dispatch Item",
+            category="GENERAL",
+            hsn_code="5208",
+            tax_rate=Decimal("18.00"),
+            mrp=Decimal("1000.00"),
+            selling_price=Decimal("800.00"),
+            status="ACTIVE",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add_all([party, item])
+        await session.commit()
 
         order = await DistributionService.create_distribution_order(
             session=session,
             party_id=party.id,
             order_type="SECONDARY",
-            line_items_data=[{"item_id": item.id, "quantity": 3.0}]
+            line_items_data=[{"item_id": item.id, "quantity": 3.0}],
+            company_id="COMP-001",
         )
-        await session.flush()
 
         # Dispatch order
         challan_no = f"DC-{uuid.uuid4().hex[:6].upper()}"
@@ -215,7 +253,6 @@ async def test_distribution_order_dispatch_and_authoritative_stock_movement():
             order_id=order.id,
             delivery_challan_no=challan_no
         )
-        await session.commit()
 
         assert dispatched_order.status == "DISPATCHED"
         assert dispatched_order.delivery_challan_no == challan_no
@@ -231,22 +268,33 @@ async def test_distribution_order_dispatch_and_authoritative_stock_movement():
         assert float(mov.quantity) == 3.0
 
 
-def test_api_distribution_endpoints(client):
+@pytest.mark.asyncio
+async def test_api_distribution_endpoints():
     """Verify distribution REST API endpoints."""
     headers = get_auth_headers()
+    transport = ASGITransport(app=app)
 
-    # 1. Create Territory
-    t_res = client.post("/api/v1/distribution/territories", json={
-        "code": f"TERR_TEST_{uuid.uuid4().hex[:4].upper()}",
-        "name": "Northern Suburban Distribution Zone",
-        "region": "NORTH"
-    }, headers=headers)
-    assert t_res.status_code == 200
-    assert t_res.json()["status"] == "SUCCESS"
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Create Territory
+        t_res = await client.post(
+            "/api/v1/distribution/territories",
+            json={
+                "code": f"TERR_TEST_{uuid.uuid4().hex[:4].upper()}",
+                "name": "Northern Suburban Distribution Zone",
+                "region": "NORTH",
+            },
+            headers=headers,
+        )
+        assert t_res.status_code == 200
+        assert t_res.json()["status"] == "SUCCESS"
 
-    # 2. Invalid order creation without lines -> 400
-    o_res = client.post("/api/v1/distribution/orders", json={
-        "party_id": "pty_invalid",
-        "line_items": []
-    }, headers=headers)
-    assert o_res.status_code == 400
+        # 2. Invalid order creation without lines -> 400
+        o_res = await client.post(
+            "/api/v1/distribution/orders",
+            json={
+                "party_id": "pty_invalid",
+                "line_items": [],
+            },
+            headers=headers,
+        )
+        assert o_res.status_code == 400
