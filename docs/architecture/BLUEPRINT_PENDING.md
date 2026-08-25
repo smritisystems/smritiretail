@@ -483,9 +483,29 @@ The remaining work is primarily convergence and governance: turning module-level
   - API Router: [`backend/app/api/v1/search.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/search.py)
   - Schemas: [`backend/app/schemas/search.py`](file:///F:/SMRITRretailNX/backend/app/schemas/search.py)
 
+#### Communicator Engine — `Done / Verified`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_communicator.py`.
+  - `123/123 full platform regression tests green`.
+  - `0 naming violations` verified by `scripts/smriti_naming_guard.py`.
+  - 100% compliance with TRAI quiet hours policy (promotional messages strictly blocked between 21:00 and 09:00 IST).
+  - 4-channel unified provider adapters (WhatsApp, SMS, Email, Push) with automatic fallback cascading (WhatsApp -> SMS).
+  - Zero placeholder bleed variable template engine with DLT validation.
+- **Named Architectural Mechanisms:**
+  - `CommunicatorEngine.send_message`: Authoritative single notification dispatcher with mustache variable interpolation, quiet hours compliance guard, provider adapter execution, fallback cascade, and PostgreSQL `CommunicatorLog` auditing.
+  - `CommunicatorEngine.send_batch`: High-throughput batch notification runner with per-recipient variable rendering and individual failure isolation.
+  - `CommunicatorEngine.process_delivery_webhook`: Inbound webhook delivery receipt processor updating status (`DELIVERED`, `READ`, `FAILED`, `BOUNCED`) across external gateways.
+  - `CommunicatorEngine.is_in_quiet_hours`: Timezone-aware (IST UTC+05:30) regulatory time window evaluator.
+  - `WhatsAppMockAdapter`, `SmsMockAdapter`, `EmailMockAdapter`, `PushMockAdapter`: Standardized provider abstraction layer.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_communicator.py`](file:///F:/SMRITRretailNX/backend/tests/t_communicator.py)
+  - Backend Service: [`backend/app/services/communicator_engine.py`](file:///F:/SMRITRretailNX/backend/app/services/communicator_engine.py)
+  - API Router: [`backend/app/api/v1/communicator.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/communicator.py)
+  - Schemas: [`backend/app/schemas/communicator.py`](file:///F:/SMRITRretailNX/backend/app/schemas/communicator.py)
+  - Models: [`backend/app/models/communicator.py`](file:///F:/SMRITRretailNX/backend/app/models/communicator.py)
+
 ### Remaining Shared Business Engines:
 
-- **Communicator:** provider registry, templates, policies, events, delivery events, preferences, and real provider adapters.
 - **CRM/CGE:** leads, opportunities, activities, segments, campaigns, loyalty, wallet, rewards, referrals, and commission governance.
 
 **Exit evidence:** each engine has tenant isolation, API tests, role-negative tests, idempotency/replay tests where applicable, and cross-capability integration tests.
