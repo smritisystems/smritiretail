@@ -28,6 +28,19 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.47.0] - 2026-08-25
+
+#### Sprint 31: P1.3 Authoritative Stock and Accounting Boundaries (Data Plane Convergence)
+- **Authoritative Stock Movement & Double-Entry Ledger Service Engine**:
+  - Created `backend/app/services/stock_acct_svc.py` and `backend/app/schemas/stock_acct.py` establishing immutable stock movement journaling across 10 movement types, on-hand balance rebuilds from movement logs, and strict fail-closed double-entry balance validation (`Total Debits == Total Credits`).
+  - Implemented automated multi-ledger audit engines: `run_stock_reconciliation` (stock drift detection), `run_gl_reconciliation` (trial balance equality and voucher integrity), and `run_financial_reconciliation`.
+- **REST Endpoints (`/api/v1/boundaries/*`)**:
+  - Mounted `/stock-movements`, `/stock/rebuild`, `/gl/post`, `/reconcile/stock`, `/reconcile/gl`, and `/reconcile/financial` in `backend/app/api/v1/boundaries.py` and registered in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_stock_acct.py` (6/6 tests green, 69/69 full platform regression tests green).
+  - Certified Blueprint Section 6.3 (`P1.3 Authoritative Stock and Accounting Boundaries`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.46.0] - 2026-08-25
 
 #### Sprint 30: P1.2 Universal Item Master Completion (Data Plane Convergence)
