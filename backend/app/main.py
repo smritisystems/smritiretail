@@ -54,6 +54,7 @@ from .api.v1 import (
     dev_tracker,
     distribution,
     docs,
+    documents,
     ecom,
     exchange,
     finance,
@@ -201,6 +202,7 @@ app.include_router(boundaries.router, prefix=settings.API_V1_STR + "/boundaries"
 app.include_router(pricing.router, prefix=settings.API_V1_STR + "/pricing", tags=["Pricing Engine"])
 app.include_router(promotions.router, prefix=settings.API_V1_STR + "/promotions", tags=["Promotions & Offers Engine"])
 app.include_router(payments.router, prefix=settings.API_V1_STR + "/payments", tags=["Payments Engine"])
+app.include_router(documents.router, prefix=settings.API_V1_STR + "/documents", tags=["Documents Engine"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
 app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
 app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])
