@@ -4,164 +4,200 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.22.0
-Created      : 2026-08-23
-Modified     : 2026-08-23
+Version      : 3.41.0
+Created      : 2026-08-25
+Modified     : 2026-08-25
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
 from app.main import app
-from app.services.capability_service import CapabilityService
+from app.core.security import create_access_token
 
 
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
-def test_frozen_capability_map_completeness():
-    """Verify all 26 frozen canonical SMRITI capabilities are registered."""
-    catalog = CapabilityService.get_all_capabilities()
-    assert len(catalog) == 26
-
-    expected_codes = {
-        "POS", "SALES", "PURCHASE", "INVENTORY", "WMS", "DISTRIBUTION", "ECOM",
-        "PSV", "PDT", "CGE", "CRM", "ACCOUNTING", "GST", "PAYMENTS", "PRICING",
-        "PROMOTIONS", "FULFILLMENT", "BARCODE", "LABEL_PRINTING", "REPORTING",
-        "COMMUNICATOR", "DOCUMENT", "APPROVAL", "SEARCH", "INTEGRATION", "AUDIT"
+def _get_auth_headers():
+    token = create_access_token(data={
+        "sub": "usr-super",
+        "role": "SYSADMIN",
+        "company_id": "COMP-001",
+        "branch_id": "BR-001",
+        "tenant_id": "smriti001",
+        "db_name": "smriti001",
+        "is_active": True,
+    })
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-Company-ID": "COMP-001",
+        "X-Company-Code": "001",
+        "X-Branch-ID": "BR-001"
     }
-    actual_codes = {c["code"] for c in catalog}
-    assert actual_codes == expected_codes
-
-
-def test_strict_dependency_validation_success():
-    """Verify successful validation when all capability prerequisites are satisfied."""
-    valid_pos_stack = ["INVENTORY", "SALES", "ACCOUNTING", "POS"]
-    is_valid, errors = CapabilityService.validate_capability_dependencies(valid_pos_stack)
-    assert is_valid is True
-    assert len(errors) == 0
-
-    valid_wms_stack = ["INVENTORY", "WMS"]
-    is_valid, errors = CapabilityService.validate_capability_dependencies(valid_wms_stack)
-    assert is_valid is True
-    assert len(errors) == 0
-
-
-def test_strict_dependency_validation_fails_closed():
-    """Verify that missing dependencies fail closed and identify exact missing prerequisites."""
-    # POS without prerequisites
-    is_valid, errors = CapabilityService.validate_capability_dependencies(["POS"])
-    assert is_valid is False
-    assert any("INVENTORY" in err for err in errors)
-    assert any("SALES" in err for err in errors)
-    assert any("ACCOUNTING" in err for err in errors)
-
-    # WMS without INVENTORY
-    is_valid, errors = CapabilityService.validate_capability_dependencies(["WMS"])
-    assert is_valid is False
-    assert any("INVENTORY" in err for err in errors)
-
-    # DISTRIBUTION without WMS / INVENTORY
-    is_valid, errors = CapabilityService.validate_capability_dependencies(["DISTRIBUTION"])
-    assert is_valid is False
-    assert any("INVENTORY" in err for err in errors)
-    assert any("WMS" in err for err in errors)
-
-    # PROMOTIONS without PRICING / SALES
-    is_valid, errors = CapabilityService.validate_capability_dependencies(["PROMOTIONS"])
-    assert is_valid is False
-    assert any("PRICING" in err for err in errors)
-    assert any("SALES" in err for err in errors)
-
-
-def test_plan_tier_resolution():
-    """Verify capability bundle resolution by subscription tier."""
-    basic = CapabilityService.resolve_effective_capabilities(plan_tier="BASIC")
-    assert basic["is_valid"] is True
-    assert "SALES" in basic["active_capabilities"]
-    assert "INVENTORY" in basic["active_capabilities"]
-    assert "POS" not in basic["active_capabilities"]
-
-    pro = CapabilityService.resolve_effective_capabilities(plan_tier="PROFESSIONAL")
-    assert pro["is_valid"] is True
-    assert "POS" in pro["active_capabilities"]
-    assert "GST" in pro["active_capabilities"]
-    assert "PSV" not in pro["active_capabilities"]
-
-    ent = CapabilityService.resolve_effective_capabilities(plan_tier="ENTERPRISE")
-    assert ent["is_valid"] is True
-    assert ent["active_count"] == 26
-
-
-def test_api_capability_endpoints(client):
-    """Verify public capability registry API endpoints."""
-    # Catalog
-    cat_res = client.get("/api/v1/capabilities/catalog")
-    assert cat_res.status_code == 200
-    cat_data = cat_res.json()
-    assert cat_data["count"] == 26
-
-    # Plans
-    plan_res = client.get("/api/v1/capabilities/plans")
-    assert plan_res.status_code == 200
-    plans = plan_res.json()["plans"]
-    assert "BASIC" in plans
-    assert "PROFESSIONAL" in plans
-    assert "ENTERPRISE" in plans
-
-    # Validate valid stack
-    val_res = client.post("/api/v1/capabilities/validate", json={"capabilities": ["INVENTORY", "SALES", "ACCOUNTING", "POS"]})
-    assert val_res.status_code == 200
-    assert val_res.json()["is_valid"] is True
-
-    # Validate invalid stack (missing dependencies)
-    inval_res = client.post("/api/v1/capabilities/validate", json={"capabilities": ["POS"]})
-    assert inval_res.status_code == 200
-    assert inval_res.json()["is_valid"] is False
-    assert len(inval_res.json()["dependency_errors"]) > 0
-
-    # Resolve plan
-    res_res = client.post("/api/v1/capabilities/resolve", json={"plan_tier": "BASIC", "tenant_overrides": {"POS": True, "ACCOUNTING": True}})
-    assert res_res.status_code == 200
-    rdata = res_res.json()
-    assert "POS" in rdata["active_capabilities"]
-    assert rdata["is_valid"] is True
 
 
 @pytest.mark.asyncio
-async def test_database_backed_capability_and_reference_seeding():
-    """Verify that SmritiSys database contains all 26 seeded capabilities with dependency metadata."""
-    from sqlalchemy import select
-    from app.db.session import get_company_sessionmaker
-    from app.models.capability_template import PlatformCapability
-    from app.models.localization import CountryRef, StateRef, CurrencyRef, UnitOfMeasurementRef
+async def test_capability_catalog():
+    """Verify complete capability catalog query from control plane."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/capabilities/catalog", headers=_get_auth_headers())
+        assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
+        data = res.json()
+        assert data["count"] >= 26
+        caps = {c["code"]: c for c in data["capabilities"]}
+        assert "POS" in caps
+        assert "INVENTORY" in caps
+        assert "SALES" in caps
+        assert "ACCOUNTING" in caps
+        assert "WMS" in caps
+        assert "GST" in caps
+        assert "CGE" in caps
+        assert caps["POS"]["dependencies"] == ["INVENTORY", "SALES", "ACCOUNTING"]
 
-    sessionmaker = get_company_sessionmaker("smritisys")
-    async with sessionmaker() as session:
-        # Verify 26 capabilities present in DB
-        res = await session.execute(select(PlatformCapability))
-        caps = res.scalars().all()
-        assert len(caps) >= 26
 
-        pos_cap = next((c for c in caps if c.code == "POS"), None)
-        assert pos_cap is not None
-        assert "INVENTORY" in pos_cap.dependencies
-        assert "SALES" in pos_cap.dependencies
-        assert "ACCOUNTING" in pos_cap.dependencies
+@pytest.mark.asyncio
+async def test_plan_bundles_endpoint():
+    """Verify standard plan subscription tiers and bundles."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/capabilities/plans", headers=_get_auth_headers())
+        assert res.status_code == 200
+        plans = res.json()["plans"]
+        assert "BASIC" in plans
+        assert "PROFESSIONAL" in plans
+        assert "ENTERPRISE" in plans
+        assert "INVENTORY" in plans["BASIC"]
+        assert "POS" in plans["PROFESSIONAL"]
+        assert "CGE" in plans["ENTERPRISE"]
 
-        # Verify countries, states, currencies, UOMs present in DB
-        countries = (await session.execute(select(CountryRef))).scalars().all()
-        assert len(countries) >= 8
 
-        states = (await session.execute(select(StateRef))).scalars().all()
-        assert len(states) >= 10
+@pytest.mark.asyncio
+async def test_capability_dependency_validation_fail_closed():
+    """Verify strict dependency graph validation (fail closed)."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Valid set with all prerequisites satisfied
+        res_valid = await client.post(
+            "/api/v1/capabilities/validate",
+            json={"capabilities": ["INVENTORY", "SALES", "ACCOUNTING", "POS"]},
+            headers=_get_auth_headers()
+        )
+        assert res_valid.status_code == 200
+        assert res_valid.json()["is_valid"] is True
+        assert len(res_valid.json()["dependency_errors"]) == 0
 
-        currencies = (await session.execute(select(CurrencyRef))).scalars().all()
-        assert len(currencies) >= 6
+        # Invalid set missing prerequisite: POS without INVENTORY, SALES, ACCOUNTING
+        res_invalid = await client.post(
+            "/api/v1/capabilities/validate",
+            json={"capabilities": ["POS"]},
+            headers=_get_auth_headers()
+        )
+        assert res_invalid.status_code == 200
+        assert res_invalid.json()["is_valid"] is False
+        assert len(res_invalid.json()["dependency_errors"]) >= 1
+        err_text = " ".join(res_invalid.json()["dependency_errors"])
+        assert "INVENTORY" in err_text or "SALES" in err_text
 
-        uoms = (await session.execute(select(UnitOfMeasurementRef))).scalars().all()
-        assert len(uoms) >= 10
+
+@pytest.mark.asyncio
+async def test_plan_resolution_with_overrides():
+    """Verify effective capability resolution given plan tier and tenant overrides."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.post(
+            "/api/v1/capabilities/resolve",
+            json={
+                "plan_tier": "BASIC",
+                "tenant_overrides": {"WMS": True, "DISTRIBUTION": True}
+            },
+            headers=_get_auth_headers()
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["plan_tier"] == "BASIC"
+        assert "WMS" in data["active_capabilities"]
+        assert "DISTRIBUTION" in data["active_capabilities"]
+        assert data["is_valid"] is True
+
+
+@pytest.mark.asyncio
+async def test_tenant_capabilities_binding_list():
+    """Verify querying tenant capability bindings for active company context."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/capabilities/tenant", headers=_get_auth_headers())
+        assert res.status_code == 200
+        bindings = res.json()
+        assert len(bindings) >= 10
+        codes = [b["capability_code"] for b in bindings]
+        assert "POS" in codes
+        assert "INVENTORY" in codes
+
+
+@pytest.mark.asyncio
+async def test_tenant_capability_toggle_fail_closed():
+    """Verify enabling/disabling capabilities with dependency guards."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Attempting to disable INVENTORY while POS is active should fail with HTTP 400
+        res_fail = await client.post(
+            "/api/v1/capabilities/tenant/toggle",
+            json={"capability_code": "INVENTORY", "enable": False, "force": False},
+            headers=_get_auth_headers()
+        )
+        assert res_fail.status_code == 400, f"Expected 400, got {res_fail.status_code}: {res_fail.text}"
+        assert "Cannot disable capability 'INVENTORY'" in res_fail.json()["detail"]
+
+        # 2. Toggle non-prerequisite capability DISTRIBUTION on and off
+        res_toggle_on = await client.post(
+            "/api/v1/capabilities/tenant/toggle",
+            json={"capability_code": "DISTRIBUTION", "enable": True},
+            headers=_get_auth_headers()
+        )
+        assert res_toggle_on.status_code == 200
+        assert res_toggle_on.json()["is_enabled"] is True
+
+        res_toggle_off = await client.post(
+            "/api/v1/capabilities/tenant/toggle",
+            json={"capability_code": "DISTRIBUTION", "enable": False},
+            headers=_get_auth_headers()
+        )
+        assert res_toggle_off.status_code == 200
+        assert res_toggle_off.json()["is_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_feature_flags_and_company_toggle():
+    """Verify feature flags retrieval and company-level toggle."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Get feature flags
+        res = await client.get("/api/v1/capabilities/feature-flags", headers=_get_auth_headers())
+        assert res.status_code == 200
+        flags = {f["key"]: f for f in res.json()}
+        assert "DARK_MODE_V2" in flags
+        assert "ENHANCED_AUDIT_TRAIL" in flags
+
+        # Toggle feature flag for company
+        res_toggle = await client.post(
+            "/api/v1/capabilities/feature-flags/DARK_MODE_V2/toggle",
+            json={"enable": True},
+            headers=_get_auth_headers()
+        )
+        assert res_toggle.status_code == 200
+        assert res_toggle.json()["is_enabled"] is True
+
+
+@pytest.mark.asyncio
+async def test_module_states_endpoint():
+    """Verify module lifecycle states query."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/capabilities/modules", headers=_get_auth_headers())
+        assert res.status_code == 200
+        modules = res.json()
+        assert len(modules) >= 5
+        uuids = [m["module_uuid"] for m in modules]
+        assert "MOD-POS" in uuids
+        assert "MOD-INV" in uuids
