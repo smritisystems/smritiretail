@@ -67,9 +67,11 @@ async def test_pricing_hierarchy_price_book_and_volume_breaks():
             item_code="ITEM-PRICE-TEST-01",
             item_name="Premium Basmati Rice 5kg",
             category="Grocery",
+            hsn_code="1006.30",
             primary_uom="BAG",
             selling_price=Decimal("450.00"),
             mrp=Decimal("500.00"),
+            buying_price=Decimal("350.00"),
             cost_price=Decimal("350.00"),
             is_active=True,
             is_deleted=False

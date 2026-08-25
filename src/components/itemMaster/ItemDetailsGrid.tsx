@@ -219,7 +219,7 @@ interface SmritiItemDetailsGridProps {
   commonFields?: any;
   entryMode?: MasterEntryMode;
   onRefreshProducts?: () => Promise<void>;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "info" | "error" | "success" | "warning") => void;
   onNavigateToItemViewConfig?: () => void;
   onNavigateToCommonFields?: () => void;
 }

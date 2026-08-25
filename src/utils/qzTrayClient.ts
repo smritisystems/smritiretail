@@ -58,7 +58,7 @@ export function initQzSecurity(): void {
   if (isSecurityInitialized) return;
 
   try {
-    qz.security.setCertificatePromise((resolve, reject) => {
+    qz.security.setCertificatePromise((resolve: (value: any) => void, reject: (reason?: any) => void) => {
       apiFetchV1("/barcode/qz/certificate", { method: "GET" })
         .then((certData: any) => {
           if (typeof certData === "string") {
@@ -79,7 +79,7 @@ export function initQzSecurity(): void {
     qz.security.setSignatureAlgorithm("SHA512");
 
     qz.security.setSignaturePromise((toSign: string) => {
-      return (resolve, reject) => {
+      return (resolve: (value: any) => void, reject: (reason?: any) => void) => {
         apiFetchV1("/barcode/qz/sign", {
           method: "POST",
           body: JSON.stringify({ request: toSign })

@@ -34,7 +34,7 @@ import { VariantTplSec } from "../VariantTemplateSec.tsx";
 interface SmritiItemMasterWorkspaceProps {
   products?: Product[];
   onRefreshProducts?: () => Promise<void>;
-  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string } | null;
   onClose?: () => void;
 }

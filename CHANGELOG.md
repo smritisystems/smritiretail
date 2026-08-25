@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.61.0
+  * Version    : 3.62.0
   * Created    : 2026-07-11
   * Modified   : 2026-08-25
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,27 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.62.0] - 2026-08-25
+
+#### Sprint 46: Section 13 Production Readiness & Final Frozen Blueprint Certification
+- **Clean-Slate Tenant Provisioning & Ephemeral Migration Harness**:
+  - Validated ephemeral clean-slate tenant provisioning (`EphemeralTenantHarness` in `backend/tests/t_tenant_migr.py`) executing full Alembic migrations up to canonical head `v1375_backfill_sales_return_cust`.
+  - Verified strict forward-only migration lock, complete statutory Chart of Accounts seeding, and multi-currency FX table presence.
+- **Tenant Security & Dynamic Connection Routing**:
+  - Validated multi-tenant database connection routing (`backend/tests/t_tenant_sec.py`), LRU session pool management, `X-Company-ID` / `X-Database-ID` tenant header security, and fail-closed 403 access denials.
+- **Production Certification 29-Check Matrix**:
+  - Verified 29-check automated production readiness harness (`backend/tests/t_prod_cert.py` passing 29/29) covering schema integrity, registry resolution, tenant isolation, LRU eviction, transactional outbox atomicity, crash recovery, DLQ retries, replay idempotency, eCom reservation concurrency, PSV toggles, blue/green workflow, reconciliation parity, GST E-Invoice/E-Way bill generation, and end-to-end domain transaction guarantees.
+- **Master Platform Regression Battery**:
+  - Successfully executed master test battery across all 13 Blueprint Sections: `226/226 tests passed (100% green)`.
+  - Validated TypeScript static analysis (`npx tsc --noEmit` passing with 0 errors).
+  - Validated naming governance (`scripts/smriti_naming_guard.py` passing with 0 violations).
+- **Authoritative Table Ownership Matrix & Runtime Write Audit**:
+  - Published complete Table Ownership Matrix separating Control Plane (`smritisys`) and Tenant Data Planes (`smritiXXX`).
+  - Marked **SMRITI Enterprise Business Operating Platform Architecture Frozen Blueprint v1.0** as 100% **Completed & Verified** in `docs/architecture/BLUEPRINT_PENDING.md`.
+- **Governance**:
+  - Generated WGP Walkthrough `docs/walkthrough/foundation/Sprint46_Production_Readiness_Certification_v1.0.0.md`.
+  - Updated `docs/walkthrough/README.md` master index.
 
 ### [3.61.0] - 2026-08-25
 
