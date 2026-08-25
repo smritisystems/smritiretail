@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_company_db, get_current_user
 from ...services.univ_party_svc import UniversalPartyService
 from ...services.party_master_svc import UniversalPartyMasterService
+from ...services.item_master_svc import UniversalItemMasterService
 from ...services.univ_item_svc import UniversalItemService
 from ...schemas.party_master import (
     PartyCreateRequest,
@@ -28,6 +29,17 @@ from ...schemas.party_master import (
     PartyMergeResponse,
     LegacyCustomerAdapterResponse,
     LegacySupplierAdapterResponse,
+)
+from ...schemas.item_master import (
+    ItemCreateRequest,
+    ItemUpdateRequest,
+    ItemResponse,
+    ItemVariantItem,
+    ItemBatchItem,
+    ItemSerialItem,
+    MatrixVariantGenRequest,
+    ItemResolutionResponse,
+    LegacyProductAdapterResponse,
 )
 
 router = APIRouter()
@@ -163,8 +175,140 @@ async def sync_legacy_parties(
 
 
 # ---------------------------------------------------------------------------
-# Universal Item Master Endpoints (P1.2 Preview)
+# Universal Item Master Endpoints (P1.2)
 # ---------------------------------------------------------------------------
+
+@router.get("/items", response_model=List[ItemResponse], summary="Search and list Universal Items")
+async def list_items(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    brand: Optional[str] = Query(None, description="Filter by brand"),
+    query: Optional[str] = Query(None, description="Search query across name, code, brand"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Lists items with variants, barcodes, and warehouse locations."""
+    items = await UniversalItemMasterService.list_items(
+        session=db,
+        category=category,
+        brand=brand,
+        query=query,
+        limit=limit,
+        offset=offset,
+    )
+    return items
+
+
+@router.post("/items", response_model=ItemResponse, status_code=status.HTTP_201_CREATED, summary="Create Universal Item")
+async def create_item(
+    req: ItemCreateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Atomically creates a Universal Item with variants and barcodes."""
+    try:
+        item = await UniversalItemMasterService.create_item(session=db, req=req)
+        return item
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/items/resolve", response_model=ItemResolutionResponse, summary="Resolve canonical Item by barcode/SKU/serial")
+async def resolve_item(
+    query: str = Query(..., description="Barcode, Variant SKU, Item Code, or Serial Number"),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Fast 4-tier scanner resolver for POS register and WMS mobile scanners."""
+    res = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(db, query)
+    if not res:
+        raise HTTPException(status_code=404, detail=f"No item found matching '{query}'.")
+    return res
+
+
+@router.get("/items/{item_id}", response_model=ItemResponse, summary="Get Universal Item details")
+async def get_item_details(
+    item_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Fetches complete item details with variants, barcodes, batches, and locations."""
+    item = await UniversalItemMasterService.get_item_by_id(db, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found.")
+    return item
+
+
+@router.post("/items/{item_id}/variants/matrix", summary="Generate Size x Color matrix variants")
+async def generate_matrix_variants(
+    item_id: str,
+    req: MatrixVariantGenRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Generates Cartesian product of dimensions (e.g. Size x Color) with unique SKUs and barcodes."""
+    try:
+        variants = await UniversalItemMasterService.generate_matrix_variants(db, item_id, req)
+        return {
+            "status": "SUCCESS",
+            "item_id": item_id,
+            "variants_created": len(variants),
+            "variants": [{"id": v.id, "variant_sku": v.variant_sku, "variant_name": v.variant_name} for v in variants],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/items/{item_id}/batches", summary="Register item inventory batch")
+async def create_item_batch(
+    item_id: str,
+    req: ItemBatchItem,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Registers an inventory batch with manufacturing and expiration dates."""
+    try:
+        batch = await UniversalItemMasterService.create_batch(db, item_id, req)
+        return {
+            "status": "SUCCESS",
+            "batch_id": batch.id,
+            "batch_number": batch.batch_number,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/items/{item_id}/serials", summary="Register serialized unit numbers")
+async def register_item_serials(
+    item_id: str,
+    req: List[ItemSerialItem],
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Registers a collection of serialized unit IDs."""
+    try:
+        serials = await UniversalItemMasterService.register_serial_numbers(db, item_id, req)
+        return {
+            "status": "SUCCESS",
+            "serials_registered": len(serials),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/items/{item_id}/adapter/product", response_model=LegacyProductAdapterResponse, summary="Legacy Product Adapter")
+async def get_legacy_product_view(
+    item_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Compatibility adapter: Presents Universal Item as a legacy Product object."""
+    view = await UniversalItemMasterService.get_legacy_product_view(db, item_id)
+    if not view:
+        raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found.")
+    return view
+
 
 @router.post("/items/sync", summary="Synchronize legacy products into Universal Item Master")
 async def sync_legacy_items(
@@ -177,16 +321,3 @@ async def sync_legacy_items(
         "status": "SUCCESS",
         "items_converged": count,
     }
-
-
-@router.get("/items/resolve", summary="Resolve canonical Item by barcode or SKU")
-async def resolve_item(
-    query: str = Query(..., description="Barcode, Variant SKU, or Item Code"),
-    db: AsyncSession = Depends(get_company_db),
-    current_user: dict = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """Fast resolver for POS scanner and order line typeahead."""
-    res = await UniversalItemService.resolve_item_by_barcode_or_sku(db, query)
-    if not res:
-        raise HTTPException(status_code=404, detail=f"No item found matching '{query}'.")
-    return res

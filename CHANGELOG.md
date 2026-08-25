@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.46.0] - 2026-08-25
+
+#### Sprint 30: P1.2 Universal Item Master Completion (Data Plane Convergence)
+- **Universal Item Master Database Models & Sub-Entities**:
+  - Extended `backend/app/models/item_master.py` with `ItemBatch` (batch/lot tracking with expiration and batch-level MRPs), `ItemSerial` (serialized unit tracking with status lifecycle), and `ItemWarehouseLocation` (warehouse-specific bins and min/max reorder levels).
+  - Executed migration script `backend/app/db/migr_item_ext.py` migrating tenant databases `smriti001` and `smriti002`.
+- **Schemas & Service Engine**:
+  - Created `backend/app/schemas/item_master.py` and `backend/app/services/item_master_svc.py` providing atomic item and variant provisioning, Cartesian matrix variant generator (Size x Color dimensions with automated unique EAN-13 barcodes), fast 4-tier scanner resolver (`Barcode -> Variant SKU -> Item Code -> Serial Number`), batch/serial managers, and legacy product projection adapters.
+- **REST Endpoints (`/api/v1/universal/items`)**:
+  - Mounted `/items`, `/items/{item_id}`, `/items/{item_id}/variants/matrix`, `/items/{item_id}/batches`, `/items/{item_id}/serials`, `/items/resolve`, and `/items/{item_id}/adapter/product` in `backend/app/api/v1/universal_master.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_item_master.py` (6/6 tests green, 63/63 platform regression tests green).
+  - Certified Blueprint Section 6.2 (`P1.2 Universal Item Master completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.45.0] - 2026-08-25
 
 #### Sprint 29: P1.1 Universal Party Master Completion (Data Plane Convergence)
