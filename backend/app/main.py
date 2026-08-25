@@ -38,6 +38,7 @@ from .api.v1 import (
     accounting,
     ai,
     analytics,
+    approval,
     approval_matrix,
     attributes,
     auth,
@@ -207,6 +208,7 @@ app.include_router(payments.router, prefix=settings.API_V1_STR + "/payments", ta
 app.include_router(documents.router, prefix=settings.API_V1_STR + "/documents", tags=["Documents Engine"])
 app.include_router(fulfillment.router, prefix=settings.API_V1_STR + "/fulfillment", tags=["Fulfillment Engine"])
 app.include_router(barcodes.router, prefix=settings.API_V1_STR + "/barcodes", tags=["Barcode & Labels Engine"])
+app.include_router(approval.router, prefix=settings.API_V1_STR + "/approval", tags=["Approval Matrix Engine"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
 app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
 app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])

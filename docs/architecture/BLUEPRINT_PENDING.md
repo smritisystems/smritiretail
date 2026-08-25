@@ -442,9 +442,30 @@ The remaining work is primarily convergence and governance: turning module-level
   - Schemas: [`backend/app/schemas/barcodes.py`](file:///F:/SMRITRretailNX/backend/app/schemas/barcodes.py)
   - Models: [`backend/app/models/barcode.py`](file:///F:/SMRITRretailNX/backend/app/models/barcode.py)
 
+#### Approval Matrix Engine — `Done / Verified`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_approval.py`.
+  - `111/111 full platform regression tests green`.
+  - `0 naming violations` verified by `scripts/smriti_naming_guard.py`.
+  - 100% fail-closed RBAC gate rejection on unauthorized approver role attempts.
+  - Multi-tier threshold resolution (low, medium, high monetary amount bands).
+  - Immutable decision and escalation action audit logging in PostgreSQL `ApprovalAction`.
+- **Named Architectural Mechanisms:**
+  - `ApprovalEngine.create_policy`: Configures threshold policies (`ApprovalPolicy`) mapping document types and monetary amounts to required roles (`STORE_MANAGER`, `FINANCE_CONTROLLER`, `DIRECTOR`, `SYSADMIN`).
+  - `ApprovalEngine.check_transaction_enforcement`: Evaluates transaction amount against threshold policies and caller role hierarchy (fail-closed transaction gate).
+  - `ApprovalEngine.submit_approval_request`: Emits pending approval requests (`ApprovalRequest`) with unique alphanumeric request numbers (`APR-YYYYMMDD-HEX`).
+  - `ApprovalEngine.process_approval_action`: Verifies caller role hierarchy authority before executing state transitions (`APPROVED`, `REJECTED`, `CHANGES_REQUESTED`) and records immutable audit rows in `ApprovalAction`.
+  - `ApprovalEngine.escalate_approval_request`: Hierarchical escalation engine delegating pending requests to senior roles.
+  - `ApprovalPolicy`, `ApprovalRequest`, `ApprovalAction`: Authoritative PostgreSQL approval models.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_approval.py`](file:///F:/SMRITRretailNX/backend/tests/t_approval.py)
+  - Backend Service: [`backend/app/services/approval_engine.py`](file:///F:/SMRITRretailNX/backend/app/services/approval_engine.py)
+  - API Router: [`backend/app/api/v1/approval.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/approval.py)
+  - Schemas: [`backend/app/schemas/approval.py`](file:///F:/SMRITRretailNX/backend/app/schemas/approval.py)
+  - Models: [`backend/app/models/approval.py`](file:///F:/SMRITRretailNX/backend/app/models/approval.py)
+
 ### Remaining Shared Business Engines:
 
-- **Approval:** levels, assignments, delegation, escalation, history, and transaction enforcement.
 - **Universal Search:** party, item, barcode, document, warehouse, and transaction lookup with permission-aware results.
 - **Communicator:** provider registry, templates, policies, events, delivery events, preferences, and real provider adapters.
 - **CRM/CGE:** leads, opportunities, activities, segments, campaigns, loyalty, wallet, rewards, referrals, and commission governance.
