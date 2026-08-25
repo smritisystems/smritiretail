@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.58.0
+  * Version    : 3.59.0
   * Created    : 2026-07-11
   * Modified   : 2026-08-25
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,28 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.59.0] - 2026-08-25
+
+#### Sprint 43: Section 9 P2 PSV, CGE, and PDT Unification Completion
+- **Projected Stock Visibility (PSV)**:
+  - Implemented `backend/app/services/psv_projection.py` and created `backend/app/schemas/psv.py` with non-authoritative projection event ingestion, party-scoped visibility filters, and idempotency deduplication on source event ULID (`source_event_id`).
+  - Added strict multi-tenant and distributor visibility policy rules (`psv_visibility_policies`, `psv_party_scopes`) constraining access by SKU pattern regex, branch allowances, and maximum lookback days.
+  - Guaranteed zero transactional stock mutation (PSV ledger writes strictly to `psv_stock_events` and `psv_stock_balances` without modifying `products.stock` or `stock_movements`).
+- **Commercial Growth Engine (CGE) Unified Policies**:
+  - Implemented `backend/app/services/cge_unified_svc.py` and created `backend/app/schemas/cge_unified.py` unifying loyalty, referral, tier, and commission rules under versioned `CGEUnifiedPolicy` records.
+  - Implemented multi-vector anti-abuse evaluation checking for self-referral fraud (matching emails, phones, user IDs), minimum order values, and daily velocity points accrual caps.
+  - Implemented cascading refund compensation engine executing atomic clawbacks of earned loyalty points on `LoyaltyMember.current_points_balance` and salesperson commissions on `CommissionLedger`.
+- **Predictive Distribution Twin (PDT)**:
+  - Implemented `backend/app/services/pdt_engine.py` and created `backend/app/schemas/pdt.py` with model version registration (`PDTModelRegistry`), external demand signal capture (`PDTDemandSignal`), SKU twin velocity simulation cache (`PDTSkuTwinCache`), and read-only replenishment predictions (`PDTDistributionPrediction`).
+  - Enforced 100% strict read-only transactional isolation and multi-factor explainability scoring (factor weights for velocity, seasonal trends, and macro demand signals).
+- **REST Endpoints (`/api/v1/psv/*`, `/api/v1/cge-unified/*`, `/api/v1/pdt/*`)**:
+  - Provisioned and mounted routers in `backend/app/api/v1/psv.py`, `backend/app/api/v1/cge_unified.py`, and `backend/app/api/v1/pdt.py`, mounted under `/api/v1/` in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suites `backend/tests/t_psv_scope.py` (4/4 tests green), `backend/tests/t_pdt_engine.py` (4/4 tests green), and `backend/tests/t_cge_unified.py` (3/3 tests green).
+  - All 11 tests in Section 9 suite passing 100% green.
+  - Certified Blueprint Section 9 (`P2 PSV, CGE, and PDT Unification`) as `Done / Verified` per Rule 11.
+  - Created WGP Walkthrough `docs/walkthrough/foundation/Sprint43_PSV_CGE_PDT_Unification_v1.0.0.md`, updated master index, and passed SMRITI Naming Guard (0 violations).
 
 ### [3.58.0] - 2026-08-25
 
