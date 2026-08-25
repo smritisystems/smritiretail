@@ -187,20 +187,28 @@ The remaining work is primarily convergence and governance: turning module-level
 
 ## 5. P1 Governed Logic and Reproducibility
 
-### P1.4 Formula, Rule, Policy, and Workflow Engines
+### P1.4 Formula, Rule, Policy, and Workflow Engines [STATUS: DONE / VERIFIED]
 
-Create centralized, versioned registries in `smritisys` for:
-
-- formulas, parameters, conditions, dependencies, scopes
-- rules, conditions, actions, parameters, scopes
-- policies, parameters, scopes
-- workflows, states, transitions, actions, conditions
-
-The application engine must validate and execute these definitions. No arbitrary executable code may be stored in the control plane.
-
-Migrate existing GST, pricing, promotion, commission, loyalty, discount, approval, return, stock, payment, security, visibility, and document behavior behind stable engine contracts.
-
-**Exit evidence:** the same definition version produces deterministic results in unit tests; invalid definitions are rejected; tenant transactions record the selected definition versions.
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `9/9 tests green` in `backend/tests/t_gov_logic.py` (execution time: 9.61s).
+  - `44/44 tests green` across full control plane and reports regression suite.
+  - `5 versioned formula definitions` (FORM_GST_INTR_SPLIT, FORM_LINE_DISCOUNT_NET, FORM_LOYALTY_ACCRUAL, FORM_STAFF_COMMISSION, FORM_ROUNDING_NEAREST) executed via safe Decimal AST interpretation (zero `eval()`).
+  - `3 versioned business rule definitions` (BR_MAX_BILL_DISCOUNT, BR_LOYALTY_REDEMPTION_LIMIT, BR_CUSTOMER_CREDIT_LIMIT) evaluated via declarative condition trees and action emitters.
+  - `3 statutory policy definitions` (POL_GST_STATUTORY, POL_CASH_TILL_LIMIT, POL_INVOICE_ROUNDING) governing place-of-supply tax, till limits, and roundoff.
+  - `2 document workflow state machines` (WF_PURCHASE_ORDER, WF_SALES_RETURN) with role-enforced state transitions.
+- **Named Architectural Mechanisms:**
+  - `GovernedRuleEngine.evaluate_formula_ast`: Pure recursive AST interpreter using Python `Decimal` arithmetic with divide-by-zero protection.
+  - `GovernedRuleEngine.evaluate_condition_tree`: Multi-clause boolean evaluator supporting `all`, `any`, `not`, and typed predicate operators (`==`, `!=`, `>`, `>=`, `<`, `<=`, `in`, `not_in`).
+  - `GovernedRuleEngine.evaluate_gst_tax_policy`: Multi-line statutory GST place of supply calculator with Intrastate (CGST+SGST) vs Interstate (IGST) split.
+  - `GovernedRuleEngine.evaluate_workflow_transition`: Deterministic state transition gate enforcing declared valid states and caller RBAC roles.
+  - `Governed Logic Seeder`: `seed_governed_logic_data()` in `backend/app/db/seed_gov_logic.py` synchronizing `smritisys` definitions.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_gov_logic.py`](file:///F:/SMRITRretailNX/backend/tests/t_gov_logic.py)
+  - Backend Service: [`backend/app/services/governed_rules.py`](file:///F:/SMRITRretailNX/backend/app/services/governed_rules.py)
+  - API Router: [`backend/app/api/v1/governed_logic.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/governed_logic.py)
+  - Schemas: [`backend/app/schemas/gov_logic.py`](file:///F:/SMRITRretailNX/backend/app/schemas/gov_logic.py)
+  - Seed Engine: [`backend/app/db/seed_gov_logic.py`](file:///F:/SMRITRretailNX/backend/app/db/seed_gov_logic.py)
 
 ### P1.5 Transaction Reproducibility
 

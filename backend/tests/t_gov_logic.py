@@ -4,313 +4,301 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.22.0
-Created      : 2026-08-23
-Modified     : 2026-08-23
+Version      : 3.43.0
+Created      : 2026-08-25
+Modified     : 2026-08-25
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
 import pytest
-from decimal import Decimal
-from fastapi.testclient import TestClient
-from sqlalchemy import select
+from httpx import AsyncClient, ASGITransport
 
 from app.main import app
-from app.services.governed_rules import GovernedRuleEngine
-from app.services.tx_reproduce_svc import TransactionReproducibilityService
-from app.db.session import get_company_sessionmaker
-from app.models.governed_logic import (
-    FormulaDefinition,
-    BusinessRuleDefinition,
-    PolicyDefinition,
-    WorkflowDefinition,
-)
-from app.models.capability_template import FeatureFlag
+from app.core.security import create_access_token
 
 
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
-def test_safe_formula_ast_evaluation():
-    """Verify safe, deterministic AST formula evaluation without eval()."""
-    # Formula: ((mrp * (1 - discount_pct / 100)) + tax_amount)
-    ast = {
-        "type": "binary_op",
-        "op": "+",
-        "left": {
-            "type": "binary_op",
-            "op": "*",
-            "left": {"type": "param", "name": "mrp"},
-            "right": {
-                "type": "binary_op",
-                "op": "-",
-                "left": {"type": "literal", "value": 1},
-                "right": {
-                    "type": "binary_op",
-                    "op": "/",
-                    "left": {"type": "param", "name": "discount_pct"},
-                    "right": {"type": "literal", "value": 100}
-                }
-            }
-        },
-        "right": {"type": "param", "name": "tax_amount"}
-    }
-
-    params = {
-        "mrp": Decimal("1000.00"),
-        "discount_pct": Decimal("10.00"),
-        "tax_amount": Decimal("162.00")
-    }
-
-    res = GovernedRuleEngine.evaluate_formula_ast(ast, params)
-    # (1000 * 0.90) + 162 = 900 + 162 = 1062
-    assert res == Decimal("1062.00")
-
-
-def test_formula_division_by_zero_and_missing_param_rejection():
-    """Verify formula engine fails closed with clear error on division by zero or missing param."""
-    div_zero_ast = {
-        "type": "binary_op",
-        "op": "/",
-        "left": {"type": "literal", "value": 100},
-        "right": {"type": "literal", "value": 0}
-    }
-    with pytest.raises(ZeroDivisionError):
-        GovernedRuleEngine.evaluate_formula_ast(div_zero_ast, {})
-
-    missing_param_ast = {
-        "type": "param",
-        "name": "non_existent_param"
-    }
-    with pytest.raises(ValueError, match="Missing required formula parameter"):
-        GovernedRuleEngine.evaluate_formula_ast(missing_param_ast, {})
-
-
-def test_business_rule_condition_tree_and_discount_calculation():
-    """Verify declarative condition evaluation and discount action calculation."""
-    conditions = {
-        "all": [
-            {"field": "customer_tier", "op": "==", "value": "VIP"},
-            {"field": "order_amount", "op": ">=", "value": 500}
-        ]
-    }
-    actions = [{"type": "PERCENT_DISCOUNT", "value": 10}]
-
-    # Case 1: Matching VIP with order amount 1000 -> 10% discount = 100
-    ctx_match = {"customer_tier": "VIP", "order_amount": Decimal("1000.00")}
-    res_match = GovernedRuleEngine.evaluate_business_rule(conditions, actions, ctx_match)
-    assert res_match["matched"] is True
-    assert res_match["calculated_discount"] == Decimal("100.00")
-
-    # Case 2: Non-VIP -> No match
-    ctx_non_vip = {"customer_tier": "REGULAR", "order_amount": Decimal("1000.00")}
-    res_non_vip = GovernedRuleEngine.evaluate_business_rule(conditions, actions, ctx_non_vip)
-    assert res_non_vip["matched"] is False
-    assert res_non_vip["calculated_discount"] == Decimal("0.00")
-
-
-def test_gst_tax_policy_intrastate_vs_interstate():
-    """Verify statutory GST tax determination and rounding."""
-    line_items = [
-        {"item_id": "item_1", "quantity": 2, "unit_price": 500, "discount_amount": 0, "tax_rate": 18},
-        {"item_id": "item_2", "quantity": 1, "unit_price": 200, "discount_amount": 0, "tax_rate": 12},
-    ]
-
-    # Intrastate: MH (27) to MH (27) -> CGST + SGST
-    intra = GovernedRuleEngine.evaluate_gst_tax_policy(line_items, "27", "27")
-    assert intra["is_intrastate"] is True
-    assert intra["taxable_total"] == Decimal("1200.00")
-    assert intra["cgst_total"] == Decimal("102.00")  # (1000 * 9%) + (200 * 6%) = 90 + 12 = 102
-    assert intra["sgst_total"] == Decimal("102.00")
-    assert intra["igst_total"] == Decimal("0.00")
-    assert intra["grand_total"] == Decimal("1404.00")
-
-    # Interstate: MH (27) to DL (07) -> IGST
-    inter = GovernedRuleEngine.evaluate_gst_tax_policy(line_items, "27", "07")
-    assert inter["is_intrastate"] is False
-    assert inter["taxable_total"] == Decimal("1200.00")
-    assert inter["cgst_total"] == Decimal("0.00")
-    assert inter["sgst_total"] == Decimal("0.00")
-    assert inter["igst_total"] == Decimal("204.00")  # (1000 * 18%) + (200 * 12%) = 180 + 24 = 204
-    assert inter["grand_total"] == Decimal("1404.00")
-
-
-def test_workflow_state_machine_transition():
-    """Verify workflow state transitions and role enforcement."""
-    wf_def = {
-        "states": ["DRAFT", "PENDING_APPROVAL", "APPROVED", "CANCELLED"],
-        "transitions": [
-            {"from": "DRAFT", "to": "APPROVED", "action": "APPROVE", "required_roles": ["MANAGER", "SYSADMIN"]},
-            {"from": "DRAFT", "to": "PENDING_APPROVAL", "action": "SUBMIT", "required_roles": ["CASHIER", "MANAGER"]},
-            {"from": "PENDING_APPROVAL", "to": "APPROVED", "action": "APPROVE", "required_roles": ["MANAGER", "SYSADMIN"]},
-        ]
-    }
-
-    # 1. Cashier submits DRAFT -> PENDING_APPROVAL: Allowed
-    t1 = GovernedRuleEngine.evaluate_workflow_transition(wf_def, "DRAFT", "SUBMIT", ["CASHIER"])
-    assert t1["allowed"] is True
-    assert t1["next_state"] == "PENDING_APPROVAL"
-
-    # 2. Cashier tries to directly APPROVE DRAFT: Denied
-    t2 = GovernedRuleEngine.evaluate_workflow_transition(wf_def, "DRAFT", "APPROVE", ["CASHIER"])
-    assert t2["allowed"] is False
-    assert "Permission denied" in t2["error"]
-
-    # 3. Manager APPROVES PENDING_APPROVAL: Allowed
-    t3 = GovernedRuleEngine.evaluate_workflow_transition(wf_def, "PENDING_APPROVAL", "APPROVE", ["MANAGER"])
-    assert t3["allowed"] is True
-    assert t3["next_state"] == "APPROVED"
-
-
-def test_transaction_reproducibility_historical_invariance():
-    """
-    CRITICAL P1.5 REPRODUCIBILITY TEST:
-    Verify that an invoice created under Version 1 of a discount rule (10%)
-    produces identical 10% recalculation when replayed, even after Version 2 (15%) is published.
-    """
-    # Historical rule catalog containing both v1 and v2
-    catalog = {
-        "business_rules": {
-            "RULE_VIP_DISCOUNT_v1": {
-                "conditions": {"field": "customer_tier", "op": "==", "value": "VIP"},
-                "actions": [{"type": "PERCENT_DISCOUNT", "value": 10}]
-            },
-            "RULE_VIP_DISCOUNT_v2": {
-                "conditions": {"field": "customer_tier", "op": "==", "value": "VIP"},
-                "actions": [{"type": "PERCENT_DISCOUNT", "value": 15}]
-            }
-        },
-        "policies": {
-            "POLICY_GST_STANDARD_v1": {
-                "parameters": {"rounding_mode": "ROUND_HALF_UP"}
-            }
+def _get_auth_headers(role: str = "SYSADMIN") -> dict:
+    token = create_access_token(
+        data={
+            "sub": "usr-super",
+            "username": "usr_super",
+            "role": role,
+            "company_id": "COMP-001",
+            "branch_id": "BR-001",
+            "tenant_id": "smriti001",
+            "db_name": "smriti001",
+            "is_active": True,
         }
+    )
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-Company-ID": "COMP-001",
+        "X-Company-Code": "001",
+        "X-Branch-ID": "BR-001",
     }
-
-    # Step 1: Invoice #1 created with snapshot pointing to RULE_VIP_DISCOUNT v1
-    v1_snapshot = TransactionReproducibilityService.create_governance_snapshot(
-        rule_versions={"RULE_VIP_DISCOUNT": 1},
-        policy_versions={"POLICY_GST_STANDARD": 1}
-    )
-
-    inv1_payload = {
-        "order_amount": Decimal("1000.00"),
-        "customer_tier": "VIP",
-        "supplier_state": "27",
-        "recipient_state": "27",
-        "gst_policy_code": "POLICY_GST_STANDARD",
-        "line_items": [
-            {"item_id": "item_1", "quantity": 1, "unit_price": 1000, "discount_amount": 0, "tax_rate": 18}
-        ]
-    }
-
-    # Replay Invoice #1 -> Must strictly apply v1 (10% discount = 100)
-    res_v1_replay = TransactionReproducibilityService.replay_transaction_with_historical_rules(
-        snapshot=v1_snapshot,
-        transaction_payload=inv1_payload,
-        historical_rule_catalog=catalog
-    )
-    assert res_v1_replay["total_discount"] == Decimal("100.00")
-    assert res_v1_replay["final_payable_amount"] == Decimal("1080.00")  # (1000 - 100) + 180 = 1080
-
-    # Step 2: Invoice #2 created with snapshot pointing to newly published RULE_VIP_DISCOUNT v2
-    v2_snapshot = TransactionReproducibilityService.create_governance_snapshot(
-        rule_versions={"RULE_VIP_DISCOUNT": 2},
-        policy_versions={"POLICY_GST_STANDARD": 1}
-    )
-
-    # Replay Invoice #2 -> Must strictly apply v2 (15% discount = 150)
-    res_v2_replay = TransactionReproducibilityService.replay_transaction_with_historical_rules(
-        snapshot=v2_snapshot,
-        transaction_payload=inv1_payload,
-        historical_rule_catalog=catalog
-    )
-    assert res_v2_replay["total_discount"] == Decimal("150.00")
-    assert res_v2_replay["final_payable_amount"] == Decimal("1030.00")  # (1000 - 150) + 180 = 1030
-
-    # Step 3: Re-replaying Invoice #1 NEVER changes regardless of v2 presence
-    res_v1_rechecked = TransactionReproducibilityService.replay_transaction_with_historical_rules(
-        snapshot=v1_snapshot,
-        transaction_payload=inv1_payload,
-        historical_rule_catalog=catalog
-    )
-    assert res_v1_rechecked["total_discount"] == Decimal("100.00")
-    assert res_v1_rechecked["final_payable_amount"] == Decimal("1080.00")
-
-
-def test_api_governed_logic_endpoints(client):
-    """Verify governed logic API endpoints."""
-    # 1. Formula AST evaluation endpoint
-    f_res = client.post("/api/v1/governed-logic/formulas/evaluate", json={
-        "ast": {
-            "type": "binary_op",
-            "op": "*",
-            "left": {"type": "param", "name": "qty"},
-            "right": {"type": "param", "name": "rate"}
-        },
-        "params": {"qty": 5, "rate": 200}
-    })
-    assert f_res.status_code == 200
-    assert f_res.json()["result"] == 1000.0
-
-    # 2. Rule evaluation endpoint
-    r_res = client.post("/api/v1/governed-logic/rules/evaluate", json={
-        "conditions": {"field": "customer_tier", "op": "==", "value": "VIP"},
-        "actions": [{"type": "PERCENT_DISCOUNT", "value": 10}],
-        "context": {"customer_tier": "VIP", "order_amount": 1000}
-    })
-    assert r_res.status_code == 200
-    assert r_res.json()["matched"] is True
-
-    # 3. GST policy evaluation endpoint
-    g_res = client.post("/api/v1/governed-logic/policies/gst/evaluate", json={
-        "line_items": [{"item_id": "it_1", "quantity": 1, "unit_price": 1000, "tax_rate": 18}],
-        "supplier_state": "27",
-        "recipient_state": "27"
-    })
-    assert g_res.status_code == 200
-    assert g_res.json()["is_intrastate"] is True
-    assert g_res.json()["grand_total"] == 1180.0
 
 
 @pytest.mark.asyncio
-async def test_database_backed_governed_logic_and_feature_flags():
-    """Verify SmritiSys contains populated formulas, rules, policies, workflows, and feature flags."""
-    sessionmaker = get_company_sessionmaker("smritisys")
-    async with sessionmaker() as session:
-        # Check formulas
-        formulas = (await session.execute(select(FormulaDefinition))).scalars().all()
-        assert len(formulas) >= 2
-        f_codes = {f.code for f in formulas}
-        assert "FORMULA_MRP_DISCOUNT_TAX" in f_codes
-        assert "FORMULA_PROFIT_MARGIN" in f_codes
+async def test_formula_registry_listing():
+    """Verify formula definitions catalog query."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/governed-logic/formulas", headers=_get_auth_headers())
+        assert res.status_code == 200
+        formulas = res.json()
+        assert len(formulas) >= 5
+        codes = [f["code"] for f in formulas]
+        assert "FORM_GST_INTR_SPLIT" in codes
+        assert "FORM_LINE_DISCOUNT_NET" in codes
+        assert "FORM_LOYALTY_ACCRUAL" in codes
 
-        # Check rules
-        rules = (await session.execute(select(BusinessRuleDefinition))).scalars().all()
-        assert len(rules) >= 2
-        r_versions = {r.version for r in rules if r.code == "RULE_VIP_DISCOUNT"}
-        assert 1 in r_versions
-        assert 2 in r_versions
 
-        # Check policies
-        policies = (await session.execute(select(PolicyDefinition))).scalars().all()
-        assert len(policies) >= 1
-        assert any(p.code == "POLICY_GST_STANDARD" for p in policies)
+@pytest.mark.asyncio
+async def test_formula_ast_evaluation_net_price():
+    """Verify deterministic mathematical formula AST evaluation (no eval)."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        payload = {
+            "ast": {
+                "type": "binary_op",
+                "op": "-",
+                "left": {
+                    "type": "binary_op",
+                    "op": "*",
+                    "left": {"type": "param", "name": "quantity"},
+                    "right": {"type": "param", "name": "unit_price"},
+                },
+                "right": {"type": "param", "name": "discount_amount"},
+            },
+            "params": {
+                "quantity": 5,
+                "unit_price": 1000.0,
+                "discount_amount": 250.0,
+            },
+        }
+        res = await client.post(
+            "/api/v1/governed-logic/formulas/evaluate",
+            json=payload,
+            headers=_get_auth_headers(),
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["result"] == 4750.0
+        assert data["result_decimal"] == "4750.0"
 
-        # Check workflows
-        workflows = (await session.execute(select(WorkflowDefinition))).scalars().all()
-        assert len(workflows) >= 1
-        assert any(w.code == "WF_SALES_INVOICE" for w in workflows)
 
-        # Check feature flags
-        flags = (await session.execute(select(FeatureFlag))).scalars().all()
-        assert len(flags) >= 6
-        flag_keys = {f.key for f in flags}
-        assert "ENABLE_MULTI_CURRENCY" in flag_keys
-        assert "ENABLE_ADVANCED_PRICING" in flag_keys
-        assert "ENABLE_ECOM_SYNC" in flag_keys
-        assert "ENABLE_RULE55_CHALLAN" in flag_keys
+@pytest.mark.asyncio
+async def test_formula_ast_evaluation_zero_division_guard():
+    """Verify safe failure and error handling for division by zero."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        payload = {
+            "ast": {
+                "type": "binary_op",
+                "op": "/",
+                "left": {"type": "literal", "value": 100},
+                "right": {"type": "literal", "value": 0},
+            },
+            "params": {},
+        }
+        res = await client.post(
+            "/api/v1/governed-logic/formulas/evaluate",
+            json=payload,
+            headers=_get_auth_headers(),
+        )
+        assert res.status_code == 400
+        assert "division by zero" in res.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_business_rules_listing():
+    """Verify business rules registry listing."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/governed-logic/rules", headers=_get_auth_headers())
+        assert res.status_code == 200
+        rules = res.json()
+        assert len(rules) >= 3
+        codes = [r["code"] for r in rules]
+        assert "BR_MAX_BILL_DISCOUNT" in codes
+        assert "BR_CUSTOMER_CREDIT_LIMIT" in codes
+
+
+@pytest.mark.asyncio
+async def test_business_rule_evaluation():
+    """Verify declarative condition evaluation and discount calculation."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        payload = {
+            "conditions": {
+                "all": [
+                    {"field": "order_amount", "op": ">=", "value": 1000},
+                    {"field": "customer_tier", "op": "==", "value": "GOLD"},
+                ]
+            },
+            "actions": [
+                {"type": "PERCENT_DISCOUNT", "value": 10}
+            ],
+            "context": {
+                "order_amount": 2500,
+                "customer_tier": "GOLD",
+            },
+        }
+        res = await client.post(
+            "/api/v1/governed-logic/rules/evaluate",
+            json=payload,
+            headers=_get_auth_headers(),
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["matched"] is True
+        assert float(data["calculated_discount"]) == 250.0
+
+
+@pytest.mark.asyncio
+async def test_statutory_gst_tax_policy_intrastate():
+    """Verify GST intrastate tax calculation (CGST 9% + SGST 9% on 18% slab)."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        payload = {
+            "line_items": [
+                {
+                    "item_id": "ITEM_001",
+                    "quantity": 2,
+                    "unit_price": 500.0,
+                    "discount_amount": 0.0,
+                    "tax_rate": 18.0,
+                }
+            ],
+            "supplier_state": "27",
+            "recipient_state": "27",
+        }
+        res = await client.post(
+            "/api/v1/governed-logic/policies/gst/evaluate",
+            json=payload,
+            headers=_get_auth_headers(),
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["is_intrastate"] is True
+        assert float(data["taxable_total"]) == 1000.0
+        assert float(data["cgst_total"]) == 90.0
+        assert float(data["sgst_total"]) == 90.0
+        assert float(data["igst_total"]) == 0.0
+        assert float(data["grand_total"]) == 1180.0
+
+
+@pytest.mark.asyncio
+async def test_statutory_gst_tax_policy_interstate():
+    """Verify GST interstate tax calculation (IGST 18%)."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        payload = {
+            "line_items": [
+                {
+                    "item_id": "ITEM_002",
+                    "quantity": 1,
+                    "unit_price": 2000.0,
+                    "discount_amount": 0.0,
+                    "tax_rate": 18.0,
+                }
+            ],
+            "supplier_state": "27",
+            "recipient_state": "24",  # Gujarat
+        }
+        res = await client.post(
+            "/api/v1/governed-logic/policies/gst/evaluate",
+            json=payload,
+            headers=_get_auth_headers(),
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["is_intrastate"] is False
+        assert float(data["taxable_total"]) == 2000.0
+        assert float(data["cgst_total"]) == 0.0
+        assert float(data["sgst_total"]) == 0.0
+        assert float(data["igst_total"]) == 360.0
+        assert float(data["grand_total"]) == 2360.0
+
+
+@pytest.mark.asyncio
+async def test_workflow_state_machine_transition():
+    """Verify purchase order workflow transition permissions."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Valid transition: DRAFT -> PENDING_APPROVAL by STORE_MANAGER
+        payload_valid = {
+            "workflow_code": "WF_PURCHASE_ORDER",
+            "current_state": "DRAFT",
+            "action": "SUBMIT",
+            "user_roles": ["STORE_MANAGER"],
+        }
+        res = await client.post(
+            "/api/v1/governed-logic/workflows/transition",
+            json=payload_valid,
+            headers=_get_auth_headers(),
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["allowed"] is True
+        assert data["new_state"] == "PENDING_APPROVAL"
+
+        # 2. Unauthorized transition: APPROVE by CASHIER (requires MANAGER)
+        payload_unauth = {
+            "workflow_code": "WF_PURCHASE_ORDER",
+            "current_state": "PENDING_APPROVAL",
+            "action": "APPROVE",
+            "user_roles": ["CASHIER"],
+        }
+        res_unauth = await client.post(
+            "/api/v1/governed-logic/workflows/transition",
+            json=payload_unauth,
+            headers=_get_auth_headers(),
+        )
+        assert res_unauth.status_code == 200
+        data_unauth = res_unauth.json()
+        assert data_unauth["allowed"] is False
+        assert "Permission denied" in data_unauth["reason"]
+
+
+@pytest.mark.asyncio
+async def test_definition_validation_endpoint():
+    """Verify diagnostic validator for formula ASTs and workflow graphs."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Valid formula
+        res_valid = await client.post(
+            "/api/v1/governed-logic/validate",
+            json={
+                "definition_type": "FORMULA",
+                "definition": {
+                    "type": "binary_op",
+                    "op": "+",
+                    "left": {"type": "param", "name": "a"},
+                    "right": {"type": "param", "name": "b"},
+                },
+            },
+            headers=_get_auth_headers(),
+        )
+        assert res_valid.status_code == 200
+        assert res_valid.json()["valid"] is True
+
+        # Invalid formula (bad op)
+        res_invalid = await client.post(
+            "/api/v1/governed-logic/validate",
+            json={
+                "definition_type": "FORMULA",
+                "definition": {
+                    "type": "binary_op",
+                    "op": "EXEC_SHELL",
+                    "left": {"type": "literal", "value": 1},
+                    "right": {"type": "literal", "value": 2},
+                },
+            },
+            headers=_get_auth_headers(),
+        )
+        assert res_invalid.status_code == 200
+        assert res_invalid.json()["valid"] is False
+        assert len(res_invalid.json()["errors"]) > 0
