@@ -25,7 +25,7 @@ from app.models.inventory import Product
 from app.models.crm import Customer, CustomerGroup
 from app.models.sales import SalesInvoice
 from app.models.auth import User, UserRole
-from app.api.deps import TenantContext, get_db, get_current_user, get_tenant_context
+from app.api.deps import TenantContext, get_db, get_company_db, get_current_user, get_tenant_context
 from app.services.sales import SalesService
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
 from app.tests.conftest import clear_db
@@ -52,6 +52,7 @@ async def override_get_db(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
 
     # Override get_current_user — returns a mock MANAGER user.
     _mock_manager = User(
@@ -81,6 +82,7 @@ async def override_get_db(db_session):
 
     clear_test_tenant()
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_company_db, None)
     app.dependency_overrides.pop(get_current_user, None)
     app.dependency_overrides.pop(get_tenant_context, None)
     try:
@@ -331,6 +333,7 @@ async def test_concurrent_duplicate_barcode_returns_400_not_500(db_session, db_e
                 await session.close()
 
     app.dependency_overrides[get_db] = _fresh_get_db
+    app.dependency_overrides[get_company_db] = _fresh_get_db
 
     async def post_product(tag: str):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -354,6 +357,7 @@ async def test_concurrent_duplicate_barcode_returns_400_not_500(db_session, db_e
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
 
     statuses = [r.status_code for r in results]
 

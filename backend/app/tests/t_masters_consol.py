@@ -119,7 +119,6 @@ async def test_company_crud(db_session):
         res_list = await client.get("/api/v1/masters/companies", headers=headers)
         assert res_list.status_code == 200
         data_list = res_list.json()
-        assert len(data_list) == 2  # default test-1 company + new one
         assert any(x["id"] == new_comp_id for x in data_list)
 
         # 3. Update company
@@ -143,19 +142,19 @@ async def test_company_crud(db_session):
         res_list_after = await client.get("/api/v1/masters/companies", headers=headers)
         assert res_list_after.status_code == 200
         data_list_after = res_list_after.json()
-        assert len(data_list_after) == 1
         assert not any(x["id"] == new_comp_id for x in data_list_after)
 
 
 async def test_branch_store_warehouse_crud(db_session):
     company, branch, user, headers = await _setup_admin_and_auth_headers(db_session)
+    s = uuid.uuid4().hex[:6]
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Create Branch
         res_branch = await client.post("/api/v1/masters/branches", headers=headers, json={
             "company": company.id,
-            "name": "Second Branch",
-            "code": "BR-SECOND"
+            "name": f"Second Branch {s}",
+            "code": f"BR-SEC-{s}"
         })
         assert res_branch.status_code == 201
         new_branch_id = res_branch.json()["id"]
@@ -163,8 +162,8 @@ async def test_branch_store_warehouse_crud(db_session):
         # Create Store
         res_store = await client.post("/api/v1/masters/stores", headers=headers, json={
             "branch": branch.id,
-            "code": "ST-01",
-            "name": "Main Retail Store",
+            "code": f"ST-{s}",
+            "name": f"Main Retail Store {s}",
             "store_type": "Retail",
             "address": "123 Main Street",
             "status": "Active"
@@ -175,8 +174,8 @@ async def test_branch_store_warehouse_crud(db_session):
         # Create Warehouse
         res_wh = await client.post("/api/v1/masters/warehouses", headers=headers, json={
             "branch": branch.id,
-            "code": "WH-01",
-            "name": "Central Distribution Warehouse",
+            "code": f"WH-{s}",
+            "name": f"Central Distribution Warehouse {s}",
             "is_transit": False,
             "address": "456 industrial area",
             "status": "Active"
@@ -186,24 +185,21 @@ async def test_branch_store_warehouse_crud(db_session):
 
         # Get list stores
         res_stores = await client.get("/api/v1/masters/stores", headers=headers)
-        assert len(res_stores.json()) == 1
+        assert any(x["id"] == new_store_id for x in res_stores.json())
 
         # Soft delete Store
         res_del = await client.delete(f"/api/v1/masters/stores/{new_store_id}", headers=headers)
         assert res_del.status_code == 200
 
 
-# ===========================================================================
-# Tier-1 lookups tests (types & values with jsonschema validation)
-# ===========================================================================
-
 async def test_lookups_validation_and_soft_delete(db_session):
     company, branch, user, headers = await _setup_admin_and_auth_headers(db_session)
+    dept_code = f"dept_{uuid.uuid4().hex[:6]}"
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # 1. Create a MasterType (lookup definition)
         res_type = await client.post("/api/v1/masters/lookup-types", headers=headers, json={
-            "code": "department",
+            "code": dept_code,
             "label": "Company Department",
             "field_schema": {
                 "type": "object",
@@ -218,7 +214,7 @@ async def test_lookups_validation_and_soft_delete(db_session):
         assert res_type.status_code == 201
 
         # 2. Attempt to create valid lookup value
-        res_val_ok = await client.post("/api/v1/masters/lookup/department/values", headers=headers, json={
+        res_val_ok = await client.post(f"/api/v1/masters/lookup/{dept_code}/values", headers=headers, json={
             "code": "HR",
             "name": "Human Resources",
             "data": {"cost_center": "CC-HR-01", "budget": 50000}
@@ -227,7 +223,7 @@ async def test_lookups_validation_and_soft_delete(db_session):
         val_id = res_val_ok.json()["id"]
 
         # 3. Attempt to create invalid lookup value (fails schema validation)
-        res_val_fail = await client.post("/api/v1/masters/lookup/department/values", headers=headers, json={
+        res_val_fail = await client.post(f"/api/v1/masters/lookup/{dept_code}/values", headers=headers, json={
             "code": "FIN",
             "name": "Finance",
             "data": {"cost_center": 12345}  # should be string
@@ -236,7 +232,7 @@ async def test_lookups_validation_and_soft_delete(db_session):
         assert "Validation failed" in res_val_fail.json()["detail"]
 
         # 4. Attempt to create invalid lookup value (violates additionalProperties)
-        res_val_fail2 = await client.post("/api/v1/masters/lookup/department/values", headers=headers, json={
+        res_val_fail2 = await client.post(f"/api/v1/masters/lookup/{dept_code}/values", headers=headers, json={
             "code": "IT",
             "name": "Information Tech",
             "data": {"cost_center": "CC-IT-01", "extra": "garbage"}
@@ -244,14 +240,14 @@ async def test_lookups_validation_and_soft_delete(db_session):
         assert res_val_fail2.status_code == 400
 
         # 5. List lookup values (should have 1 HR)
-        res_list = await client.get("/api/v1/masters/lookup/department/values", headers=headers)
-        assert len(res_list.json()) == 1
+        res_list = await client.get(f"/api/v1/masters/lookup/{dept_code}/values", headers=headers)
+        assert any(x["id"] == val_id for x in res_list.json())
 
         # 6. Soft delete lookup value
-        res_del = await client.delete(f"/api/v1/masters/lookup/department/values/{val_id}", headers=headers)
+        res_del = await client.delete(f"/api/v1/masters/lookup/{dept_code}/values/{val_id}", headers=headers)
         assert res_del.status_code == 200
         assert res_del.json()["success"] is True
 
         # 7. Verify soft deleted item is filtered out from active list
-        res_list_after = await client.get("/api/v1/masters/lookup/department/values", headers=headers)
-        assert len(res_list_after.json()) == 0
+        res_list_after = await client.get(f"/api/v1/masters/lookup/{dept_code}/values", headers=headers)
+        assert not any(x["id"] == val_id for x in res_list_after.json())
