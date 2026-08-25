@@ -420,9 +420,30 @@ The remaining work is primarily convergence and governance: turning module-level
   - Schemas: [`backend/app/schemas/fulfillment.py`](file:///F:/SMRITRretailNX/backend/app/schemas/fulfillment.py)
   - Models: [`backend/app/models/fulfillment.py`](file:///F:/SMRITRretailNX/backend/app/models/fulfillment.py)
 
+#### Barcode and Labels Engine — `Done / Verified`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_barcodes.py`.
+  - `105/105 full platform regression tests green`.
+  - `0 naming violations` verified by `scripts/smriti_naming_guard.py`.
+  - 100% Modulo 10 check digit accuracy for GS1 EAN-13 and UPC-A symbologies.
+  - Multi-DPI dot scaling (203, 300, 600 DPI) across Zebra ZPL-II, TSC TSPL, and ESC/POS printer byte streams.
+  - 100% audit logging in PostgreSQL `PrintHistory` for batch print dispatch.
+- **Named Architectural Mechanisms:**
+  - `BarcodesEngine.calculate_ean13_check_digit` & `calculate_upca_check_digit`: GS1 Modulo 10 check digit algorithms enforcing valid check digits on generated and scanned barcodes.
+  - `BarcodesEngine.generate_barcode_value`: Symbology generator for EAN13, UPC_A, CODE128, CODE39, ITF14, and QR_CODE.
+  - `BarcodesEngine.validate_barcode_checksum`: Pure checksum and structural validator rejecting corrupted or truncated barcodes.
+  - `BarcodesEngine.compile_label_stream`: Hardware compiler generating native ZPL-II (`^XA...^XZ`), TSPL (`SIZE...PRINT`), and ESC/POS command streams with DPI-scaled font and barcode coordinates.
+  - `BarcodesEngine.dispatch_batch_print_job`: Batch label spooling engine recording individual item labels into PostgreSQL `PrintHistory`.
+  - `BarcodeLayout`, `PrintHistory`, `PrintTemplate`, `PrintProfile`: Authoritative PostgreSQL barcode models.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_barcodes.py`](file:///F:/SMRITRretailNX/backend/tests/t_barcodes.py)
+  - Backend Service: [`backend/app/services/barcodes_engine.py`](file:///F:/SMRITRretailNX/backend/app/services/barcodes_engine.py)
+  - API Router: [`backend/app/api/v1/barcodes.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/barcodes.py)
+  - Schemas: [`backend/app/schemas/barcodes.py`](file:///F:/SMRITRretailNX/backend/app/schemas/barcodes.py)
+  - Models: [`backend/app/models/barcode.py`](file:///F:/SMRITRretailNX/backend/app/models/barcode.py)
+
 ### Remaining Shared Business Engines:
 
-- **Barcode and Labels:** barcode formats/rules, batch/serial labels, print jobs and hardware adapters.
 - **Approval:** levels, assignments, delegation, escalation, history, and transaction enforcement.
 - **Universal Search:** party, item, barcode, document, warehouse, and transaction lookup with permission-aware results.
 - **Communicator:** provider registry, templates, policies, events, delivery events, preferences, and real provider adapters.

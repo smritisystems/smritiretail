@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.53.0] - 2026-08-25
+
+#### Sprint 37: Section 7 Shared Business Engines: Barcode & Labels Engine Completion
+- **Authoritative Barcode & Labels Engine Service & Thermal Hardware Compilation**:
+  - Implemented `backend/app/services/barcodes_engine.py` and created `backend/app/schemas/barcodes.py` providing symbology validation, Modulo 10 check digit algorithms, native printer byte stream compilation, and print history auditing.
+  - Implemented GS1 Modulo 10 check digit calculation and validation for EAN-13 and UPC-A barcodes, plus alphanumeric formatting for CODE128, CODE39, ITF14, and QR codes.
+  - Implemented multi-DPI thermal label compilation generating Zebra ZPL-II (`^XA...^XZ`), TSC TSPL (`SIZE...PRINT`), and ESC/POS command byte streams scaling across 203, 300, and 600 DPI.
+  - Implemented multi-item batch label print spooling with PostgreSQL `PrintHistory` audit ledger tracking.
+- **REST Endpoints (`/api/v1/barcodes/*`)**:
+  - Mounted `/generate`, `/validate`, `/compile`, `/print/batch`, and `/history` in `backend/app/api/v1/barcodes.py` and registered in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_barcodes.py` (6/6 tests green, 105/105 full platform regression tests green).
+  - Certified Blueprint Section 7 (`Barcode and Labels Engine Completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.52.0] - 2026-08-25
 
 #### Sprint 36: Section 7 Shared Business Engines: Fulfillment Engine Completion
