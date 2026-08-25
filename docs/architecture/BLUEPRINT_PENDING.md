@@ -306,9 +306,30 @@ The remaining work is primarily convergence and governance: turning module-level
 
 ## 7. P1/P2 Shared Business Engines
 
-Complete and unify the following existing partial engines:
+### Pricing Engine [STATUS: DONE / VERIFIED]
 
-- **Pricing:** price lists, customer/channel/quantity pricing, effective dates, promotions, historical snapshots.
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_pricing_engine.py` (execution time: 9.06s).
+  - `75/75 tests green` across complete control plane, data plane, boundaries, governed logic, reproducibility, pricing, and reports regression suite.
+  - `6-tier hierarchical price resolution precedence` (Volume Breaks -> Customer Tier Discount -> Variant Master -> Item Master -> Product Master).
+  - `100% date validity gating enforcement` (Expired price lists fall back to active base master prices; future price lists gated).
+  - `Immutable transaction pricing snapshots` captured at transaction time for zero-drift historical replay.
+- **Named Architectural Mechanisms:**
+  - `PricingEngine.calculate_effective_price`: Authoritative hierarchical unit price resolver with volume breaks, date gating, and channel selection.
+  - `PricingEngine.calculate_bulk_pricing`: Multi-line cart/order pricing engine computing line subtotals, order MRP, savings, and custom line-level discounts.
+  - `PricingEngine.generate_pricing_snapshot`: Frozen, versioned pricing snapshot generator capturing exact calculation timestamp, line items, and pricing sources.
+  - `PriceBook` & `PriceBookEntry`: Multi-tier price book and quantity break master models.
+  - `CustomerPriceTier`: Customer classification model with automated percentage discount modifiers.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_pricing_engine.py`](file:///F:/SMRITRretailNX/backend/tests/t_pricing_engine.py)
+  - Backend Service: [`backend/app/services/pricing_engine.py`](file:///F:/SMRITRretailNX/backend/app/services/pricing_engine.py)
+  - API Router: [`backend/app/api/v1/pricing.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/pricing.py)
+  - Models: [`backend/app/models/pricing.py`](file:///F:/SMRITRretailNX/backend/app/models/pricing.py)
+  - Schemas: [`backend/app/schemas/pricing.py`](file:///F:/SMRITRretailNX/backend/app/schemas/pricing.py)
+
+### Remaining Shared Business Engines:
+
 - **Promotions:** promotion/discount/coupon conditions and actions with conflict/stacking policy.
 - **Payments:** methods, transactions, receipts, refunds, allocations, provider adapters, idempotency.
 - **Documents:** document types/categories/lifecycles, templates, rendering, printing, numbering, version binding.
