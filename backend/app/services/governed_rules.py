@@ -307,3 +307,59 @@ class GovernedRuleEngine:
             "action": action,
             "error": None
         }
+
+    @classmethod
+    def validate_formula_ast_syntax(cls, ast: Dict[str, Any]) -> List[str]:
+        """Validates that a formula AST has valid node types and operator definitions."""
+        errors = []
+        if not isinstance(ast, dict):
+            return ["AST must be a dictionary"]
+        node_type = ast.get("type")
+        if node_type not in ["literal", "param", "binary_op", "func"]:
+            errors.append(f"Invalid AST node type: '{node_type}'")
+        elif node_type == "binary_op":
+            if ast.get("op") not in ["+", "-", "*", "/", "%"]:
+                errors.append(f"Invalid binary operator: '{ast.get('op')}'")
+            if "left" not in ast or "right" not in ast:
+                errors.append("binary_op requires 'left' and 'right' child nodes")
+            else:
+                errors.extend(cls.validate_formula_ast_syntax(ast["left"]))
+                errors.extend(cls.validate_formula_ast_syntax(ast["right"]))
+        elif node_type == "func":
+            if ast.get("name", "").lower() not in ["round", "min", "max", "abs", "floor", "ceil"]:
+                errors.append(f"Unsupported function: '{ast.get('name')}'")
+            if "args" not in ast or not isinstance(ast["args"], list):
+                errors.append("func requires 'args' list")
+            else:
+                for arg in ast["args"]:
+                    errors.extend(cls.validate_formula_ast_syntax(arg))
+        elif node_type == "param":
+            if "name" not in ast or not str(ast["name"]).strip():
+                errors.append("param node requires non-empty 'name'")
+        elif node_type == "literal":
+            if "value" not in ast:
+                errors.append("literal node requires 'value'")
+        return errors
+
+    @classmethod
+    def validate_workflow_syntax(cls, states: List[str], transitions: List[Dict[str, Any]]) -> List[str]:
+        """Validates state machine transitions against declared states."""
+        errors = []
+        state_set = set(states)
+        if not state_set:
+            errors.append("Workflow states list cannot be empty")
+        for i, t in enumerate(transitions):
+            if not isinstance(t, dict):
+                errors.append(f"Transition at index {i} must be a dictionary")
+                continue
+            f = t.get("from")
+            to = t.get("to")
+            action = t.get("action")
+            if not f or f not in state_set:
+                errors.append(f"Transition from state '{f}' is not in declared states")
+            if not to or to not in state_set:
+                errors.append(f"Transition to state '{to}' is not in declared states")
+            if not action:
+                errors.append(f"Transition at index {i} missing required 'action'")
+        return errors
+

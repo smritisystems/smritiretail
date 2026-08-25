@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.43.0] - 2026-08-25
+
+#### Sprint 27: P1.4 Formula, Rule, Policy, and Workflow Engines (Governed Logic)
+- **Governed Logic Schemas & Service Engines**:
+  - Added Pydantic schemas in `backend/app/schemas/gov_logic.py` for `FormulaDefinitionResponse`, `FormulaEvalRequest`, `FormulaEvalResponse`, `BusinessRuleResponse`, `BusinessRuleEvalRequest`, `BusinessRuleEvalResponse`, `PolicyDefinitionResponse`, `GstTaxPolicyEvalRequest`, `WorkflowDefinitionResponse`, `WorkflowTransitionRequest`, `WorkflowTransitionResponse`, and `DefinitionValidationResponse`.
+  - Enhanced `GovernedRuleEngine` in `backend/app/services/governed_rules.py` with pure AST formula interpretation (zero arbitrary code execution, Decimal math), multi-clause declarative condition trees, statutory multi-line GST intrastate/interstate place of supply tax engine, and RBAC-enforced workflow state machine transitions.
+- **REST Endpoints Exposed (`/api/v1/governed-logic/`)**:
+  - Mounted `/formulas`, `/formulas/evaluate`, `/rules`, `/rules/evaluate`, `/policies`, `/policies/gst/evaluate`, `/workflows`, `/workflows/transition`, and `/validate` in `backend/app/api/v1/governed_logic.py`.
+- **Master Data Seeding**:
+  - Seeded canonical formulas (`FORM_GST_INTR_SPLIT`, `FORM_LINE_DISCOUNT_NET`, `FORM_LOYALTY_ACCRUAL`, `FORM_STAFF_COMMISSION`, `FORM_ROUNDING_NEAREST`), business rules, statutory GST policies, and purchase order/sales return workflows in `smritisys` via `backend/app/db/seed_gov_logic.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_gov_logic.py` (9/9 tests green, 44/44 regression tests green).
+  - Certified Blueprint Section 5.1 (`P1.4 Formula, Rule, Policy, and Workflow Engines`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.42.0] - 2026-08-25
 
 #### Sprint 26: P1.3 Workspace, Menu, and UI Experience Registry (Control Plane)
