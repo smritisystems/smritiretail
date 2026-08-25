@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.49.0] - 2026-08-25
+
+#### Sprint 33: Section 7 Shared Business Engines: Promotions Engine Completion
+- **Authoritative Promotions Engine Service & Stacking Policy Engine**:
+  - Implemented `backend/app/services/promotions_engine.py` and created `backend/app/schemas/promotions.py` providing rich discount and offer mechanics: Percentage discounts, Flat fixed discounts, Buy-X-Get-Y (BOGO/BXGY), Buy-X-at-Price, and Combo bundle pricing.
+  - Implemented conflict resolution and stacking policies: `EXCLUSIVE_OVERRIDE` (exclusive promotions suppress all others), `BEST_BENEFIT` (maximizes customer savings), and multi-campaign stacking bounded by `max_stacked_discount_percent` safety caps.
+  - Enforced single-use and multi-use coupon code lifecycle and rate limiting, rejecting expired or limit-exhausted coupons.
+  - Implemented immutable redemption ledger logging (`PromotionRedemption`) with campaign snapshot auditing.
+- **REST Endpoints (`/api/v1/promotions/*`)**:
+  - Mounted `/campaigns`, `/campaigns/{campaign_id}/rules`, `/coupons`, `/evaluate`, and `/redeem` in `backend/app/api/v1/promotions.py` and registered in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_promotions.py` (6/6 tests green, 81/81 full platform regression tests green).
+  - Certified Blueprint Section 7 (`Promotions Engine Completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.48.0] - 2026-08-25
 
 #### Sprint 32: Section 7 Shared Business Engines: Pricing Engine Completion
