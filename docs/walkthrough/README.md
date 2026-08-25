@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-25 | v3.31.0 | Backend Full Test Suite Stabilization & Multi-Tenant Isolation Verification | [Walkthrough](./foundation/Backend_Full_Test_Suite_Stabilization_v3.31.0.md) | — | Completed |
 | 2026-08-25 | v3.28.0 | Statutory GST Tax Invoices Master Register & Size Matrix Reports | [Walkthrough](./reports/Reports_Tax_Invoices_Master_And_Size_Matrix_v3.28.0.md) | — | Completed |
 | 2026-08-25 | v3.61.0 | Sprint 45 — Section 11 & 12 Analytics & Compliance Gateways | [Walkthrough](./foundation/Sprint45_Analytics_Compliance_Integration_v1.0.0.md) | — | Completed |
 | 2026-08-25 | v3.60.0 | Sprint 44 — Section 10 Offline-First Foundation & Transactional Outbox | [Walkthrough](./foundation/Sprint44_Offline_Sync_Outbox_v1.0.0.md) | — | Completed |
