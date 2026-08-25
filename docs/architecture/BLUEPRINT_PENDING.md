@@ -397,9 +397,31 @@ The remaining work is primarily convergence and governance: turning module-level
   - Schemas: [`backend/app/schemas/documents.py`](file:///F:/SMRITRretailNX/backend/app/schemas/documents.py)
   - Models: [`backend/app/models/numbering.py`](file:///F:/SMRITRretailNX/backend/app/models/numbering.py), [`backend/app/models/tax_inv_template.py`](file:///F:/SMRITRretailNX/backend/app/models/tax_inv_template.py)
 
+#### Fulfillment Engine — `Done / Verified`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_fulfillment.py`.
+  - `99/99 full platform regression tests green`.
+  - `0 naming violations` verified by `scripts/smriti_naming_guard.py`.
+  - 100% item line quantity reconciliation across pick, pack, dispatch, and return manifests.
+  - Automatic driver commission settlement (`₹50.00`) ledger creation upon `DELIVERED` milestone.
+  - Complete chronological timeline aggregation covering all fulfillment lifecycle events.
+- **Named Architectural Mechanisms:**
+  - `FulfillmentEngine.create_packing_slip`: Prepares pick & pack slips (`PackingSlip`, `PackingSlipItem`) with package count, weight verification, and user attribution.
+  - `FulfillmentEngine.create_dispatch`: Creates dispatch manifests (`Dispatch`, `DispatchItem`) with courier partner assignment, AWB generation, delivery fees, and driver commissions.
+  - `FulfillmentEngine.update_delivery_status`: State transition engine (`DISPATCHED` -> `IN_TRANSIT` -> `OUT_FOR_DELIVERY` -> `DELIVERED`) with automatic `DeliveryCommissionSettlement` ledger entry creation.
+  - `FulfillmentEngine.get_tracking_info`: Live AWB lookup provider returning milestone progress and delivery timestamps.
+  - `FulfillmentEngine.process_reverse_logistics`: Reverse logistics return manifest creator (`ReverseLogisticsReturn`) tracking restock statuses (`RESTOCKED`, `SCRAPPED`, `INSPECTION`) and commission reversals.
+  - `FulfillmentEngine.get_fulfillment_timeline`: Unified audit history aggregator synthesizing pack, dispatch, delivery, and return events.
+  - `PackingSlip`, `PackingSlipItem`, `Dispatch`, `DispatchItem`, `DeliveryCommissionSettlement`, `ReverseLogisticsReturn`: Authoritative PostgreSQL fulfillment models.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_fulfillment.py`](file:///F:/SMRITRretailNX/backend/tests/t_fulfillment.py)
+  - Backend Service: [`backend/app/services/fulfillment_engine.py`](file:///F:/SMRITRretailNX/backend/app/services/fulfillment_engine.py)
+  - API Router: [`backend/app/api/v1/fulfillment.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/fulfillment.py)
+  - Schemas: [`backend/app/schemas/fulfillment.py`](file:///F:/SMRITRretailNX/backend/app/schemas/fulfillment.py)
+  - Models: [`backend/app/models/fulfillment.py`](file:///F:/SMRITRretailNX/backend/app/models/fulfillment.py)
+
 ### Remaining Shared Business Engines:
 
-- **Fulfillment:** fulfillment orders, pick, pack, dispatch, delivery, tracking, returns.
 - **Barcode and Labels:** barcode formats/rules, batch/serial labels, print jobs and hardware adapters.
 - **Approval:** levels, assignments, delegation, escalation, history, and transaction enforcement.
 - **Universal Search:** party, item, barcode, document, warehouse, and transaction lookup with permission-aware results.
