@@ -190,6 +190,36 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <ArrowRight size={14} />
             </button>
           </form>
+
+          {/* Quick-Fill Credentials Helper */}
+          <div className="mt-5 pt-4 border-t border-theme-divider">
+            <p className="text-[10px] font-mono text-theme-muted uppercase tracking-wider mb-2 text-center">
+              Quick Select Demo Persona
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => { setUsername("admin"); setPassword("Admin@123"); setError(null); }}
+                className="py-1.5 px-2 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-lg text-[10px] font-semibold text-theme-body transition-all text-center"
+              >
+                Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => { setUsername("manager"); setPassword("Manager@123"); setError(null); }}
+                className="py-1.5 px-2 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-lg text-[10px] font-semibold text-theme-body transition-all text-center"
+              >
+                Manager
+              </button>
+              <button
+                type="button"
+                onClick={() => { setUsername("cashier"); setPassword("Cashier@123"); setError(null); }}
+                className="py-1.5 px-2 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-lg text-[10px] font-semibold text-theme-body transition-all text-center"
+              >
+                Cashier
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="bg-theme-surface-2 px-6 py-3 border-t border-theme-divider flex items-center justify-between text-[10px] text-theme-muted font-mono">
