@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-25 | v3.61.0 | Sprint 45 — Section 11 & 12 Analytics & Compliance Gateways | [Walkthrough](./foundation/Sprint45_Analytics_Compliance_Integration_v1.0.0.md) | — | Completed |
 | 2026-08-25 | v3.60.0 | Sprint 44 — Section 10 Offline-First Foundation & Transactional Outbox | [Walkthrough](./foundation/Sprint44_Offline_Sync_Outbox_v1.0.0.md) | — | Completed |
 | 2026-08-25 | v3.59.0 | Sprint 43 — Section 9 PSV, CGE, and PDT Unification | [Walkthrough](./foundation/Sprint43_PSV_CGE_PDT_Unification_v1.0.0.md) | — | Completed |
 | 2026-08-25 | v6.16.0 | Sprint 42 — Section 8 Distribution Core & eCommerce Expansion | [Walkthrough](./foundation/Sprint42_Distribution_Ecom_Expansion_v1.0.0.md) | — | Completed |

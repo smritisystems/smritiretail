@@ -62,7 +62,28 @@ async def test_daily_sales_aggregates_computation():
     async with sessionmaker() as session:
         comp_id = "COMP-001"
         branch_id = "BR-001"
-        target_date = datetime.now(timezone.utc).date()
+        target_date = date(2035, 1, 15)
+
+        # 0. Clean up any previous test invoices & facts for target_date
+        from sqlalchemy import delete
+        await session.execute(
+            delete(SalesInvoiceItem).where(
+                SalesInvoiceItem.invoice_id.in_(
+                    select(SalesInvoice.id).where(SalesInvoice.company_id == comp_id, SalesInvoice.date == target_date)
+                )
+            )
+        )
+        await session.execute(
+            delete(SalesInvoice).where(SalesInvoice.company_id == comp_id, SalesInvoice.date == target_date)
+        )
+        await session.execute(
+            delete(AnalyticsDailySalesFact).where(
+                AnalyticsDailySalesFact.company_id == comp_id,
+                AnalyticsDailySalesFact.branch_id == branch_id,
+                AnalyticsDailySalesFact.fact_date == target_date,
+            )
+        )
+        await session.flush()
 
         # 1. Create a Product with cost price
         sku = f"SKU-AN-{uuid.uuid4().hex[:6].upper()}"
@@ -77,7 +98,10 @@ async def test_daily_sales_aggregates_computation():
             category="ELECTRONICS",
             stock=100,
             price=1000.0,
+            mrp=1000.0,
+            buying_price=600.0,
             cost_price=600.0,  # 40% margin
+            hsn_code="8517.12",
             is_active=True,
             is_deleted=False
         )
@@ -104,18 +128,7 @@ async def test_daily_sales_aggregates_computation():
             branch_id=branch_id,
             payment_mode="CASH"
         )
-        await session.flush()
-
-        # 3. Clear any stale today's fact row so aggregate is computed fresh from DB data
-        from sqlalchemy import delete
-        from app.models.analytics import AnalyticsDailySalesFact
-        await session.execute(
-            delete(AnalyticsDailySalesFact).where(
-                AnalyticsDailySalesFact.company_id == comp_id,
-                AnalyticsDailySalesFact.branch_id == branch_id,
-                AnalyticsDailySalesFact.fact_date == target_date,
-            )
-        )
+        invoice.date = target_date
         await session.flush()
 
         # 4. Compute Daily Aggregates
@@ -126,16 +139,13 @@ async def test_daily_sales_aggregates_computation():
             branch_id=branch_id
         )
         assert fact.fact_date == target_date
-        # total_revenue includes all confirmed invoices for today — must be at least our 11800
-        assert float(fact.total_revenue) >= 11800.0
-        assert fact.invoice_count >= 1
-        assert float(fact.total_tax_amount) >= 1800.0
-        # cash_revenue accumulates ALL cash invoices today including prior test runs;
-        # assert it is positive and covers at least our payment
-        assert float(fact.cash_revenue) > 0.0
-        assert float(fact.estimated_cost_amount) >= 6000.0
-        assert float(fact.gross_margin_amount) >= 4000.0
-        assert float(fact.gross_margin_percent) > 0.0
+        assert float(fact.total_revenue) == 11800.0
+        assert fact.invoice_count == 1
+        assert float(fact.total_tax_amount) == 1800.0
+        assert float(fact.cash_revenue) == 11800.0
+        assert float(fact.estimated_cost_amount) == 6000.0
+        assert float(fact.gross_margin_amount) == 4000.0
+        assert float(fact.gross_margin_percent) == 40.0
         await session.commit()
 
 
@@ -185,7 +195,10 @@ async def test_tally_sales_voucher_xml_generation():
             category="GENERAL",
             stock=100,
             price=200.0,
+            mrp=200.0,
+            buying_price=120.0,
             cost_price=120.0,
+            hsn_code="8523.51",
             is_active=True,
             is_deleted=False
         )

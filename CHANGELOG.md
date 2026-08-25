@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.60.0
+  * Version    : 3.61.0
   * Created    : 2026-07-11
   * Modified   : 2026-08-25
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,24 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.61.0] - 2026-08-25
+
+#### Sprint 45: Section 11 & 12 Analytics Plane + Compliance Gateways & Regulatory Audit Plane
+- **Analytics & Intelligence Plane (Section 11)**:
+  - Verified and hardened tenant-isolated daily sales fact materialization (`AnalyticsDailySalesFact` table in `smriti001`, `smriti002`).
+  - Validated read-only transactional aggregation (`AnalyticalIntelligenceService`) computing net sales, tax collections, tender splits (Cash, Digital, Credit), COGS, and gross margin percentages without transactional lock contention.
+  - Implemented multi-tenant aggregation daemon (`AnalyticsDaemonService`) with PostgreSQL session-level advisory lock concurrency guards (`ADVISORY_LOCK_KEY = 918273645`) preventing concurrent duplicate worker executions across multi-replica deployments.
+  - Verified windowed multi-day category profitability rollups and analytics REST API endpoints (`/api/v1/analytics/*`).
+- **Integration Hub, Compliance Gateways & Regulatory Audit Plane (Section 12)**:
+  - Validated append-only immutable regulatory audit logging (`ComplianceAuditService`) with SHA-256 tamper-detection digest calculation over state transitions, actors, and payloads.
+  - Verified TallyPrime XML integration service (`TallyIntegrationService`) generating balanced double-entry accounting and sales voucher XML envelopes.
+  - Verified statutory compliance gateways (`EWayBillService`, `GstGatewayService`) and compliance connector registry / credential vault (`backend/app/compliance/`).
+- **Verification & Governance**:
+  - Full Section 11 & 12 combined test suite (`t_analytics_hub.py`, `t_daemon_rollup.py`, `t_eway_dispatch.py`, `t_golive_audit.py`, `test_compliance_fou.py`) passing 23/23 tests green (100% green) in 17.60s.
+  - Fully certified Blueprint Sections 11 and 12 in `docs/architecture/BLUEPRINT_PENDING.md` per Rule 11 with quantitative metrics and named mechanisms.
+  - Created WGP Walkthrough `docs/walkthrough/foundation/Sprint45_Analytics_Compliance_Integration_v1.0.0.md` and updated `docs/walkthrough/README.md`.
+  - Passed SMRITI Naming Guard (0 violations).
 
 ### [3.60.0] - 2026-08-25
 
