@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.42.0] - 2026-08-25
+
+#### Sprint 26: P1.3 Workspace, Menu, and UI Experience Registry (Control Plane)
+- **Control Plane Workspace & UI Experience Schemas**:
+  - Added Pydantic schemas in `backend/app/schemas/ui_registry.py` for `WorkspaceTemplateResponse`, `WorkspaceResolutionResponse`, `ResolvedNavNode`, `DesignTokensResponse`, `FieldMetadataItem`, `ActionMetadataItem`, and `CompleteScreenPackageResponse`.
+  - Implemented `WorkspaceUIRegistryService` in `backend/app/services/workspace_ui_svc.py` providing dynamic workspace layout resolution, capability-aware and role-gated navigation tree generation from `smriti_menus` with recursive parent pruning, and CSS design token generation.
+- **REST Endpoints Exposed (`/api/v1/ui/`)**:
+  - Mounted `/templates`, `/workspaces/resolve`, `/navigation/resolved`, `/themes/tokens`, and `/screens/{screen_code}/complete` in `backend/app/api/v1/workspace_ui.py` and registered in `backend/app/main.py`.
+- **Master Data Seeding**:
+  - Seeded 6 workspace templates, 4 persona profiles, 3 standard themes with visual variants, and 4 core screen definition packages in `smritisys` via `backend/app/db/seed_ui_master.py`.
+- **Verification & Governance**:
+  - Added test suite `backend/tests/t_workspace_ui.py` (8/8 tests green, 35/35 regression tests green).
+  - Certified Blueprint Section 4.3 (`P1.3 Workspace, Menu, and UI Experience Registry`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.41.0] - 2026-08-25
 
 #### Sprint 25: P1.2 Capability & Module Registry (Control Plane)
