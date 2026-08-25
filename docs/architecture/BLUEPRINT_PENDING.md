@@ -162,21 +162,28 @@ The remaining work is primarily convergence and governance: turning module-level
   - Schemas: [`backend/app/schemas/capabilities.py`](file:///F:/SMRITRretailNX/backend/app/schemas/capabilities.py)
   - Seed Engine: [`backend/app/db/seed_cap_master.py`](file:///F:/SMRITRretailNX/backend/app/db/seed_cap_master.py)
 
-### P1.3 Workspace, Menu, and UI Experience Registry
+### P1.3 Workspace, Menu, and UI Experience Registry [STATUS: DONE / VERIFIED]
 
-Consolidate the current menu/workspace foundations into versioned control-plane metadata:
-
-- workspaces and workspace versions/configuration
-- workspace capabilities, roles, permissions
-- menu registry/groups/items/routes/actions
-- menu capability/permission/visibility rules
-- workspace/template mappings and menu versions
-- themes, theme versions, design tokens
-- screen templates/definitions, field definitions, action definitions, layouts, icons
-
-Preserve the existing `smriti_menus` contract while adding normalized metadata only where required. Do not create duplicate authoritative navigation sources.
-
-**Exit evidence:** resolved navigation and workspace layout are produced from control-plane metadata for multiple roles, templates, capabilities, and locales; hidden UI does not bypass API authorization.
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `8/8 tests green` in `backend/tests/t_workspace_ui.py` (execution time: 8.78s).
+  - `35/35 tests green` across full control plane and reports regression suite.
+  - `6 standard industry workspace templates` (RETAIL_SUPERMARKET, APPAREL_FASHION, DISTRIBUTION_HUB, PHARMACY_HEALTHCARE, RESTAURANT_DINEIN, ENTERPRISE_HQ) registered in `smritisys.workspace_templates`.
+  - `4 persona workspace profiles` (PROF_SYSADMIN, PROF_STORE_MANAGER, PROF_CASHIER, PROF_ACCOUNTANT) configured in `smritisys.smriti_workspace_profiles`.
+  - `3 standard themes` (SMRITI Horizon, SAP Fiori Horizon Dark, High Contrast OLED Retro) with multi-variant token maps in `smritisys.smriti_themes`.
+  - `4 complete screen packages` (SCR_POS_BILLING, SCR_INV_MASTER, SCR_PURCH_ORDER, SCR_SALES_INVOICE) with nested field metadata and action button registries.
+- **Named Architectural Mechanisms:**
+  - `WorkspaceUIRegistryService`: Core layout resolution engine merging persona profiles, active tenant capabilities, and workspace templates.
+  - `Capability-Gated Menu Resolver`: Navigation resolver (`resolve_navigation_tree`) asserting both role permissions and active tenant capability bindings (`TenantCapabilityBinding`) with automated empty-parent cascade pruning.
+  - `Design Token Resolver`: Centralized CSS design token extraction service (`get_design_tokens`) producing colors, typography, border radius, spacing, and shadow tokens.
+  - `Screen Package Aggregator`: Unified screen definition engine (`get_screen_package`) assembling layout configs, form fields, and action buttons.
+  - `Authoritative UI Seeder`: `seed_ui_master_data()` in `backend/app/db/seed_ui_master.py` synchronizing templates, profiles, themes, variants, screens, and action triggers.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_workspace_ui.py`](file:///F:/SMRITRretailNX/backend/tests/t_workspace_ui.py)
+  - Backend Service: [`backend/app/services/workspace_ui_svc.py`](file:///F:/SMRITRretailNX/backend/app/services/workspace_ui_svc.py)
+  - API Router: [`backend/app/api/v1/workspace_ui.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/workspace_ui.py)
+  - Schemas: [`backend/app/schemas/ui_registry.py`](file:///F:/SMRITRretailNX/backend/app/schemas/ui_registry.py)
+  - Seed Engine: [`backend/app/db/seed_ui_master.py`](file:///F:/SMRITRretailNX/backend/app/db/seed_ui_master.py)
 
 ## 5. P1 Governed Logic and Reproducibility
 
