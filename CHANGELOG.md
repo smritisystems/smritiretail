@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.27.0
+  * Version    : 3.55.0
   * Created    : 2026-07-11
-  * Modified   : 2026-08-24
+  * Modified   : 2026-08-25
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,21 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.55.0] - 2026-08-25
+
+#### Sprint 39: Section 7 Shared Business Engines: Universal Search Engine Completion
+- **Authoritative Universal Search Engine & 4-Tier POS Barcode Resolver**:
+  - Implemented `backend/app/services/search_engine.py` and created `backend/app/schemas/search.py` providing unified omni-search discovery across Items, Parties, Barcodes, Documents, Warehouses, and Transactions with 4-tier barcode scanner resolution and strict role-based domain filtering.
+  - Implemented fast 4-tier POS barcode scanner resolution across exact Barcodes (`ItemBarcode`), Variant SKUs (`ItemVariant`), Item Codes (`Item`), and fail-safe handling with full item master metadata and tax rates.
+  - Implemented multi-domain omni-search aggregation combining entity matching across Item Master, Universal Parties (Customers, Suppliers, Transporters), Documents (Sales Invoices, Purchase Orders, Dispatches, Approval Requests), Warehouses, and Payment Transactions.
+  - Implemented fail-closed RBAC domain filtering restricting Cashiers from sensitive transaction/financial/party domains while granting full visibility to Store Managers and Sysadmins.
+- **REST Endpoints (`/api/v1/search/*`)**:
+  - Mounted `/universal` (POST & GET), `/barcode-scan`, and `/domains` in `backend/app/api/v1/search.py` and registered in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_search.py` (6/6 tests green, 117/117 full platform regression tests green).
+  - Certified Blueprint Section 7 (`Universal Search Engine Completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
 
 ### [3.54.0] - 2026-08-25
 
