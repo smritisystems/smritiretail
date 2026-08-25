@@ -20,7 +20,7 @@ from app.main import app
 from app.models.auth import User, UserRole
 from app.models.tenant import Company, Branch
 from app.models.master_lookup import MasterType, MasterValue
-from app.api.deps import get_db
+from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context
 from app.core.security import hash_password, create_access_token
 from app.tests.conftest import clear_db
 
@@ -34,28 +34,38 @@ async def override_db(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
-    yield
-    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides[get_company_db] = _get_db
+    try:
+        yield
+    finally:
+        try:
+            await clear_db(db_session)
+        except Exception:
+            pass
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_company_db, None)
+        app.dependency_overrides.pop(get_tenant_context, None)
 
 
 async def _setup_admin_and_auth_headers(db_session):
+    s = uuid.uuid4().hex[:6]
     company = Company(
-        id="comp-test-1",
-        name="Test Company",
+        id=f"comp-test-{s}",
+        name=f"Test Company {s}",
         gst_number="27ABCDE1234F1Z5",
         is_active=True,
     )
     branch = Branch(
-        id="br-test-1",
+        id=f"br-test-{s}",
         company_id=company.id,
-        name="Test Branch",
-        code="BR-TEST-1",
+        name=f"Test Branch {s}",
+        code=f"BR-TEST-{s}",
         is_active=True,
     )
     user = User(
-        id="usr-admin-1",
-        username="admin_user",
-        email="admin@smriti.test",
+        id=f"usr-admin-{s}",
+        username=f"admin_user_{s}",
+        email=f"admin_{s}@smriti.test",
         hashed_password=hash_password("Admin@1234"),
         role=UserRole.SYSADMIN,
         is_active=True,
@@ -66,8 +76,19 @@ async def _setup_admin_and_auth_headers(db_session):
     db_session.add_all([company, branch, user])
     await db_session.commit()
 
-    token = create_access_token(data={"sub": user.id})
+    token = create_access_token(data={
+        "sub": user.id,
+        "username": user.username,
+        "role": user.role.value,
+        "company_id": company.id,
+        "branch_id": branch.id,
+        "jti": str(uuid.uuid4()),
+        "type": "access",
+    })
     headers = {"Authorization": f"Bearer {token}"}
+    async def _gt():
+        return TenantContext(company_id=company.id, branch_id=branch.id)
+    app.dependency_overrides[get_tenant_context] = _gt
     return company, branch, user, headers
 
 

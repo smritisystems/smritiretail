@@ -17,7 +17,7 @@ from decimal import Decimal
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.api.deps import TenantContext, get_db, get_tenant_context
+from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context
 from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
@@ -45,6 +45,7 @@ async def override_db_and_tenant(db_session):
         return TenantContext(company_id="comp-def", branch_id="br-def")
 
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
     app.dependency_overrides[get_tenant_context] = _get_tenant
     try:
         yield
@@ -55,15 +56,17 @@ async def override_db_and_tenant(db_session):
             pass
         _current_test_tenant.set(None)
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_company_db, None)
         app.dependency_overrides.pop(get_tenant_context, None)
 
 
 async def _setup_tenant_and_user(db_session, suffix="pag"):
-    comp = Company(id=f"comp-{suffix}", name=f"Company {suffix}", gst_number="27ABCDE1234F1Z5", is_active=True)
-    br = Branch(id=f"br-{suffix}", company_id=comp.id, name=f"Branch {suffix}", code=f"BR-{suffix}", is_active=True)
+    s = f"{suffix}_{uuid.uuid4().hex[:6]}"
+    comp = Company(id=f"comp-{s}", name=f"Company {s}", gst_number="27ABCDE1234F1Z5", is_active=True)
+    br = Branch(id=f"br-{s}", company_id=comp.id, name=f"Branch {s}", code=f"BR-{s}", is_active=True)
     user = User(
-        id=f"usr-{suffix}",
-        username=f"usr_{suffix}",
+        id=f"usr-{s}",
+        username=f"usr_{s}",
         hashed_password=hash_password("Pass@123"),
         role=UserRole.MANAGER,
         company_id=comp.id,
@@ -96,20 +99,25 @@ async def _setup_tenant_and_user(db_session, suffix="pag"):
 
 
 async def _seed_products(db_session, comp_id, br_id, count=30, suffix="pag"):
+    s = f"{suffix}_{uuid.uuid4().hex[:6]}"
     products = []
     for i in range(1, count + 1):
         cat = "Apparel" if i % 2 == 0 else "Footwear"
         p = Product(
-            id=f"prod-{suffix}-{i:03d}",
-            code=f"SKU-{suffix}-{i:03d}",
+            id=f"prod-{s}-{i:03d}",
+            code=f"SKU-{s}-{i:03d}",
             name=f"Product {i:03d} {'Sneaker' if i % 3 == 0 else 'T-Shirt'}",
             category=cat,
             price=Decimal(f"{i * 10}.00"),
+            mrp=Decimal(f"{i * 12}.00"),
+            gst_percentage=Decimal("18.00"),
+            hsn_code="6403",
             stock=i * 5,
-            barcode=f"BC-{suffix}-{i:04d}",
+            barcode=f"BC-{s}-{i:04d}",
             brand="SmritiBrand",
             company_id=comp_id,
             branch_id=br_id,
+            is_active=True,
             is_deleted=False
         )
         products.append(p)

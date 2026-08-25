@@ -102,7 +102,7 @@ async def test_list_tables_and_schema(db_session):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # Tables
         res = await ac.get(
-            "/api/v1/database-manager/tables?database=smritisys",
+            "/api/v1/database-manager/tables?database=postgres",
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res.status_code == 200, res.text
@@ -113,7 +113,7 @@ async def test_list_tables_and_schema(db_session):
 
         # Schema
         schema_res = await ac.get(
-            "/api/v1/database-manager/tables/users/schema?database=smritisys",
+            "/api/v1/database-manager/tables/users/schema?database=postgres",
             headers={"Authorization": f"Bearer {token}"}
         )
         assert schema_res.status_code == 200, schema_res.text
@@ -131,7 +131,7 @@ async def test_table_data_pagination(db_session):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.get(
-            "/api/v1/database-manager/tables/users/data?database=smritisys&page=1&limit=10",
+            "/api/v1/database-manager/tables/users/data?database=postgres&page=1&limit=10",
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res.status_code == 200, res.text
@@ -151,7 +151,7 @@ async def test_safe_sql_query_runner(db_session):
         # Valid SELECT query
         res = await ac.post(
             "/api/v1/database-manager/query",
-            json={"query": "SELECT count(*) as total_users FROM users;", "database": "smritisys"},
+            json={"query": "SELECT count(*) as total_users FROM users;", "database": "postgres"},
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res.status_code == 200, res.text
@@ -163,7 +163,7 @@ async def test_safe_sql_query_runner(db_session):
         # Blocked destructive query (DELETE)
         res_del = await ac.post(
             "/api/v1/database-manager/query",
-            json={"query": "DELETE FROM users WHERE 1=1;", "database": "smritisys"},
+            json={"query": "DELETE FROM users WHERE 1=1;", "database": "postgres"},
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res_del.status_code == 400
@@ -172,7 +172,7 @@ async def test_safe_sql_query_runner(db_session):
         # Blocked destructive query (DROP)
         res_drop = await ac.post(
             "/api/v1/database-manager/query",
-            json={"query": "DROP TABLE users;", "database": "smritisys"},
+            json={"query": "DROP TABLE users;", "database": "postgres"},
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res_drop.status_code == 400

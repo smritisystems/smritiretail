@@ -19,7 +19,7 @@ from sqlalchemy.future import select
 
 from app.main import app
 from app.api.deps import get_db, get_company_db
-from app.api.v1.ecom import get_ecom_company_session
+from app.api.v1.ecom import get_ecom_company_session, get_ecom_webhook_session
 from app.models.tenant import Company, Branch
 from app.models.auth import User, UserRole
 from app.models.inventory import Product
@@ -31,11 +31,12 @@ from app.tests.conftest import clear_db
 @pytest.fixture(autouse=True)
 async def clean_database_fixture(db_session):
     await clear_db(db_session)
-    async def _get_db():
+    async def _get_db(*args, **kwargs):
         yield db_session
     app.dependency_overrides[get_db] = _get_db
     app.dependency_overrides[get_company_db] = _get_db
     app.dependency_overrides[get_ecom_company_session] = _get_db
+    app.dependency_overrides[get_ecom_webhook_session] = _get_db
     try:
         yield
     finally:
@@ -46,6 +47,7 @@ async def clean_database_fixture(db_session):
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_company_db, None)
         app.dependency_overrides.pop(get_ecom_company_session, None)
+        app.dependency_overrides.pop(get_ecom_webhook_session, None)
 
 
 async def _seed_company_and_product(db_session, suffix):
