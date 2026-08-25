@@ -53,9 +53,7 @@ class ReportsService:
             Product.is_active == True,
         )
         if self.tenant and self.tenant.company_id:
-            stmt = stmt.where(
-                (Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None)) | (Product.company_id == "COMP-001")
-            )
+            stmt = stmt.where(Product.company_id == self.tenant.company_id)
         stmt = stmt.order_by(Product.name)
         res = await self.db.execute(stmt)
         products = res.scalars().all()
@@ -91,15 +89,10 @@ class ReportsService:
             stmt = stmt.where(SalesInvoice.date == report_date)
 
         if self.tenant and self.tenant.company_id:
-            stmt = stmt.where(
-                (SalesInvoice.company_id == self.tenant.company_id) | (SalesInvoice.company_id.is_(None)) | (SalesInvoice.company_id == "COMP-001")
-            )
+            stmt = stmt.where(SalesInvoice.company_id == self.tenant.company_id)
 
         if self.tenant and self.tenant.branch_id:
-            branch_aliases = [self.tenant.branch_id, "MAIN", "BR-MAIN-001", "BR-001", "DEFAULT"]
-            stmt = stmt.where(
-                (SalesInvoice.branch_id.in_(branch_aliases)) | (SalesInvoice.branch_id.is_(None))
-            )
+            stmt = stmt.where(SalesInvoice.branch_id == self.tenant.branch_id)
 
         res = await self.db.execute(stmt)
         invoices = res.scalars().all()
@@ -356,16 +349,9 @@ class ReportsService:
 
     def _tenant_filter(self, stmt, model):
         if self.tenant and self.tenant.company_id:
-            stmt = stmt.where(
-                (model.company_id == self.tenant.company_id)
-                | (model.company_id.is_(None))
-                | (model.company_id == "COMP-001")
-            )
+            stmt = stmt.where(model.company_id == self.tenant.company_id)
         if self.tenant and self.tenant.branch_id:
-            aliases = [self.tenant.branch_id, "MAIN", "BR-MAIN-001", "BR-001", "DEFAULT"]
-            stmt = stmt.where(
-                (model.branch_id.in_(aliases)) | (model.branch_id.is_(None))
-            )
+            stmt = stmt.where(model.branch_id == self.tenant.branch_id)
         return stmt
 
     async def bill_wise_sales(self, from_date=None, to_date=None):

@@ -43,31 +43,9 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(autouse=True)
 async def override_db_and_tenant(db_session):
-    """FK-safe cleanup covering all report-sourced tables."""
+    from app.tests.conftest import clear_db
 
-    async def _cleanup():
-        await db_session.execute(sa_delete(SupplierPayment))
-        await db_session.execute(sa_delete(SalesReturnItem))
-        await db_session.execute(sa_delete(SalesReturn))
-        await db_session.execute(sa_delete(SalesQuotationItem))
-        await db_session.execute(sa_delete(SalesQuotation))
-        await db_session.execute(sa_delete(SalesOrderItem))
-        await db_session.execute(sa_delete(SalesOrder))
-        await db_session.execute(sa_delete(SalesInvoiceItem))
-        await db_session.execute(sa_delete(SalesInvoice))
-
-        await db_session.execute(sa_delete(PurchaseReceiptItem))
-        await db_session.execute(sa_delete(PurchaseReceipt))
-        await db_session.execute(sa_delete(PurchaseOrderItem))
-        await db_session.execute(sa_delete(PurchaseOrder))
-        await db_session.execute(sa_delete(Supplier))
-        await db_session.execute(sa_delete(StockMovement))
-        await db_session.execute(sa_delete(Product))
-        await db_session.execute(sa_delete(RefreshTokenBlacklist))
-        await db_session.execute(sa_delete(User))
-        await db_session.commit()
-
-    await _cleanup()
+    await clear_db(db_session)
 
     async def _get_db():
         yield db_session
@@ -77,7 +55,7 @@ async def override_db_and_tenant(db_session):
         yield
     finally:
         try:
-            await _cleanup()
+            await clear_db(db_session)
         except Exception:
             pass
         app.dependency_overrides.pop(get_db, None)
@@ -399,8 +377,8 @@ async def test_tax_invoices_master_register_report(db_session):
 
     # Create Invoice with items
     inv = SalesInvoice(
-        id=f"inv-tt-18",
-        invoice_no="TT2026-2027/18",
+        id=f"inv-tt-18-{s}",
+        invoice_no=f"TT2026-2027/18-{s}",
         date=datetime.date(2026, 8, 12),
         status="COMPLETED",
         sis_code="1888",
@@ -447,7 +425,7 @@ async def test_tax_invoices_master_register_report(db_session):
     assert data["cancelled_count"] == 0
     assert len(data["lines"]) == 1
     line = data["lines"][0]
-    assert line["invoice_number"] == "TT2026-2027/18"
+    assert line["invoice_number"] == f"TT2026-2027/18-{s}"
     assert line["sis_code"] == "1888"
     assert line["supply_type"] == "Inter-State"
     assert Decimal(line["taxable_value"]) == Decimal("80100.00")
@@ -462,8 +440,8 @@ async def test_article_color_size_matrix_report(db_session):
     _set_tenant(db_session, comp.id, br.id)
 
     inv = SalesInvoice(
-        id=f"inv-tt-20",
-        invoice_no="TT2026-2027/20",
+        id=f"inv-tt-20-{s}",
+        invoice_no=f"TT2026-2027/20-{s}",
         date=datetime.date(2026, 8, 12),
         status="COMPLETED",
         is_active=True,
@@ -527,8 +505,8 @@ async def test_store_wise_summary_report(db_session):
     _set_tenant(db_session, comp.id, br.id)
 
     inv1 = SalesInvoice(
-        id=f"inv-tt-21",
-        invoice_no="TT2026-2027/21",
+        id=f"inv-tt-21-{s}",
+        invoice_no=f"TT2026-2027/21-{s}",
         date=datetime.date(2026, 8, 12),
         status="COMPLETED",
         sis_code="1888",
@@ -542,8 +520,8 @@ async def test_store_wise_summary_report(db_session):
         branch_id=br.id,
     )
     inv2 = SalesInvoice(
-        id=f"inv-tt-22",
-        invoice_no="TT2026-2027/22",
+        id=f"inv-tt-22-{s}",
+        invoice_no=f"TT2026-2027/22-{s}",
         date=datetime.date(2026, 8, 12),
         status="CANCELLED",
         sis_code="1888",
@@ -581,8 +559,8 @@ async def test_export_tax_invoices_excel(db_session):
     _set_tenant(db_session, comp.id, br.id)
 
     inv = SalesInvoice(
-        id=f"inv-tt-25",
-        invoice_no="TT2026-2027/25",
+        id=f"inv-tt-25-{s}",
+        invoice_no=f"TT2026-2027/25-{s}",
         date=datetime.date(2026, 8, 12),
         status="COMPLETED",
         sis_code="1969",

@@ -310,6 +310,11 @@ class PurchaseService:
         item_rows = []
 
         for item in req.items:
+            if item.quantity_received <= Decimal("0.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Quantity received must be greater than zero.",
+                )
             product = await self._get_product(item.product_id)
             tax_amt = (
                 item.cost_price * item.quantity_received * (item.gst_rate / Decimal("100"))
@@ -357,7 +362,7 @@ class PurchaseService:
                 purchase_rate=item.cost_price,
                 unit_cost=item.cost_price,
                 reference_doc_type="Purchase Receipt",
-                reference_doc_id=req.receipt_no,
+                reference_doc_id=req.id,
                 remarks=f"Inward GRN receipt {req.receipt_no} from supplier {req.supplier_id}",
             )
 

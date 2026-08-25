@@ -23,6 +23,8 @@ Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import sys
+import os
 import datetime
 import time
 
@@ -124,12 +126,13 @@ async def lifespan(_app: FastAPI):
     logger.info(f"[SMRITI] Mode: {settings.EDITION} | Version: {settings.VERSION}")
     
     # Auto-seed baseline users and company registries idempotently on container startup
-    try:
-        from .db.seed_baseline_users import seed as seed_baseline_users
-        await seed_baseline_users()
-        logger.info("[SMRITI Startup] Baseline users, companies, and database registries verified/seeded successfully.")
-    except Exception as e:
-        logger.warning(f"[SMRITI Startup] Notice during baseline user auto-seeding: {e}")
+    if "pytest" not in sys.modules and not os.environ.get("PYTEST_CURRENT_TEST"):
+        try:
+            from .db.seed_baseline_users import seed as seed_baseline_users
+            await seed_baseline_users()
+            logger.info("[SMRITI Startup] Baseline users, companies, and database registries verified/seeded successfully.")
+        except Exception as e:
+            logger.warning(f"[SMRITI Startup] Notice during baseline user auto-seeding: {e}")
 
     yield
 
@@ -228,7 +231,6 @@ app.include_router(search.router, prefix=settings.API_V1_STR + "/search", tags=[
 app.include_router(communicator.router, prefix=settings.API_V1_STR + "/communicator", tags=["Communicator Engine"])
 app.include_router(crm_cge.router, prefix=settings.API_V1_STR + "/crm-growth", tags=["CRM & Commercial Growth Engine"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
-app.include_router(ecom.router, prefix=settings.API_V1_STR + "/ecom", tags=["eCommerce & Omnichannel Engine"])
 app.include_router(psv.router, prefix=settings.API_V1_STR, tags=["Projected Stock Visibility"])
 app.include_router(pdt.router, prefix=settings.API_V1_STR, tags=["Predictive Distribution Twin"])
 app.include_router(cge_unified.router, prefix=settings.API_V1_STR, tags=["CGE Unified Policies"])

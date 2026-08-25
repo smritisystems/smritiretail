@@ -132,6 +132,30 @@ class InventoryWmsService:
             raise HTTPException(status_code=404, detail=f"Product {product_id} not found.")
 
         # 2. Lock or create batch stock record
+        q_count = select(func.count(ProductBatchStock.id)).where(
+            ProductBatchStock.company_id == self.tenant_ctx.company_id,
+            ProductBatchStock.product_id == product_id,
+            ProductBatchStock.is_deleted == False
+        )
+        res_count = await self.db.execute(q_count)
+        batch_count = res_count.scalar() or 0
+        if batch_count == 0 and (product.stock or 0) > 0 and qty_delta > 0:
+            opening_batch = ProductBatchStock(
+                id=f"pbs-{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                product_id=product_id,
+                warehouse_id=warehouse_id,
+                batch_no="BATCH-OPENING",
+                quantity=Decimal(str(product.stock)),
+                reserved_quantity=Decimal("0.0000"),
+                damaged_quantity=Decimal("0.0000"),
+                last_counted_date=datetime.now(timezone.utc),
+            )
+            self.db.add(opening_batch)
+            await self.db.flush()
+
         q_batch = select(ProductBatchStock).where(
             ProductBatchStock.company_id == self.tenant_ctx.company_id,
             ProductBatchStock.warehouse_id == warehouse_id,

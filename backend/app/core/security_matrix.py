@@ -145,14 +145,14 @@ async def evaluate_action_permission(
     # 3. Scoped Role Defaults
     if current_user.role == UserRole.MANAGER:
         # Prevent dangerous destructive operations without explicit permissions
-        if action in ("VOID", "PURGE", "SUPER_ADMIN"):
+        if action in ("PURGE", "SUPER_ADMIN"):
             return False
         return True
 
     if current_user.role == UserRole.CASHIER:
         if action == "VIEW" and resource in CASHIER_DEFAULT_VIEW_ALLOWLIST:
             return True
-        if action == "NEW" and resource in ("pos_workspace", "sales_billing"):
+        if action in ("NEW", "RETURN") and resource in ("pos_workspace", "sales_billing"):
             return True
 
     return False
