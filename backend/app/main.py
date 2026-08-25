@@ -86,6 +86,7 @@ from .api.v1 import (
     roles,
     sales,
     sales_reports,
+    search,
     security,
     staff,
     supplier_payment,
@@ -209,6 +210,7 @@ app.include_router(documents.router, prefix=settings.API_V1_STR + "/documents", 
 app.include_router(fulfillment.router, prefix=settings.API_V1_STR + "/fulfillment", tags=["Fulfillment Engine"])
 app.include_router(barcodes.router, prefix=settings.API_V1_STR + "/barcodes", tags=["Barcode & Labels Engine"])
 app.include_router(approval.router, prefix=settings.API_V1_STR + "/approval", tags=["Approval Matrix Engine"])
+app.include_router(search.router, prefix=settings.API_V1_STR + "/search", tags=["Universal Search Engine"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
 app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
 app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])
