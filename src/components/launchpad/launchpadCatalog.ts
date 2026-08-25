@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -312,6 +312,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     badgeType: "primary",
     group: "Data & Config",
     roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "store-policies",
+    title: "Store Governance Policies & Cipher",
+    subtitle: "Retail POS checkout controls, apparel hang-tag cost cipher, GRN tax & credit limit hold rules",
+    icon: "tune",
+    tag: "Governance",
+    badgeType: "primary",
+    group: "Data & Config",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
   },
 
   // 6. System & Operations
