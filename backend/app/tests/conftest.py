@@ -214,27 +214,80 @@ async def auto_override_company_db(db_session):
 
 async def clear_db(db_session: AsyncSession):
     """
-    Cleans up all database tables cleanly using TRUNCATE CASCADE.
+    Cleans up all database tables in a strictly safe foreign-key order.
     Ensures that test runs across different modules do not conflict or cause integrity errors.
     """
     from sqlalchemy import text
-    try:
-        await db_session.execute(text("""
-            DO $$
-            DECLARE
-                r RECORD;
-            BEGIN
-                FOR r IN (
-                    SELECT tablename FROM pg_tables 
-                    WHERE schemaname = 'public' 
-                    AND tablename NOT IN ('spatial_ref_sys')
-                ) LOOP
-                    EXECUTE 'TRUNCATE TABLE public.' || quote_ident(r.tablename) || ' CASCADE;';
-                END LOOP;
-            END $$;
-        """))
-        await db_session.commit()
-    except Exception as e:
-        await db_session.rollback()
+    delete_order = [
+        "bank_statement_lines",
+        "general_ledger_entries",
+        "journal_vouchers",
+        "bank_statements",
+        "fiscal_periods",
+        "fiscal_years",
+        "accounts",
+        "integration_outbox_events",
+        "approval_actions",
+        "approval_requests",
+        "approval_policies",
+        "psv_party_sku_tracking",
+        "psv_parties",
+        "sales_return_items",
+        "sales_returns",
+        "product_identity",
+        "barcode_providers",
+        "identity_rules",
+        "sales_order_items",
+        "sales_orders",
+        "sales_quotation_items",
+        "sales_quotations",
+        "sales_invoice_items",
+        "sales_invoices",
+        "shifts",
+        "cash_registers",
+        "purchase_order_items",
+        "purchase_orders",
+        "purchase_receipt_items",
+        "purchase_receipts",
+        "supplier_payments",
+        "suppliers",
+        "stock_movements",
+        "products",
+        "customers",
+        "customer_groups",
+        "workflow_events",
+        "refresh_token_blacklist",
+        "print_history",
+        "barcode_layouts",
+        "system_config",
+        "data_exchange_tasks",
+        "data_exchange_field_mappings",
+        "user_company_assignments",
+        "user_branch_assignments",
+        "users",
+        "stores",
+        "warehouses",
+        "master_values",
+        "master_types",
+        "invoice_document_artifacts",
+        "tax_invoice_template_versions",
+        "tax_invoice_templates",
+        "report_schedules",
+        "branches",
+        "company_financial_years",
+        "company_tax_profiles",
+        "company_center",
+        "smriti_theme_variants",
+        "smriti_themes",
+        "smriti_workspace_profiles",
+        "smriti_menus",
+        "smriti_audit_log",
+        "companies"
+    ]
+    for tbl in delete_order:
+        try:
+            await db_session.execute(text(f"DELETE FROM {tbl};"))
+        except Exception:
+            pass
     await db_session.commit()
 
