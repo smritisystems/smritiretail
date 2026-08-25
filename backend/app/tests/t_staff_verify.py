@@ -17,7 +17,7 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.api.deps import TenantContext, get_db, get_tenant_context
+from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context
 from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
@@ -32,6 +32,7 @@ async def override_db_and_tenant(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
     try:
         yield
     finally:
@@ -40,6 +41,7 @@ async def override_db_and_tenant(db_session):
         except Exception:
             pass
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_company_db, None)
         app.dependency_overrides.pop(get_tenant_context, None)
 
 
@@ -88,7 +90,8 @@ async def test_staff_user_response_schema_verification(db_session):
     (including salary, payment, performance, and HR json objects)
     populate correctly and are preserved across JSON serialization.
     """
-    comp, br = await _make_tenant(db_session, "s1")
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
     _set_tenant(db_session, comp.id, br.id)
 
     # Define complex JSON payloads matching Pydantic schemas
@@ -141,13 +144,13 @@ async def test_staff_user_response_schema_verification(db_session):
     # Seed the staff user with all extended fields populated
     staff = await _make_user(
         db_session,
-        "staff1",
+        f"staff_{s}",
         comp.id,
         br.id,
         role=UserRole.CASHIER,
         status="Active",
-        employee_id="EMP-001",
-        employee_code="E001",
+        employee_id=f"EMP-{s}",
+        employee_code=f"E{s}",
         display_name="John Staff",
         full_name="Johnathan Staff Member",
         gender="Male",
@@ -174,7 +177,7 @@ async def test_staff_user_response_schema_verification(db_session):
         notification_settings_json=json.dumps(notifications_payload)
     )
 
-    manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.MANAGER)
+    manager = await _make_user(db_session, f"mgr_{s}", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -193,8 +196,8 @@ async def test_staff_user_response_schema_verification(db_session):
     assert data["status"] == "Active"
     assert data["fullName"] == "Johnathan Staff Member"
     assert data["displayName"] == "John Staff"
-    assert data["employeeId"] == "EMP-001"
-    assert data["employeeCode"] == "E001"
+    assert data["employeeId"] == f"EMP-{s}"
+    assert data["employeeCode"] == f"E{s}"
     assert data["gender"] == "Male"
     assert data["dateOfBirth"] == "1995-05-15"
     assert data["alternateMobile"] == "9876543211"
