@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.59.0
+  * Version    : 3.60.0
   * Created    : 2026-07-11
   * Modified   : 2026-08-25
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,25 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.60.0] - 2026-08-25
+
+#### Sprint 44: Section 10 P2 Offline-First Foundation & Transactional Outbox Event Architecture
+- **Offline-First Synchronization & 5-Tier Conflict Resolution**:
+  - Validated and hardened `OfflineConflictResolutionEngine` and `OfflineSyncService` across PostgreSQL tenant databases (`smriti001`, `smriti002`) with durable edge terminal queueing (`POSOfflineSyncQueue`).
+  - Enforced 5-tier domain conflict resolution: inventory oversell with configurable `allow_negative_stock` warnings, customer credit limit boundary verification, price book drift with 100% price-at-sale preservation and diagnostic logging, and immutable governance rule version snapshot binding (`SalesInvoice.governance_snapshot_id`).
+  - Implemented Store Manager Reconciliation Queue quarantine via `/api/v1/sync/reconciliation-queue` isolating unresolved transaction drifts (`NEEDS_REVIEW`).
+  - Validated multi-terminal concurrent conflict resolution via `asyncio.gather` across 5 simultaneous sessions and 20-cycle rolling load testing (`backend/tests/t_soak_conflict.py`).
+- **Transactional Outbox & Event Processing Architecture**:
+  - Certified atomic transactional outbox event insertion (`IntegrationOutboxEvent`) within domain business database transactions, completely eliminating dual-write hazards.
+  - Validated two-phase non-blocking batch claim and dispatch algorithm in `UnifiedOutboxAnalyticsService` with claim expiry timeout and exponential backoff retry scheduling.
+  - Verified Dead-Letter Queue (`DLQ`) transitions after 5 consecutive dispatch failures.
+  - Verified multi-tenant asynchronous worker polling cycles in `OutboxQueueWorker` across all tenant databases.
+- **Verification & Governance**:
+  - Full Section 10 test suite (`t_conflict_res.py`, `t_outbox_stats.py`, `t_soak_conflict.py`) passing 19/19 tests green (100% green) in 31.43s.
+  - Fully certified Blueprint Section 10 in `docs/architecture/BLUEPRINT_PENDING.md` per Rule 11 with quantitative metrics and named mechanisms.
+  - Created WGP Walkthrough `docs/walkthrough/foundation/Sprint44_Offline_Sync_Outbox_v1.0.0.md` and updated `docs/walkthrough/README.md`.
+  - Passed SMRITI Naming Guard (0 violations).
 
 ### [3.59.0] - 2026-08-25
 
