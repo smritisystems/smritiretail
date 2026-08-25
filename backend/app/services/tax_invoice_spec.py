@@ -53,7 +53,7 @@ SMRITI_SUBTOTAL_ROW_HEIGHT_PT: Final[float] = 20.47
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FORENSIC TYPOGRAPHIC CONSTANTS — sourced from PDF audit of original
-# Tattly Threads master invoices (F:\SMRITRretailNX\TT\B)
+# Tattly Threads master invoices (TT/B)
 # DO NOT ALTER — these are the immutable forensic standard. (AGENTS.md Rule 7)
 # ─────────────────────────────────────────────────────────────────────────────
 SMRITI_FONT_COMPANY_NAME_PT: Final[float] = 10.24    # Header company name

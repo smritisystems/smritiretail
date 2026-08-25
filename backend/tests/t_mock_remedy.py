@@ -12,6 +12,7 @@
 """
 
 import pytest
+from pathlib import Path
 
 def test_supplier_dashboard_component_zero_state_remediation():
     """
@@ -20,7 +21,7 @@ def test_supplier_dashboard_component_zero_state_remediation():
     - SupplierDashTab.tsx file does not contain hardcoded demo figures ('4,25,800', 'TechCorp Distributors')
     - Zero-record state renders honest zeroes ('₹0.00', '0 Open POs', '0.0 Days')
     """
-    filepath = r"F:\SMRITRretailNX\src\components\SupplierDashTab.tsx"
+    filepath = Path(__file__).resolve().parents[2] / "src" / "components" / "SupplierDashTab.tsx"
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
 

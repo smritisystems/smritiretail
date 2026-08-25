@@ -87,12 +87,17 @@ def test_02_invoice_102_exact_mathematical_reconciliation():
     assert round_adj == Decimal("0.04"), f"Expected +₹0.04 rounding adjustment, got {round_adj}"
 
 
+from pathlib import Path
+
+WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
+
+
 def test_03_rendered_pdf_grid_borders_and_zero_wrap():
     """Verify that generated PDF has horizontal and vertical borders on every row and column with 0 wrapping."""
     import fitz
-    pdf_path = r"F:\SMRITRretailNX\exports\tt_batch_74_103\SIS_TXSR_TaxInvoice_TT2026-2027_102.pdf"
+    pdf_path = str(WORKSPACE_ROOT / "exports" / "tt_batch_74_103" / "SIS_TXSR_TaxInvoice_TT2026-2027_102.pdf")
     if not os.path.exists(pdf_path):
-        pdf_path = r"F:\SMRITRretailNX\TT\SIS_TXSR_TaxInvoice_TT2026-2027_102.pdf"
+        pdf_path = str(WORKSPACE_ROOT / "TT" / "SIS_TXSR_TaxInvoice_TT2026-2027_102.pdf")
     assert os.path.exists(pdf_path), f"Invoice 102 PDF not found at {pdf_path}"
 
     doc = fitz.open(pdf_path)
@@ -110,7 +115,7 @@ def test_03_rendered_pdf_grid_borders_and_zero_wrap():
 
 def test_04_all_batch_invoices_exist_and_match_canonical_standard():
     """Verify all 30 batch invoices exist and follow the exact canonical frozen format."""
-    batch_dir = r"F:\SMRITRretailNX\exports\tt_batch_74_103"
+    batch_dir = str(WORKSPACE_ROOT / "exports" / "tt_batch_74_103")
     assert os.path.exists(batch_dir), f"Directory {batch_dir} not found"
     files = [f for f in os.listdir(batch_dir) if f.startswith("SIS_") and f.endswith(".pdf")]
     assert len(files) >= 30, f"Expected at least 30 batch PDFs, found {len(files)}"

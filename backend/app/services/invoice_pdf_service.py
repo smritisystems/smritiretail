@@ -58,13 +58,26 @@ try:
 except ImportError:
     async_playwright = None
 
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 # Logo Asset Paths
-TATTLY_LOGO_PATH = r"F:\SMRITRretailNX\TT\logo\tattly_logo_black.png"
+TATTLY_LOGO_PATH = str(WORKSPACE_ROOT / "TT" / "logo" / "tattly_logo_black.png")
 
 
 def number_to_indian_words(num: float) -> str:
-    """Converts a numeric amount into Indian currency text format."""
-    if num == 0:
+    """
+    Converts a numeric amount into Indian currency words format.
+    Correctly handles:
+    - Sub-rupee amounts (e.g. 0.50 -> "Zero Rupees and Fifty Paisa Only")
+    - Singular Rupee (e.g. 1.00 -> "One Rupee Only", 1.50 -> "One Rupee and Fifty Paisa Only")
+    - Plural Rupees (e.g. 2.00 -> "Two Rupees Only")
+    - Standard Indian numbering: Thousands, Lakhs, Crores
+    """
+    try:
+        abs_num = abs(float(num))
+    except (ValueError, TypeError):
+        return "Zero Rupees Only"
+
+    if abs_num == 0:
         return "Zero Rupees Only"
 
     single_digits = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
@@ -84,10 +97,16 @@ def number_to_indian_words(num: float) -> str:
             word += single_digits[n] + " "
         return word
 
-    str_words = ""
-    integer_part = int(num)
-    paisa_part = round((num - integer_part) * 100)
+    integer_part = int(abs_num)
+    paisa_part = round((abs_num - integer_part) * 100)
+    if paisa_part == 100:
+        integer_part += 1
+        paisa_part = 0
 
+    if integer_part == 0 and paisa_part == 0:
+        return "Zero Rupees Only"
+
+    str_words = ""
     if integer_part >= 10000000:
         str_words += get_word_for_three_digits(integer_part // 10000000) + "Crore "
         integer_part %= 10000000
@@ -101,7 +120,7 @@ def number_to_indian_words(num: float) -> str:
         str_words += get_word_for_three_digits(integer_part)
 
     trimmed_rupees = str_words.strip()
-    rupee_unit = "Rupee" if int(abs(num)) == 1 else "Rupees"
+    rupee_unit = "Rupee" if int(abs_num) == 1 else "Rupees"
 
     if trimmed_rupees:
         result = f"{trimmed_rupees} {rupee_unit}"
@@ -109,11 +128,11 @@ def number_to_indian_words(num: float) -> str:
         result = "Zero Rupees"
 
     if paisa_part > 0:
-        result += " and " + get_word_for_three_digits(paisa_part).strip() + " Paisa"
+        paisa_words = get_word_for_three_digits(paisa_part).strip()
+        result += f" and {paisa_words} Paisa"
+
     result += " Only"
-    # Normalize multiple internal spaces (e.g. 'Fifty  Thousand' -> 'Fifty Thousand')
-    import re as _re
-    return _re.sub(r' {2,}', ' ', result).strip()
+    return re.sub(r'\s{2,}', ' ', result).strip()
 
 
 def generate_barcode_base64(val: str) -> str:
@@ -1212,7 +1231,7 @@ class InvoicePdfService:
         inv_no = invoice.invoice_no if invoice else f"INV-{invoice_id}"
 
         # Save to disk
-        export_dir = r"F:\SMRITRretailNX\exports\tt_canonical_18_71"
+        export_dir = str(WORKSPACE_ROOT / "exports" / "tt_canonical_18_71")
         os.makedirs(export_dir, exist_ok=True)
         safe_inv = inv_no.replace("/", "_")
         storage_path = os.path.join(export_dir, f"{safe_inv}_CANONICAL_V1.pdf")

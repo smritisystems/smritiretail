@@ -46,13 +46,27 @@ IGNORED_PATHS = {
     "scripts/ci_secret_guard.py",
 }
 
-# Operational routers that MUST NOT bypass get_company_db for transactional operations
-OPERATIONAL_ROUTERS = [
-    WORKSPACE_ROOT / "backend" / "app" / "api" / "v1" / "sales.py",
-    WORKSPACE_ROOT / "backend" / "app" / "api" / "v1" / "inventory.py",
-    WORKSPACE_ROOT / "backend" / "app" / "api" / "v1" / "purchase.py",
-    WORKSPACE_ROOT / "backend" / "app" / "api" / "v1" / "barcode.py",
-]
+API_V1_DIR = WORKSPACE_ROOT / "backend" / "app" / "api" / "v1"
+
+# Explicit allowlist of genuinely control-plane routers that operate at system level
+ALLOWLIST_CONTROL_PLANE_ROUTERS = {
+    "auth.py",
+    "roles.py",
+    "users.py",
+    "menus.py",
+    "system.py",
+    "security.py",
+    "ui_control_plane.py",
+    "health_flags.py",
+    "changelog.py",
+    "docs.py",
+    "dev_tracker.py",
+    "database_manager.py",
+    "company_center.py",
+    "assignments.py",
+    "workspace_ui.py",
+    "__init__.py",
+}
 
 
 def check_secrets_and_exposure() -> list[str]:
@@ -92,22 +106,32 @@ def check_secrets_and_exposure() -> list[str]:
 
 def check_router_reachability_and_wiring() -> list[str]:
     """
-    Verifies that all transactional routes use get_company_db
-    and do not bypass tenant-isolated multi-tenant resolution.
+    Dynamically verifies that all non-control-plane routers in backend/app/api/v1/*.py
+    use get_company_db and do not bypass tenant-isolated multi-tenant resolution.
     """
     violations = []
     
-    for router_path in OPERATIONAL_ROUTERS:
-        if not router_path.exists():
-            violations.append(f"[ROUTER] Expected router file missing: {router_path}")
+    if not API_V1_DIR.exists():
+        violations.append(f"[ROUTER] API directory missing: {API_V1_DIR}")
+        return violations
+        
+    router_files = sorted(API_V1_DIR.glob("*.py"))
+    
+    for router_path in router_files:
+        filename = router_path.name
+        if filename in ALLOWLIST_CONTROL_PLANE_ROUTERS:
             continue
             
         rel_path = router_path.relative_to(WORKSPACE_ROOT).as_posix()
-        with open(router_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        try:
+            with open(router_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception as e:
+            violations.append(f"[ERROR] Could not read {rel_path}: {e}")
+            continue
             
         # 1. Must import and use get_company_db
-        if "get_company_db" not in content:
+        if "get_company_db" not in content and "get_ecom_webhook_session" not in content:
             violations.append(f"[WIRING] {rel_path} does not import or reference 'get_company_db'.")
             
         # 2. Must not use get_db in operational route dependencies
