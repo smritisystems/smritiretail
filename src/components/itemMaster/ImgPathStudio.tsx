@@ -75,7 +75,7 @@ export const ImgPathStudio: React.FC<SmritiImgPathStudiodioProps> = ({
       setConfig(prev => ({
         ...prev,
         basePathType: "local",
-        basePathUrl: "D:/Product_Images/",
+        basePathUrl: "/catalog/products/images/",
         defaultExtension: ".jpg"
       }));
     }

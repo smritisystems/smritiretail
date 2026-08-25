@@ -208,3 +208,26 @@ async def test_sales_invoice_service(db_session):
         await sales_serv.create_sales_invoice(invoice_in_fail)
     assert "credit limit" in exc.value.detail.lower()
     assert "exceeded" in exc.value.detail.lower()
+
+
+async def test_number_to_indian_words_sub_rupee_and_units():
+    from app.services.invoice_pdf_service import number_to_indian_words
+
+    # Sub-rupee amounts
+    assert number_to_indian_words(0.50) == "Zero Rupees and Fifty Paisa Only"
+    assert number_to_indian_words(0.05) == "Zero Rupees and Five Paisa Only"
+
+    # Exact zero
+    assert number_to_indian_words(0.00) == "Zero Rupees Only"
+    assert number_to_indian_words(0) == "Zero Rupees Only"
+
+    # Singular Rupee
+    assert number_to_indian_words(1.00) == "One Rupee Only"
+    assert number_to_indian_words(1.50) == "One Rupee and Fifty Paisa Only"
+
+    # Plural standard amounts
+    assert number_to_indian_words(2500.00) == "Two Thousand Five Hundred Rupees Only"
+    assert number_to_indian_words(100000.00) == "One Lakh Rupees Only"
+    assert number_to_indian_words(100000.75) == "One Lakh Rupees and Seventy Five Paisa Only"
+    assert number_to_indian_words(10000000.00) == "One Crore Rupees Only"
+    assert number_to_indian_words(12345678.90) == "One Crore Twenty Three Lakh Forty Five Thousand Six Hundred Seventy Eight Rupees and Ninety Paisa Only"

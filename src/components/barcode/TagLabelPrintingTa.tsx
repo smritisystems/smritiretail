@@ -106,7 +106,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
   // Settings
   const [settings, setSettings] = useState<LabelPrintSettings>({
-    scriptFileName: "C:\\SMRITI\\Barcode\\ModernLabelDesign_TE244.blf",
+    scriptFileName: "ModernLabelDesign_TE244.blf",
     labelsPerRow: 1,
     outputToPort: true,
     outputToFile: false,
@@ -132,7 +132,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   });
 
   // 2. PT File State (Against Purchase PT File)
-  const [ptFileName, setPtFileName] = useState<string>("C:\\shoper9R13\\PT_20101005.pt");
+  const [ptFileName, setPtFileName] = useState<string>("PT_20101005.pt");
   const [ptRows, setPtRows] = useState<LabelPrintRow[]>(() => {
     return SAMPLE_PT_FILE_RECORDS.map((rec, idx) => ({
       id: `pt-row-${idx + 1}`,

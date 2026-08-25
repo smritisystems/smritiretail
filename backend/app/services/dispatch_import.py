@@ -2,7 +2,7 @@
 Tattly Threads Dispatch Import & Tax Invoice Lifecycle Service
 
 Authoritative source workbook:
-F:\\Smriti-Clients Data\\Tattly Threads\\Invoice\\RIL_Dispatch_09-08-2026.xlsx
+TT/RIL_Dispatch_09-08-2026.xlsx
 
 Key Architecture Directives:
 1. Excel workbook is strictly READ-ONLY.
@@ -16,6 +16,7 @@ Key Architecture Directives:
 import os
 import uuid
 import datetime
+from pathlib import Path
 from decimal import Decimal
 from dataclasses import dataclass
 from typing import Dict, Any, List, Optional
@@ -34,7 +35,8 @@ from app.models.crm import Customer
 from app.models.inventory import Product
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 
-DISPATCH_EXCEL_PATH = r"F:\Smriti-Clients Data\Tattly Threads\Invoice\RIL_Dispatch_09-08-2026.xlsx"
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+DISPATCH_EXCEL_PATH = os.getenv("DISPATCH_EXCEL_PATH", str(WORKSPACE_ROOT / "TT" / "RIL_Dispatch_09-08-2026.xlsx"))
 SIZE_COLS = [36, 37, 38, 39, 40, 41, 42]
 
 VERIFIED_SIS_PO_MAP: Dict[str, str] = {

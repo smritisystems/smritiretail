@@ -18,9 +18,11 @@ import json
 import hashlib
 import uuid
 import datetime
+from pathlib import Path
 import psycopg2
 import fitz
 
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 SELLER_INFO = {
@@ -56,7 +58,7 @@ CANONICAL_LAYOUT_CONFIG = {
     },
     "header_configuration": {
         "seller_info": SELLER_INFO,
-        "logo_asset": "F:\\SMRITRretailNX\\TT\\logo\\tattly_logo_black.png",
+        "logo_asset": str(WORKSPACE_ROOT / "TT" / "logo" / "tattly_logo_black.png"),
         "show_barcode": True,
         "show_gst_qr": True
     },
@@ -216,8 +218,8 @@ def seed_canonical_tax_invoice_template(company_db_name: str = "smriti001"):
     print(f"Persisted Canonical Template TAX_INVOICE_TATTLY_THREADS V1 (Hash: {config_hash[:16]}...).")
 
     # 3. Index generated batch PDF artifacts
-    batch_dir = r"F:\SMRITRretailNX\exports\tt_batch_74_103"
-    pdf_files = [f for f in os.listdir(batch_dir) if f.endswith(".pdf")]
+    batch_dir = str(WORKSPACE_ROOT / "exports" / "tt_batch_74_103")
+    pdf_files = [f for f in os.listdir(batch_dir) if f.endswith(".pdf")] if os.path.exists(batch_dir) else []
     print(f"Found {len(pdf_files)} batch PDF artifacts in {batch_dir} to index.")
 
     artifacts_indexed = 0

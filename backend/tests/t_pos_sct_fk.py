@@ -75,9 +75,11 @@ def test_v1360_forward_only_migration_governance():
     per financial data governance policy (ADR-POS-002).
     """
     import importlib.util
+    from pathlib import Path
+    migration_path = str(Path(__file__).resolve().parents[1] / "alembic" / "versions" / "v1360_pos_sct_fk_constraints.py")
     spec = importlib.util.spec_from_file_location(
         "v1360",
-        r"F:\SMRITRretailNX\backend\alembic\versions\v1360_pos_sct_fk_constraints.py"
+        migration_path
     )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
