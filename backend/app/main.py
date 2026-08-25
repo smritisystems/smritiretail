@@ -216,6 +216,7 @@ app.include_router(search.router, prefix=settings.API_V1_STR + "/search", tags=[
 app.include_router(communicator.router, prefix=settings.API_V1_STR + "/communicator", tags=["Communicator Engine"])
 app.include_router(crm_cge.router, prefix=settings.API_V1_STR + "/crm-growth", tags=["CRM & Commercial Growth Engine"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
+app.include_router(ecom.router, prefix=settings.API_V1_STR + "/ecom", tags=["eCommerce & Omnichannel Engine"])
 app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
 app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])
 app.include_router(analytics.router, prefix=settings.API_V1_STR + "/analytics", tags=["Analytics & Intelligence Plane"])

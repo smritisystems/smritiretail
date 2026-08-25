@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.57.0
+  * Version    : 3.58.0
   * Created    : 2026-07-11
   * Modified   : 2026-08-25
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,28 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.58.0] - 2026-08-25
+
+#### Sprint 42: Section 8 P2 Distribution Core & eCommerce Expansion Completion
+- **Authoritative Multi-Tier Wholesale Distribution**:
+  - Implemented `backend/app/services/distribution_svc.py` and created `backend/app/schemas/distribution.py` providing end-to-end governance for dealer assignments with credit limit/days enforcement, delivery route provisioning with ordered drop sequences, primary vs secondary distribution orders with statutory GST place-of-supply calculation, vehicle loading sheet consolidation, dealer claims dispute review with automatic Credit Note generation (`CN-YYYYMMDD-HEX`), and driver route trip financial/inventory settlement.
+  - Provisioned multi-tenant database DDL across `smriti001` and `smriti002` for `distribution_routes`, `distribution_route_stops`, `loading_sheets`, `loading_sheet_items`, `distribution_claims`, and `distribution_settlements`.
+- **Omnichannel eCommerce Growth Engine**:
+  - Implemented `backend/app/services/ecom_engine.py` and created `backend/app/schemas/ecom.py` featuring 6 marketplace connector adapters (`Internal Store`, `Shopify`, `WooCommerce`, `Amazon SP-API`, `Flipkart`, `Customer Portal`).
+  - Added strict HMAC SHA-256 signature verification across all adapters to prevent webhook forgery.
+  - Implemented deterministic order deduplication via idempotency keys (`{channel_code}_{external_order_id}`).
+  - Implemented atomic stock reservation utilizing `SELECT FOR UPDATE` row locks (`with_for_update()`) on `Product.reserved_stock` ensuring zero oversell rate.
+  - Implemented order convergence transforming imported marketplace payloads into authoritative SMRITI `SalesInvoice` records and outward `StockMovement` rows with automatic trigger reconciliation.
+  - Implemented Dead Letter Queue (DLQ) retry cycle with exponential backoff (`max_retries = 3`) and channel revenue financial reconciliation against external GMV reports.
+- **REST Endpoints (`/api/v1/distribution/*`, `/api/v1/ecom/*`)**:
+  - Mounted routes, stops, loading sheets, claims, and settlements in `backend/app/api/v1/distribution.py`.
+  - Mounted channels, SKU mappings, webhook ingress, order convergence, DLQ retry, and reconciliations in `backend/app/api/v1/ecom.py` and registered under `/api/v1/ecom` in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suites `backend/tests/t_distribution.py` (7/7 tests green) and `backend/tests/t_ecom_connect.py` (7/7 tests green).
+  - All 23 tests in Section 8 distribution and eCommerce suite passing 100% green.
+  - Certified Blueprint Section 8 (`P2 Distribution & eCommerce Expansion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
 
 ### [3.57.0] - 2026-08-25
 

@@ -30,7 +30,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 2026-08-24 | v4.11.0 | SMRITI Filename Governance Policy (NGP-v2.0) Repository Refactor | [Walkthrough](./governance/NGP_v2_Filename_Refactor_v2.0.0.md) | â€” | Completed |
+| 2026-08-25 | v6.16.0 | Sprint 42 — Section 8 Distribution Core & eCommerce Expansion | [Walkthrough](./foundation/Sprint42_Distribution_Ecom_Expansion_v1.0.0.md) | — | Completed |
+| 2026-08-24 | v4.11.0 | SMRITI Filename Governance Policy (NGP-v2.0) Repository Refactor | [Walkthrough](./governance/NGP_v2_Filename_Refactor_v2.0.0.md) | — | Completed |
 | 2026-08-24 | v4.9.0 | Tattly Threads Batch Tax Invoice Generation (107â€“128) | [Walkthrough](./sales/Tattly_Threads.md) | â€” | Completed |
 | 2026-08-24 | v3.26.0 | Multi-Tenant Sales Contract & Workspace Themes Remediation | [Walkthrough](./foundation/Multi_Tenant.md) | â€” | Completed |
 | 2026-08-24 | v3.25.0 | Blueprint UI/Experience Engine & Integration Hub Registry | [Walkthrough](./foundation/Blueprint.md) | â€” | Completed |
