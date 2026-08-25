@@ -41,6 +41,12 @@ from app.schemas.gov_logic import (
     DefinitionValidationRequest,
     DefinitionValidationResponse,
 )
+from app.schemas.tx_reproduce import (
+    GovernanceSnapshot,
+    SnapshotCreateRequest,
+    TransactionReplayRequest,
+    TransactionReplayResponse,
+)
 from app.services.governed_rules import GovernedRuleEngine
 from app.services.tx_reproduce_svc import TransactionReproducibilityService
 
@@ -240,3 +246,51 @@ async def validate_definition(
         errors.append(f"Unknown definition type: '{dtype}'")
 
     return DefinitionValidationResponse(valid=len(errors) == 0, errors=errors)
+
+
+# ---------------------------------------------------------------------------
+# Transaction Reproducibility & Historical Replay (P1.5)
+# ---------------------------------------------------------------------------
+
+@router.post("/snapshot/create", response_model=GovernanceSnapshot)
+async def create_transaction_governance_snapshot(
+    req: SnapshotCreateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Creates an immutable snapshot of all 6 version categories for an invoice/transaction.
+    """
+    snap = TransactionReproducibilityService.create_governance_snapshot(
+        formula_versions=req.formula_versions,
+        rule_versions=req.rule_versions,
+        policy_versions=req.policy_versions,
+        workflow_versions=req.workflow_versions,
+        pricing_version=req.pricing_version,
+        accounting_rule_version=req.accounting_rule_version,
+        doc_template_version=req.doc_template_version,
+        extra_metadata=req.extra_metadata,
+    )
+    return snap
+
+
+@router.post("/replay", response_model=TransactionReplayResponse)
+async def replay_transaction_calculation(
+    req: TransactionReplayRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Historical Replay Engine:
+    Recalculates a historical transaction using the exact rule definitions bound to its snapshot.
+    Proves zero mathematical drift against the original invoice.
+    """
+    try:
+        res = TransactionReproducibilityService.replay_transaction_with_historical_rules(
+            snapshot=req.snapshot,
+            transaction_payload=req.transaction_payload,
+            historical_rule_catalog=req.historical_catalog,
+            expected_totals=req.expected_totals,
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
