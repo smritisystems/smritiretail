@@ -55,6 +55,9 @@ const REGISTERED_APP_TABS = [
   "dev-tracker",
   "security-management",
   "audit-logs",
+  "store-policies",
+  "legacy-migration",
+  "physical-stock",
   "wiki",
   "training-academy"
 ];

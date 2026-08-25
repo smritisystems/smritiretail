@@ -127,10 +127,13 @@ async def get_current_user(
 def normalize_company_id(cid: Optional[str]) -> Optional[str]:
     if not cid:
         return None
-    c = str(cid).strip().upper()
+    raw = str(cid).strip()
+    c = raw.upper()
     if len(c) == 3 and c.isalnum() and c not in ("000", "SYS"):
         return f"COMP-{c}"
-    return c
+    if c.startswith("COMP-") and len(c) == 8 and c[5:].isalnum():
+        return c
+    return raw
 
 
 async def get_tenant_context(

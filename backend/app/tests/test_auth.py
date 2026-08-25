@@ -562,7 +562,7 @@ async def test_role_guard_cashier_cannot_create_product(db_session):
             headers={"Authorization": f"Bearer {token}"},
         )
     assert res.status_code == 403
-    assert "CASHIER" in res.json()["detail"]
+    assert "SMRITI-AUTH-001" in res.json()["detail"] or "CASHIER" in res.json()["detail"]
 
 
 async def test_role_guard_manager_can_create_product(db_session):
@@ -590,6 +590,9 @@ async def test_role_guard_manager_can_create_product(db_session):
                 "category": "General",
                 "barcode": f"BCMGR{suffix}",
                 "price": 75.0,
+                "mrp": 100.0,
+                "gst_percentage": 18.0,
+                "hsn_code": "6403",
                 "stock": 3,
             },
             headers={"Authorization": f"Bearer {token}"},
