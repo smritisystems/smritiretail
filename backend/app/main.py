@@ -43,6 +43,7 @@ from .api.v1 import (
     auth,
     assignments,
     barcode,
+    boundaries,
     capability_registry,
     cge,
     changelog,
@@ -193,6 +194,7 @@ app.include_router(localization.router,      prefix=settings.API_V1_STR)
 app.include_router(capability_registry.router, prefix=settings.API_V1_STR, tags=["Capability & Module Registry"])
 app.include_router(governed_logic.router, prefix=settings.API_V1_STR + "/governed-logic", tags=["Governed Logic & Reproducibility"])
 app.include_router(universal_master.router, prefix=settings.API_V1_STR + "/universal", tags=["Universal Party & Item Master"])
+app.include_router(boundaries.router, prefix=settings.API_V1_STR + "/boundaries", tags=["Stock & Accounting Boundaries"])
 app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
 app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
 app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])

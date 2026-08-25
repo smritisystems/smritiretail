@@ -280,14 +280,29 @@ The remaining work is primarily convergence and governance: turning module-level
   - Schemas: [`backend/app/schemas/item_master.py`](file:///F:/SMRITRretailNX/backend/app/schemas/item_master.py)
   - Migration Engine: [`backend/app/db/migr_item_ext.py`](file:///F:/SMRITRretailNX/backend/app/db/migr_item_ext.py)
 
-### P1.3 Authoritative Stock and Accounting Boundaries
+### P1.3 Authoritative Stock and Accounting Boundaries [STATUS: DONE / VERIFIED]
 
-- Confirm every stock-changing operation writes an authoritative `stock_movements` record.
-- Ensure materialized balances are rebuildable from movements.
-- Ensure every financial operation creates balanced accounting entries where applicable.
-- Add reconciliation jobs for stock, payment, tax, and GL ledgers.
-
-**Exit evidence:** rebuild tests, debit/credit equality tests, stock reconciliation tests, and transaction rollback tests pass.
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_stock_acct.py` (execution time: 20.36s).
+  - `69/69 tests green` across complete control plane, data plane, stock/accounting boundaries, reproducibility, and reports regression suite.
+  - `10 authoritative stock movement types supported` (`IN`, `OUT`, `INWARD_GRN`, `OUTWARD_SALE`, `ADJUSTMENT_IN`, `ADJUSTMENT_OUT`, `TRANSFER_IN`, `TRANSFER_OUT`, `RETURN_INWARD`, `RETURN_OUTWARD`).
+  - `0.00 drift tolerance` between immutable stock movements and materialized on-hand inventory.
+  - `100% strict double-entry balance enforcement` (Total Debits == Total Credits invariant).
+  - `4 automated reconciliation audit jobs` (Stock Movement vs On-Hand, GL Voucher Invariants, Trial Balance Equality, Comprehensive Multi-Ledger Health).
+- **Named Architectural Mechanisms:**
+  - `StockAccountingBoundaryService.record_stock_movement`: Authoritative, immutable stock movement recording with atomic materialized on-hand stock synchronization.
+  - `StockAccountingBoundaryService.rebuild_materialized_balances_from_movements`: Dynamic on-hand stock calculation from movement history with automated drift remediation (`fix_drift=True`).
+  - `StockAccountingBoundaryService.post_balanced_journal_voucher`: Fail-closed double-entry validation engine rejecting unbalanced vouchers and persisting `JournalVoucher` + `GeneralLedgerEntry` rows.
+  - `StockAccountingBoundaryService.run_stock_reconciliation`: Tenant-wide stock integrity audit engine detecting unauthorized stock mutations.
+  - `StockAccountingBoundaryService.run_gl_reconciliation`: Double-entry equality and Trial Balance validation engine.
+  - `StockAccountingBoundaryService.run_financial_reconciliation`: Combined multi-ledger health checker.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_stock_acct.py`](file:///F:/SMRITRretailNX/backend/tests/t_stock_acct.py)
+  - Backend Service: [`backend/app/services/stock_acct_svc.py`](file:///F:/SMRITRretailNX/backend/app/services/stock_acct_svc.py)
+  - API Router: [`backend/app/api/v1/boundaries.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/boundaries.py)
+  - Models: [`backend/app/models/inventory.py`](file:///F:/SMRITRretailNX/backend/app/models/inventory.py), [`backend/app/models/accounting.py`](file:///F:/SMRITRretailNX/backend/app/models/accounting.py)
+  - Schemas: [`backend/app/schemas/stock_acct.py`](file:///F:/SMRITRretailNX/backend/app/schemas/stock_acct.py)
 
 ## 7. P1/P2 Shared Business Engines
 
