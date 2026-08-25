@@ -28,6 +28,22 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.54.0] - 2026-08-25
+
+#### Sprint 38: Section 7 Shared Business Engines: Approval Matrix Engine Completion
+- **Authoritative Approval Matrix Service & Hierarchical Transaction Gating**:
+  - Implemented `backend/app/services/approval_engine.py` and created `backend/app/schemas/approval.py` governing multi-tier threshold policies, real-time transaction gating, fail-closed RBAC decision execution, and request escalation.
+  - Implemented multi-tier threshold policies (`ApprovalPolicy`) mapping document types (`SALES_INVOICE`, `PURCHASE_ORDER`, `CREDIT_MEMO`, `DISCOUNT_EXCEPTION`, `MANUAL_JOURNAL`) and monetary amounts to required roles (`STORE_MANAGER`, `FINANCE_CONTROLLER`, `DIRECTOR`, `SYSADMIN`).
+  - Implemented real-time transaction enforcement checks gating high-value documents and unapproved discount exceptions into pending `ApprovalRequest` state machine rows (`APR-YYYYMMDD-HEX`).
+  - Implemented strict RBAC action authorization (`APPROVE`, `REJECT`, `REQUEST_CHANGES`) rejecting unauthorized callers and logging decision records in PostgreSQL `ApprovalAction`.
+  - Implemented hierarchical request escalation reassigning pending approval workflows to senior roles.
+- **REST Endpoints (`/api/v1/approval/*`)**:
+  - Mounted `/policies`, `/enforce`, `/requests`, `/action`, and `/escalate` in `backend/app/api/v1/approval.py` and registered in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_approval.py` (6/6 tests green, 111/111 full platform regression tests green).
+  - Certified Blueprint Section 7 (`Approval Matrix Engine Completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.53.0] - 2026-08-25
 
 #### Sprint 37: Section 7 Shared Business Engines: Barcode & Labels Engine Completion
