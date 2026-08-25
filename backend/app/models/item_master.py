@@ -6,13 +6,13 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-08-25
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey, Text, text, UniqueConstraint
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey, Text, text, Date, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
@@ -55,6 +55,9 @@ class Item(BaseEntity):
     # Relationships
     variants = relationship("ItemVariant", back_populates="item", cascade="all, delete-orphan")
     barcodes = relationship("ItemBarcode", back_populates="item", cascade="all, delete-orphan")
+    batches = relationship("ItemBatch", back_populates="item", cascade="all, delete-orphan")
+    serials = relationship("ItemSerial", back_populates="item", cascade="all, delete-orphan")
+    locations = relationship("ItemWarehouseLocation", back_populates="item", cascade="all, delete-orphan")
 
 
 class ItemVariant(BaseEntity):
@@ -75,6 +78,8 @@ class ItemVariant(BaseEntity):
     # Relationships
     item = relationship("Item", back_populates="variants")
     barcodes = relationship("ItemBarcode", back_populates="variant", cascade="all, delete-orphan")
+    batches = relationship("ItemBatch", back_populates="variant", cascade="all, delete-orphan")
+    serials = relationship("ItemSerial", back_populates="variant", cascade="all, delete-orphan")
 
 
 class ItemBarcode(BaseEntity):
@@ -95,3 +100,66 @@ class ItemBarcode(BaseEntity):
     # Relationships
     item = relationship("Item", back_populates="barcodes")
     variant = relationship("ItemVariant", back_populates="barcodes")
+
+
+class ItemBatch(BaseEntity):
+    """
+    Batch & Lot tracking for perishable, statutory, or pharmaceutical items.
+    """
+    __tablename__ = "item_batches"
+    __table_args__ = (
+        UniqueConstraint("item_id", "batch_number", name="uq_item_batch_no"),
+    )
+
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
+    variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), nullable=True, index=True)
+    batch_number = Column(String(100), nullable=False, index=True)
+    mfg_date = Column(Date, nullable=True)
+    exp_date = Column(Date, nullable=True)
+    mrp = Column(Numeric(15, 2), nullable=False, default=0.00)
+    cost_price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    # Relationships
+    item = relationship("Item", back_populates="batches")
+    variant = relationship("ItemVariant", back_populates="batches")
+
+
+class ItemSerial(BaseEntity):
+    """
+    Unique unit serial number tracking for electronics, high-value goods, and warranty service.
+    """
+    __tablename__ = "item_serials"
+    __table_args__ = (
+        UniqueConstraint("item_id", "serial_number", name="uq_item_serial_no"),
+    )
+
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
+    variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), nullable=True, index=True)
+    serial_number = Column(String(100), nullable=False, index=True)
+    status = Column(String(30), nullable=False, default="AVAILABLE")  # AVAILABLE, ALLOCATED, SOLD, RETURNED, DEFECTIVE
+    warehouse_id = Column(String(50), nullable=True, index=True)
+
+    # Relationships
+    item = relationship("Item", back_populates="serials")
+    variant = relationship("ItemVariant", back_populates="serials")
+
+
+class ItemWarehouseLocation(BaseEntity):
+    """
+    Multi-warehouse and location bin configuration per item.
+    """
+    __tablename__ = "item_warehouse_locations"
+    __table_args__ = (
+        UniqueConstraint("item_id", "warehouse_id", name="uq_item_warehouse"),
+    )
+
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
+    warehouse_id = Column(String(50), nullable=False, index=True)
+    location_bin = Column(String(50), nullable=True)
+    min_reorder_level = Column(Numeric(15, 2), nullable=False, default=0.00)
+    max_capacity = Column(Numeric(15, 2), nullable=False, default=0.00)
+    reorder_quantity = Column(Numeric(15, 2), nullable=False, default=0.00)
+
+    # Relationships
+    item = relationship("Item", back_populates="locations")
