@@ -94,15 +94,20 @@ async def test_dynamic_attribute_creation_and_product_persistence(db_session):
     Test creating a new dynamic attribute definition (Fabric Type),
     persisting a product with custom attributes, and reading it back.
     """
-    comp, br = await _make_tenant(db_session, "t1")
-    manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.SYSADMIN)
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    manager = await _make_user(db_session, f"mgr_{s}", comp.id, br.id, role=UserRole.SYSADMIN)
     headers = _bearer(manager, comp.id, br.id)
     _set_tenant(db_session, comp.id, br.id)
+
+    attr_name = f"fabric_type_{s}"
+    sku_code = f"SKU-FABRIC-{s}"
+    bc = f"890{s[:4]}56789"
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Create Attribute Definition
         attr_payload = {
-            "name": "fabric_type",
+            "name": attr_name,
             "label": "Fabric Type",
             "dataType": "text",
             "isVariantDimension": True,
@@ -113,7 +118,7 @@ async def test_dynamic_attribute_creation_and_product_persistence(db_session):
         res_attr = await ac.post("/api/v1/attributes/definitions", json=attr_payload, headers=headers)
         assert res_attr.status_code == 201
         attr_data = res_attr.json()
-        assert attr_data["name"] == "fabric_type"
+        assert attr_data["name"] == attr_name
         assert attr_data["label"] == "Fabric Type"
 
         # 2. List Definitions to ensure it appears in dynamic catalogue
@@ -121,16 +126,16 @@ async def test_dynamic_attribute_creation_and_product_persistence(db_session):
         assert res_list.status_code == 200
         defs = res_list.json()
         names = [d["name"] for d in defs]
-        assert "fabric_type" in names
+        assert attr_name in names
 
         # 3. Create Product with Dynamic Attributes
         product_payload = {
-            "code": "SKU-FABRIC-001",
-            "name": "Egyptian Cotton Shirt",
+            "code": sku_code,
+            "name": f"Egyptian Cotton Shirt {s}",
             "price": 1899.0,
             "stock": 50,
             "category": "Apparel",
-            "barcode": "8901234567899",
+            "barcode": bc,
             "brand": "SMRITI",
             "color": "White",
             "size": "L",
@@ -140,23 +145,22 @@ async def test_dynamic_attribute_creation_and_product_persistence(db_session):
             "gst_percentage": 18.0,
             "hsn_code": "62052000",
             "attributes": {
-                "fabric_type": "100% Cotton",
-                "Fabric Type": "100% Cotton",
+                attr_name: "100% Cotton",
                 "care_instructions": "Machine Wash Cold"
             }
         }
         res_prod = await ac.post("/api/v1/products/", json=product_payload, headers=headers)
         assert res_prod.status_code == 201
         prod_data = res_prod.json()
-        assert prod_data["code"] == "SKU-FABRIC-001"
+        assert prod_data["code"] == sku_code
         assert prod_data["attributes"] is not None
-        assert prod_data["attributes"]["fabric_type"] == "100% Cotton"
+        assert prod_data["attributes"][attr_name] == "100% Cotton"
         assert prod_data["attributes"]["care_instructions"] == "Machine Wash Cold"
 
         # 4. Verify search / retrieve product preserves attributes
-        res_search = await ac.get("/api/v1/products/search?q=Egyptian", headers=headers)
+        res_search = await ac.get(f"/api/v1/products/search?q=Egyptian", headers=headers)
         assert res_search.status_code == 200
         items = res_search.json()
         assert len(items) >= 1
-        found = next(p for p in items if p["code"] == "SKU-FABRIC-001")
-        assert found["attributes"]["fabric_type"] == "100% Cotton"
+        found = next(p for p in items if p["code"] == sku_code)
+        assert found["attributes"][attr_name] == "100% Cotton"

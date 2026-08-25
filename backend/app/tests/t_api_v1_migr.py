@@ -24,7 +24,7 @@ from app.models.numbering import DocumentSeries
 from app.models.system import SystemConfig
 from app.models.tenant import Company, Branch
 from app.core.security import create_access_token, hash_password
-from app.api.deps import get_db
+from app.api.deps import get_db, get_company_db
 from app.tests.conftest import clear_db
 
 
@@ -35,28 +35,37 @@ async def override_db(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
-    yield
-    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides[get_company_db] = _get_db
+    try:
+        yield
+    finally:
+        try:
+            await clear_db(db_session)
+        except Exception:
+            pass
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_company_db, None)
 
 
 async def _create_user(db_session, role=UserRole.MANAGER):
+    s = uuid.uuid4().hex[:6]
     company = Company(
-        id="comp-test-1",
-        name="Test Company",
+        id=f"comp-test-{s}",
+        name=f"Test Company {s}",
         gst_number="27ABCDE1234F1Z5",
         is_active=True,
     )
     branch = Branch(
-        id="br-test-1",
+        id=f"br-test-{s}",
         company_id=company.id,
-        name="Test Branch",
-        code="BR-TEST-1",
+        name=f"Test Branch {s}",
+        code=f"BR-TEST-{s}",
         is_active=True,
     )
     user = User(
-        id="usr-test-1",
-        username="test_user",
-        email="test@smriti.test",
+        id=f"usr-test-{s}",
+        username=f"test_user_{s}",
+        email=f"test_{s}@smriti.test",
         hashed_password=hash_password("Test@1234"),
         role=role,
         is_active=True,
@@ -84,7 +93,7 @@ def _auth_headers(user: User):
 
 @pytest.mark.asyncio
 async def test_api_v1_migration_endpoints(db_session):
-    user, _, _ = await _create_user(db_session)
+    user, _, _ = await _create_user(db_session, role=UserRole.SYSADMIN)
     headers = _auth_headers(user)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -109,9 +118,13 @@ async def test_api_v1_migration_endpoints(db_session):
         assert res_save_layout.status_code == 200
         assert res_save_layout.json()["success"] is True
 
+        await db_session.execute(delete(SystemConfig).where(SystemConfig.key == "setup_completed"))
+        await db_session.commit()
+
+        br_code = f"BR-{uuid.uuid4().hex[:6].upper()}"
         res_setup = await client.post(
             "/api/v1/company/setup",
-            json={"businessInfo": {"name": "Demo Co"}, "orgStructure": {"stores": [{"name": "Flagship", "code": "BR-01"}]}}
+            json={"businessInfo": {"name": "Demo Co"}, "orgStructure": {"stores": [{"name": "Flagship", "code": br_code}]}}
             , headers=headers,
         )
         assert res_setup.status_code == 200
@@ -119,9 +132,9 @@ async def test_api_v1_migration_endpoints(db_session):
         assert setup_payload["success"] is True
         assert setup_payload["company"]["name"] == "Demo Co"
         assert setup_payload["company"]["branches"][0]["name"] == "Flagship"
-        assert setup_payload["company"]["branches"][0]["code"] == "BR-01"
+        assert setup_payload["company"]["branches"][0]["code"] == br_code
         assert setup_payload["company"]["stores"][0]["name"] == "Flagship"
-        assert setup_payload["company"]["stores"][0]["code"] == "BR-01"
+        assert setup_payload["company"]["stores"][0]["code"] == br_code
         assert setup_payload["company"]["users"] == []
 
         res_setup_status = await client.get("/api/v1/system/setup-status", headers=headers)
@@ -194,12 +207,13 @@ async def test_api_v1_migration_endpoints(db_session):
 
 @pytest.mark.asyncio
 async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db_session):
+    s = uuid.uuid4().hex[:6]
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Bootstrap a SYSADMIN user for setup
         admin = User(
-            id="usr-admin-1",
-            username="sysadmin",
-            email="sysadmin@smriti.test",
+            id=f"usr-admin-{s}",
+            username=f"sysadmin_{s}",
+            email=f"sysadmin_{s}@smriti.test",
             hashed_password=hash_password("SysAdmin@123"),
             role=UserRole.SYSADMIN,
             is_active=True,
@@ -228,15 +242,15 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
         res_setup = await client.post(
             "/api/v1/company/setup",
             json={
-                "businessInfo": {"name": "Tenant Co"},
-                "orgStructure": {"stores": [{"name": "Main Branch", "code": "BR-01"}]},
+                "businessInfo": {"name": f"Tenant Co {s}"},
+                "orgStructure": {"stores": [{"name": f"Main Branch {s}", "code": f"BR-{s}"}]},
                 "users": {
                     "staff": [
                         {
                             "name": "Bob Cashier",
-                            "username": "bob_cashier",
+                            "username": f"bob_cashier_{s}",
                             "role": "Cashier",
-                            "email": "bob@tenant.test",
+                            "email": f"bob_{s}@tenant.test",
                             "mobile": "8888888888",
                         }
                     ]
@@ -280,9 +294,9 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
         assert tenant_access.status_code == 200
 
         unassigned_user = User(
-            id="usr-no-tenant",
-            username="no_tenant",
-            email="no_tenant@tenant.test",
+            id=f"usr-no-tenant-{s}",
+            username=f"no_tenant_{s}",
+            email=f"no_tenant_{s}@tenant.test",
             hashed_password=hash_password("Test@1234"),
             role=UserRole.MANAGER,
             is_active=True,
@@ -296,6 +310,6 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
 
         unassigned_login = await client.post(
             "/api/v1/auth/login",
-            json={"username": "no_tenant", "password": "Test@1234"},
+            json={"username": f"no_tenant_{s}", "password": "Test@1234"},
         )
         assert unassigned_login.status_code == 403

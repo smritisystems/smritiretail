@@ -20,7 +20,7 @@ from app.main import app
 from app.models.auth import User, UserRole
 from app.models.tenant import Company, Branch
 from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
-from app.api.deps import get_db, get_tenant_context, TenantContext
+from app.api.deps import get_db, get_company_db, get_tenant_context, TenantContext
 from app.core.security import hash_password, create_access_token
 from app.tests.conftest import clear_db
 
@@ -35,8 +35,10 @@ async def override_db(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
     yield
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_company_db, None)
 
 
 async def _create_tenant_and_user(db_session, suffix: str, role: UserRole = UserRole.CASHIER):
@@ -132,11 +134,13 @@ async def test_default_tenant_resolution_on_login(db_session):
 
 async def test_context_switch_to_assigned_company(db_session):
     """Verify context switching to an assigned target company and branch."""
-    comp_a, br_a, user = await _create_tenant_and_user(db_session, "a")
+    s_a = uuid.uuid4().hex[:6]
+    s_b = uuid.uuid4().hex[:6]
+    comp_a, br_a, user = await _create_tenant_and_user(db_session, s_a)
 
     # Create second company and branch, and assign to user
-    comp_b = Company(id="comp-mc-b", name="MultiComp B", gst_number="27ABCDE1234F2Z6", is_active=True)
-    br_b = Branch(id="br-mc-b", company_id=comp_b.id, name="MultiBranch B", code="BRMC-B", is_active=True)
+    comp_b = Company(id=f"comp-mc-{s_b}", name=f"MultiComp {s_b}", gst_number="27ABCDE1234F2Z6", is_active=True)
+    br_b = Branch(id=f"br-mc-{s_b}", company_id=comp_b.id, name=f"MultiBranch {s_b}", code=f"BRMC-{s_b}", is_active=True)
     db_session.add_all([comp_b, br_b])
     await db_session.commit()
 
@@ -161,11 +165,13 @@ async def test_context_switch_to_assigned_company(db_session):
 
 async def test_context_switch_denied_for_unassigned_company(db_session):
     """Verify context switching returns 403 when user is not assigned to target company."""
-    comp_a, br_a, user = await _create_tenant_and_user(db_session, "c")
+    s_c = uuid.uuid4().hex[:6]
+    s_u = uuid.uuid4().hex[:6]
+    comp_a, br_a, user = await _create_tenant_and_user(db_session, s_c)
 
     # Company C is unassigned
-    comp_unassigned = Company(id="comp-unassigned", name="Unassigned Comp", gst_number="27ABCDE1234F3Z7", is_active=True)
-    br_unassigned = Branch(id="br-unassigned", company_id=comp_unassigned.id, name="Unassigned Branch", code="BRUN", is_active=True)
+    comp_unassigned = Company(id=f"comp-un-{s_u}", name=f"Unassigned Comp {s_u}", gst_number="27ABCDE1234F3Z7", is_active=True)
+    br_unassigned = Branch(id=f"br-un-{s_u}", company_id=comp_unassigned.id, name=f"Unassigned Branch {s_u}", code=f"BRUN-{s_u}", is_active=True)
     db_session.add_all([comp_unassigned, br_unassigned])
     await db_session.commit()
 
@@ -183,7 +189,8 @@ async def test_context_switch_denied_for_unassigned_company(db_session):
 
 async def test_tenant_context_dependency_validates_assignment(db_session):
     """Verify get_tenant_context raises 403 when user company assignment is revoked."""
-    comp, br, user = await _create_tenant_and_user(db_session, "d", role=UserRole.MANAGER)
+    s_d = uuid.uuid4().hex[:6]
+    comp, br, user = await _create_tenant_and_user(db_session, s_d, role=UserRole.MANAGER)
 
     # Soft-delete the company assignment to simulate revocation
     res = await db_session.execute(select(UserCompanyAssignment).where(UserCompanyAssignment.user_id == user.id))

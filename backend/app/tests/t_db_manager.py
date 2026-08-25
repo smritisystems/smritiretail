@@ -47,14 +47,16 @@ async def override_db_and_tenant(db_session):
 
 import uuid
 
-async def _make_user(db_session, username, role):
-    comp = Company(id=f"comp-db-{username}", name="DB Co", gst_number="27ABCDE1234F1Z5", is_active=True)
-    br = Branch(id=f"br-db-{username}", company_id=comp.id, name="DB Br", code=f"BRDB-{username[:6]}", is_active=True)
+async def _make_user(db_session, username_prefix, role):
+    suffix = uuid.uuid4().hex[:6]
+    username = f"{username_prefix}_{suffix}"
+    comp = Company(id=f"comp-db-{suffix}", name=f"DB Co {suffix}", gst_number="27ABCDE1234F1Z5", is_active=True)
+    br = Branch(id=f"br-db-{suffix}", company_id=comp.id, name="DB Br", code=f"BRDB-{suffix}", is_active=True)
     db_session.add_all([comp, br])
     await db_session.commit()
 
     u = User(
-        id=f"user-{username}",
+        id=f"user-{suffix}",
         username=username,
         email=f"{username}@smritibooks.com",
         hashed_password=hash_password("admin123"),
@@ -102,7 +104,7 @@ async def test_list_tables_and_schema(db_session):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # Tables
         res = await ac.get(
-            "/api/v1/database-manager/tables?database=postgres",
+            "/api/v1/database-manager/tables?database=smritisys",
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res.status_code == 200, res.text
@@ -113,7 +115,7 @@ async def test_list_tables_and_schema(db_session):
 
         # Schema
         schema_res = await ac.get(
-            "/api/v1/database-manager/tables/users/schema?database=postgres",
+            "/api/v1/database-manager/tables/users/schema?database=smritisys",
             headers={"Authorization": f"Bearer {token}"}
         )
         assert schema_res.status_code == 200, schema_res.text
@@ -131,7 +133,7 @@ async def test_table_data_pagination(db_session):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.get(
-            "/api/v1/database-manager/tables/users/data?database=postgres&page=1&limit=10",
+            "/api/v1/database-manager/tables/users/data?database=smritisys&page=1&limit=10",
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res.status_code == 200, res.text
@@ -151,7 +153,7 @@ async def test_safe_sql_query_runner(db_session):
         # Valid SELECT query
         res = await ac.post(
             "/api/v1/database-manager/query",
-            json={"query": "SELECT count(*) as total_users FROM users;", "database": "postgres"},
+            json={"query": "SELECT count(*) as total_users FROM users;", "database": "smritisys"},
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res.status_code == 200, res.text
@@ -163,7 +165,7 @@ async def test_safe_sql_query_runner(db_session):
         # Blocked destructive query (DELETE)
         res_del = await ac.post(
             "/api/v1/database-manager/query",
-            json={"query": "DELETE FROM users WHERE 1=1;", "database": "postgres"},
+            json={"query": "DELETE FROM users WHERE 1=1;", "database": "smritisys"},
             headers={"Authorization": f"Bearer {token}"}
         )
         assert res_del.status_code == 400

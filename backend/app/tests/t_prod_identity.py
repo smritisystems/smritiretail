@@ -6,7 +6,7 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.api.deps import TenantContext, get_db, get_tenant_context
+from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context
 from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
@@ -22,6 +22,7 @@ async def override_db_and_tenant(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
     try:
         yield
     finally:
@@ -30,6 +31,7 @@ async def override_db_and_tenant(db_session):
         except Exception:
             pass
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_company_db, None)
         app.dependency_overrides.pop(get_tenant_context, None)
 
 
@@ -74,21 +76,26 @@ def _set_tenant(comp_id: str, br_id: str):
 
 @pytest.mark.asyncio
 async def test_create_barcode_provider_and_identity(db_session):
-    comp, br = await _make_tenant(db_session, "001")
-    manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.MANAGER)
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    manager = await _make_user(db_session, f"mgr_{s}", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
     _set_tenant(comp.id, br.id)
 
     product = Product(
-        id="prod-pie-001",
-        code="PIE-001",
-        name="PIE Product 001",
+        id=f"prod-pie-{s}",
+        code=f"PIE-{s}",
+        name=f"PIE Product {s}",
         price=100.0,
+        mrp=120.0,
+        gst_percentage=18.0,
+        hsn_code="6403",
         stock=10,
         category="Footwear",
-        barcode="0001112223334",
+        barcode=f"00011122{s}",
         company_id=comp.id,
         branch_id=br.id,
+        is_active=True,
         is_deleted=False,
     )
     db_session.add(product)
@@ -96,9 +103,9 @@ async def test_create_barcode_provider_and_identity(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         provider_req = {
-            "name": "GS1-IN",
+            "name": f"GS1-IN-{s}",
             "providerType": "GS1",
-            "poolCode": "EAN13-33",
+            "poolCode": f"EAN13-{s}",
             "priority": 10,
             "config": {"prefix": "890"},
             "description": "Test GS1 pool",
@@ -107,14 +114,14 @@ async def test_create_barcode_provider_and_identity(db_session):
         res = await ac.post("/api/v1/product-identity/providers", json=provider_req, headers=headers)
         assert res.status_code == 201
         provider = res.json()
-        assert provider["name"] == "GS1-IN"
-        assert provider["poolCode"] == "EAN13-33"
+        assert provider["name"] == f"GS1-IN-{s}"
+        assert provider["poolCode"] == f"EAN13-{s}"
 
         identity_req = {
             "productId": product.id,
-            "businessKey": "FOOT-001-RED-38",
-            "fingerprint": "fp-001",
-            "barcode": "8901234567890",
+            "businessKey": f"FOOT-{s}-RED-38",
+            "fingerprint": f"fp-{s}",
+            "barcode": f"8901234{s}",
             "barcodeProviderId": provider["id"],
             "state": "Assigned",
             "identityMetadata": {"color": "Red", "size": "38"},
@@ -123,6 +130,6 @@ async def test_create_barcode_provider_and_identity(db_session):
         res = await ac.post("/api/v1/product-identity/identities", json=identity_req, headers=headers)
         assert res.status_code == 201
         identity = res.json()
-        assert identity["businessKey"] == "FOOT-001-RED-38"
-        assert identity["barcode"] == "8901234567890"
+        assert identity["businessKey"] == f"FOOT-{s}-RED-38"
+        assert identity["barcode"] == f"8901234{s}"
         assert identity["state"] == "Assigned"

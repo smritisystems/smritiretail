@@ -31,7 +31,7 @@ from app.tests.conftest import clear_db
 @pytest.fixture(autouse=True)
 async def clean_database_fixture(db_session):
     await clear_db(db_session)
-    async def _get_db(*args, **kwargs):
+    async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
     app.dependency_overrides[get_company_db] = _get_db
@@ -64,10 +64,15 @@ async def _seed_company_and_product(db_session, suffix):
         name=f"Ecom Product {suffix}",
         category="Footwear",
         barcode=f"890{suffix}001",
+        price=Decimal("150.00"),
+        mrp=Decimal("180.00"),
+        gst_percentage=Decimal("18.00"),
+        hsn_code="6403",
         stock=20,
         reserved_stock=Decimal("0.0000"),
         company_id=comp.id,
-        branch_id=br.id
+        branch_id=br.id,
+        is_active=True,
     )
     db_session.add(prod)
     await db_session.commit()
@@ -80,9 +85,11 @@ async def test_shopify_webhook_processing_and_idempotency(db_session):
     suffix = uuid.uuid4().hex[:6]
     comp, br, prod = await _seed_company_and_product(db_session, suffix)
 
+    from app.core.config import settings
     headers = {
         "X-Company-ID": comp.id,
         "X-Company-Code": "001",
+        "X-Internal-Service-Key": settings.INTERNAL_SERVICE_KEY,
         "X-Shopify-Topic": "orders/create"
     }
 
@@ -101,14 +108,14 @@ async def test_shopify_webhook_processing_and_idempotency(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # First delivery
         res1 = await client.post("/api/v1/ecom/webhooks/shopify", json=order_payload, headers=headers)
-        assert res1.status_code == 200
+        assert res1.status_code == 200, res1.text
         data1 = res1.json()
         assert data1["status"] == "PROCESSED"
         assert len(data1["reserved_items"]) == 1
 
         # Duplicate delivery
         res2 = await client.post("/api/v1/ecom/webhooks/shopify", json=order_payload, headers=headers)
-        assert res2.status_code == 200
+        assert res2.status_code == 200, res2.text
         data2 = res2.json()
         assert data2["status"] == "DUPLICATE_IGNORED"
 
@@ -119,9 +126,11 @@ async def test_woocommerce_webhook_processing_and_idempotency(db_session):
     suffix = uuid.uuid4().hex[:6]
     comp, br, prod = await _seed_company_and_product(db_session, suffix)
 
+    from app.core.config import settings
     headers = {
         "X-Company-ID": comp.id,
         "X-Company-Code": "001",
+        "X-Internal-Service-Key": settings.INTERNAL_SERVICE_KEY,
         "X-WC-Webhook-Topic": "order.created"
     }
 
@@ -173,7 +182,9 @@ async def test_customer_portal_orders_endpoint(db_session):
         "branch_id": br.id
     })
     headers = {
-        "Authorization": f"Bearer {token}"
+        "Authorization": f"Bearer {token}",
+        "X-Company-ID": comp.id,
+        "X-Branch-ID": br.id,
     }
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Anonymous request -> 401
@@ -182,7 +193,7 @@ async def test_customer_portal_orders_endpoint(db_session):
 
         # Authenticated request -> 200
         res = await client.get("/api/v1/ecom/portal/orders?customer_phone=9876543210", headers=headers)
-        assert res.status_code == 200
+        assert res.status_code == 200, res.text
         data = res.json()
         assert data["success"] is True
         assert "orders" in data
@@ -224,9 +235,13 @@ async def test_reserve_ecom_inventory_auth(db_session):
             "company_id": comp.id,
             "branch_id": br.id
         })
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "X-Company-ID": comp.id,
+            "X-Branch-ID": br.id,
+        }
         res_auth = await client.post("/api/v1/ecom/orders/reserve", json=reserve_payload, headers=headers)
-        assert res_auth.status_code == 200
+        assert res_auth.status_code == 200, res_auth.text
         data = res_auth.json()
         assert data["success"] is True
         assert data["sku"] == prod.code
