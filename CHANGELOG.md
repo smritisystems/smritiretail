@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.44.0] - 2026-08-25
+
+#### Sprint 28: P1.5 Transaction Reproducibility & Historical Replay Engine (Governed Logic)
+- **Transaction Version Anchoring & Schemas**:
+  - Added Pydantic schemas in `backend/app/schemas/tx_reproduce.py` for `GovernanceSnapshot`, `SnapshotCreateRequest`, `LedgerEntryReplay`, `TransactionReplayRequest`, and `TransactionReplayResponse`.
+  - Enhanced `TransactionReproducibilityService` in `backend/app/services/tx_reproduce_svc.py` to capture complete 6-part version snapshots (`formula_versions`, `rule_versions`, `policy_versions`, `pricing_version`, `accounting_rule_version`, `doc_template_version`).
+  - Built historical recalculation replay engine executing exact snapshot-anchored rules from `smritisys` with balanced double-entry accounting ledger generation (Debit Cash/Debtors == Credit Revenue + Output Taxes) and automated drift detection.
+- **REST Endpoints Exposed (`/api/v1/governed-logic/`)**:
+  - Mounted `/snapshot/create` and `/replay` in `backend/app/api/v1/governed_logic.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_tx_reproduce.py` (7/7 tests green, 51/51 regression tests green).
+  - Verified 0.00% calculation drift between historical invoices and catalog rule updates.
+  - Certified Blueprint Section 5.2 (`P1.5 Transaction Reproducibility`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.43.0] - 2026-08-25
 
 #### Sprint 27: P1.4 Formula, Rule, Policy, and Workflow Engines (Governed Logic)
