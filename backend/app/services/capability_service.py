@@ -12,7 +12,19 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import uuid
 from typing import Dict, Any, List, Optional, Tuple, Set
+from datetime import datetime, timezone
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, or_, func
+from sqlalchemy.orm import selectinload
+
+from ..models.capability_template import (
+    PlatformCapability,
+    TenantCapabilityBinding,
+    FeatureFlag,
+    ModuleState,
+)
 
 
 class CapabilityService:
@@ -313,3 +325,166 @@ class CapabilityService:
             "active_count": len(base_codes),
             "dependency_errors": errors,
         }
+
+    # =========================================================================
+    # Async Database-Backed Control-Plane & Tenant Methods
+    # =========================================================================
+
+    @classmethod
+    async def get_db_capabilities(cls, db: AsyncSession) -> List[PlatformCapability]:
+        """Fetch all platform capabilities from smritisys control plane."""
+        stmt = select(PlatformCapability).where(
+            PlatformCapability.is_active == True,
+            PlatformCapability.is_deleted == False,
+        ).order_by(PlatformCapability.code)
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_tenant_bindings(cls, company_db: AsyncSession) -> List[TenantCapabilityBinding]:
+        """Fetch all active capability bindings for tenant."""
+        stmt = select(TenantCapabilityBinding).where(
+            TenantCapabilityBinding.is_deleted == False
+        ).order_by(TenantCapabilityBinding.capability_code)
+        result = await company_db.execute(stmt)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def toggle_tenant_capability(
+        cls,
+        company_db: AsyncSession,
+        capability_code: str,
+        enable: bool,
+        force: bool = False,
+    ) -> TenantCapabilityBinding:
+        """
+        Enable or disable capability for tenant with strict dependency check (fail closed).
+        """
+        code = capability_code.strip().upper()
+
+        # Get current active tenant capabilities
+        stmt_all = select(TenantCapabilityBinding).where(
+            TenantCapabilityBinding.is_deleted == False
+        )
+        existing_bindings = (await company_db.execute(stmt_all)).scalars().all()
+        binding_map = {b.capability_code: b for b in existing_bindings}
+        active_codes = {b.capability_code for b in existing_bindings if b.is_enabled}
+
+        if enable:
+            # Check prerequisites
+            prereqs = cls.CANONICAL_CAPABILITIES.get(code, {}).get("dependencies", [])
+            missing_prereqs = [p for p in prereqs if p not in active_codes]
+            if missing_prereqs and not force:
+                raise ValueError(
+                    f"Cannot enable capability '{code}': missing prerequisite capabilities {missing_prereqs}."
+                )
+
+            if code in binding_map:
+                binding = binding_map[code]
+                binding.is_enabled = True
+                binding.is_active = True
+                binding.status = "ACTIVE"
+                binding.activated_at = datetime.now(timezone.utc)
+            else:
+                binding = TenantCapabilityBinding(
+                    id=f"tcb_{uuid.uuid4().hex[:12]}",
+                    capability_code=code,
+                    is_enabled=True,
+                    is_active=True,
+                    status="ACTIVE",
+                    activated_at=datetime.now(timezone.utc),
+                )
+                company_db.add(binding)
+
+        else:
+            # Check if any active capability depends on this one
+            if not force:
+                dependent_active = []
+                for act_code in active_codes:
+                    if act_code == code:
+                        continue
+                    act_prereqs = cls.CANONICAL_CAPABILITIES.get(act_code, {}).get("dependencies", [])
+                    if code in act_prereqs:
+                        dependent_active.append(act_code)
+
+                if dependent_active:
+                    raise ValueError(
+                        f"Cannot disable capability '{code}': active capabilities {dependent_active} depend on it."
+                    )
+
+            if code in binding_map:
+                binding = binding_map[code]
+                binding.is_enabled = False
+                binding.status = "DISABLED"
+            else:
+                binding = TenantCapabilityBinding(
+                    id=f"tcb_{uuid.uuid4().hex[:12]}",
+                    capability_code=code,
+                    is_enabled=False,
+                    is_active=False,
+                    status="DISABLED",
+                )
+                company_db.add(binding)
+
+        await company_db.commit()
+        await company_db.refresh(binding)
+        return binding
+
+    @classmethod
+    async def get_feature_flags(
+        cls, db: AsyncSession, company_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Fetch feature flags and evaluate tenant enablement."""
+        stmt = select(FeatureFlag).where(
+            FeatureFlag.is_active == True,
+            FeatureFlag.is_deleted == False,
+        ).order_by(FeatureFlag.key)
+        result = await db.execute(stmt)
+        flags = result.scalars().all()
+
+        output = []
+        for f in flags:
+            overrides = f.company_overrides or {}
+            is_company_enabled = overrides.get(company_id, f.is_global_enabled) if company_id else f.is_global_enabled
+            output.append({
+                "id": f.id,
+                "key": f.key,
+                "name": f.name,
+                "category": f.category,
+                "description": f.description,
+                "is_global_enabled": f.is_global_enabled,
+                "is_enabled_for_company": is_company_enabled,
+            })
+        return output
+
+    @classmethod
+    async def toggle_feature_flag(
+        cls, db: AsyncSession, flag_key: str, company_id: str, enable: bool
+    ) -> FeatureFlag:
+        """Set company-level override for a feature flag."""
+        stmt = select(FeatureFlag).where(
+            FeatureFlag.key == flag_key.strip(),
+            FeatureFlag.is_deleted == False,
+        )
+        flag = (await db.execute(stmt)).scalars().first()
+        if not flag:
+            raise ValueError(f"Feature flag '{flag_key}' not found.")
+
+        overrides = dict(flag.company_overrides or {})
+        overrides[company_id] = enable
+        flag.company_overrides = overrides
+        await db.commit()
+        await db.refresh(flag)
+        return flag
+
+    @classmethod
+    async def get_module_states(
+        cls, db: AsyncSession, tenant_id: Optional[str] = None
+    ) -> List[ModuleState]:
+        """Fetch module lifecycle states."""
+        stmt = select(ModuleState)
+        if tenant_id:
+            stmt = stmt.where(ModuleState.tenant_id == tenant_id)
+        result = await db.execute(stmt.order_by(ModuleState.module_uuid))
+        return list(result.scalars().all())
+

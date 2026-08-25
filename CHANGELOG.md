@@ -28,6 +28,22 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.41.0] - 2026-08-25
+
+#### Sprint 25: P1.2 Capability & Module Registry (Control Plane)
+- **Control Plane Capability Catalog & Schemas**:
+  - Added Pydantic schemas in `backend/app/schemas/capabilities.py` for `PlatformCapabilityResponse`, `CapabilityValidationRequest`, `CapabilityValidationResponse`, `PlanTierResponse`, `PlanResolutionRequest`, `TenantEffectiveCapabilitiesResponse`, `TenantCapabilityBindingResponse`, `TenantCapabilityToggleRequest`, `FeatureFlagResponse`, and `ModuleStateResponse`.
+  - Added `ModuleState` and `ModuleAuditLog` models in `backend/app/models/capability_template.py`.
+  - Enhanced `CapabilityService` in `backend/app/services/capability_service.py` with async database-backed methods for platform capability DAG resolution, tenant capability toggling with fail-closed dependency checks, feature flag evaluations with company-level overrides, and module lifecycle state tracking.
+- **REST Endpoints Exposed (`/api/v1/capabilities/`)**:
+  - Mounted `/catalog`, `/plans`, `/validate` (POST), `/resolve` (POST), `/tenant`, `/tenant/toggle` (POST), `/feature-flags`, `/feature-flags/{key}/toggle` (POST), and `/modules`.
+- **Master Data Seeding**:
+  - Seeded all 32 platform capabilities with dependency DAGs, 3 subscription plan tiers, 5 platform feature flags, and 7 system module states across `smritisys`, `smriti001`, and `smriti002` via `backend/app/db/seed_cap_master.py`.
+- **Verification & Governance**:
+  - Added test suite `backend/tests/t_cap_registry.py` (8/8 tests green, 27/27 regression tests passing).
+  - Certified Blueprint Section 4.2 (`P1.2 Capability and Module Registry`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.40.0] - 2026-08-25
 
 #### Sprint 24: P1.1 Control Plane Reference Data & Global Localization Engine

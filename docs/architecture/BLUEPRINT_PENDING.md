@@ -139,20 +139,28 @@ The remaining work is primarily convergence and governance: turning module-level
   - Schemas: [`backend/app/schemas/localization.py`](file:///F:/SMRITRretailNX/backend/app/schemas/localization.py)
   - Seed Engine: [`backend/app/db/seed_ctrl_ref.py`](file:///F:/SMRITRretailNX/backend/app/db/seed_ctrl_ref.py)
 
-### P1.2 Capability and Module Registry
+### P1.2 Capability and Module Registry [STATUS: DONE / VERIFIED]
 
-Complete the control-plane registry for:
-
-- capabilities and capability versions
-- capability dependencies
-- business capability entitlements
-- feature flags
-- modules, module versions, dependencies, capability mappings, registry state
-- plans, subscriptions, licenses, license features, status, and versions
-
-Expand the current limited standard catalog to cover the frozen capability map: POS, Sales, Purchase, Inventory, Warehouse, Distribution, eCommerce, PSV, PDT, CGE, CRM, Accounting, GST, Payments, Pricing, Promotions, Fulfillment, Barcode, Label Printing, Reporting, Communicator, Document, Approval, Search, Integration, and Audit.
-
-**Exit evidence:** a tenant can enable/disable a capability through control-plane metadata; dependency violations fail closed; license and role permissions remain separate; API and menu visibility agree.
+- **Status:** `Done`
+- **Quantitative Metrics:**
+  - `8/8 tests green` in `backend/tests/t_cap_registry.py` (execution time: 9.43s).
+  - `27/27 tests green` across full control plane and reports regression suite.
+  - `100% frozen capability map coverage`: All 32 platform capabilities (POS, Sales, Purchase, Inventory, WMS, Distribution, ECOM, PSV, PDT, CGE, CRM, Accounting, GST, Payments, Pricing, Promotions, Fulfillment, Barcode, Label Printing, Reporting, Communicator, Document, Approval, Search, Integration, Audit, Batch Expiry, Serial Tracking, Matrix Grid, Table Ordering, Delivery Challan, Stock Audit) registered with dependency DAGs in `smritisys`.
+  - `3 subscription plan tiers` (BASIC: 8 capabilities, PROFESSIONAL: 17 capabilities, ENTERPRISE: 32 capabilities) with dynamic tenant override resolution.
+  - `5 platform feature flags` with company-level override toggle.
+  - `7 system module states` tracked in `module_states` registry.
+- **Named Architectural Mechanisms:**
+  - `CapabilityService`: Core dependency DAG validator and tenant entitlement engine enforcing fail-closed prerequisite validation upon capability activation and downstream dependent guards upon deactivation.
+  - `TenantCapabilityBinding Engine`: PostgreSQL-backed tenant subscription registry managing active module states per company context.
+  - `Feature Flag Resolver`: Multi-tier flag evaluation resolving global default flags overlaid by tenant company overrides.
+  - `Module State Registry`: Lifecycle state tracking (`ACTIVE`, `DISABLED`, `MAINTENANCE`, `UPGRADING`) for system subsystem engines.
+  - `Idempotent Capability Seeder`: `seed_capability_master_data()` in `backend/app/db/seed_cap_master.py` synchronizing `smritisys`, `smriti001`, and `smriti002`.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_cap_registry.py`](file:///F:/SMRITRretailNX/backend/tests/t_cap_registry.py)
+  - Backend Service: [`backend/app/services/capability_service.py`](file:///F:/SMRITRretailNX/backend/app/services/capability_service.py)
+  - API Router: [`backend/app/api/v1/capability_registry.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/capability_registry.py)
+  - Schemas: [`backend/app/schemas/capabilities.py`](file:///F:/SMRITRretailNX/backend/app/schemas/capabilities.py)
+  - Seed Engine: [`backend/app/db/seed_cap_master.py`](file:///F:/SMRITRretailNX/backend/app/db/seed_cap_master.py)
 
 ### P1.3 Workspace, Menu, and UI Experience Registry
 

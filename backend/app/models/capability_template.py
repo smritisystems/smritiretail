@@ -28,7 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
-from ..db.base import BaseEntity
+from ..db.base import Base, BaseEntity
 
 
 class PlatformCapability(BaseEntity):
@@ -110,3 +110,35 @@ class UserWorkspaceConfig(BaseEntity):
     theme_preference = Column(String(30), nullable=False, default="DARK_RETRO")
     pinned_modules = Column(JSONB, server_default=text("'[]'"), default=list)
     custom_widgets = Column(JSONB, server_default=text("'{}'"), default=dict)
+
+
+class ModuleState(Base):
+    """
+    Control Plane and Tenant module lifecycle state registry.
+    """
+    __tablename__ = "module_states"
+
+    id = Column(String(50), primary_key=True)
+    module_uuid = Column(String(100), nullable=False, index=True)
+    tenant_id = Column(String(50), nullable=False, index=True)
+    state = Column(String(30), nullable=False, default="ACTIVE")
+    version = Column(String(30), nullable=False, default="1.0.0")
+    is_critical = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class ModuleAuditLog(Base):
+    """
+    Audit log of module state transitions and capability toggles.
+    """
+    __tablename__ = "module_audit_logs"
+
+    id = Column(String(50), primary_key=True)
+    tenant_id = Column(String(50), nullable=False, index=True)
+    module_id = Column(String(100), nullable=False)
+    action = Column(String(50), nullable=False)
+    previous_state = Column(String(30), nullable=True)
+    new_state = Column(String(30), nullable=False)
+    actor_id = Column(String(50), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
