@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.45.0] - 2026-08-25
+
+#### Sprint 29: P1.1 Universal Party Master Completion (Data Plane Convergence)
+- **Universal Party Master Database Models & DDL**:
+  - Extended `Party` in `backend/app/models/party.py` with `merged_into_party_id` and sub-entity relationship models: `PartyAddress` (multi-address store), `PartyContact` (multi-contact store), `CustomerProfile`, `SupplierProfile`, and `PartyRelationship`.
+  - Executed migration script `backend/app/db/migr_party_ext.py` migrating tenant databases `smriti001` and `smriti002`.
+- **Schemas & Service Engine**:
+  - Created `backend/app/schemas/party_master.py` and `backend/app/services/party_master_svc.py` providing atomic party provisioning across 7 polymorphic roles (`CUSTOMER`, `SUPPLIER`, `DEALER`, `DISTRIBUTOR`, `SALESMAN`, `TRANSPORTER`, `EMPLOYEE`), multi-tier deduplication (GSTIN -> Phone -> Email -> Code), audit-preserving merge policy, and legacy customer/supplier projection adapters.
+- **REST Endpoints (`/api/v1/universal/parties`)**:
+  - Mounted `/parties`, `/parties/{party_id}`, `/parties/{party_id}/roles`, `/parties/merge`, and `/adapter/*` in `backend/app/api/v1/universal_master.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_party_master.py` (6/6 tests green, 57/57 regression tests green).
+  - Certified Blueprint Section 6.1 (`P1.1 Universal Party Master completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.44.0] - 2026-08-25
 
 #### Sprint 28: P1.5 Transaction Reproducibility & Historical Replay Engine (Governed Logic)
