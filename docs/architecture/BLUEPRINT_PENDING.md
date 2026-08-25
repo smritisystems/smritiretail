@@ -375,9 +375,30 @@ The remaining work is primarily convergence and governance: turning module-level
   - Models: [`backend/app/models/payment_ledger.py`](file:///F:/SMRITRretailNX/backend/app/models/payment_ledger.py)
   - Schemas: [`backend/app/schemas/payments.py`](file:///F:/SMRITRretailNX/backend/app/schemas/payments.py)
 
+#### Documents Engine — `Done / Verified`
+- **Quantitative Metrics:**
+  - `6/6 tests green` in `backend/tests/t_documents.py`.
+  - `93/93 full platform regression tests green`.
+  - `0 naming violations` verified by `scripts/smriti_naming_guard.py`.
+  - 100% gapless locked sequential numbering with `with_for_update()`.
+  - 100% template integrity with 64-character SHA256 configuration & artifact hashing.
+  - Complete document lifecycle state machine validation (`DRAFT` -> `ISSUED` -> `PRINTED` -> `AMENDED` -> `CANCELLED` / `VOIDED`).
+- **Named Architectural Mechanisms:**
+  - `DocumentsEngine.allocate_next_number`: Concurrency-safe locked sequence allocation using PostgreSQL `SELECT ... FOR UPDATE` ensuring gapless statutory numbering continuity.
+  - `DocumentsEngine.create_template`: Versioned document layout configuration template manager with SHA256 configuration hashing and frozen version snapshots (`V1`).
+  - `DocumentsEngine.render_document`: HTML/text document rendering engine computing SHA256 document integrity digests and persisting `InvoiceDocumentArtifact` records.
+  - `DocumentsEngine.dispatch_print_job`: Print job dispatcher tracking reprint counters and dynamically applying statutory watermarks ("ORIGINAL FOR RECIPIENT", "DUPLICATE COPY (REPRINT #N)").
+  - `DocumentsEngine.update_lifecycle_state`: Governed document lifecycle state transition validator enforcing valid workflow graph paths.
+  - `DocumentSeries`, `NumberingAuditLog`, `TaxInvoiceTemplate`, `InvoiceDocumentArtifact`: Authoritative PostgreSQL document models.
+- **Verifiable Evidence Citation:**
+  - Test Suite: [`backend/tests/t_documents.py`](file:///F:/SMRITRretailNX/backend/tests/t_documents.py)
+  - Backend Service: [`backend/app/services/documents_engine.py`](file:///F:/SMRITRretailNX/backend/app/services/documents_engine.py)
+  - API Router: [`backend/app/api/v1/documents.py`](file:///F:/SMRITRretailNX/backend/app/api/v1/documents.py)
+  - Schemas: [`backend/app/schemas/documents.py`](file:///F:/SMRITRretailNX/backend/app/schemas/documents.py)
+  - Models: [`backend/app/models/numbering.py`](file:///F:/SMRITRretailNX/backend/app/models/numbering.py), [`backend/app/models/tax_inv_template.py`](file:///F:/SMRITRretailNX/backend/app/models/tax_inv_template.py)
+
 ### Remaining Shared Business Engines:
 
-- **Documents:** document types/categories/lifecycles, templates, rendering, printing, numbering, version binding.
 - **Fulfillment:** fulfillment orders, pick, pack, dispatch, delivery, tracking, returns.
 - **Barcode and Labels:** barcode formats/rules, batch/serial labels, print jobs and hardware adapters.
 - **Approval:** levels, assignments, delegation, escalation, history, and transaction enforcement.

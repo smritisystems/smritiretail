@@ -28,6 +28,23 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.51.0] - 2026-08-25
+
+#### Sprint 35: Section 7 Shared Business Engines: Documents Engine Completion
+- **Authoritative Documents Engine Service & Lifecycle State Machine**:
+  - Implemented `backend/app/services/documents_engine.py` and created `backend/app/schemas/documents.py` managing gapless sequential numbering, layout templates, rendering, print dispatch, and lifecycle state machines.
+  - Implemented atomic sequence number allocation with row-level locks (`SELECT ... FOR UPDATE`) guaranteeing gapless statutory numbering continuity.
+  - Implemented versioned layout template management with SHA256 configuration hashing and frozen versions (`V1`).
+  - Implemented dynamic document rendering and persisted immutable `InvoiceDocumentArtifact` records with SHA256 integrity verification.
+  - Implemented print job dispatch with reprint tracking and statutory legal watermarks ("ORIGINAL FOR RECIPIENT", "DUPLICATE COPY (REPRINT #N)").
+  - Implemented governed document lifecycle state transition validator enforcing valid workflow graph paths.
+- **REST Endpoints (`/api/v1/documents/*`)**:
+  - Mounted `/numbering/series`, `/numbering/allocate`, `/templates`, `/render`, `/print`, and `/lifecycle` in `backend/app/api/v1/documents.py` and registered in `backend/app/main.py`.
+- **Verification & Governance**:
+  - Added integration test suite `backend/tests/t_documents.py` (6/6 tests green, 93/93 full platform regression tests green).
+  - Certified Blueprint Section 7 (`Documents Engine Completion`) as `Done / Verified` per Rule 11.
+  - Updated WGP Walkthrough index and passed SMRITI Naming Guard (0 violations).
+
 ### [3.50.0] - 2026-08-25
 
 #### Sprint 34: Section 7 Shared Business Engines: Payments Engine Completion
