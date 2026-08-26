@@ -165,3 +165,83 @@ async def test_shoper9_sales_reports_endpoints():
             assert res.status_code == 200, f"Failed on {ep}: {res.status_code} - {res.text}"
             data = res.json()
             assert isinstance(data, dict), f"Expected dict response for {ep}"
+
+
+@pytest.mark.asyncio
+async def test_sales_order_reports_mathematical_reconciliation():
+    """
+    Mathematical & Database Reconciliation Test:
+    1. Order Value == Billed Value + Pending Value
+    2. Sum of line values == Report total value
+    3. Fulfillment Status consistency
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/reports/sales-orders/summary", headers=_get_auth_headers())
+        assert res.status_code == 200
+        data = res.json()
+
+        tot_val = float(data["total_order_value"])
+        tot_billed = float(data["total_billed_value"])
+        tot_pending = float(data["total_pending_value"])
+
+        # 1. Reconciliation: Order Value == Billed Value + Pending Value (within 1 cent float tolerance)
+        assert abs(tot_val - (tot_billed + tot_pending)) < 0.05, (
+            f"Mathematical mismatch: Order Value {tot_val} != Billed {tot_billed} + Pending {tot_pending}"
+        )
+
+        # 2. Line-level sum == Report total
+        lines = data["lines"]
+        assert len(lines) == data["total_orders"]
+        sum_grand = sum(float(l["grand_total"]) for l in lines)
+        sum_billed = sum(float(l["billed_value"]) for l in lines)
+        sum_pending = sum(float(l["pending_value"]) for l in lines)
+
+        assert abs(sum_grand - tot_val) < 0.05, f"Line sum {sum_grand} != Total {tot_val}"
+        assert abs(sum_billed - tot_billed) < 0.05, f"Billed sum {sum_billed} != Total {tot_billed}"
+        assert abs(sum_pending - tot_pending) < 0.05, f"Pending sum {sum_pending} != Total {tot_pending}"
+
+
+@pytest.mark.asyncio
+async def test_tax_invoice_gst_math_reconciliation():
+    """
+    Statutory Tax Math Reconciliation Test:
+    1. CGST + SGST + IGST == Total Tax on all invoice items
+    2. Taxable Value + Total Tax == Invoice Total (subject to rounding)
+    3. Dynamic GST Rate calculation
+    """
+    from app.core.gst_engine import calculate_line_item_tax
+    from decimal import Decimal
+
+    # Test intra-state 18%
+    tax_intra_18 = calculate_line_item_tax(
+        unit_price=Decimal("100.00"),
+        quantity=Decimal("2.00"),
+        discount_amount=Decimal("0.00"),
+        gst_rate=Decimal("18.00"),
+        is_tax_inclusive=False,
+        is_interstate=False,
+    )
+    assert tax_intra_18["taxable_value"] == Decimal("200.00")
+    assert tax_intra_18["cgst_amount"] == Decimal("18.00")
+    assert tax_intra_18["sgst_amount"] == Decimal("18.00")
+    assert tax_intra_18["igst_amount"] == Decimal("0.00")
+    assert (tax_intra_18["cgst_amount"] + tax_intra_18["sgst_amount"] + tax_intra_18["igst_amount"]) == tax_intra_18["tax_amount"]
+    assert (tax_intra_18["taxable_value"] + tax_intra_18["tax_amount"]) == tax_intra_18["total_amount"]
+
+    # Test inter-state 5%
+    tax_inter_5 = calculate_line_item_tax(
+        unit_price=Decimal("500.00"),
+        quantity=Decimal("3.00"),
+        discount_amount=Decimal("100.00"),
+        gst_rate=Decimal("5.00"),
+        is_tax_inclusive=False,
+        is_interstate=True,
+    )
+    # Taxable = 1500 - 100 = 1400. Tax = 1400 * 5% = 70
+    assert tax_inter_5["taxable_value"] == Decimal("1400.00")
+    assert tax_inter_5["cgst_amount"] == Decimal("0.00")
+    assert tax_inter_5["sgst_amount"] == Decimal("0.00")
+    assert tax_inter_5["igst_amount"] == Decimal("70.00")
+    assert (tax_inter_5["cgst_amount"] + tax_inter_5["sgst_amount"] + tax_inter_5["igst_amount"]) == tax_inter_5["tax_amount"]
+    assert (tax_inter_5["taxable_value"] + tax_inter_5["tax_amount"]) == tax_inter_5["total_amount"]

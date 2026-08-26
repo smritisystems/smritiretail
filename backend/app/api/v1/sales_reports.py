@@ -40,9 +40,8 @@ def _t(stmt, model, tenant: TenantContext):
             (model.company_id == tenant.company_id) | (model.company_id.is_(None))
         )
     if tenant and tenant.branch_id:
-        aliases = [tenant.branch_id, "MAIN", "BR-MAIN-001", "BR-001", "DEFAULT"]
         stmt = stmt.where(
-            (model.branch_id.in_(aliases)) | (model.branch_id.is_(None))
+            (model.branch_id == tenant.branch_id) | (model.branch_id.is_(None))
         )
     return stmt
 
