@@ -484,7 +484,12 @@ class ReportsService:
     async def tax_register(self, from_date=None, to_date=None):
         """RPT-TAX-001 -- Shoper9 SR202300 Tax Register."""
         from ..schemas.reports import TaxRegisterLine, TaxRegisterReport
-        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+        from sqlalchemy.orm import selectinload
+        stmt = (
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+        )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
         invoices = (await self.db.execute(stmt.order_by(SalesInvoice.date.desc()))).scalars().all()
@@ -498,10 +503,27 @@ class ReportsService:
         
         for inv in invoices:
             taxable = Decimal(str(getattr(inv, "taxable_value", None) or getattr(inv, "taxable_amount", None) or getattr(inv, "net_amount", None) or getattr(inv, "grand_total", "0") or "0"))
-            cgst_a = Decimal(str(getattr(inv, "cgst_amount", "0") or "0"))
-            sgst_a = Decimal(str(getattr(inv, "sgst_amount", "0") or "0"))
-            igst_a = Decimal(str(getattr(inv, "igst_amount", "0") or "0"))
-            tax_tot = (cgst_a + sgst_a + igst_a) if (cgst_a + sgst_a + igst_a) > 0 else Decimal(str(getattr(inv, "tax_total", None) or getattr(inv, "tax_amount", "0") or "0"))
+            item_cgst = sum((Decimal(str(item.cgst_amount or "0")) for item in (inv.items or [])), Decimal("0.00"))
+            item_sgst = sum((Decimal(str(item.sgst_amount or "0")) for item in (inv.items or [])), Decimal("0.00"))
+            item_igst = sum((Decimal(str(item.igst_amount or "0")) for item in (inv.items or [])), Decimal("0.00"))
+            header_cgst = Decimal(str(getattr(inv, "cgst_amount", "0") or "0"))
+            header_sgst = Decimal(str(getattr(inv, "sgst_amount", "0") or "0"))
+            header_igst = Decimal(str(getattr(inv, "igst_amount", "0") or "0"))
+            cgst_a = item_cgst or header_cgst
+            sgst_a = item_sgst or header_sgst
+            igst_a = item_igst or header_igst
+            tax_tot = (cgst_a + sgst_a + igst_a)
+            if tax_tot <= 0:
+                tax_tot = Decimal(str(getattr(inv, "tax_total", None) or getattr(inv, "tax_amount", "0") or "0"))
+                if tax_tot > 0:
+                    if getattr(inv, "is_interstate", False):
+                        igst_a = tax_tot
+                    else:
+                        cgst_a = (tax_tot / Decimal("2")).quantize(Decimal("0.01"))
+                        sgst_a = tax_tot - cgst_a
+
+            effective_rate = (tax_tot / taxable * Decimal("100.00")).quantize(Decimal("0.01")) if taxable > 0 else Decimal("0.00")
+            is_interstate = bool(getattr(inv, "is_interstate", False))
             
             t_taxable += taxable
             t_cgst += cgst_a
@@ -515,11 +537,11 @@ class ReportsService:
                     invoice_date=str(getattr(inv, "date", "") or ""),
                     customer_name=getattr(inv, "customer_name", None),
                     taxable_amount=taxable,
-                    cgst_rate=Decimal("9.00") if cgst_a > 0 else Decimal("0.00"),
+                    cgst_rate=(effective_rate / Decimal("2")).quantize(Decimal("0.01")) if cgst_a > 0 and not is_interstate else Decimal("0.00"),
                     cgst_amount=cgst_a,
-                    sgst_rate=Decimal("9.00") if sgst_a > 0 else Decimal("0.00"),
+                    sgst_rate=(effective_rate / Decimal("2")).quantize(Decimal("0.01")) if sgst_a > 0 and not is_interstate else Decimal("0.00"),
                     sgst_amount=sgst_a,
-                    igst_rate=Decimal("18.00") if igst_a > 0 else Decimal("0.00"),
+                    igst_rate=effective_rate if igst_a > 0 else Decimal("0.00"),
                     igst_amount=igst_a,
                     total_tax=tax_tot,
                     net_amount=taxable + tax_tot,
@@ -1314,6 +1336,8 @@ class ReportsService:
 
         lines = []
         tot_qty = Decimal("0.0000")
+        tot_basic = Decimal("0.00")
+        tot_tax = Decimal("0.00")
         tot_val = Decimal("0.00")
         tot_billed = Decimal("0.00")
         tot_pending = Decimal("0.00")
@@ -1329,6 +1353,8 @@ class ReportsService:
             f_status = o.fulfillment_status or "UNFULFILLED"
 
             tot_qty += qty
+            tot_basic += basic
+            tot_tax += tax
             tot_val += grand
             tot_billed += billed
             tot_pending += pending
@@ -1350,10 +1376,40 @@ class ReportsService:
                 fulfillment_status=f_status,
             ))
 
+        filters_payload = {
+            "company_id": self.tenant.company_id if self.tenant else None,
+            "branch_id": self.tenant.branch_id if self.tenant else None,
+            "from_date": str(from_date) if from_date else None,
+            "to_date": str(to_date) if to_date else None,
+            "customer_id": customer_id,
+            "status": status,
+        }
+        summary_payload = {
+            "total_orders": len(lines),
+            "total_ordered_qty": tot_qty,
+            "total_order_value": tot_val,
+            "total_billed_value": tot_billed,
+            "total_pending_value": tot_pending,
+            "status_counts": status_counts,
+        }
+        totals_payload = {
+            "total_qty": tot_qty,
+            "basic_total": tot_basic,
+            "tax_total": tot_tax,
+            "grand_total": tot_val,
+            "billed_value": tot_billed,
+            "pending_value": tot_pending,
+        }
+
         return SalesOrderSummaryReport(
+            report_id="RPT-SO-001",
+            report_name="Sales Order Summary",
             from_date=str(from_date or ""),
             to_date=str(to_date or ""),
             generated_at=datetime.now(timezone.utc).isoformat(),
+            filters=filters_payload,
+            summary=summary_payload,
+            totals=totals_payload,
             total_orders=len(lines),
             total_ordered_qty=tot_qty,
             total_order_value=tot_val,
@@ -1361,6 +1417,7 @@ class ReportsService:
             total_pending_value=tot_pending,
             status_counts=status_counts,
             lines=lines,
+            rows=lines,
         )
 
     async def pending_orders(
@@ -1386,7 +1443,11 @@ class ReportsService:
         orders = res.scalars().all()
 
         lines = []
+        tot_ordered_qty = Decimal("0.0000")
+        tot_billed_qty = Decimal("0.0000")
         tot_pending_qty = Decimal("0.0000")
+        tot_grand_val = Decimal("0.00")
+        tot_billed_val = Decimal("0.00")
         tot_pending_val = Decimal("0.00")
 
         for o in orders:
@@ -1398,7 +1459,11 @@ class ReportsService:
             pending_val = Decimal(str(o.pending_value or (grand - billed)))
             f_status = o.fulfillment_status or "UNFULFILLED"
 
+            tot_ordered_qty += qty
+            tot_billed_qty += billed_qty
             tot_pending_qty += pending_qty
+            tot_grand_val += grand
+            tot_billed_val += billed
             tot_pending_val += pending_val
 
             lines.append(PendingOrderLine(
@@ -1417,14 +1482,41 @@ class ReportsService:
                 fulfillment_status=f_status,
             ))
 
+        filters_payload = {
+            "company_id": self.tenant.company_id if self.tenant else None,
+            "branch_id": self.tenant.branch_id if self.tenant else None,
+            "from_date": str(from_date) if from_date else None,
+            "to_date": str(to_date) if to_date else None,
+            "customer_id": customer_id,
+        }
+        summary_payload = {
+            "total_pending_orders": len(lines),
+            "total_pending_qty": tot_pending_qty,
+            "total_pending_value": tot_pending_val,
+        }
+        totals_payload = {
+            "total_qty": tot_ordered_qty,
+            "billed_qty": tot_billed_qty,
+            "pending_qty": tot_pending_qty,
+            "grand_total": tot_grand_val,
+            "billed_value": tot_billed_val,
+            "pending_value": tot_pending_val,
+        }
+
         return PendingOrdersReport(
+            report_id="RPT-SO-002",
+            report_name="Pending Orders",
             from_date=str(from_date or ""),
             to_date=str(to_date or ""),
             generated_at=datetime.now(timezone.utc).isoformat(),
+            filters=filters_payload,
+            summary=summary_payload,
+            totals=totals_payload,
             total_pending_orders=len(lines),
             total_pending_qty=tot_pending_qty,
             total_pending_value=tot_pending_val,
             lines=lines,
+            rows=lines,
         )
 
     async def billed_vs_pending_orders(
@@ -1456,6 +1548,7 @@ class ReportsService:
             billed = Decimal(str(o.billed_value or "0.00"))
             pending = Decimal(str(o.pending_value or (grand - billed)))
             pct = (billed / grand * Decimal("100.00")).quantize(Decimal("0.01")) if grand > 0 else Decimal("0.00")
+            pending_pct = (pending / grand * Decimal("100.00")).quantize(Decimal("0.01")) if grand > 0 else Decimal("0.00")
             f_status = o.fulfillment_status or "UNFULFILLED"
 
             tot_val += grand
@@ -1471,21 +1564,49 @@ class ReportsService:
                 billed_value=billed,
                 pending_value=pending,
                 billing_pct=pct,
+                pending_pct=pending_pct,
                 fulfillment_status=f_status,
             ))
 
         overall_pct = (tot_billed / tot_val * Decimal("100.00")).quantize(Decimal("0.01")) if tot_val > 0 else Decimal("0.00")
 
+        filters_payload = {
+            "company_id": self.tenant.company_id if self.tenant else None,
+            "branch_id": self.tenant.branch_id if self.tenant else None,
+            "from_date": str(from_date) if from_date else None,
+            "to_date": str(to_date) if to_date else None,
+            "customer_id": customer_id,
+        }
+        summary_payload = {
+            "total_orders": len(lines),
+            "total_order_value": tot_val,
+            "total_billed_value": tot_billed,
+            "total_pending_value": tot_pending,
+            "overall_billing_pct": overall_pct,
+        }
+        totals_payload = {
+            "grand_total": tot_val,
+            "billed_value": tot_billed,
+            "pending_value": tot_pending,
+            "overall_billing_pct": overall_pct,
+        }
+
         return BilledVsPendingOrdersReport(
+            report_id="RPT-SO-003",
+            report_name="Billed vs Pending Orders",
             from_date=str(from_date or ""),
             to_date=str(to_date or ""),
             generated_at=datetime.now(timezone.utc).isoformat(),
+            filters=filters_payload,
+            summary=summary_payload,
+            totals=totals_payload,
             total_orders=len(lines),
             total_order_value=tot_val,
             total_billed_value=tot_billed,
             total_pending_value=tot_pending,
             overall_billing_pct=overall_pct,
             lines=lines,
+            rows=lines,
         )
 
     async def customer_wise_orders(
@@ -1535,6 +1656,7 @@ class ReportsService:
         tot_billed = Decimal("0.00")
         tot_pending = Decimal("0.00")
         tot_orders = 0
+        tot_qty = Decimal("0.0000")
 
         for cname, data in cust_map.items():
             cnt = data["order_count"]
@@ -1544,6 +1666,7 @@ class ReportsService:
             tot_billed += data["billed_value"]
             tot_pending += data["pending_value"]
             tot_orders += cnt
+            tot_qty += data["total_qty"]
 
             lines.append(CustomerWiseOrderLine(
                 customer_name=cname,
@@ -1558,16 +1681,43 @@ class ReportsService:
 
         lines.sort(key=lambda x: x.total_value, reverse=True)
 
+        filters_payload = {
+            "company_id": self.tenant.company_id if self.tenant else None,
+            "branch_id": self.tenant.branch_id if self.tenant else None,
+            "from_date": str(from_date) if from_date else None,
+            "to_date": str(to_date) if to_date else None,
+        }
+        summary_payload = {
+            "total_customers": len(lines),
+            "total_orders": tot_orders,
+            "total_value": tot_val,
+            "total_billed_value": tot_billed,
+            "total_pending_value": tot_pending,
+        }
+        totals_payload = {
+            "order_count": tot_orders,
+            "total_qty": tot_qty,
+            "total_value": tot_val,
+            "billed_value": tot_billed,
+            "pending_value": tot_pending,
+        }
+
         return CustomerWiseOrdersReport(
+            report_id="RPT-SO-004",
+            report_name="Customer-wise Orders",
             from_date=str(from_date or ""),
             to_date=str(to_date or ""),
             generated_at=datetime.now(timezone.utc).isoformat(),
+            filters=filters_payload,
+            summary=summary_payload,
+            totals=totals_payload,
             total_customers=len(lines),
             total_orders=tot_orders,
             total_value=tot_val,
             total_billed_value=tot_billed,
             total_pending_value=tot_pending,
             lines=lines,
+            rows=lines,
         )
 
     async def product_wise_ordered_qty(
@@ -1591,14 +1741,21 @@ class ReportsService:
             stmt = stmt.where((SalesOrderItem.product_id == product_id) | (SalesOrderItem.article_no == product_id) | (SalesOrderItem.code == product_id))
 
         res = await self.db.execute(stmt)
-        rows = res.all()
+        rows_db = res.all()
 
         prod_map: Dict[str, dict] = {}
-        for item, order in rows:
+        for item, order in rows_db:
             key = f"{item.article_no or item.code}_{item.vendor_style or ''}_{item.color or ''}_{item.size or ''}"
             qty = Decimal(str(item.quantity or "0.0000"))
             val = Decimal(str(item.total_amount or "0.00"))
             cost = Decimal(str(item.price or "0.00"))
+
+            # Calculate item-level billing ratio based on parent order
+            ord_total_qty = Decimal(str(order.total_qty or "0.0000"))
+            ord_billed_qty = Decimal(str(order.billed_qty or "0.0000"))
+            ratio = (ord_billed_qty / ord_total_qty) if ord_total_qty > 0 else Decimal("0.00")
+            item_billed = (qty * ratio).quantize(Decimal("0.0001"))
+            item_pending = qty - item_billed
 
             if key not in prod_map:
                 prod_map[key] = {
@@ -1610,22 +1767,30 @@ class ReportsService:
                     "size": item.size,
                     "uom": item.uom or "EA",
                     "ordered_qty": Decimal("0.0000"),
+                    "billed_qty": Decimal("0.0000"),
+                    "pending_qty": Decimal("0.0000"),
                     "total_value": Decimal("0.00"),
                     "costs": [],
                     "order_ids": set(),
                 }
             entry = prod_map[key]
             entry["ordered_qty"] += qty
+            entry["billed_qty"] += item_billed
+            entry["pending_qty"] += item_pending
             entry["total_value"] += val
             entry["costs"].append(cost)
             entry["order_ids"].add(order.id)
 
         lines = []
         tot_qty = Decimal("0.0000")
+        tot_billed_qty = Decimal("0.0000")
+        tot_pending_qty = Decimal("0.0000")
         tot_val = Decimal("0.00")
 
         for key, d in prod_map.items():
             tot_qty += d["ordered_qty"]
+            tot_billed_qty += d["billed_qty"]
+            tot_pending_qty += d["pending_qty"]
             tot_val += d["total_value"]
             avg_c = (sum(d["costs"]) / Decimal(len(d["costs"]))).quantize(Decimal("0.01")) if d["costs"] else Decimal("0.00")
 
@@ -1638,6 +1803,8 @@ class ReportsService:
                 size=d["size"],
                 uom=d["uom"],
                 ordered_qty=d["ordered_qty"],
+                billed_qty=d["billed_qty"],
+                pending_qty=d["pending_qty"],
                 avg_cost=avg_c,
                 total_value=d["total_value"],
                 order_count=len(d["order_ids"]),
@@ -1645,14 +1812,41 @@ class ReportsService:
 
         lines.sort(key=lambda x: x.ordered_qty, reverse=True)
 
+        filters_payload = {
+            "company_id": self.tenant.company_id if self.tenant else None,
+            "branch_id": self.tenant.branch_id if self.tenant else None,
+            "from_date": str(from_date) if from_date else None,
+            "to_date": str(to_date) if to_date else None,
+            "product_id": product_id,
+        }
+        summary_payload = {
+            "total_products": len(lines),
+            "total_ordered_qty": tot_qty,
+            "total_billed_qty": tot_billed_qty,
+            "total_pending_qty": tot_pending_qty,
+            "total_value": tot_val,
+        }
+        totals_payload = {
+            "ordered_qty": tot_qty,
+            "billed_qty": tot_billed_qty,
+            "pending_qty": tot_pending_qty,
+            "total_value": tot_val,
+        }
+
         return ProductWiseOrderedQuantityReport(
+            report_id="RPT-SO-005",
+            report_name="Product-wise Ordered Quantity",
             from_date=str(from_date or ""),
             to_date=str(to_date or ""),
             generated_at=datetime.now(timezone.utc).isoformat(),
+            filters=filters_payload,
+            summary=summary_payload,
+            totals=totals_payload,
             total_products=len(lines),
             total_ordered_qty=tot_qty,
             total_value=tot_val,
             lines=lines,
+            rows=lines,
         )
 
     async def order_fulfillment_status(
@@ -1693,14 +1887,39 @@ class ReportsService:
             for g in group_map.values()
         ]
 
+        filters_payload = {
+            "company_id": self.tenant.company_id if self.tenant else None,
+            "branch_id": self.tenant.branch_id if self.tenant else None,
+            "from_date": str(from_date) if from_date else None,
+            "to_date": str(to_date) if to_date else None,
+        }
+        summary_payload = {
+            "total_orders": summary_rep.total_orders,
+            "total_value": summary_rep.total_order_value,
+            "groups_count": len(groups),
+        }
+        totals_payload = {
+            "order_count": summary_rep.total_orders,
+            "total_qty": summary_rep.total_ordered_qty,
+            "total_value": summary_rep.total_order_value,
+            "billed_value": summary_rep.total_billed_value,
+            "pending_value": summary_rep.total_pending_value,
+        }
+
         return OrderFulfillmentStatusReport(
+            report_id="RPT-SO-006",
+            report_name="Order Fulfillment Status",
             from_date=str(from_date or ""),
             to_date=str(to_date or ""),
             generated_at=datetime.now(timezone.utc).isoformat(),
+            filters=filters_payload,
+            summary=summary_payload,
+            totals=totals_payload,
             total_orders=summary_rep.total_orders,
             total_value=summary_rep.total_order_value,
             groups=groups,
             lines=summary_rep.lines,
+            rows=summary_rep.lines,
         )
 
     async def invoice_allocations(
@@ -1768,10 +1987,37 @@ class ReportsService:
                 status=a.status or "ALLOCATED",
             ))
 
+        filters_payload = {
+            "company_id": self.tenant.company_id if self.tenant else None,
+            "branch_id": self.tenant.branch_id if self.tenant else None,
+            "from_date": str(from_date) if from_date else None,
+            "to_date": str(to_date) if to_date else None,
+            "order_id": order_id,
+        }
+        summary_payload = {
+            "total_allocations": len(lines),
+            "total_po_value": tot_po_val,
+            "total_billed_value": tot_billed_val,
+            "total_pending_value": tot_pending_val,
+        }
+        totals_payload = {
+            "total_po_quantity": tot_po_qty,
+            "total_po_value": tot_po_val,
+            "total_billed_qty": tot_billed_qty,
+            "total_billed_value": tot_billed_val,
+            "total_pending_qty": tot_pending_qty,
+            "total_pending_value": tot_pending_val,
+        }
+
         return InvoiceAllocationReportModel(
+            report_id="RPT-SO-007",
+            report_name="Invoice Allocation Report",
             from_date=str(from_date or ""),
             to_date=str(to_date or ""),
             generated_at=datetime.now(timezone.utc).isoformat(),
+            filters=filters_payload,
+            summary=summary_payload,
+            totals=totals_payload,
             total_allocations=len(lines),
             total_po_quantity=tot_po_qty,
             total_po_value=tot_po_val,
@@ -1780,6 +2026,7 @@ class ReportsService:
             total_pending_qty=tot_pending_qty,
             total_pending_value=tot_pending_val,
             lines=lines,
+            rows=lines,
         )
 
 

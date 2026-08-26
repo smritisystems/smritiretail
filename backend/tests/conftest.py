@@ -122,8 +122,6 @@ def seed_control_plane_test_assignments():
         """, (str(uuid.uuid4()),))
 
         # 1. Clean and insert test users into smritisys.users (Control Plane auth table)
-        ctrl_cur.execute("DELETE FROM user_company_assignments WHERE id LIKE 'uca-%';")
-        ctrl_cur.execute("DELETE FROM users WHERE username IN ('usr_super', 'usr_sysadmin', 'usr_cashier', 'usr_manager', 'usr_store_manager_a');")
         users_data = [
             ("usr-super", "usr_super", "SYSADMIN", True),
             ("usr_sysadmin", "usr_sysadmin", "SYSADMIN", True),
@@ -160,7 +158,6 @@ def seed_control_plane_test_assignments():
             """, (uca_id, str(uuid.uuid4()), uid, cid))
 
         # 3. Seed smriti_menus (Control Plane — exactly 34 canonical immutable menus)
-        ctrl_cur.execute("DELETE FROM smriti_menus WHERE id LIKE 'menu-%';")
         canonical_menus = [
             ("menu-dashboard", "Dashboard & Executive Hub", "/dashboard", "Dashboard & Operations", None, 10, "DASHBOARD.ACCESS"),
             ("menu-user-profile", "My Profile Dashboard", "/user-profile", "Dashboard & Operations", None, 20, "PROFILE.ACCESS"),

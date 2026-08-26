@@ -91,9 +91,10 @@ describe("Shoper9 Legacy Blueprint Verification", () => {
 
     // Verify all menus have proper SMRITI tile mappings
     distMenus.forEach((m: any) => {
-      expect(m.smritiTileMapping).toBeDefined();
-      expect(m.smritiTileMapping.tileId).toBeDefined();
-      expect(m.smritiTileMapping.workspace).toBeDefined();
+      const mapping = m.smritiMapping || m.smritiTileMapping;
+      expect(mapping).toBeDefined();
+      expect(mapping.tileId).toBeDefined();
+      expect(mapping.workspace).toBeDefined();
     });
   });
 

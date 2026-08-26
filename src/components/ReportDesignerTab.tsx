@@ -31,7 +31,8 @@ import {
   Clock, Download, Search, Plus, Save, Filter, Database, MoreVertical,
   ChevronRight, ChevronDown, CheckSquare, Eye, Share2, Edit3, Trash2,
   Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
-  Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square
+  Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square,
+  Code, Terminal
 } from "lucide-react";
 
 // Types for drill down context
@@ -100,11 +101,12 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   // Advanced Table Filters
   const [filters, setFilters] = useState({
-    startDate: new Date().toISOString().split("T")[0],
+    startDate: "2026-04-01",
     endDate: new Date().toISOString().split("T")[0],
     productGroup: "All",
     paymentMode: "All"
   });
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
 
   // Drilldown breadcrumbs inside report viewer
   const [breadcrumbs, setBreadcrumbs] = useState<DrilldownBreadcrumb[]>([]);
@@ -961,6 +963,19 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 <Clock size={13} className="text-amber-400" /> Schedule Delivery
               </button>
 
+              {/* Technical Details Toggle */}
+              <button
+                onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                className={`px-3 py-2 border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                  showTechnicalDetails
+                    ? "bg-blue-600/20 border-blue-500/50 text-blue-400"
+                    : "bg-theme-surface-2 border-theme-divider hover:border-blue-500/30 text-theme-body"
+                }`}
+                title="Toggle technical parameters and API metadata"
+              >
+                <Code size={13} className="text-indigo-400" /> Technical Details
+              </button>
+
               {/* Print Engine */}
               <button
                 onClick={() => {
@@ -1000,6 +1015,43 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               })}
             </div>
           </div>
+
+          {/* Collapsible Technical Details Panel */}
+          {showTechnicalDetails && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-theme-surface-2/90 border border-theme-divider rounded-2xl p-4 shadow-inner text-xs font-mono space-y-2.5"
+            >
+              <div className="flex items-center justify-between border-b border-theme-divider/50 pb-2">
+                <span className="text-blue-400 font-bold uppercase text-[10px] flex items-center gap-1.5">
+                  <Terminal size={12} /> Execution Context & Metadata
+                </span>
+                <span className="text-theme-muted text-[10px]">
+                  Generated: {genericReportData?.generated_at || new Date().toISOString()}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
+                <div>
+                  <span className="text-theme-muted block text-[9px] uppercase">Report Code</span>
+                  <span className="text-theme-body font-bold">{selectedReport?.id || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-theme-muted block text-[9px] uppercase">Category / Format</span>
+                  <span className="text-theme-body">{selectedReport?.category || "Standard"} / {selectedReport?.format || "Grid"}</span>
+                </div>
+                <div>
+                  <span className="text-theme-muted block text-[9px] uppercase">Drill Level / Filter</span>
+                  <span className="text-theme-body">L{drillLevel} ({drillFilter || "None"})</span>
+                </div>
+                <div>
+                  <span className="text-theme-muted block text-[9px] uppercase">Rows Resolved</span>
+                  <span className="text-emerald-400 font-bold">{genericReportData?.lines?.length ?? genericReportData?.rows?.length ?? 0} records</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* Table Filters for detailed views */}
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 shadow-md grid grid-cols-1 md:grid-cols-4 gap-3 shrink-0 text-xs">
@@ -1377,8 +1429,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         <th className="p-3">Date</th>
                         <th className="p-3">Customer</th>
                         <th className="p-3 text-right">Taxable (₹)</th>
+                        <th className="p-3 text-right">CGST %</th>
                         <th className="p-3 text-right">CGST (₹)</th>
+                        <th className="p-3 text-right">SGST %</th>
                         <th className="p-3 text-right">SGST (₹)</th>
+                        <th className="p-3 text-right">IGST %</th>
                         <th className="p-3 text-right">IGST (₹)</th>
                         <th className="p-3 text-right">Total Tax (₹)</th>
                         <th className="p-3 text-right">Net Amount (₹)</th>
@@ -1386,7 +1441,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                     </thead>
                     <tbody className="divide-y divide-theme-divider/40">
                       {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
-                        <tr><td colSpan={9} className="p-6 text-center text-theme-muted">No tax register records found for the selected period.</td></tr>
+                        <tr><td colSpan={12} className="p-6 text-center text-theme-muted">No tax register records found for the selected period.</td></tr>
                       ) : (
                         genericReportData.lines.map((l: any, idx: number) => (
                           <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
@@ -1394,9 +1449,12 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             <td className="p-3 font-mono text-theme-muted">{l.invoice_date}</td>
                             <td className="p-3 text-theme-body">{l.customer_name || "Walk-in Customer"}</td>
                             <td className="p-3 text-right font-mono font-medium">{Number(l.taxable_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono text-theme-muted">{Number(l.cgst_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono text-theme-muted">{Number(l.sgst_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono text-theme-muted">{Number(l.igst_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{formatNumber(l.cgst_rate, 2)}%</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{formatCurrency(l.cgst_amount)}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{formatNumber(l.sgst_rate, 2)}%</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{formatCurrency(l.sgst_amount)}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{formatNumber(l.igst_rate, 2)}%</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{formatCurrency(l.igst_amount)}</td>
                             <td className="p-3 text-right font-mono font-bold text-purple-400">{Number(l.total_tax).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                             <td className="p-3 text-right font-mono font-bold text-emerald-400">{Number(l.net_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                           </tr>
@@ -2287,12 +2345,13 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         <th className="p-3 text-right">Billed Value (₹)</th>
                         <th className="p-3 text-right">Pending Value (₹)</th>
                         <th className="p-3 text-right">Billed %</th>
+                        <th className="p-3 text-right">Pending %</th>
                         <th className="p-3 text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-theme-divider/40">
                       {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
-                        <tr><td colSpan={9} className="p-6 text-center text-theme-muted">No comparison records found.</td></tr>
+                        <tr><td colSpan={10} className="p-6 text-center text-theme-muted">No comparison records found.</td></tr>
                       ) : (
                         genericReportData.lines.map((l: any, idx: number) => (
                           <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
@@ -2304,6 +2363,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.billed_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                             <td className="p-3 text-right font-mono font-bold text-amber-400">₹{Number(l.pending_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                             <td className="p-3 text-right font-mono font-bold text-blue-400">{Number(l.billing_pct).toFixed(1)}%</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">{Number(l.pending_pct ?? (100 - Number(l.billing_pct))).toFixed(1)}%</td>
                             <td className="p-3 text-center">
                               <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border ${
                                 l.fulfillment_status === "FULLY_BILLED" ? "bg-emerald-950/40 text-emerald-300 border-emerald-500/30" :
@@ -2410,6 +2470,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         <th className="p-3">Size</th>
                         <th className="p-3 text-center">UOM</th>
                         <th className="p-3 text-right">Ordered Qty</th>
+                        <th className="p-3 text-right">Billed Qty</th>
+                        <th className="p-3 text-right">Pending Qty</th>
                         <th className="p-3 text-right">Avg Rate (₹)</th>
                         <th className="p-3 text-right">Total Value (₹)</th>
                         <th className="p-3 text-right">Orders Count</th>
@@ -2417,7 +2479,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                     </thead>
                     <tbody className="divide-y divide-theme-divider/40">
                       {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
-                        <tr><td colSpan={10} className="p-6 text-center text-theme-muted">No product-wise ordered quantities found.</td></tr>
+                        <tr><td colSpan={12} className="p-6 text-center text-theme-muted">No product-wise ordered quantities found.</td></tr>
                       ) : (
                         genericReportData.lines.map((l: any, idx: number) => (
                           <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
@@ -2428,6 +2490,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             <td className="p-3 text-theme-muted">{l.size || "—"}</td>
                             <td className="p-3 text-center font-mono text-[10px] text-theme-muted">{l.uom || "EA"}</td>
                             <td className="p-3 text-right font-mono font-bold text-blue-300">{Number(l.ordered_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">{Number(l.billed_qty || 0).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">{Number(l.pending_qty || 0).toLocaleString("en-IN")}</td>
                             <td className="p-3 text-right font-mono">₹{Number(l.avg_cost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                             <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.total_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                             <td className="p-3 text-right font-mono font-bold text-purple-400">{l.order_count}</td>

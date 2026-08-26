@@ -1,88 +1,88 @@
 {
   "distributorMenus": [
     {
-      "menuNo": 100,
-      "menuOpt": 120,
-      "parentName": "Sales",
+      "menuNo": "100",
       "caption": "DC Generation",
-      "type": "M",
+      "parentName": "Sales",
+      "programOption": "0",
       "executable": "",
-      "programOption": 0,
-      "smritiTileMapping": {
+      "helpContext": null,
+      "smritiMapping": {
         "tileId": "distributor-invoicing",
         "action": "OPEN_DC_STUDIO",
         "workspace": "Billing Desk"
-      }
+      },
+      "status": "MAPPED"
     },
     {
-      "menuNo": 120,
-      "menuOpt": 121,
-      "parentName": "DC Generation",
+      "menuNo": "120",
       "caption": "Sales DC",
-      "type": "P",
+      "parentName": "DC Generation",
+      "programOption": "8",
       "executable": "SR115500.EXE",
-      "programOption": 8,
-      "smritiTileMapping": {
+      "helpContext": null,
+      "smritiMapping": {
         "tileId": "distributor-invoicing",
         "action": "CREATE_SALES_DC",
         "workspace": "Billing Desk"
-      }
+      },
+      "status": "MAPPED"
     },
     {
-      "menuNo": 120,
-      "menuOpt": 122,
-      "parentName": "DC Generation",
+      "menuNo": "120",
       "caption": "Approval Issue DC",
-      "type": "P",
+      "parentName": "DC Generation",
+      "programOption": "9",
       "executable": "SR115500.EXE",
-      "programOption": 9,
-      "smritiTileMapping": {
+      "helpContext": null,
+      "smritiMapping": {
         "tileId": "distributor-invoicing",
         "action": "CREATE_APPROVAL_DC",
         "workspace": "Billing Desk"
-      }
+      },
+      "status": "MAPPED"
     },
     {
-      "menuNo": 120,
-      "menuOpt": 123,
-      "parentName": "DC Generation",
+      "menuNo": "120",
       "caption": "Transport Receipt Entry",
-      "type": "P",
+      "parentName": "DC Generation",
+      "programOption": "8",
       "executable": "SD400800.EXE",
-      "programOption": 8,
-      "smritiTileMapping": {
+      "helpContext": null,
+      "smritiMapping": {
         "tileId": "dispatch-manifests",
         "action": "LOG_TRANSPORT_LR",
         "workspace": "Logistics Hub"
-      }
+      },
+      "status": "MAPPED"
     },
     {
-      "menuNo": 120,
-      "menuOpt": 124,
-      "parentName": "DC Generation",
+      "menuNo": "120",
       "caption": "Conversion of Sales DC to Approval Issue DC",
-      "type": "P",
+      "parentName": "DC Generation",
+      "programOption": "0",
       "executable": "SD100500.EXE",
-      "programOption": 0,
-      "smritiTileMapping": {
+      "helpContext": null,
+      "smritiMapping": {
         "tileId": "distributor-invoicing",
         "action": "CREATE_SALES_DC",
         "workspace": "Billing Desk"
-      }
+      },
+      "status": "MAPPED"
     },
     {
-      "menuNo": 380,
-      "menuOpt": 382,
-      "parentName": "Purchase Order",
+      "menuNo": "380",
       "caption": "Consolidation",
-      "type": "P",
+      "parentName": "Purchase Order",
+      "programOption": "3",
       "executable": "SE100900.EXE",
-      "programOption": 3,
-      "smritiTileMapping": {
+      "helpContext": null,
+      "smritiMapping": {
         "tileId": "purchase-studio",
         "action": "CONSOLIDATE_POS",
         "workspace": "Procurement"
-      }
+      },
+      "status": "MAPPED"
     }
   ],
   "retailMenus": []

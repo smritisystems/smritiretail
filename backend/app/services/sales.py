@@ -15,7 +15,7 @@ Classification: Internal
 import uuid
 from typing import List, Optional
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete
@@ -25,7 +25,7 @@ from fastapi import HTTPException
 from ..models.sales import (
     SalesInvoice, SalesInvoiceItem,
     SalesQuotation, SalesQuotationItem,
-    SalesOrder, SalesOrderItem,
+    SalesOrder, SalesOrderItem, SalesOrderInvoiceAllocation,
     SalesReturn, SalesReturnItem,
 )
 from ..models.inventory import Product, StockMovement
