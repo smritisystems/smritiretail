@@ -4,13 +4,13 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.17.0
  * Created      : 2026-08-22
- * Modified     : 2026-08-22
+ * Modified     : 2026-08-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
- * Source Module: Security Management — Menu Access Control View
+ * Source Module: Security Management — Menu Access Control View (Modern Light Theme)
  */
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -21,7 +21,7 @@ import {
   SecurityUserEntry,
   SecurityGroupEntry,
   SecurityNodeEntry,
-} from "./types";
+} from "./types.ts";
 import {
   initialSecurityUsers,
   initialSecurityGroups,
@@ -31,17 +31,36 @@ import {
   syncPermissionsWithBackend,
   persistPermissionsToBackend,
   getHousekeepingSecurityConfig,
-} from "../../services/securityStore";
+} from "../../services/securityStore.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1";
+import {
+  User,
+  Users,
+  Server,
+  Search,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Save,
+  RotateCcw,
+  Plus,
+  Minus,
+  CheckCircle2,
+  Shield,
+  Layers,
+  X,
+} from "lucide-react";
 
-interface SmritiMenuAccessViewiewProps {
+interface SmritiMenuAccessViewProps {
   onClose: () => void;
 }
 
-export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
+export const MenuAccessView: React.FC<SmritiMenuAccessViewProps> = ({
   onClose,
 }) => {
   const [subjectType, setSubjectType] = useState<MenuAccessSubjectType>("User");
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("002");
+  const [users, setUsers] = useState<SecurityUserEntry[]>(initialSecurityUsers);
   const [companyCode, setCompanyCode] = useState<string>("All");
   const [companyName, setCompanyName] = useState<string>("All Companies");
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
@@ -59,8 +78,35 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
   );
   const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const hkConfig = useMemo(() => getHousekeepingSecurityConfig(), []);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiFetchV1("/users/?limit=200").then((response: any) => {
+      if (!isMounted || !Array.isArray(response?.users) || response.users.length === 0) return;
+      const databaseUsers = response.users.map((user: any) => ({
+        id: user.id || user.userId,
+        name: user.fullName || user.displayName || user.username,
+        groupId: user.role || "",
+        companyCode: user.companyId || "All",
+        companyName: user.companyId || "All Companies",
+        isLocked: user.status === "Inactive",
+      }));
+      setUsers(databaseUsers);
+      setSelectedSubjectId((currentId) =>
+        databaseUsers.some((user: SecurityUserEntry) => user.id === currentId)
+          ? currentId
+          : databaseUsers[0].id
+      );
+    }).catch(() => {
+      // Keep the local seed list available when the control-plane request is unavailable.
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Reload tree when subject type or subject ID changes (with backend synchronization)
   useEffect(() => {
@@ -82,7 +128,7 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
   // Find active subject metadata
   const activeSubjectMeta = useMemo(() => {
     if (subjectType === "User") {
-      const u = initialSecurityUsers.find((x) => x.id === selectedSubjectId);
+      const u = users.find((x) => x.id === selectedSubjectId);
       return { id: u?.id || selectedSubjectId, name: u?.name || "Ram" };
     } else if (subjectType === "Group") {
       const g = initialSecurityGroups.find((x) => x.id === selectedSubjectId);
@@ -91,7 +137,7 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
       const n = initialSecurityNodes.find((x) => x.id === selectedSubjectId);
       return { id: n?.id || selectedSubjectId, name: n?.name || "Billing Counter 1" };
     }
-  }, [subjectType, selectedSubjectId]);
+  }, [subjectType, selectedSubjectId, users]);
 
   const handleToggleExpand = (menuId: string) => {
     setExpandedMenus((prev) => ({ ...prev, [menuId]: !prev[menuId] }));
@@ -181,214 +227,193 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
   };
 
   const handleSave = async () => {
-    await persistPermissionsToBackend(subjectType, selectedSubjectId, companyCode, menuTree);
-    setSaveFeedback("Menu restrictions saved successfully.");
-    setTimeout(() => setSaveFeedback(null), 3000);
+    setIsSaving(true);
+    try {
+      await persistPermissionsToBackend(subjectType, selectedSubjectId, companyCode, menuTree);
+      setSaveFeedback("Menu access policies updated and audited successfully!");
+      setTimeout(() => setSaveFeedback(null), 3000);
+    } catch {
+      setSaveFeedback("Failed to save menu permissions.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
     const loaded = getPermissionsForSubject(subjectType, selectedSubjectId);
     setMenuTree(loaded);
-    setSaveFeedback("Changes reverted.");
+    setSaveFeedback("Permissions reverted to saved state.");
     setTimeout(() => setSaveFeedback(null), 2000);
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#f0f0f0] text-[#000000] text-xs font-sans select-none border border-[#808080]">
-      {/* Scope Controls */}
-      <div className="p-3 bg-[#e4e4e4] border-b border-[#a0a0a0] flex flex-col gap-2.5">
-        {/* Subject Radio Selector */}
-        <div className="flex items-center gap-6 font-semibold">
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              name="subjectType"
-              checked={subjectType === "User"}
-              onChange={() => {
-                setSubjectType("User");
-                setSelectedSubjectId("002");
-              }}
-              className="accent-[#003399]"
-            />
-            <span>User</span>
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              name="subjectType"
-              checked={subjectType === "Group"}
-              onChange={() => {
-                setSubjectType("Group");
-                setSelectedSubjectId("002");
-              }}
-              className="accent-[#003399]"
-            />
-            <span>Group</span>
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              name="subjectType"
-              checked={subjectType === "Node"}
-              onChange={() => {
-                setSubjectType("Node");
-                setSelectedSubjectId("NODE-POS-01");
-              }}
-              className="accent-[#003399]"
-            />
-            <span>Node</span>
-          </label>
+    <div className="flex flex-col h-full bg-[#f8fafc] text-[#0f172a] text-xs font-sans select-none overflow-hidden">
+      {/* 1. Scope & Target Selector Bar */}
+      <div className="p-4 bg-white border-b border-[#e2e8f0] flex flex-col gap-3 shadow-2xs">
+        {/* Subject Type Segmented Control */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 bg-[#f1f5f9] p-1 rounded-lg border border-[#e2e8f0]">
+            {(["User", "Group", "Node"] as MenuAccessSubjectType[]).map((type) => {
+              const isActive = subjectType === type;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => {
+                    setSubjectType(type);
+                    setSelectedSubjectId(type === "Node" ? "NODE-POS-01" : "002");
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold text-xs transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-white text-[#1e40af] shadow-xs font-bold"
+                      : "text-[#64748b] hover:text-[#0f172a]"
+                  }`}
+                >
+                  {type === "User" && <User className="w-3.5 h-3.5" />}
+                  {type === "Group" && <Users className="w-3.5 h-3.5" />}
+                  {type === "Node" && <Server className="w-3.5 h-3.5" />}
+                  <span>{type} Level</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick Target Summary Badge */}
+          <div className="flex items-center gap-2 bg-[#eff6ff] border border-[#bfdbfe] px-3 py-1 rounded-lg text-[11px] font-mono text-[#1e40af]">
+            <Shield className="w-3.5 h-3.5 text-[#1e40af]" />
+            <span>Target: <strong>{subjectType} {activeSubjectMeta.id} ({activeSubjectMeta.name})</strong></span>
+          </div>
         </div>
 
-        {/* Identity Inputs */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Identity Inputs Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center gap-2">
-            <span className="w-24 text-right font-medium">
+            <label className="w-24 text-[#475569] font-medium shrink-0">
               {subjectType} ID:
-            </span>
-            <div className="flex items-center gap-1 flex-1">
+            </label>
+            <div className="flex items-center gap-1.5 flex-1">
               <input
                 type="text"
+                readOnly
                 value={selectedSubjectId}
-                onChange={(e) => setSelectedSubjectId(e.target.value)}
-                className="w-28 px-2 py-0.5 bg-white border border-[#7f9db9] shadow-inner text-xs font-mono"
+                className="w-24 px-3 py-1.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-lg text-xs font-mono font-bold text-[#0f172a]"
               />
               <button
                 type="button"
                 onClick={() => setShowBrowseModal(true)}
-                title={`Browse ${subjectType} List`}
-                className="px-2 py-0.5 bg-[#ece9d8] hover:bg-[#e0ded0] border border-[#7f9db9] shadow-xs active:bg-[#d0cebf] cursor-pointer font-bold"
+                className="px-3 py-1.5 bg-[#eff6ff] hover:bg-[#dbeafe] text-[#1e40af] border border-[#bfdbfe] rounded-lg font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
               >
-                ...
+                <Search className="w-3.5 h-3.5" />
+                Browse
               </button>
+              <input
+                type="text"
+                readOnly
+                value={activeSubjectMeta.name}
+                className="flex-1 px-3 py-1.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-lg text-xs font-semibold text-[#0f172a] truncate"
+              />
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="w-24 text-right font-medium">
-              {subjectType} Name:
-            </span>
-            <input
-              type="text"
-              readOnly
-              value={activeSubjectMeta.name}
-              className="flex-1 px-2 py-0.5 bg-[#f5f5f5] border border-[#a0a0a0] text-xs text-[#333333]"
-            />
-          </div>
-        </div>
-
-        {/* Company Scope Inputs */}
-        {hkConfig.activateCompanyWiseRestrictions && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2">
-              <span className="w-24 text-right font-medium">Company Code:</span>
-              <div className="flex items-center gap-1 flex-1">
-                <input
-                  type="text"
-                  value={companyCode}
-                  onChange={(e) => setCompanyCode(e.target.value)}
-                  className="w-28 px-2 py-0.5 bg-white border border-[#7f9db9] shadow-inner text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (companyCode === "All") {
-                      setCompanyCode("COMP-001");
-                      setCompanyName("Smriti Retail Mumbai");
-                    } else {
-                      setCompanyCode("All");
-                      setCompanyName("All Companies");
-                    }
-                  }}
-                  className="px-2 py-0.5 bg-[#ece9d8] hover:bg-[#e0ded0] border border-[#7f9db9] shadow-xs cursor-pointer font-bold"
-                >
-                  ...
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="w-24 text-right font-medium">Company Name:</span>
+            <label className="w-24 text-[#475569] font-medium shrink-0">Company:</label>
+            <div className="flex items-center gap-1.5 flex-1">
+              <input
+                type="text"
+                readOnly
+                value={companyCode}
+                className="w-20 px-3 py-1.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-lg text-xs font-mono text-[#64748b]"
+              />
               <input
                 type="text"
                 readOnly
                 value={companyName}
-                className="flex-1 px-2 py-0.5 bg-[#f5f5f5] border border-[#a0a0a0] text-xs text-[#333333]"
+                className="flex-1 px-3 py-1.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-lg text-xs font-semibold text-[#0f172a] truncate"
               />
             </div>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Main Menu Tree Grid Area */}
-      <div className="flex-1 p-2 flex flex-col min-h-0">
-        <div className="flex items-center justify-between pb-1.5 px-1 text-[11px] text-[#444]">
+      {/* 2. Main Menu Permissions Matrix Grid */}
+      <div className="flex-1 p-4 flex flex-col min-h-0">
+        <div className="flex items-center justify-between pb-2 text-[11px] text-[#64748b]">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleExpandAll}
-              className="px-2 py-0.5 bg-white border border-[#a0a0a0] shadow-2xs hover:bg-[#e8e8e8] font-bold"
+              className="px-2.5 py-1 bg-white hover:bg-[#f1f5f9] border border-[#cbd5e1] rounded-md font-semibold text-xs text-[#334155] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
             >
-              + Expand All
+              <Plus className="w-3 h-3 text-[#1e40af]" /> Expand All
             </button>
             <button
               type="button"
               onClick={handleCollapseAll}
-              className="px-2 py-0.5 bg-white border border-[#a0a0a0] shadow-2xs hover:bg-[#e8e8e8] font-bold"
+              className="px-2.5 py-1 bg-white hover:bg-[#f1f5f9] border border-[#cbd5e1] rounded-md font-semibold text-xs text-[#334155] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
             >
-              - Collapse All
+              <Minus className="w-3 h-3 text-[#1e40af]" /> Collapse All
             </button>
           </div>
+
           {saveFeedback && (
-            <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 border border-emerald-300">
-              {saveFeedback}
-            </span>
+            <div className="flex items-center gap-1.5 text-emerald-700 font-bold bg-emerald-50 px-3 py-1 border border-emerald-200 rounded-lg animate-fade-in">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{saveFeedback}</span>
+            </div>
           )}
         </div>
 
-        {/* Tree Table Header */}
-        <div className="flex-1 overflow-auto bg-white border border-[#7f9db9] shadow-inner">
+        {/* Tree Table */}
+        <div className="flex-1 overflow-auto bg-white border border-[#e2e8f0] rounded-xl shadow-xs">
           <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="bg-[#ece9d8] border-b border-[#a0a0a0] sticky top-0 z-10 text-[11px]">
-                <th className="w-8 p-1 text-center border-r border-[#d4d0c8]">+/-</th>
-                <th className="p-1 border-r border-[#d4d0c8] font-bold min-w-[240px]">
-                  Menu Descriptions
+              <tr className="bg-[#f8fafc] border-b border-[#e2e8f0] sticky top-0 z-10 text-[11px] font-mono text-[#475569]">
+                <th className="w-10 p-2.5 text-center border-r border-[#e2e8f0]">Tree</th>
+                <th className="p-2.5 border-r border-[#e2e8f0] font-bold min-w-[280px]">
+                  Menu Description & Module
                 </th>
-                <th className="p-1 font-bold">Operations</th>
+                <th className="p-2.5 font-bold">Granular Operational Rights</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-[#f1f5f9]">
               {menuTree.map((rootMenu) => {
                 const isExpanded = !!expandedMenus[rootMenu.menuId];
                 return (
                   <React.Fragment key={rootMenu.menuId}>
                     {/* Root Level Row */}
-                    <tr className="bg-[#f9f9f9] hover:bg-[#eef3fb] border-b border-[#e0e0e0] font-bold">
-                      <td className="p-1 text-center border-r border-[#e0e0e0]">
+                    <tr className="bg-[#f8fafc]/60 hover:bg-[#eff6ff] font-bold transition-colors">
+                      <td className="p-2 text-center border-r border-[#e2e8f0]">
                         {rootMenu.children && rootMenu.children.length > 0 && (
                           <button
                             type="button"
                             onClick={() => handleToggleExpand(rootMenu.menuId)}
-                            className="w-4 h-4 leading-none bg-white border border-[#808080] font-mono text-center flex items-center justify-center cursor-pointer hover:bg-slate-100"
+                            className="w-5 h-5 bg-white border border-[#cbd5e1] hover:border-[#1e40af] rounded text-center flex items-center justify-center cursor-pointer transition-colors mx-auto"
                           >
-                            {isExpanded ? "-" : "+"}
+                            {isExpanded ? (
+                              <ChevronDown className="w-3.5 h-3.5 text-[#1e40af]" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5 text-[#64748b]" />
+                            )}
                           </button>
                         )}
                       </td>
-                      <td className="p-1 border-r border-[#e0e0e0]">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                      <td className="p-2 border-r border-[#e2e8f0]">
+                        <label className="flex items-center gap-2.5 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={rootMenu.isAccessible}
                             onChange={() => handleToggleParent(rootMenu.menuId)}
-                            className="accent-[#003399]"
+                            className="w-4 h-4 rounded text-[#1e40af] focus:ring-[#1e40af] cursor-pointer"
                           />
-                          <span>{rootMenu.menuName}</span>
+                          <span className="text-[#0f172a] font-semibold">{rootMenu.menuName}</span>
                         </label>
                       </td>
-                      <td className="p-1">
-                        {/* Root operations if applicable */}
+                      <td className="p-2 text-xs text-[#64748b] font-mono">
+                        {rootMenu.isAccessible ? (
+                          <span className="text-emerald-700 font-bold">Module Root Enabled</span>
+                        ) : (
+                          <span className="text-rose-600 font-medium">Restricted at Module Level</span>
+                        )}
                       </td>
                     </tr>
 
@@ -397,25 +422,25 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
                       rootMenu.children?.map((child) => (
                         <tr
                           key={child.menuId}
-                          className="hover:bg-[#f0f4fc] border-b border-[#f0f0f0] text-[11px]"
+                          className="hover:bg-[#f8fafc] border-b border-[#f1f5f9] transition-colors"
                         >
-                          <td className="p-1 text-center border-r border-[#e8e8e8]" />
-                          <td className="p-1 pl-8 border-r border-[#e8e8e8]">
-                            <label className="flex items-center gap-2 cursor-pointer">
+                          <td className="p-2 text-center border-r border-[#e2e8f0]" />
+                          <td className="p-2 pl-9 border-r border-[#e2e8f0]">
+                            <label className="flex items-center gap-2.5 cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={child.isAccessible}
                                 onChange={() =>
                                   handleToggleChild(rootMenu.menuId, child.menuId)
                                 }
-                                className="accent-[#003399]"
+                                className="w-4 h-4 rounded text-[#1e40af] focus:ring-[#1e40af] cursor-pointer"
                               />
-                              <span className={child.isAccessible ? "text-[#000]" : "text-[#888]"}>
+                              <span className={child.isAccessible ? "text-[#0f172a] font-semibold" : "text-[#94a3b8]"}>
                                 {child.menuName}
                               </span>
                             </label>
                           </td>
-                          <td className="p-1">
+                          <td className="p-2">
                             {child.supportedOperations && (
                               <div className="flex items-center gap-4 flex-wrap">
                                 {child.supportedOperations.map((op) => {
@@ -423,7 +448,13 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
                                   return (
                                     <label
                                       key={op}
-                                      className="flex items-center gap-1 cursor-pointer"
+                                      className={`flex items-center gap-1.5 px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                                        !child.isAccessible
+                                          ? "opacity-40 border-transparent text-[#94a3b8]"
+                                          : isAllowed
+                                          ? "bg-[#eff6ff] border-[#bfdbfe] text-[#1e40af] font-bold"
+                                          : "bg-white border-[#e2e8f0] text-[#64748b] hover:border-[#cbd5e1]"
+                                      }`}
                                     >
                                       <input
                                         type="checkbox"
@@ -436,17 +467,9 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
                                             op
                                           )
                                         }
-                                        className="accent-[#003399]"
+                                        className="w-3.5 h-3.5 rounded text-[#1e40af] focus:ring-[#1e40af] cursor-pointer"
                                       />
-                                      <span
-                                        className={`font-mono text-[10px] ${
-                                          !child.isAccessible
-                                            ? "text-[#aaa]"
-                                            : isAllowed
-                                            ? "font-bold text-[#003399]"
-                                            : "text-[#555]"
-                                        }`}
-                                      >
+                                      <span className="font-mono text-[10px] uppercase">
                                         {op}
                                       </span>
                                     </label>
@@ -465,63 +488,59 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
         </div>
       </div>
 
-      {/* Footer Action Buttons */}
-      <div className="p-2 bg-[#e4e4e4] border-t border-[#a0a0a0] flex items-center justify-between">
-        <div className="text-[11px] text-[#555]">
-          Target: <strong className="text-[#000]">{subjectType}: {activeSubjectMeta.id} ({activeSubjectMeta.name})</strong>
+      {/* 3. Footer Action Bar */}
+      <div className="p-3 bg-white border-t border-[#e2e8f0] flex items-center justify-between shrink-0">
+        <div className="text-[11px] font-mono text-[#64748b] flex items-center gap-2">
+          <Layers className="w-3.5 h-3.5 text-[#1e40af]" />
+          <span>Active Policy: <strong>Two-Pass Permission Cascade</strong></span>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleSave}
-            className="w-20 py-1 bg-[#ece9d8] hover:bg-[#e0ded0] border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] active:border-[#808080] active:border-t-[#808080] text-center font-bold cursor-pointer"
-          >
-            Ok
-          </button>
-          <button
-            type="button"
             onClick={handleCancel}
-            className="w-20 py-1 bg-[#ece9d8] hover:bg-[#e0ded0] border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] active:border-[#808080] text-center font-bold cursor-pointer"
+            className="px-4 py-2 bg-white hover:bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1] rounded-lg font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
           >
-            Cancel
+            <RotateCcw className="w-3.5 h-3.5" /> Cancel
           </button>
           <button
             type="button"
-            onClick={onClose}
-            className="w-20 py-1 bg-[#ece9d8] hover:bg-[#e0ded0] border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] active:border-[#808080] text-center font-bold cursor-pointer"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-5 py-2 bg-[#1e40af] hover:bg-[#1d4ed8] text-white rounded-lg font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-xs active:scale-98"
           >
-            Exit
+            <Save className="w-3.5 h-3.5" />
+            {isSaving ? "Saving Policy..." : "Save Restrictions"}
           </button>
         </div>
       </div>
 
       {/* Browse Modal */}
       {showBrowseModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-[#ece9d8] border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-2xl p-4 w-96 font-sans">
-            <div className="flex items-center justify-between pb-2 border-b border-[#a0a0a0] font-bold text-xs">
-              <span>Select {subjectType}</span>
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-2xs">
+          <div className="bg-white border border-[#e2e8f0] rounded-2xl shadow-2xl p-5 w-96 font-sans space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#e2e8f0] font-bold text-sm text-[#0f172a]">
+              <span>Select {subjectType} Target</span>
               <button
                 type="button"
                 onClick={() => setShowBrowseModal(false)}
-                className="px-1.5 bg-red-600 text-white font-bold"
+                className="p-1 rounded-lg text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9] cursor-pointer"
               >
-                X
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="py-3 max-h-60 overflow-y-auto bg-white border border-[#7f9db9] my-2">
+            <div className="py-1 max-h-64 overflow-y-auto divide-y divide-[#f1f5f9] border border-[#e2e8f0] rounded-xl">
               {subjectType === "User" &&
-                initialSecurityUsers.map((u) => (
+                users.map((u) => (
                   <div
                     key={u.id}
                     onClick={() => {
                       setSelectedSubjectId(u.id);
                       setShowBrowseModal(false);
                     }}
-                    className="px-3 py-1.5 hover:bg-[#3366cc] hover:text-white cursor-pointer flex justify-between text-xs"
+                    className="px-4 py-2.5 hover:bg-[#eff6ff] cursor-pointer flex justify-between items-center text-xs transition-colors"
                   >
-                    <span className="font-mono">{u.id}</span>
-                    <span className="font-bold">{u.name}</span>
+                    <span className="font-mono text-[#1e40af] font-bold">{u.id}</span>
+                    <span className="font-semibold text-[#0f172a]">{u.name}</span>
                   </div>
                 ))}
               {subjectType === "Group" &&
@@ -532,10 +551,10 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
                       setSelectedSubjectId(g.id);
                       setShowBrowseModal(false);
                     }}
-                    className="px-3 py-1.5 hover:bg-[#3366cc] hover:text-white cursor-pointer flex justify-between text-xs"
+                    className="px-4 py-2.5 hover:bg-[#eff6ff] cursor-pointer flex justify-between items-center text-xs transition-colors"
                   >
-                    <span className="font-mono">{g.id}</span>
-                    <span className="font-bold">{g.name}</span>
+                    <span className="font-mono text-[#1e40af] font-bold">{g.id}</span>
+                    <span className="font-semibold text-[#0f172a]">{g.name}</span>
                   </div>
                 ))}
               {subjectType === "Node" &&
@@ -546,18 +565,18 @@ export const MenuAccessView: React.FC<SmritiMenuAccessViewiewProps> = ({
                       setSelectedSubjectId(n.id);
                       setShowBrowseModal(false);
                     }}
-                    className="px-3 py-1.5 hover:bg-[#3366cc] hover:text-white cursor-pointer flex justify-between text-xs"
+                    className="px-4 py-2.5 hover:bg-[#eff6ff] cursor-pointer flex justify-between items-center text-xs transition-colors"
                   >
-                    <span className="font-mono">{n.id}</span>
-                    <span className="font-bold">{n.name}</span>
+                    <span className="font-mono text-[#1e40af] font-bold">{n.id}</span>
+                    <span className="font-semibold text-[#0f172a]">{n.name}</span>
                   </div>
                 ))}
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-2">
               <button
                 type="button"
                 onClick={() => setShowBrowseModal(false)}
-                className="px-4 py-1 bg-[#e0ded0] border border-[#808080] font-bold text-xs"
+                className="px-4 py-2 bg-white hover:bg-[#f1f5f9] border border-[#cbd5e1] rounded-lg font-semibold text-xs text-[#334155] cursor-pointer"
               >
                 Close
               </button>

@@ -23,6 +23,46 @@ import {
   HousekeepingSecurityConfig,
 } from "../components/security/types";
 
+const MENU_PERMISSION_RESOURCES: Record<string, string> = {
+  "menu-dashboard": "dashboard",
+  "menu-user-profile": "user_profile",
+  "menu-wiki": "wiki_docs",
+  "menu-about-smriti": "about_smriti",
+  "menu-dev-tracker": "dev_tracker",
+  "menu-pos": "pos_workspace",
+  "menu-sales": "sales_billing",
+  "menu-customer-master": "customer_master",
+  "menu-crm": "crm_studio",
+  "menu-loyalty": "loyalty_rewards",
+  "menu-profiles": "terminal_profiles",
+  "menu-inventory": "inventory_workspace",
+  "menu-item-master": "item_master",
+  "menu-barcode": "barcode_studio",
+  "menu-stock-ledger": "stock_ledger",
+  "menu-purchase": "purchase_studio",
+  "menu-supplier-mgmt": "supplier_mgmt",
+  "menu-business-ledger": "business_ledger",
+  "menu-accounting-sync": "accounting_sync",
+  "menu-reports": "reports_portal",
+  "menu-report-designer": "report_designer",
+  "menu-masters": "governance_masters",
+  "menu-ufe": "universal_field_explorer",
+  "menu-formulas": "formula_registry",
+  "menu-psv": "channel_visibility",
+  "menu-document-series": "numbering_engine",
+  "menu-print-studio": "print_studio",
+  "menu-print-history": "print_history",
+  "menu-terms-engine": "terms_engine",
+  "menu-data-exchange": "data_exchange",
+  "menu-staff-management": "staff_mgmt",
+  "menu-approval-matrix": "approval_matrix",
+  "menu-company-setup": "company_setup",
+  "menu-audit-logs": "audit_logs",
+};
+
+const permissionResourceForMenu = (menuId: string) =>
+  MENU_PERMISSION_RESOURCES[menuId] || menuId.replace(/^menu-/, "").replace(/-/g, "_");
+
 export const initialSecurityUsers: SecurityUserEntry[] = [
   {
     id: "001",
@@ -397,6 +437,63 @@ export function saveHousekeepingSecurityConfig(config: HousekeepingSecurityConfi
   }
 }
 
+export async function syncSecurityConfiguration(): Promise<{
+  passwordConfig: PasswordSecurityConfig;
+  housekeepingConfig: HousekeepingSecurityConfig;
+}> {
+  try {
+    const response = await apiFetchV1("/security/config");
+    const passwordConfig = response.password_config as PasswordSecurityConfig;
+    const housekeepingConfig = response.housekeeping_config as HousekeepingSecurityConfig;
+    savePasswordSecurityConfig(passwordConfig);
+    saveHousekeepingSecurityConfig(housekeepingConfig);
+    return { passwordConfig, housekeepingConfig };
+  } catch (err) {
+    console.warn("[SecurityStore] Configuration sync unavailable, using cached values", err);
+    return {
+      passwordConfig: getPasswordSecurityConfig(),
+      housekeepingConfig: getHousekeepingSecurityConfig(),
+    };
+  }
+}
+
+export async function persistSecurityConfiguration(
+  passwordConfig: PasswordSecurityConfig,
+  housekeepingConfig: HousekeepingSecurityConfig,
+): Promise<boolean> {
+  try {
+    await apiFetchV1("/security/config", {
+      method: "PUT",
+      body: JSON.stringify({
+        password_config: {
+          max_password_length: passwordConfig.maxPasswordLength,
+          min_password_length: passwordConfig.minPasswordLength,
+          min_uppercase: passwordConfig.minUppercase,
+          min_lowercase: passwordConfig.minLowercase,
+          min_numeric: passwordConfig.minNumeric,
+          passwords_to_remember: passwordConfig.passwordsToRemember,
+          password_resetting_days: passwordConfig.passwordResettingDays,
+          max_invalid_attempts: passwordConfig.maxInvalidAttempts,
+        },
+        housekeeping_config: {
+          days_to_retain_activity_log: housekeepingConfig.daysToRetainActivityLog,
+          country_code: housekeepingConfig.countryCode,
+          remind_patch_updation_days: housekeepingConfig.remindPatchUpdationDays,
+          activate_company_wise_restrictions: housekeepingConfig.activateCompanyWiseRestrictions,
+          custom_reports_in_menu_screen: housekeepingConfig.customReportsInMenuScreen,
+          custom_reports_refresh_interval_seconds: housekeepingConfig.customReportsRefreshIntervalSeconds,
+        },
+      }),
+    });
+    savePasswordSecurityConfig(passwordConfig);
+    saveHousekeepingSecurityConfig(housekeepingConfig);
+    return true;
+  } catch (err) {
+    console.warn("[SecurityStore] Configuration persistence failed", err);
+    return false;
+  }
+}
+
 export function getPermissionsForSubject(
   subjectType: "User" | "Group" | "Node",
   subjectId: string
@@ -446,15 +543,26 @@ export async function syncPermissionsWithBackend(
 
       const updatedTree = baseTree.map((parent) => ({
         ...parent,
+        isAccessible: permsMap.has(`${permissionResourceForMenu(parent.menuId)}:VIEW`)
+          ? Boolean(permsMap.get(`${permissionResourceForMenu(parent.menuId)}:VIEW`))
+          : parent.isAccessible,
         children: parent.children?.map((child) => {
           const ops = { ...(child.allowedOperations || {}) };
+          const childResource = permissionResourceForMenu(child.menuId);
+          const childViewKey = `${childResource}:VIEW`;
           child.supportedOperations?.forEach((op) => {
-            const key = `${child.menuId}:${op}`;
+            const key = `${childResource}:${op}`;
             if (permsMap.has(key)) {
               ops[op] = permsMap.get(key)!;
             }
           });
-          return { ...child, allowedOperations: ops };
+          return {
+            ...child,
+            isAccessible: permsMap.has(childViewKey)
+              ? Boolean(permsMap.get(childViewKey))
+              : child.isAccessible,
+            allowedOperations: ops,
+          };
         }),
       }));
       savePermissionsForSubject(subjectType, subjectId, updatedTree);
@@ -476,11 +584,22 @@ export async function persistPermissionsToBackend(
   try {
     const flatActions: any[] = [];
     tree.forEach((parent) => {
+      flatActions.push({
+        resource: permissionResourceForMenu(parent.menuId),
+        action: "VIEW",
+        allowed: Boolean(parent.isAccessible),
+      });
       parent.children?.forEach((child) => {
+        const childResource = permissionResourceForMenu(child.menuId);
+        flatActions.push({
+          resource: childResource,
+          action: "VIEW",
+          allowed: Boolean(child.isAccessible),
+        });
         if (child.allowedOperations) {
           Object.entries(child.allowedOperations).forEach(([op, allowed]) => {
             flatActions.push({
-              resource: child.menuId,
+              resource: childResource,
               action: op,
               allowed: Boolean(allowed),
             });

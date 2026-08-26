@@ -166,6 +166,8 @@ async def get_tenant_context(
     target_branch = header_branch if header_branch else current_user.branch_id
     if not target_branch or not str(target_branch).strip():
         target_branch = "BR-001"
+    if target_branch == "BR-MAIN-001":
+        target_branch = "MAIN"
 
     if current_user.role != UserRole.SYSADMIN:
         # Header Tampering Security Check with normalized company IDs

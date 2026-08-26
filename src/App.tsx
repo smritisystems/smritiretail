@@ -99,6 +99,7 @@ import { SmritiErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
 import { SecManageDlg } from "./components/security/SecManageDlg.tsx";
+import { MenuManagerStudioTab } from "./components/MenuManagerStudioTab.tsx";
 import { X } from "lucide-react";
 
 interface AppNotification {
@@ -224,8 +225,14 @@ const AppContent: React.FC = () => {
       ? "dashboard"
       : preferences.lastWorkspace;
 
-  const activeTab = safeLastWorkspace || "dashboard";
+  const [activeTab, setActiveTabState] = useState(safeLastWorkspace || "dashboard");
+
+  useEffect(() => {
+    setActiveTabState(safeLastWorkspace || "dashboard");
+  }, [safeLastWorkspace]);
+
   const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
     addToRecentlyUsed(tab);
   };
 
@@ -402,7 +409,7 @@ const AppContent: React.FC = () => {
 
   const mapModuleId = (id: string): string => {
     const map: Record<string, string> = {
-      launchpad: "dashboard",
+      launchpad: "launchpad",
       item_master: "item-master",
       inventory: "stock-ledger",
       suppliers: "supplier-mgmt",
@@ -412,16 +419,72 @@ const AppContent: React.FC = () => {
       settings: "profiles",
       about: "about-smriti",
       grn: "purchase",
+      "menu-manager": "menu-manager",
+      menu_manager: "menu-manager",
+      menu_studio: "menu-manager",
+      "menu-studio": "menu-manager",
+      "day-close": "day-close",
+      day_close: "day-close",
+      "day-end": "day-close",
+      day_end: "day-close",
+      "eod-report": "day-close",
       security: "security-management",
       security_management: "security-management",
       menu_access: "security-management",
+      "menu-dashboard": "dashboard",
+      "menu-user-profile": "user-profile",
+      "menu-pos": "pos",
+      "menu-sales": "sales",
+      "menu-customer-master": "customer-master",
+      "menu-crm": "crm",
+      "menu-loyalty": "loyalty",
+      "menu-inventory": "inventory",
+      "menu-item-master": "item-master",
+      "menu-barcode": "barcode",
+      "menu-stock-ledger": "stock-ledger",
+      "menu-purchase": "purchase",
+      "menu-supplier-mgmt": "supplier-mgmt",
+      "menu-business-ledger": "business-ledger",
+      "menu-accounting-sync": "accounting-sync",
+      "menu-reports": "report-designer",
+      "menu-report-designer": "report-designer",
+      "menu-masters": "masters",
+      "menu-ufe": "ufe",
+      "menu-formulas": "formulas",
+      "menu-psv": "psv",
+      "menu-document-series": "document-series",
+      "menu-print-studio": "print-studio",
+      "menu-print-history": "print-history",
+      "menu-terms-engine": "terms-engine",
+      "menu-data-exchange": "data-exchange",
+      "menu-staff-management": "staff-management",
+      "menu-approval-matrix": "approval-matrix",
+      "menu-company-setup": "company-setup",
+      "menu-audit-logs": "audit-logs",
     };
     return map[id] || id;
   };
 
+  useEffect(() => {
+    const handleMenuSearchNavigation = (event: Event) => {
+      const moduleId = (event as CustomEvent<{ moduleId?: string }>).detail?.moduleId;
+      if (moduleId) setActiveTab(mapModuleId(moduleId));
+    };
+    window.addEventListener("smriti_navigate_module", handleMenuSearchNavigation);
+    return () => window.removeEventListener("smriti_navigate_module", handleMenuSearchNavigation);
+  }, []);
+
   const renderTab = (tabId: string) => {
     switch (tabId) {
       case "dashboard":
+        return (
+          <DashboardTab
+            products={products}
+            formulas={formulas}
+            psvParties={psvParties}
+            onSelectFormula={(formula) => setSelectedFormula(formula)}
+          />
+        );
       case "launchpad":
         return (
           <FioriLaunchpad
@@ -439,6 +502,19 @@ const AppContent: React.FC = () => {
             shifts={shifts}
             onRefreshData={fetchSystemState}
             onNotification={addNotification}
+          />
+        );
+      case "day-close":
+      case "day-end":
+      case "eod-report":
+        return (
+          <PosTerminalTab
+            products={products}
+            profiles={profiles}
+            shifts={shifts}
+            onRefreshData={fetchSystemState}
+            onNotification={addNotification}
+            initialTab="EOD_Z_REPORT"
           />
         );
       case "crm":
@@ -602,6 +678,9 @@ const AppContent: React.FC = () => {
             }} 
           />
         );
+      case "menu-manager":
+      case "menu-studio":
+        return <MenuManagerStudioTab currentUser={currentUser} onNavigateTab={(t) => setActiveTab(t)} />;
       case "security-management":
       case "menu-access-control":
         return (
@@ -707,7 +786,10 @@ const AppContent: React.FC = () => {
       activeModuleId={activeTab}
       activeModuleTitle={getTabLabel(activeTab)}
       onSelectModule={(id) => setActiveTab(mapModuleId(id))}
-      onNavigateHome={() => setActiveTab("dashboard")}
+      onNavigateHome={() => {
+        addToRecentlyUsed("dashboard");
+        setActiveTab("dashboard");
+      }}
       onLogout={handleLogout}
       userName={currentUser?.name || "Operator"}
       userRole={currentUser?.role || "Operator"}

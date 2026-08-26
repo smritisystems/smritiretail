@@ -262,7 +262,7 @@ interface SalesStudioTabProps {
 
 export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNotification, currentUser }) => {
   const { openMenu } = useACAS();
-  const isReadOnly = currentUser?.role === "Report User";
+  const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const hasTenantContext = Boolean(currentUser?.companyId && currentUser?.branchId);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
@@ -454,6 +454,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
         ...si,
         invoiceNo: si.invoiceNo || si.invoice_no || "INV",
         customerId: si.customerId || si.customer_id || "",
+        createdAt: si.createdAt || si.created_at,
+        modifiedAt: si.modifiedAt || si.modified_at,
         grandTotal: typeof si.grandTotal === "number" ? si.grandTotal : parseFloat(si.grand_total || "0"),
         taxTotal: typeof si.taxTotal === "number" ? si.taxTotal : parseFloat(si.tax_total || "0"),
         isInterstate: si.isInterstate ?? si.is_interstate ?? false,
@@ -3419,6 +3421,14 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-theme-muted font-medium">Invoice Date</span>
                   <span className="text-theme-body font-mono">{formatDate(selectedInvoice.date)}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-theme-muted font-medium">Created At</span>
+                  <span className="text-theme-body font-mono">
+                    {selectedInvoice.createdAt
+                      ? formatDateTime(selectedInvoice.createdAt)
+                      : "Not available"}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-theme-muted font-medium">Workflow Status</span>

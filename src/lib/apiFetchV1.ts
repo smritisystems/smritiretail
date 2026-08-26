@@ -77,7 +77,7 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (companyCode && !headers.has("X-Company-Code")) headers.set("X-Company-Code", companyCode);
   if (companyId && !headers.has("X-Company-ID")) headers.set("X-Company-ID", companyId);
-  const branchId = localStorage.getItem("smriti_branch_id") || "BR-MAIN-001";
+  const branchId = localStorage.getItem("smriti_branch_id") || "MAIN";
   if (branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", branchId);
   if (branchId && !headers.has("X-Branch-Code")) headers.set("X-Branch-Code", branchId);
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {

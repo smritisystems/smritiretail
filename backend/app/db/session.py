@@ -199,7 +199,7 @@ async def resolve_company_database_name(company_id_or_code: Optional[str]) -> st
                     detail=f"Company Database for '{candidate}' is in status '{db_status}'. Access denied."
                 )
             clean_db = str(db_name).strip().lower()
-            pattern = r"^smriti(?!000)(?!sys)[a-z0-9]{3}$"
+            pattern = r"^smriti(?!(?:000|sys)$)[a-z0-9]{3}$|^smriti(?!0000$)(?!sys0$)[a-z0-9]{4}$"
             if not re.match(pattern, clean_db):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

@@ -86,6 +86,19 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Retail Operations",
     roles: ["MANAGER", "SYSADMIN"],
   },
+  {
+    id: "day-close",
+    title: "Day End / Shift Close (EOD)",
+    subtitle: "Cashier shift settlement, cash drawer reconciliation & Z-Report generation (Shoper 9 MnuNo 502)",
+    icon: "lock_clock",
+    tag: "Day Close",
+    badgeType: "warning",
+    group: "Retail Operations",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "F8",
+    accentColor: "amber",
+  },
 
   // 2. Master Data & Stock
   {
@@ -344,6 +357,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     tag: "Account",
     badgeType: "primary",
     group: "System & Operations",
+  },
+  {
+    id: "menu-manager",
+    title: "Menu Manager & Dynamic Navigation Studio",
+    subtitle: "Control Plane menu registry, 3-column live hierarchy explorer, route configuration & audit journal",
+    icon: "compass_calibration",
+    tag: "Navigation",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["SYSADMIN", "MANAGER"],
+    isQuickAction: true,
   },
   {
     id: "security-management",

@@ -13,6 +13,7 @@
 import React, { useState } from 'react';
 import { useActiveField } from '../../context/ActiveFieldContext.tsx';
 import { useDrillDown } from '../drilldown/drilldown_store.tsx';
+import { CompanySelector } from '../layout/CompanySelector.tsx';
 
 interface GlobalHeaderProps {
   activeModuleTitle: string;
@@ -103,6 +104,17 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
           >
             <span className="material-symbols-outlined text-[18px]">home</span>
           </button>
+          {onSelectModule && (
+            <button
+              type="button"
+              onClick={() => onSelectModule('dashboard')}
+              title="Open Advanced Business Dashboard"
+              aria-label="Open Advanced Business Dashboard"
+              className="p-1.5 hover:bg-[#3f51b5] rounded-md transition-colors text-indigo-100 hover:text-white"
+            >
+              <span className="material-symbols-outlined text-[18px]">account_circle</span>
+            </button>
+          )}
           {canNavigateBack && onNavigateBack && (
             <button
               type="button"
@@ -148,6 +160,8 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
 
       {/* Right Controls (Focus Mode, Notifications, User Menu) */}
       <div className="flex items-center gap-1.5">
+        <CompanySelector />
+
         {/* Focus Mode Toggle */}
         <button
           type="button"
@@ -258,6 +272,16 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                   className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px] text-[#3d425f]">account_circle</span> My Profile Dashboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onSelectModule) onSelectModule('menu-manager');
+                    setIsUserMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#1e40af]">compass_calibration</span> Menu Navigation Studio
                 </button>
                 <button
                   type="button"

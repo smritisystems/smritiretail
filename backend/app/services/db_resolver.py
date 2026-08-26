@@ -24,33 +24,35 @@ CONTROL_PLANE_DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT
 def generate_company_database_name(company_code: str) -> str:
     """
     Official Server-Side SMRITI Company Business Database Name Generator.
-    Alphanumeric 3-Character Standard Rules:
+    Alphanumeric 4-Character Standard Rules:
       1. Prefix MUST be exactly 'smriti'.
       2. No separator (underscore, hyphen, space).
-      3. Company code MUST be exactly 3 alphanumeric characters [A-Z0-9].
-      4. Lowercase input is automatically normalized to uppercase (e.g. 'abc' -> 'ABC').
-      5. '000' is permanently reserved (forbidden).
-      6. 'SYS' is permanently reserved for SMRITI Control Plane (forbidden).
+    3. Company code MUST be exactly 4 alphanumeric characters [A-Z0-9].
+    4. Numeric codes are zero-padded (e.g. '124' -> '0124').
+    5. Lowercase input is automatically normalized to uppercase (e.g. 'ab12' -> 'AB12').
+    6. '0000' is permanently reserved (forbidden).
+    7. 'SYS0' is permanently reserved for SMRITI Control Plane (forbidden).
     Examples:
-      '001' -> 'smriti001'
-      'ABC' -> 'smritiABC'
-      'A01' -> 'smritiA01'
-      'MUM' -> 'smritiMUM'
-      'TT1' -> 'smritiTT1'
+    '001' -> 'smriti0001'
+    '124' -> 'smriti0124'
+    'ABC1' -> 'smritiABC1'
+    'MUM1' -> 'smritiMUM1'
     """
     if not company_code:
         raise ValueError("Company code is required.")
     
     code = str(company_code).strip().upper()
     
-    if len(code) != 3 or not code.isalnum():
-        raise ValueError(f"Company code '{company_code}' must be exactly 3 alphanumeric characters [A-Z0-9].")
+    if code.isdigit() and len(code) <= 4:
+        code = code.zfill(4)
+    if len(code) != 4 or not code.isalnum():
+        raise ValueError(f"Company code '{company_code}' must be exactly 4 alphanumeric characters [A-Z0-9].")
     
-    if code == "000":
-        raise ValueError("Company code '000' is permanently reserved and cannot be assigned.")
+    if code == "0000":
+        raise ValueError("Company code '0000' is permanently reserved and cannot be assigned.")
         
-    if code == "SYS":
-        raise ValueError("Company code 'SYS' is permanently reserved for SMRITI Control Plane.")
+    if code == "SYS0":
+        raise ValueError("Company code 'SYS0' is permanently reserved for SMRITI Control Plane.")
     
     return f"smriti{code}"
 
@@ -62,7 +64,8 @@ def validate_company_database_name(database_name: str) -> bool:
         return False
     if database_name == "smritisys":
         return True  # Control Plane DB
-    pattern = r"^smriti(?!000)(?!SYS)[A-Z0-9]{3}$"
+    # Three-character names remain valid only for existing pre-4-digit databases.
+    pattern = r"^smriti(?!(?:000|SYS)$)[A-Z0-9]{3}$|^smriti(?!0000$)(?!SYS0$)[A-Z0-9]{4}$"
     return bool(re.match(pattern, database_name))
 
 class CompanyDatabaseResolver:

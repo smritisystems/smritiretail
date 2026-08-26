@@ -35,7 +35,7 @@ interface PsvTabProps {
 }
 
 export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
-  const isReadOnly = currentUser?.role === "Report User";
+  const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const [selectedPartyId, setSelectedPartyId] = useState<string>(psvParties[0]?.id || "");
 
   useEffect(() => {

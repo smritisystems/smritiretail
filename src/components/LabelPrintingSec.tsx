@@ -75,7 +75,7 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
   onNotification,
   currentUser
 }) => {
-  const isReadOnly = currentUser?.role === "Report User";
+  const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const [layouts, setLayouts] = useState<BarcodeLayout[]>([]);
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
   const [csvText, setCsvText] = useState("");

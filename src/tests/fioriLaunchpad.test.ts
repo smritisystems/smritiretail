@@ -54,6 +54,8 @@ const REGISTERED_APP_TABS = [
   "about-smriti",
   "dev-tracker",
   "security-management",
+  "menu-manager",
+  "day-close",
   "audit-logs",
   "store-policies",
   "legacy-migration",
@@ -63,6 +65,17 @@ const REGISTERED_APP_TABS = [
 ];
 
 describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
+  it("should resolve the shell home item to the Launchpad route", async () => {
+    const { resolveNavigation } = await import("../components/shell/navigationResolver.ts");
+    expect(resolveNavigation({ context: "launchpad" }).items[0]).toMatchObject({
+      id: "launchpad",
+      title: "SMRITI Launchpad",
+    });
+    expect(resolveNavigation({ context: "launchpad" }).nextBestAction).toMatchObject({
+      id: "launchpad",
+    });
+  });
+
   it("should have all launchpad tile IDs in registered App tabs", () => {
     LAUNCHPAD_CATALOG.forEach((tile) => {
       expect(REGISTERED_APP_TABS).toContain(tile.id);
