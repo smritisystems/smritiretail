@@ -40,6 +40,13 @@ from ...schemas.reports import (
     TaxInvoiceMasterRegisterReport,
     ArticleColorSizeMatrixReport,
     StoreWiseSummaryReport,
+    SalesOrderSummaryReport,
+    PendingOrdersReport,
+    BilledVsPendingOrdersReport,
+    CustomerWiseOrdersReport,
+    ProductWiseOrderedQuantityReport,
+    OrderFulfillmentStatusReport,
+    InvoiceAllocationReportModel,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
 from ...services.reports import ReportsService
@@ -57,6 +64,13 @@ SMRITI_STUDIOS = {
         "description": "Gross revenue, ticket size, payment modes, sales returns & salesperson indices.",
         "icon": "bar_chart",
         "reports": [
+            {"id": "RPT-SO-001", "code": "RPT-SO-001", "title": "Sales Order Summary",                 "description": "Consolidated order counts, total order values, and fulfillment overview across all sales orders.", "category": "Sales Orders",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-002", "code": "RPT-SO-002", "title": "Pending Orders",                     "description": "Active unfulfilled and partially fulfilled sales orders awaiting billing or shipment.", "category": "Sales Orders",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-003", "code": "RPT-SO-003", "title": "Billed vs Pending Orders",           "description": "Comparison breakdown of booked order value versus invoiced value and outstanding balances.", "category": "Sales Orders",   "format": "Matrix", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-004", "code": "RPT-SO-004", "title": "Customer-wise Orders",               "description": "Customer order aggregates, average order size, and fulfillment distribution by customer.", "category": "Sales Orders",   "format": "Pivot",  "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-005", "code": "RPT-SO-005", "title": "Product-wise Ordered Quantity",       "description": "Ordered quantity, billed quantity, and pending quantity aggregated per product style and article.", "category": "Sales Orders", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-006", "code": "RPT-SO-006", "title": "Order Fulfillment Status",           "description": "Detailed fulfillment status tracking: Fully Billed, Partially Billed, and Unfulfilled orders.", "category": "Sales Orders", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-007", "code": "RPT-SO-007", "title": "Invoice Allocation Report",           "description": "Traceability link map between Sales Orders (Reliance POs) and Tax Invoices with billed vs pending quantities.", "category": "Sales Orders", "format": "Grid", "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-001", "code": "RPT-SAL-001", "title": "Daily Sales Summary Register",     "description": "All completed cash, card, and UPI invoice records with aggregate revenue and average tickets.", "category": "Sales Summary",    "format": "Matrix", "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-002", "code": "RPT-SAL-002", "title": "Sales Returns & Credit Notes Log",  "description": "Detailed log of product returns, reason analyses, and credit notes issued.",                 "category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-003", "code": "RPT-SAL-003", "title": "Top Selling Products Ledger",      "description": "Top performing items ranked by volume, revenue contributions, and margins.",                  "category": "Product Analysis","format": "Pivot",  "owner": "System", "drillDownEnabled": True},
@@ -155,6 +169,13 @@ SMRITI_STUDIOS = {
         ],
     },
 }
+
+@router.get("/studios")
+async def get_report_studios(
+    current_user=Depends(get_current_user),
+):
+    """List all report studios with their registered report catalog."""
+    return {"studios": SMRITI_STUDIOS}
 
 @router.get("/stock-valuation", response_model=StockValuationReport)
 async def stock_valuation_report(
@@ -369,6 +390,115 @@ async def export_tax_invoices_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sales Orders BI Reports API Endpoints (RPT-SO-001 to RPT-SO-007)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/sales-orders/summary", response_model=SalesOrderSummaryReport)
+async def get_sales_order_summary(
+    from_date:   Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:     Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    customer_id: Optional[str]  = Query(default=None, description="Customer filter"),
+    status:      Optional[str]  = Query(default=None, description="Fulfillment status filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-SO-001 — Sales Order Summary."""
+    return await ReportsService(db, tenant).sales_order_summary(
+        from_date=from_date, to_date=to_date, customer_id=customer_id, status=status
+    )
+
+
+@router.get("/sales-orders/pending", response_model=PendingOrdersReport)
+async def get_pending_orders(
+    from_date:   Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:     Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    customer_id: Optional[str]  = Query(default=None, description="Customer filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-SO-002 — Pending Orders."""
+    return await ReportsService(db, tenant).pending_orders(
+        from_date=from_date, to_date=to_date, customer_id=customer_id
+    )
+
+
+@router.get("/sales-orders/billed-vs-pending", response_model=BilledVsPendingOrdersReport)
+async def get_billed_vs_pending_orders(
+    from_date:   Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:     Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    customer_id: Optional[str]  = Query(default=None, description="Customer filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-SO-003 — Billed vs Pending Orders."""
+    return await ReportsService(db, tenant).billed_vs_pending_orders(
+        from_date=from_date, to_date=to_date, customer_id=customer_id
+    )
+
+
+@router.get("/sales-orders/customer-wise", response_model=CustomerWiseOrdersReport)
+async def get_customer_wise_orders(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-SO-004 — Customer-wise Orders."""
+    return await ReportsService(db, tenant).customer_wise_orders(
+        from_date=from_date, to_date=to_date
+    )
+
+
+@router.get("/sales-orders/product-wise", response_model=ProductWiseOrderedQuantityReport)
+async def get_product_wise_ordered_qty(
+    from_date:  Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:    Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    product_id: Optional[str]  = Query(default=None, description="Product / Style / Article filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-SO-005 — Product-wise Ordered Quantity."""
+    return await ReportsService(db, tenant).product_wise_ordered_qty(
+        from_date=from_date, to_date=to_date, product_id=product_id
+    )
+
+
+@router.get("/sales-orders/fulfillment-status", response_model=OrderFulfillmentStatusReport)
+async def get_order_fulfillment_status(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-SO-006 — Order Fulfillment Status."""
+    return await ReportsService(db, tenant).order_fulfillment_status(
+        from_date=from_date, to_date=to_date
+    )
+
+
+@router.get("/sales-orders/invoice-allocations", response_model=InvoiceAllocationReportModel)
+async def get_invoice_allocations_report(
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:   Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    order_id:  Optional[str]  = Query(default=None, description="Order No / PO Number filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-SO-007 — Invoice Allocation Report."""
+    return await ReportsService(db, tenant).invoice_allocations(
+        from_date=from_date, to_date=to_date, order_id=order_id
+    )
+
 
 
 

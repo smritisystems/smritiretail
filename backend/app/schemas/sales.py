@@ -177,34 +177,92 @@ class SalesQuotationResponse(SalesQuotationBase):
 # ─────────────────────────── Sales Order ───────────────────────────
 
 class SalesOrderItemBase(BaseModel):
-    product_id: str = Field(..., max_length=50)
+    product_id: str = Field(..., max_length=50, validation_alias=AliasChoices("product_id", "productId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")
     price: Decimal = Field(..., ge=0)
-    hsn_code: Optional[str] = Field(None, max_length=15)
-    gst_rate: Decimal = Decimal("18.00")
-    tax_amount: Decimal = Decimal("0.00")
-    total_amount: Decimal = Field(..., ge=0)
+    hsn_code: Optional[str] = Field(None, max_length=15, validation_alias=AliasChoices("hsn_code", "hsnCode"))
+    gst_rate: Decimal = Field(Decimal("18.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
+    tax_amount: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_amount", "taxAmount"))
+    total_amount: Decimal = Field(..., ge=0, validation_alias=AliasChoices("total_amount", "totalAmount"))
+
+    # Extended PO Line Item Identifiers
+    sr_no: Optional[int] = Field(None, validation_alias=AliasChoices("sr_no", "srNo"))
+    article_no: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("article_no", "articleNo"))
+    ean: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("ean", "barcode"))
+    vendor_style: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("vendor_style", "vendorStyle", "style"))
+    color: Optional[str] = Field(None, max_length=50)
+    size: Optional[str] = Field(None, max_length=50)
+    uom: Optional[str] = Field("EA", max_length=20)
+    mrp: Optional[Decimal] = Field(None)
+    base_cost: Optional[Decimal] = Field(None, validation_alias=AliasChoices("base_cost", "baseCost"))
+    taxable_value: Optional[Decimal] = Field(None, validation_alias=AliasChoices("taxable_value", "taxableValue"))
+    igst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("igst_amount", "igstAmount"))
+    cgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("cgst_amount", "cgstAmount"))
+    sgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("sgst_amount", "sgstAmount"))
+    line_total: Optional[Decimal] = Field(None, validation_alias=AliasChoices("line_total", "lineTotal"))
+    delivery_date: Optional[datetime_date] = Field(None, validation_alias=AliasChoices("delivery_date", "deliveryDate"))
+    site_code: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("site_code", "siteCode"))
 
 class SalesOrderItemCreate(SalesOrderItemBase):
     pass
 
 class SalesOrderItemResponse(SalesOrderItemBase):
     id: int
-    order_id: str
+    order_id: str = Field(..., validation_alias=AliasChoices("order_id", "orderId"))
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SalesOrderInvoiceAllocationResponse(BaseModel):
+    id: str
+    order_id: str = Field(..., validation_alias=AliasChoices("order_id", "orderId"))
+    order_no: str = Field(..., validation_alias=AliasChoices("order_no", "orderNo"))
+    po_number: str = Field(..., validation_alias=AliasChoices("po_number", "poNumber"))
+    invoice_id: str = Field(..., validation_alias=AliasChoices("invoice_id", "invoiceId"))
+    invoice_no: str = Field(..., validation_alias=AliasChoices("invoice_no", "invoiceNo"))
+    invoice_date: datetime_date = Field(..., validation_alias=AliasChoices("invoice_date", "invoiceDate"))
+    po_quantity: Decimal = Field(Decimal("0.0000"), validation_alias=AliasChoices("po_quantity", "poQuantity"))
+    po_value: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("po_value", "poValue"))
+    billed_quantity: Decimal = Field(Decimal("0.0000"), validation_alias=AliasChoices("billed_quantity", "billedQuantity"))
+    billed_value: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("billed_value", "billedValue"))
+    pending_quantity: Decimal = Field(Decimal("0.0000"), validation_alias=AliasChoices("pending_quantity", "pendingQuantity"))
+    pending_value: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("pending_value", "pendingValue"))
+    status: str = "ALLOCATED"
+    allocation_metadata: Optional[dict] = Field(default_factory=dict, validation_alias=AliasChoices("allocation_metadata", "allocationMetadata"))
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class SalesOrderBase(BaseModel):
-    order_no: str = Field(..., max_length=100)
+    order_no: str = Field(..., max_length=100, validation_alias=AliasChoices("order_no", "orderNo"))
     date: datetime_date = Field(default_factory=datetime_date.today)
-    customer_name: str = Field(..., max_length=255)
-    tax_total: Decimal = Decimal("0.00")
-    grand_total: Decimal = Decimal("0.00")
+    customer_name: str = Field(..., max_length=255, validation_alias=AliasChoices("customer_name", "customerName"))
+    tax_total: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_total", "taxTotal"))
+    grand_total: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("grand_total", "grandTotal"))
     status: str = "Draft"
-    source_quotation_id: Optional[str] = Field(None, max_length=50)
+    source_quotation_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_quotation_id", "sourceQuotationId"))
+
+    # Extended PO & Execution Metadata
+    po_number: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("po_number", "poNumber"))
+    po_date: Optional[datetime_date] = Field(None, validation_alias=AliasChoices("po_date", "poDate"))
+    delivery_date: Optional[datetime_date] = Field(None, validation_alias=AliasChoices("delivery_date", "deliveryDate"))
+    site_code: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("site_code", "siteCode"))
+    site_name: Optional[str] = Field(None, max_length=255, validation_alias=AliasChoices("site_name", "siteName"))
+    delivery_address: Optional[str] = Field(None, validation_alias=AliasChoices("delivery_address", "deliveryAddress"))
+    vendor_code: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("vendor_code", "vendorCode"))
+    customer_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("customer_id", "customerId"))
+    customer_gstin: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("customer_gstin", "customerGstin", "gstin"))
+    basic_total: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("basic_total", "basicTotal"))
+    is_interstate: Optional[bool] = Field(True, validation_alias=AliasChoices("is_interstate", "isInterstate"))
+    total_qty: Optional[Decimal] = Field(Decimal("0.0000"), validation_alias=AliasChoices("total_qty", "totalQty"))
+    billed_qty: Optional[Decimal] = Field(Decimal("0.0000"), validation_alias=AliasChoices("billed_qty", "billedQty"))
+    billed_value: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("billed_value", "billedValue"))
+    pending_qty: Optional[Decimal] = Field(Decimal("0.0000"), validation_alias=AliasChoices("pending_qty", "pendingQty"))
+    pending_value: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("pending_value", "pendingValue"))
+    fulfillment_status: Optional[str] = Field("UNFULFILLED", validation_alias=AliasChoices("fulfillment_status", "fulfillmentStatus"))
+    po_metadata: Optional[dict] = Field(default_factory=dict, validation_alias=AliasChoices("po_metadata", "poMetadata"))
 
 class SalesOrderCreate(SalesOrderBase):
     id: str = Field(..., max_length=50)
@@ -218,6 +276,24 @@ class SalesOrderUpdate(BaseModel):
     grand_total: Optional[Decimal] = None
     status: Optional[str] = None
     source_quotation_id: Optional[str] = None
+    po_number: Optional[str] = None
+    po_date: Optional[datetime_date] = None
+    delivery_date: Optional[datetime_date] = None
+    site_code: Optional[str] = None
+    site_name: Optional[str] = None
+    delivery_address: Optional[str] = None
+    vendor_code: Optional[str] = None
+    customer_id: Optional[str] = None
+    customer_gstin: Optional[str] = None
+    basic_total: Optional[Decimal] = None
+    is_interstate: Optional[bool] = None
+    total_qty: Optional[Decimal] = None
+    billed_qty: Optional[Decimal] = None
+    billed_value: Optional[Decimal] = None
+    pending_qty: Optional[Decimal] = None
+    pending_value: Optional[Decimal] = None
+    fulfillment_status: Optional[str] = None
+    po_metadata: Optional[dict] = None
     items: Optional[List[SalesOrderItemCreate]] = None
 
 class SalesOrderResponse(SalesOrderBase):
@@ -231,6 +307,7 @@ class SalesOrderResponse(SalesOrderBase):
     is_deleted: Optional[bool] = False
     version: Optional[int] = 1
     items: List[SalesOrderItemResponse] = []
+    allocations: List[SalesOrderInvoiceAllocationResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 

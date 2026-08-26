@@ -1,0 +1,17 @@
+{
+  "profile": "Retail",
+  "version": "18.0",
+  "description": "SMRITI Retail Profile based on Shoper9 Retail template",
+  "scope": [
+    "POS billing",
+    "Retail pricing & barcode lookup",
+    "Customer cash/card/UPI sales",
+    "Store stock inward & inventory",
+    "Retail register reports"
+  ],
+  "parameterCount": 828,
+  "lookupCount": 782,
+  "optionCount": 51,
+  "displayLayoutCount": 0,
+  "menuCount": 0
+}

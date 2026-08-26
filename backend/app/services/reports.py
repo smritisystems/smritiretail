@@ -25,7 +25,10 @@ from sqlalchemy import or_
 from fastapi import HTTPException
 
 from ..models.inventory import Product
-from ..models.sales import SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem
+from ..models.sales import (
+    SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem,
+    SalesOrder, SalesOrderItem, SalesOrderInvoiceAllocation
+)
 from ..models.purchase import Supplier, PurchaseOrder, PurchaseReceipt
 from ..models.supplier_payment import SupplierPayment
 from ..models.report_schedule import ReportSchedule
@@ -41,6 +44,13 @@ from ..schemas.reports import (
     DailySalesSummary,
     SupplierLedgerEntry, SupplierLedger,
     PurchaseSummaryLine,
+    SalesOrderSummaryLine, SalesOrderSummaryReport,
+    PendingOrderLine, PendingOrdersReport,
+    BilledVsPendingOrderLine, BilledVsPendingOrdersReport,
+    CustomerWiseOrderLine, CustomerWiseOrdersReport,
+    ProductWiseOrderedQuantityLine, ProductWiseOrderedQuantityReport,
+    OrderFulfillmentStatusGroup, OrderFulfillmentStatusReport,
+    InvoiceAllocationReportLine, InvoiceAllocationReportModel,
 )
 
 class ReportsService:
@@ -1263,5 +1273,514 @@ class ReportsService:
         wb.save(stream)
         stream.seek(0)
         return stream.getvalue()
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # Sales Order BI Reports (RPT-SO-001 to RPT-SO-007)
+    # ─────────────────────────────────────────────────────────────────────────────
+
+    def _so_tenant_filter(self, stmt):
+        if self.tenant and self.tenant.company_id:
+            stmt = stmt.where(
+                (SalesOrder.company_id == self.tenant.company_id) | (SalesOrder.company_id.is_(None))
+            )
+        if self.tenant and self.tenant.branch_id:
+            aliases = [self.tenant.branch_id, "MAIN", "BR-MAIN-001", "BR-001", "DEFAULT"]
+            stmt = stmt.where(
+                (SalesOrder.branch_id.in_(aliases)) | (SalesOrder.branch_id.is_(None))
+            )
+        return stmt
+
+    async def sales_order_summary(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        customer_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> SalesOrderSummaryReport:
+        stmt = select(SalesOrder).where(SalesOrder.is_deleted == False)
+        stmt = self._so_tenant_filter(stmt)
+        if from_date:
+            stmt = stmt.where(SalesOrder.date >= from_date)
+        if to_date:
+            stmt = stmt.where(SalesOrder.date <= to_date)
+        if customer_id:
+            stmt = stmt.where((SalesOrder.customer_id == customer_id) | (SalesOrder.customer_name.ilike(f"%{customer_id}%")))
+        if status:
+            stmt = stmt.where(SalesOrder.fulfillment_status == status)
+        stmt = stmt.order_by(SalesOrder.date.desc(), SalesOrder.order_no.asc())
+
+        res = await self.db.execute(stmt)
+        orders = res.scalars().all()
+
+        lines = []
+        tot_qty = Decimal("0.0000")
+        tot_val = Decimal("0.00")
+        tot_billed = Decimal("0.00")
+        tot_pending = Decimal("0.00")
+        status_counts: Dict[str, int] = {}
+
+        for o in orders:
+            qty = Decimal(str(o.total_qty or "0.0000"))
+            basic = Decimal(str(o.basic_total or "0.00"))
+            tax = Decimal(str(o.tax_total or "0.00"))
+            grand = Decimal(str(o.grand_total or "0.00"))
+            billed = Decimal(str(o.billed_value or "0.00"))
+            pending = Decimal(str(o.pending_value or (grand - billed)))
+            f_status = o.fulfillment_status or "UNFULFILLED"
+
+            tot_qty += qty
+            tot_val += grand
+            tot_billed += billed
+            tot_pending += pending
+            status_counts[f_status] = status_counts.get(f_status, 0) + 1
+
+            lines.append(SalesOrderSummaryLine(
+                order_no=o.order_no,
+                po_number=o.po_number,
+                customer_name=o.customer_name or "Reliance Retail Limited",
+                date=str(o.date) if o.date else "",
+                delivery_date=str(o.delivery_date) if o.delivery_date else None,
+                site_code=o.site_code,
+                total_qty=qty,
+                basic_total=basic,
+                tax_total=tax,
+                grand_total=grand,
+                billed_value=billed,
+                pending_value=pending,
+                fulfillment_status=f_status,
+            ))
+
+        return SalesOrderSummaryReport(
+            from_date=str(from_date or ""),
+            to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_orders=len(lines),
+            total_ordered_qty=tot_qty,
+            total_order_value=tot_val,
+            total_billed_value=tot_billed,
+            total_pending_value=tot_pending,
+            status_counts=status_counts,
+            lines=lines,
+        )
+
+    async def pending_orders(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        customer_id: Optional[str] = None,
+    ) -> PendingOrdersReport:
+        stmt = select(SalesOrder).where(
+            SalesOrder.is_deleted == False,
+            SalesOrder.fulfillment_status != "FULLY_BILLED"
+        )
+        stmt = self._so_tenant_filter(stmt)
+        if from_date:
+            stmt = stmt.where(SalesOrder.date >= from_date)
+        if to_date:
+            stmt = stmt.where(SalesOrder.date <= to_date)
+        if customer_id:
+            stmt = stmt.where((SalesOrder.customer_id == customer_id) | (SalesOrder.customer_name.ilike(f"%{customer_id}%")))
+        stmt = stmt.order_by(SalesOrder.date.desc(), SalesOrder.order_no.asc())
+
+        res = await self.db.execute(stmt)
+        orders = res.scalars().all()
+
+        lines = []
+        tot_pending_qty = Decimal("0.0000")
+        tot_pending_val = Decimal("0.00")
+
+        for o in orders:
+            qty = Decimal(str(o.total_qty or "0.0000"))
+            billed_qty = Decimal(str(o.billed_qty or "0.0000"))
+            pending_qty = Decimal(str(o.pending_qty or (qty - billed_qty)))
+            grand = Decimal(str(o.grand_total or "0.00"))
+            billed = Decimal(str(o.billed_value or "0.00"))
+            pending_val = Decimal(str(o.pending_value or (grand - billed)))
+            f_status = o.fulfillment_status or "UNFULFILLED"
+
+            tot_pending_qty += pending_qty
+            tot_pending_val += pending_val
+
+            lines.append(PendingOrderLine(
+                order_no=o.order_no,
+                po_number=o.po_number,
+                customer_name=o.customer_name or "Reliance Retail Limited",
+                po_date=str(o.po_date) if o.po_date else str(o.date) if o.date else None,
+                delivery_date=str(o.delivery_date) if o.delivery_date else None,
+                site_code=o.site_code,
+                total_qty=qty,
+                billed_qty=billed_qty,
+                pending_qty=pending_qty,
+                grand_total=grand,
+                billed_value=billed,
+                pending_value=pending_val,
+                fulfillment_status=f_status,
+            ))
+
+        return PendingOrdersReport(
+            from_date=str(from_date or ""),
+            to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_pending_orders=len(lines),
+            total_pending_qty=tot_pending_qty,
+            total_pending_value=tot_pending_val,
+            lines=lines,
+        )
+
+    async def billed_vs_pending_orders(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        customer_id: Optional[str] = None,
+    ) -> BilledVsPendingOrdersReport:
+        stmt = select(SalesOrder).where(SalesOrder.is_deleted == False)
+        stmt = self._so_tenant_filter(stmt)
+        if from_date:
+            stmt = stmt.where(SalesOrder.date >= from_date)
+        if to_date:
+            stmt = stmt.where(SalesOrder.date <= to_date)
+        if customer_id:
+            stmt = stmt.where((SalesOrder.customer_id == customer_id) | (SalesOrder.customer_name.ilike(f"%{customer_id}%")))
+        stmt = stmt.order_by(SalesOrder.date.desc(), SalesOrder.order_no.asc())
+
+        res = await self.db.execute(stmt)
+        orders = res.scalars().all()
+
+        lines = []
+        tot_val = Decimal("0.00")
+        tot_billed = Decimal("0.00")
+        tot_pending = Decimal("0.00")
+
+        for o in orders:
+            grand = Decimal(str(o.grand_total or "0.00"))
+            billed = Decimal(str(o.billed_value or "0.00"))
+            pending = Decimal(str(o.pending_value or (grand - billed)))
+            pct = (billed / grand * Decimal("100.00")).quantize(Decimal("0.01")) if grand > 0 else Decimal("0.00")
+            f_status = o.fulfillment_status or "UNFULFILLED"
+
+            tot_val += grand
+            tot_billed += billed
+            tot_pending += pending
+
+            lines.append(BilledVsPendingOrderLine(
+                order_no=o.order_no,
+                po_number=o.po_number,
+                customer_name=o.customer_name or "Reliance Retail Limited",
+                date=str(o.date) if o.date else "",
+                grand_total=grand,
+                billed_value=billed,
+                pending_value=pending,
+                billing_pct=pct,
+                fulfillment_status=f_status,
+            ))
+
+        overall_pct = (tot_billed / tot_val * Decimal("100.00")).quantize(Decimal("0.01")) if tot_val > 0 else Decimal("0.00")
+
+        return BilledVsPendingOrdersReport(
+            from_date=str(from_date or ""),
+            to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_orders=len(lines),
+            total_order_value=tot_val,
+            total_billed_value=tot_billed,
+            total_pending_value=tot_pending,
+            overall_billing_pct=overall_pct,
+            lines=lines,
+        )
+
+    async def customer_wise_orders(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+    ) -> CustomerWiseOrdersReport:
+        stmt = select(SalesOrder).where(SalesOrder.is_deleted == False)
+        stmt = self._so_tenant_filter(stmt)
+        if from_date:
+            stmt = stmt.where(SalesOrder.date >= from_date)
+        if to_date:
+            stmt = stmt.where(SalesOrder.date <= to_date)
+        stmt = stmt.order_by(SalesOrder.customer_name.asc())
+
+        res = await self.db.execute(stmt)
+        orders = res.scalars().all()
+
+        cust_map: Dict[str, dict] = {}
+        for o in orders:
+            cname = o.customer_name or "Reliance Retail Limited"
+            gstin = o.customer_gstin or ""
+            qty = Decimal(str(o.total_qty or "0.0000"))
+            grand = Decimal(str(o.grand_total or "0.00"))
+            billed = Decimal(str(o.billed_value or "0.00"))
+            pending = Decimal(str(o.pending_value or (grand - billed)))
+
+            if cname not in cust_map:
+                cust_map[cname] = {
+                    "customer_name": cname,
+                    "customer_gstin": gstin,
+                    "order_count": 0,
+                    "total_qty": Decimal("0.0000"),
+                    "total_value": Decimal("0.00"),
+                    "billed_value": Decimal("0.00"),
+                    "pending_value": Decimal("0.00"),
+                }
+            entry = cust_map[cname]
+            entry["order_count"] += 1
+            entry["total_qty"] += qty
+            entry["total_value"] += grand
+            entry["billed_value"] += billed
+            entry["pending_value"] += pending
+
+        lines = []
+        tot_val = Decimal("0.00")
+        tot_billed = Decimal("0.00")
+        tot_pending = Decimal("0.00")
+        tot_orders = 0
+
+        for cname, data in cust_map.items():
+            cnt = data["order_count"]
+            tval = data["total_value"]
+            avg_val = (tval / Decimal(cnt)).quantize(Decimal("0.01")) if cnt > 0 else Decimal("0.00")
+            tot_val += tval
+            tot_billed += data["billed_value"]
+            tot_pending += data["pending_value"]
+            tot_orders += cnt
+
+            lines.append(CustomerWiseOrderLine(
+                customer_name=cname,
+                customer_gstin=data["customer_gstin"],
+                order_count=cnt,
+                total_qty=data["total_qty"],
+                total_value=tval,
+                billed_value=data["billed_value"],
+                pending_value=data["pending_value"],
+                avg_order_value=avg_val,
+            ))
+
+        lines.sort(key=lambda x: x.total_value, reverse=True)
+
+        return CustomerWiseOrdersReport(
+            from_date=str(from_date or ""),
+            to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_customers=len(lines),
+            total_orders=tot_orders,
+            total_value=tot_val,
+            total_billed_value=tot_billed,
+            total_pending_value=tot_pending,
+            lines=lines,
+        )
+
+    async def product_wise_ordered_qty(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        product_id: Optional[str] = None,
+    ) -> ProductWiseOrderedQuantityReport:
+        stmt = (
+            select(SalesOrderItem, SalesOrder)
+            .join(SalesOrder, SalesOrderItem.order_id == SalesOrder.id)
+            .where(SalesOrder.is_deleted == False)
+        )
+        if self.tenant and self.tenant.company_id:
+            stmt = stmt.where((SalesOrder.company_id == self.tenant.company_id) | (SalesOrder.company_id.is_(None)))
+        if from_date:
+            stmt = stmt.where(SalesOrder.date >= from_date)
+        if to_date:
+            stmt = stmt.where(SalesOrder.date <= to_date)
+        if product_id:
+            stmt = stmt.where((SalesOrderItem.product_id == product_id) | (SalesOrderItem.article_no == product_id) | (SalesOrderItem.code == product_id))
+
+        res = await self.db.execute(stmt)
+        rows = res.all()
+
+        prod_map: Dict[str, dict] = {}
+        for item, order in rows:
+            key = f"{item.article_no or item.code}_{item.vendor_style or ''}_{item.color or ''}_{item.size or ''}"
+            qty = Decimal(str(item.quantity or "0.0000"))
+            val = Decimal(str(item.total_amount or "0.00"))
+            cost = Decimal(str(item.price or "0.00"))
+
+            if key not in prod_map:
+                prod_map[key] = {
+                    "product_id": item.product_id,
+                    "article_no": item.article_no or item.code,
+                    "vendor_style": item.vendor_style or item.code,
+                    "name": item.name,
+                    "color": item.color,
+                    "size": item.size,
+                    "uom": item.uom or "EA",
+                    "ordered_qty": Decimal("0.0000"),
+                    "total_value": Decimal("0.00"),
+                    "costs": [],
+                    "order_ids": set(),
+                }
+            entry = prod_map[key]
+            entry["ordered_qty"] += qty
+            entry["total_value"] += val
+            entry["costs"].append(cost)
+            entry["order_ids"].add(order.id)
+
+        lines = []
+        tot_qty = Decimal("0.0000")
+        tot_val = Decimal("0.00")
+
+        for key, d in prod_map.items():
+            tot_qty += d["ordered_qty"]
+            tot_val += d["total_value"]
+            avg_c = (sum(d["costs"]) / Decimal(len(d["costs"]))).quantize(Decimal("0.01")) if d["costs"] else Decimal("0.00")
+
+            lines.append(ProductWiseOrderedQuantityLine(
+                product_id=d["product_id"],
+                article_no=d["article_no"],
+                vendor_style=d["vendor_style"],
+                name=d["name"],
+                color=d["color"],
+                size=d["size"],
+                uom=d["uom"],
+                ordered_qty=d["ordered_qty"],
+                avg_cost=avg_c,
+                total_value=d["total_value"],
+                order_count=len(d["order_ids"]),
+            ))
+
+        lines.sort(key=lambda x: x.ordered_qty, reverse=True)
+
+        return ProductWiseOrderedQuantityReport(
+            from_date=str(from_date or ""),
+            to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_products=len(lines),
+            total_ordered_qty=tot_qty,
+            total_value=tot_val,
+            lines=lines,
+        )
+
+    async def order_fulfillment_status(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+    ) -> OrderFulfillmentStatusReport:
+        summary_rep = await self.sales_order_summary(from_date=from_date, to_date=to_date)
+        
+        group_map: Dict[str, dict] = {}
+        for l in summary_rep.lines:
+            st = l.fulfillment_status
+            if st not in group_map:
+                group_map[st] = {
+                    "status": st,
+                    "order_count": 0,
+                    "total_qty": Decimal("0.0000"),
+                    "total_value": Decimal("0.00"),
+                    "billed_value": Decimal("0.00"),
+                    "pending_value": Decimal("0.00"),
+                }
+            g = group_map[st]
+            g["order_count"] += 1
+            g["total_qty"] += l.total_qty
+            g["total_value"] += l.grand_total
+            g["billed_value"] += l.billed_value
+            g["pending_value"] += l.pending_value
+
+        groups = [
+            OrderFulfillmentStatusGroup(
+                status=g["status"],
+                order_count=g["order_count"],
+                total_qty=g["total_qty"],
+                total_value=g["total_value"],
+                billed_value=g["billed_value"],
+                pending_value=g["pending_value"],
+            )
+            for g in group_map.values()
+        ]
+
+        return OrderFulfillmentStatusReport(
+            from_date=str(from_date or ""),
+            to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_orders=summary_rep.total_orders,
+            total_value=summary_rep.total_order_value,
+            groups=groups,
+            lines=summary_rep.lines,
+        )
+
+    async def invoice_allocations(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        order_id: Optional[str] = None,
+    ) -> InvoiceAllocationReportModel:
+        stmt = (
+            select(SalesOrderInvoiceAllocation)
+            .where(SalesOrderInvoiceAllocation.is_deleted == False)
+        )
+        if self.tenant and self.tenant.company_id:
+            stmt = stmt.where((SalesOrderInvoiceAllocation.company_id == self.tenant.company_id) | (SalesOrderInvoiceAllocation.company_id.is_(None)))
+        if from_date:
+            stmt = stmt.where(SalesOrderInvoiceAllocation.invoice_date >= from_date)
+        if to_date:
+            stmt = stmt.where(SalesOrderInvoiceAllocation.invoice_date <= to_date)
+        if order_id:
+            stmt = stmt.where(
+                (SalesOrderInvoiceAllocation.order_id == order_id) |
+                (SalesOrderInvoiceAllocation.order_no == order_id) |
+                (SalesOrderInvoiceAllocation.po_number == order_id)
+            )
+        stmt = stmt.order_by(SalesOrderInvoiceAllocation.invoice_date.desc(), SalesOrderInvoiceAllocation.invoice_no.asc())
+
+        res = await self.db.execute(stmt)
+        allocs = res.scalars().all()
+
+        lines = []
+        tot_po_qty = Decimal("0.0000")
+        tot_po_val = Decimal("0.00")
+        tot_billed_qty = Decimal("0.0000")
+        tot_billed_val = Decimal("0.00")
+        tot_pending_qty = Decimal("0.0000")
+        tot_pending_val = Decimal("0.00")
+
+        for a in allocs:
+            p_qty = Decimal(str(a.po_quantity or "0.0000"))
+            p_val = Decimal(str(a.po_value or "0.00"))
+            b_qty = Decimal(str(a.billed_quantity or "0.0000"))
+            b_val = Decimal(str(a.billed_value or "0.00"))
+            pen_qty = Decimal(str(a.pending_quantity or "0.0000"))
+            pen_val = Decimal(str(a.pending_value or "0.00"))
+
+            tot_po_qty += p_qty
+            tot_po_val += p_val
+            tot_billed_qty += b_qty
+            tot_billed_val += b_val
+            tot_pending_qty += pen_qty
+            tot_pending_val += pen_val
+
+            lines.append(InvoiceAllocationReportLine(
+                id=a.id,
+                order_no=a.order_no,
+                po_number=a.po_number,
+                invoice_no=a.invoice_no,
+                invoice_date=str(a.invoice_date) if a.invoice_date else "",
+                po_quantity=p_qty,
+                po_value=p_val,
+                billed_quantity=b_qty,
+                billed_value=b_val,
+                pending_quantity=pen_qty,
+                pending_value=pen_val,
+                status=a.status or "ALLOCATED",
+            ))
+
+        return InvoiceAllocationReportModel(
+            from_date=str(from_date or ""),
+            to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_allocations=len(lines),
+            total_po_quantity=tot_po_qty,
+            total_po_value=tot_po_val,
+            total_billed_qty=tot_billed_qty,
+            total_billed_value=tot_billed_val,
+            total_pending_qty=tot_pending_qty,
+            total_pending_value=tot_pending_val,
+            lines=lines,
+        )
+
 
 

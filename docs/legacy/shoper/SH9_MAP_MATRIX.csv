@@ -80,13 +80,13 @@ MnuNo,MenuOpt,MnuName,MnuCap,ExeName,pgmopt,AllowWhenTrnClosed,MultiInstance,Smr
 410,414,Sales,Tax Register,SR202300.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,TAX_REGISTER_SALES,MAPPED,Reports: Tax Register (Sales).
 410,415,Sales,Bill-wise Items,SR202000.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,BILLWISE_ITEMS,MAPPED,Reports: Bill-wise Items.
 410,416,Sales,Discount Given,SR202100.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,DISCOUNT_GIVEN,MAPPED,Reports: Discount Given.
-410,418,Sales,Top Selling Items,SR209600.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,SALESPERSON_SALES,MAPPED,Reports: Salesperson Sales.
-410,419,Sales,Salesperson Sales,SR210000.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,CANCELLED_BILLS,MAPPED,Reports: Cancelled Bills.
-410,420,Sales,Cancelled Bills,SR210100.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,RETURNED_BILLS,MAPPED,Reports: Returned Bills.
-410,421,Sales,Returned Bills,SR210200.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,ATTR_SIZE_SALES,MAPPED,Reports: Attribute+Size-wise Sales.
-410,422,Sales,Attribute + Size wise,SR236300.Exe,2,1,0,Reports Portal,menu-reports,REPORTS,VIEW,DAYWISE_SUMMARY,MAPPED,Reports: Day-wise Sales Summary.
-410,423,Sales,Day-wise Sales Summary,SR209500.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,ITEMWISE_RETURNS,MAPPED,Reports: Item-wise Sales Returns.
-410,425,Sales,Item-wise Sales Returns,SR214100.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,NODEWISE_DETAILS,MAPPED,Reports: Node-wise Details.
+410,418,Sales,Top Selling Items,SR209600.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,TOP_SELLING,MAPPED,Reports: Top Selling Items.
+410,419,Sales,Salesperson Sales,SR210000.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,SALESPERSON_SALES,MAPPED,Reports: Salesperson Sales.
+410,420,Sales,Cancelled Bills,SR210100.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,CANCELLED_BILLS,MAPPED,Reports: Cancelled Bills.
+410,421,Sales,Returned Bills,SR210200.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,RETURNED_BILLS,MAPPED,Reports: Returned Bills.
+410,422,Sales,Attribute + Size wise,SR236300.Exe,2,1,0,Reports Portal,menu-reports,REPORTS,VIEW,ATTR_SIZE_SALES,MAPPED,Reports: Attribute+Size-wise Sales.
+410,423,Sales,Day-wise Sales Summary,SR209500.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,DAYWISE_SUMMARY,MAPPED,Reports: Day-wise Sales Summary.
+410,425,Sales,Item-wise Sales Returns,SR214100.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,ITEMWISE_RETURNS,MAPPED,Reports: Item-wise Sales Returns.
 410,426,Sales,Salesperson Summary,SR221600.EXE,0,1,0,Reports Portal,menu-reports,REPORTS,VIEW,SALESPERSON_SUMM,MAPPED,Reports: Salesperson Summary (SR221600).
 410,427,Sales,Node-wise Details,SR231900.EXE,1,0,0,Reports Portal,menu-reports,REPORTS,VIEW,NODEWISE_DETAILS,MAPPED,Reports: Node-wise Details (SR231900).
 430,431,Stock,Balance,SR202500.EXE,0,1,0,Stock Ledger,menu-stock-ledger,INVENTORY,VIEW,BAL_MOVEMENT,MAPPED,Stock Ledger: Balance Movement Analysis.
