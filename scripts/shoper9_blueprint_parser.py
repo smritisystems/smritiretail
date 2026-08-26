@@ -246,32 +246,52 @@ def analyze_and_extract_blueprints(
     # Compare Retail vs Distributor parameters
     retail_param_map = {r["ParamCode"]: r for r in retail_sy_rows if "ParamCode" in r}
     dist_param_map = {r["ParamCode"]: r for r in dist_sy_rows if "ParamCode" in r}
-
     profile_diffs = []
     all_param_codes = sorted(set(retail_param_map.keys()) | set(dist_param_map.keys()))
     consolidated_params = []
 
     for code in all_param_codes:
-        r_entry = retail_param_map.get(code)
-        d_entry = dist_param_map.get(code)
+        r_rec = retail_param_map.get(code)
+        d_rec = dist_param_map.get(code)
 
-        r_val = r_entry.get("Txt", "") if r_entry else None
-        d_val = d_entry.get("Txt", "") if d_entry else None
-        descr = (r_entry or d_entry).get("Descr", "")
-        cat = (r_entry or d_entry).get("Category", "")
+        is_in_retail = r_rec is not None
+        is_in_dist = d_rec is not None
 
-        param_obj = {
+        rec = r_rec or d_rec
+
+        # Check value variance
+        r_val = f"Bool={r_rec.get('Boolean','')}|Int={r_rec.get('Intg','')}|Txt={r_rec.get('Txt','')}" if r_rec else "N/A"
+        d_val = f"Bool={d_rec.get('Boolean','')}|Int={d_rec.get('Intg','')}|Txt={d_rec.get('Txt','')}" if d_rec else "N/A"
+
+        diff = (r_val != d_val)
+        if diff:
+            profile_diffs.append({
+                "paramCode": code,
+                "description": rec.get("Descr", ""),
+                "category": rec.get("Category", ""),
+                "retailValue": r_val,
+                "distributorValue": d_val
+            })
+
+        consolidated_params.append({
+            "id": rec.get("Id"),
             "paramCode": code,
-            "description": descr,
-            "category": cat,
-            "retailValue": r_val,
-            "distributorValue": d_val,
-            "hasVariance": (r_val != d_val)
-        }
-        consolidated_params.append(param_obj)
-
-        if r_val != d_val:
-            profile_diffs.append(param_obj)
+            "description": rec.get("Descr"),
+            "category": rec.get("Category"),
+            "categoryDescription": rec.get("CatDescr"),
+            "displayOrder": int(rec.get("DispOrder", 0)) if rec.get("DispOrder", "").isdigit() else 0,
+            "type": rec.get("Opt"),
+            "inRetail": is_in_retail,
+            "inDistributor": is_in_dist,
+            "retailDefaults": r_rec,
+            "distributorDefaults": d_rec,
+            "hasProfileVariance": diff,
+            "smritiMapping": {
+                "targetSystem": "smritisys.system_parameters",
+                "storageKey": f"sysparam_{code.lower()}",
+                "isConfigurable": rec.get("Fixed") != "Fixed"
+            }
+        })
 
     # 4. Parse General Lookups (*.Gl)
     retail_gl_headers, retail_gl_rows = parse_csv_records(file_contents.get("Retail.Gl", ""))
@@ -298,7 +318,7 @@ def analyze_and_extract_blueprints(
             })
         else:
             seen_dbs.add(raw_s)
-            if stmt["table"].lower() == "acceptdisplaydtls" and stmt["type"] == "INSERT":
+            if stmt["table"].lower() == "acceptdisplaydtls" and stmt["type"] in ("INSERT_DISPLAY_DTLS", "INSERT"):
                 dist_display_columns.append(stmt["data"])
 
     # 7. Parse SQL Menu Definitions (*.Mns)
@@ -317,15 +337,17 @@ def analyze_and_extract_blueprints(
             })
         else:
             seen_menus.add(raw_s)
-            if stmt["table"].lower() == "vamenu" and stmt["type"] == "INSERT":
+            if stmt["table"].lower() == "vamenu" and stmt["type"] in ("INSERT_MENU", "INSERT"):
                 d = stmt["data"]
+                caption = d.get("MnuCap") or d.get("MnuName") or ""
                 # Map to SMRITI canonical tile
-                mapping = map_menu_to_smriti_tile(d.get("MnuName", ""), d.get("ExeName", ""))
+                mapping = map_menu_to_smriti_tile(caption, d.get("ExeName", ""))
                 dist_menu_entries.append({
                     "menuNo": d.get("MnuNo"),
-                    "caption": d.get("MnuName"),
-                    "programOption": d.get("PgmOpt"),
-                    "executable": d.get("ExeName"),
+                    "caption": caption,
+                    "parentName": d.get("MnuName", ""),
+                    "programOption": d.get("Pgmopt", d.get("PgmOpt")),
+                    "executable": d.get("ExeName", "").strip(),
                     "helpContext": d.get("HelpContext"),
                     "smritiMapping": mapping,
                     "status": "MAPPED"

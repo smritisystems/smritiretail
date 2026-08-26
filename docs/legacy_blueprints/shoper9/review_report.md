@@ -52,7 +52,7 @@ The legacy SQL files contain redundant duplicate statements that have been filte
 
 | Source File | Duplicate Statement | Action Taken |
 |---|---|---|
-| `Distributor.Mns` | `insert into vavertable (ExeSrl,ExeID,ExeSkip,ExeVer,ExeMinor,ExeSubRel) values (0,'SR115500.EXE','N','9','1','123')` | Deduplicated in reviewed copy |
+| `Distributor.Mns` | `insert into vavertable (ExeSrl,ExeID,ExeSkip,ExeVer,ExeMinor,ExeSubRel) values (...` | Deduplicated in normalized blueprint |
 
 ---
 

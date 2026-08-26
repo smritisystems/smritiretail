@@ -18,7 +18,7 @@ Founders
 
 from decimal import Decimal
 from datetime import date
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
@@ -435,19 +435,25 @@ class SalesOrderSummaryLine(BaseModel):
     pending_value:      Decimal
     fulfillment_status: str
 
+
 class SalesOrderSummaryReport(BaseModel):
     """RPT-SO-001 -- Sales Order Summary."""
     report_id:          str = "RPT-SO-001"
+    report_name:        str = "Sales Order Summary"
     from_date:          str
     to_date:            str
     generated_at:       str
+    filters:            Dict[str, Any] = {}
+    summary:            Dict[str, Any] = {}
+    totals:             Dict[str, Any] = {}
     total_orders:       int
     total_ordered_qty:  Decimal
     total_order_value:  Decimal
     total_billed_value: Decimal
     total_pending_value: Decimal
-    status_counts:      dict
-    lines:              List[SalesOrderSummaryLine]
+    status_counts:      dict = {}
+    lines:              List[SalesOrderSummaryLine] = []
+    rows:               List[SalesOrderSummaryLine] = []
 
 
 class PendingOrderLine(BaseModel):
@@ -465,16 +471,22 @@ class PendingOrderLine(BaseModel):
     pending_value:      Decimal
     fulfillment_status: str
 
+
 class PendingOrdersReport(BaseModel):
     """RPT-SO-002 -- Pending Orders."""
     report_id:          str = "RPT-SO-002"
+    report_name:        str = "Pending Orders"
     from_date:          str
     to_date:            str
     generated_at:       str
+    filters:            Dict[str, Any] = {}
+    summary:            Dict[str, Any] = {}
+    totals:             Dict[str, Any] = {}
     total_pending_orders: int
     total_pending_qty:   Decimal
     total_pending_value: Decimal
-    lines:              List[PendingOrderLine]
+    lines:              List[PendingOrderLine] = []
+    rows:               List[PendingOrderLine] = []
 
 
 class BilledVsPendingOrderLine(BaseModel):
@@ -486,20 +498,27 @@ class BilledVsPendingOrderLine(BaseModel):
     billed_value:       Decimal
     pending_value:      Decimal
     billing_pct:        Decimal
+    pending_pct:        Decimal = Decimal("0.00")
     fulfillment_status: str
+
 
 class BilledVsPendingOrdersReport(BaseModel):
     """RPT-SO-003 -- Billed vs Pending Orders."""
     report_id:          str = "RPT-SO-003"
+    report_name:        str = "Billed vs Pending Orders"
     from_date:          str
     to_date:            str
     generated_at:       str
+    filters:            Dict[str, Any] = {}
+    summary:            Dict[str, Any] = {}
+    totals:             Dict[str, Any] = {}
     total_orders:       int
     total_order_value:  Decimal
     total_billed_value: Decimal
     total_pending_value: Decimal
     overall_billing_pct: Decimal
-    lines:              List[BilledVsPendingOrderLine]
+    lines:              List[BilledVsPendingOrderLine] = []
+    rows:               List[BilledVsPendingOrderLine] = []
 
 
 class CustomerWiseOrderLine(BaseModel):
@@ -512,18 +531,24 @@ class CustomerWiseOrderLine(BaseModel):
     pending_value:      Decimal
     avg_order_value:    Decimal
 
+
 class CustomerWiseOrdersReport(BaseModel):
     """RPT-SO-004 -- Customer-wise Orders."""
     report_id:          str = "RPT-SO-004"
+    report_name:        str = "Customer-wise Orders"
     from_date:          str
     to_date:            str
     generated_at:       str
+    filters:            Dict[str, Any] = {}
+    summary:            Dict[str, Any] = {}
+    totals:             Dict[str, Any] = {}
     total_customers:    int
     total_orders:       int
     total_value:        Decimal
     total_billed_value: Decimal
     total_pending_value: Decimal
-    lines:              List[CustomerWiseOrderLine]
+    lines:              List[CustomerWiseOrderLine] = []
+    rows:               List[CustomerWiseOrderLine] = []
 
 
 class ProductWiseOrderedQuantityLine(BaseModel):
@@ -535,20 +560,28 @@ class ProductWiseOrderedQuantityLine(BaseModel):
     size:               Optional[str] = None
     uom:                str = "EA"
     ordered_qty:        Decimal
+    billed_qty:         Decimal = Decimal("0.0000")
+    pending_qty:        Decimal = Decimal("0.0000")
     avg_cost:           Decimal
     total_value:        Decimal
     order_count:        int
 
+
 class ProductWiseOrderedQuantityReport(BaseModel):
     """RPT-SO-005 -- Product-wise Ordered Quantity."""
     report_id:          str = "RPT-SO-005"
+    report_name:        str = "Product-wise Ordered Quantity"
     from_date:          str
     to_date:            str
     generated_at:       str
+    filters:            Dict[str, Any] = {}
+    summary:            Dict[str, Any] = {}
+    totals:             Dict[str, Any] = {}
     total_products:     int
     total_ordered_qty:  Decimal
     total_value:        Decimal
-    lines:              List[ProductWiseOrderedQuantityLine]
+    lines:              List[ProductWiseOrderedQuantityLine] = []
+    rows:               List[ProductWiseOrderedQuantityLine] = []
 
 
 class OrderFulfillmentStatusGroup(BaseModel):
@@ -559,16 +592,22 @@ class OrderFulfillmentStatusGroup(BaseModel):
     billed_value:       Decimal
     pending_value:      Decimal
 
+
 class OrderFulfillmentStatusReport(BaseModel):
     """RPT-SO-006 -- Order Fulfillment Status."""
     report_id:          str = "RPT-SO-006"
+    report_name:        str = "Order Fulfillment Status"
     from_date:          str
     to_date:            str
     generated_at:       str
+    filters:            Dict[str, Any] = {}
+    summary:            Dict[str, Any] = {}
+    totals:             Dict[str, Any] = {}
     total_orders:       int
     total_value:        Decimal
-    groups:             List[OrderFulfillmentStatusGroup]
-    lines:              List[SalesOrderSummaryLine]
+    groups:             List[OrderFulfillmentStatusGroup] = []
+    lines:              List[SalesOrderSummaryLine] = []
+    rows:               List[SalesOrderSummaryLine] = []
 
 
 class InvoiceAllocationReportLine(BaseModel):
@@ -585,12 +624,17 @@ class InvoiceAllocationReportLine(BaseModel):
     pending_value:      Decimal
     status:             str
 
+
 class InvoiceAllocationReportModel(BaseModel):
     """RPT-SO-007 -- Invoice Allocation Report."""
     report_id:          str = "RPT-SO-007"
+    report_name:        str = "Invoice Allocation Report"
     from_date:          str
     to_date:            str
     generated_at:       str
+    filters:            Dict[str, Any] = {}
+    summary:            Dict[str, Any] = {}
+    totals:             Dict[str, Any] = {}
     total_allocations:  int
     total_po_quantity:  Decimal
     total_po_value:     Decimal
@@ -598,7 +642,8 @@ class InvoiceAllocationReportModel(BaseModel):
     total_billed_value: Decimal
     total_pending_qty:  Decimal
     total_pending_value: Decimal
-    lines:              List[InvoiceAllocationReportLine]
+    lines:              List[InvoiceAllocationReportLine] = []
+    rows:               List[InvoiceAllocationReportLine] = []
 
 
 

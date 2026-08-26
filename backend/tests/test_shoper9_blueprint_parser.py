@@ -126,3 +126,41 @@ def test_05_display_layouts_schema():
     assert "ColumnId" in sample_col
     assert "Caption" in sample_col
     assert "Visible" in sample_col
+
+def test_06_reproducible_parser_with_fixtures(tmp_path):
+    """Verify analyze_and_extract_blueprints runs cleanly against synthetic fixtures with custom input/output dirs."""
+    source_dir = tmp_path / "source"
+    output_dir = tmp_path / "output"
+    source_dir.mkdir()
+
+    # Write synthetic legacy files
+    (source_dir / "Template.inf").write_text("Srl#Name#Descr\n1#Retail#Retail Point of Sale\n2#Distributor#Wholesale Distribution\n", encoding="utf-8")
+    (source_dir / "Retail.Sy").write_text("Id,ParamCode,Descr,Category,CatDescr,DispOrder,Opt,Fixed,Boolean,Intg,Txt\n1,DEC_QTY,Decimals for Quantity,General,General,1,N,No,0,2,2\n", encoding="utf-8")
+    (source_dir / "Distributor.Sy").write_text("Id,ParamCode,Descr,Category,CatDescr,DispOrder,Opt,Fixed,Boolean,Intg,Txt\n1,DEC_QTY,Decimals for Quantity,General,General,1,N,No,0,3,3\n", encoding="utf-8")
+    (source_dir / "Retail.Gl").write_text("LookupCode,Descr,Type\nCUST_GRP,Customer Group,M\n", encoding="utf-8")
+    (source_dir / "Distributor.Gl").write_text("LookupCode,Descr,Type\nCUST_GRP,Customer Group,M\n", encoding="utf-8")
+    (source_dir / "Retail.Lu").write_text("LookupCode,Value,Descr\nCUST_GRP,RETAIL,Retail Walkin\n", encoding="utf-8")
+    (source_dir / "Distributor.Lu").write_text("LookupCode,Value,Descr\nCUST_GRP,WHOLESALE,Wholesale Agency\n", encoding="utf-8")
+    (source_dir / "Retail_tmp.txt").write_text("temporary dump", encoding="utf-8")
+    (source_dir / "Empty.Ads").write_text("", encoding="utf-8")
+
+    res = analyze_and_extract_blueprints(source_dir=source_dir, output_dir=output_dir, timestamp="2026-08-26T12:00:00+00:00")
+
+    assert (output_dir / "template_manifest.json").exists()
+    assert (output_dir / "retail_blueprint.json").exists()
+    assert (output_dir / "distributor_blueprint.json").exists()
+    assert (output_dir / "parameters.json").exists()
+    assert (output_dir / "review_report.md").exists()
+
+    with open(output_dir / "template_manifest.json", "r", encoding="utf-8") as f:
+        manifest_data = json.load(f)
+    assert manifest_data["generatedAt"] == "2026-08-26T12:00:00+00:00"
+    assert manifest_data["totalFiles"] == 9
+
+    quarantined = [f for f in manifest_data["files"] if f["status"] == "QUARANTINED"]
+    assert len(quarantined) == 1
+    assert quarantined[0]["filename"] == "Retail_tmp.txt"
+
+    empty = [f for f in manifest_data["files"] if f["status"] == "EMPTY"]
+    assert len(empty) == 1
+    assert empty[0]["filename"] == "Empty.Ads"
