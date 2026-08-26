@@ -22,6 +22,7 @@ import csv
 import json
 import hashlib
 import re
+import argparse
 from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional
 
@@ -160,9 +161,16 @@ def parse_sql_statements(content: str) -> List[Dict[str, Any]]:
 
     return statements
 
-def analyze_and_extract_blueprints(source_dir: Path = DEFAULT_SOURCE_DIR, output_dir: Path = OUTPUT_DIR) -> Dict[str, Any]:
+def analyze_and_extract_blueprints(
+    source_dir: Path = DEFAULT_SOURCE_DIR,
+    output_dir: Path = OUTPUT_DIR,
+    timestamp: Optional[str] = None
+) -> Dict[str, Any]:
     """Complete extraction and audit workflow."""
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not timestamp:
+        timestamp = "2026-08-26T23:45:00+05:30"
 
     # 1. Inspect all files in source
     manifest_entries = []
@@ -239,52 +247,31 @@ def analyze_and_extract_blueprints(source_dir: Path = DEFAULT_SOURCE_DIR, output
     retail_param_map = {r["ParamCode"]: r for r in retail_sy_rows if "ParamCode" in r}
     dist_param_map = {r["ParamCode"]: r for r in dist_sy_rows if "ParamCode" in r}
 
+    profile_diffs = []
     all_param_codes = sorted(set(retail_param_map.keys()) | set(dist_param_map.keys()))
     consolidated_params = []
-    profile_diffs = []
 
     for code in all_param_codes:
-        r_rec = retail_param_map.get(code)
-        d_rec = dist_param_map.get(code)
+        r_entry = retail_param_map.get(code)
+        d_entry = dist_param_map.get(code)
 
-        is_in_retail = r_rec is not None
-        is_in_dist = d_rec is not None
+        r_val = r_entry.get("Txt", "") if r_entry else None
+        d_val = d_entry.get("Txt", "") if d_entry else None
+        descr = (r_entry or d_entry).get("Descr", "")
+        cat = (r_entry or d_entry).get("Category", "")
 
-        rec = r_rec or d_rec
-
-        # Check value variance
-        r_val = f"Bool={r_rec.get('Boolean','')}|Int={r_rec.get('Intg','')}|Txt={r_rec.get('Txt','')}" if r_rec else "N/A"
-        d_val = f"Bool={d_rec.get('Boolean','')}|Int={d_rec.get('Intg','')}|Txt={d_rec.get('Txt','')}" if d_rec else "N/A"
-
-        diff = (r_val != d_val)
-        if diff:
-            profile_diffs.append({
-                "paramCode": code,
-                "description": rec.get("Descr", ""),
-                "category": rec.get("Category", ""),
-                "retailValue": r_val,
-                "distributorValue": d_val
-            })
-
-        consolidated_params.append({
-            "id": rec.get("Id"),
+        param_obj = {
             "paramCode": code,
-            "description": rec.get("Descr"),
-            "category": rec.get("Category"),
-            "categoryDescription": rec.get("CatDescr"),
-            "displayOrder": int(rec.get("DispOrder", 0)) if rec.get("DispOrder", "").isdigit() else 0,
-            "type": rec.get("Opt"),
-            "inRetail": is_in_retail,
-            "inDistributor": is_in_dist,
-            "retailDefaults": r_rec,
-            "distributorDefaults": d_rec,
-            "hasProfileVariance": diff,
-            "smritiMapping": {
-                "targetSystem": "smritisys.system_parameters",
-                "storageKey": f"sysparam_{code.lower()}",
-                "isConfigurable": rec.get("Fixed") != "Fixed"
-            }
-        })
+            "description": descr,
+            "category": cat,
+            "retailValue": r_val,
+            "distributorValue": d_val,
+            "hasVariance": (r_val != d_val)
+        }
+        consolidated_params.append(param_obj)
+
+        if r_val != d_val:
+            profile_diffs.append(param_obj)
 
     # 4. Parse General Lookups (*.Gl)
     retail_gl_headers, retail_gl_rows = parse_csv_records(file_contents.get("Retail.Gl", ""))
@@ -294,44 +281,55 @@ def analyze_and_extract_blueprints(source_dir: Path = DEFAULT_SOURCE_DIR, output
     retail_lu_headers, retail_lu_rows = parse_csv_records(file_contents.get("Retail.Lu", ""))
     dist_lu_headers, dist_lu_rows = parse_csv_records(file_contents.get("Distributor.Lu", ""))
 
-    # 6. Parse Menus (*.Mns) & Deduplicate
-    dist_mns_statements = parse_sql_statements(file_contents.get("Distributor.Mns", ""))
+    # 6. Parse SQL Display Layouts (*.Dbs)
+    dist_dbs_stmts = parse_sql_statements(file_contents.get("Distributor.Dbs", ""))
+    retail_dbs_stmts = parse_sql_statements(file_contents.get("Retail.Dbs", ""))
 
-    seen_stmts = set()
-    reviewed_dist_mns = []
+    # Check for duplicate SQL in Distributor.Dbs
+    seen_dbs = set()
+    dist_display_columns = []
+    for stmt in dist_dbs_stmts:
+        raw_s = stmt["raw"]
+        if raw_s in seen_dbs:
+            duplicate_sql_entries.append({
+                "file": "Distributor.Dbs",
+                "statement": raw_s[:80] + "...",
+                "action": "Deduplicated in normalized blueprint"
+            })
+        else:
+            seen_dbs.add(raw_s)
+            if stmt["table"].lower() == "acceptdisplaydtls" and stmt["type"] == "INSERT":
+                dist_display_columns.append(stmt["data"])
+
+    # 7. Parse SQL Menu Definitions (*.Mns)
+    dist_mns_stmts = parse_sql_statements(file_contents.get("Distributor.Mns", ""))
+    retail_mns_stmts = parse_sql_statements(file_contents.get("Retail.Mns", ""))
+
     dist_menu_entries = []
-
-    for stmt in dist_mns_statements:
-        raw = stmt["raw"]
-        if raw in seen_stmts:
+    seen_menus = set()
+    for stmt in dist_mns_stmts:
+        raw_s = stmt["raw"]
+        if raw_s in seen_menus:
             duplicate_sql_entries.append({
                 "file": "Distributor.Mns",
-                "statement": raw,
-                "action": "Deduplicated in reviewed copy"
+                "statement": raw_s[:80] + "...",
+                "action": "Deduplicated in normalized blueprint"
             })
-            continue
-        seen_stmts.add(raw)
-        reviewed_dist_mns.append(stmt)
-
-        if stmt["type"] == "INSERT_MENU":
-            data = stmt["data"]
-            dist_menu_entries.append({
-                "menuNo": int(data.get("MnuNo", 0)),
-                "menuOpt": int(data.get("MenuOPt", data.get("MenuOpt", 0))),
-                "parentName": data.get("MnuName", ""),
-                "caption": data.get("MnuCap", ""),
-                "type": data.get("MnuPgm", ""),
-                "executable": data.get("ExeName", "").strip(),
-                "programOption": int(data.get("Pgmopt", 0)) if data.get("Pgmopt", "").isdigit() else 0,
-                "smritiTileMapping": map_menu_to_smriti_tile(data.get("MnuCap", ""), data.get("ExeName", ""))
-            })
-
-    # 7. Parse Display Details (*.Dbs)
-    dist_dbs_statements = parse_sql_statements(file_contents.get("Distributor.Dbs", ""))
-    dist_display_columns = []
-    for stmt in dist_dbs_statements:
-        if stmt["type"] == "INSERT_DISPLAY_DTLS":
-            dist_display_columns.append(stmt["data"])
+        else:
+            seen_menus.add(raw_s)
+            if stmt["table"].lower() == "vamenu" and stmt["type"] == "INSERT":
+                d = stmt["data"]
+                # Map to SMRITI canonical tile
+                mapping = map_menu_to_smriti_tile(d.get("MnuName", ""), d.get("ExeName", ""))
+                dist_menu_entries.append({
+                    "menuNo": d.get("MnuNo"),
+                    "caption": d.get("MnuName"),
+                    "programOption": d.get("PgmOpt"),
+                    "executable": d.get("ExeName"),
+                    "helpContext": d.get("HelpContext"),
+                    "smritiMapping": mapping,
+                    "status": "MAPPED"
+                })
 
     # 8. Assemble Blueprints
     retail_blueprint = {
@@ -417,7 +415,7 @@ def analyze_and_extract_blueprints(source_dir: Path = DEFAULT_SOURCE_DIR, output
 
     # Write output JSON files
     write_json(output_dir / "template_manifest.json", {
-        "generatedAt": "2026-08-26T23:45:00+05:30",
+        "generatedAt": timestamp,
         "sourceDirectory": str(source_dir),
         "totalFiles": len(manifest_entries),
         "files": manifest_entries,
@@ -460,7 +458,8 @@ def analyze_and_extract_blueprints(source_dir: Path = DEFAULT_SOURCE_DIR, output
         duplicate_sql_entries,
         hardcoded_paths,
         profile_diffs,
-        distributor_blueprint["distributorWorkflows"]
+        distributor_blueprint["distributorWorkflows"],
+        audit_date=timestamp[:10] if timestamp else "2026-08-26"
     )
 
     return {
@@ -568,7 +567,8 @@ def write_review_report(
     duplicate_sql: List[Dict],
     hardcoded_paths: List[Dict],
     profile_diffs: List[Dict],
-    dist_workflows: List[Dict]
+    dist_workflows: List[Dict],
+    audit_date: str = "2026-08-26"
 ):
     content = f"""<!--
   Project      : SMRITI Retail OS
@@ -586,7 +586,7 @@ def write_review_report(
 
 # Shoper9 Template Blueprint Review & Audit Report
 
-**Audit Date**: 2026-08-26
+**Audit Date**: {audit_date}
 **Source Path**: `D:\\Shoper9\\Templates`
 **Total Source Files**: {len(manifest)}
 **Auditor**: SMRITI Automated Blueprint Engine
@@ -679,5 +679,11 @@ Differences in parameter values between Retail and Distributor operational profi
         f.write(content)
 
 if __name__ == "__main__":
-    analyze_and_extract_blueprints()
-    print("Shoper9 Template Blueprint extraction completed successfully.")
+    parser = argparse.ArgumentParser(description="SMRITI Shoper9 Template Blueprint Parser")
+    parser.add_argument("--source-dir", type=Path, default=DEFAULT_SOURCE_DIR, help="Path to Shoper9 Templates folder")
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR, help="Output destination folder")
+    parser.add_argument("--timestamp", type=str, default="2026-08-26T23:45:00+05:30", help="Deterministic timestamp string (ISO format)")
+    args = parser.parse_args()
+
+    analyze_and_extract_blueprints(source_dir=args.source_dir, output_dir=args.output_dir, timestamp=args.timestamp)
+    print(f"Shoper9 Template Blueprint extraction completed successfully. Output written to {args.output_dir}")
