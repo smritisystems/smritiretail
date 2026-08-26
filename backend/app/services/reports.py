@@ -1306,9 +1306,8 @@ class ReportsService:
                 (SalesOrder.company_id == self.tenant.company_id) | (SalesOrder.company_id.is_(None))
             )
         if self.tenant and self.tenant.branch_id:
-            aliases = [self.tenant.branch_id, "MAIN", "BR-MAIN-001", "BR-001", "DEFAULT"]
             stmt = stmt.where(
-                (SalesOrder.branch_id.in_(aliases)) | (SalesOrder.branch_id.is_(None))
+                (SalesOrder.branch_id == self.tenant.branch_id) | (SalesOrder.branch_id.is_(None))
             )
         return stmt
 

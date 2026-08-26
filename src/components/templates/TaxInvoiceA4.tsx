@@ -209,11 +209,15 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
       ? Number(item.line_total)
       : unitPrice * qty;
 
-    // IGST is strictly calculated as 5% GST-exclusive tax on Taxable Value (taxableValue * 0.05)
-    const igst = taxableValue * 0.05;
-    const cgst = 0;
-    const sgst = 0;
-    const itemTotal = taxableValue + igst;
+    const gstRate = Number(item.gst_rate ?? item.gstRate ?? (item.tax_rate ?? 5));
+    const isInter = isInterstate;
+
+    // Dynamic tax calculations based on line gst_rate and jurisdiction
+    const totalTax = taxableValue * (gstRate / 100);
+    const igst = isInter ? totalTax : 0;
+    const cgst = isInter ? 0 : totalTax / 2;
+    const sgst = isInter ? 0 : totalTax / 2;
+    const itemTotal = taxableValue + totalTax;
 
     const unitBaseCost = qty > 0 ? (taxableValue / qty) : unitPrice;
 
@@ -227,7 +231,6 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
     ));
 
     const hsn = item.hsn || item.hsn_code || "64041990";
-    const gstRate = 5;
 
     totalQuantity += qty;
     totalTaxableValue += taxableValue;
@@ -587,14 +590,14 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
 
               {isInterstate ? (
                 <>
-                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">IGST @ 5%:</div>
+                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">IGST:</div>
                   <div className="p-1.5 pr-3 font-semibold text-gray-900">₹{totalIGST.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </>
               ) : (
                 <>
-                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">CGST @ 2.5%:</div>
+                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">CGST:</div>
                   <div className="p-1.5 pr-3 font-semibold text-gray-900">₹{totalCGST.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">SGST @ 2.5%:</div>
+                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">SGST:</div>
                   <div className="p-1.5 pr-3 font-semibold text-gray-900">₹{totalSGST.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </>
               )}
@@ -612,59 +615,59 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
           </div>
         </div>
 
-        {/* GST Breakdown Summary Table */}
-        <div className="mb-4">
-          <h4 className="font-bold text-gray-800 uppercase text-[9px] tracking-wider mb-1">
-            GST Summary / HSN-wise tax breakdown
-          </h4>
-          <table className="w-full border border-gray-300 border-collapse text-left text-[9px] font-mono">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-300 font-bold uppercase text-[8px] text-gray-700">
-                <th className="p-1 border-r border-gray-300">HSN/SAC</th>
-                <th className="p-1 border-r border-gray-300 text-right">Taxable Value</th>
-                {isInterstate ? (
-                  <>
-                    <th className="p-1 border-r border-gray-300 text-right w-20">IGST Rate</th>
-                    <th className="p-1 border-r border-gray-300 text-right">IGST Amount</th>
-                  </>
-                ) : (
-                  <>
-                    <th className="p-1 border-r border-gray-300 text-right w-16">CGST Rate</th>
-                    <th className="p-1 border-r border-gray-300 text-right">CGST Amount</th>
-                    <th className="p-1 border-r border-gray-300 text-right w-16">SGST Rate</th>
-                    <th className="p-1 border-r border-gray-300 text-right">SGST Amount</th>
-                  </>
-                )}
-                <th className="p-1 text-right">Total Tax</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {Object.entries(hsnBreakdown).map(([hsn, v]) => {
-                const totalTax = v.cgst + v.sgst + v.igst;
-                return (
-                  <tr key={hsn}>
-                    <td className="p-1.5 border-r border-gray-300 font-bold">{hsn}</td>
-                    <td className="p-1.5 border-r border-gray-300 text-right">₹{v.taxable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    {isInterstate ? (
-                      <>
-                        <td className="p-1.5 border-r border-gray-300 text-right">5%</td>
-                        <td className="p-1.5 border-r border-gray-300 text-right">₹{v.igst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="p-1.5 border-r border-gray-300 text-right">2.5%</td>
-                        <td className="p-1.5 border-r border-gray-300 text-right">₹{v.cgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td className="p-1.5 border-r border-gray-300 text-right">2.5%</td>
-                        <td className="p-1.5 border-r border-gray-300 text-right">₹{v.sgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      </>
-                    )}
-                    <td className="p-1.5 text-right font-bold">₹{totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      {/* GST Breakdown Summary Table */}
+      <div className="mb-4">
+        <h4 className="font-bold text-gray-800 uppercase text-[9px] tracking-wider mb-1">
+          GST Summary / HSN-wise tax breakdown
+        </h4>
+        <table className="w-full border border-gray-300 border-collapse text-left text-[9px] font-mono">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-300 font-bold uppercase text-[8px] text-gray-700">
+              <th className="p-1 border-r border-gray-300">HSN/SAC</th>
+              <th className="p-1 border-r border-gray-300 text-right">Taxable Value</th>
+              {isInterstate ? (
+                <>
+                  <th className="p-1 border-r border-gray-300 text-right w-20">IGST Rate</th>
+                  <th className="p-1 border-r border-gray-300 text-right">IGST Amount</th>
+                </>
+              ) : (
+                <>
+                  <th className="p-1 border-r border-gray-300 text-right w-16">CGST Rate</th>
+                  <th className="p-1 border-r border-gray-300 text-right">CGST Amount</th>
+                  <th className="p-1 border-r border-gray-300 text-right w-16">SGST Rate</th>
+                  <th className="p-1 border-r border-gray-300 text-right">SGST Amount</th>
+                </>
+              )}
+              <th className="p-1 text-right">Total Tax</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {Object.entries(hsnBreakdown).map(([hsn, v]) => {
+              const totalTax = v.cgst + v.sgst + v.igst;
+              return (
+                <tr key={hsn}>
+                  <td className="p-1.5 border-r border-gray-300 font-bold">{hsn}</td>
+                  <td className="p-1.5 border-r border-gray-300 text-right">₹{v.taxable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  {isInterstate ? (
+                    <>
+                      <td className="p-1.5 border-r border-gray-300 text-right">{v.gstRate}%</td>
+                      <td className="p-1.5 border-r border-gray-300 text-right">₹{v.igst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-1.5 border-r border-gray-300 text-right">{(v.gstRate / 2).toFixed(1)}%</td>
+                      <td className="p-1.5 border-r border-gray-300 text-right">₹{v.cgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="p-1.5 border-r border-gray-300 text-right">{(v.gstRate / 2).toFixed(1)}%</td>
+                      <td className="p-1.5 border-r border-gray-300 text-right">₹{v.sgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </>
+                  )}
+                  <td className="p-1.5 text-right font-bold">₹{totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
         {/* Footer Info: Bank / Note / Signature */}
         <div className="grid grid-cols-2 gap-4 border-t border-gray-200 pt-3 mt-2 text-[10px]">

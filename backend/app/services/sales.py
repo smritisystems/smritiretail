@@ -329,7 +329,7 @@ class SalesService:
                     warehouse_id=warehouse_id,
                     batch_no=ded["batch_no"],
                     qty_delta=-ded["quantity"],
-                    movement_type="SALES_OUTWARD",
+                    movement_type="OUTWARD_SALE",
                     reference_doc_type="Sales Invoice",
                     reference_doc_id=db_invoice.invoice_no,
                     remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
@@ -583,9 +583,8 @@ class SalesService:
                 (SalesOrder.company_id == self.tenant_ctx.company_id) | (SalesOrder.company_id.is_(None))
             )
         if self.tenant_ctx and self.tenant_ctx.branch_id:
-            aliases = [self.tenant_ctx.branch_id, "MAIN", "BR-MAIN-001", "BR-001", "DEFAULT"]
             stmt = stmt.where(
-                (SalesOrder.branch_id.in_(aliases)) | (SalesOrder.branch_id.is_(None))
+                (SalesOrder.branch_id == self.tenant_ctx.branch_id) | (SalesOrder.branch_id.is_(None))
             )
         if customer_id:
             stmt = stmt.where(
@@ -723,7 +722,7 @@ class SalesService:
                     product_name=product.name,
                     sku=product.sku or product.code,
                     quantity=qty,  # Positive for IN
-                    movement_type="IN",
+                    movement_type="RETURN_INWARD",
                     reference_doc_type="Sales Return",
                     reference_doc_id=db_sr.id,
                     warehouse="Default Warehouse",
@@ -811,11 +810,7 @@ class SalesService:
             .where(
                 SalesInvoice.id         == invoice_id,
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
-                SalesInvoice.branch_id.in_(
-                    [self.tenant_ctx.branch_id, "BR-MAIN-001", "MAIN", "BR-001"]
-                    if self.tenant_ctx.branch_id in ("BR-MAIN-001", "MAIN", "BR-001")
-                    else [self.tenant_ctx.branch_id]
-                ),
+                (SalesInvoice.branch_id == self.tenant_ctx.branch_id) | (SalesInvoice.branch_id.is_(None)),
                 SalesInvoice.is_deleted == False,
             )
         )
