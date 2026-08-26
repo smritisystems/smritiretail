@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.34.0
+Version      : 3.35.0
 Created      : 2026-08-27
 Modified     : 2026-08-27
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import sys
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -36,6 +37,9 @@ def run_historical_stock_reconciliation(
     db_url: Optional[str] = None,
     source: str = "invoices",
     mode: str = "dry-run",
+    apply_mode: bool = False,
+    confirm_historical_posting: bool = False,
+    backup_file: Optional[str] = None,
     output_file: str = "reports/historical_stock_reconciliation.json",
     company_id: str = "COMP-001",
     branch_id: str = "MAIN",
@@ -43,7 +47,20 @@ def run_historical_stock_reconciliation(
     """
     Analyzes historical sales invoices and determines stock ledger reconciliation status.
     In dry-run mode (default), no changes are made to the database.
+    In apply mode, requires explicit flags: --apply, --confirm-historical-posting, and --backup-file.
     """
+    is_apply = (mode == "apply" or apply_mode)
+
+    if is_apply:
+        if not confirm_historical_posting:
+            raise ValueError(
+                "CRITICAL GUARD: Apply mode requires explicit '--confirm-historical-posting' flag."
+            )
+        if not backup_file or not os.path.exists(backup_file):
+            raise ValueError(
+                f"CRITICAL GUARD: Apply mode requires a verified pre-migration '--backup-file' that exists on disk. Provided: {backup_file}"
+            )
+
     connection_url = db_url or f"postgresql://postgres:postgres@localhost:5432/{database}"
     print(f"Connecting to database '{database}' at {connection_url}...")
 
@@ -199,46 +216,70 @@ def run_historical_stock_reconciliation(
                     "status": "MATCHED"
                 })
         else:
-            # Check if this invoice has multiple conflicting movements
-            if len(inv_moves) > 0 and len(inv_moves) > len(invoice_rows):
-                duplicate_risk.append({
-                    "invoice_no": inv_no,
-                    "product_code": product["code"],
-                    "risk": "Invoice has multiple unlinked stock movements; potential duplicate risk."
-                })
-            else:
-                would_create.append({
-                    "invoice_no": inv_no,
-                    "product_id": product["id"],
-                    "product_code": product["code"],
-                    "product_name": product["name"],
-                    "quantity": qty,
-                    "movement_type": "OUTWARD_SALE",
-                    "reference_doc_type": "Sales Invoice",
-                    "reference_doc_id": inv_no,
-                    "company_id": row["company_id"] or company_id,
-                    "branch_id": row["branch_id"] or branch_id,
-                })
+            would_create.append({
+                "invoice_no": inv_no,
+                "product_id": product["id"],
+                "product_code": product["code"],
+                "product_name": product["name"],
+                "quantity": qty,
+                "movement_type": "OUTWARD_SALE",
+                "reference_doc_type": "Sales Invoice",
+                "reference_doc_id": inv_no,
+                "company_id": row["company_id"] or company_id,
+                "branch_id": row["branch_id"] or branch_id,
+                "source_module": "HISTORICAL_IMPORT",
+            })
 
-                # Accumulate stock impact
-                p_key = product["code"]
-                if p_key not in stock_impact_by_product:
-                    stock_impact_by_product[p_key] = {
-                        "product_id": product["id"],
-                        "code": product["code"],
-                        "name": product["name"],
-                        "current_stock": Decimal(str(product.get("stock") or "0.0000")),
-                        "pending_deduction_qty": Decimal("0.0000"),
-                        "projected_stock": Decimal(str(product.get("stock") or "0.0000")),
-                    }
-                stock_impact_by_product[p_key]["pending_deduction_qty"] += qty
-                stock_impact_by_product[p_key]["projected_stock"] -= qty
+            # Accumulate stock impact
+            p_key = product["code"]
+            if p_key not in stock_impact_by_product:
+                stock_impact_by_product[p_key] = {
+                    "product_id": product["id"],
+                    "code": product["code"],
+                    "name": product["name"],
+                    "current_stock": Decimal(str(product.get("stock") or "0.0000")),
+                    "pending_deduction_qty": Decimal("0.0000"),
+                    "projected_stock": Decimal(str(product.get("stock") or "0.0000")),
+                }
+            stock_impact_by_product[p_key]["pending_deduction_qty"] += qty
+            stock_impact_by_product[p_key]["projected_stock"] -= qty
+
+    # 4. If in apply mode, insert movements with transaction safety and rollback on any failure
+    inserted_count = 0
+    if is_apply:
+        try:
+            print(f"Applying {len(would_create)} historical stock movements...")
+            for wc in would_create:
+                m_id = f"sm-hist-{uuid.uuid4().hex[:12]}"
+                m_uuid = str(uuid.uuid4())
+                cur.execute("""
+                    INSERT INTO stock_movements (
+                        id, uuid, product_id, product_name, sku, quantity, movement_type,
+                        reference_doc_type, reference_doc_id, warehouse, source_module,
+                        company_id, branch_id, created_at, modified_at, is_active, is_deleted, version
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, 'Main Outlet Retail WH', %s,
+                        %s, %s, NOW(), NOW(), true, false, 1
+                    );
+                """, (
+                    m_id, m_uuid, wc["product_id"], wc["product_name"], wc["product_code"],
+                    wc["quantity"], wc["movement_type"], wc["reference_doc_type"], wc["reference_doc_id"],
+                    wc["source_module"], wc["company_id"], wc["branch_id"]
+                ))
+                inserted_count += 1
+            conn.commit()
+            print(f"Successfully committed {inserted_count} historical movements.")
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            raise RuntimeError(f"Historical posting transaction failed and was rolled back: {e}")
 
     conn.close()
 
     result = {
         "status": "COMPLETED",
-        "mode": mode,
+        "mode": "apply" if is_apply else "dry-run",
         "database": database,
         "source": source,
         "company_id": company_id,
@@ -249,6 +290,7 @@ def run_historical_stock_reconciliation(
             "invoice_lines_analyzed": lines_analyzed,
             "already_matched_movements": len(already_matched),
             "would_create_movements": len(would_create),
+            "inserted_movements": inserted_count,
             "skipped_movements": len(skipped),
             "duplicate_risk_records": len(duplicate_risk),
             "missing_product_mappings": len(missing_products),
@@ -270,13 +312,15 @@ def run_historical_stock_reconciliation(
         json.dump(result, f, indent=2, default=decimal_serializer)
 
     print("\n" + "=" * 60)
-    print(f" SMRITI HISTORICAL STOCK RECONCILIATION ({mode.upper()})")
+    print(f" SMRITI HISTORICAL STOCK RECONCILIATION ({('APPLY' if is_apply else 'DRY-RUN')})")
     print("=" * 60)
     print(f" Database                   : {database}")
     print(f" Invoices analyzed          : {invoices_analyzed}")
     print(f" Invoice lines analyzed     : {lines_analyzed}")
     print(f" Already matched movements  : {len(already_matched)}")
     print(f" Would-create movements     : {len(would_create)}")
+    if is_apply:
+        print(f" Inserted movements         : {inserted_count}")
     print(f" Skipped movements          : {len(skipped)}")
     print(f" Duplicate-risk records     : {len(duplicate_risk)}")
     print(f" Missing product mappings   : {len(missing_products)}")
@@ -293,6 +337,9 @@ if __name__ == "__main__":
     parser.add_argument("--db-url", default=None, help="Full database connection URL")
     parser.add_argument("--source", default="invoices", help="Source to reconcile (default: invoices)")
     parser.add_argument("--mode", default="dry-run", choices=["dry-run", "apply"], help="Execution mode (default: dry-run)")
+    parser.add_argument("--apply", action="store_true", help="Execute actual insertion of historical movements")
+    parser.add_argument("--confirm-historical-posting", action="store_true", help="Confirmation flag required for apply mode")
+    parser.add_argument("--backup-file", default=None, help="Path to verified pre-migration backup file")
     parser.add_argument("--output", default="reports/historical_stock_reconciliation.json", help="Path to write JSON reconciliation report")
     parser.add_argument("--company-id", default="COMP-001", help="Company ID filter (default: COMP-001)")
     parser.add_argument("--branch-id", default="MAIN", help="Branch ID filter (default: MAIN)")
@@ -303,6 +350,9 @@ if __name__ == "__main__":
         db_url=args.db_url,
         source=args.source,
         mode=args.mode,
+        apply_mode=args.apply,
+        confirm_historical_posting=args.confirm_historical_posting,
+        backup_file=args.backup_file,
         output_file=args.output,
         company_id=args.company_id,
         branch_id=args.branch_id,

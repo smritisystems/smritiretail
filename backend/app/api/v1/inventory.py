@@ -12,12 +12,14 @@ License      : Proprietary Commercial Software
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, date, timedelta
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 
 from ...api.deps import (
     TenantContext, get_company_db, get_tenant_context,
@@ -103,21 +105,62 @@ async def search_products(
 
 
 @router.get("/ledger", response_model=list[StockMovementResponse])
+@router.get("/stock-movements", response_model=list[StockMovementResponse])
 async def list_stock_ledger(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    limit: int = Query(100, ge=1, le=500),
+    from_date: Optional[date] = Query(None),
+    to_date: Optional[date] = Query(None),
+    movement_type: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    product_id: Optional[str] = Query(None),
+    sku: Optional[str] = Query(None),
+    reference_doc_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """List stock ledger movements. Tenant-scoped."""
+    """List stock ledger movements. Exact tenant and branch scoped with date, type, and search filters."""
     stmt = select(StockMovement).filter(
         StockMovement.company_id == tenant_ctx.company_id,
         StockMovement.branch_id == tenant_ctx.branch_id,
         StockMovement.is_deleted == False
-    ).order_by(StockMovement.created_at.desc()).offset(skip).limit(limit)
-    
+    )
+
+    if from_date:
+        stmt = stmt.where(StockMovement.created_at >= from_date)
+    if to_date:
+        next_day = date(to_date.year, to_date.month, to_date.day) + timedelta(days=1)
+        stmt = stmt.where(StockMovement.created_at < next_day)
+
+    if movement_type and movement_type.upper() != "ALL":
+        stmt = stmt.where(StockMovement.movement_type == movement_type.upper())
+
+    if product_id:
+        stmt = stmt.where(StockMovement.product_id == product_id)
+    if sku:
+        stmt = stmt.where(StockMovement.sku == sku)
+    if reference_doc_id:
+        stmt = stmt.where(StockMovement.reference_doc_id == reference_doc_id)
+
+    search_term = search or q
+    if search_term:
+        term = f"%{search_term.strip()}%"
+        stmt = stmt.where(
+            or_(
+                StockMovement.sku.ilike(term),
+                StockMovement.product_name.ilike(term),
+                StockMovement.reference_doc_id.ilike(term),
+                StockMovement.remarks.ilike(term),
+                StockMovement.batch.ilike(term),
+            )
+        )
+
+    stmt = stmt.order_by(StockMovement.created_at.desc()).offset(skip).limit(limit)
+
     res = await db.execute(stmt)
-    return list(res.scalars().all())
+    items = list(res.scalars().all())
+    return items
 
 
 @router.post(
