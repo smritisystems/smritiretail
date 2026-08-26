@@ -34,10 +34,13 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       defaultValue: "ALL",
       options: [
         { label: "All Movements", value: "ALL" },
-        { label: "Sales Outward (OUT)", value: "OUT" },
-        { label: "Purchase Inward (IN)", value: "IN" },
-        { label: "Adjustment (ADJUST)", value: "ADJUST" },
-        { label: "Return Inward (RETURN)", value: "RETURN" },
+        { label: "Sales Outward (OUTWARD_SALE)", value: "OUTWARD_SALE" },
+        { label: "Return Inward (RETURN_INWARD)", value: "RETURN_INWARD" },
+        { label: "Purchase Inward (INWARD_GRN)", value: "INWARD_GRN" },
+        { label: "Adjustment In (ADJUSTMENT_IN)", value: "ADJUSTMENT_IN" },
+        { label: "Adjustment Out (ADJUSTMENT_OUT)", value: "ADJUSTMENT_OUT" },
+        { label: "Transfer In (TRANSFER_IN)", value: "TRANSFER_IN" },
+        { label: "Transfer Out (TRANSFER_OUT)", value: "TRANSFER_OUT" },
       ],
     },
   ],
@@ -49,9 +52,9 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       timestamp: item.created_at || item.timestamp,
       sku: item.sku || item.product_code || "—",
       product_name: item.product_name || "—",
-      movement_type: item.movement_type || "OUT",
+      movement_type: item.movement_type || "OUTWARD_SALE",
       quantity: parseFloat(item.quantity) || 0,
-      reference_doc_type: item.reference_doc_type || "SALES_BILL",
+      reference_doc_type: item.reference_doc_type || "Sales Invoice",
       reference_doc_id: item.reference_doc_id || "—",
       warehouse: item.warehouse || "Main Outlet Retail WH",
     }));
@@ -82,10 +85,10 @@ export const stockLedgerConfig: LedgerConfig<any> = {
     {
       key: "movement_type",
       label: "Movement",
-      width: "120px",
+      width: "140px",
       align: "center",
       render: (val) => {
-        const isPositive = val === "IN" || val === "RETURN";
+        const isPositive = val === "IN" || val === "RETURN" || val === "RETURN_INWARD" || val === "INWARD_GRN" || val === "ADJUSTMENT_IN" || val === "TRANSFER_IN";
         return (
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono inline-flex items-center gap-1 border ${
@@ -106,7 +109,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       width: "100px",
       align: "right",
       render: (val, row) => {
-        const isPositive = row.movement_type === "IN" || row.movement_type === "RETURN";
+        const isPositive = row.movement_type === "IN" || row.movement_type === "RETURN" || row.movement_type === "RETURN_INWARD" || row.movement_type === "INWARD_GRN" || row.movement_type === "ADJUSTMENT_IN" || row.movement_type === "TRANSFER_IN";
         return (
           <span className={`font-mono font-bold ${isPositive ? "text-emerald-400" : "text-theme-primary"}`}>
             {isPositive ? `+${val}` : `-${val}`}

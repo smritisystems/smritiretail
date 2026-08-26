@@ -274,6 +274,7 @@ class StockMovementResponse(BaseModel):
     source_module: Optional[str] = None
     approval: Optional[str] = None
     company_id: Optional[str] = None
+    branch_id: Optional[str] = None
     created_at: Optional[datetime] = None
     modified_at: Optional[datetime] = None
 

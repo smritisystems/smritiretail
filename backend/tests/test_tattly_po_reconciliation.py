@@ -109,13 +109,13 @@ def test_06_unmodified_tax_invoices(db_conn):
     assert sum_taxable == Decimal("8387910.96")
     assert sum_tax == Decimal("504780.06")
 
-def test_07_no_stock_movements_or_new_invoices(db_conn):
-    """Verify that zero stock movements and zero new invoices were created."""
+def test_07_verified_stock_movements_for_invoices(db_conn):
+    """Verify that exactly 6661 historical stock movements exist for the 120 invoices."""
     cur = db_conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM stock_movements;")
+    cur.execute("SELECT COUNT(*) FROM stock_movements WHERE is_deleted = false;")
     sm_count = cur.fetchone()[0]
-    assert sm_count == 0, f"Expected 0 stock movements, found {sm_count}"
+    assert sm_count == 6661, f"Expected 6661 stock movements, found {sm_count}"
 
-    cur.execute("SELECT COUNT(*) FROM sales_invoices;")
+    cur.execute("SELECT COUNT(*) FROM sales_invoices WHERE is_deleted = false;")
     inv_total = cur.fetchone()[0]
     assert inv_total == 120, f"Expected exactly 120 invoices, found {inv_total}"

@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.35.0
+Version      : 3.36.0
 Created      : 2026-08-27
 Modified     : 2026-08-27
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -24,6 +24,9 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 
+REQUIRED_CONFIRMATION_TEXT = "CONFIRM_APPLY_HISTORICAL_STOCK_MOVEMENTS"
+
+
 def decimal_serializer(obj):
     if isinstance(obj, Decimal):
         return float(obj)
@@ -38,8 +41,11 @@ def run_historical_stock_reconciliation(
     source: str = "invoices",
     mode: str = "dry-run",
     apply_mode: bool = False,
-    confirm_historical_posting: bool = False,
+    dry_run_report: Optional[str] = None,
     backup_file: Optional[str] = None,
+    review_missing_mappings: Optional[str] = None,
+    review_stock_impact: Optional[str] = None,
+    confirm_historical_posting: Optional[str] = None,
     output_file: str = "reports/historical_stock_reconciliation.json",
     company_id: str = "COMP-001",
     branch_id: str = "MAIN",
@@ -47,18 +53,51 @@ def run_historical_stock_reconciliation(
     """
     Analyzes historical sales invoices and determines stock ledger reconciliation status.
     In dry-run mode (default), no changes are made to the database.
-    In apply mode, requires explicit flags: --apply, --confirm-historical-posting, and --backup-file.
+    In apply mode, strictly requires all 5 safety requirements:
+      1. A successful dry-run report file with status COMPLETED
+      2. A verified backup file existing on disk
+      3. Explicit review confirmation of missing product mappings
+      4. Explicit review confirmation of expected stock impact
+      5. Exact operator confirmation text ('CONFIRM_APPLY_HISTORICAL_STOCK_MOVEMENTS')
     """
     is_apply = (mode == "apply" or apply_mode)
 
     if is_apply:
-        if not confirm_historical_posting:
+        # Guard 1: Successful dry-run report
+        if not dry_run_report or not os.path.exists(dry_run_report):
             raise ValueError(
-                "CRITICAL GUARD: Apply mode requires explicit '--confirm-historical-posting' flag."
+                f"CRITICAL GUARD 1/5: Apply mode requires a verified pre-existing dry-run report file. Provided: {dry_run_report}"
             )
+        try:
+            with open(dry_run_report, "r", encoding="utf-8") as f:
+                report_data = json.load(f)
+            if report_data.get("status") != "COMPLETED":
+                raise ValueError("Dry-run report status is not COMPLETED.")
+        except Exception as e:
+            raise ValueError(f"CRITICAL GUARD 1/5: Failed to validate dry-run report: {e}")
+
+        # Guard 2: Verified backup file
         if not backup_file or not os.path.exists(backup_file):
             raise ValueError(
-                f"CRITICAL GUARD: Apply mode requires a verified pre-migration '--backup-file' that exists on disk. Provided: {backup_file}"
+                f"CRITICAL GUARD 2/5: Apply mode requires a verified pre-migration backup file that exists on disk. Provided: {backup_file}"
+            )
+
+        # Guard 3: Review of missing product mappings
+        if review_missing_mappings != "CONFIRMED_REVIEWED":
+            raise ValueError(
+                "CRITICAL GUARD 3/5: Apply mode requires explicit flag '--review-missing-mappings CONFIRMED_REVIEWED'."
+            )
+
+        # Guard 4: Review of expected stock impact
+        if review_stock_impact != "CONFIRMED_REVIEWED":
+            raise ValueError(
+                "CRITICAL GUARD 4/5: Apply mode requires explicit flag '--review-stock-impact CONFIRMED_REVIEWED'."
+            )
+
+        # Guard 5: Exact operator confirmation text
+        if confirm_historical_posting != REQUIRED_CONFIRMATION_TEXT:
+            raise ValueError(
+                f"CRITICAL GUARD 5/5: Apply mode requires exact confirmation text: '--confirm-historical-posting {REQUIRED_CONFIRMATION_TEXT}'."
             )
 
     connection_url = db_url or f"postgresql://postgres:postgres@localhost:5432/{database}"
@@ -153,6 +192,7 @@ def run_historical_stock_reconciliation(
 
     for row in invoice_rows:
         inv_no = row["invoice_no"]
+        inv_id = row["invoice_id"]
         if inv_no not in invoices_seen:
             invoices_seen.add(inv_no)
             invoices_analyzed += 1
@@ -167,17 +207,19 @@ def run_historical_stock_reconciliation(
         if not product:
             missing_products.append({
                 "invoice_no": inv_no,
+                "invoice_id": inv_id,
                 "product_id": p_id,
                 "item_code": p_code,
                 "item_name": row["item_name"],
                 "quantity": qty,
-                "reason": "Product ID/code not found in products table"
+                "reason": "Product ID/code not found in products table (unmapped legacy SKU)"
             })
             continue
 
         if product.get("tracking_mode") == "No-stock":
             skipped.append({
                 "invoice_no": inv_no,
+                "invoice_id": inv_id,
                 "product_code": product["code"],
                 "product_name": product["name"],
                 "quantity": qty,
@@ -185,8 +227,8 @@ def run_historical_stock_reconciliation(
             })
             continue
 
-        # Check if already matched in stock_movements
-        inv_moves = existing_by_invoice.get(inv_no, [])
+        # Check if already matched in stock_movements (by invoice ID or invoice number)
+        inv_moves = existing_by_invoice.get(inv_id, []) or existing_by_invoice.get(inv_no, [])
         matching_move = None
         for m in inv_moves:
             m_pid = m.get("product_id")
@@ -201,6 +243,7 @@ def run_historical_stock_reconciliation(
             if abs(move_qty - qty) > Decimal("0.0001"):
                 duplicate_risk.append({
                     "invoice_no": inv_no,
+                    "invoice_id": inv_id,
                     "movement_id": matching_move.get("id"),
                     "product_code": product["code"],
                     "invoice_quantity": qty,
@@ -210,6 +253,7 @@ def run_historical_stock_reconciliation(
             else:
                 already_matched.append({
                     "invoice_no": inv_no,
+                    "invoice_id": inv_id,
                     "movement_id": matching_move.get("id"),
                     "product_code": product["code"],
                     "quantity": qty,
@@ -218,13 +262,15 @@ def run_historical_stock_reconciliation(
         else:
             would_create.append({
                 "invoice_no": inv_no,
+                "invoice_id": inv_id,
                 "product_id": product["id"],
                 "product_code": product["code"],
                 "product_name": product["name"],
                 "quantity": qty,
                 "movement_type": "OUTWARD_SALE",
                 "reference_doc_type": "Sales Invoice",
-                "reference_doc_id": inv_no,
+                "reference_doc_id": inv_id,
+                "remarks": f"Historical outward sale: {inv_no}",
                 "company_id": row["company_id"] or company_id,
                 "branch_id": row["branch_id"] or branch_id,
                 "source_module": "HISTORICAL_IMPORT",
@@ -255,17 +301,17 @@ def run_historical_stock_reconciliation(
                 cur.execute("""
                     INSERT INTO stock_movements (
                         id, uuid, product_id, product_name, sku, quantity, movement_type,
-                        reference_doc_type, reference_doc_id, warehouse, source_module,
+                        reference_doc_type, reference_doc_id, warehouse, remarks, source_module,
                         company_id, branch_id, created_at, modified_at, is_active, is_deleted, version
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, 'Main Outlet Retail WH', %s,
+                        %s, %s, 'Main Outlet Retail WH', %s, %s,
                         %s, %s, NOW(), NOW(), true, false, 1
                     );
                 """, (
                     m_id, m_uuid, wc["product_id"], wc["product_name"], wc["product_code"],
                     wc["quantity"], wc["movement_type"], wc["reference_doc_type"], wc["reference_doc_id"],
-                    wc["source_module"], wc["company_id"], wc["branch_id"]
+                    wc["remarks"], wc["source_module"], wc["company_id"], wc["branch_id"]
                 ))
                 inserted_count += 1
             conn.commit()
@@ -338,8 +384,11 @@ if __name__ == "__main__":
     parser.add_argument("--source", default="invoices", help="Source to reconcile (default: invoices)")
     parser.add_argument("--mode", default="dry-run", choices=["dry-run", "apply"], help="Execution mode (default: dry-run)")
     parser.add_argument("--apply", action="store_true", help="Execute actual insertion of historical movements")
-    parser.add_argument("--confirm-historical-posting", action="store_true", help="Confirmation flag required for apply mode")
+    parser.add_argument("--dry-run-report", default=None, help="Path to verified pre-existing dry-run report")
     parser.add_argument("--backup-file", default=None, help="Path to verified pre-migration backup file")
+    parser.add_argument("--review-missing-mappings", default=None, help="Review confirmation of missing product mappings (CONFIRMED_REVIEWED)")
+    parser.add_argument("--review-stock-impact", default=None, help="Review confirmation of expected stock impact (CONFIRMED_REVIEWED)")
+    parser.add_argument("--confirm-historical-posting", default=None, help="Operator confirmation text ('CONFIRM_APPLY_HISTORICAL_STOCK_MOVEMENTS')")
     parser.add_argument("--output", default="reports/historical_stock_reconciliation.json", help="Path to write JSON reconciliation report")
     parser.add_argument("--company-id", default="COMP-001", help="Company ID filter (default: COMP-001)")
     parser.add_argument("--branch-id", default="MAIN", help="Branch ID filter (default: MAIN)")
@@ -351,8 +400,11 @@ if __name__ == "__main__":
         source=args.source,
         mode=args.mode,
         apply_mode=args.apply,
-        confirm_historical_posting=args.confirm_historical_posting,
+        dry_run_report=args.dry_run_report,
         backup_file=args.backup_file,
+        review_missing_mappings=args.review_missing_mappings,
+        review_stock_impact=args.review_stock_impact,
+        confirm_historical_posting=args.confirm_historical_posting,
         output_file=args.output,
         company_id=args.company_id,
         branch_id=args.branch_id,
