@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -161,8 +161,29 @@ class SalesOrder(BaseEntity):
     status             = Column(String(20), default="Draft")  # Draft | Submitted | Approved | Rejected | Confirmed | Shipped | Cancelled
     source_quotation_id = Column(String(50), nullable=True)
 
+    # Extended Historical PO & Execution Metadata
+    po_number          = Column(String(100), index=True)
+    po_date            = Column(Date)
+    delivery_date      = Column(Date)
+    site_code          = Column(String(50))
+    site_name          = Column(String(255))
+    delivery_address   = Column(Text)
+    vendor_code        = Column(String(50))
+    customer_id        = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True, index=True)
+    customer_gstin     = Column(String(50))
+    basic_total        = Column(Numeric(15, 2), default=0.00)
+    is_interstate      = Column(Boolean, default=True)
+    total_qty          = Column(Numeric(15, 4), default=0.0000)
+    billed_qty         = Column(Numeric(15, 4), default=0.0000)
+    billed_value       = Column(Numeric(15, 2), default=0.00)
+    pending_qty        = Column(Numeric(15, 4), default=0.0000)
+    pending_value      = Column(Numeric(15, 2), default=0.00)
+    fulfillment_status = Column(String(50), default="UNFULFILLED")  # UNFULFILLED | PARTIALLY_BILLED | FULLY_BILLED
+    po_metadata        = Column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+
     # Relationships
     items = relationship("SalesOrderItem", back_populates="order", cascade="all, delete-orphan")
+    allocations = relationship("SalesOrderInvoiceAllocation", back_populates="order", cascade="all, delete-orphan")
 
 
 class SalesOrderItem(Base):
@@ -180,8 +201,55 @@ class SalesOrderItem(Base):
     tax_amount   = Column(Numeric(15, 2), default=0.00)
     total_amount = Column(Numeric(15, 2), nullable=False)
 
+    # Extended PO Line Identifiers
+    sr_no        = Column(Integer)
+    article_no   = Column(String(50))
+    ean          = Column(String(50))
+    vendor_style = Column(String(100))
+    color        = Column(String(50))
+    size         = Column(String(50))
+    uom          = Column(String(20), default="EA")
+    mrp          = Column(Numeric(15, 2))
+    base_cost    = Column(Numeric(15, 2))
+    taxable_value = Column(Numeric(15, 2))
+    igst_amount  = Column(Numeric(15, 2), default=0.00)
+    cgst_amount  = Column(Numeric(15, 2), default=0.00)
+    sgst_amount  = Column(Numeric(15, 2), default=0.00)
+    line_total   = Column(Numeric(15, 2))
+    delivery_date = Column(Date)
+    site_code    = Column(String(50))
+
     # Relationships
     order = relationship("SalesOrder", back_populates="items")
+
+
+class SalesOrderInvoiceAllocation(BaseEntity):
+    """
+    Tracks invoice allocation details against Sales Orders / Historical POs.
+    """
+    __tablename__ = "sales_order_invoice_allocations"
+
+    order_id     = Column(String(50), ForeignKey("sales_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_no     = Column(String(100), nullable=False, index=True)
+    po_number    = Column(String(100), nullable=False, index=True)
+    invoice_id   = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False, index=True)
+    invoice_no   = Column(String(100), nullable=False, index=True)
+    invoice_date = Column(Date, nullable=False)
+
+    # Allocation Metrics
+    po_quantity      = Column(Numeric(15, 4), nullable=False, default=0.0000)
+    po_value         = Column(Numeric(15, 2), nullable=False, default=0.00)
+    billed_quantity  = Column(Numeric(15, 4), nullable=False, default=0.0000)
+    billed_value     = Column(Numeric(15, 2), nullable=False, default=0.00)
+    pending_quantity = Column(Numeric(15, 4), nullable=False, default=0.0000)
+    pending_value    = Column(Numeric(15, 2), nullable=False, default=0.00)
+    status           = Column(String(50), default="ALLOCATED")  # ALLOCATED | PARTIAL | FULLY_BILLED
+    allocation_metadata = Column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+
+    # Relationships
+    order = relationship("SalesOrder", back_populates="allocations")
+    invoice = relationship("SalesInvoice")
+
 
 
 class SalesReturn(BaseEntity):

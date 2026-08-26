@@ -695,7 +695,24 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       if (filters && filters.date?.start) params.append("startDate", String(filters.date.start));
       if (filters && filters.date?.end) params.append("endDate", String(filters.date.end));
       const data = await apiFetchV1(`/sales/orders/${params.toString() ? `?${params.toString()}` : ""}`);
-      setSalesOrders(data);
+      const normalizedData = (Array.isArray(data) ? data : []).map((so: any) => ({
+        ...so,
+        orderNo: so.orderNo || so.order_no || "SO",
+        customerName: so.customerName || so.customer_name || "",
+        taxTotal: typeof so.taxTotal === "number" ? so.taxTotal : parseFloat(so.tax_total || "0") || 0,
+        grandTotal: typeof so.grandTotal === "number" ? so.grandTotal : parseFloat(so.grand_total || "0") || 0,
+        sourceQuotationId: so.sourceQuotationId || so.source_quotation_id,
+        items: (so.items || []).map((item: any) => ({
+          ...item,
+          productId: item.productId || item.product_id,
+          gstRate: typeof item.gstRate === "number" ? item.gstRate : parseFloat(item.gst_rate || "0") || 0,
+          taxAmount: typeof item.taxAmount === "number" ? item.taxAmount : parseFloat(item.tax_amount || "0") || 0,
+          totalAmount: typeof item.totalAmount === "number" ? item.totalAmount : parseFloat(item.total_amount || "0") || 0,
+          price: typeof item.price === "number" ? item.price : parseFloat(item.price || "0") || 0,
+          quantity: typeof item.quantity === "number" ? item.quantity : parseFloat(item.quantity || "0") || 0,
+        }))
+      }));
+      setSalesOrders(normalizedData);
     } catch (e) {
       onNotification("Sync Error", "Failed to load sales orders ledger.", "error");
     }

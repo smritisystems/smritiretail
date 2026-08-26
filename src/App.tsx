@@ -467,7 +467,11 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     const handleMenuSearchNavigation = (event: Event) => {
-      const moduleId = (event as CustomEvent<{ moduleId?: string }>).detail?.moduleId;
+      const detail = (event as CustomEvent<{ moduleId?: string; searchQuery?: string }>).detail;
+      const moduleId = detail?.moduleId;
+      if (moduleId === "stock-ledger" && detail?.searchQuery) {
+        sessionStorage.setItem("smriti_stock_ledger_search", detail.searchQuery);
+      }
       if (moduleId) setActiveTab(mapModuleId(moduleId));
     };
     window.addEventListener("smriti_navigate_module", handleMenuSearchNavigation);

@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-26 | v1.0.0 | Phase 1 Historical PO Reconciliation for Tattly Threads (60 Reliance POs) | [Walkthrough](./sales/Tattly_Threads_Historical_PO_Reconciliation_Phase1_v1.0.md) | [Plan](../implementation/sales/Tattly_Threads_Historical_PO_Reconciliation_Plan_v1.0.md) | Completed |
 | 2026-08-25 | v3.31.0 | Backend Full Test Suite Stabilization & Multi-Tenant Isolation Verification | [Walkthrough](./foundation/Backend_Full_Test_Suite_Stabilization_v3.31.0.md) | — | Completed |
 | 2026-08-25 | v3.28.0 | Statutory GST Tax Invoices Master Register & Size Matrix Reports | [Walkthrough](./reports/Reports_Tax_Invoices_Master_And_Size_Matrix_v3.28.0.md) | — | Completed |
 | 2026-08-25 | v3.61.0 | Sprint 45 — Section 11 & 12 Analytics & Compliance Gateways | [Walkthrough](./foundation/Sprint45_Analytics_Compliance_Integration_v1.0.0.md) | — | Completed |

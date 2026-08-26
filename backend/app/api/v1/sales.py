@@ -82,6 +82,24 @@ async def list_suspended_sales_invoices(
 
 
 @router.get(
+    "/invoices/by-number/{invoice_no:path}",
+    response_model=SalesInvoiceResponse,
+    summary="Get Sales Invoice Detail by Invoice Number",
+)
+async def get_sales_invoice_by_number_contract(
+    invoice_no: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get single sales invoice detail by invoice number supporting slashes under active tenant context."""
+    repo = SalesInvoiceRepository(db, tenant_ctx)
+    inv = await repo.get(invoice_no)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Sales invoice not found")
+    return inv
+
+
+@router.get(
     "/invoices/{invoice_id}",
     response_model=SalesInvoiceResponse,
     summary="Get Sales Invoice Detail",

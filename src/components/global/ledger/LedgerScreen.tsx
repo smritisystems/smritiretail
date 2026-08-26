@@ -36,7 +36,14 @@ export function LedgerScreen<T extends Record<string, any>>({
   const { popOutExternalWindow } = useWorkspace();
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(() => {
+    if (config.entityName === "Stock Movement" && typeof sessionStorage !== "undefined") {
+      const pendingSearch = sessionStorage.getItem("smriti_stock_ledger_search") || "";
+      sessionStorage.removeItem("smriti_stock_ledger_search");
+      return pendingSearch;
+    }
+    return "";
+  });
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     config.filters?.forEach((f) => {
