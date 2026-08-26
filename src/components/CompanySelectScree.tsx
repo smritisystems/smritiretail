@@ -147,7 +147,10 @@ export const CompanySelectionScreen: React.FC<CompanySelectionScreenProps> = ({
         localStorage.setItem("smriti_company_id", company.id);
         const derivedCode = company.id.replace(/^COMP-/, "") || "001";
         localStorage.setItem("smriti_company_code", derivedCode);
+        localStorage.setItem("smriti_company_name", company.name);
         localStorage.setItem("smriti_branch_id", targetBranchId);
+        localStorage.setItem("smriti_branch_name", targetBranchName);
+        localStorage.setItem("smriti_branch_code", targetBranchId);
 
         // Notify parent App component
         onCompanySelected({

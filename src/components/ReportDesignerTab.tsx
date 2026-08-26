@@ -69,7 +69,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   
   // Active Role switcher for instant interactive RBAC testing
   const [activeRole, setActiveRole] = useState<string>(
-    currentUser?.role === "Report User" ? "Report User" : (currentUser?.role === "Admin" ? "CEO" : (currentUser?.role === "Cashier" ? "Cashier" : "Store Manager"))
+    (currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER") ? "Report User" : (currentUser?.role === "Admin" ? "CEO" : (currentUser?.role === "Cashier" ? "Cashier" : "Store Manager"))
   ); // Store Manager, Cashier, CEO, Report User
 
   // Search filter
@@ -1021,9 +1021,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       </thead>
                       <tbody>
                         {[
-                          { cat: "Apparel", count: salesReportData ? Math.round(salesReportData.total_invoices * 0.5) : 86, avg: "₹1,320", tax: salesReportData ? `₹${Math.round(parseFloat(salesReportData.upi_sales) * 0.18).toLocaleString('en-IN')}` : "₹20,410", total: salesReportData ? `₹${Math.round(parseFloat(salesReportData.upi_sales)).toLocaleString('en-IN')}` : "₹1,45,000", id: "Apparel" },
-                          { cat: "Footwear", count: salesReportData ? Math.round(salesReportData.total_invoices * 0.3) : 42, avg: "₹2,345", tax: salesReportData ? `₹${Math.round(parseFloat(salesReportData.card_sales) * 0.18).toLocaleString('en-IN')}` : "₹13,850", total: salesReportData ? `₹${Math.round(parseFloat(salesReportData.card_sales)).toLocaleString('en-IN')}` : "₹98,500", id: "Footwear" },
-                          { cat: "Accessories", count: salesReportData ? Math.round(salesReportData.total_invoices * 0.2) : 18, avg: "₹850", tax: salesReportData ? `₹${Math.round(parseFloat(salesReportData.cash_sales) * 0.18).toLocaleString('en-IN')}` : "₹5,410", total: salesReportData ? `₹${Math.round(parseFloat(salesReportData.cash_sales)).toLocaleString('en-IN')}` : "₹43,000", id: "Accessories" }
+                          { cat: "Completed Sales", count: salesReportData?.total_invoices ?? 0, avg: salesReportData?.total_invoices ? `₹${Math.round(parseFloat(salesReportData.total_sales) / salesReportData.total_invoices).toLocaleString('en-IN')}` : "₹0", tax: salesReportData ? `₹${Math.round(parseFloat(salesReportData.tax_total)).toLocaleString('en-IN')}` : "₹0", total: salesReportData ? `₹${Math.round(parseFloat(salesReportData.total_sales)).toLocaleString('en-IN')}` : "₹0", id: "Completed Sales" }
                         ].map((row) => (
                           <tr key={row.id} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
                             <td className="px-5 py-3.5 font-bold text-blue-400">{row.cat} Group</td>

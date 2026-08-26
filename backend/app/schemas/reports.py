@@ -47,6 +47,7 @@ class DailySalesSummary(BaseModel):
     report_date:     date
     total_invoices:  int
     total_sales:     Decimal
+    tax_total:       Decimal
     cash_sales:      Decimal
     card_sales:      Decimal
     upi_sales:       Decimal
@@ -308,6 +309,7 @@ class AttributeSizeSalesReport(BaseModel):
 
 class TaxInvoiceMasterRegisterLine(BaseModel):
     """RPT-TAX-006 Line -- Master Statutory Tax Invoice Ledger Line."""
+    invoice_id: str
     bill_no:            Optional[int] = None
     invoice_number:     str
     invoice_date:       str

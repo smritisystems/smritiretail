@@ -41,6 +41,7 @@ export type EntityContextType =
   | "warehouse"
   | "invoice"
   | "hsn"
+  | "menu"
   | "general";
 
 export interface FlexibleGridColumn {
@@ -609,12 +610,37 @@ const hsnContext: FieldContextDescriptor = {
   },
 };
 
+const menuContext: FieldContextDescriptor = {
+  entityType: "menu",
+  label: "Menus & Workspaces",
+  icon: "apps",
+  description: "Search authorized SMRITI workspaces and operational menus.",
+  searchPlaceholder: "Search menus - billing, reports, barcode, stock...",
+  insertValueKeys: ["title", "id"],
+  columns: [
+    { id: "title", label: "Menu / Workspace", accessor: (r) => r.title, style: "bold" },
+    { id: "module", label: "Module", accessor: (r) => r.module || "-" },
+    { id: "route", label: "Route", accessor: (r) => r.route || "-", style: "mono" },
+  ],
+  fetcher: async (query) => {
+    try {
+      const data = await apiFetchV1("/menus/resolved");
+      if (!Array.isArray(data)) return [];
+      const normalized = query.trim().toLowerCase();
+      return data.filter((menu: any) => !normalized || [menu.title, menu.id, menu.module, menu.route]
+        .some((value) => String(value || "").toLowerCase().includes(normalized)));
+    } catch {
+      return [];
+    }
+  },
+};
+
 const generalContext: FieldContextDescriptor = {
   entityType: "general",
   label: "Global Search",
   icon: "travel_explore",
-  description: "Search across all entities — products, customers, suppliers, invoices.",
-  searchPlaceholder: "Search anything — products, customers, invoices, barcodes...",
+  description: "Search across menus, products, customers, suppliers, and invoices.",
+  searchPlaceholder: "Search anything - menus, billing, reports, products, invoices...",
   insertValueKeys: ["name", "id"],
   columns: [
     {
@@ -641,6 +667,9 @@ const generalContext: FieldContextDescriptor = {
     if (!query.trim()) return [];
     const results: any[] = [];
     await Promise.allSettled([
+      menuContext.fetcher(query).then((items) =>
+        items.slice(0, 20).forEach((i) => results.push({ ...i, _entityType: "Menu" }))
+      ),
       productContext.fetcher(query).then((items) =>
         items.slice(0, 10).forEach((i) => results.push({ ...i, _entityType: "Product" }))
       ),
@@ -664,6 +693,7 @@ export const FIELD_CONTEXT_REGISTRY: Record<EntityContextType, FieldContextDescr
   warehouse: warehouseContext,
   invoice: invoiceContext,
   hsn: hsnContext,
+  menu: menuContext,
   general: generalContext,
 };
 
@@ -688,5 +718,6 @@ export function getEntityTabs(): FieldContextDescriptor[] {
     FIELD_CONTEXT_REGISTRY["warehouse"],
     FIELD_CONTEXT_REGISTRY["invoice"],
     FIELD_CONTEXT_REGISTRY["hsn"],
+    FIELD_CONTEXT_REGISTRY["menu"],
   ];
 }

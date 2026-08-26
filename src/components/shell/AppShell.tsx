@@ -14,6 +14,7 @@ import React, { useState, useEffect } from 'react';
 import { GlobalHeader } from './GlobalHeader';
 import { NavRail, NavRailState } from './NavRail';
 import { BusinessContext, TransactionState } from './navigationResolver';
+import { WorkspaceStatusBar } from './WorkspaceStatusBar';
 
 interface AppShellProps {
   activeModuleId: string;
@@ -159,7 +160,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       )}
 
       {/* Main Content Body */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden relative pb-8">
         {/* Hideable Navigation Rail */}
         <NavRail
           railState={railState}
@@ -177,6 +178,11 @@ export const AppShell: React.FC<AppShellProps> = ({
           {children}
         </main>
       </div>
+      <WorkspaceStatusBar
+        activeModuleTitle={activeModuleTitle}
+        userName={userName}
+        userRole={userRole}
+      />
     </div>
   );
 };

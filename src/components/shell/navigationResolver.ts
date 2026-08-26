@@ -50,7 +50,7 @@ export interface ResolvedNavigation {
 }
 
 const LAUNCHPAD_ITEM: ContextualMenuItem = {
-  id: 'dashboard',
+  id: 'launchpad',
   title: 'SMRITI Launchpad',
   icon: 'grid_view',
 };
@@ -232,7 +232,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           LAUNCHPAD_ITEM,
         ],
         nextBestAction: {
-          id: 'dashboard',
+          id: 'launchpad',
           title: 'Fiori Launchpad',
           icon: 'grid_view',
         },

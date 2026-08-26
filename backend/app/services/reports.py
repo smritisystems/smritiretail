@@ -21,6 +21,7 @@ from datetime import date, datetime, timezone
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from fastapi import HTTPException
 
 from ..models.inventory import Product
@@ -84,6 +85,7 @@ class ReportsService:
     async def daily_sales(self, report_date: Optional[date] = None) -> DailySalesSummary:
         stmt = select(SalesInvoice).where(
             SalesInvoice.is_deleted == False,
+            or_(SalesInvoice.status.is_(None), SalesInvoice.status != "CANCELLED"),
         )
         if report_date:
             stmt = stmt.where(SalesInvoice.date == report_date)
@@ -98,6 +100,7 @@ class ReportsService:
         invoices = res.scalars().all()
 
         total_sales = Decimal("0.00")
+        tax_total = Decimal("0.00")
         cash_sales = Decimal("0.00")
         card_sales = Decimal("0.00")
         upi_sales = Decimal("0.00")
@@ -106,6 +109,7 @@ class ReportsService:
         for inv in invoices:
             net = Decimal(str(getattr(inv, "net_amount", None) or getattr(inv, "total_amount", None) or getattr(inv, "grand_total", None) or "0"))
             total_sales += net
+            tax_total += Decimal(str(getattr(inv, "tax_total", None) or "0"))
 
             pm = (inv.payment_mode or "").upper()
             if "CASH" in pm:
@@ -123,6 +127,7 @@ class ReportsService:
             report_date=report_date or date.today(),
             total_invoices=len(invoices),
             total_sales=total_sales,
+            tax_total=tax_total,
             cash_sales=cash_sales,
             card_sales=card_sales,
             upi_sales=upi_sales,
@@ -932,6 +937,7 @@ class ReportsService:
 
             lines.append(
                 TaxInvoiceMasterRegisterLine(
+                    invoice_id=inv.id,
                     bill_no=b_no,
                     invoice_number=inv_no,
                     invoice_date=str(getattr(inv, "date", "") or ""),

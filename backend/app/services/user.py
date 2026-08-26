@@ -99,6 +99,7 @@ def to_staff_response(user: User) -> StaffUserResponse:
         departmentId=user.department_id,
         designationId=user.designation_id,
         branchId=user.branch_id,
+        companyId=user.company_id,
         dateOfJoining=user.date_of_joining or "",
         reportingManager=user.reporting_manager or "",
         employmentType=user.employment_type or "Permanent",

@@ -170,6 +170,13 @@ export const GlobalSearch: React.FC = () => {
   // Row selection handlers
   const handleSelectRow = useCallback(
     (row: any) => {
+      if (selectedCategory === "menu" || row?._entityType === "Menu") {
+        window.dispatchEvent(new CustomEvent("smriti_navigate_module", {
+          detail: { moduleId: row.id, title: row.title },
+        }));
+        setSearchOpen(false);
+        return;
+      }
       // 1. Always inject the appropriate value into the active input field
       const insertKey = descriptor.insertValueKeys.find((k) => row[k]) ?? "name";
       const valueToInsert = row[insertKey] || row.name || row.code || row.id || "";

@@ -22,6 +22,7 @@ interface PosTerminalTabProps {
   shifts?: Shift[];
   onRefreshData?: () => void;
   onNotification?: (title: string, msg: string, type: "success" | "error") => void;
+  initialTab?: "BILLING" | "INVOICING" | "EOD_Z_REPORT" | "DAILY_REPORTS" | "PROMOTIONS" | "COMMISSIONS";
 }
 
 export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
@@ -29,7 +30,8 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   profiles = [],
   shifts = [],
   onRefreshData,
-  onNotification
+  onNotification,
+  initialTab,
 }) => {
   return (
     <ProPosWs
@@ -38,6 +40,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
       shifts={shifts}
       onRefreshData={onRefreshData}
       onNotification={onNotification}
+      initialTab={initialTab}
     />
   );
 };

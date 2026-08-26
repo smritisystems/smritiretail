@@ -42,6 +42,7 @@ interface SmritiProPosWorkspaceProps {
   shifts?: Shift[];
   onRefreshData?: () => void;
   onNotification?: (title: string, msg: string, type: "success" | "error") => void;
+  initialTab?: ProPosActiveTab;
 }
 
 export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
@@ -49,9 +50,10 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
   profiles = [],
   shifts = [],
   onRefreshData,
-  onNotification
+  onNotification,
+  initialTab = "INVOICING",
 }) => {
-  const [activeTab, setActiveTab] = useState<ProPosActiveTab>("INVOICING");
+  const [activeTab, setActiveTab] = useState<ProPosActiveTab>(initialTab);
   const [toast, setToast] = useState<{ title: string; message: string; type: "success" | "error" | "info" } | null>(null);
 
   const showToast = (title: string, message: string, type: "success" | "error" | "info" = "info") => {

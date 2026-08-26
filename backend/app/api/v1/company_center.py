@@ -40,7 +40,7 @@ router = APIRouter(prefix="/control-center", tags=["Company Control Center"])
 
 # Pydantic Request Schemas
 class ValidateCodeRequest(BaseModel):
-    company_code: str = Field(..., description="3-character alphanumeric code [A-Z0-9]")
+    company_code: str = Field(..., description="4-character alphanumeric code [A-Z0-9]")
 
 class CreateCompanyRequest(BaseModel):
     company_id: str
@@ -56,14 +56,16 @@ class LifecycleActionRequest(BaseModel):
 # Endpoints
 @router.post("/companies/validate-code")
 def validate_company_code(payload: ValidateCodeRequest):
-    """Validates 3-character alphanumeric company code [A-Z0-9]. Rejects 000 and SYS."""
+    """Validates 4-character alphanumeric company code [A-Z0-9]. Rejects 0000 and SYS0."""
     code = payload.company_code.strip().upper()
-    if len(code) != 3 or not code.isalnum():
+    if code.isdigit() and len(code) <= 4:
+        code = code.zfill(4)
+    if len(code) != 4 or not code.isalnum():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Company code '{payload.company_code}' must be exactly 3 alphanumeric characters [A-Z0-9]."
         )
-    if code in ("000", "SYS"):
+    if code in ("0000", "SYS0"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Company code '{code}' is permanently reserved and cannot be assigned."

@@ -35,6 +35,7 @@ export const DrillDownSidePanel: React.FC = () => {
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [group, setGroup] = useState<CustomerGroup | null>(null);
+  const [invoice, setInvoice] = useState<any | null>(null);
 
   // Recent Activity tab states
   const [activeTab, setActiveTab] = useState<"profile" | "activity">("profile");
@@ -60,6 +61,22 @@ export const DrillDownSidePanel: React.FC = () => {
       } else {
         setCustomer(null);
         setGroup(null);
+      }
+      if (activePanel && activePanel.entityType === "invoice") {
+        setInvoice(null);
+        const invoiceKey = encodeURIComponent(activePanel.entityId);
+        apiFetchV1(`/sales/invoices/${invoiceKey}`)
+          .catch(() => apiFetchV1(`/sales/invoices?q=${invoiceKey}&limit=1`)
+            .then((result) => {
+              const matches = Array.isArray(result) ? result : result?.items || [];
+              const invoiceId = matches[0]?.id;
+              if (!invoiceId) throw new Error("Sales invoice not found");
+              return apiFetchV1(`/sales/invoices/${encodeURIComponent(invoiceId)}`);
+            }))
+          .then((data) => setInvoice(data))
+          .catch((error) => console.error("Failed to load invoice details:", error));
+      } else {
+        setInvoice(null);
       }
     };
 
@@ -669,10 +686,23 @@ export const DrillDownSidePanel: React.FC = () => {
                    <div>
                       <h3 className="text-[10px] font-bold text-theme-muted uppercase tracking-wider font-mono mb-3">Core Details</h3>
                       <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 space-y-3">
-                        <div className="flex justify-between">
-                          <span className="text-xs text-theme-muted">Created</span>
-                          <span className="text-xs font-semibold text-theme-body font-mono">08-Jul-2026</span>
-                        </div>
+                        {activePanel.entityType === 'invoice' ? (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-xs text-theme-muted">Invoice Date</span>
+                              <span className="text-xs font-semibold text-theme-body font-mono">{invoice?.date || "Loading..."}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-xs text-theme-muted">Created At</span>
+                              <span className="text-xs font-semibold text-theme-body font-mono">{invoice?.created_at ? new Date(invoice.created_at).toLocaleString("en-IN") : "Loading..."}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex justify-between">
+                            <span className="text-xs text-theme-muted">Created</span>
+                            <span className="text-xs font-semibold text-theme-body font-mono">Not available</span>
+                          </div>
+                        )}
                         <div className="flex justify-between">
                           <span className="text-xs text-theme-muted">Status</span>
                           <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-mono uppercase">Active</span>
@@ -680,7 +710,7 @@ export const DrillDownSidePanel: React.FC = () => {
                         {activePanel.entityType === 'invoice' && (
                           <div className="flex justify-between">
                             <span className="text-xs text-theme-muted">Amount</span>
-                            <span className="text-xs font-semibold text-theme-body font-mono">₹45,200.00</span>
+                            <span className="text-xs font-semibold text-theme-body font-mono">{invoice ? formatCurrency(Number(invoice.grand_total || 0)) : "Loading..."}</span>
                           </div>
                         )}
                       </div>

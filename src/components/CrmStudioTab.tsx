@@ -47,7 +47,7 @@ export interface CrmStudioTabProps {
 }
 
 export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
-  const isReadOnly = currentUser?.role === "Report User";
+  const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "leads" | "pipeline" | "campaigns" | "loyalty">("dashboard");
 
   const [searchQuery, setSearchQuery] = useState("");

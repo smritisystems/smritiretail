@@ -619,6 +619,8 @@ export interface SalesInvoice {
   id: string;
   invoiceNo: string;
   date: string;
+  createdAt?: string;
+  modifiedAt?: string;
   customerId: string; // link to Customer (e.g. Reliance, Shoppers Stop, Lifestyle)
   items: SalesInvoiceItemLine[];
   taxTotal: number;
