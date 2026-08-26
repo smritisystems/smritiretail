@@ -28,6 +28,29 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.68.0] - 2026-08-27
+
+#### Stock Movement Ledger Safety, FEFO Batch Allocation & Historical Reconciliation Engine
+- **Stock Movement Ledger API & Multi-Tenant Isolation (`backend/app/api/v1/inventory.py`, `backend/app/schemas/inventory.py`)**:
+  - Implemented exact tenant (`company_id`) and branch (`branch_id`) isolation on `GET /api/v1/inventory/ledger` and canonical route alias `/api/v1/inventory/stock-movements`.
+  - Added timestamp range (`from_date`, `to_date`), movement type (`movement_type`), full-text search (`search`/`q`), SKU, and reference document filters.
+  - Added `branch_id` to `StockMovementResponse` schema.
+- **Sales & Returns Movement Synchronization (`backend/app/services/sales.py`)**:
+  - Enforced `OUTWARD_SALE` movement creation on completed sales invoices referencing canonical `sales_invoices.id` as `reference_doc_id`.
+  - Emitted batch-level stock deductions respecting FEFO allocations.
+  - Enforced `RETURN_INWARD` positive quantity stock movements on sales returns referencing canonical `sales_returns.id`.
+  - Excluded `Draft`, `Suspended`, `Hold`, and `Cancelled` invoices as well as `No-stock` tracking mode items from movement generation.
+- **Stock Movement Ledger Frontend UI Configuration (`src/components/global/ledger/configs/stockLedger.config.tsx`)**:
+  - Standardized canonical movement types: `OUTWARD_SALE`, `RETURN_INWARD`, `INWARD_GRN`, `ADJUSTMENT_IN`, `ADJUSTMENT_OUT`, `TRANSFER_IN`, `TRANSFER_OUT`.
+  - Fixed sign display and directional indicators based on movement direction.
+- **Historical Stock Reconciliation Engine (`scripts/reconcile_historical_stock.py`)**:
+  - Built headless dry-run audit tool reconciling 120 historical sales invoices (6,661 lines).
+  - Enforced 5 mandatory apply guards: pre-existing dry-run report, verified disk backup, missing mappings review, stock impact review, and exact confirmation passphrase.
+  - Handled 2,903 unmapped legacy item codes without creating guessed/fake products.
+  - Protected database against double-deductions when opening stock balances are already adjusted.
+- **Test Suite Verification (`backend/tests/test_stock_movement_ledger.py`, `backend/tests/test_stock_reconciliation.py`)**:
+  - Implemented 9 automated tests with live API runtime response assertion, draft/return handling, and apply guard validations.
+
 ### [3.67.0] - 2026-08-26
 
 #### Shoper9 Legacy Template Blueprint Integration & Sales Orders Business-First Presentation

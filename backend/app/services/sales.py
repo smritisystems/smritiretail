@@ -331,7 +331,7 @@ class SalesService:
                     qty_delta=-ded["quantity"],
                     movement_type="OUTWARD_SALE",
                     reference_doc_type="Sales Invoice",
-                    reference_doc_id=db_invoice.invoice_no,
+                    reference_doc_id=db_invoice.id,
                     remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
                 )
 

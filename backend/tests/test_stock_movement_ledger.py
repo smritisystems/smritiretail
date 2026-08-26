@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.35.0
+Version      : 3.36.0
 Created      : 2026-08-27
 Modified     : 2026-08-27
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -29,7 +29,7 @@ from app.models.sales import SalesInvoice, SalesInvoiceItem, SalesReturn, SalesR
 from app.services.sales import SalesService
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate, SalesReturnCreate, SalesReturnItemCreate
 from app.api.deps import TenantContext
-from scripts.reconcile_historical_stock import run_historical_stock_reconciliation
+from scripts.reconcile_historical_stock import run_historical_stock_reconciliation, REQUIRED_CONFIRMATION_TEXT
 
 
 def _get_auth_headers(company_id="COMP-001", branch_id="MAIN"):
@@ -110,7 +110,7 @@ async def test_completed_invoice_creates_outward_sale_movement():
     """
     Controlled transactional test:
     1. Create a completed sales invoice.
-    2. Assert OUTWARD_SALE movement is recorded in stock_movements.
+    2. Assert OUTWARD_SALE movement is recorded with sales_invoices.id as reference_doc_id.
     3. Clean up test records completely to preserve production data state.
     """
     session_factory = get_company_sessionmaker("smriti001")
@@ -160,9 +160,9 @@ async def test_completed_invoice_creates_outward_sale_movement():
             db_inv = await sales_svc.create_sales_invoice(invoice_in)
             assert db_inv.id is not None
 
-            # Verify OUTWARD_SALE stock movement was created
+            # Verify OUTWARD_SALE stock movement was created with canonical sales_invoices.id
             stmt = select(StockMovement).filter(
-                StockMovement.reference_doc_id == test_inv_no,
+                StockMovement.reference_doc_id == db_inv.id,
                 StockMovement.reference_doc_type == "Sales Invoice",
                 StockMovement.is_deleted == False
             )
@@ -177,7 +177,7 @@ async def test_completed_invoice_creates_outward_sale_movement():
             assert movement.branch_id == "MAIN"
         finally:
             if db_inv:
-                await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :ref_id OR reference_doc_id = :inv_id"), {"ref_id": test_inv_no, "inv_id": db_inv.id})
+                await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :inv_id OR reference_doc_id = :inv_no"), {"inv_id": db_inv.id, "inv_no": test_inv_no})
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv.id})
                 await session.commit()
@@ -229,7 +229,7 @@ async def test_draft_invoice_creates_no_movement():
 
             # Verify NO movement created
             stmt = select(StockMovement).filter(
-                StockMovement.reference_doc_id == test_inv_no,
+                StockMovement.reference_doc_id == db_inv.id,
                 StockMovement.is_deleted == False
             )
             mv_res = await session.execute(stmt)
@@ -388,7 +388,7 @@ async def test_no_stock_product_creates_no_movement():
 
             # Verify NO movement created for No-stock item
             stmt = select(StockMovement).filter(
-                StockMovement.reference_doc_id == test_inv_no,
+                StockMovement.reference_doc_id == db_inv.id,
                 StockMovement.is_deleted == False
             )
             mv_res = await session.execute(stmt)
@@ -461,7 +461,7 @@ async def test_repeated_processing_does_not_create_duplicates():
 
             # Verify exactly ONE movement exists for this invoice
             stmt = select(StockMovement).filter(
-                StockMovement.reference_doc_id == test_inv_no,
+                StockMovement.reference_doc_id == db_inv1.id,
                 StockMovement.is_deleted == False
             )
             mv_res = await session.execute(stmt)
@@ -469,29 +469,153 @@ async def test_repeated_processing_does_not_create_duplicates():
             assert len(movements) == 1
         finally:
             if db_inv1:
-                await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :ref_id OR reference_doc_id = :inv_id"), {"ref_id": test_inv_no, "inv_id": db_inv1.id})
+                await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :inv_id OR reference_doc_id = :inv_no"), {"inv_id": db_inv1.id, "inv_no": test_inv_no})
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv1.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv1.id})
                 await session.commit()
 
 
-def test_historical_apply_guard_failures():
+@pytest.mark.asyncio
+async def test_stock_movement_ledger_live_api_runtime_response():
     """
-    Verifies that running historical reconciliation with apply requires confirmation and backup file.
+    RUNTIME VERIFICATION TEST:
+    1. Create a live completed sales invoice in a controlled session.
+    2. Request GET /api/v1/inventory/ledger and GET /api/v1/inventory/stock-movements.
+    3. Assert the actual API responses contain validated movement rows with OUTWARD_SALE,
+       correct quantity, canonical reference_doc_id, and tenant scope.
+    4. Clean up test records completely.
     """
-    # 1. Missing confirm flag
-    with pytest.raises(ValueError, match="CRITICAL GUARD: Apply mode requires explicit '--confirm-historical-posting'"):
-        run_historical_stock_reconciliation(
-            database="smriti001",
-            mode="apply",
-            confirm_historical_posting=False,
+    session_factory = get_company_sessionmaker("smriti001")
+
+    async with session_factory() as session:
+        tenant_ctx = TenantContext(
+            company_id="COMP-001",
+            branch_id="MAIN",
+        )
+        sales_svc = SalesService(session, tenant_ctx)
+
+        res = await session.execute(
+            select(Product).filter(
+                Product.tracking_mode != "No-stock",
+                Product.is_deleted == False,
+                Product.company_id == "COMP-001"
+            ).limit(1)
+        )
+        prod = res.scalars().first()
+        if not prod:
+            pytest.skip("No product found")
+        prod.stock = Decimal("50.00")
+        await session.flush()
+
+        test_inv_no = f"INV-RUNTIME-{uuid.uuid4().hex[:6]}"
+        invoice_in = SalesInvoiceCreate(
+            invoice_no=test_inv_no,
+            date=datetime.now(timezone.utc).date(),
+            customer_name="Runtime Verification Customer",
+            status="Completed",
+            payment_status="Paid",
+            items=[
+                SalesInvoiceItemCreate(
+                    product_id=prod.id,
+                    code=prod.code,
+                    name=prod.name,
+                    quantity=Decimal("2.00"),
+                    price=Decimal("250.00"),
+                    gst_rate=Decimal("18.00"),
+                )
+            ]
         )
 
-    # 2. Missing backup file
-    with pytest.raises(ValueError, match="CRITICAL GUARD: Apply mode requires a verified pre-migration '--backup-file'"):
+        db_inv = None
+        try:
+            db_inv = await sales_svc.create_sales_invoice(invoice_in)
+            assert db_inv.id is not None
+
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                # Query ledger API filtered by canonical reference_doc_id
+                api_res = await client.get(
+                    f"/api/v1/inventory/ledger?reference_doc_id={db_inv.id}",
+                    headers=_get_auth_headers()
+                )
+                assert api_res.status_code == 200
+                rows = api_res.json()
+                assert len(rows) == 1, f"Expected 1 movement row from API, got {len(rows)}"
+
+                row = rows[0]
+                assert row["movement_type"] == "OUTWARD_SALE"
+                assert row["product_id"] == prod.id
+                assert float(row["quantity"]) == 2.0
+                assert row["reference_doc_type"] == "Sales Invoice"
+                assert row["reference_doc_id"] == db_inv.id
+                assert row["company_id"] == "COMP-001"
+                assert row["branch_id"] == "MAIN"
+        finally:
+            if db_inv:
+                await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :inv_id OR reference_doc_id = :inv_no"), {"inv_id": db_inv.id, "inv_no": test_inv_no})
+                await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv.id})
+                await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv.id})
+                await session.commit()
+
+
+def test_historical_apply_all_5_guards(tmp_path):
+    """
+    Verifies that running historical reconciliation with apply enforces all 5 safety requirements.
+    """
+    dummy_report = str(tmp_path / "valid_dry_run.json")
+    with open(dummy_report, "w", encoding="utf-8") as f:
+        f.write('{"status": "COMPLETED", "mode": "dry-run"}')
+
+    dummy_backup = str(tmp_path / "pre_migration_backup.sql")
+    with open(dummy_backup, "w", encoding="utf-8") as f:
+        f.write("-- valid backup")
+
+    # Guard 1: Missing dry-run report
+    with pytest.raises(ValueError, match="CRITICAL GUARD 1/5: Apply mode requires a verified pre-existing dry-run report"):
         run_historical_stock_reconciliation(
             database="smriti001",
             mode="apply",
-            confirm_historical_posting=True,
-            backup_file="non_existent_backup_file.sql",
+            dry_run_report="non_existent_report.json",
+        )
+
+    # Guard 2: Missing backup file
+    with pytest.raises(ValueError, match="CRITICAL GUARD 2/5: Apply mode requires a verified pre-migration backup file"):
+        run_historical_stock_reconciliation(
+            database="smriti001",
+            mode="apply",
+            dry_run_report=dummy_report,
+            backup_file="non_existent_backup.sql",
+        )
+
+    # Guard 3: Missing review of missing mappings
+    with pytest.raises(ValueError, match="CRITICAL GUARD 3/5: Apply mode requires explicit flag '--review-missing-mappings CONFIRMED_REVIEWED'"):
+        run_historical_stock_reconciliation(
+            database="smriti001",
+            mode="apply",
+            dry_run_report=dummy_report,
+            backup_file=dummy_backup,
+            review_missing_mappings=None,
+        )
+
+    # Guard 4: Missing review of stock impact
+    with pytest.raises(ValueError, match="CRITICAL GUARD 4/5: Apply mode requires explicit flag '--review-stock-impact CONFIRMED_REVIEWED'"):
+        run_historical_stock_reconciliation(
+            database="smriti001",
+            mode="apply",
+            dry_run_report=dummy_report,
+            backup_file=dummy_backup,
+            review_missing_mappings="CONFIRMED_REVIEWED",
+            review_stock_impact=None,
+        )
+
+    # Guard 5: Missing exact operator confirmation text
+    with pytest.raises(ValueError, match="CRITICAL GUARD 5/5: Apply mode requires exact confirmation text"):
+        run_historical_stock_reconciliation(
+            database="smriti001",
+            mode="apply",
+            dry_run_report=dummy_report,
+            backup_file=dummy_backup,
+            review_missing_mappings="CONFIRMED_REVIEWED",
+            review_stock_impact="CONFIRMED_REVIEWED",
+            confirm_historical_posting="WRONG_CONFIRMATION",
         )
