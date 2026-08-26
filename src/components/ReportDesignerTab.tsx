@@ -19,17 +19,18 @@ import { apiFetchV1 } from "../lib/apiFetchV1";
 import { isFieldGloballyVisible } from "../services/unifiedFieldCatalog.ts";
 import { recordAuditAction } from "../lib/apiFetch";
 import { GlobalExportService } from "../services/globalExportService.ts";
+import { formatDate, formatCurrency, formatNumber } from "../utils/formatters";
 import { motion, AnimatePresence } from "motion/react";
-import { 
-  ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, 
-  Tooltip as RechartsTooltip, CartesianGrid, LineChart, Line, PieChart, Pie, Cell 
+import {
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  Tooltip as RechartsTooltip, CartesianGrid, LineChart, Line, PieChart, Pie, Cell
 } from "recharts";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
-import { 
-  MessageCircle, Mail, Printer, FileBarChart, LayoutGrid, Settings2, ShieldCheck, 
-  Clock, Download, Search, Plus, Save, Filter, Database, MoreVertical, 
-  ChevronRight, ChevronDown, CheckSquare, Eye, Share2, Edit3, Trash2, 
-  Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon, 
+import {
+  MessageCircle, Mail, Printer, FileBarChart, LayoutGrid, Settings2, ShieldCheck,
+  Clock, Download, Search, Plus, Save, Filter, Database, MoreVertical,
+  ChevronRight, ChevronDown, CheckSquare, Eye, Share2, Edit3, Trash2,
+  Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
   Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square
 } from "lucide-react";
 
@@ -63,10 +64,10 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   // Navigation states
   const [activeView, setActiveView] = useState<"bi_center" | "designer" | "viewer">("bi_center");
   const [activeStudio, setActiveStudio] = useState<string>("sales_studio");
-  
+
   // Active Report being viewed/run
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
-  
+
   // Active Role switcher for instant interactive RBAC testing
   const [activeRole, setActiveRole] = useState<string>(
     (currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER") ? "Report User" : (currentUser?.role === "Admin" ? "CEO" : (currentUser?.role === "Cashier" ? "Cashier" : "Store Manager"))
@@ -126,13 +127,13 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         if (selectedReport.id === "RPT-SAL-001") {
           const data = await apiFetchV1(`/reports/daily-sales?report_date=${filters.startDate}`);
           setSalesReportData(data);
-          
+
           const valData = await apiFetchV1("/reports/stock-valuation");
           setStockValuationData(valData);
         } else if (selectedReport.id === "RPT-PUR-002") {
           const data = await apiFetchV1(`/reports/purchase-summary${params}`);
           setPurchaseReportData(data);
-          
+
           if (drillLevel === 1 && drillFilter) {
             const ledger = await apiFetchV1(`/reports/supplier-ledger/${drillFilter}`);
             setSelectedSupplierLedger(ledger);
@@ -172,6 +173,54 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-OPS-006") {
           const data = await apiFetchV1(`/reports/store-wise-summary${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SO-001") {
+          const data = await apiFetchV1(`/reports/sales-orders/summary${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SO-002") {
+          const data = await apiFetchV1(`/reports/sales-orders/pending${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SO-003") {
+          const data = await apiFetchV1(`/reports/sales-orders/billed-vs-pending${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SO-004") {
+          const data = await apiFetchV1(`/reports/sales-orders/customer-wise${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SO-005") {
+          const data = await apiFetchV1(`/reports/sales-orders/product-wise${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SO-006") {
+          const data = await apiFetchV1(`/reports/sales-orders/fulfillment-status${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SO-007") {
+          const data = await apiFetchV1(`/reports/sales-orders/invoice-allocations${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SAL-006") {
+          const data = await apiFetchV1(`/sales-reports/top-selling${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SAL-007") {
+          const data = await apiFetchV1(`/sales-reports/day-wise${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SAL-008") {
+          const data = await apiFetchV1(`/sales-reports/salesperson-sales${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SAL-009") {
+          const data = await apiFetchV1(`/sales-reports/salesperson-summary${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SAL-010") {
+          const data = await apiFetchV1(`/sales-reports/returned-bills${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SAL-011") {
+          const data = await apiFetchV1(`/sales-reports/node-wise${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SAL-013") {
+          const data = await apiFetchV1(`/sales-reports/bill-items-live${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SAL-014") {
+          const data = await apiFetchV1(`/sales-reports/size-wise${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SAL-015") {
+          const data = await apiFetchV1(`/sales-reports/item-returns-live${params}`);
           setGenericReportData(data);
         } else {
           setGenericReportData(null);
@@ -414,8 +463,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   // Get current studio reports list
   const currentStudioReports = studios[activeStudio]?.reports || [];
-  const filteredReports = currentStudioReports.filter((r: any) => 
-    r.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredReports = currentStudioReports.filter((r: any) =>
+    r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -424,13 +473,13 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       {/* SMRITI Global Notification Banner */}
       <AnimatePresence>
         {notifMessage && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl border backdrop-blur-md text-xs font-semibold ${
-              notifMessage.type === "success" 
-                ? "bg-emerald-950/90 text-emerald-300 border-emerald-500/30" 
+              notifMessage.type === "success"
+                ? "bg-emerald-950/90 text-emerald-300 border-emerald-500/30"
                 : "bg-rose-950/90 text-rose-300 border-rose-500/30"
             }`}
           >
@@ -461,8 +510,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             <ShieldCheck className="text-emerald-600" size={14} />
             <span className="font-semibold text-theme-muted font-mono text-[11px]">Simulate Role:</span>
           </div>
-          <select 
-            value={activeRole} 
+          <select
+            value={activeRole}
             onChange={(e) => {
               setActiveRole(e.target.value);
               setActiveView("bi_center");
@@ -482,7 +531,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       {/* Main View Manager */}
       {activeView === "bi_center" && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 items-start">
-          
+
           {/* Sidebar Navigation - 8 specialized Studios */}
           <div className="lg:col-span-1 space-y-2 bg-theme-surface-1 border border-theme-border p-3 rounded-xl shadow-xs shrink-0">
             <div className="px-2 py-1 border-b border-theme-divider mb-1.5 flex items-center justify-between text-xs font-bold text-theme-muted font-mono uppercase">
@@ -497,8 +546,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   key={key}
                   onClick={() => setActiveStudio(key)}
                   className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-between group transition-all relative overflow-hidden border cursor-pointer ${
-                    isActive 
-                      ? "bg-theme-selection border-theme-primary text-theme-primary font-bold shadow-xs" 
+                    isActive
+                      ? "bg-theme-selection border-theme-primary text-theme-primary font-bold shadow-xs"
                       : "bg-transparent border-transparent hover:bg-theme-surface-hover text-theme-body"
                   }`}
                 >
@@ -700,11 +749,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                     {/* Report Search Bar */}
                     <div className="relative w-full sm:w-64">
                       <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search studio reports..." 
+                        placeholder="Search studio reports..."
                         className="w-full bg-theme-surface-1 border border-theme-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary font-medium"
                       />
                     </div>
@@ -733,13 +782,13 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           filteredReports.map((r: any) => {
                             const isAllowed = canPerformAction("view", r.id);
                             return (
-                              <tr 
-                                key={r.id} 
+                              <tr
+                                key={r.id}
                                 className={`border-b border-theme-divider/60 transition-colors ${
-                                  isAllowed 
-                                    ? "hover:bg-theme-surface-hover cursor-pointer" 
+                                  isAllowed
+                                    ? "hover:bg-theme-surface-hover cursor-pointer"
                                     : "opacity-45 bg-rose-50 cursor-not-allowed"
-                                }`} 
+                                }`}
                                 onClick={() => isAllowed && runReport(r)}
                               >
                                 <td className="px-5 py-3 font-mono font-bold text-theme-primary">{r.id}</td>
@@ -766,7 +815,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                                 </td>
                                 <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                                   {isAllowed ? (
-                                    <button 
+                                    <button
                                       onClick={() => runReport(r)}
                                       className="px-3 py-1.5 bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                     >
@@ -810,7 +859,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                               Cron: {sch.cron_expression}
                             </div>
                           </div>
-                          <button 
+                          <button
                             onClick={() => handleDeleteSchedule(sch.id)}
                             className="p-2 text-theme-muted hover:text-rose-400 bg-theme-surface-3 hover:bg-rose-500/10 rounded-lg transition-colors border border-theme-divider"
                             title="Cancel Automated Delivery"
@@ -832,11 +881,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       {/* SMRITI ACTIVE REPORT VIEWER (Genuinely interactive tables with mock drill-down state) */}
       {activeView === "viewer" && selectedReport && (
         <div className="space-y-6">
-          
+
           {/* Enhanced Action Toolbar */}
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setActiveView("bi_center")}
                 className="p-2 border border-theme-divider text-theme-muted hover:text-theme-body hover:bg-theme-surface-2 rounded-xl text-xs transition-colors"
                 title="Return to BI Hub"
@@ -855,7 +904,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
             {/* Universal Controls */}
             <div className="flex flex-wrap items-center gap-2">
-              
+
               {/* Export Dropdown menu */}
               <div className="relative group">
                 <button className="px-3 py-2 bg-theme-surface-2 border border-theme-divider hover:border-blue-500/30 text-theme-body rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
@@ -883,20 +932,20 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   <Share2 size={13} className="text-violet-400" /> Share <ChevronDown size={12} />
                 </button>
                 <div className="absolute right-0 top-full mt-1.5 w-44 bg-theme-surface-1 border border-theme-divider rounded-xl shadow-2xl py-1 z-40 hidden group-hover:block hover:block font-sans text-xs">
-                  <button 
+                  <button
                     onClick={() => {
                       setShareType("Email");
                       setShowShareModal(true);
-                    }} 
+                    }}
                     className="w-full text-left px-3.5 py-2 hover:bg-theme-surface-2 text-theme-body flex items-center gap-2"
                   >
                     <Mail size={13} className="text-blue-400" /> Email Attachment
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       setShareType("WhatsApp");
                       setShowShareModal(true);
-                    }} 
+                    }}
                     className="w-full text-left px-3.5 py-2 hover:bg-theme-surface-2 text-theme-body flex items-center gap-2"
                   >
                     <MessageCircle size={13} className="text-emerald-400" /> WhatsApp Direct Link
@@ -905,7 +954,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
 
               {/* Automated Scheduler Button */}
-              <button 
+              <button
                 onClick={() => setShowScheduleModal(true)}
                 className="px-3 py-2 bg-theme-surface-2 border border-theme-divider hover:border-blue-500/30 text-theme-body rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
               >
@@ -913,7 +962,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </button>
 
               {/* Print Engine */}
-              <button 
+              <button
                 onClick={() => {
                   recordAuditAction("PRINT", "reports", selectedReport?.id || "RPT-GEN", `Report printed: ${selectedReport?.title || "Standard Report"}`);
                   window.print();
@@ -956,25 +1005,25 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 shadow-md grid grid-cols-1 md:grid-cols-4 gap-3 shrink-0 text-xs">
             <div className="space-y-1">
               <label className="text-theme-muted font-bold">START DATE</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={filters.startDate}
                 onChange={(e) => setFilters({...filters, startDate: e.target.value})}
-                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-body focus:outline-none focus:border-blue-500" 
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-body focus:outline-none focus:border-blue-500"
               />
             </div>
             <div className="space-y-1">
               <label className="text-theme-muted font-bold">END DATE</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={filters.endDate}
                 onChange={(e) => setFilters({...filters, endDate: e.target.value})}
-                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-body focus:outline-none focus:border-blue-500" 
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-body focus:outline-none focus:border-blue-500"
               />
             </div>
             <div className="space-y-1">
               <label className="text-theme-muted font-bold">PRODUCT GROUP</label>
-              <select 
+              <select
                 value={filters.productGroup}
                 onChange={(e) => setFilters({...filters, productGroup: e.target.value})}
                 className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-body focus:outline-none focus:border-blue-500 cursor-pointer"
@@ -987,7 +1036,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             </div>
             <div className="space-y-1">
               <label className="text-theme-muted font-bold">PAYMENT TYPE</label>
-              <select 
+              <select
                 value={filters.paymentMode}
                 onChange={(e) => setFilters({...filters, paymentMode: e.target.value})}
                 className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-body focus:outline-none focus:border-blue-500 cursor-pointer"
@@ -1002,7 +1051,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
           {/* Render Actual Data Table with Drill-down responses */}
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-xl overflow-hidden">
-            
+
             {/* Sales Summary Studio Reports */}
             {selectedReport.id === "RPT-SAL-001" && (
               <>
@@ -1020,25 +1069,40 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         </tr>
                       </thead>
                       <tbody>
-                        {[
-                          { cat: "Completed Sales", count: salesReportData?.total_invoices ?? 0, avg: salesReportData?.total_invoices ? `₹${Math.round(parseFloat(salesReportData.total_sales) / salesReportData.total_invoices).toLocaleString('en-IN')}` : "₹0", tax: salesReportData ? `₹${Math.round(parseFloat(salesReportData.tax_total)).toLocaleString('en-IN')}` : "₹0", total: salesReportData ? `₹${Math.round(parseFloat(salesReportData.total_sales)).toLocaleString('en-IN')}` : "₹0", id: "Completed Sales" }
-                        ].map((row) => (
-                          <tr key={row.id} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
-                            <td className="px-5 py-3.5 font-bold text-blue-400">{row.cat} Group</td>
-                            <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.count} Receipts</td>
-                            <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.avg}</td>
-                            <td className="px-5 py-3.5 text-right font-mono text-emerald-400">{row.tax}</td>
-                            <td className="px-5 py-3.5 text-right font-mono font-bold text-theme-body">{row.total}</td>
-                            <td className="px-5 py-3.5 text-right">
-                              <button 
-                                onClick={() => performDrilldown(1, row.id, `Drill: ${row.cat}`)}
-                                className="px-2.5 py-1 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 text-theme-muted border border-theme-divider rounded-md font-bold text-[10px] transition-colors"
-                              >
-                                Drill Transactions
-                              </button>
+                        {(!salesReportData || !salesReportData.total_invoices || salesReportData.total_invoices === 0) ? (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-theme-muted font-mono">
+                              <div className="flex flex-col items-center justify-center space-y-1.5">
+                                <span className="text-xs font-semibold text-theme-body">
+                                  No invoices found for {filters.startDate ? formatDate(filters.startDate) : "26 Aug 2026"}
+                                </span>
+                                <span className="text-[11px] text-theme-muted">
+                                  Adjust the date filter or register new sales transactions to populate this report.
+                                </span>
+                              </div>
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          [
+                            { cat: "Completed Sales", count: salesReportData.total_invoices, avg: `₹${Math.round(parseFloat(salesReportData.total_sales) / salesReportData.total_invoices).toLocaleString('en-IN')}`, tax: `₹${Math.round(parseFloat(salesReportData.tax_total)).toLocaleString('en-IN')}`, total: `₹${Math.round(parseFloat(salesReportData.total_sales)).toLocaleString('en-IN')}`, id: "Completed Sales" }
+                          ].map((row) => (
+                            <tr key={row.id} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
+                              <td className="px-5 py-3.5 font-bold text-blue-400">{row.cat} Group</td>
+                              <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.count} Receipts</td>
+                              <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.avg}</td>
+                              <td className="px-5 py-3.5 text-right font-mono text-emerald-400">{row.tax}</td>
+                              <td className="px-5 py-3.5 text-right font-mono font-bold text-theme-body">{row.total}</td>
+                              <td className="px-5 py-3.5 text-right">
+                                <button
+                                  onClick={() => performDrilldown(1, row.id, `Drill: ${row.cat}`)}
+                                  className="px-2.5 py-1 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 text-theme-muted border border-theme-divider rounded-md font-bold text-[10px] transition-colors cursor-pointer"
+                                >
+                                  Drill Transactions
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1077,7 +1141,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             </td>
                             <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-400">{row.val}</td>
                             <td className="px-5 py-3.5 text-right">
-                              <button 
+                              <button
                                 onClick={() => performDrilldown(2, row.id, `Items: ${row.id}`)}
                                 className="px-2.5 py-1 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 text-theme-muted border border-theme-divider rounded-md font-bold text-[10px] transition-colors"
                               >
@@ -1184,7 +1248,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             <td className="px-5 py-3.5 font-mono text-theme-muted">{row.date}</td>
                             <td className="px-5 py-3.5 text-right font-mono font-bold text-rose-400">{row.amount}</td>
                             <td className="px-5 py-3.5 text-right">
-                              <button 
+                              <button
                                 onClick={() => performDrilldown(1, row.id, `Drill: ${row.code}`)}
                                 className="px-2.5 py-1 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 text-theme-muted border border-theme-divider rounded-md font-bold text-[10px] transition-colors"
                               >
@@ -2039,6 +2103,483 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
+            {/* RPT-SO-001: Sales Order Summary */}
+            {selectedReport.id === "RPT-SO-001" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Orders</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_orders ?? 0}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Ordered Quantity</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.total_ordered_qty ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })} Units</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Order Value</span>
+                    <p className="text-sm font-black text-theme-body mt-1">₹{Number(genericReportData?.total_order_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Billed Value</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_billed_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Pending Value</span>
+                    <p className="text-sm font-black text-amber-400 mt-1">₹{Number(genericReportData?.total_pending_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3">Order #</th>
+                        <th className="p-3">PO Number</th>
+                        <th className="p-3">Customer Entity</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3 text-center">Site</th>
+                        <th className="p-3 text-right">Qty</th>
+                        <th className="p-3 text-right">Basic (₹)</th>
+                        <th className="p-3 text-right">Tax (₹)</th>
+                        <th className="p-3 text-right">Order Value (₹)</th>
+                        <th className="p-3 text-right">Billed (₹)</th>
+                        <th className="p-3 text-right">Pending (₹)</th>
+                        <th className="p-3 text-center">Fulfillment</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={12} className="p-6 text-center text-theme-muted">No sales orders found for the selected period.</td></tr>
+                      ) : (
+                        genericReportData.lines.map((l: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-mono font-bold text-blue-400">{l.order_no}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.po_number || "—"}</td>
+                            <td className="p-3 text-theme-body font-medium">{l.customer_name}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.date}</td>
+                            <td className="p-3 text-center font-mono text-[10px] text-theme-muted">{l.site_code || "—"}</td>
+                            <td className="p-3 text-right font-mono font-bold">{Number(l.total_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{Number(l.basic_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono text-purple-400">{Number(l.tax_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-theme-body">₹{Number(l.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.billed_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">₹{Number(l.pending_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border ${
+                                l.fulfillment_status === "FULLY_BILLED" ? "bg-emerald-950/40 text-emerald-300 border-emerald-500/30" :
+                                l.fulfillment_status === "PARTIALLY_BILLED" ? "bg-blue-950/40 text-blue-300 border-blue-500/30" :
+                                "bg-amber-950/40 text-amber-300 border-amber-500/30"
+                              }`}>
+                                {l.fulfillment_status || "UNFULFILLED"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RPT-SO-002: Pending Orders */}
+            {selectedReport.id === "RPT-SO-002" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Pending Orders</span>
+                    <p className="text-sm font-black text-amber-400 mt-1">{genericReportData?.total_pending_orders ?? 0} Orders</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Pending Units to Bill</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.total_pending_qty ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })} Units</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Outstanding Value</span>
+                    <p className="text-sm font-black text-amber-400 mt-1">₹{Number(genericReportData?.total_pending_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3">Order #</th>
+                        <th className="p-3">PO Number</th>
+                        <th className="p-3">Customer Entity</th>
+                        <th className="p-3">PO Date</th>
+                        <th className="p-3">Delivery Date</th>
+                        <th className="p-3 text-right">Ordered Qty</th>
+                        <th className="p-3 text-right">Billed Qty</th>
+                        <th className="p-3 text-right">Pending Qty</th>
+                        <th className="p-3 text-right">Order Value (₹)</th>
+                        <th className="p-3 text-right">Billed (₹)</th>
+                        <th className="p-3 text-right">Pending Value (₹)</th>
+                        <th className="p-3 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={12} className="p-6 text-center text-theme-muted">No pending sales orders. All orders are fully fulfilled.</td></tr>
+                      ) : (
+                        genericReportData.lines.map((l: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-mono font-bold text-blue-400">{l.order_no}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.po_number || "—"}</td>
+                            <td className="p-3 text-theme-body font-medium">{l.customer_name}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.po_date || "—"}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.delivery_date || "—"}</td>
+                            <td className="p-3 text-right font-mono">{Number(l.total_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono text-emerald-400">{Number(l.billed_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">{Number(l.pending_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono">₹{Number(l.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono text-emerald-400">₹{Number(l.billed_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">₹{Number(l.pending_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-center">
+                              <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider bg-amber-950/40 text-amber-300 border border-amber-500/30">
+                                {l.fulfillment_status || "PENDING"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RPT-SO-003: Billed vs Pending Orders */}
+            {selectedReport.id === "RPT-SO-003" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Orders</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_orders ?? 0}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Order Value</span>
+                    <p className="text-sm font-black text-theme-body mt-1">₹{Number(genericReportData?.total_order_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Billed Value</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_billed_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Pending Value</span>
+                    <p className="text-sm font-black text-amber-400 mt-1">₹{Number(genericReportData?.total_pending_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Billing Ratio</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.overall_billing_pct ?? 0).toFixed(1)}%</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3">Order #</th>
+                        <th className="p-3">PO Number</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3 text-right">Booked Value (₹)</th>
+                        <th className="p-3 text-right">Billed Value (₹)</th>
+                        <th className="p-3 text-right">Pending Value (₹)</th>
+                        <th className="p-3 text-right">Billed %</th>
+                        <th className="p-3 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={9} className="p-6 text-center text-theme-muted">No comparison records found.</td></tr>
+                      ) : (
+                        genericReportData.lines.map((l: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-mono font-bold text-blue-400">{l.order_no}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.po_number || "—"}</td>
+                            <td className="p-3 text-theme-body font-medium">{l.customer_name}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.date}</td>
+                            <td className="p-3 text-right font-mono font-bold text-theme-body">₹{Number(l.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.billed_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">₹{Number(l.pending_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-blue-400">{Number(l.billing_pct).toFixed(1)}%</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border ${
+                                l.fulfillment_status === "FULLY_BILLED" ? "bg-emerald-950/40 text-emerald-300 border-emerald-500/30" :
+                                l.fulfillment_status === "PARTIALLY_BILLED" ? "bg-blue-950/40 text-blue-300 border-blue-500/30" :
+                                "bg-amber-950/40 text-amber-300 border-amber-500/30"
+                              }`}>
+                                {l.fulfillment_status || "UNFULFILLED"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RPT-SO-004: Customer-wise Orders */}
+            {selectedReport.id === "RPT-SO-004" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Customers</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_customers ?? 0}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Orders</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{genericReportData?.total_orders ?? 0} Orders</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Order Value</span>
+                    <p className="text-sm font-black text-theme-body mt-1">₹{Number(genericReportData?.total_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Billed Value</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_billed_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3">Customer Entity</th>
+                        <th className="p-3">GSTIN</th>
+                        <th className="p-3 text-right">Orders Count</th>
+                        <th className="p-3 text-right">Total Qty</th>
+                        <th className="p-3 text-right">Total Order Value (₹)</th>
+                        <th className="p-3 text-right">Billed Value (₹)</th>
+                        <th className="p-3 text-right">Pending Value (₹)</th>
+                        <th className="p-3 text-right">Avg Order Ticket (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={8} className="p-6 text-center text-theme-muted">No customer order aggregates found.</td></tr>
+                      ) : (
+                        genericReportData.lines.map((l: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 text-theme-body font-bold">{l.customer_name}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.customer_gstin || "—"}</td>
+                            <td className="p-3 text-right font-mono font-bold text-blue-400">{l.order_count}</td>
+                            <td className="p-3 text-right font-mono">{Number(l.total_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono font-bold text-theme-body">₹{Number(l.total_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.billed_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">₹{Number(l.pending_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-purple-400">₹{Number(l.avg_order_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RPT-SO-005: Product-wise Ordered Quantity */}
+            {selectedReport.id === "RPT-SO-005" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Distinct Products / Styles</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_products ?? 0}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Ordered Quantity</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.total_ordered_qty ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })} Units</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Value</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3">Article / Code</th>
+                        <th className="p-3">Vendor Style</th>
+                        <th className="p-3">Description</th>
+                        <th className="p-3">Color</th>
+                        <th className="p-3">Size</th>
+                        <th className="p-3 text-center">UOM</th>
+                        <th className="p-3 text-right">Ordered Qty</th>
+                        <th className="p-3 text-right">Avg Rate (₹)</th>
+                        <th className="p-3 text-right">Total Value (₹)</th>
+                        <th className="p-3 text-right">Orders Count</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={10} className="p-6 text-center text-theme-muted">No product-wise ordered quantities found.</td></tr>
+                      ) : (
+                        genericReportData.lines.map((l: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-mono font-bold text-blue-400">{l.article_no || l.product_id || "—"}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.vendor_style || "—"}</td>
+                            <td className="p-3 text-theme-body font-medium">{l.name}</td>
+                            <td className="p-3 text-theme-muted">{l.color || "—"}</td>
+                            <td className="p-3 text-theme-muted">{l.size || "—"}</td>
+                            <td className="p-3 text-center font-mono text-[10px] text-theme-muted">{l.uom || "EA"}</td>
+                            <td className="p-3 text-right font-mono font-bold text-blue-300">{Number(l.ordered_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono">₹{Number(l.avg_cost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.total_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-purple-400">{l.order_count}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RPT-SO-006: Order Fulfillment Status */}
+            {selectedReport.id === "RPT-SO-006" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Orders Tracked</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_orders ?? 0}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Value</span>
+                    <p className="text-sm font-black text-theme-body mt-1">₹{Number(genericReportData?.total_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  {(genericReportData?.groups || []).map((g: any, idx: number) => (
+                    <div key={idx} className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                      <span className="text-[10px] uppercase font-bold text-theme-muted">{g.status}</span>
+                      <p className="text-sm font-black text-blue-400 mt-1">{g.order_count} Orders (₹{Number(g.total_value).toLocaleString("en-IN", { minimumFractionDigits: 0 })})</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3">Order #</th>
+                        <th className="p-3">PO Number</th>
+                        <th className="p-3">Customer Entity</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3 text-right">Quantity</th>
+                        <th className="p-3 text-right">Order Total (₹)</th>
+                        <th className="p-3 text-right">Billed Value (₹)</th>
+                        <th className="p-3 text-right">Pending Value (₹)</th>
+                        <th className="p-3 text-center">Fulfillment Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={9} className="p-6 text-center text-theme-muted">No fulfillment records found.</td></tr>
+                      ) : (
+                        genericReportData.lines.map((l: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-mono font-bold text-blue-400">{l.order_no}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.po_number || "—"}</td>
+                            <td className="p-3 text-theme-body font-medium">{l.customer_name}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.date}</td>
+                            <td className="p-3 text-right font-mono font-bold">{Number(l.total_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono font-bold text-theme-body">₹{Number(l.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.billed_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">₹{Number(l.pending_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border ${
+                                l.fulfillment_status === "FULLY_BILLED" ? "bg-emerald-950/40 text-emerald-300 border-emerald-500/30" :
+                                l.fulfillment_status === "PARTIALLY_BILLED" ? "bg-blue-950/40 text-blue-300 border-blue-500/30" :
+                                "bg-amber-950/40 text-amber-300 border-amber-500/30"
+                              }`}>
+                                {l.fulfillment_status || "UNFULFILLED"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RPT-SO-007: Invoice Allocation Report */}
+            {selectedReport.id === "RPT-SO-007" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Allocations</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_allocations ?? 0}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total PO Value</span>
+                    <p className="text-sm font-black text-theme-body mt-1">₹{Number(genericReportData?.total_po_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Billed Quantity</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">{Number(genericReportData?.total_billed_qty ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })} Units</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Billed Value</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_billed_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Pending Value</span>
+                    <p className="text-sm font-black text-amber-400 mt-1">₹{Number(genericReportData?.total_pending_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="p-3">Order #</th>
+                        <th className="p-3">PO Number</th>
+                        <th className="p-3">Tax Invoice #</th>
+                        <th className="p-3">Invoice Date</th>
+                        <th className="p-3 text-right">PO Qty</th>
+                        <th className="p-3 text-right">PO Value (₹)</th>
+                        <th className="p-3 text-right">Billed Qty</th>
+                        <th className="p-3 text-right">Billed Value (₹)</th>
+                        <th className="p-3 text-right">Pending Qty</th>
+                        <th className="p-3 text-right">Pending Value (₹)</th>
+                        <th className="p-3 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={11} className="p-6 text-center text-theme-muted">No invoice allocations recorded.</td></tr>
+                      ) : (
+                        genericReportData.lines.map((l: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-mono font-bold text-blue-400">{l.order_no}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.po_number || "—"}</td>
+                            <td className="p-3 font-mono font-bold text-emerald-400">{l.invoice_no}</td>
+                            <td className="p-3 font-mono text-theme-muted">{l.invoice_date}</td>
+                            <td className="p-3 text-right font-mono">{Number(l.po_quantity).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono">₹{Number(l.po_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">{Number(l.billed_quantity).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{Number(l.billed_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">{Number(l.pending_quantity).toLocaleString("en-IN")}</td>
+                            <td className="p-3 text-right font-mono font-bold text-amber-400">₹{Number(l.pending_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-center">
+                              <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider bg-blue-950/40 text-blue-300 border border-blue-500/30">
+                                {l.status || "ALLOCATED"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Fallback table if no specific prebuilt report viewer matches */}
             {![
               "RPT-SAL-001",
@@ -2055,6 +2596,13 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               "RPT-MRC-003",
               "RPT-MRC-001",
               "RPT-MRC-005",
+              "RPT-SO-001",
+              "RPT-SO-002",
+              "RPT-SO-003",
+              "RPT-SO-004",
+              "RPT-SO-005",
+              "RPT-SO-006",
+              "RPT-SO-007",
             ].includes(selectedReport.id) && (
               <div className="p-8 text-center text-theme-muted text-xs space-y-4">
                 <AlertTriangle className="mx-auto text-amber-500 animate-pulse" size={32} />
@@ -2063,7 +2611,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   <p className="text-[11px] leading-relaxed mb-4 text-theme-muted">
                     This report represents custom transactional summary streams. All values are reconciled in real-time in our secure PostgreSQL database.
                   </p>
-                  <button 
+                  <button
                     onClick={() => handleTriggerExport("PDF")}
                     className="px-4 py-2 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 border border-theme-divider text-theme-body rounded-lg font-bold text-xs inline-flex items-center gap-1.5 transition-colors"
                   >
@@ -2082,7 +2630,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         {showScheduleModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)}></div>
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -2111,23 +2659,23 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
                 <div className="space-y-1">
                   <label className="text-theme-muted font-bold block uppercase">Active Report</label>
-                  <input 
-                    type="text" 
-                    readOnly 
-                    value={selectedReport?.title || ""} 
-                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted cursor-not-allowed" 
+                  <input
+                    type="text"
+                    readOnly
+                    value={selectedReport?.title || ""}
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted cursor-not-allowed"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-theme-muted font-bold block uppercase">Recipient Email Address</label>
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     required
-                    value={scheduleForm.recipientEmail} 
+                    value={scheduleForm.recipientEmail}
                     onChange={(e) => setScheduleForm({...scheduleForm, recipientEmail: e.target.value})}
                     placeholder="manager@smritibooks.com"
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500" 
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500"
                     disabled={activeRole === "Cashier"}
                   />
                 </div>
@@ -2169,24 +2717,24 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
                 <div className="space-y-1">
                   <label className="text-theme-muted font-bold block uppercase">Calculated Cron Expression</label>
-                  <input 
-                    type="text" 
-                    readOnly 
-                    value={scheduleForm.cron} 
-                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted font-mono" 
+                  <input
+                    type="text"
+                    readOnly
+                    value={scheduleForm.cron}
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted font-mono"
                   />
                 </div>
 
                 <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-theme-divider">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowScheduleModal(false)}
                     className="px-4 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-muted hover:text-white transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     disabled={activeRole === "Cashier"}
                     className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-theme-muted text-white rounded-lg font-bold shadow-lg shadow-blue-500/10 transition-colors"
                   >
@@ -2204,7 +2752,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         {showShareModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowShareModal(false)}></div>
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -2233,17 +2781,17 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
                 <div className="space-y-1">
                   <label className="text-theme-muted font-bold block uppercase">Active Report</label>
-                  <input 
-                    type="text" 
-                    readOnly 
-                    value={selectedReport?.title || ""} 
-                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted cursor-not-allowed" 
+                  <input
+                    type="text"
+                    readOnly
+                    value={selectedReport?.title || ""}
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted cursor-not-allowed"
                   />
                 </div>
 
                 <div className="flex items-center gap-2 bg-theme-surface-2 p-1 rounded-xl border border-theme-divider">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShareType("Email")}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       shareType === "Email" ? "bg-blue-600 text-white" : "text-theme-muted hover:text-white"
@@ -2251,8 +2799,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   >
                     Dispatch Email
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShareType("WhatsApp")}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       shareType === "WhatsApp" ? "bg-emerald-600 text-white" : "text-theme-muted hover:text-white"
@@ -2266,24 +2814,24 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   <div className="space-y-3">
                     <div className="space-y-1">
                       <label className="text-theme-muted font-bold block uppercase">Recipient Email</label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         required
                         value={shareForm.email}
                         onChange={(e) => setShareForm({...shareForm, email: e.target.value})}
                         placeholder="auditor@smritibooks.com"
-                        className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500" 
+                        className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500"
                         disabled={activeRole === "Cashier"}
                       />
                     </div>
                     <div className="space-y-1">
                       <label className="text-theme-muted font-bold block uppercase">Subject Line</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         required
                         value={shareForm.subject}
                         onChange={(e) => setShareForm({...shareForm, subject: e.target.value})}
-                        className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500" 
+                        className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500"
                         disabled={activeRole === "Cashier"}
                       />
                     </div>
@@ -2291,13 +2839,13 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 ) : (
                   <div className="space-y-1">
                     <label className="text-theme-muted font-bold block uppercase">Recipient WhatsApp Phone (with Country Code)</label>
-                    <input 
-                      type="tel" 
+                    <input
+                      type="tel"
                       required
                       value={shareForm.phone}
                       onChange={(e) => setShareForm({...shareForm, phone: e.target.value})}
                       placeholder="919876543210"
-                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500" 
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500"
                       disabled={activeRole === "Cashier"}
                     />
                   </div>
@@ -2305,29 +2853,29 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
                 <div className="space-y-1">
                   <label className="text-theme-muted font-bold block uppercase">Message Body</label>
-                  <textarea 
+                  <textarea
                     rows={3}
                     value={shareForm.message}
                     onChange={(e) => setShareForm({...shareForm, message: e.target.value})}
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500 resize-none" 
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500 resize-none"
                     disabled={activeRole === "Cashier"}
                   />
                 </div>
 
                 <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-theme-divider">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowShareModal(false)}
                     className="px-4 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-muted hover:text-white transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     disabled={activeRole === "Cashier"}
                     className={`px-5 py-2 rounded-lg font-bold shadow-lg transition-all ${
-                      shareType === "Email" 
-                        ? "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10" 
+                      shareType === "Email"
+                        ? "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10"
                         : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/10"
                     } text-white disabled:bg-slate-800 disabled:text-theme-muted`}
                   >

@@ -21,7 +21,7 @@ from ...models.auth import UserRole
 from ...schemas.sales import (
     SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
     SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
-    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse,
+    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse,
     SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
 )
 from ...repositories.sales import SalesInvoiceRepository
@@ -361,10 +361,26 @@ async def create_sales_order(
 @router.get("/orders", response_model=List[SalesOrderResponse])
 @router.get("/orders/", response_model=List[SalesOrderResponse])
 async def list_sales_orders(
+    customer: Optional[str] = Query(default=None, description="Filter by customer ID or name"),
+    status: Optional[str] = Query(default=None, description="Filter by status"),
+    fulfillment_status: Optional[str] = Query(default=None, description="Filter by fulfillment status"),
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date: Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=1000, ge=1, le=5000),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    return await SalesService(db, tenant_ctx).list_sales_orders()
+    """List sales orders with query parameter filters and tenant isolation."""
+    return await SalesService(db, tenant_ctx).list_sales_orders(
+        customer_id=customer,
+        status=status,
+        fulfillment_status=fulfillment_status,
+        from_date=from_date,
+        to_date=to_date,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.get("/orders/{order_id}", response_model=SalesOrderResponse)
@@ -373,10 +389,12 @@ async def get_sales_order(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
+    """Get single sales order with explicit item and allocation serialization."""
     service = SalesService(db, tenant_ctx)
-    order, items = await service.get_sales_order(order_id)
+    order, items, allocations = await service.get_sales_order(order_id)
     resp = SalesOrderResponse.model_validate(order)
     resp.items = [SalesOrderItemResponse.model_validate(i) for i in items]
+    resp.allocations = [SalesOrderInvoiceAllocationResponse.model_validate(a) for a in allocations]
     return resp
 
 

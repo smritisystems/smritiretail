@@ -550,38 +550,81 @@ class SalesService:
         # Re-fetch with eager items to avoid MissingGreenlet during response serialization
         result = await self.db.execute(
             select(SalesOrder)
-            .options(selectinload(SalesOrder.items))
+            .options(
+                selectinload(SalesOrder.items),
+                selectinload(SalesOrder.allocations)
+            )
             .where(SalesOrder.id == db_so.id)
         )
         return result.scalars().first()
 
-    async def list_sales_orders(self) -> List[SalesOrder]:
-        res = await self.db.execute(
+    async def list_sales_orders(
+        self,
+        customer_id: Optional[str] = None,
+        status: Optional[str] = None,
+        fulfillment_status: Optional[str] = None,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        skip: int = 0,
+        limit: int = 1000,
+    ) -> List[SalesOrder]:
+        stmt = (
             select(SalesOrder)
-            .options(selectinload(SalesOrder.items))
+            .options(
+                selectinload(SalesOrder.items),
+                selectinload(SalesOrder.allocations)
+            )
             .where(
-                SalesOrder.company_id == self.tenant_ctx.company_id,
-                SalesOrder.branch_id == self.tenant_ctx.branch_id,
                 SalesOrder.is_deleted == False
             )
         )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(
+                (SalesOrder.company_id == self.tenant_ctx.company_id) | (SalesOrder.company_id.is_(None))
+            )
+        if self.tenant_ctx and self.tenant_ctx.branch_id:
+            aliases = [self.tenant_ctx.branch_id, "MAIN", "BR-MAIN-001", "BR-001", "DEFAULT"]
+            stmt = stmt.where(
+                (SalesOrder.branch_id.in_(aliases)) | (SalesOrder.branch_id.is_(None))
+            )
+        if customer_id:
+            stmt = stmt.where(
+                (SalesOrder.customer_id == customer_id) | (SalesOrder.customer_name.ilike(f"%{customer_id}%"))
+            )
+        if status:
+            stmt = stmt.where(SalesOrder.status == status)
+        if fulfillment_status:
+            stmt = stmt.where(SalesOrder.fulfillment_status == fulfillment_status)
+        if from_date:
+            stmt = stmt.where(SalesOrder.date >= from_date)
+        if to_date:
+            stmt = stmt.where(SalesOrder.date <= to_date)
+
+        stmt = stmt.order_by(SalesOrder.date.desc(), SalesOrder.created_at.desc()).offset(skip).limit(limit)
+        res = await self.db.execute(stmt)
         return res.scalars().all()
 
-    async def get_sales_order(self, so_id: str) -> tuple[SalesOrder, List[SalesOrderItem]]:
-        res = await self.db.execute(
+    async def get_sales_order(self, so_id: str) -> tuple[SalesOrder, List[SalesOrderItem], List[SalesOrderInvoiceAllocation]]:
+        stmt = (
             select(SalesOrder)
-            .options(selectinload(SalesOrder.items))
+            .options(
+                selectinload(SalesOrder.items),
+                selectinload(SalesOrder.allocations)
+            )
             .where(
-                SalesOrder.id == so_id,
-                SalesOrder.company_id == self.tenant_ctx.company_id,
-                SalesOrder.branch_id == self.tenant_ctx.branch_id,
+                (SalesOrder.id == so_id) | (SalesOrder.order_no == so_id) | (SalesOrder.po_number == so_id),
                 SalesOrder.is_deleted == False
             )
         )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(
+                (SalesOrder.company_id == self.tenant_ctx.company_id) | (SalesOrder.company_id.is_(None))
+            )
+        res = await self.db.execute(stmt)
         so = res.scalars().first()
         if not so:
             raise HTTPException(status_code=404, detail="Sales order not found")
-        return so, so.items
+        return so, list(so.items or []), list(so.allocations or [])
 
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Return

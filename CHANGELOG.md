@@ -28,6 +28,22 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.67.0] - 2026-08-26
+
+#### Shoper9 Legacy Template Blueprint Integration & Sales Orders Business-First Presentation
+- **Shoper9 Template Blueprint Integration (`scripts/shoper9_blueprint_parser.py`, `docs/legacy_blueprints/shoper9/`)**:
+  - Headless extraction and parsing of 21 Shoper9 legacy template files (`Template.inf`, `*.Sy`, `*.Gl`, `*.Lu`, `*.Dbs`, `*.Mns`, `*.TW`) from `D:\Shoper9\Templates`.
+  - Generated normalized JSON schemas: `template_manifest.json`, `retail_blueprint.json`, `distributor_blueprint.json`, `menus.json`, `parameters.json`, `general_lookups.json`, `display_layouts.json`, and `review_report.md`.
+  - Quarantined 2 temporary backup dump files (`Distributor_tmp.txt`, `Retail_tmp.txt`) and documented 8 empty 0-byte template stubs.
+  - Automated detection and AST pruning of duplicate SQL statements in `Distributor.Mns`.
+  - Isolated 30 hardcoded Windows file paths and 26 Retail vs Distributor profile parameter variances.
+  - Mapped 5 core Distributor delivery and procurement workflows (`Sales DC`, `Approval Issue DC`, `Transport Receipt Entry`, `DC Type Conversion`, and `PO Consolidation`) to canonical SMRITI Launchpad modules.
+- **Sales Orders Business-First Presentation Redesign (`src/components/SalesStudioTab.tsx`, `src/components/ReportDesignerTab.tsx`)**:
+  - Reorganized Sales Orders ledger into a clean 10-column commercial table with Order No, PO No, Customer, Date, Items/Qty, Order Value, Billed Value, Pending Value, and Status.
+  - Restructured Order Detail side pane with Customer & PO information card, order financials summary, line items table, related invoice allocations, and expandable `Technical Details` accordion.
+  - Enhanced KPI labels: `TOTAL SALES ORDER VALUE`, `Converted Orders`, and `Sales Orders` with strict 2-decimal INR currency formatting.
+  - Registered 7 dedicated Sales Order report studios in `backend/app/api/v1/reports.py` and dynamic context-aware empty report notifications (`No invoices found for <date>`).
+
 ### [3.66.0] - 2026-08-26
 
 #### Phase 1 Historical PO Reconciliation — Tattly Threads (60 Reliance Retail POs)

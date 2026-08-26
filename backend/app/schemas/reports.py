@@ -418,3 +418,187 @@ class StoreWiseSummaryReport(BaseModel):
     lines:           List[StoreWiseSummaryLine]
 
 
+# ── Sales Orders Reports (RPT-SO-001 to RPT-SO-007) ──────────────────────────
+
+class SalesOrderSummaryLine(BaseModel):
+    order_no:           str
+    po_number:          Optional[str] = None
+    customer_name:      str
+    date:               str
+    delivery_date:      Optional[str] = None
+    site_code:          Optional[str] = None
+    total_qty:          Decimal
+    basic_total:        Decimal
+    tax_total:          Decimal
+    grand_total:        Decimal
+    billed_value:       Decimal
+    pending_value:      Decimal
+    fulfillment_status: str
+
+class SalesOrderSummaryReport(BaseModel):
+    """RPT-SO-001 -- Sales Order Summary."""
+    report_id:          str = "RPT-SO-001"
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_orders:       int
+    total_ordered_qty:  Decimal
+    total_order_value:  Decimal
+    total_billed_value: Decimal
+    total_pending_value: Decimal
+    status_counts:      dict
+    lines:              List[SalesOrderSummaryLine]
+
+
+class PendingOrderLine(BaseModel):
+    order_no:           str
+    po_number:          Optional[str] = None
+    customer_name:      str
+    po_date:            Optional[str] = None
+    delivery_date:      Optional[str] = None
+    site_code:          Optional[str] = None
+    total_qty:          Decimal
+    billed_qty:         Decimal
+    pending_qty:        Decimal
+    grand_total:        Decimal
+    billed_value:       Decimal
+    pending_value:      Decimal
+    fulfillment_status: str
+
+class PendingOrdersReport(BaseModel):
+    """RPT-SO-002 -- Pending Orders."""
+    report_id:          str = "RPT-SO-002"
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_pending_orders: int
+    total_pending_qty:   Decimal
+    total_pending_value: Decimal
+    lines:              List[PendingOrderLine]
+
+
+class BilledVsPendingOrderLine(BaseModel):
+    order_no:           str
+    po_number:          Optional[str] = None
+    customer_name:      str
+    date:               str
+    grand_total:        Decimal
+    billed_value:       Decimal
+    pending_value:      Decimal
+    billing_pct:        Decimal
+    fulfillment_status: str
+
+class BilledVsPendingOrdersReport(BaseModel):
+    """RPT-SO-003 -- Billed vs Pending Orders."""
+    report_id:          str = "RPT-SO-003"
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_orders:       int
+    total_order_value:  Decimal
+    total_billed_value: Decimal
+    total_pending_value: Decimal
+    overall_billing_pct: Decimal
+    lines:              List[BilledVsPendingOrderLine]
+
+
+class CustomerWiseOrderLine(BaseModel):
+    customer_name:      str
+    customer_gstin:     Optional[str] = None
+    order_count:        int
+    total_qty:          Decimal
+    total_value:        Decimal
+    billed_value:       Decimal
+    pending_value:      Decimal
+    avg_order_value:    Decimal
+
+class CustomerWiseOrdersReport(BaseModel):
+    """RPT-SO-004 -- Customer-wise Orders."""
+    report_id:          str = "RPT-SO-004"
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_customers:    int
+    total_orders:       int
+    total_value:        Decimal
+    total_billed_value: Decimal
+    total_pending_value: Decimal
+    lines:              List[CustomerWiseOrderLine]
+
+
+class ProductWiseOrderedQuantityLine(BaseModel):
+    product_id:         Optional[str] = None
+    article_no:         Optional[str] = None
+    vendor_style:       Optional[str] = None
+    name:               str
+    color:              Optional[str] = None
+    size:               Optional[str] = None
+    uom:                str = "EA"
+    ordered_qty:        Decimal
+    avg_cost:           Decimal
+    total_value:        Decimal
+    order_count:        int
+
+class ProductWiseOrderedQuantityReport(BaseModel):
+    """RPT-SO-005 -- Product-wise Ordered Quantity."""
+    report_id:          str = "RPT-SO-005"
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_products:     int
+    total_ordered_qty:  Decimal
+    total_value:        Decimal
+    lines:              List[ProductWiseOrderedQuantityLine]
+
+
+class OrderFulfillmentStatusGroup(BaseModel):
+    status:             str
+    order_count:        int
+    total_qty:          Decimal
+    total_value:        Decimal
+    billed_value:       Decimal
+    pending_value:      Decimal
+
+class OrderFulfillmentStatusReport(BaseModel):
+    """RPT-SO-006 -- Order Fulfillment Status."""
+    report_id:          str = "RPT-SO-006"
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_orders:       int
+    total_value:        Decimal
+    groups:             List[OrderFulfillmentStatusGroup]
+    lines:              List[SalesOrderSummaryLine]
+
+
+class InvoiceAllocationReportLine(BaseModel):
+    id:                 str
+    order_no:           str
+    po_number:          Optional[str] = None
+    invoice_no:         str
+    invoice_date:       str
+    po_quantity:        Decimal
+    po_value:           Decimal
+    billed_quantity:    Decimal
+    billed_value:       Decimal
+    pending_quantity:   Decimal
+    pending_value:      Decimal
+    status:             str
+
+class InvoiceAllocationReportModel(BaseModel):
+    """RPT-SO-007 -- Invoice Allocation Report."""
+    report_id:          str = "RPT-SO-007"
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    total_allocations:  int
+    total_po_quantity:  Decimal
+    total_po_value:     Decimal
+    total_billed_qty:   Decimal
+    total_billed_value: Decimal
+    total_pending_qty:  Decimal
+    total_pending_value: Decimal
+    lines:              List[InvoiceAllocationReportLine]
+
+
+

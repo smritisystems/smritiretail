@@ -1,0 +1,89 @@
+{
+  "distributorMenus": [
+    {
+      "menuNo": 100,
+      "menuOpt": 120,
+      "parentName": "Sales",
+      "caption": "DC Generation",
+      "type": "M",
+      "executable": "",
+      "programOption": 0,
+      "smritiTileMapping": {
+        "tileId": "distributor-invoicing",
+        "action": "OPEN_DC_STUDIO",
+        "workspace": "Billing Desk"
+      }
+    },
+    {
+      "menuNo": 120,
+      "menuOpt": 121,
+      "parentName": "DC Generation",
+      "caption": "Sales DC",
+      "type": "P",
+      "executable": "SR115500.EXE",
+      "programOption": 8,
+      "smritiTileMapping": {
+        "tileId": "distributor-invoicing",
+        "action": "CREATE_SALES_DC",
+        "workspace": "Billing Desk"
+      }
+    },
+    {
+      "menuNo": 120,
+      "menuOpt": 122,
+      "parentName": "DC Generation",
+      "caption": "Approval Issue DC",
+      "type": "P",
+      "executable": "SR115500.EXE",
+      "programOption": 9,
+      "smritiTileMapping": {
+        "tileId": "distributor-invoicing",
+        "action": "CREATE_APPROVAL_DC",
+        "workspace": "Billing Desk"
+      }
+    },
+    {
+      "menuNo": 120,
+      "menuOpt": 123,
+      "parentName": "DC Generation",
+      "caption": "Transport Receipt Entry",
+      "type": "P",
+      "executable": "SD400800.EXE",
+      "programOption": 8,
+      "smritiTileMapping": {
+        "tileId": "dispatch-manifests",
+        "action": "LOG_TRANSPORT_LR",
+        "workspace": "Logistics Hub"
+      }
+    },
+    {
+      "menuNo": 120,
+      "menuOpt": 124,
+      "parentName": "DC Generation",
+      "caption": "Conversion of Sales DC to Approval Issue DC",
+      "type": "P",
+      "executable": "SD100500.EXE",
+      "programOption": 0,
+      "smritiTileMapping": {
+        "tileId": "distributor-invoicing",
+        "action": "CREATE_SALES_DC",
+        "workspace": "Billing Desk"
+      }
+    },
+    {
+      "menuNo": 380,
+      "menuOpt": 382,
+      "parentName": "Purchase Order",
+      "caption": "Consolidation",
+      "type": "P",
+      "executable": "SE100900.EXE",
+      "programOption": 3,
+      "smritiTileMapping": {
+        "tileId": "purchase-studio",
+        "action": "CONSOLIDATE_POS",
+        "workspace": "Procurement"
+      }
+    }
+  ],
+  "retailMenus": []
+}
