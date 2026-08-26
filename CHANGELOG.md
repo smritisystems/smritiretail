@@ -28,6 +28,22 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.66.0] - 2026-08-26
+
+#### Phase 1 Historical PO Reconciliation — Tattly Threads (60 Reliance Retail POs)
+- **Authoritative PO Ingestion (`scripts/reconcile_historical_pos.py`)**:
+  - Ingested and parsed all 60 Reliance Retail PO PDFs (`5182778151.pdf` through `5182778210.pdf`) with 100% calculation precision and zero discrepancies.
+  - Created 60 historical `SalesOrder` entities (`SO-5182778151` – `SO-5182778210`) preserving original PO dates and Reliance delivery sites.
+  - Inserted 18,036 `SalesOrderItem` lines totaling 25,864.000 EA ordered quantity (INR 30.22M basic / INR 31.73M grand total).
+- **Item Master Product Deduplication**:
+  - Deduplicated 450 unique SKUs across PO items and populated 303 newly created `Product` records in `smriti001` with 100% line linking coverage.
+- **Immutable Legal Terms Snapshots**:
+  - Archived 60 complete Terms & Conditions snapshots in `terms_snapshots` linked to historical Sales Orders.
+- **Tax Invoice Allocation & Reconciliation**:
+  - Reconciled 120 historical tax invoices (`TT2026-2027/18` through `137`) across 58 billed POs and 2 pending POs (`5182778172`, `5182778210`).
+  - Recorded 120 structured invoice allocation records in `sales_order_invoice_allocations` tracking 9,027.000 EA billed (INR 10.60M) and 16,837.000 EA pending (INR 21.13M).
+  - Maintained zero changes to existing tax invoices (Rule 9), zero stock movements (Rule 10), and zero new tax invoices (Rule 11).
+
 ### [3.65.0] - 2026-08-25
 
 #### Distributor Invoicing Screen Layout & Ergonomic Refactoring (1:1 Stitch code.html Parity)

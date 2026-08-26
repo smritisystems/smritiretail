@@ -64,9 +64,11 @@ export const DrillDownSidePanel: React.FC = () => {
       }
       if (activePanel && activePanel.entityType === "invoice") {
         setInvoice(null);
-        const invoiceKey = encodeURIComponent(activePanel.entityId);
-        apiFetchV1(`/sales/invoices/${invoiceKey}`)
-          .catch(() => apiFetchV1(`/sales/invoices?q=${invoiceKey}&limit=1`)
+        const invoiceKey = activePanel.entityId;
+        const encodedKey = encodeURIComponent(invoiceKey);
+        apiFetchV1(`/sales/invoices/${encodedKey}`)
+          .catch(() => apiFetchV1(`/sales/invoices/by-number/${invoiceKey}`))
+          .catch(() => apiFetchV1(`/sales/invoices?q=${encodedKey}&limit=1`)
             .then((result) => {
               const matches = Array.isArray(result) ? result : result?.items || [];
               const invoiceId = matches[0]?.id;
@@ -720,14 +722,37 @@ export const DrillDownSidePanel: React.FC = () => {
                    <div>
                       <h3 className="text-[10px] font-bold text-theme-muted uppercase tracking-wider font-mono mb-3">Related Documents</h3>
                       <div className="space-y-2">
-                         <button className="w-full text-left bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider rounded-lg p-3 transition-colors group flex justify-between items-center cursor-pointer">
+                         <button 
+                            onClick={() => {
+                              window.dispatchEvent(
+                                new CustomEvent("smriti_navigate_module", {
+                                  detail: { moduleId: "business-ledger" },
+                                })
+                              );
+                              closePanel();
+                            }}
+                            className="w-full text-left bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider rounded-lg p-3 transition-colors group flex justify-between items-center cursor-pointer"
+                         >
                             <div>
                               <div className="text-sm font-semibold text-theme-body group-hover:text-blue-600">View Ledger</div>
                               <div className="text-xs text-theme-muted">Financial transactions</div>
                             </div>
                             <span className="material-symbols-outlined text-theme-muted group-hover:text-blue-600">arrow_forward_ios</span>
                          </button>
-                         <button className="w-full text-left bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider rounded-lg p-3 transition-colors group flex justify-between items-center cursor-pointer">
+                         <button 
+                            onClick={() => {
+                              window.dispatchEvent(
+                                new CustomEvent("smriti_navigate_module", {
+                                  detail: {
+                                    moduleId: "stock-ledger",
+                                    searchQuery: activePanel.entityId,
+                                  },
+                                })
+                              );
+                              closePanel();
+                            }}
+                            className="w-full text-left bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider rounded-lg p-3 transition-colors group flex justify-between items-center cursor-pointer"
+                         >
                             <div>
                               <div className="text-sm font-semibold text-theme-body group-hover:text-blue-600">Stock Movement</div>
                               <div className="text-xs text-theme-muted">Inventory tracking</div>
