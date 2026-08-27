@@ -41,6 +41,7 @@ from . import (
     physical_stock,
     product_identity,
     purchase,
+    reporting_governance,
     reports,
     roles,
     sales,
