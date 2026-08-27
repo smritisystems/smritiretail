@@ -18,6 +18,8 @@ import {
   serializeToCSV,
   serializeToTSV,
   serializeToSpreadsheetML,
+  serializeToOpenXMLXLSX,
+  createZipPackage,
   serializeToAlignedTextTable,
   sanitizeExportRecord,
   generateSafeExportFilename,
@@ -165,6 +167,19 @@ describe("GlobalExportService & Export Engine Test Suite", () => {
 
       // Summary row
       expect(xml).toContain('<Cell ss:StyleID="SummaryStyle"><Data ss:Type="String">TOTAL / SUMMARY</Data></Cell>');
+    });
+
+    it("generates genuine OpenXML (.xlsx) PKZip binary archive with valid signatures", () => {
+      const xlsxBytes = serializeToOpenXMLXLSX(sampleColumns, sampleData, sampleMetadata, "Item Master");
+
+      expect(xlsxBytes).toBeInstanceOf(Uint8Array);
+      expect(xlsxBytes.length).toBeGreaterThan(500);
+
+      // Verify PKZip header signature: 'PK\x03\x04' (0x50, 0x4B, 0x03, 0x04)
+      expect(xlsxBytes[0]).toBe(0x50);
+      expect(xlsxBytes[1]).toBe(0x4b);
+      expect(xlsxBytes[2]).toBe(0x03);
+      expect(xlsxBytes[3]).toBe(0x04);
     });
   });
 
