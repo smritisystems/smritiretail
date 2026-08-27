@@ -411,7 +411,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
                 </td>
               </tr>
               <tr className="border-b border-gray-100">
-                <td className="py-0.5 text-gray-500 font-normal text-left whitespace-nowrap">SIS Code:</td>
+                <td className="py-0.5 text-gray-500 font-normal text-left whitespace-nowrap">Store Code:</td>
                 <td className="py-0.5 font-bold text-gray-900 text-right whitespace-nowrap">{data.sisCode || "1977"}</td>
               </tr>
               <tr className="border-b border-gray-100">
@@ -674,13 +674,14 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
         {/* Footer Info: Bank / Note / Signature */}
         <div className="grid grid-cols-2 gap-4 border-t border-gray-200 pt-3 mt-2 text-[10px]">
           <div>
-            <div className="mb-2 p-2 border border-gray-200 rounded bg-gray-50/20">
+            <div className="mb-2 p-2 border border-gray-200 rounded bg-gray-50/30">
               <span className="text-gray-500 font-mono text-[9px] uppercase font-bold block mb-1">
                 Bank Details
               </span>
-              <p className="font-semibold text-gray-900">{data.bankName || "STATE BANK OF INDIA"}</p>
-              <p className="text-gray-600 font-mono">A/C No: {data.bankAccountNo || "43976711765"}</p>
-              <p className="text-gray-600 font-mono">IFSC: {data.bankIfsc || "SBIN0030425"} {data.bankBranch ? `| Branch: ${data.bankBranch}` : "| Branch: Commercial Branch"}</p>
+              <p className="font-semibold text-gray-900 font-mono text-[10px]">A/C Name: <span className="font-bold text-gray-950">{data.accountHolderName || data.accountName || "TATTLY THREADS"}</span></p>
+              <p className="font-bold text-gray-950 text-xs mt-0.5">{data.bankName || "STATE BANK OF INDIA"}</p>
+              <p className="text-gray-700 font-mono mt-0.5">A/C No: <span className="font-bold text-gray-950">{data.bankAccountNo || "43976711765"}</span></p>
+              <p className="text-gray-700 font-mono mt-0.5">IFSC: <span className="font-bold text-gray-950">{data.bankIfsc || "SBIN0030425"}</span> | Branch: <span className="font-semibold text-gray-900">{data.bankBranch || "WARDHMAN NAGAR NAGPUR"}</span></p>
               {data.paymentTerms && <p className="text-gray-700 mt-1 italic">Terms: {data.paymentTerms}</p>}
             </div>
 
