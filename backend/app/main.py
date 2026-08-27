@@ -88,6 +88,7 @@ from .api.v1 import (
     psv,
     purchase,
     reference_data,
+    reporting_governance,
     reports,
     roles,
     sales,
@@ -187,6 +188,7 @@ app.include_router(pos.router,            prefix=settings.API_V1_STR,           
 app.include_router(physical_stock.router, prefix=settings.API_V1_STR,           tags=["Physical Stock"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
+app.include_router(reporting_governance.router, prefix=settings.API_V1_STR,           tags=["Reporting Governance"])
 app.include_router(master_lookup.router,    prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
 app.include_router(masters.router,          prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
 app.include_router(assignments.router,      prefix=settings.API_V1_STR,                      tags=["Assignments"])

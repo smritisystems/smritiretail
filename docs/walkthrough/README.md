@@ -30,6 +30,10 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-28 | v1.0.0 | Reporting & BI Engine — Phase 4 (REST API Endpoints & Hub Router) | [Walkthrough](./reports/Reporting_And_BI_Engine_Phase4_API_And_Hub_v1.0.0.md) | [Plan](../implementation/reports/Reporting_And_BI_Engine_Phase4_API_And_Hub_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Reporting & BI Engine — Phase 3 (Inventory 3-Tier State & Universal Audit Lineage) | [Walkthrough](./reports/Reporting_And_BI_Engine_Phase3_Inventory_Lineage_v1.0.0.md) | [Plan](../implementation/reports/Reporting_And_BI_Engine_Phase3_Inventory_Lineage_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Reporting & BI Engine — Phase 2 (Security Masking & Query Performance Router) | [Walkthrough](./reports/Reporting_And_BI_Engine_Phase2_Security_Router_v1.0.0.md) | [Plan](../implementation/reports/Reporting_And_BI_Engine_Phase2_Security_Router_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Reporting & BI Engine — Phase 1 (Governance & Data Contracts) | [Walkthrough](./reports/Reporting_And_BI_Engine_Phase1_Governance_v1.0.0.md) | [Plan](../implementation/reports/Reporting_And_BI_Engine_Phase1_Governance_v1.0.0.md) | Completed |
 | 2026-08-27 | v1.0.0 | SMRITI Universal Report Engine (SURE) & Multi-Format Exporter Architecture | [Walkthrough](./reports/SMRITI_Universal_Report_Engine_v1.0.md) | [Plan](../implementation/reports/SMRITI_Universal_Report_Engine_Plan_v1.0.md) | Completed |
 | 2026-08-27 | v3.30.0 | Sales Order Fulfillment Variance, Size Matrix & 1-Click Tax Invoice Conversion Suite | [Walkthrough](./sales/Sales_Order_Fulfillment_Variance_And_Matrix_Suite_v3.30.0.md) | — | Completed |
 | 2026-08-27 | v3.36.0 | Stock Movement Ledger Safety, FEFO Batch Allocation & Historical Reconciliation | [Walkthrough](./inventory/Stock_Movement_Ledger_Safety_And_Reconciliation_v3.36.0.md) | — | Completed |
