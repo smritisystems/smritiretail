@@ -13,7 +13,7 @@
  */
 
 import React from "react";
-import { formatCurrency, formatQuantity } from "../../lib/formatters";
+import { formatCurrency, formatQuantity } from "../../utils/formatters";
 
 export interface SalesOrderItemData {
   item_code?: string;

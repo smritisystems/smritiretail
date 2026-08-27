@@ -31,8 +31,8 @@ import { CompanySelector } from "./layout/CompanySelector.tsx";
 import { formatDate, formatDateTime, formatCurrency, formatNumber, safeNumber } from "../utils/formatters.ts";
 import { normalizeSalesOrders, normalizeQuotations } from "../utils/normalizeSales.ts";
 import { isValidMobile } from "../utils/validators.ts";
-import { useACAS } from "../context-actions/ContextProvider.tsx";
 import { DistTaxInvoice } from "./sales/DistTaxInvoice.tsx";
+import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 
 interface ParsedRow {
   name: string;
@@ -3347,6 +3347,31 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       PO #{selectedOrder.poNumber}
                     </div>
                   )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <a
+                      href={`/api/v1/sales/orders/${selectedOrder.id}/pdf`}
+                      download
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Download size={12} /> PDF
+                    </a>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const inv = await apiFetchV1(`/sales/orders/${selectedOrder.id}/convert-to-invoice`, { method: "POST" });
+                          onNotification("Invoice Generated", `Sales Order ${selectedOrder.orderNo} converted to Tax Invoice ${inv.invoice_no}!`, "success");
+                          fetchSalesOrders();
+                          fetchSalesInvoices();
+                        } catch (err: any) {
+                          onNotification("Conversion Error", err?.message || "Failed to convert sales order to invoice.", "error");
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <FileCheck size={12} /> Convert to Invoice
+                    </button>
+                  </div>
                 </div>
                 <button
                   onClick={() => setSelectedOrder(null)}
