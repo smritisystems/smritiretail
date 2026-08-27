@@ -625,6 +625,176 @@ class SalesService:
             raise HTTPException(status_code=404, detail="Sales order not found")
         return so, list(so.items or []), list(so.allocations or [])
 
+    async def convert_sales_order_to_invoice(
+        self,
+        order_id: str,
+        selected_item_ids: Optional[List[str]] = None,
+    ) -> SalesInvoice:
+        """
+        1-Click conversion of a Sales Order into an official Statutory Tax Invoice.
+        Maps lines, calculates GST, generates allocation, updates SO fulfillment status.
+        """
+        so, items, allocations = await self.get_sales_order(order_id)
+        if not items:
+            raise HTTPException(status_code=400, detail="Sales order has no line items to convert")
+
+        # Determine next invoice number safely by finding max existing suffix
+        import re
+        inv_count_res = await self.db.execute(select(SalesInvoice.invoice_no))
+        all_inv_nos = [str(r) for r in inv_count_res.scalars().all() if r]
+        max_num = 137
+        for inv_str in all_inv_nos:
+            m = re.search(r'/(\d+)$', inv_str)
+            if m:
+                max_num = max(max_num, int(m.group(1)))
+        next_num = max_num + 1
+        invoice_no = f"TT2026-2027/{next_num}"
+        invoice_id = f"inv-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+
+        items_to_convert = items
+        if selected_item_ids:
+            items_to_convert = [i for i in items if str(i.id) in selected_item_ids or str(i.product_id) in selected_item_ids]
+            if not items_to_convert:
+                items_to_convert = items
+
+        inv_items = []
+        total_taxable = Decimal("0.00")
+        total_tax = Decimal("0.00")
+        total_grand = Decimal("0.00")
+        total_pairs = 0
+
+        # State / Supply logic
+        company_state_code = "27"
+        customer_gstin = so.customer_gstin or ""
+        pos_code = "27"
+        if customer_gstin and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit():
+            pos_code = customer_gstin[:2]
+        is_interstate = (pos_code != company_state_code)
+        pos_state_name = GST_STATE_CODES.get(pos_code, "Maharashtra") if "GST_STATE_CODES" in globals() else "Maharashtra"
+
+        for ln, item in enumerate(items_to_convert, start=1):
+            qty = Decimal(str(item.quantity or 1))
+            total_pairs += int(qty)
+            price = Decimal(str(item.price or 0))
+            taxable_val = (price * qty).quantize(Decimal("0.01"))
+            gst_rate = Decimal(str(item.gst_rate or Decimal("5.00")))
+            mrp_val = Decimal(str(getattr(item, "mrp", None) or (price / Decimal("0.5624") if price > 0 else Decimal("0.00")))).quantize(Decimal("0.01"))
+            disc_val = Decimal(str(getattr(item, "disc_pct", None) or Decimal("43.76"))).quantize(Decimal("0.01"))
+
+            if is_interstate:
+                igst_val = (taxable_val * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+                cgst_val = Decimal("0.00")
+                sgst_val = Decimal("0.00")
+                tot_amt = taxable_val + igst_val
+            else:
+                half_gst = gst_rate / Decimal("2.00")
+                cgst_val = (taxable_val * (half_gst / Decimal("100.00"))).quantize(Decimal("0.01"))
+                sgst_val = (taxable_val * (half_gst / Decimal("100.00"))).quantize(Decimal("0.01"))
+                igst_val = Decimal("0.00")
+                tot_amt = taxable_val + cgst_val + sgst_val
+
+            total_taxable += taxable_val
+            total_tax += (cgst_val + sgst_val + igst_val)
+            total_grand += tot_amt
+
+            inv_items.append(SalesInvoiceItem(
+                invoice_id=invoice_id,
+                product_id=item.product_id,
+                code=item.code,
+                name=item.name,
+                quantity=qty,
+                price=price,
+                hsn_code=item.hsn_code or "64041990",
+                gst_rate=gst_rate,
+                tax_amount=(cgst_val + sgst_val + igst_val),
+                total_amount=tot_amt,
+                mrp=mrp_val,
+                disc_pct=disc_val,
+                taxable_value=taxable_val,
+                igst_amount=igst_val,
+                cgst_amount=cgst_val,
+                sgst_amount=sgst_val,
+                line_no=ln,
+            ))
+
+        db_inv = SalesInvoice(
+            id=invoice_id,
+            invoice_no=invoice_no,
+            date=datetime.now(timezone.utc).date(),
+            customer_name=so.customer_name or "Reliance Retail Limited",
+            customer_gstin=customer_gstin,
+            customer_id=so.customer_id,
+            billing_address=so.delivery_address or "Reliance Retail Limited",
+            shipping_address=so.delivery_address or "Reliance Retail Store",
+            sis_code=so.site_code or "1977",
+            pos_state=pos_state_name,
+            po_reference=so.po_number or so.order_no,
+            taxable_value=total_taxable,
+            tax_total=total_tax,
+            grand_total=total_grand,
+            is_interstate=is_interstate,
+            bank_name="STATE BANK OF INDIA",
+            account_no="43976711765",
+            ifsc_code="SBIN0030425",
+            status="Draft",
+            items=inv_items,
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else None,
+            rule_snapshots={
+                "bank_branch": "WARDHMAN NAGAR NAGPUR",
+                "account_holder_name": "TATTLY THREADS",
+                "source_order_id": so.id,
+                "source_order_no": so.order_no,
+            }
+        )
+        self.db.add(db_inv)
+
+        # Create allocation
+        alloc = SalesOrderInvoiceAllocation(
+            id=f"alloc-{uuid.uuid4().hex[:8]}",
+            order_id=so.id,
+            order_no=so.order_no,
+            po_number=so.po_number or so.order_no,
+            invoice_id=invoice_id,
+            invoice_no=invoice_no,
+            invoice_date=datetime.now(timezone.utc).date(),
+            po_quantity=so.total_qty or total_pairs,
+            po_value=so.grand_total or total_grand,
+            billed_quantity=Decimal(str(total_pairs)),
+            billed_value=total_grand,
+            pending_quantity=max(Decimal("0.00"), Decimal(str(so.total_qty or total_pairs)) - Decimal(str(total_pairs))),
+            pending_value=max(Decimal("0.00"), Decimal(str(so.grand_total or total_grand)) - total_grand),
+            status="ALLOCATED",
+            allocation_metadata={"auto_converted": True},
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else None,
+        )
+        self.db.add(alloc)
+
+        # Update Sales Order metrics
+        so.billed_qty = (Decimal(str(so.billed_qty or 0)) + Decimal(str(total_pairs)))
+        so.billed_value = (Decimal(str(so.billed_value or 0)) + total_grand)
+        so.pending_qty = max(Decimal("0.00"), Decimal(str(so.total_qty or 0)) - so.billed_qty)
+        so.pending_value = max(Decimal("0.00"), Decimal(str(so.grand_total or 0)) - so.billed_value)
+        
+        if so.pending_qty <= 0:
+            so.fulfillment_status = "FULFILLED"
+            so.status = "Completed"
+        else:
+            so.fulfillment_status = "PARTIALLY_FULFILLED"
+            so.status = "In Progress"
+
+        self.db.add(so)
+        await self.db.commit()
+
+        # Re-fetch with relationships
+        res = await self.db.execute(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(SalesInvoice.id == invoice_id)
+        )
+        return res.scalars().first()
+
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Return
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

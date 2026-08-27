@@ -428,6 +428,66 @@ async def delete_sales_order(
     return Response(status_code=204)
 
 
+@router.get("/orders/{order_id}/pdf", summary="Generate & Download Sales Order Confirmation PDF")
+async def get_sales_order_pdf(
+    order_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Generates official A4 Sales Order Confirmation / Proforma PDF."""
+    from ...services.sales_order_pdf_service import SalesOrderPdfService
+    pdf_bytes, meta = await SalesOrderPdfService.get_or_render_pdf_artifact(
+        session=db,
+        order_id=order_id,
+        company_id=tenant_ctx.company_id if tenant_ctx else None,
+        branch_id=tenant_ctx.branch_id if tenant_ctx else None
+    )
+    safe_no = meta.get("order_no", order_id).replace("/", "_").replace("-", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="SalesOrder_{safe_no}.pdf"'}
+    )
+
+
+@router.get("/orders/{order_id}/preview-html", summary="Get Sales Order Preview HTML")
+async def get_sales_order_preview_html(
+    order_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get standalone HTML representation for print preview."""
+    service = SalesService(db, tenant_ctx)
+    order, items, allocations = await service.get_sales_order(order_id)
+    from ...services.sales_order_pdf_service import SalesOrderPdfService
+    html = SalesOrderPdfService.generate_order_html_from_model(
+        order=order,
+        items=items,
+        allocations=allocations,
+        company_name="TATTLY THREADS",
+        company_gstin="27AAXFT2508H1ZR"
+    )
+    return Response(content=html, media_type="text/html")
+
+
+@router.post(
+    "/orders/{order_id}/convert-to-invoice",
+    response_model=SalesInvoiceResponse,
+    status_code=201,
+    summary="1-Click Convert Sales Order to Statutory Tax Invoice",
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
+)
+async def convert_sales_order_to_tax_invoice(
+    order_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Convert an open Sales Order into an official GST Tax Invoice with atomic allocations."""
+    service = SalesService(db, tenant_ctx)
+    invoice = await service.convert_sales_order_to_invoice(order_id)
+    return invoice
+
+
 # ─────────────────────────── Sales Return ───────────────────────────
 
 @router.post(

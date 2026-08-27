@@ -575,6 +575,23 @@ async def export_sales_orders_csv(
     )
 
 
+@router.get("/sales-orders/fulfillment-variance")
+async def get_sales_order_fulfillment_variance(
+    from_date:   Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:     Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    customer_id: Optional[str]  = Query(default=None, description="Customer filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Automated Fulfillment Variance & Backorder Analytics with aging buckets."""
+    return await ReportsService(db, tenant).sales_order_fulfillment_variance(
+        from_date=from_date,
+        to_date=to_date,
+        customer_id=customer_id,
+    )
+
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

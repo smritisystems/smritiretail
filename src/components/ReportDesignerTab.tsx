@@ -2113,7 +2113,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         <th className="p-3">Invoice No</th>
                         <th className="p-3">Date</th>
                         <th className="p-3 text-center">Status</th>
-                        <th className="p-3 text-center">SIS Code</th>
+                        <th className="p-3 text-center">Store Code</th>
                         <th className="p-3">Store Location</th>
                         <th className="p-3">Place of Supply</th>
                         <th className="p-3 text-right">Pairs</th>
@@ -2254,7 +2254,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
                       <tr>
-                        <th className="p-3 text-center">SIS Code</th>
+                        <th className="p-3 text-center">Store Code</th>
                         <th className="p-3">Store Location Name</th>
                         <th className="p-3 text-right">Invoices</th>
                         <th className="p-3 text-right">Completed</th>

@@ -403,7 +403,7 @@ class InvoicePdfService:
         bank_branch = (
             getattr(invoice, "bank_branch", None)
             or meta.get("bank_branch")
-            or os.getenv("DEFAULT_BANK_BRANCH", "Commercial Branch")
+            or os.getenv("DEFAULT_BANK_BRANCH", "WARDHMAN NAGAR NAGPUR")
         )
 
         company_web = meta.get("company_website", "www.tattlythreads.com")
@@ -717,7 +717,7 @@ class InvoicePdfService:
                       <table class="meta-table">
                         <tr><td class="meta-label">Invoice No:</td><td class="meta-val">{invoice_no}</td></tr>
                         <tr><td class="meta-label">Date:</td><td class="meta-val">{date_str}</td></tr>
-                        <tr><td class="meta-label">SIS Code:</td><td class="meta-val">{sis_code}</td></tr>
+                        <tr><td class="meta-label">Store Code:</td><td class="meta-val">{sis_code}</td></tr>
                         <tr><td class="meta-label">Place of Supply:</td><td class="meta-val">{place_of_supply_display}</td></tr>
                         <tr><td class="meta-label">Reverse Charge:</td><td class="meta-val">{reverse_charge_display}</td></tr>
                         <tr><td class="meta-label">PO / Reference:</td><td class="meta-val">{po_reference}</td></tr>
