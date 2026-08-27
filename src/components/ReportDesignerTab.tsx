@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { SalesOrderA4 } from "./templates/SalesOrderA4";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
+import { SmritiReportEngine } from "./reports/SmritiReportEngine";
 
 // Types for drill down context
 interface DrilldownBreadcrumb {
@@ -470,20 +471,138 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     }
     recordAuditAction("EXPORT", "reports", selectedReport?.id || "RPT-GEN", `Report exported: ${selectedReport?.title || "Standard Report"} (Format: ${format.toUpperCase()})`);
 
-    const exportFormat: any = format.toLowerCase() === "xlsx" ? "xlsx" : format.toLowerCase() === "csv" || format.toLowerCase() === "tsv" ? "csv" : "txt";
+    const upperFormat = format.toUpperCase();
+
+    // 1. Direct High-Fidelity Native Backend Excel/CSV Routes for Master Registers
+    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-TAX-001") {
+      const link = document.createElement("a");
+      link.href = "/api/v1/reports/export/tax-invoices-excel";
+      link.download = "SMRITI_Statutory_Tax_Invoices_Master.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotification("success", "Initiated download of Statutory Tax Invoices Master Workbook (.xlsx)");
+      return;
+    }
+
+    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-SO-008") {
+      const link = document.createElement("a");
+      link.href = "/api/v1/reports/sales-orders/export-excel";
+      link.download = "SMRITI_Sales_Orders_Master_Register.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotification("success", "Initiated download of Master 6-Sheet Sales Orders Workbook (.xlsx)");
+      return;
+    }
+
+    if (upperFormat === "CSV" && selectedReport?.id === "RPT-SO-008") {
+      const link = document.createElement("a");
+      link.href = "/api/v1/reports/sales-orders/export-csv";
+      link.download = "SMRITI_Sales_Orders_Flat.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotification("success", "Initiated download of Flat Sales Orders CSV (.csv)");
+      return;
+    }
+
+    // 2. Browser Print / PDF
+    if (upperFormat === "PDF") {
+      window.print();
+      return;
+    }
+
+    // 3. Dynamic Data Extraction across all SMRITI Report states
+    let activeData: any[] = [];
+
+    if (genericReportData) {
+      if (Array.isArray(genericReportData)) {
+        activeData = genericReportData;
+      } else if (Array.isArray(genericReportData.orders) && genericReportData.orders.length > 0) {
+        activeData = genericReportData.orders;
+      } else if (Array.isArray(genericReportData.lines) && genericReportData.lines.length > 0) {
+        activeData = genericReportData.lines;
+      } else if (Array.isArray(genericReportData.bills) && genericReportData.bills.length > 0) {
+        activeData = genericReportData.bills;
+      } else if (Array.isArray(genericReportData.invoices) && genericReportData.invoices.length > 0) {
+        activeData = genericReportData.invoices;
+      } else if (Array.isArray(genericReportData.items) && genericReportData.items.length > 0) {
+        activeData = genericReportData.items;
+      } else if (Array.isArray(genericReportData.stores) && genericReportData.stores.length > 0) {
+        activeData = genericReportData.stores;
+      } else if (Array.isArray(genericReportData.styles) && genericReportData.styles.length > 0) {
+        activeData = genericReportData.styles;
+      } else {
+        // Find any non-empty array property
+        const arrayProp = Object.values(genericReportData).find((v) => Array.isArray(v) && v.length > 0);
+        if (arrayProp && Array.isArray(arrayProp)) {
+          activeData = arrayProp;
+        } else if (typeof genericReportData === "object" && genericReportData !== null) {
+          activeData = [genericReportData];
+        }
+      }
+    } else if (Array.isArray(purchaseReportData) && purchaseReportData.length > 0) {
+      activeData = purchaseReportData;
+    } else if (salesReportData) {
+      if (Array.isArray(salesReportData)) {
+        activeData = salesReportData;
+      } else if (Array.isArray(salesReportData.daily_sales)) {
+        activeData = salesReportData.daily_sales;
+      } else if (Array.isArray(salesReportData.lines)) {
+        activeData = salesReportData.lines;
+      } else {
+        activeData = [salesReportData];
+      }
+    } else if (stockValuationData) {
+      if (Array.isArray(stockValuationData)) {
+        activeData = stockValuationData;
+      } else if (Array.isArray(stockValuationData.items)) {
+        activeData = stockValuationData.items;
+      } else {
+        activeData = [stockValuationData];
+      }
+    }
+
+    const exportFormat: any =
+      upperFormat === "XLSX" ? "xlsx" :
+      upperFormat === "CSV" ? "csv" :
+      upperFormat === "JSON" ? "json" :
+      upperFormat === "HTML" ? "html" : "txt";
 
     let reportCols: any[] = [];
     let reportRows: any[] = [];
 
-    if (genericReportData && Array.isArray(genericReportData.lines) && genericReportData.lines.length > 0) {
-      const sample = genericReportData.lines[0];
-      reportCols = Object.keys(sample).map((k) => ({
-        key: k,
-        label: k.replace(/_/g, " ").toUpperCase(),
-        datatype: typeof sample[k] === "number" ? ("number" as const) : ("text" as const),
-        width: 18,
-      }));
-      reportRows = genericReportData.lines;
+    if (activeData.length > 0) {
+      // Gather all unique keys across rows
+      const keySet = new Set<string>();
+      activeData.forEach((row) => {
+        if (row && typeof row === "object") {
+          Object.keys(row).forEach((k) => keySet.add(k));
+        }
+      });
+
+      reportCols = Array.from(keySet)
+        .filter((k) => !["id", "_id", "__v"].includes(k))
+        .map((k) => {
+          const lk = k.toLowerCase();
+          let datatype: "currency" | "number" | "date" | "text" = "text";
+          if (lk.includes("amount") || lk.includes("price") || lk.includes("total") || lk.includes("value") || lk.includes("tax") || lk.includes("mrp") || lk.includes("basic") || lk.includes("rate")) {
+            datatype = "currency";
+          } else if (lk.includes("qty") || lk.includes("quantity") || lk.includes("count") || lk.includes("units") || lk.includes("pieces")) {
+            datatype = "number";
+          } else if (lk.includes("date") || lk.includes("created_at") || lk.includes("updated_at")) {
+            datatype = "date";
+          }
+          return {
+            key: k,
+            label: k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            datatype,
+            width: 20,
+          };
+        });
+
+      reportRows = activeData;
     } else {
       reportCols = [
         { key: "code", label: "Report Code", datatype: "text" as const, width: 14 },
@@ -509,7 +628,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     }
 
     const result = await GlobalExportService.exportDataset({
-      moduleName: selectedReport?.title || "Report_Export",
+      moduleName: (selectedReport?.title || "Report_Export").replace(/[^a-zA-Z0-9_-]/g, "_"),
       format: exportFormat,
       scope: "currentPage",
       columns: reportCols,
@@ -3211,7 +3330,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
-            {/* Fallback table if no specific prebuilt report viewer matches */}
+            {/* Universal Report Engine for unhandled or generic operational datasets */}
             {![
               "RPT-SAL-001",
               "RPT-PUR-002",
@@ -3237,20 +3356,21 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               "RPT-SO-006",
               "RPT-SO-007",
             ].includes(selectedReport.id) && (
-              <div className="p-8 text-center text-theme-muted text-xs space-y-4">
-                <AlertTriangle className="mx-auto text-amber-500 animate-pulse" size={32} />
-                <div className="max-w-md mx-auto">
-                  <h5 className="font-bold text-theme-body mb-1">Preview of: {selectedReport.title}</h5>
-                  <p className="text-[11px] leading-relaxed mb-4 text-theme-muted">
-                    This report represents custom transactional summary streams. All values are reconciled in real-time in our secure PostgreSQL database.
-                  </p>
-                  <button
-                    onClick={() => handleTriggerExport("PDF")}
-                    className="px-4 py-2 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 border border-theme-divider text-theme-body rounded-lg font-bold text-xs inline-flex items-center gap-1.5 transition-colors"
-                  >
-                    <Download size={14} /> Download PDF Ledger Print-out
-                  </button>
-                </div>
+              <div className="p-4">
+                <SmritiReportEngine
+                  reportId={selectedReport.id}
+                  reportTitle={selectedReport.title}
+                  reportCategory={selectedReport.category || "Operational Intelligence"}
+                  description={selectedReport.description}
+                  data={
+                    Array.isArray(genericReportData)
+                      ? genericReportData
+                      : genericReportData?.lines || genericReportData?.items || genericReportData?.orders || []
+                  }
+                  activeRole={activeRole}
+                  isLoading={loadingReports}
+                  onNotification={(type, msg) => showNotification(type, msg)}
+                />
               </div>
             )}
           </div>

@@ -122,8 +122,31 @@ export function formatCellValue(value: any, col: ExportColumnDefinition, row?: a
     case "boolean":
       return value ? "Yes" : "No";
     default:
-      if (typeof value === "object") {
+      if (value && typeof value === "object") {
+        if (Array.isArray(value)) {
+          if (value.length === 0) return "";
+          if (typeof value[0] !== "object") {
+            return value.join(", ");
+          }
+          return value
+            .map((item) => {
+              if (!item || typeof item !== "object") return String(item);
+              return item.name || item.title || item.invoice_no || item.invoiceNo || item.order_no || item.orderNo || item.code || JSON.stringify(item);
+            })
+            .join("; ");
+        }
+        // If object has a primary human-readable identifier
+        if (value.name) return String(value.name);
+        if (value.title) return String(value.title);
+        if (value.label) return String(value.label);
+        if (value.code) return String(value.code);
+        if (value.description) return String(value.description);
+        
         try {
+          const entries = Object.entries(value).filter(([_, v]) => v !== null && v !== undefined && typeof v !== "object");
+          if (entries.length > 0) {
+            return entries.map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`).join(", ");
+          }
           return JSON.stringify(value);
         } catch {
           return String(value);
