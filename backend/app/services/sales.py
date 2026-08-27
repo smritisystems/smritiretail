@@ -4,10 +4,10 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.1 (Phase 2 â€” Sales UPDATE/DELETE/CANCEL)
+Version      : 3.18.1 (Phase 2 — Sales UPDATE/DELETE/CANCEL)
 Created      : 2026-07-11
 Modified     : 2026-07-15 (Phase 2)
-Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
