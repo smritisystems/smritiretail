@@ -2693,15 +2693,15 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
                     <span className="text-[10px] uppercase font-bold text-theme-muted">Booked Pairs</span>
-                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.summary?.total_booked_pairs ?? 0).toLocaleString("en-IN")} PRS</p>
+                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.summary?.total_booked_pairs ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })} PRS</p>
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
                     <span className="text-[10px] uppercase font-bold text-theme-muted">Dispatched Pairs</span>
-                    <p className="text-sm font-black text-emerald-400 mt-1">{Number(genericReportData?.summary?.total_billed_pairs ?? 0).toLocaleString("en-IN")} PRS</p>
+                    <p className="text-sm font-black text-emerald-400 mt-1">{Number(genericReportData?.summary?.total_billed_pairs ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })} PRS</p>
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
                     <span className="text-[10px] uppercase font-bold text-theme-muted">Backorder Shortage</span>
-                    <p className="text-sm font-black text-rose-400 mt-1">{Number(genericReportData?.summary?.total_pending_pairs ?? 0).toLocaleString("en-IN")} PRS</p>
+                    <p className="text-sm font-black text-rose-400 mt-1">{Number(genericReportData?.summary?.total_pending_pairs ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })} PRS</p>
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
                     <span className="text-[10px] uppercase font-bold text-theme-muted">Pending Value</span>
@@ -2727,7 +2727,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         <span className="text-[10px] font-mono bg-emerald-900/50 text-emerald-200 px-1.5 py-0.5 rounded">Fresh SLA</span>
                       </div>
                       <div className="text-lg font-black text-emerald-200 font-mono">
-                        {Number(genericReportData?.aging_buckets?.["0_7_days"]?.pending_qty ?? 0).toLocaleString("en-IN")} PRS
+                        {Number(genericReportData?.aging_buckets?.["0_7_days"]?.pending_qty ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })} PRS
                       </div>
                       <div className="text-[10px] text-emerald-400 font-mono">
                         {genericReportData?.aging_buckets?.["0_7_days"]?.count ?? 0} Orders • ₹{Number(genericReportData?.aging_buckets?.["0_7_days"]?.pending_val ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
@@ -2741,7 +2741,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         <span className="text-[10px] font-mono bg-blue-900/50 text-blue-200 px-1.5 py-0.5 rounded">Normal SLA</span>
                       </div>
                       <div className="text-lg font-black text-blue-200 font-mono">
-                        {Number(genericReportData?.aging_buckets?.["8_14_days"]?.pending_qty ?? 0).toLocaleString("en-IN")} PRS
+                        {Number(genericReportData?.aging_buckets?.["8_14_days"]?.pending_qty ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })} PRS
                       </div>
                       <div className="text-[10px] text-blue-400 font-mono">
                         {genericReportData?.aging_buckets?.["8_14_days"]?.count ?? 0} Orders • ₹{Number(genericReportData?.aging_buckets?.["8_14_days"]?.pending_val ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
@@ -2755,7 +2755,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         <span className="text-[10px] font-mono bg-amber-900/50 text-amber-200 px-1.5 py-0.5 rounded">Aging Backorder</span>
                       </div>
                       <div className="text-lg font-black text-amber-200 font-mono">
-                        {Number(genericReportData?.aging_buckets?.["15_30_days"]?.pending_qty ?? 0).toLocaleString("en-IN")} PRS
+                        {Number(genericReportData?.aging_buckets?.["15_30_days"]?.pending_qty ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })} PRS
                       </div>
                       <div className="text-[10px] text-amber-400 font-mono">
                         {genericReportData?.aging_buckets?.["15_30_days"]?.count ?? 0} Orders • ₹{Number(genericReportData?.aging_buckets?.["15_30_days"]?.pending_val ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
@@ -2769,7 +2769,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         <span className="text-[10px] font-mono bg-rose-900/50 text-rose-200 px-1.5 py-0.5 rounded font-bold">Critical Shortage</span>
                       </div>
                       <div className="text-lg font-black text-rose-200 font-mono">
-                        {Number(genericReportData?.aging_buckets?.["over_30_days"]?.pending_qty ?? 0).toLocaleString("en-IN")} PRS
+                        {Number(genericReportData?.aging_buckets?.["over_30_days"]?.pending_qty ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })} PRS
                       </div>
                       <div className="text-[10px] text-rose-400 font-mono">
                         {genericReportData?.aging_buckets?.["over_30_days"]?.count ?? 0} Orders • ₹{Number(genericReportData?.aging_buckets?.["over_30_days"]?.pending_val ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
@@ -2803,9 +2803,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             <tr key={idx} className="hover:bg-theme-surface-hover">
                               <td className="p-2 font-bold text-blue-400">{st.site_code}</td>
                               <td className="p-2 text-theme-muted">{st.destination_state}</td>
-                              <td className="p-2 text-right">{Number(st.ordered_qty).toLocaleString("en-IN")}</td>
-                              <td className="p-2 text-right text-emerald-400">{Number(st.billed_qty).toLocaleString("en-IN")}</td>
-                              <td className="p-2 text-right font-bold text-rose-400">{Number(st.pending_qty).toLocaleString("en-IN")}</td>
+                              <td className="p-2 text-right">{Number(st.ordered_qty).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                              <td className="p-2 text-right text-emerald-400">{Number(st.billed_qty).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                              <td className="p-2 text-right font-bold text-rose-400">{Number(st.pending_qty).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
                               <td className="p-2 text-right font-bold text-slate-200">{st.fulfillment_rate}%</td>
                             </tr>
                           ))}
@@ -2837,9 +2837,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             <tr key={idx} className="hover:bg-theme-surface-hover">
                               <td className="p-2 font-bold text-theme-body">{sty.style_name}</td>
                               <td className="p-2 text-center text-theme-muted">{sty.hsn_code}</td>
-                              <td className="p-2 text-right">{Number(sty.ordered_qty).toLocaleString("en-IN")}</td>
-                              <td className="p-2 text-right text-emerald-400">{Number(sty.billed_qty).toLocaleString("en-IN")}</td>
-                              <td className="p-2 text-right font-bold text-amber-400">{Number(sty.pending_qty).toLocaleString("en-IN")}</td>
+                              <td className="p-2 text-right">{Number(sty.ordered_qty).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                              <td className="p-2 text-right text-emerald-400">{Number(sty.billed_qty).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                              <td className="p-2 text-right font-bold text-amber-400">{Number(sty.pending_qty).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
                               <td className="p-2 text-right font-bold text-amber-300">₹{Number(sty.pending_val).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
                             </tr>
                           ))}
@@ -2889,9 +2889,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                                 {ord.age_days}d
                               </span>
                             </td>
-                            <td className="p-2.5 text-right font-bold">{Number(ord.ordered_qty).toLocaleString("en-IN")}</td>
-                            <td className="p-2.5 text-right text-emerald-400">{Number(ord.billed_qty).toLocaleString("en-IN")}</td>
-                            <td className="p-2.5 text-right font-bold text-amber-400">{Number(ord.pending_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-2.5 text-right font-bold">{Number(ord.ordered_qty).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                            <td className="p-2.5 text-right text-emerald-400">{Number(ord.billed_qty).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                            <td className="p-2.5 text-right font-bold text-amber-400">{Number(ord.pending_qty).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
                             <td className="p-2.5 text-right font-bold text-amber-300">₹{Number(ord.pending_val).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                             <td className="p-2.5 text-center">
                               <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold font-sans bg-slate-800 text-slate-300 border border-slate-700">

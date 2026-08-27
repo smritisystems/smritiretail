@@ -16,7 +16,7 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, datetime, timezone
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -2127,9 +2127,13 @@ class ReportsService:
                 q = Decimal(str(o.total_qty or "0.0000"))
                 basic = Decimal(str(o.basic_total or "0.00"))
                 tax = Decimal(str(o.tax_total or "0.00"))
-                grand = Decimal(str(o.grand_total or "0.00"))
-                b_qty = (q * billing_ratio).quantize(Decimal("0.0001"))
-                p_qty = q - b_qty
+                if f_status == "FULFILLED":
+                    b_qty = q
+                elif f_status == "UNFULFILLED":
+                    b_qty = Decimal("0.0000")
+                else:
+                    b_qty = ord_billed_qty if ord_billed_qty > 0 else (q * billing_ratio).quantize(Decimal("1"), rounding=ROUND_HALF_UP).quantize(Decimal("0.0000"))
+                p_qty = max(Decimal("0.0000"), q - b_qty)
                 b_val = (grand * billing_ratio).quantize(Decimal("0.01"))
                 p_val = grand - b_val
 
@@ -2193,8 +2197,13 @@ class ReportsService:
                     tax = Decimal(str(itm.tax_amount or (taxable * Decimal("0.05"))))
                     grand = Decimal(str(itm.line_total or itm.total_amount or (taxable + tax)))
 
-                    b_qty = (q * billing_ratio).quantize(Decimal("0.0001"))
-                    p_qty = q - b_qty
+                    if f_status == "FULFILLED":
+                        b_qty = q
+                    elif f_status == "UNFULFILLED":
+                        b_qty = Decimal("0.0000")
+                    else:
+                        b_qty = (q * billing_ratio).quantize(Decimal("1"), rounding=ROUND_HALF_UP).quantize(Decimal("0.0000"))
+                    p_qty = max(Decimal("0.0000"), q - b_qty)
                     b_val = (grand * billing_ratio).quantize(Decimal("0.01"))
                     p_val = grand - b_val
 
@@ -2747,8 +2756,9 @@ class ReportsService:
         # Convert structures to serializable formats
         stores_list = []
         for s in store_map.values():
-            o_qty = float(s["ordered_qty"])
-            b_qty = float(s["billed_qty"])
+            o_qty = int(round(float(s["ordered_qty"])))
+            b_qty = int(round(float(s["billed_qty"])))
+            p_qty = max(0, o_qty - b_qty)
             rate = round((b_qty / o_qty * 100), 1) if o_qty > 0 else 0.0
             stores_list.append({
                 "site_code": s["site_code"],
@@ -2756,7 +2766,7 @@ class ReportsService:
                 "orders_count": len(s["total_orders"]),
                 "ordered_qty": o_qty,
                 "billed_qty": b_qty,
-                "pending_qty": float(s["pending_qty"]),
+                "pending_qty": p_qty,
                 "ordered_val": float(s["ordered_val"]),
                 "pending_val": float(s["pending_val"]),
                 "fulfillment_rate": rate,
@@ -2765,15 +2775,16 @@ class ReportsService:
 
         styles_list = []
         for st in style_map.values():
-            o_qty = float(st["ordered_qty"])
-            b_qty = float(st["billed_qty"])
+            o_qty = int(round(float(st["ordered_qty"])))
+            b_qty = int(round(float(st["billed_qty"])))
+            p_qty = max(0, o_qty - b_qty)
             rate = round((b_qty / o_qty * 100), 1) if o_qty > 0 else 0.0
             styles_list.append({
                 "style_name": st["style_name"],
                 "hsn_code": st["hsn_code"],
                 "ordered_qty": o_qty,
                 "billed_qty": b_qty,
-                "pending_qty": float(st["pending_qty"]),
+                "pending_qty": p_qty,
                 "ordered_val": float(st["ordered_val"]),
                 "pending_val": float(st["pending_val"]),
                 "fulfillment_rate": rate,
@@ -2782,8 +2793,9 @@ class ReportsService:
 
         orders_list = []
         for o in order_map.values():
-            o_qty = float(o["ordered_qty"])
-            b_qty = float(o["billed_qty"])
+            o_qty = int(round(float(o["ordered_qty"])))
+            b_qty = int(round(float(o["billed_qty"])))
+            p_qty = max(0, o_qty - b_qty)
             rate = round((b_qty / o_qty * 100), 1) if o_qty > 0 else 0.0
             orders_list.append({
                 "order_no": o["order_no"],
@@ -2795,7 +2807,7 @@ class ReportsService:
                 "destination_state": o["destination_state"],
                 "ordered_qty": o_qty,
                 "billed_qty": b_qty,
-                "pending_qty": float(o["pending_qty"]),
+                "pending_qty": p_qty,
                 "ordered_val": float(o["ordered_val"]),
                 "billed_val": float(o["billed_val"]),
                 "pending_val": float(o["pending_val"]),
@@ -2823,8 +2835,8 @@ class ReportsService:
             "aging_buckets": {
                 k: {
                     "count": v["count"],
-                    "ordered_qty": float(v["ordered_qty"]),
-                    "pending_qty": float(v["pending_qty"]),
+                    "ordered_qty": int(round(float(v["ordered_qty"]))),
+                    "pending_qty": int(round(float(v["pending_qty"]))),
                     "pending_val": float(v["pending_val"]),
                 }
                 for k, v in aging_buckets.items()
