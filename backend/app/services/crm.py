@@ -11,6 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+from datetime import datetime, timezone
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -65,19 +66,50 @@ class CrmService:
         return db_group
 
     async def create_customer(self, customer_in: CustomerCreate) -> Customer:
-        # Check for duplicate mobile
+        cust_dict = customer_in.model_dump()
+        target_id = cust_dict.get("id")
+
+        # 1. Check if customer with this ID already exists
+        if target_id:
+            existing_by_id = await self.db.execute(
+                select(Customer).filter(
+                    Customer.id == target_id,
+                    Customer.is_deleted == False,
+                    (Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+                )
+            )
+            existing_cust = existing_by_id.scalars().first()
+            if existing_cust:
+                for k, v in cust_dict.items():
+                    if v is not None and hasattr(existing_cust, k):
+                        setattr(existing_cust, k, v)
+                existing_cust.company_id = self.tenant_ctx.company_id or existing_cust.company_id
+                existing_cust.branch_id = self.tenant_ctx.branch_id or existing_cust.branch_id
+                existing_cust.modified_at = datetime.utcnow()
+                await self.db.commit()
+                await self.db.refresh(existing_cust)
+                return existing_cust
+
+        # 2. Check for duplicate mobile
         if customer_in.mobile:
             existing_mobile = await self.db.execute(
                 select(Customer).filter(
                     Customer.mobile == customer_in.mobile,
                     Customer.is_deleted == False,
-                    Customer.company_id == self.tenant_ctx.company_id,
+                    (Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)),
                 )
             )
-            if existing_mobile.scalars().first():
-                raise HTTPException(status_code=400, detail="Customer with this mobile number already exists")
+            mobile_cust = existing_mobile.scalars().first()
+            if mobile_cust:
+                for k, v in cust_dict.items():
+                    if v is not None and hasattr(mobile_cust, k):
+                        setattr(mobile_cust, k, v)
+                mobile_cust.modified_at = datetime.utcnow()
+                await self.db.commit()
+                await self.db.refresh(mobile_cust)
+                return mobile_cust
 
-        # Validate customer group exists if specified
+        # 3. Validate customer group exists if specified, or auto-assign/create default group
         if customer_in.customer_group_id:
             stmt = select(CustomerGroup).filter(
                 CustomerGroup.id == customer_in.customer_group_id,
@@ -90,9 +122,8 @@ class CrmService:
             res = await self.db.execute(stmt)
             group = res.scalars().first()
             if not group:
-                raise HTTPException(status_code=400, detail="Specified Customer Group does not exist")
+                cust_dict["customer_group_id"] = None
 
-        cust_dict = customer_in.model_dump()
         if not cust_dict.get("id"):
             import uuid
             cust_dict["id"] = f"cust-{uuid.uuid4().hex[:8]}"
@@ -111,20 +142,61 @@ class CrmService:
             await self.db.commit()
         except IntegrityError as exc:
             await self.db.rollback()
-            err_msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
-            if "customers_pkey" in err_msg:
-                raise HTTPException(status_code=400, detail="Customer with this ID already exists")
-            elif "mobile" in err_msg:
-                raise HTTPException(status_code=400, detail="Customer with this mobile number already exists")
-            elif "customer_group_id" in err_msg:
-                raise HTTPException(status_code=400, detail="Specified Customer Group does not exist")
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Customer with this mobile number or details already exists"
-                )
+            # If conflict occurred concurrently, attempt fetch and return
+            existing = await self.get_customer(cust_dict["id"])
+            if existing:
+                return existing
+            raise HTTPException(
+                status_code=400,
+                detail="Customer could not be created due to database integrity constraints."
+            )
         await self.db.refresh(db_customer)
         return db_customer
+
+    async def update_customer(self, customer_id: str, customer_in: CustomerUpdate | CustomerCreate | dict) -> Customer:
+        stmt = select(Customer).filter(
+            Customer.id == customer_id,
+            Customer.is_deleted == False,
+        )
+        if self.tenant_ctx.company_id:
+            stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))
+        res = await self.db.execute(stmt)
+        customer = res.scalars().first()
+
+        data_dict = customer_in.model_dump(exclude_unset=True) if hasattr(customer_in, "model_dump") else dict(customer_in)
+
+        if not customer:
+            # Upsert create if not found
+            create_payload = {**data_dict, "id": customer_id}
+            if not create_payload.get("name"):
+                create_payload["name"] = f"Customer {customer_id}"
+            return await self.create_customer(CustomerCreate(**create_payload))
+
+        for k, v in data_dict.items():
+            if v is not None and hasattr(customer, k):
+                setattr(customer, k, v)
+
+        customer.modified_at = datetime.utcnow()
+        await self.db.commit()
+        await self.db.refresh(customer)
+        return customer
+
+    async def delete_customer(self, customer_id: str) -> bool:
+        stmt = select(Customer).filter(
+            Customer.id == customer_id,
+            Customer.is_deleted == False,
+        )
+        if self.tenant_ctx.company_id:
+            stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))
+        res = await self.db.execute(stmt)
+        customer = res.scalars().first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        
+        customer.is_deleted = True
+        customer.modified_at = datetime.utcnow()
+        await self.db.commit()
+        return True
 
     async def get_customer(self, customer_id: str) -> Optional[Customer]:
         stmt = select(Customer).filter(

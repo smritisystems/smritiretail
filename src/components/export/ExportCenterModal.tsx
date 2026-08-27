@@ -30,6 +30,7 @@ import {
   Building,
   Calendar,
   Search,
+  ExternalLink,
 } from "lucide-react";
 import {
   ExportColumnDefinition,
@@ -270,52 +271,106 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
               <FileSpreadsheet className="w-4 h-4 text-[#003d9b] dark:text-[#b2c5ff]" />
               1. Select File Format
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
               <button
                 type="button"
                 onClick={() => setFormat("xlsx")}
                 disabled={progressState.isExporting}
-                className={`flex flex-col items-center justify-center p-3.5 rounded-xl border transition-all ${
+                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
                   format === "xlsx"
                     ? "border-[#003d9b] bg-[#003d9b]/10 dark:bg-[#003d9b]/25 text-[#003d9b] dark:text-[#b2c5ff] font-bold shadow-sm"
                     : "border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] text-[#515f74] dark:text-[#bec6e0]"
                 }`}
               >
-                <FileSpreadsheet className="w-6 h-6 mb-1.5 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-xs font-bold">Excel (.xlsx)</span>
-                <span className="text-[10px] opacity-75 font-normal">SpreadsheetML XML</span>
+                <FileSpreadsheet className="w-5 h-5 mb-1 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs font-bold">Excel</span>
+                <span className="text-[9px] opacity-75 font-normal">.xlsx</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFormat("gsheet")}
+                disabled={progressState.isExporting}
+                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                  format === "gsheet"
+                    ? "border-emerald-600 bg-emerald-500/10 dark:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold shadow-sm ring-1 ring-emerald-500/50"
+                    : "border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] text-[#515f74] dark:text-[#bec6e0]"
+                }`}
+              >
+                <FileSpreadsheet className="w-5 h-5 mb-1 text-emerald-500" />
+                <span className="text-xs font-bold">Google Sheets</span>
+                <span className="text-[9px] opacity-75 font-normal">sheets.new</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setFormat("csv")}
                 disabled={progressState.isExporting}
-                className={`flex flex-col items-center justify-center p-3.5 rounded-xl border transition-all ${
+                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
                   format === "csv"
                     ? "border-[#003d9b] bg-[#003d9b]/10 dark:bg-[#003d9b]/25 text-[#003d9b] dark:text-[#b2c5ff] font-bold shadow-sm"
                     : "border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] text-[#515f74] dark:text-[#bec6e0]"
                 }`}
               >
-                <Table className="w-6 h-6 mb-1.5 text-blue-600 dark:text-blue-400" />
-                <span className="text-xs font-bold">CSV (.csv)</span>
-                <span className="text-[10px] opacity-75 font-normal">UTF-8 with BOM</span>
+                <Table className="w-5 h-5 mb-1 text-blue-600 dark:text-blue-400" />
+                <span className="text-xs font-bold">CSV</span>
+                <span className="text-[9px] opacity-75 font-normal">.csv</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFormat("json")}
+                disabled={progressState.isExporting}
+                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                  format === "json"
+                    ? "border-[#003d9b] bg-[#003d9b]/10 dark:bg-[#003d9b]/25 text-[#003d9b] dark:text-[#b2c5ff] font-bold shadow-sm"
+                    : "border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] text-[#515f74] dark:text-[#bec6e0]"
+                }`}
+              >
+                <Table className="w-5 h-5 mb-1 text-purple-600 dark:text-purple-400" />
+                <span className="text-xs font-bold">JSON</span>
+                <span className="text-[9px] opacity-75 font-normal">.json</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setFormat("txt")}
                 disabled={progressState.isExporting}
-                className={`flex flex-col items-center justify-center p-3.5 rounded-xl border transition-all ${
+                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
                   format === "txt"
                     ? "border-[#003d9b] bg-[#003d9b]/10 dark:bg-[#003d9b]/25 text-[#003d9b] dark:text-[#b2c5ff] font-bold shadow-sm"
                     : "border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] text-[#515f74] dark:text-[#bec6e0]"
                 }`}
               >
-                <FileText className="w-6 h-6 mb-1.5 text-amber-600 dark:text-amber-400" />
-                <span className="text-xs font-bold">Plain Text (.txt)</span>
-                <span className="text-[10px] opacity-75 font-normal">Formatted Table</span>
+                <FileText className="w-5 h-5 mb-1 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs font-bold">Text</span>
+                <span className="text-[9px] opacity-75 font-normal">.txt</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFormat("html")}
+                disabled={progressState.isExporting}
+                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                  format === "html"
+                    ? "border-[#003d9b] bg-[#003d9b]/10 dark:bg-[#003d9b]/25 text-[#003d9b] dark:text-[#b2c5ff] font-bold shadow-sm"
+                    : "border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] text-[#515f74] dark:text-[#bec6e0]"
+                }`}
+              >
+                <FileSpreadsheet className="w-5 h-5 mb-1 text-rose-600 dark:text-rose-400" />
+                <span className="text-xs font-bold">HTML</span>
+                <span className="text-[9px] opacity-75 font-normal">.html</span>
               </button>
             </div>
+
+            {format === "gsheet" && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2 mt-2">
+                <FileSpreadsheet className="w-4 h-4 shrink-0 text-emerald-500" />
+                <span>
+                  <strong>Google Sheets Direct Integration:</strong> Opens a new spreadsheet at <code>sheets.new</code> in your browser with the full dataset copied to your clipboard (Ctrl+V / Cmd+V to paste immediately) and downloads a CSV backup.
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 2. Scope Selection */}
@@ -602,12 +657,21 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
               type="button"
               onClick={handleExecuteExport}
               disabled={progressState.isExporting || activeColCount === 0}
-              className="flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-xl bg-[#003d9b] hover:bg-[#002f7a] text-white shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-xl text-white shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                format === "gsheet"
+                  ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/20"
+                  : "bg-[#003d9b] hover:bg-[#002f7a]"
+              }`}
             >
               {progressState.isExporting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   <span>Exporting...</span>
+                </>
+              ) : format === "gsheet" ? (
+                <>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open in Google Sheets</span>
                 </>
               ) : (
                 <>

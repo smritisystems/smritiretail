@@ -1619,7 +1619,15 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="number"
                     value={currentClassicRecord.mrp ?? ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "mrp", e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={e => {
+                      const val = e.target.value === "" ? "" : Number(e.target.value);
+                      handleCellChange(currentClassicSourceIndex, "mrp", val);
+                      const currentPrice = currentClassicRecord.price;
+                      if (currentPrice === "" || currentPrice === null || currentPrice === undefined || currentPrice === 0 || currentPrice === currentClassicRecord.mrp) {
+                        handleCellChange(currentClassicSourceIndex, "price", val);
+                        handleCellChange(currentClassicSourceIndex, "sellingPrice", val);
+                      }
+                    }}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
                       currentClassicRecord.mrp === "" || currentClassicRecord.mrp === null || currentClassicRecord.mrp === undefined || Number(currentClassicRecord.mrp) < 0 || isNaN(Number(currentClassicRecord.mrp)) || Number(currentClassicRecord.mrp) < Number(currentClassicRecord.price)
                         ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"

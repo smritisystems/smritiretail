@@ -21,8 +21,8 @@ from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContex
 from ...models.auth import UserRole
 from ...models.crm import Customer
 from ...schemas.crm import (
-    CustomerCreate, CustomerResponse,
-    CustomerGroupCreate, CustomerGroupResponse,
+    CustomerCreate, CustomerUpdate, CustomerResponse,
+    CustomerGroupCreate, CustomerGroupUpdate, CustomerGroupResponse,
 )
 from ...repositories.customer import CustomerRepository, CustomerGroupRepository
 from ...services.crm import CrmService
@@ -158,6 +158,43 @@ async def get_customer(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return customer
+
+
+@router.put("/customers/{customer_id}", response_model=CustomerResponse)
+@router.patch("/customers/{customer_id}", response_model=CustomerResponse)
+async def update_customer(
+    customer_id: str,
+    customer_in: CustomerUpdate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Update or upsert an existing customer."""
+    service = CrmService(db, tenant_ctx)
+    return await service.update_customer(customer_id, customer_in)
+
+
+@router.put("/customers", response_model=CustomerResponse)
+async def upsert_customer(
+    customer_in: CustomerCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Upsert a customer record."""
+    service = CrmService(db, tenant_ctx)
+    target_id = customer_in.id or f"cust-{customer_in.name.lower().replace(' ', '-')[:20]}"
+    return await service.update_customer(target_id, customer_in)
+
+
+@router.delete("/customers/{customer_id}")
+async def delete_customer(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Soft delete a customer."""
+    service = CrmService(db, tenant_ctx)
+    await service.delete_customer(customer_id)
+    return {"status": "success", "message": f"Customer '{customer_id}' deleted."}
 
 
 # --- Customer Group Endpoints ---

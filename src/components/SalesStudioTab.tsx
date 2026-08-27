@@ -2647,7 +2647,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             </td>
                             <td className={`px-5 ${densityPadding} text-theme-body font-medium`}>{q.customerName}</td>
                             <td className={`px-5 ${densityPadding} text-theme-muted font-mono`}>
-                              {formatDateTime(q.date)}
+                              {formatDate(q.date)}
                             </td>
                             <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
                               {q.items.reduce((acc, i) => acc + i.quantity, 0)} units
@@ -2906,7 +2906,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                               </td>
                               <td className={`px-5 ${densityPadding} text-theme-body font-medium`}>{cust?.name || "Walk-In"}</td>
                               <td className={`px-5 ${densityPadding} text-theme-muted font-mono`}>
-                                {formatDateTime(si.date)}
+                                {formatDate(si.date)}
                               </td>
                               <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
                                 {si.items.reduce((acc, i) => acc + i.quantity, 0)} units
@@ -3037,7 +3037,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 {sr.reason}
                               </td>
                               <td className={`px-5 ${densityPadding} text-theme-muted font-mono`}>
-                                {formatDateTime(sr.date)}
+                                {formatDate(sr.date)}
                               </td>
                               <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
                                 {sr.items.reduce((acc, i) => acc + i.quantity, 0)} units
@@ -3551,14 +3551,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-theme-muted font-medium">Invoice Date</span>
                   <span className="text-theme-body font-mono">{formatDate(selectedInvoice.date)}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-theme-muted font-medium">Created At</span>
-                  <span className="text-theme-body font-mono">
-                    {selectedInvoice.createdAt
-                      ? formatDateTime(selectedInvoice.createdAt)
-                      : "Not available"}
-                  </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-theme-muted font-medium">Workflow Status</span>

@@ -32,7 +32,7 @@ import {
   ChevronRight, ChevronDown, CheckSquare, Eye, Share2, Edit3, Trash2,
   Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
   Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square,
-  Code, Terminal
+  Code, Terminal, FileSpreadsheet, ExternalLink
 } from "lucide-react";
 
 // Types for drill down context
@@ -269,6 +269,119 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const showNotification = (type: "success" | "error", text: string) => {
     setNotifMessage({ type, text });
     setTimeout(() => setNotifMessage(null), 4000);
+  };
+
+  const handleOpenInGoogleSheets = async () => {
+    try {
+      const moduleTitle = selectedReport?.title || "SMRITI Report";
+      let columns: any[] = [];
+      let rows: any[] = [];
+
+      if (selectedReport?.id === "RPT-TAX-001" && genericReportData?.lines) {
+        columns = [
+          { key: "invoice_number", label: "Invoice #", datatype: "text" },
+          { key: "invoice_date", label: "Date", datatype: "date" },
+          { key: "customer_name", label: "Customer", datatype: "text" },
+          { key: "taxable_amount", label: "Taxable Amount (INR)", datatype: "currency", isSummary: true },
+          { key: "cgst_rate", label: "CGST %", datatype: "percentage" },
+          { key: "cgst_amount", label: "CGST Amount", datatype: "currency", isSummary: true },
+          { key: "sgst_rate", label: "SGST %", datatype: "percentage" },
+          { key: "sgst_amount", label: "SGST Amount", datatype: "currency", isSummary: true },
+          { key: "igst_rate", label: "IGST %", datatype: "percentage" },
+          { key: "igst_amount", label: "IGST Amount", datatype: "currency", isSummary: true },
+          { key: "total_tax", label: "Total Tax (INR)", datatype: "currency", isSummary: true },
+          { key: "net_amount", label: "Net Total (INR)", datatype: "currency", isSummary: true },
+        ];
+        rows = genericReportData.lines;
+      } else if (selectedReport?.id === "RPT-TAX-002" && genericReportData?.lines) {
+        columns = [
+          { key: "invoice_number", label: "Invoice #", datatype: "text" },
+          { key: "invoice_date", label: "Date", datatype: "date" },
+          { key: "customer_name", label: "Customer", datatype: "text" },
+          { key: "payment_mode", label: "Payment Mode", datatype: "text" },
+          { key: "items_count", label: "Items", datatype: "number", isSummary: true },
+          { key: "gross_amount", label: "Gross (INR)", datatype: "currency", isSummary: true },
+          { key: "discount", label: "Discount (INR)", datatype: "currency", isSummary: true },
+          { key: "tax_amount", label: "Tax (INR)", datatype: "currency", isSummary: true },
+          { key: "net_amount", label: "Net Amount (INR)", datatype: "currency", isSummary: true },
+        ];
+        rows = genericReportData.lines;
+      } else if (selectedReport?.id === "RPT-TAX-003" && genericReportData?.lines) {
+        columns = [
+          { key: "item_code", label: "Item Code", datatype: "text" },
+          { key: "item_name", label: "Item Description", datatype: "text" },
+          { key: "category", label: "Category", datatype: "text" },
+          { key: "hsn_code", label: "HSN", datatype: "text" },
+          { key: "quantity", label: "Units Sold", datatype: "number", isSummary: true },
+          { key: "unit_price", label: "Unit Price", datatype: "currency" },
+          { key: "taxable_amount", label: "Taxable Value", datatype: "currency", isSummary: true },
+          { key: "gst_rate", label: "GST %", datatype: "percentage" },
+          { key: "gst_amount", label: "GST Amount", datatype: "currency", isSummary: true },
+          { key: "total_amount", label: "Total Amount (INR)", datatype: "currency", isSummary: true },
+        ];
+        rows = genericReportData.lines;
+      } else if (purchaseReportData && purchaseReportData.length > 0) {
+        columns = [
+          { key: "supplier_name", label: "Supplier Name", datatype: "text" },
+          { key: "supplier_id", label: "Supplier Code", datatype: "text" },
+          { key: "po_count", label: "Open POs", datatype: "number", isSummary: true },
+          { key: "outstanding", label: "Outstanding Due (INR)", datatype: "currency", isSummary: true },
+        ];
+        rows = purchaseReportData;
+      } else if (stockValuationData?.lines && stockValuationData.lines.length > 0) {
+        columns = [
+          { key: "name", label: "Product Name", datatype: "text" },
+          { key: "code", label: "SKU Code", datatype: "text" },
+          { key: "style_code", label: "Style", datatype: "text" },
+          { key: "stock", label: "Stock Units", datatype: "number", isSummary: true },
+          { key: "cost_price", label: "Unit Cost", datatype: "currency" },
+          { key: "stock_value", label: "Stock Valuation", datatype: "currency", isSummary: true },
+        ];
+        rows = stockValuationData.lines;
+      } else if (genericReportData?.lines || genericReportData?.rows) {
+        const rawList = genericReportData.lines || genericReportData.rows || [];
+        if (rawList.length > 0) {
+          const sample = rawList[0];
+          columns = Object.keys(sample).map((k) => ({
+            key: k,
+            label: k.replace(/_/g, " ").toUpperCase(),
+            datatype: typeof sample[k] === "number" ? "number" : "text",
+            isSummary: typeof sample[k] === "number",
+          }));
+          rows = rawList;
+        }
+      }
+
+      if (rows.length === 0) {
+        rows = [
+          { report: moduleTitle, generated_at: new Date().toISOString(), status: "Report initialized" }
+        ];
+        columns = [
+          { key: "report", label: "Report", datatype: "text" },
+          { key: "generated_at", label: "Generated At", datatype: "datetime" },
+          { key: "status", label: "Status", datatype: "text" },
+        ];
+      }
+
+      await GlobalExportService.openInGoogleSheets({
+        moduleName: selectedReport?.title || "Report",
+        format: "gsheet",
+        scope: "all",
+        columns,
+        data: rows,
+        metadata: {
+          moduleTitle: selectedReport?.title || "Report",
+          exportTimestamp: new Date().toISOString(),
+          dateRange: { start: filters.startDate, end: filters.endDate }
+        }
+      });
+
+      recordAuditAction("EXPORT_GSHEET", "reports", selectedReport?.id || "RPT-GEN", `Opened in Google Sheets: ${selectedReport?.title}`);
+      showNotification("success", "Opened in Google Sheets! Dataset copied to clipboard (Ctrl+V / Cmd+V to paste) and CSV backup downloaded.");
+    } catch (err: any) {
+      console.error("Failed to open in Google Sheets:", err);
+      showNotification("error", "Could not open Google Sheets automatically.");
+    }
   };
 
   const fetchStudios = async () => {
@@ -976,6 +1089,16 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 <Code size={13} className="text-indigo-400" /> Technical Details
               </button>
 
+              {/* Google Sheets Live Web Integration */}
+              <button
+                onClick={handleOpenInGoogleSheets}
+                className="px-3 py-2 bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Open active report in Google Sheets (sheets.new)"
+              >
+                <FileSpreadsheet size={13} className="text-emerald-400" />
+                <span>Google Sheets</span>
+              </button>
+
               {/* Print Engine */}
               <button
                 onClick={() => {
@@ -983,7 +1106,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   window.print();
                   showNotification("success", "SMRITI print compiler dispatched. Readying thermal layout spool.");
                 }}
-                className="px-3 py-2 bg-theme-surface-2 border border-theme-divider hover:border-blue-500/30 text-theme-body rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-2 bg-theme-surface-2 border border-theme-divider hover:border-blue-500/30 text-theme-body rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Printer size={13} className="text-theme-muted" /> Print
               </button>

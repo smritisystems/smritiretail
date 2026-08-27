@@ -12,7 +12,7 @@
  * Classification: Internal
  */
 
-export type ExportFormat = "csv" | "xlsx" | "txt";
+export type ExportFormat = "csv" | "xlsx" | "txt" | "json" | "html" | "gsheet";
 
 export type ExportScope = "currentPage" | "all" | "filtered" | "selected";
 
@@ -23,7 +23,7 @@ export interface ExportColumnDefinition {
   label: string;
   datatype?: ColumnDataType;
   align?: "left" | "center" | "right";
-  width?: number; // Approximate char width for text/excel
+  width?: number | string; // Approximate char width or pixel string for text/excel
   format?: (value: any, row?: any) => string;
   isVisible?: boolean;
   isSummary?: boolean; // If true, include in summary/totals row calculation

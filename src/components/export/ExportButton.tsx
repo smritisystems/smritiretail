@@ -21,6 +21,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import {
   ExportColumnDefinition,
@@ -195,6 +196,21 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
 
           <button
             type="button"
+            onClick={() => handleQuickExport("gsheet")}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-semibold transition-colors"
+          >
+            <ExternalLink className="w-4 h-4 text-emerald-500 shrink-0" />
+            <div>
+              <span className="font-bold block flex items-center gap-1">
+                <span>Google Sheets</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 uppercase font-mono">Web</span>
+              </span>
+              <span className="text-[10px] text-[#72777f] dark:text-[#8c9199]">Open live at sheets.new</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
             onClick={() => handleQuickExport("csv")}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] transition-colors"
           >
@@ -207,6 +223,18 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
 
           <button
             type="button"
+            onClick={() => handleQuickExport("json")}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] transition-colors"
+          >
+            <Table className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+            <div>
+              <span className="font-medium block">JSON Data (.json)</span>
+              <span className="text-[10px] text-[#72777f] dark:text-[#8c9199]">Structured Data Exchange</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
             onClick={() => handleQuickExport("txt")}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] transition-colors"
           >
@@ -214,6 +242,18 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
             <div>
               <span className="font-medium block">Plain Text (.txt)</span>
               <span className="text-[10px] text-[#72777f] dark:text-[#8c9199]">Aligned Monospace Table</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleQuickExport("html")}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#f7f9fc] dark:hover:bg-[#282d34] transition-colors"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            <div>
+              <span className="font-medium block">HTML Report (.html)</span>
+              <span className="text-[10px] text-[#72777f] dark:text-[#8c9199]">Interactive Styled Document</span>
             </div>
           </button>
 

@@ -404,7 +404,7 @@ def execute_commit():
                     );
                 """, (
                     prod_id, str(uuid.uuid4()), COMPANY_ID, BRANCH_ID, now, now,
-                    code_val, pdata['description'], pdata['base_cost'], cat_val, ean, color, size, pdata['mrp'], pdata['gst_rate'],
+                    code_val, pdata['description'], pdata['mrp'], cat_val, ean, color, size, pdata['mrp'], pdata['gst_rate'],
                     style, pdata['base_cost'], pdata['base_cost'], sku_val, pdata['hsn_code'],
                     psycopg2.extras.Json({
                         'article_no': pdata['article_no'],

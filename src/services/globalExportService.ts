@@ -225,6 +225,59 @@ function escapeCSVValue(val: string): string {
 }
 
 /**
+ * Serializes dataset into clean Tab-Separated Values (TSV) format for instant
+ * clipboard pasting and direct import into Google Spreadsheets (sheets.new).
+ */
+export function serializeToTSV(
+  columns: ExportColumnDefinition[],
+  data: any[],
+  metadata?: ExportMetadata
+): string {
+  const visibleCols = columns.filter((c) => c.isVisible !== false);
+  const lines: string[] = [];
+
+  // 1. Optional Metadata Header
+  if (metadata) {
+    lines.push(`SMRITI Retail OS — ${metadata.moduleTitle || "Export Report"}`);
+    if (metadata.companyName) lines.push(`Company\t${metadata.companyName}`);
+    if (metadata.branchName) lines.push(`Branch\t${metadata.branchName}`);
+    if (metadata.exportTimestamp) lines.push(`Timestamp\t${metadata.exportTimestamp}`);
+    if (metadata.searchTerm) lines.push(`Search\t${metadata.searchTerm}`);
+    lines.push("");
+  }
+
+  // 2. Table Column Headers
+  const headerRow = visibleCols.map((c) => c.label.replace(/\t/g, " ")).join("\t");
+  lines.push(headerRow);
+
+  // 3. Table Data Rows
+  for (const row of data) {
+    const rowValues = visibleCols.map((c) => {
+      const val = row[c.key];
+      const formatted = formatCellValue(val, c, row);
+      return String(formatted).replace(/[\t\r\n]/g, " ");
+    });
+    lines.push(rowValues.join("\t"));
+  }
+
+  // 4. Summary / Totals Row if any column is summary-enabled
+  const hasSummary = visibleCols.some((c) => c.isSummary);
+  if (hasSummary && data.length > 0) {
+    const summaryValues = visibleCols.map((c, idx) => {
+      if (idx === 0) return "TOTAL / SUMMARY";
+      if (c.isSummary && (c.datatype === "number" || c.datatype === "currency")) {
+        const sum = data.reduce((acc, row) => acc + (Number(row[c.key]) || 0), 0);
+        return formatCellValue(sum, c);
+      }
+      return "";
+    });
+    lines.push(summaryValues.join("\t"));
+  }
+
+  return lines.join("\r\n");
+}
+
+/**
  * Generates an Excel SpreadsheetML XML file (.xlsx / .xml) with native XML formatting,
  * freeze panes, styles, auto-filtering, and typed numeric/currency/date cells.
  */
@@ -327,9 +380,17 @@ export function serializeToSpreadsheetML(
   <Table ss:DefaultRowHeight="20">
 `;
 
-  // Define column widths
+  // Define column widths safely (never output NaN)
   for (const col of visibleCols) {
-    const width = col.width ? col.width * 8 : 120;
+    let width = 120;
+    if (typeof col.width === "number" && !isNaN(col.width) && col.width > 0) {
+      width = col.width > 30 ? col.width : col.width * 8;
+    } else if (typeof col.width === "string") {
+      const parsed = parseFloat(col.width.replace(/[^0-9.]/g, ""));
+      if (!isNaN(parsed) && parsed > 0) {
+        width = parsed > 30 ? parsed : parsed * 8;
+      }
+    }
     xml += `   <Column ss:Width="${width}"/>\n`;
   }
 
@@ -364,19 +425,19 @@ export function serializeToSpreadsheetML(
     xml += `   <Row ss:Height="20">\n`;
     for (const col of visibleCols) {
       const val = row[col.key];
-      if (val === null || val === undefined || String(val).trim() === "") {
+      if (val === null || val === undefined || String(val).trim() === "" || String(val).trim() === "—") {
         xml += `    <Cell ss:StyleID="TextCell"><Data ss:Type="String"></Data></Cell>\n`;
       } else if (col.datatype === "number" || col.datatype === "percentage") {
-        const num = Number(val);
-        if (!isNaN(num)) {
-          xml += `    <Cell ss:StyleID="NumberCell"><Data ss:Type="Number">${num}</Data></Cell>\n`;
+        const rawNum = typeof val === "number" ? val : parseFloat(String(val).replace(/[^0-9.-]/g, ""));
+        if (!isNaN(rawNum)) {
+          xml += `    <Cell ss:StyleID="NumberCell"><Data ss:Type="Number">${rawNum}</Data></Cell>\n`;
         } else {
           xml += `    <Cell ss:StyleID="TextCell"><Data ss:Type="String">${escapeXML(String(val))}</Data></Cell>\n`;
         }
       } else if (col.datatype === "currency") {
-        const num = Number(val);
-        if (!isNaN(num)) {
-          xml += `    <Cell ss:StyleID="CurrencyCell"><Data ss:Type="Number">${num}</Data></Cell>\n`;
+        const rawNum = typeof val === "number" ? val : parseFloat(String(val).replace(/[^0-9.-]/g, ""));
+        if (!isNaN(rawNum)) {
+          xml += `    <Cell ss:StyleID="CurrencyCell"><Data ss:Type="Number">${rawNum}</Data></Cell>\n`;
         } else {
           xml += `    <Cell ss:StyleID="TextCell"><Data ss:Type="String">${escapeXML(String(val))}</Data></Cell>\n`;
         }
@@ -400,7 +461,10 @@ export function serializeToSpreadsheetML(
       if (idx === 0) {
         xml += `    <Cell ss:StyleID="SummaryStyle"><Data ss:Type="String">TOTAL / SUMMARY</Data></Cell>\n`;
       } else if (col.isSummary && (col.datatype === "number" || col.datatype === "currency")) {
-        const sum = data.reduce((acc, row) => acc + (Number(row[col.key]) || 0), 0);
+        const sum = data.reduce((acc, row) => {
+          const raw = typeof row[col.key] === "number" ? row[col.key] : parseFloat(String(row[col.key] || "").replace(/[^0-9.-]/g, ""));
+          return acc + (!isNaN(raw) ? raw : 0);
+        }, 0);
         const style = col.datatype === "currency" ? "CurrencyCell" : "NumberCell";
         xml += `    <Cell ss:StyleID="${style}"><Data ss:Type="Number">${sum}</Data></Cell>\n`;
       } else {
@@ -534,6 +598,90 @@ function padString(str: string, width: number, align: "left" | "center" | "right
 }
 
 /**
+ * Serializes dataset into structured JSON format.
+ */
+export function serializeToJSON(
+  columns: ExportColumnDefinition[],
+  data: any[],
+  metadata?: ExportMetadata
+): string {
+  const visibleCols = columns.filter((c) => c.isVisible !== false);
+  const mappedData = data.map((row) => {
+    const obj: Record<string, any> = {};
+    for (const col of visibleCols) {
+      obj[col.key] = row[col.key];
+    }
+    return obj;
+  });
+
+  return JSON.stringify(
+    {
+      metadata: metadata || { moduleTitle: "SMRITI Export" },
+      totalRecords: mappedData.length,
+      columns: visibleCols.map((c) => ({ key: c.key, label: c.label, datatype: c.datatype })),
+      data: mappedData,
+    },
+    null,
+    2
+  );
+}
+
+/**
+ * Serializes dataset into styled standalone HTML table document.
+ */
+export function serializeToHTML(
+  columns: ExportColumnDefinition[],
+  data: any[],
+  metadata?: ExportMetadata
+): string {
+  const visibleCols = columns.filter((c) => c.isVisible !== false);
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escapeXML(metadata?.moduleTitle || "SMRITI Export Report")}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 24px; color: #1e293b; background: #ffffff; }
+    h1 { color: #003d9b; font-size: 20px; margin-bottom: 4px; }
+    .meta { color: #64748b; font-size: 12px; margin-bottom: 16px; font-family: monospace; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { background: #003d9b; color: white; padding: 8px 12px; text-align: left; font-weight: 600; border: 1px solid #002d72; }
+    td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; border-left: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>SMRITI Retail OS — ${escapeXML(metadata?.moduleTitle || "Export Report")}</h1>
+  <div class="meta">
+    Generated: ${new Date().toLocaleString()} | Total Records: ${data.length}
+    ${metadata?.companyName ? ` | Company: ${escapeXML(metadata.companyName)}` : ""}
+    ${metadata?.branchName ? ` | Branch: ${escapeXML(metadata.branchName)}` : ""}
+  </div>
+  <table>
+    <thead>
+      <tr>
+        ${visibleCols.map((c) => `<th class="${c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : ""}">${escapeXML(c.label)}</th>`).join("")}
+      </tr>
+    </thead>
+    <tbody>
+      ${data.map((row) => `
+        <tr>
+          ${visibleCols.map((c) => {
+            const val = formatCellValue(row[c.key], c, row);
+            const alignClass = c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "";
+            return `<td class="${alignClass}">${escapeXML(val)}</td>`;
+          }).join("")}
+        </tr>
+      `).join("")}
+    </tbody>
+  </table>
+</body>
+</html>`;
+}
+
+/**
  * Triggers universal browser download for a generated Blob.
  */
 export function downloadExportBlob(blob: Blob, filename: string): void {
@@ -578,6 +726,11 @@ export class GlobalExportService {
       };
     }
 
+    // If Google Sheets format requested, delegate to openInGoogleSheets
+    if (format === "gsheet") {
+      return this.openInGoogleSheets(options);
+    }
+
     // 2. Sanitize rows
     const sanitizedRows = sanitizeExportRecord(targetRows);
 
@@ -591,6 +744,12 @@ export class GlobalExportService {
     } else if (format === "xlsx") {
       const xmlContent = serializeToSpreadsheetML(columns, sanitizedRows, metadata, sheetName || moduleName);
       blob = new Blob([xmlContent], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    } else if (format === "json") {
+      const jsonContent = serializeToJSON(columns, sanitizedRows, metadata);
+      blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
+    } else if (format === "html") {
+      const htmlContent = serializeToHTML(columns, sanitizedRows, metadata);
+      blob = new Blob([htmlContent], { type: "text/html;charset=utf-8;" });
     } else {
       const textContent = serializeToAlignedTextTable(columns, sanitizedRows, metadata);
       blob = new Blob([textContent], { type: "text/plain;charset=utf-8;" });
@@ -603,6 +762,67 @@ export class GlobalExportService {
       success: true,
       filename,
       format,
+      rowCount: sanitizedRows.length,
+      fileSizeBytes: blob.size,
+    };
+  }
+
+  /**
+   * Opens the report directly in Google Sheets (sheets.new) by:
+   * 1. Copying the formatted TSV table to clipboard for instant Ctrl+V pasting.
+   * 2. Automatically triggering a CSV backup file download.
+   * 3. Launching https://sheets.new in a new browser tab.
+   */
+  public static async openInGoogleSheets(
+    options: ExportDatasetOptions
+  ): Promise<ExportResult> {
+    const { moduleName, scope, columns, data, selectedRows, metadata, customFilename, sheetName } = options;
+
+    let targetRows: any[];
+    if (scope === "selected") {
+      targetRows = selectedRows && selectedRows.length > 0 ? selectedRows : data;
+    } else {
+      targetRows = data || [];
+    }
+
+    if (targetRows.length === 0) {
+      return {
+        success: false,
+        filename: "",
+        format: "gsheet",
+        rowCount: 0,
+        fileSizeBytes: 0,
+        errorMessage: "No records available to open in Google Sheets.",
+      };
+    }
+
+    const sanitizedRows = sanitizeExportRecord(targetRows);
+    const tsvContent = serializeToTSV(columns, sanitizedRows, metadata);
+
+    // 1. Copy to clipboard
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(tsvContent);
+      }
+    } catch (err) {
+      console.warn("Clipboard copy warning:", err);
+    }
+
+    // 2. Generate and download CSV file as backup
+    const csvContent = serializeToCSV(columns, sanitizedRows, metadata);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const filename = generateSafeExportFilename(moduleName, scope, "csv", customFilename);
+    downloadExportBlob(blob, filename);
+
+    // 3. Open Google Sheets web app in a new window/tab
+    if (typeof window !== "undefined" && window.open) {
+      window.open("https://sheets.new", "_blank", "noopener,noreferrer");
+    }
+
+    return {
+      success: true,
+      filename,
+      format: "gsheet",
       rowCount: sanitizedRows.length,
       fileSizeBytes: blob.size,
     };
