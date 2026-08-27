@@ -32,8 +32,10 @@ import {
   ChevronRight, ChevronDown, CheckSquare, Eye, Share2, Edit3, Trash2,
   Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
   Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square,
-  Code, Terminal, FileSpreadsheet, ExternalLink
+  Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight
 } from "lucide-react";
+import { SalesOrderA4 } from "./templates/SalesOrderA4";
+import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 
 // Types for drill down context
 interface DrilldownBreadcrumb {
@@ -119,6 +121,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [stockValuationData, setStockValuationData] = useState<any>(null);
   const [genericReportData, setGenericReportData] = useState<any>(null);
   const [loadingReports, setLoadingReports] = useState<boolean>(false);
+  const [soPreviewData, setSoPreviewData] = useState<any | null>(null);
+  const [showSoPrintModal, setShowSoPrintModal] = useState<boolean>(false);
+  const [convertingOrderId, setConvertingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadReportsData() {
@@ -181,6 +186,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-SO-008") {
           const data = await apiFetchV1(`/reports/sales-orders/detailed${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SO-009") {
+          const data = await apiFetchV1(`/reports/sales-orders/fulfillment-variance${params}`);
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-SO-002") {
           const data = await apiFetchV1(`/reports/sales-orders/pending${params}`);
@@ -577,6 +585,36 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     setDrillLevel(nextLevel);
     setDrillFilter(rowId);
     setBreadcrumbs([...breadcrumbs, { title: rowTitle, level: nextLevel, id: rowId, category: rowId }]);
+  };
+
+  const handleConvertToInvoice = async (orderId: string, orderNo: string) => {
+    try {
+      setConvertingOrderId(orderId);
+      const res = await apiFetchV1(`/sales/orders/${orderId}/convert-to-invoice`, { method: "POST" });
+      showNotification("success", `Sales Order ${orderNo} converted to Tax Invoice ${res.invoice_no}!`);
+      const params = `?from_date=${filters.startDate}&to_date=${filters.endDate}`;
+      if (selectedReport?.id === "RPT-SO-009") {
+        const data = await apiFetchV1(`/reports/sales-orders/fulfillment-variance${params}`);
+        setGenericReportData(data);
+      } else if (selectedReport?.id === "RPT-SO-008") {
+        const data = await apiFetchV1(`/reports/sales-orders/detailed${params}`);
+        setGenericReportData(data);
+      }
+    } catch (e: any) {
+      showNotification("error", e?.message || "Failed to convert sales order to invoice.");
+    } finally {
+      setConvertingOrderId(null);
+    }
+  };
+
+  const handlePreviewSO = async (orderId: string) => {
+    try {
+      const order = await apiFetchV1(`/sales/orders/${orderId}`);
+      setSoPreviewData(order);
+      setShowSoPrintModal(true);
+    } catch (e: any) {
+      showNotification("error", "Failed to load sales order details for preview.");
+    }
   };
 
   // Get current studio reports list
@@ -2503,6 +2541,272 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
+            {/* RPT-SO-009: Automated Fulfillment Variance & Backorder Tracker */}
+            {selectedReport.id === "RPT-SO-009" && (
+              <div className="p-4 space-y-5">
+                {/* Header Info */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 bg-gradient-to-r from-amber-950/40 via-indigo-950/30 to-rose-950/20 border border-amber-500/20 rounded-2xl">
+                  <div>
+                    <h5 className="font-bold text-sm text-theme-body flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                      Automated Fulfillment Variance &amp; Backorder Tracker
+                    </h5>
+                    <p className="text-[11px] text-theme-muted font-mono mt-0.5">
+                      Multi-tier SLA aging buckets, store-level allocation shortages, and 1-click invoice conversion queue.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleConvertToInvoice(genericReportData?.orders?.[0]?.order_no || "", genericReportData?.orders?.[0]?.order_no || "")}
+                      disabled={!genericReportData?.orders?.length || convertingOrderId !== null}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    >
+                      <Sparkles size={13} /> Convert Top Pending to Invoice
+                    </button>
+                  </div>
+                </div>
+
+                {/* Overall KPI Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Orders</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.summary?.total_orders ?? 0} Orders</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Booked Pairs</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.summary?.total_booked_pairs ?? 0).toLocaleString("en-IN")} PRS</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Dispatched Pairs</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">{Number(genericReportData?.summary?.total_billed_pairs ?? 0).toLocaleString("en-IN")} PRS</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Backorder Shortage</span>
+                    <p className="text-sm font-black text-rose-400 mt-1">{Number(genericReportData?.summary?.total_pending_pairs ?? 0).toLocaleString("en-IN")} PRS</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Pending Value</span>
+                    <p className="text-sm font-black text-amber-400 mt-1">₹{Number(genericReportData?.summary?.total_pending_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Fulfillment SLA</span>
+                    <p className="text-sm font-black text-emerald-300 mt-1">{Number(genericReportData?.summary?.overall_fulfillment_rate ?? 0).toFixed(1)}%</p>
+                  </div>
+                </div>
+
+                {/* 4-Tier SLA Aging Breakdown Grid */}
+                <div className="space-y-2">
+                  <h6 className="text-xs font-bold text-theme-body flex items-center gap-2">
+                    <Clock size={14} className="text-indigo-400" />
+                    Backorder Aging Buckets (SLA Compliance)
+                  </h6>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    {/* 0-7 Days */}
+                    <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-emerald-300">0 – 7 Days</span>
+                        <span className="text-[10px] font-mono bg-emerald-900/50 text-emerald-200 px-1.5 py-0.5 rounded">Fresh SLA</span>
+                      </div>
+                      <div className="text-lg font-black text-emerald-200 font-mono">
+                        {Number(genericReportData?.aging_buckets?.["0_7_days"]?.pending_qty ?? 0).toLocaleString("en-IN")} PRS
+                      </div>
+                      <div className="text-[10px] text-emerald-400 font-mono">
+                        {genericReportData?.aging_buckets?.["0_7_days"]?.count ?? 0} Orders • ₹{Number(genericReportData?.aging_buckets?.["0_7_days"]?.pending_val ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                      </div>
+                    </div>
+
+                    {/* 8-14 Days */}
+                    <div className="p-3.5 bg-blue-950/20 border border-blue-500/30 rounded-xl space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-blue-300">8 – 14 Days</span>
+                        <span className="text-[10px] font-mono bg-blue-900/50 text-blue-200 px-1.5 py-0.5 rounded">Normal SLA</span>
+                      </div>
+                      <div className="text-lg font-black text-blue-200 font-mono">
+                        {Number(genericReportData?.aging_buckets?.["8_14_days"]?.pending_qty ?? 0).toLocaleString("en-IN")} PRS
+                      </div>
+                      <div className="text-[10px] text-blue-400 font-mono">
+                        {genericReportData?.aging_buckets?.["8_14_days"]?.count ?? 0} Orders • ₹{Number(genericReportData?.aging_buckets?.["8_14_days"]?.pending_val ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                      </div>
+                    </div>
+
+                    {/* 15-30 Days */}
+                    <div className="p-3.5 bg-amber-950/20 border border-amber-500/30 rounded-xl space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-amber-300">15 – 30 Days</span>
+                        <span className="text-[10px] font-mono bg-amber-900/50 text-amber-200 px-1.5 py-0.5 rounded">Aging Backorder</span>
+                      </div>
+                      <div className="text-lg font-black text-amber-200 font-mono">
+                        {Number(genericReportData?.aging_buckets?.["15_30_days"]?.pending_qty ?? 0).toLocaleString("en-IN")} PRS
+                      </div>
+                      <div className="text-[10px] text-amber-400 font-mono">
+                        {genericReportData?.aging_buckets?.["15_30_days"]?.count ?? 0} Orders • ₹{Number(genericReportData?.aging_buckets?.["15_30_days"]?.pending_val ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                      </div>
+                    </div>
+
+                    {/* Over 30 Days */}
+                    <div className="p-3.5 bg-rose-950/20 border border-rose-500/30 rounded-xl space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-rose-300">&gt; 30 Days</span>
+                        <span className="text-[10px] font-mono bg-rose-900/50 text-rose-200 px-1.5 py-0.5 rounded font-bold">Critical Shortage</span>
+                      </div>
+                      <div className="text-lg font-black text-rose-200 font-mono">
+                        {Number(genericReportData?.aging_buckets?.["over_30_days"]?.pending_qty ?? 0).toLocaleString("en-IN")} PRS
+                      </div>
+                      <div className="text-[10px] text-rose-400 font-mono">
+                        {genericReportData?.aging_buckets?.["over_30_days"]?.count ?? 0} Orders • ₹{Number(genericReportData?.aging_buckets?.["over_30_days"]?.pending_val ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2-Column Section: Store Shortages & Style Shortages */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Store Shortage Table */}
+                  <div className="border border-theme-divider rounded-xl overflow-hidden">
+                    <div className="p-3 bg-theme-surface-2 font-bold text-xs text-theme-body border-b border-theme-divider flex justify-between items-center">
+                      <span>Store-Level Shortage &amp; Allocation</span>
+                      <span className="text-[10px] text-theme-muted font-mono">{(genericReportData?.stores || []).length} Stores</span>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-theme-surface-3/50 text-theme-muted uppercase text-[9px] font-bold sticky top-0">
+                          <tr>
+                            <th className="p-2">Store</th>
+                            <th className="p-2">State</th>
+                            <th className="p-2 text-right">Ordered</th>
+                            <th className="p-2 text-right">Billed</th>
+                            <th className="p-2 text-right text-rose-400">Shortage</th>
+                            <th className="p-2 text-right">Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-theme-divider/40 font-mono text-[11px]">
+                          {(genericReportData?.stores || []).slice(0, 50).map((st: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-theme-surface-hover">
+                              <td className="p-2 font-bold text-blue-400">{st.site_code}</td>
+                              <td className="p-2 text-theme-muted">{st.destination_state}</td>
+                              <td className="p-2 text-right">{Number(st.ordered_qty).toLocaleString("en-IN")}</td>
+                              <td className="p-2 text-right text-emerald-400">{Number(st.billed_qty).toLocaleString("en-IN")}</td>
+                              <td className="p-2 text-right font-bold text-rose-400">{Number(st.pending_qty).toLocaleString("en-IN")}</td>
+                              <td className="p-2 text-right font-bold text-slate-200">{st.fulfillment_rate}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Style Shortage Table */}
+                  <div className="border border-theme-divider rounded-xl overflow-hidden">
+                    <div className="p-3 bg-theme-surface-2 font-bold text-xs text-theme-body border-b border-theme-divider flex justify-between items-center">
+                      <span>Style / Article Shortage Breakdown</span>
+                      <span className="text-[10px] text-theme-muted font-mono">{(genericReportData?.styles || []).length} Styles</span>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-theme-surface-3/50 text-theme-muted uppercase text-[9px] font-bold sticky top-0">
+                          <tr>
+                            <th className="p-2">Style Code</th>
+                            <th className="p-2 text-center">HSN</th>
+                            <th className="p-2 text-right">Ordered</th>
+                            <th className="p-2 text-right">Billed</th>
+                            <th className="p-2 text-right text-amber-400">Pending</th>
+                            <th className="p-2 text-right">Pending Val</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-theme-divider/40 font-mono text-[11px]">
+                          {(genericReportData?.styles || []).slice(0, 50).map((sty: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-theme-surface-hover">
+                              <td className="p-2 font-bold text-theme-body">{sty.style_name}</td>
+                              <td className="p-2 text-center text-theme-muted">{sty.hsn_code}</td>
+                              <td className="p-2 text-right">{Number(sty.ordered_qty).toLocaleString("en-IN")}</td>
+                              <td className="p-2 text-right text-emerald-400">{Number(sty.billed_qty).toLocaleString("en-IN")}</td>
+                              <td className="p-2 text-right font-bold text-amber-400">{Number(sty.pending_qty).toLocaleString("en-IN")}</td>
+                              <td className="p-2 text-right font-bold text-amber-300">₹{Number(sty.pending_val).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actionable Orders Queue */}
+                <div className="border border-theme-divider rounded-xl overflow-hidden">
+                  <div className="p-3 bg-theme-surface-2 font-bold text-xs text-theme-body border-b border-theme-divider flex justify-between items-center">
+                    <span className="flex items-center gap-2">
+                      <ShoppingBag size={14} className="text-emerald-400" />
+                      Actionable Orders Queue (Direct Invoice Conversion &amp; Confirmation)
+                    </span>
+                    <span className="text-[10px] text-theme-muted font-mono">{(genericReportData?.orders || []).length} Pending Orders</span>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-theme-surface-3/50 text-theme-muted uppercase text-[9px] font-bold sticky top-0">
+                        <tr>
+                          <th className="p-2.5">Order No</th>
+                          <th className="p-2.5">Customer PO</th>
+                          <th className="p-2.5">Store / Site</th>
+                          <th className="p-2.5 text-center">Age</th>
+                          <th className="p-2.5 text-right">Ordered (PRS)</th>
+                          <th className="p-2.5 text-right">Billed (PRS)</th>
+                          <th className="p-2.5 text-right text-amber-400">Pending (PRS)</th>
+                          <th className="p-2.5 text-right">Pending Val (₹)</th>
+                          <th className="p-2.5 text-center">Status</th>
+                          <th className="p-2.5 text-center">Quick Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider/40 font-mono text-[11px]">
+                        {(genericReportData?.orders || []).slice(0, 100).map((ord: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-2.5 font-bold text-blue-400">{ord.order_no}</td>
+                            <td className="p-2.5 text-theme-muted">{ord.po_number || "—"}</td>
+                            <td className="p-2.5 text-theme-body">{ord.site_code} ({ord.destination_state})</td>
+                            <td className="p-2.5 text-center">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono ${
+                                ord.age_days > 30 ? "bg-rose-950/60 text-rose-300 border border-rose-500/40" :
+                                ord.age_days > 14 ? "bg-amber-950/60 text-amber-300 border border-amber-500/40" :
+                                "bg-emerald-950/60 text-emerald-300 border border-emerald-500/40"
+                              }`}>
+                                {ord.age_days}d
+                              </span>
+                            </td>
+                            <td className="p-2.5 text-right font-bold">{Number(ord.ordered_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-2.5 text-right text-emerald-400">{Number(ord.billed_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-2.5 text-right font-bold text-amber-400">{Number(ord.pending_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-2.5 text-right font-bold text-amber-300">₹{Number(ord.pending_val).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-2.5 text-center">
+                              <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold font-sans bg-slate-800 text-slate-300 border border-slate-700">
+                                {ord.fulfillment_status}
+                              </span>
+                            </td>
+                            <td className="p-2.5 text-center flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handlePreviewSO(ord.order_no)}
+                                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 text-[10px] font-semibold flex items-center gap-1 cursor-pointer"
+                                title="Print SO Confirmation"
+                              >
+                                <Printer size={11} /> Preview
+                              </button>
+                              <button
+                                type="button"
+                                disabled={convertingOrderId === ord.order_no}
+                                onClick={() => handleConvertToInvoice(ord.order_no, ord.order_no)}
+                                className="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded text-[10px] font-bold flex items-center gap-1 shadow-sm cursor-pointer"
+                                title="1-Click Convert to Invoice"
+                              >
+                                <Sparkles size={11} /> Convert
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* RPT-SO-002: Pending Orders */}
             {selectedReport.id === "RPT-SO-002" && (
               <div className="p-4 space-y-4">
@@ -2925,6 +3229,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               "RPT-MRC-005",
               "RPT-SO-001",
               "RPT-SO-008",
+              "RPT-SO-009",
               "RPT-SO-002",
               "RPT-SO-003",
               "RPT-SO-004",
@@ -3216,6 +3521,62 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         )}
       </AnimatePresence>
 
+      {/* SALES ORDER CONFIRMATION / PROFORMA PRINT PREVIEW MODAL */}
+      <AnimatePresence>
+        {showSoPrintModal && soPreviewData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative max-h-[92vh] flex flex-col">
+              <div className="flex justify-between items-center pb-4 mb-4 border-b border-slate-800 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30">
+                    <Printer size={16} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                      Sales Order Confirmation / Proforma Document Preview
+                      <span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full">
+                        A4 Standard
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-400 font-mono">
+                      Order: {soPreviewData.order_no} • PO: {soPreviewData.po_number || "—"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`/api/v1/sales/orders/${soPreviewData.id || soPreviewData.order_no}/pdf`}
+                    download
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Download size={13} /> Download PDF
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Printer size={13} /> Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSoPrintModal(false)}
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-y-auto flex-1 bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex justify-center">
+                <SalesOrderA4 data={soPreviewData} />
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
+

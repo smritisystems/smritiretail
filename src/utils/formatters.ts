@@ -114,3 +114,11 @@ export function formatNumber(val: unknown, decimals = 2): string {
     return num.toFixed(decimals);
   }
 }
+
+/**
+ * Formats quantity values as whole units or decimals.
+ */
+export function formatQuantity(val: unknown, decimals = 0): string {
+  return formatNumber(val, decimals);
+}
+

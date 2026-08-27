@@ -14,7 +14,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Grid, Plus, Trash2, CheckCircle2, Calculator, Layers, Sparkles } from "lucide-react";
-import { formatCurrency, formatQuantity } from "../../lib/formatters";
+import { formatCurrency, formatQuantity } from "../../utils/formatters";
 
 export interface MatrixSizeRow {
   id: string;
