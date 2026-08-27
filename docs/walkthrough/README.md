@@ -19,12 +19,12 @@
   * Version    : 3.17.0
   * Created    : 2026-07-11
   * Modified   : 2026-07-14
-  * Copyright  : Â© SMRITIBooks.com. All Rights Reserved.
+  * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
 -->
 
-# SMRITI Retail OS â€” Walkthroughs Index
+# SMRITI Retail OS — Walkthroughs Index
 
 This directory contains formal walkthroughs documenting major features, bug fixes, refactoring, and optimizations in SMRITI Retail OS.
 

@@ -9,7 +9,7 @@
  * Version      : 3.29.0
  * Created      : 2026-07-13
  * Modified     : 2026-08-25
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : CRM Studio (Fiori Horizon Inspired Light Theme)
  */
