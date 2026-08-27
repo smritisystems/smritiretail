@@ -47,6 +47,7 @@ from ...schemas.reports import (
     ProductWiseOrderedQuantityReport,
     OrderFulfillmentStatusReport,
     InvoiceAllocationReportModel,
+    SalesOrderDetailReport,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
 from ...services.reports import ReportsService
@@ -65,6 +66,7 @@ SMRITI_STUDIOS = {
         "icon": "bar_chart",
         "reports": [
             {"id": "RPT-SO-001", "code": "RPT-SO-001", "title": "Sales Order Summary",                 "description": "Consolidated order counts, total order values, and fulfillment overview across all sales orders.", "category": "Sales Orders",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-008", "code": "RPT-SO-008", "title": "Detailed Sales Orders Register",       "description": "Complete line-item breakdown with article, size, quantities, rates, discounts, GST, billed balance & multi-sheet Excel export.", "category": "Sales Orders", "format": "Matrix", "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SO-002", "code": "RPT-SO-002", "title": "Pending Orders",                     "description": "Active unfulfilled and partially fulfilled sales orders awaiting billing or shipment.", "category": "Sales Orders",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SO-003", "code": "RPT-SO-003", "title": "Billed vs Pending Orders",           "description": "Comparison breakdown of booked order value versus invoiced value and outstanding balances.", "category": "Sales Orders",   "format": "Matrix", "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SO-004", "code": "RPT-SO-004", "title": "Customer-wise Orders",               "description": "Customer order aggregates, average order size, and fulfillment distribution by customer.", "category": "Sales Orders",   "format": "Pivot",  "owner": "System", "drillDownEnabled": True},
@@ -497,6 +499,79 @@ async def get_invoice_allocations_report(
     """RPT-SO-007 — Invoice Allocation Report."""
     return await ReportsService(db, tenant).invoice_allocations(
         from_date=from_date, to_date=to_date, order_id=order_id
+    )
+
+
+@router.get("/sales-orders/detailed", response_model=SalesOrderDetailReport)
+async def get_sales_order_detailed(
+    from_date:   Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:     Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    customer_id: Optional[str]  = Query(default=None, description="Customer filter"),
+    status:      Optional[str]  = Query(default=None, description="Fulfillment status filter"),
+    site_code:   Optional[str]  = Query(default=None, description="Store / Site code filter"),
+    search:      Optional[str]  = Query(default=None, description="Search Order No / PO Number / Article"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """RPT-SO-008 — Detailed Line-Item Sales Orders Register & Fulfillment Trace."""
+    return await ReportsService(db, tenant).sales_order_detailed(
+        from_date=from_date,
+        to_date=to_date,
+        customer_id=customer_id,
+        status=status,
+        site_code=site_code,
+        search=search,
+    )
+
+
+@router.get("/sales-orders/export-excel")
+async def export_sales_orders_excel(
+    from_date:   Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:     Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    customer_id: Optional[str]  = Query(default=None, description="Customer filter"),
+    status:      Optional[str]  = Query(default=None, description="Fulfillment status filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Generates and downloads full 6-sheet Master Sales Orders Excel workbook (.xlsx)."""
+    excel_bytes = await ReportsService(db, tenant).export_sales_orders_master_excel(
+        from_date=from_date,
+        to_date=to_date,
+        customer_id=customer_id,
+        status=status,
+    )
+    filename = f"Sales_Orders_Master_Report_{date.today().strftime('%Y%m%d')}.xlsx"
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/sales-orders/export-csv")
+async def export_sales_orders_csv(
+    from_date:   Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date:     Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    customer_id: Optional[str]  = Query(default=None, description="Customer filter"),
+    status:      Optional[str]  = Query(default=None, description="Fulfillment status filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Generates and downloads flat Line-Item Sales Orders CSV export."""
+    csv_str = await ReportsService(db, tenant).export_sales_orders_csv(
+        from_date=from_date,
+        to_date=to_date,
+        customer_id=customer_id,
+        status=status,
+    )
+    filename = f"Sales_Orders_Detailed_{date.today().strftime('%Y%m%d')}.csv"
+    return Response(
+        content=csv_str.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 

@@ -136,15 +136,15 @@ def number_to_indian_words(num: float) -> str:
 
 
 def generate_barcode_base64(val: str) -> str:
-    """Generates Code128 Barcode as base64 PNG data URI."""
+    """Generates Code128 Barcode as high-contrast base64 PNG data URI for crisp camera/scanner readability."""
     try:
         code = Code128(val, writer=ImageWriter())
         fp = io.BytesIO()
         code.write(fp, options={
             'write_text': False,
-            'module_height': 7.0,
-            'module_width': 0.22,
-            'quiet_zone': 0.5
+            'module_height': 14.0,
+            'module_width': 0.35,
+            'quiet_zone': 1.0
         })
         b64 = base64.b64encode(fp.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{b64}"
@@ -153,13 +153,13 @@ def generate_barcode_base64(val: str) -> str:
 
 
 def generate_qr_base64(data_str: str) -> str:
-    """Generates QR Code as base64 PNG data URI (supports standard and IRP signed payloads)."""
+    """Generates QR Code as high-density base64 PNG data URI (supports standard and IRP signed payloads)."""
     try:
         qr = qrcode.QRCode(
             version=None,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=3,
-            border=1
+            box_size=6,
+            border=2
         )
         qr.add_data(data_str)
         qr.make(fit=True)
@@ -386,24 +386,24 @@ class InvoicePdfService:
         bank_name = (
             getattr(invoice, "bank_name", None)
             or meta.get("bank_name")
-            or os.getenv("DEFAULT_BANK_NAME", "")
+            or os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA")
         )
         account_no = (
             getattr(invoice, "account_no", None)
             or meta.get("bank_account_no")
             or meta.get("account_no")
-            or os.getenv("DEFAULT_BANK_ACCOUNT_NO", "")
+            or os.getenv("DEFAULT_BANK_ACCOUNT_NO", "43976711765")
         )
         ifsc_code = (
             getattr(invoice, "ifsc_code", None)
             or meta.get("bank_ifsc")
             or meta.get("ifsc_code")
-            or os.getenv("DEFAULT_BANK_IFSC", "")
+            or os.getenv("DEFAULT_BANK_IFSC", "SBIN0030425")
         )
         bank_branch = (
             getattr(invoice, "bank_branch", None)
             or meta.get("bank_branch")
-            or os.getenv("DEFAULT_BANK_BRANCH", "")
+            or os.getenv("DEFAULT_BANK_BRANCH", "Commercial Branch")
         )
 
         company_web = meta.get("company_website", "www.tattlythreads.com")
@@ -694,8 +694,8 @@ class InvoicePdfService:
                             <div>Dispatch: {dispatch_email}</div>
                             <div>Accounts: {accounts_email}</div>
                           </div>
-                          <div style="font-size: 8px; font-weight: 700; font-family: monospace; margin-top: 2px;">
-                            GSTIN: {company_gstin}
+                          <div class="company-gstin">
+                            GSTIN: <span class="gstin-val">{company_gstin}</span>
                           </div>
                         </div>
                       </div>
@@ -707,11 +707,11 @@ class InvoicePdfService:
                             <div class="invoice-title">TAX INVOICE</div>
                             {f'<span style="color: #dc2626; border: 1.5px solid #dc2626; border-radius: 3px; font-weight: 800; font-size: 7.5px; padding: 1px 4px; text-transform: uppercase; letter-spacing: 0.5px;">CANCELLED</span>' if is_cancelled else ''}
                           </div>
-                          {f'<div style="margin-top: 1px;"><img src="{barcode_uri}" style="height: 16px; width: auto;"/><div style="font-family: monospace; font-size: 6px; font-weight: 700; color: #374151;">{invoice_no}</div></div>' if barcode_uri else ''}
+                          {f'<div style="margin-top: 2px;"><img src="{barcode_uri}" style="height: 26px; width: auto; max-width: 145px; object-fit: contain;"/><div style="font-family: monospace; font-size: 7.5px; font-weight: 800; color: #111827; letter-spacing: 0.5px; margin-top: 1px;">{invoice_no}</div></div>' if barcode_uri else ''}
                         </div>
-                        <div style="text-align: center;">
-                          {f'<img src="{qr_uri}" style="width: 42px; height: 42px; border: 1px solid #d1d5db; padding: 1px; object-fit: contain;"/>' if qr_uri else ''}
-                          <div style="font-family: monospace; font-size: 5.5px; color: #6b7280; text-transform: uppercase;">{qr_label}</div>
+                        <div style="text-align: center; margin-left: 6px;">
+                          {f'<img src="{qr_uri}" style="width: 56px; height: 56px; border: 1.5px solid #0f172a; padding: 2px; border-radius: 4px; background: #ffffff; object-fit: contain;"/>' if qr_uri else ''}
+                          <div style="font-family: monospace; font-size: 6.5px; font-weight: 700; color: #1e293b; text-transform: uppercase; margin-top: 1px;">{qr_label}</div>
                         </div>
                       </div>
                       <table class="meta-table">
@@ -1075,7 +1075,7 @@ class InvoicePdfService:
 
             pdf_data = await page.pdf(
                 format="A4",
-                margin={"top": "8mm", "bottom": "10mm", "left": "8mm", "right": "8mm"},
+                margin={"top": "8mm", "bottom": "10mm", "left": "12mm", "right": "6mm"},
                 print_background=True
             )
             await browser.close()
@@ -1129,7 +1129,7 @@ class InvoicePdfService:
 
             pdf_bytes = await page.pdf(
                 format="A4",
-                margin={"top": "8mm", "bottom": "10mm", "left": "8mm", "right": "8mm"},
+                margin={"top": "8mm", "bottom": "10mm", "left": "12mm", "right": "6mm"},
                 print_background=True
             )
             await browser.close()

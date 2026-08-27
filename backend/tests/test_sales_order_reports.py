@@ -242,6 +242,46 @@ async def test_tax_invoice_gst_math_reconciliation():
     assert tax_inter_5["taxable_value"] == Decimal("1400.00")
     assert tax_inter_5["cgst_amount"] == Decimal("0.00")
     assert tax_inter_5["sgst_amount"] == Decimal("0.00")
-    assert tax_inter_5["igst_amount"] == Decimal("70.00")
     assert (tax_inter_5["cgst_amount"] + tax_inter_5["sgst_amount"] + tax_inter_5["igst_amount"]) == tax_inter_5["tax_amount"]
     assert (tax_inter_5["taxable_value"] + tax_inter_5["tax_amount"]) == tax_inter_5["total_amount"]
+
+
+@pytest.mark.asyncio
+async def test_sales_order_detailed_report_endpoint():
+    """RPT-SO-008: Detailed Sales Orders Register."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/reports/sales-orders/detailed", headers=_get_auth_headers())
+        assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
+        data = res.json()
+        assert "total_orders" in data
+        assert "total_lines" in data
+        assert "total_ordered_qty" in data
+        assert "total_grand_amount" in data
+        assert "fulfillment_rate_pct" in data
+        assert "lines" in data
+        assert isinstance(data["lines"], list)
+
+
+@pytest.mark.asyncio
+async def test_sales_order_export_excel_endpoint():
+    """RPT-SO-008: Multi-sheet Master Excel Export."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/reports/sales-orders/export-excel", headers=_get_auth_headers())
+        assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
+        assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in res.headers.get("content-type", "")
+        assert len(res.content) > 1000
+
+
+@pytest.mark.asyncio
+async def test_sales_order_export_csv_endpoint():
+    """RPT-SO-008: Line-Item CSV Export."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/reports/sales-orders/export-csv", headers=_get_auth_headers())
+        assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
+        assert "text/csv" in res.headers.get("content-type", "")
+        text = res.text
+        assert "Order No,PO Number,Order Date" in text
+

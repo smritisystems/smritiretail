@@ -646,4 +646,70 @@ class InvoiceAllocationReportModel(BaseModel):
     rows:               List[InvoiceAllocationReportLine] = []
 
 
+class SalesOrderDetailLine(BaseModel):
+    """RPT-SO-008 Line -- Detailed Sales Order Line-Item Record."""
+    order_id:           str
+    item_id:            str
+    order_no:           str
+    po_number:          Optional[str] = None
+    po_date:            Optional[str] = None
+    order_date:         str
+    delivery_date:      Optional[str] = None
+    customer_id:        Optional[str] = None
+    customer_name:      str = "Reliance Retail Limited"
+    customer_gstin:     Optional[str] = None
+    site_code:          Optional[str] = None
+    destination_state:  Optional[str] = None
+    place_of_supply:    Optional[str] = None
+    item_code:          Optional[str] = None
+    item_description:   str
+    hsn_code:           str = "64041990"
+    category:           Optional[str] = None
+    ordered_qty:        Decimal
+    unit_price:         Decimal
+    mrp:                Decimal
+    discount_pct:       Decimal = Decimal("0.00")
+    taxable_value:      Decimal
+    gst_rate:           Decimal = Decimal("5.00")
+    cgst_amount:        Decimal = Decimal("0.00")
+    sgst_amount:        Decimal = Decimal("0.00")
+    igst_amount:        Decimal = Decimal("0.00")
+    total_tax:          Decimal
+    total_amount:       Decimal
+    billed_qty:         Decimal = Decimal("0.0000")
+    pending_qty:        Decimal = Decimal("0.0000")
+    billed_value:       Decimal = Decimal("0.00")
+    pending_value:      Decimal = Decimal("0.00")
+    fulfillment_status: str = "UNFULFILLED"
+    linked_invoice_nos: List[str] = []
+    linked_invoice_dates: List[str] = []
+    eway_bill_no:       Optional[str] = None
+
+
+class SalesOrderDetailReport(BaseModel):
+    """RPT-SO-008 -- Detailed Line-Item Sales Orders Register & Fulfillment Trace."""
+    report_id:          str = "RPT-SO-008"
+    report_name:        str = "Detailed Sales Orders Register"
+    from_date:          str
+    to_date:            str
+    generated_at:       str
+    filters:            Dict[str, Any] = {}
+    summary:            Dict[str, Any] = {}
+    totals:             Dict[str, Any] = {}
+    total_orders:       int
+    total_lines:        int
+    total_ordered_qty:  Decimal
+    total_taxable_value: Decimal
+    total_tax_amount:   Decimal
+    total_grand_amount: Decimal
+    total_billed_qty:   Decimal
+    total_pending_qty:  Decimal
+    total_billed_value: Decimal
+    total_pending_value: Decimal
+    fulfillment_rate_pct: Decimal = Decimal("0.00")
+    lines:              List[SalesOrderDetailLine] = []
+    rows:               List[SalesOrderDetailLine] = []
+
+
+
 

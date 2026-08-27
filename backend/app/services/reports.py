@@ -51,6 +51,7 @@ from ..schemas.reports import (
     ProductWiseOrderedQuantityLine, ProductWiseOrderedQuantityReport,
     OrderFulfillmentStatusGroup, OrderFulfillmentStatusReport,
     InvoiceAllocationReportLine, InvoiceAllocationReportModel,
+    SalesOrderDetailLine, SalesOrderDetailReport,
 )
 
 class ReportsService:
@@ -2027,6 +2028,594 @@ class ReportsService:
             lines=lines,
             rows=lines,
         )
+
+    async def sales_order_detailed(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        customer_id: Optional[str] = None,
+        status: Optional[str] = None,
+        site_code: Optional[str] = None,
+        search: Optional[str] = None,
+    ) -> SalesOrderDetailReport:
+        """RPT-SO-008 -- Detailed Line-Item Sales Orders Register & Fulfillment Trace."""
+        from sqlalchemy.orm import selectinload
+
+        stmt = select(SalesOrder).options(selectinload(SalesOrder.items)).where(SalesOrder.is_deleted == False)
+        stmt = self._so_tenant_filter(stmt)
+        if from_date:
+            stmt = stmt.where(SalesOrder.date >= from_date)
+        if to_date:
+            stmt = stmt.where(SalesOrder.date <= to_date)
+        if customer_id:
+            stmt = stmt.where((SalesOrder.customer_id == customer_id) | (SalesOrder.customer_name.ilike(f"%{customer_id}%")))
+        if status:
+            stmt = stmt.where(SalesOrder.fulfillment_status == status)
+        if site_code:
+            stmt = stmt.where((SalesOrder.site_code == site_code) | (SalesOrder.site_name.ilike(f"%{site_code}%")))
+        if search:
+            s_term = f"%{search}%"
+            stmt = stmt.where(
+                (SalesOrder.order_no.ilike(s_term)) |
+                (SalesOrder.po_number.ilike(s_term)) |
+                (SalesOrder.customer_name.ilike(s_term)) |
+                (SalesOrder.site_name.ilike(s_term))
+            )
+        stmt = stmt.order_by(SalesOrder.date.desc(), SalesOrder.order_no.asc())
+
+        res = await self.db.execute(stmt)
+        orders = res.scalars().all()
+
+        # Load all allocations for linked invoice traceability
+        alloc_res = await self.db.execute(select(SalesOrderInvoiceAllocation))
+        all_allocs = alloc_res.scalars().all()
+        alloc_map: Dict[str, List[SalesOrderInvoiceAllocation]] = {}
+        for al in all_allocs:
+            alloc_map.setdefault(al.order_id, []).append(al)
+
+        lines: List[SalesOrderDetailLine] = []
+        tot_ordered_qty = Decimal("0.0000")
+        tot_taxable = Decimal("0.00")
+        tot_tax = Decimal("0.00")
+        tot_grand = Decimal("0.00")
+        tot_billed_qty = Decimal("0.0000")
+        tot_pending_qty = Decimal("0.0000")
+        tot_billed_val = Decimal("0.00")
+        tot_pending_val = Decimal("0.00")
+
+        order_ids_seen = set()
+
+        for o in orders:
+            order_ids_seen.add(o.id)
+            f_status = (o.fulfillment_status or "UNFULFILLED").upper()
+            
+            dest_state = "TELANGANA"
+            if o.po_metadata and isinstance(o.po_metadata, dict):
+                dest_state = o.po_metadata.get("site_state") or o.po_metadata.get("destination_state") or "TELANGANA"
+            if o.delivery_address:
+                addr_u = o.delivery_address.upper()
+                if "TELANGANA" in addr_u or "HYDERABAD" in addr_u:
+                    dest_state = "TELANGANA"
+                elif "ASSAM" in addr_u or "DIBRUGARH" in addr_u:
+                    dest_state = "ASSAM"
+                elif "MAHARASHTRA" in addr_u or "MUMBAI" in addr_u:
+                    dest_state = "MAHARASHTRA"
+                elif "KARNATAKA" in addr_u or "BANGALORE" in addr_u:
+                    dest_state = "KARNATAKA"
+                elif "GUJARAT" in addr_u or "AHMEDABAD" in addr_u:
+                    dest_state = "GUJARAT"
+
+            pos = f"{dest_state} (36)" if "TELANGANA" in dest_state.upper() else f"{dest_state} (18)" if "ASSAM" in dest_state.upper() else dest_state
+            is_interstate = bool(o.is_interstate) if o.is_interstate is not None else ("MAHARASHTRA" not in dest_state.upper())
+
+            ord_allocs = alloc_map.get(o.id, [])
+            inv_nos = list(set([a.invoice_no for a in ord_allocs if a.invoice_no]))
+            inv_dates = list(set([str(a.invoice_date) for a in ord_allocs if a.invoice_date]))
+
+            ord_tot_qty = Decimal(str(o.total_qty or "0.0000"))
+            ord_billed_qty = Decimal(str(o.billed_qty or "0.0000"))
+            billing_ratio = (ord_billed_qty / ord_tot_qty) if ord_tot_qty > 0 else (Decimal("1.00") if f_status == "FULFILLED" else Decimal("0.00"))
+
+            items = getattr(o, "items", []) or []
+            if not items:
+                # If order has no discrete items recorded, generate a virtual header line
+                q = Decimal(str(o.total_qty or "0.0000"))
+                basic = Decimal(str(o.basic_total or "0.00"))
+                tax = Decimal(str(o.tax_total or "0.00"))
+                grand = Decimal(str(o.grand_total or "0.00"))
+                b_qty = (q * billing_ratio).quantize(Decimal("0.0001"))
+                p_qty = q - b_qty
+                b_val = (grand * billing_ratio).quantize(Decimal("0.01"))
+                p_val = grand - b_val
+
+                igst = tax if is_interstate else Decimal("0.00")
+                cgst = (tax / 2).quantize(Decimal("0.01")) if not is_interstate else Decimal("0.00")
+                sgst = (tax - cgst) if not is_interstate else Decimal("0.00")
+
+                tot_ordered_qty += q
+                tot_taxable += basic
+                tot_tax += tax
+                tot_grand += grand
+                tot_billed_qty += b_qty
+                tot_pending_qty += p_qty
+                tot_billed_val += b_val
+                tot_pending_val += p_val
+
+                lines.append(SalesOrderDetailLine(
+                    order_id=o.id,
+                    item_id=f"{o.id}_summary",
+                    order_no=o.order_no,
+                    po_number=o.po_number,
+                    po_date=str(o.po_date or o.date) if (o.po_date or o.date) else "",
+                    order_date=str(o.date) if o.date else "",
+                    delivery_date=str(o.delivery_date) if o.delivery_date else None,
+                    customer_id=o.customer_id,
+                    customer_name=o.customer_name or "Reliance Retail Limited",
+                    customer_gstin=o.customer_gstin or "27AABCR1718E1ZL",
+                    site_code=o.site_code,
+                    destination_state=dest_state,
+                    place_of_supply=pos,
+                    item_code="FOOTWEAR-LOT",
+                    item_description="Footwear Assorted Footwear Pairs",
+                    hsn_code="64041990",
+                    category="FOOTWEAR",
+                    ordered_qty=q,
+                    unit_price=basic / q if q > 0 else basic,
+                    mrp=grand / q if q > 0 else grand,
+                    discount_pct=Decimal("0.00"),
+                    taxable_value=basic,
+                    gst_rate=Decimal("5.00"),
+                    cgst_amount=cgst,
+                    sgst_amount=sgst,
+                    igst_amount=igst,
+                    total_tax=tax,
+                    total_amount=grand,
+                    billed_qty=b_qty,
+                    pending_qty=p_qty,
+                    billed_value=b_val,
+                    pending_value=p_val,
+                    fulfillment_status=f_status,
+                    linked_invoice_nos=inv_nos,
+                    linked_invoice_dates=inv_dates,
+                    eway_bill_no=None,
+                ))
+            else:
+                for itm in items:
+                    q = Decimal(str(itm.quantity or "0.0000"))
+                    rate = Decimal(str(itm.price or "0.00"))
+                    disc = Decimal("0.00")
+                    taxable = Decimal(str(itm.taxable_value or (q * rate)))
+                    tax = Decimal(str(itm.tax_amount or (taxable * Decimal("0.05"))))
+                    grand = Decimal(str(itm.line_total or itm.total_amount or (taxable + tax)))
+
+                    b_qty = (q * billing_ratio).quantize(Decimal("0.0001"))
+                    p_qty = q - b_qty
+                    b_val = (grand * billing_ratio).quantize(Decimal("0.01"))
+                    p_val = grand - b_val
+
+                    igst = Decimal(str(itm.igst_amount or (tax if is_interstate else 0.00)))
+                    cgst = Decimal(str(itm.cgst_amount or ((tax / 2).quantize(Decimal("0.01")) if not is_interstate else 0.00)))
+                    sgst = Decimal(str(itm.sgst_amount or ((tax - cgst) if not is_interstate else 0.00)))
+
+                    tot_ordered_qty += q
+                    tot_taxable += taxable
+                    tot_tax += tax
+                    tot_grand += grand
+                    tot_billed_qty += b_qty
+                    tot_pending_qty += p_qty
+                    tot_billed_val += b_val
+                    tot_pending_val += p_val
+
+                    lines.append(SalesOrderDetailLine(
+                        order_id=o.id,
+                        item_id=str(itm.id),
+                        order_no=o.order_no,
+                        po_number=o.po_number,
+                        po_date=str(o.po_date or o.date) if (o.po_date or o.date) else "",
+                        order_date=str(o.date) if o.date else "",
+                        delivery_date=str(o.delivery_date) if o.delivery_date else None,
+                        customer_id=o.customer_id,
+                        customer_name=o.customer_name or "Reliance Retail Limited",
+                        customer_gstin=o.customer_gstin or "27AABCR1718E1ZL",
+                        site_code=o.site_code,
+                        destination_state=dest_state,
+                        place_of_supply=pos,
+                        item_code=itm.code or itm.article_no or "FOOTWEAR",
+                        item_description=itm.name or itm.article_no or "Footwear Pair",
+                        hsn_code=itm.hsn_code or "64041990",
+                        category="FOOTWEAR",
+                        ordered_qty=q,
+                        unit_price=rate,
+                        mrp=Decimal(str(itm.mrp or (rate * Decimal("1.75")))),
+                        discount_pct=disc,
+                        taxable_value=taxable,
+                        gst_rate=Decimal(str(itm.gst_rate or "5.00")),
+                        cgst_amount=cgst,
+                        sgst_amount=sgst,
+                        igst_amount=igst,
+                        total_tax=tax,
+                        total_amount=grand,
+                        billed_qty=b_qty,
+                        pending_qty=p_qty,
+                        billed_value=b_val,
+                        pending_value=p_val,
+                        fulfillment_status=f_status,
+                        linked_invoice_nos=inv_nos,
+                        linked_invoice_dates=inv_dates,
+                        eway_bill_no=None,
+                    ))
+
+        fulfillment_rate = ((tot_billed_qty / tot_ordered_qty) * 100).quantize(Decimal("0.01")) if tot_ordered_qty > 0 else Decimal("0.00")
+
+        filters_payload = {
+            "company_id": self.tenant.company_id if self.tenant else None,
+            "branch_id": self.tenant.branch_id if self.tenant else None,
+            "from_date": str(from_date) if from_date else None,
+            "to_date": str(to_date) if to_date else None,
+            "customer_id": customer_id,
+            "status": status,
+            "site_code": site_code,
+            "search": search,
+        }
+        summary_payload = {
+            "total_orders": len(order_ids_seen),
+            "total_lines": len(lines),
+            "total_ordered_qty": tot_ordered_qty,
+            "total_grand_amount": tot_grand,
+            "total_billed_value": tot_billed_val,
+            "total_pending_value": tot_pending_val,
+            "fulfillment_rate_pct": fulfillment_rate,
+        }
+        totals_payload = {
+            "total_ordered_qty": tot_ordered_qty,
+            "total_taxable_value": tot_taxable,
+            "total_tax_amount": tot_tax,
+            "total_grand_amount": tot_grand,
+            "total_billed_qty": tot_billed_qty,
+            "total_pending_qty": tot_pending_qty,
+            "total_billed_value": tot_billed_val,
+            "total_pending_value": tot_pending_val,
+        }
+
+        return SalesOrderDetailReport(
+            report_id="RPT-SO-008",
+            report_name="Detailed Sales Orders Register",
+            from_date=str(from_date or ""),
+            to_date=str(to_date or ""),
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            filters=filters_payload,
+            summary=summary_payload,
+            totals=totals_payload,
+            total_orders=len(order_ids_seen),
+            total_lines=len(lines),
+            total_ordered_qty=tot_ordered_qty,
+            total_taxable_value=tot_taxable,
+            total_tax_amount=tot_tax,
+            total_grand_amount=tot_grand,
+            total_billed_qty=tot_billed_qty,
+            total_pending_qty=tot_pending_qty,
+            total_billed_value=tot_billed_val,
+            total_pending_value=tot_pending_val,
+            fulfillment_rate_pct=fulfillment_rate,
+            lines=lines,
+            rows=lines,
+        )
+
+    async def export_sales_orders_master_excel(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        customer_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> bytes:
+        """Generates full 6-sheet Master Sales Orders Excel workbook."""
+        import io
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+
+        # Load reports datasets
+        detail_rep = await self.sales_order_detailed(from_date=from_date, to_date=to_date, customer_id=customer_id, status=status)
+        summary_rep = await self.sales_order_summary(from_date=from_date, to_date=to_date, customer_id=customer_id, status=status)
+        prod_rep = await self.product_wise_ordered_qty(from_date=from_date, to_date=to_date)
+        alloc_rep = await self.invoice_allocations(from_date=from_date, to_date=to_date)
+
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+
+        # Style tokens
+        f_title = Font(name="Calibri", size=14, bold=True, color="1E3A8A")
+        f_header = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+        f_body = Font(name="Calibri", size=10, color="1E293B")
+        f_body_bold = Font(name="Calibri", size=10, bold=True, color="0F172A")
+        fill_h = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
+        fill_tot = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
+        fill_kpi = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
+        b_thin = Border(left=Side(style='thin', color="CBD5E1"), right=Side(style='thin', color="CBD5E1"), top=Side(style='thin', color="CBD5E1"), bottom=Side(style='thin', color="CBD5E1"))
+        b_tot = Border(left=Side(style='thin', color="CBD5E1"), right=Side(style='thin', color="CBD5E1"), top=Side(style='thin', color="0F172A"), bottom=Side(style='double', color="0F172A"))
+
+        # ─────────────────────────────────────────────────────────────────
+        # Sheet 1: Executive Summary
+        # ─────────────────────────────────────────────────────────────────
+        ws1 = wb.create_sheet(title="Executive Summary")
+        ws1.views.sheetView[0].showGridLines = True
+        ws1.cell(row=1, column=1, value="SMRITI RETAIL OS — SALES ORDERS EXECUTIVE SUMMARY").font = f_title
+        ws1.cell(row=2, column=1, value=f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')} | Supplier: TATTLY THREADS (27AAXFT2508H1ZR)").font = Font(size=9, italic=True, color="64748B")
+
+        kpis = [
+            ("Total Sales Orders", f"{detail_rep.total_orders} Orders"),
+            ("Total Ordered Pairs", f"{float(detail_rep.total_ordered_qty):,.0f} Pairs"),
+            ("Total Order Value", float(detail_rep.total_grand_amount)),
+            ("Total Billed Value", float(detail_rep.total_billed_value)),
+            ("Total Pending Value", float(detail_rep.total_pending_value)),
+            ("Fulfillment Rate", f"{float(detail_rep.fulfillment_rate_pct):.1f}%"),
+        ]
+        ws1.cell(row=4, column=1, value="KPI METRIC").font = f_header
+        ws1.cell(row=4, column=1).fill = fill_h
+        ws1.cell(row=4, column=1).alignment = Alignment(horizontal="center")
+        ws1.cell(row=4, column=2, value="VALUE").font = f_header
+        ws1.cell(row=4, column=2).fill = fill_h
+        ws1.cell(row=4, column=2).alignment = Alignment(horizontal="center")
+
+        for r_i, (k, val) in enumerate(kpis, 5):
+            c1 = ws1.cell(row=r_i, column=1, value=k)
+            c2 = ws1.cell(row=r_i, column=2, value=val)
+            c1.font, c1.border, c1.fill = f_body_bold, b_thin, fill_kpi
+            c2.font, c2.border = f_body, b_thin
+            if isinstance(val, (int, float)):
+                c2.number_format = '₹ #,##0.00'
+                c2.alignment = Alignment(horizontal="right")
+            else:
+                c2.alignment = Alignment(horizontal="center")
+
+        # ─────────────────────────────────────────────────────────────────
+        # Sheet 2: Sales Order Register (Header Level)
+        # ─────────────────────────────────────────────────────────────────
+        ws2 = wb.create_sheet(title="Sales Order Register")
+        ws2.views.sheetView[0].showGridLines = True
+        h2 = ["Order No", "PO Number", "Date", "Customer Name", "Site Code", "Delivery Date", "Total Qty", "Taxable Value (₹)", "Tax Total (₹)", "Grand Total (₹)", "Billed Value (₹)", "Pending Value (₹)", "Status"]
+        for c_i, h in enumerate(h2, 1):
+            c = ws2.cell(row=1, column=c_i, value=h)
+            c.font, c.fill, c.alignment, c.border = f_header, fill_h, Alignment(horizontal='center', vertical='center', wrap_text=True), b_thin
+
+        for r_i, o in enumerate(summary_rep.lines, 2):
+            r_fill = PatternFill(start_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", end_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", fill_type="solid")
+            row_vals = [
+                o.order_no, o.po_number, o.date, o.customer_name, o.site_code or "-", o.delivery_date or "-",
+                float(o.total_qty), float(o.basic_total), float(o.tax_total), float(o.grand_total),
+                float(o.billed_value), float(o.pending_value), o.fulfillment_status
+            ]
+            for c_i, v in enumerate(row_vals, 1):
+                cell = ws2.cell(row=r_i, column=c_i, value=v)
+                cell.font, cell.fill, cell.border = f_body, r_fill, b_thin
+                if c_i in [1, 2, 3, 5, 6, 13]:
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                elif c_i == 7:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    cell.number_format = '#,##0.00'
+                elif c_i in [8, 9, 10, 11, 12]:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    cell.number_format = '₹ #,##0.00'
+
+        # Totals row for Sheet 2
+        tot_r2 = len(summary_rep.lines) + 2
+        ws2.cell(row=tot_r2, column=1, value="TOTAL").alignment = Alignment(horizontal='center', vertical='center')
+        ws2.cell(row=tot_r2, column=7, value=float(summary_rep.total_ordered_qty)).number_format = '#,##0.00'
+        ws2.cell(row=tot_r2, column=8, value=float(summary_rep.totals.get("basic_total", 0))).number_format = '₹ #,##0.00'
+        ws2.cell(row=tot_r2, column=9, value=float(summary_rep.totals.get("tax_total", 0))).number_format = '₹ #,##0.00'
+        ws2.cell(row=tot_r2, column=10, value=float(summary_rep.total_order_value)).number_format = '₹ #,##0.00'
+        ws2.cell(row=tot_r2, column=11, value=float(summary_rep.total_billed_value)).number_format = '₹ #,##0.00'
+        ws2.cell(row=tot_r2, column=12, value=float(summary_rep.total_pending_value)).number_format = '₹ #,##0.00'
+        for c_i in range(1, len(h2) + 1):
+            c = ws2.cell(row=tot_r2, column=c_i)
+            c.font, c.fill, c.border = f_body_bold, fill_tot, b_tot
+
+        # ─────────────────────────────────────────────────────────────────
+        # Sheet 3: Detailed Line Items (Item Level)
+        # ─────────────────────────────────────────────────────────────────
+        ws3 = wb.create_sheet(title="Detailed Line Items")
+        ws3.views.sheetView[0].showGridLines = True
+        h3 = [
+            "Order No", "PO Number", "Order Date", "Customer", "Site Code", "Destination State",
+            "Item Code", "Item Description", "HSN Code", "Ordered Qty", "Unit Rate (₹)", "MRP (₹)", "Disc %",
+            "Taxable Value (₹)", "GST %", "CGST (₹)", "SGST (₹)", "IGST (₹)", "Total Amount (₹)",
+            "Billed Qty", "Pending Qty", "Billed Value (₹)", "Pending Value (₹)", "Status", "Linked Invoices"
+        ]
+        for c_i, h in enumerate(h3, 1):
+            c = ws3.cell(row=1, column=c_i, value=h)
+            c.font, c.fill, c.alignment, c.border = f_header, fill_h, Alignment(horizontal='center', vertical='center', wrap_text=True), b_thin
+
+        for r_i, l in enumerate(detail_rep.lines, 2):
+            r_fill = PatternFill(start_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", end_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", fill_type="solid")
+            row_vals = [
+                l.order_no, l.po_number, l.order_date, l.customer_name, l.site_code or "-", l.destination_state or "-",
+                l.item_code or "-", l.item_description, l.hsn_code, float(l.ordered_qty), float(l.unit_price), float(l.mrp),
+                float(l.discount_pct), float(l.taxable_value), "5.00%", float(l.cgst_amount), float(l.sgst_amount),
+                float(l.igst_amount), float(l.total_amount), float(l.billed_qty), float(l.pending_qty),
+                float(l.billed_value), float(l.pending_value), l.fulfillment_status, ", ".join(l.linked_invoice_nos) if l.linked_invoice_nos else "-"
+            ]
+            for c_i, v in enumerate(row_vals, 1):
+                cell = ws3.cell(row=r_i, column=c_i, value=v)
+                cell.font, cell.fill, cell.border = f_body, r_fill, b_thin
+                if c_i in [1, 2, 3, 5, 6, 7, 9, 15, 24, 25]:
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                elif c_i in [10, 20, 21]:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    cell.number_format = '#,##0.00'
+                elif c_i in [11, 12, 13, 14, 16, 17, 18, 19, 22, 23]:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    if c_i != 13:
+                        cell.number_format = '₹ #,##0.00'
+
+        # Totals row for Sheet 3
+        tot_r3 = len(detail_rep.lines) + 2
+        ws3.cell(row=tot_r3, column=1, value="TOTAL").alignment = Alignment(horizontal='center', vertical='center')
+        ws3.cell(row=tot_r3, column=10, value=float(detail_rep.total_ordered_qty)).number_format = '#,##0.00'
+        ws3.cell(row=tot_r3, column=14, value=float(detail_rep.total_taxable_value)).number_format = '₹ #,##0.00'
+        ws3.cell(row=tot_r3, column=19, value=float(detail_rep.total_grand_amount)).number_format = '₹ #,##0.00'
+        ws3.cell(row=tot_r3, column=20, value=float(detail_rep.total_billed_qty)).number_format = '#,##0.00'
+        ws3.cell(row=tot_r3, column=21, value=float(detail_rep.total_pending_qty)).number_format = '#,##0.00'
+        ws3.cell(row=tot_r3, column=22, value=float(detail_rep.total_billed_value)).number_format = '₹ #,##0.00'
+        ws3.cell(row=tot_r3, column=23, value=float(detail_rep.total_pending_value)).number_format = '₹ #,##0.00'
+        for c_i in range(1, len(h3) + 1):
+            c = ws3.cell(row=tot_r3, column=c_i)
+            c.font, c.fill, c.border = f_body_bold, fill_tot, b_tot
+
+        # ─────────────────────────────────────────────────────────────────
+        # Sheet 4: Store & Site Summary
+        # ─────────────────────────────────────────────────────────────────
+        ws4 = wb.create_sheet(title="Store & Site Summary")
+        ws4.views.sheetView[0].showGridLines = True
+        h4 = ["Site Code", "Destination State", "Orders Count", "Ordered Pairs", "Total Value (₹)", "Billed Pairs", "Billed Value (₹)", "Pending Value (₹)"]
+        for c_i, h in enumerate(h4, 1):
+            c = ws4.cell(row=1, column=c_i, value=h)
+            c.font, c.fill, c.alignment, c.border = f_header, fill_h, Alignment(horizontal='center', vertical='center'), b_thin
+
+        store_map: Dict[str, dict] = {}
+        for l in detail_rep.lines:
+            s_k = l.site_code or "UNSPECIFIED"
+            if s_k not in store_map:
+                store_map[s_k] = {
+                    "site_code": s_k,
+                    "dest_state": l.destination_state or "-",
+                    "orders": set(),
+                    "qty": Decimal("0.0000"),
+                    "val": Decimal("0.00"),
+                    "b_qty": Decimal("0.0000"),
+                    "b_val": Decimal("0.00"),
+                    "p_val": Decimal("0.00")
+                }
+            store_map[s_k]["orders"].add(l.order_no)
+            store_map[s_k]["qty"] += l.ordered_qty
+            store_map[s_k]["val"] += l.total_amount
+            store_map[s_k]["b_qty"] += l.billed_qty
+            store_map[s_k]["b_val"] += l.billed_value
+            store_map[s_k]["p_val"] += l.pending_value
+
+        for r_i, (k, d) in enumerate(store_map.items(), 2):
+            r_fill = PatternFill(start_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", end_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", fill_type="solid")
+            row_vals = [
+                d["site_code"], d["dest_state"], len(d["orders"]), float(d["qty"]),
+                float(d["val"]), float(d["b_qty"]), float(d["b_val"]), float(d["p_val"])
+            ]
+            for c_i, v in enumerate(row_vals, 1):
+                cell = ws4.cell(row=r_i, column=c_i, value=v)
+                cell.font, cell.fill, cell.border = f_body, r_fill, b_thin
+                if c_i in [1, 2, 3]:
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                elif c_i in [4, 6]:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    cell.number_format = '#,##0.00'
+                elif c_i in [5, 7, 8]:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    cell.number_format = '₹ #,##0.00'
+
+        # ─────────────────────────────────────────────────────────────────
+        # Sheet 5: Product & Style Matrix
+        # ─────────────────────────────────────────────────────────────────
+        ws5 = wb.create_sheet(title="Product & Style Matrix")
+        ws5.views.sheetView[0].showGridLines = True
+        h5 = ["Article / Code", "Description", "Color", "Size", "Ordered Qty", "Billed Qty", "Pending Qty", "Total Value (₹)"]
+        for c_i, h in enumerate(h5, 1):
+            c = ws5.cell(row=1, column=c_i, value=h)
+            c.font, c.fill, c.alignment, c.border = f_header, fill_h, Alignment(horizontal='center', vertical='center'), b_thin
+
+        for r_i, p in enumerate(prod_rep.lines, 2):
+            r_fill = PatternFill(start_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", end_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", fill_type="solid")
+            row_vals = [
+                p.article_no or p.vendor_style or "-", p.name, p.color or "-", p.size or "-",
+                float(p.ordered_qty), float(p.billed_qty), float(p.pending_qty), float(p.total_value)
+            ]
+            for c_i, v in enumerate(row_vals, 1):
+                cell = ws5.cell(row=r_i, column=c_i, value=v)
+                cell.font, cell.fill, cell.border = f_body, r_fill, b_thin
+                if c_i in [1, 3, 4]:
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                elif c_i in [5, 6, 7]:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    cell.number_format = '#,##0.00'
+                elif c_i == 8:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    cell.number_format = '₹ #,##0.00'
+
+        # ─────────────────────────────────────────────────────────────────
+        # Sheet 6: Invoice Allocations
+        # ─────────────────────────────────────────────────────────────────
+        ws6 = wb.create_sheet(title="Invoice Allocations")
+        ws6.views.sheetView[0].showGridLines = True
+        h6 = ["Order No", "PO Number", "Invoice No", "Invoice Date", "PO Qty", "PO Value (₹)", "Billed Qty", "Billed Value (₹)", "Pending Qty", "Pending Value (₹)", "Status"]
+        for c_i, h in enumerate(h6, 1):
+            c = ws6.cell(row=1, column=c_i, value=h)
+            c.font, c.fill, c.alignment, c.border = f_header, fill_h, Alignment(horizontal='center', vertical='center'), b_thin
+
+        for r_i, al in enumerate(alloc_rep.lines, 2):
+            r_fill = PatternFill(start_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", end_color="F8FAFC" if r_i % 2 == 0 else "FFFFFF", fill_type="solid")
+            row_vals = [
+                al.order_no, al.po_number or "-", al.invoice_no, al.invoice_date,
+                float(al.po_quantity), float(al.po_value), float(al.billed_quantity), float(al.billed_value),
+                float(al.pending_quantity), float(al.pending_value), al.status
+            ]
+            for c_i, v in enumerate(row_vals, 1):
+                cell = ws6.cell(row=r_i, column=c_i, value=v)
+                cell.font, cell.fill, cell.border = f_body, r_fill, b_thin
+                if c_i in [1, 2, 3, 4, 11]:
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                elif c_i in [5, 7, 9]:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    cell.number_format = '#,##0.00'
+                elif c_i in [6, 8, 10]:
+                    cell.alignment = Alignment(horizontal='right', vertical='center')
+                    cell.number_format = '₹ #,##0.00'
+
+        # Auto-adjust column widths across all sheets
+        for sheet in wb.worksheets:
+            for col in sheet.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = get_column_letter(col[0].column)
+                sheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+        out = io.BytesIO()
+        wb.save(out)
+        return out.getvalue()
+
+    async def export_sales_orders_csv(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        customer_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> str:
+        """Generates flat CSV string for Sales Order detailed line items."""
+        import io
+        import csv
+
+        rep = await self.sales_order_detailed(from_date=from_date, to_date=to_date, customer_id=customer_id, status=status)
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        headers = [
+            "Order No", "PO Number", "Order Date", "Customer Name", "Customer GSTIN",
+            "Site Code", "Destination State", "Place of Supply", "Item Code", "Item Description",
+            "HSN Code", "Ordered Qty", "Unit Price", "MRP", "Discount %", "Taxable Value",
+            "GST Rate", "CGST Amount", "SGST Amount", "IGST Amount", "Total Tax", "Total Amount",
+            "Billed Qty", "Pending Qty", "Billed Value", "Pending Value", "Fulfillment Status", "Linked Invoices"
+        ]
+        writer.writerow(headers)
+
+        for l in rep.lines:
+            writer.writerow([
+                l.order_no, l.po_number, l.order_date, l.customer_name, l.customer_gstin,
+                l.site_code or "", l.destination_state or "", l.place_of_supply or "",
+                l.item_code or "", l.item_description, l.hsn_code, float(l.ordered_qty),
+                float(l.unit_price), float(l.mrp), float(l.discount_pct), float(l.taxable_value),
+                float(l.gst_rate), float(l.cgst_amount), float(l.sgst_amount), float(l.igst_amount),
+                float(l.total_tax), float(l.total_amount), float(l.billed_qty), float(l.pending_qty),
+                float(l.billed_value), float(l.pending_value), l.fulfillment_status,
+                "; ".join(l.linked_invoice_nos) if l.linked_invoice_nos else ""
+            ])
+
+        return output.getvalue()
+
 
 
 

@@ -179,6 +179,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         } else if (selectedReport.id === "RPT-SO-001") {
           const data = await apiFetchV1(`/reports/sales-orders/summary${params}`);
           setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-SO-008") {
+          const data = await apiFetchV1(`/reports/sales-orders/detailed${params}`);
+          setGenericReportData(data);
         } else if (selectedReport.id === "RPT-SO-002") {
           const data = await apiFetchV1(`/reports/sales-orders/pending${params}`);
           setGenericReportData(data);
@@ -2363,6 +2366,143 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
+            {/* RPT-SO-008: Detailed Sales Orders Register */}
+            {selectedReport.id === "RPT-SO-008" && (
+              <div className="p-4 space-y-4">
+                {/* Header Action Bar */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-purple-950/20 border border-blue-500/20 rounded-2xl">
+                  <div>
+                    <h5 className="font-bold text-sm text-theme-body flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                      Detailed Line-Item Sales Orders Register
+                    </h5>
+                    <p className="text-[11px] text-theme-muted font-mono mt-0.5">
+                      Seller: Tattly Threads (27AAXFT2508H1ZR) • Customer: Reliance Retail Limited • GST Rate: 5.00%
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <a
+                      href="/api/v1/reports/sales-orders/export-excel"
+                      download
+                      className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                    >
+                      <Download size={13} /> Download Master 6-Sheet Excel (.xlsx)
+                    </a>
+                    <a
+                      href="/api/v1/reports/sales-orders/export-csv"
+                      download
+                      className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider text-theme-body rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <FileSpreadsheet size={13} /> Export Flat CSV (.csv)
+                    </a>
+                  </div>
+                </div>
+
+                {/* KPI Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Orders</span>
+                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_orders ?? 0} Orders</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Line Items</span>
+                    <p className="text-sm font-black text-purple-400 mt-1">{Number(genericReportData?.total_lines ?? 0).toLocaleString("en-IN")} Items</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Ordered Quantity</span>
+                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.total_ordered_qty ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pairs</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Order Value</span>
+                    <p className="text-sm font-black text-theme-body mt-1">₹{Number(genericReportData?.total_grand_amount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Billed Value</span>
+                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_billed_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Pending Value</span>
+                    <p className="text-sm font-black text-amber-400 mt-1">₹{Number(genericReportData?.total_pending_value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted">Fulfillment Rate</span>
+                    <p className="text-sm font-black text-emerald-300 mt-1">{Number(genericReportData?.fulfillment_rate_pct ?? 0).toFixed(1)}%</p>
+                  </div>
+                </div>
+
+                {/* Line Items Table */}
+                <div className="overflow-x-auto border border-theme-divider rounded-xl max-h-[600px] overflow-y-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2/95 backdrop-blur text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold sticky top-0 z-10">
+                      <tr>
+                        <th className="p-3">Order #</th>
+                        <th className="p-3">PO Number</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3 text-center">Site</th>
+                        <th className="p-3">Article / SKU</th>
+                        <th className="p-3 text-center">HSN</th>
+                        <th className="p-3 text-right">Qty</th>
+                        <th className="p-3 text-right">Rate (₹)</th>
+                        <th className="p-3 text-right">MRP (₹)</th>
+                        <th className="p-3 text-right">Taxable (₹)</th>
+                        <th className="p-3 text-right">Tax (₹)</th>
+                        <th className="p-3 text-right">Total (₹)</th>
+                        <th className="p-3 text-right">Billed Qty</th>
+                        <th className="p-3 text-right">Pending Qty</th>
+                        <th className="p-3 text-right">Billed (₹)</th>
+                        <th className="p-3 text-right">Pending (₹)</th>
+                        <th className="p-3 text-center">Status</th>
+                        <th className="p-3">Linked Invoices</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40 font-mono text-[11px]">
+                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
+                        <tr><td colSpan={18} className="p-8 text-center text-theme-muted font-sans text-xs">No sales orders found for the selected period.</td></tr>
+                      ) : (
+                        genericReportData.lines.slice(0, 300).map((l: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-2.5 font-bold text-blue-400">{l.order_no}</td>
+                            <td className="p-2.5 text-theme-muted">{l.po_number || "—"}</td>
+                            <td className="p-2.5 text-theme-muted">{l.order_date}</td>
+                            <td className="p-2.5 text-center text-theme-muted">{l.site_code || "—"}</td>
+                            <td className="p-2.5 text-theme-body font-sans font-medium">{l.item_code || l.item_description}</td>
+                            <td className="p-2.5 text-center text-theme-muted text-[10px]">{l.hsn_code}</td>
+                            <td className="p-2.5 text-right font-bold text-theme-body">{Number(l.ordered_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-2.5 text-right text-theme-muted">{Number(l.unit_price).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-2.5 text-right text-theme-muted">{Number(l.mrp).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-2.5 text-right text-theme-body">{Number(l.taxable_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-2.5 text-right text-purple-400">{Number(l.total_tax).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-2.5 text-right font-bold text-theme-body">₹{Number(l.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-2.5 text-right text-emerald-400">{Number(l.billed_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-2.5 text-right text-amber-400">{Number(l.pending_qty).toLocaleString("en-IN")}</td>
+                            <td className="p-2.5 text-right font-bold text-emerald-400">₹{Number(l.billed_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-2.5 text-right font-bold text-amber-400">₹{Number(l.pending_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-2.5 text-center">
+                              <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border font-sans ${
+                                l.fulfillment_status === "FULFILLED" || l.fulfillment_status === "FULLY_BILLED" ? "bg-emerald-950/40 text-emerald-300 border-emerald-500/30" :
+                                l.fulfillment_status === "PARTIAL" || l.fulfillment_status === "PARTIALLY_BILLED" ? "bg-blue-950/40 text-blue-300 border-blue-500/30" :
+                                "bg-amber-950/40 text-amber-300 border-amber-500/30"
+                              }`}>
+                                {l.fulfillment_status || "UNFULFILLED"}
+                              </span>
+                            </td>
+                            <td className="p-2.5 text-[10px] text-blue-300">
+                              {l.linked_invoice_nos && l.linked_invoice_nos.length > 0 ? l.linked_invoice_nos.join(", ") : "—"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {genericReportData?.lines && genericReportData.lines.length > 300 && (
+                  <p className="text-[11px] text-theme-muted text-center italic">
+                    Showing first 300 of {genericReportData.lines.length.toLocaleString("en-IN")} line items in browser preview. Use the <strong>Download Master Excel</strong> button above for full workbook analysis.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* RPT-SO-002: Pending Orders */}
             {selectedReport.id === "RPT-SO-002" && (
               <div className="p-4 space-y-4">
@@ -2784,6 +2924,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               "RPT-MRC-001",
               "RPT-MRC-005",
               "RPT-SO-001",
+              "RPT-SO-008",
               "RPT-SO-002",
               "RPT-SO-003",
               "RPT-SO-004",
