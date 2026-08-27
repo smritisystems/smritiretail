@@ -33,7 +33,9 @@ import {
   ExternalLink,
   Sparkles,
   Info,
-  Check
+  Check,
+  Calculator,
+  Sigma
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters";
 import { GlobalExportService } from "../../services/globalExportService";
@@ -94,6 +96,10 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
   const [viewMode, setViewMode] = useState<"grid" | "grouped" | "chart">("grid");
   const [groupBy, setGroupBy] = useState<GroupByOption>("none");
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  // Summary & Totals Configuration
+  const [showGrandTotal, setShowGrandTotal] = useState<boolean>(true);
+  const [showSubTotals, setShowSubTotals] = useState<boolean>(true);
 
   // Column Sorting
   const [sortColumn, setSortColumn] = useState<string>("");
@@ -269,6 +275,32 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
     return Array.from(map.entries());
   }, [filteredData, viewMode, groupBy]);
 
+  // Active Visible Columns
+  const activeColumns = useMemo(() => {
+    return columns.filter((c) => visibleColumnKeys[c.key] !== false);
+  }, [columns, visibleColumnKeys]);
+
+  // Helper for computing summary totals per column
+  const calculateSummaryCell = (rows: any[], col: ReportColumnDef, isFirstCol: boolean, label = "TOTAL") => {
+    if (isFirstCol) {
+      return `${label} (${rows.length})`;
+    }
+    const lk = col.key.toLowerCase();
+    if (col.datatype === "currency" || lk.includes("amount") || lk.includes("total") || lk.includes("value") || lk.includes("tax") || lk.includes("mrp") || lk.includes("basic") || lk.includes("balance")) {
+      const sum = rows.reduce((acc, r) => acc + (Number(r[col.key]) || 0), 0);
+      return formatCurrency(sum);
+    }
+    if (col.datatype === "number" || lk.includes("qty") || lk.includes("quantity") || lk.includes("count") || lk.includes("units") || lk.includes("pieces") || lk.includes("pairs")) {
+      const sum = rows.reduce((acc, r) => acc + (Number(r[col.key]) || 0), 0);
+      return formatNumber(sum, 0);
+    }
+    if (lk.includes("rate") || lk.includes("price") || lk.includes("discount")) {
+      const avg = rows.length > 0 ? rows.reduce((acc, r) => acc + (Number(r[col.key]) || 0), 0) / rows.length : 0;
+      return `avg: ${formatCurrency(avg)}`;
+    }
+    return "—";
+  };
+
   // Computed Dynamic KPIs
   const kpis = useMemo(() => {
     if (summaryMetrics && Object.keys(summaryMetrics).length > 0) {
@@ -323,14 +355,34 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       return;
     }
 
-    const exportCols = columns.filter((c) => visibleColumnKeys[c.key] !== false);
+    let exportRows = [...filteredData];
+
+    // If Grand Total is enabled, append summary row
+    if (showGrandTotal && exportRows.length > 0) {
+      const summaryRow: Record<string, any> = {};
+      activeColumns.forEach((col, idx) => {
+        if (idx === 0) {
+          summaryRow[col.key] = `GRAND TOTAL (${exportRows.length} Records)`;
+        } else {
+          const lk = col.key.toLowerCase();
+          if (col.datatype === "currency" || lk.includes("amount") || lk.includes("total") || lk.includes("value") || lk.includes("tax") || lk.includes("mrp") || lk.includes("basic") || lk.includes("balance")) {
+            summaryRow[col.key] = exportRows.reduce((acc, r) => acc + (Number(r[col.key]) || 0), 0);
+          } else if (col.datatype === "number" || lk.includes("qty") || lk.includes("quantity") || lk.includes("count") || lk.includes("units")) {
+            summaryRow[col.key] = exportRows.reduce((acc, r) => acc + (Number(r[col.key]) || 0), 0);
+          } else {
+            summaryRow[col.key] = "";
+          }
+        }
+      });
+      exportRows.push(summaryRow);
+    }
 
     const result = await GlobalExportService.exportDataset({
       moduleName: reportTitle.replace(/[^a-zA-Z0-9_-]/g, "_"),
       format,
       scope: "all",
-      columns: exportCols,
-      data: filteredData,
+      columns: activeColumns,
+      data: exportRows,
       metadata: {
         moduleTitle: reportTitle,
         companyName: "Tattly Threads / SMRITI Retail OS",
@@ -358,8 +410,6 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
   const toggleGroup = (key: string) => {
     setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   };
-
-  const activeColumns = columns.filter((c) => visibleColumnKeys[c.key] !== false);
 
   return (
     <div className="space-y-4">
@@ -454,7 +504,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
         </div>
       </div>
 
-      {/* 2. UNIVERSAL FILTER & RANGE ENGINE */}
+      {/* 2. UNIVERSAL FILTER & SUMMARY CONFIGURATION BAR */}
       <div className="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl shadow-lg space-y-3">
         {/* Preset Date Buttons Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/60">
@@ -510,10 +560,10 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
           )}
         </div>
 
-        {/* Search, Store, Status & View Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        {/* Search, Store, Status & Summary Toggles */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
           {/* Universal Search */}
-          <div className="relative">
+          <div className="relative md:col-span-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
@@ -547,7 +597,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="w-full px-3 py-1.5 bg-slate-950/70 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
             >
-              <option value="ALL">🏷️ All Transaction Statuses</option>
+              <option value="ALL">🏷️ All Statuses</option>
               {uniqueStatuses.map((st) => (
                 <option key={st} value={st}>
                   Status: {st}
@@ -556,8 +606,8 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             </select>
           </div>
 
-          {/* Grouping & Column Visibility */}
-          <div className="flex items-center gap-2 justify-end">
+          {/* Grouping Selection */}
+          <div>
             <select
               value={groupBy}
               onChange={(e) => {
@@ -566,20 +616,56 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                 if (val !== "none") setViewMode("grouped");
                 else setViewMode("grid");
               }}
-              className="px-2.5 py-1.5 bg-slate-950/70 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              className="w-full px-2.5 py-1.5 bg-slate-950/70 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
             >
-              <option value="none">Ungrouped Grid</option>
+              <option value="none">Ungrouped Flat Grid</option>
               <option value="store_code">Group by Store Code</option>
               <option value="customer_name">Group by Customer</option>
               <option value="style_name">Group by Style</option>
               <option value="category">Group by Category</option>
             </select>
+          </div>
 
+          {/* Totals & Summary Toggles */}
+          <div className="flex items-center gap-1.5 justify-end flex-wrap">
+            {/* Grand Total Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowGrandTotal(!showGrandTotal)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                showGrandTotal
+                  ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-300 shadow-sm"
+                  : "bg-slate-900 border-slate-800 text-slate-500 opacity-60"
+              }`}
+              title="Toggle Grand Total Row"
+            >
+              <Sigma size={13} />
+              <span>Total</span>
+            </button>
+
+            {/* Sub-Totals Toggle */}
+            {viewMode === "grouped" && (
+              <button
+                type="button"
+                onClick={() => setShowSubTotals(!showSubTotals)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                  showSubTotals
+                    ? "bg-indigo-950/60 border-indigo-500/50 text-indigo-300 shadow-sm"
+                    : "bg-slate-900 border-slate-800 text-slate-500 opacity-60"
+                }`}
+                title="Toggle Group Sub-Totals"
+              >
+                <Calculator size={13} />
+                <span>Sub-Total</span>
+              </button>
+            )}
+
+            {/* Column Chooser Button */}
             <button
               type="button"
               onClick={() => setShowColumnChooser(!showColumnChooser)}
               className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg cursor-pointer transition-colors"
-              title="Choose Columns"
+              title="Show / Hide Columns"
             >
               <SlidersHorizontal size={15} />
             </button>
@@ -590,13 +676,13 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
         {showColumnChooser && (
           <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
             <div className="flex justify-between items-center text-xs font-bold text-slate-300 pb-1 border-b border-slate-800">
-              <span>Select Columns to Display</span>
+              <span>Configure Columns to Display</span>
               <button
                 type="button"
                 onClick={() => setVisibleColumnKeys({})}
                 className="text-[10px] text-indigo-400 hover:underline cursor-pointer"
               >
-                Reset All
+                Reset All Columns
               </button>
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -632,7 +718,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           {viewMode === "grouped" && groupedData ? (
-            /* GROUPED ACCORDION VIEW */
+            /* GROUPED ACCORDION VIEW WITH SUB-TOTALS */
             <div className="divide-y divide-slate-800">
               {groupedData.map(([groupName, rows], gIdx) => {
                 const isExpanded = expandedGroups[groupName] !== false; // Default expanded
@@ -647,6 +733,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
 
                 return (
                   <div key={gIdx} className="bg-slate-900/40">
+                    {/* Group Header Banner */}
                     <button
                       type="button"
                       onClick={() => toggleGroup(groupName)}
@@ -701,18 +788,49 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                               </tr>
                             ))}
                           </tbody>
+
+                          {/* GROUP SUB-TOTAL FOOTER ROW */}
+                          {showSubTotals && (
+                            <tfoot>
+                              <tr className="bg-indigo-950/40 border-t-2 border-indigo-500/40 font-mono font-bold text-xs text-indigo-200">
+                                {activeColumns.map((col, cIdx) => (
+                                  <td key={col.key} className={`p-2.5 ${col.align === "right" ? "text-right text-emerald-300" : ""}`}>
+                                    {calculateSummaryCell(rows, col, cIdx === 0, `SUB TOTAL (${groupName})`)}
+                                  </td>
+                                ))}
+                              </tr>
+                            </tfoot>
+                          )}
                         </table>
                       </div>
                     )}
                   </div>
                 );
               })}
+
+              {/* OVERALL STICKY GRAND TOTAL FOR GROUPED VIEW */}
+              {showGrandTotal && (
+                <div className="p-4 bg-slate-950 border-t-2 border-emerald-500/60 flex flex-col md:flex-row justify-between items-center gap-2 text-xs font-mono font-bold">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Sigma size={16} />
+                    <span>OVERALL GRAND TOTAL ({filteredData.length} Records across {groupedData.length} Groups)</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-emerald-300">
+                    <span>
+                      Total Units: {formatNumber(filteredData.reduce((acc, r) => acc + (Number(r.quantity || r.total_qty || r.units || 0)), 0), 0)}
+                    </span>
+                    <span className="text-sm font-black text-emerald-400">
+                      Total Value: {formatCurrency(filteredData.reduce((acc, r) => acc + (Number(r.grand_total || r.grandTotal || r.total_value || r.amount || 0)), 0))}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
-            /* FLAT TABULAR DATA GRID */
+            /* FLAT TABULAR DATA GRID WITH STICKY GRAND TOTAL */
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-950 text-slate-400 font-mono text-[10px] uppercase border-b border-slate-800 sticky top-0">
+                <tr className="bg-slate-950 text-slate-400 font-mono text-[10px] uppercase border-b border-slate-800 sticky top-0 z-10">
                   {activeColumns.map((col) => (
                     <th
                       key={col.key}
@@ -763,18 +881,31 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                   ))
                 )}
               </tbody>
+
+              {/* STICKY GRAND TOTAL FOOTER ROW */}
+              {showGrandTotal && filteredData.length > 0 && (
+                <tfoot className="sticky bottom-0 z-10 bg-slate-950 border-t-2 border-emerald-500/60 shadow-2xl">
+                  <tr className="font-mono font-bold text-xs text-white">
+                    {activeColumns.map((col, cIdx) => (
+                      <td key={col.key} className={`p-3.5 ${col.align === "right" ? "text-right text-emerald-400 text-sm font-black" : "text-emerald-300"}`}>
+                        {calculateSummaryCell(filteredData, col, cIdx === 0, "GRAND TOTAL")}
+                      </td>
+                    ))}
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
         </div>
 
-        {/* Table Footer with Summary Stats */}
+        {/* Table Footer Bar with Entry Count */}
         <div className="p-3 bg-slate-950 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center text-xs text-slate-400 font-mono">
           <div>
             Showing <span className="font-bold text-white">{filteredData.length}</span> of{" "}
             <span className="font-bold text-white">{data.length}</span> total entries
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-500">SMRITI Universal Engine v3.30.0</span>
+            <span className="text-[10px] text-slate-500">SMRITI Universal Engine v3.30.0 • Totals Configured</span>
           </div>
         </div>
       </div>
