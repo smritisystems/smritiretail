@@ -19,7 +19,7 @@ export interface LedgerColumn<T> {
   width?: string;
   align?: "left" | "center" | "right";
   sortable?: boolean;
-  render?: (val: any, record: T, index: number) => React.ReactNode;
+  render?: (val: any, record: T, index?: number) => React.ReactNode;
 }
 
 export interface LedgerFilterOption {

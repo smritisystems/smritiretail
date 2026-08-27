@@ -772,23 +772,32 @@ export function updateCustomerTags(
   return getCustomers(); // Return refreshed with live values
 }
 
+function formatCustomerForApi(c: Customer) {
+  return {
+    id: c.id,
+    name: c.name,
+    mobile: c.mobile || undefined,
+    email: c.email || undefined,
+    gst_number: c.gstNumber || undefined,
+    customer_group_id: c.customerGroupId || undefined,
+    code: c.code || undefined,
+    outstanding: c.outstanding || 0,
+    status: c.status || "Active",
+    tags: Array.isArray(c.tags) ? c.tags : [],
+  };
+}
+
 // ==========================================
 // BACKEND SYNC AND OFFLINE CACHE ENGINES
 // ==========================================
 export async function persistCustomerChange(customer: Customer) {
   try {
-    const res = await apiFetchV1(`/customers/${customer.id}`, {
+    const payload = formatCustomerForApi(customer);
+    await apiFetchV1(`/customers/${customer.id}`, {
       method: "PUT",
-      body: JSON.stringify(customer)
+      body: JSON.stringify(payload)
     });
-    if (!res) {
-      await apiFetchV1("/customers", {
-        method: "POST",
-        body: JSON.stringify(customer)
-      });
-    }
   } catch (e) {
-    console.warn("[CRM Sync] Server offline. Saving customer change to local pending queue.");
     try {
       const pending = JSON.parse(localStorage.getItem("smriti_pending_customers") || "[]");
       if (!pending.some((c: any) => c.id === customer.id)) {
@@ -813,19 +822,13 @@ export async function syncPendingCustomers() {
   const remaining: Customer[] = [];
   for (const cust of pending) {
     try {
+      const payload = formatCustomerForApi(cust);
       await apiFetchV1(`/customers/${cust.id}`, {
         method: "PUT",
-        body: JSON.stringify(cust)
+        body: JSON.stringify(payload)
       });
     } catch (e) {
-      try {
-        await apiFetchV1("/customers", {
-          method: "POST",
-          body: JSON.stringify(cust)
-        });
-      } catch (inner) {
-        remaining.push(cust);
-      }
+      remaining.push(cust);
     }
   }
   localStorage.setItem("smriti_pending_customers", JSON.stringify(remaining));

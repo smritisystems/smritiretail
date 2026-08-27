@@ -16,6 +16,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   GlobalExportService,
   serializeToCSV,
+  serializeToTSV,
   serializeToSpreadsheetML,
   serializeToAlignedTextTable,
   sanitizeExportRecord,
@@ -241,18 +242,42 @@ describe("GlobalExportService & Export Engine Test Suite", () => {
       expect(xlsxRes.rowCount).toBe(2);
       expect(xlsxRes.format).toBe("xlsx");
 
-      // TXT
-      const txtRes = await GlobalExportService.exportDataset({
+      // JSON
+      const jsonRes = await GlobalExportService.exportDataset({
         moduleName: "Item Master",
-        format: "txt",
+        format: "json",
         scope: "currentPage",
         columns: sampleColumns,
         data: sampleData,
         metadata: sampleMetadata,
       });
-      expect(txtRes.success).toBe(true);
-      expect(txtRes.rowCount).toBe(2);
-      expect(txtRes.format).toBe("txt");
+      expect(jsonRes.success).toBe(true);
+      expect(jsonRes.rowCount).toBe(2);
+      expect(jsonRes.format).toBe("json");
+
+      // HTML
+      const htmlRes = await GlobalExportService.exportDataset({
+        moduleName: "Item Master",
+        format: "html",
+        scope: "currentPage",
+        columns: sampleColumns,
+        data: sampleData,
+        metadata: sampleMetadata,
+      });
+      expect(htmlRes.success).toBe(true);
+      expect(htmlRes.rowCount).toBe(2);
+      expect(htmlRes.format).toBe("html");
+    });
+
+    it("handles string widths (e.g. '130px') safely in SpreadsheetML without producing NaN", () => {
+      const stringWidthCols: ExportColumnDefinition[] = [
+        { key: "code", label: "SKU", width: ("130px" as any) },
+        { key: "name", label: "Name", width: ("200px" as any) },
+      ];
+      const xml = serializeToSpreadsheetML(stringWidthCols, sampleData);
+      expect(xml).not.toContain("NaN");
+      expect(xml).toContain('<Column ss:Width="130"/>');
+      expect(xml).toContain('<Column ss:Width="200"/>');
     });
 
     it("respects selectedRows scope", async () => {
@@ -279,6 +304,28 @@ describe("GlobalExportService & Export Engine Test Suite", () => {
       });
       expect(res.success).toBe(false);
       expect(res.errorMessage).toBe("No records available to export.");
+    });
+
+    it("serializes dataset into Tab-Separated Values (TSV) for Google Sheets", () => {
+      const tsv = serializeToTSV(sampleColumns, sampleData, sampleMetadata);
+      expect(tsv).toContain("SMRITI Retail OS — Item Master Matrix");
+      expect(tsv).toContain("SKU Code\tProduct Title\tCategory");
+      expect(tsv).toContain("SKU-SHOE-01\tRunning \"Pro\" Shoes, Blue\tFootwear");
+      expect(tsv).toContain("TOTAL / SUMMARY");
+    });
+
+    it("executes Google Sheets export and handles gsheet format correctly", async () => {
+      const res = await GlobalExportService.exportDataset({
+        moduleName: "Item Master",
+        format: "gsheet",
+        scope: "all",
+        columns: sampleColumns,
+        data: sampleData,
+        metadata: sampleMetadata,
+      });
+      expect(res.success).toBe(true);
+      expect(res.format).toBe("gsheet");
+      expect(res.rowCount).toBe(2);
     });
   });
 });

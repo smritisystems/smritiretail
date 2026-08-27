@@ -262,6 +262,7 @@ class StockMovementResponse(BaseModel):
     movement_type: str
     reference_doc_type: Optional[str] = None
     reference_doc_id: Optional[str] = None
+    reference_doc_no: Optional[str] = None
     warehouse: Optional[str] = None
     bin: Optional[str] = None
     batch: Optional[str] = None
@@ -277,5 +278,22 @@ class StockMovementResponse(BaseModel):
     branch_id: Optional[str] = None
     created_at: Optional[datetime] = None
     modified_at: Optional[datetime] = None
+    barcode: Optional[str] = None
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    brand: Optional[str] = None
+    mrp: Optional[Decimal] = None
+    selling_price: Optional[Decimal] = None
+    buying_price: Optional[Decimal] = None
+    cost_price: Optional[Decimal] = None
+    total_value: Optional[Decimal] = None
+    in_qty: Optional[Decimal] = None
+    out_qty: Optional[Decimal] = None
+    opening_qty: Optional[Decimal] = None
+    closing_qty: Optional[Decimal] = None
+    in_value: Optional[Decimal] = None
+    out_value: Optional[Decimal] = None
+    closing_value: Optional[Decimal] = None
 
     model_config = ConfigDict(from_attributes=True)
