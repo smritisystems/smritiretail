@@ -30,6 +30,9 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-28 | v1.0.0 | Staff Commission & Incentive Engine | [Walkthrough](./hr/Commission_Incentive_Engine_v1.0.0.md) | [Plan](../implementation/hr/Commission_Incentive_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Markdown & Clearance Planning Engine | [Walkthrough](./pricing/Markdown_Clearance_Engine_v1.0.0.md) | [Plan](../implementation/pricing/Markdown_Clearance_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Inter-Store Purchase Order (IPO) Engine | [Walkthrough](./warehouse/IPO_Engine_v1.0.0.md) | [Plan](../implementation/warehouse/IPO_Engine_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Customer Complaint & After-Sales CRM Engine | [Walkthrough](./crm/Complaint_CRM_SLA_CSAT_v1.0.0.md) | [Plan](../implementation/crm/Complaint_CRM_SLA_CSAT_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Vendor Return & Debit Note Engine | [Walkthrough](./procurement/Vendor_Return_Debit_Note_v1.0.0.md) | [Plan](../implementation/procurement/Vendor_Return_Debit_Note_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Store-Level Profit & Loss Dashboard | [Walkthrough](./finance/PL_Dashboard_v1.0.0.md) | [Plan](../implementation/finance/PL_Dashboard_v1.0.0.md) | Completed |
