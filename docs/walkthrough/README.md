@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-28 | v1.0.0 | Reporting & BI Engine — Phase 12 (Integration, Reconciliation & Certification v1.0.0-GA) | [Walkthrough](./reports/Reporting_And_BI_Engine_Phase12_Integration_Certification_v1.0.0.md) | [Plan](../implementation/reports/Reporting_And_BI_Engine_Phase12_Integration_Certification_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Reporting & BI Engine — Phase 4 (REST API Endpoints & Hub Router) | [Walkthrough](./reports/Reporting_And_BI_Engine_Phase4_API_And_Hub_v1.0.0.md) | [Plan](../implementation/reports/Reporting_And_BI_Engine_Phase4_API_And_Hub_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Reporting & BI Engine — Phase 3 (Inventory 3-Tier State & Universal Audit Lineage) | [Walkthrough](./reports/Reporting_And_BI_Engine_Phase3_Inventory_Lineage_v1.0.0.md) | [Plan](../implementation/reports/Reporting_And_BI_Engine_Phase3_Inventory_Lineage_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Reporting & BI Engine — Phase 2 (Security Masking & Query Performance Router) | [Walkthrough](./reports/Reporting_And_BI_Engine_Phase2_Security_Router_v1.0.0.md) | [Plan](../implementation/reports/Reporting_And_BI_Engine_Phase2_Security_Router_v1.0.0.md) | Completed |

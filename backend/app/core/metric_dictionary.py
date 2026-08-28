@@ -436,6 +436,11 @@ class GovernedMetricDictionary:
         return list(GOVERNED_METRICS.values())
 
     @classmethod
+    def list_all_metrics(cls) -> List[GovernedMetric]:
+        """Convenience method returning full list of governed metrics."""
+        return list(GOVERNED_METRICS.values())
+
+    @classmethod
     def validate_measures(cls, measure_ids: List[str]) -> List[GovernedMetric]:
         validated = []
         for mid in measure_ids:
