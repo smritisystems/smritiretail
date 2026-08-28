@@ -30,6 +30,21 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-28 | v1.0.0 | Purchase Order Auto-Generation Engine | [Walkthrough](./procurement/Auto_PO_Engine_v1.0.0.md) | [Plan](../implementation/procurement/Auto_PO_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Employee Attendance & Commission Engine | [Walkthrough](./hr/Employee_Attendance_Engine_v1.0.0.md) | [Plan](../implementation/hr/Employee_Attendance_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Sales Return & Exchange Engine | [Walkthrough](./pos/Sales_Return_Engine_v1.0.0.md) | [Plan](../implementation/pos/Sales_Return_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Customer Credit Limit & Outstanding Engine | [Walkthrough](./crm/Customer_Credit_Engine_v1.0.0.md) | [Plan](../implementation/crm/Customer_Credit_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Inter-Branch Stock Transfer Engine | [Walkthrough](./warehouse/Inter_Branch_Transfer_v1.0.0.md) | [Plan](../implementation/warehouse/Inter_Branch_Transfer_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Stock Expiry & Batch Tracking Engine | [Walkthrough](./warehouse/Stock_Expiry_Batch_v1.0.0.md) | [Plan](../implementation/warehouse/Stock_Expiry_Batch_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Barcode & Label Printing Engine | [Walkthrough](./warehouse/Label_Print_Engine_v1.0.0.md) | [Plan](../implementation/warehouse/Label_Print_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Purchase Return to Vendor (PRTV) Engine | [Walkthrough](./procurement/PRTV_Engine_v1.0.0.md) | [Plan](../implementation/procurement/PRTV_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Gift Voucher & Store Credit Engine | [Walkthrough](./pos/Gift_Voucher_Engine_v1.0.0.md) | [Plan](../implementation/pos/Gift_Voucher_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Supplier Payment Terms & Aging Engine | [Walkthrough](./procurement/Supplier_Payment_Aging_v1.0.0.md) | [Plan](../implementation/procurement/Supplier_Payment_Aging_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Product Bundling & Combo Pricing Engine | [Walkthrough](./pricing/Bundling_Combo_Engine_v1.0.0.md) | [Plan](../implementation/pricing/Bundling_Combo_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Store Cash Drawer & Float Management Engine | [Walkthrough](./pos/Cash_Drawer_Float_v1.0.0.md) | [Plan](../implementation/pos/Cash_Drawer_Float_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Customer Loyalty Tier Upgrade Engine | [Walkthrough](./crm/Loyalty_Tier_Engine_v1.0.0.md) | [Plan](../implementation/crm/Loyalty_Tier_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Consignment Stock Engine | [Walkthrough](./procurement/Consignment_Stock_Engine_v1.0.0.md) | [Plan](../implementation/procurement/Consignment_Stock_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Price Override Approval Engine | [Walkthrough](./pos/Price_Override_Approval_v1.0.0.md) | [Plan](../implementation/pos/Price_Override_Approval_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Staff Commission & Incentive Engine | [Walkthrough](./hr/Commission_Incentive_Engine_v1.0.0.md) | [Plan](../implementation/hr/Commission_Incentive_Engine_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Markdown & Clearance Planning Engine | [Walkthrough](./pricing/Markdown_Clearance_Engine_v1.0.0.md) | [Plan](../implementation/pricing/Markdown_Clearance_Engine_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Inter-Store Purchase Order (IPO) Engine | [Walkthrough](./warehouse/IPO_Engine_v1.0.0.md) | [Plan](../implementation/warehouse/IPO_Engine_v1.0.0.md) | Completed |
