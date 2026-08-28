@@ -58,6 +58,14 @@ async def db_engine():
         await conn.run_sync(Base.metadata.create_all)
         try:
             await conn.execute(text("""
+                ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100);
+                ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_id VARCHAR(100);
+                ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER;
+                ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_scope VARCHAR(100);
+                ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb;
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_return_idempotency_active
+                    ON sales_returns (company_id, branch_id, idempotency_key)
+                    WHERE is_deleted = false AND idempotency_key IS NOT NULL;
                 DO $$
                 BEGIN
                     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'journal_vouchers') THEN

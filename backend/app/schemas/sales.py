@@ -371,6 +371,11 @@ class SalesReturnResponse(SalesReturnBase):
     is_active: Optional[bool] = True
     is_deleted: Optional[bool] = False
     version: Optional[int] = 1
+    idempotency_key: Optional[str] = None
+    policy_id: Optional[str] = None
+    policy_version: Optional[int] = None
+    policy_scope: Optional[str] = None
+    policy_snapshot: dict = {}
     items: List[SalesReturnItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)

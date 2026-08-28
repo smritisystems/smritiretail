@@ -105,9 +105,7 @@ export const ProcessSalesReturnModal: React.FC<ProcessSalesReturnModalProps> = (
       onReturnProcessed();
       onClose();
     } catch (err: any) {
-      // Fallback: If mock mode, trigger callback & close modal
-      onReturnProcessed();
-      onClose();
+      setError(err?.message || 'Unable to process the sales return. Please try again.');
     } finally {
       setLoading(false);
     }

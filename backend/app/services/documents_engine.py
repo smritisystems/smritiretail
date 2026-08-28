@@ -100,6 +100,92 @@ class DocumentsEngine:
         return series
 
     @classmethod
+    async def allocate_next_number_in_transaction(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        document_type: str,
+        branch_id: Optional[str] = None,
+        financial_year: Optional[str] = None,
+        company_code: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> SequenceAllocateResponse:
+        """Allocate a document number without committing the caller transaction."""
+        doc_type = document_type.upper()
+        filters = [
+            DocumentSeries.company_id == company_id,
+            DocumentSeries.document_type == doc_type,
+            DocumentSeries.is_deleted == False,
+        ]
+        if branch_id is not None:
+            filters.append(DocumentSeries.branch_id == branch_id)
+
+        series = (await session.execute(
+            select(DocumentSeries).where(*filters).with_for_update()
+        )).scalars().first()
+
+        if not series:
+            prefixes = {
+                "SALES_INVOICE": "INV-",
+                "POS_BILL": "POS-",
+                "GOODS_RECEIPT_NOTE": "GRN-",
+                "DELIVERY_CHALLAN": "DC-",
+                "PURCHASE_ORDER": "PO-",
+                "CREDIT_NOTE": "CN-",
+                "DEBIT_NOTE": "DN-",
+                "PAYMENT_RECEIPT": "RCP-",
+            }
+            series = DocumentSeries(
+                id=f"ser_{uuid.uuid4().hex[:12]}",
+                company_id=company_id,
+                branch_id=branch_id,
+                name=f"Default {doc_type} Series",
+                document_type=doc_type,
+                module="CORE",
+                prefix=prefixes.get(doc_type, f"{doc_type[:3]}-"),
+                suffix="",
+                running_length=4,
+                reset_rule="Financial Year",
+                current_number=0,
+                financial_year=financial_year or "2026-2027",
+                company_code=company_code or company_id,
+                mode="Auto",
+                created_by=created_by,
+                is_active=True,
+                is_deleted=False,
+            )
+            session.add(series)
+            await session.flush()
+
+        old_num = series.current_number or 0
+        new_num = old_num + 1
+        series.current_number = new_num
+        padded_seq = str(new_num).zfill(series.running_length or 4)
+        doc_no = f"{series.prefix or ''}{padded_seq}{series.suffix or ''}"
+        session.add(NumberingAuditLog(
+            id=f"nal_{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            branch_id=branch_id,
+            series_id=series.id,
+            series_name=series.name,
+            action="ALLOCATE",
+            document_no=doc_no,
+            old_value=str(old_num),
+            new_value=str(new_num),
+            details=f"Allocated sequential number {new_num} for document type {doc_type}",
+            operator=created_by or "system",
+            is_active=True,
+            is_deleted=False,
+        ))
+        return SequenceAllocateResponse(
+            series_id=series.id,
+            document_type=doc_type,
+            allocated_number=new_num,
+            document_no=doc_no,
+            allocated_at=datetime.now(timezone.utc),
+        )
+
+    @classmethod
     async def allocate_next_number(
         cls,
         session: AsyncSession,
