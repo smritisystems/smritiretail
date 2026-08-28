@@ -30,6 +30,15 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-28 | v1.0.0 | Customer Complaint & After-Sales CRM Engine | [Walkthrough](./crm/Complaint_CRM_SLA_CSAT_v1.0.0.md) | [Plan](../implementation/crm/Complaint_CRM_SLA_CSAT_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Vendor Return & Debit Note Engine | [Walkthrough](./procurement/Vendor_Return_Debit_Note_v1.0.0.md) | [Plan](../implementation/procurement/Vendor_Return_Debit_Note_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Store-Level Profit & Loss Dashboard | [Walkthrough](./finance/PL_Dashboard_v1.0.0.md) | [Plan](../implementation/finance/PL_Dashboard_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Vendor PO Approval Workflow & 3-Way Match Engine | [Walkthrough](./procurement/PO_Approval_ThreeWay_Match_v1.0.0.md) | [Plan](../implementation/procurement/PO_Approval_ThreeWay_Match_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Warehouse Wave Picking Optimiser | [Walkthrough](./warehouse/Wave_Picking_Optimiser_v1.0.0.md) | [Plan](../implementation/warehouse/Wave_Picking_Optimiser_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Advanced Pricing Rules & Promotional Discount Engine | [Walkthrough](./pricing/Pricing_Discount_Engine_v1.0.0.md) | [Plan](../implementation/pricing/Pricing_Discount_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Customer Segmentation & AI Micro-Cohort Engine | [Walkthrough](./crm/Customer_Segmentation_RFM_MicroCohort_v1.0.0.md) | [Plan](../implementation/crm/Customer_Segmentation_RFM_MicroCohort_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Multi-Branch Stock Transfer & Inter-Branch Requisition | [Walkthrough](./inventory/Stock_Transfer_InterBranch_Requisition_v1.0.0.md) | [Plan](../implementation/inventory/Stock_Transfer_InterBranch_Requisition_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Dynamic Loyalty Points Burn & Earn Ledger | [Walkthrough](./crm/Loyalty_Ledger_Burn_Earn_v1.0.0.md) | [Plan](../implementation/crm/Loyalty_Ledger_Burn_Earn_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Employee Shift Management & Commission Calculation Engine | [Walkthrough](./hrm/Shift_Management_Commission_Engine_v1.0.0.md) | [Plan](../implementation/hrm/Shift_Management_Commission_Engine_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Advanced GST e-Invoice IRN Generation & QR Code Printing Studio | [Walkthrough](./compliance/GST_eInvoice_IRN_QR_Studio_v1.0.0.md) | [Plan](../implementation/compliance/GST_eInvoice_IRN_QR_Studio_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Omnichannel Order Management & Click-and-Collect Engine | [Walkthrough](./pos/Omnichannel_Order_Management_ClickCollect_v1.0.0.md) | [Plan](../implementation/pos/Omnichannel_Order_Management_ClickCollect_v1.0.0.md) | Completed |

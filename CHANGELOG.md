@@ -28,7 +28,153 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.104.0] - 2026-08-28
+
+#### Customer Complaint & After-Sales CRM Engine (v1.0.0-GA)
+- **Complaint CRM Engine (`src/utils/complaintCRMEngine.ts`)**:
+  - Full lifecycle: OPEN → ASSIGNED → IN_PROGRESS → PENDING_CUSTOMER → RESOLVED → CLOSED / REOPENED / ESCALATED / CANCELLED.
+  - `SLA_MATRIX`: LOW (24h/120h), MEDIUM (8h/72h), HIGH (4h/48h), CRITICAL (1h/8h) first-response/resolution targets.
+  - `recordFirstResponse()` / `resolve()`: compute `hoursElapsed` from `openedAt`, set `firstResponseSLABreached` / `resolutionSLABreached`.
+  - `checkSLABreaches()`: idempotent SLA check with `asOf: Date`; auto-escalates CRITICAL complaints after 2× first-response SLA threshold.
+  - `close()`: clamps CSAT to 1–5, writes `csatScore` and `csatComment`.
+  - `reopen()`: increments `reopenCount`, clears `resolvedAt`, `closedAt`, `csatScore` — preserves notes log.
+  - `computeCSATReport()`: avg CSAT, 5-bucket distribution, SLA breach rates (over total complaints), avg resolution hours, escalation rate, reopen rate, category breakdown.
+  - 9 statuses, 4 priority levels, 10 category codes. Notes log appended on every action.
+- **Complaint CRM Modal (`src/components/crm/ComplaintCRMModal.tsx`)**:
+  - Complaint list with status filter; detail panel with SLA breach badges, priority badges, inline lifecycle action buttons; CSAT star-rating capture; activity log. Separate CSAT & SLA report tab.
+- **Frontend Certification Test Suite (`src/tests/complaintCRMEngine.test.ts`)**:
+  - Validated 4/4 test stages: full lifecycle with SLA breach detection, CRITICAL auto-escalation at 2h, reopen flow, CSAT report aggregation.
+
+### [3.103.0] - 2026-08-28
+
+#### Vendor Return & Debit Note Engine (v1.0.0-GA)
+- **Vendor Return Engine (`src/utils/vendorReturnEngine.ts`)**:
+  - Full RTV lifecycle: DRAFT → SUBMITTED → VENDOR_ACKNOWLEDGED → GOODS_DISPATCHED → VENDOR_RECEIVED → DEBIT_NOTE_RAISED → SETTLED / DISPUTED / CANCELLED.
+  - Per-line `lineValue`, `gstAmount`, `totalWithGST` auto-computed on `createRTV()`.
+  - `raiseDebitNote()`: auto-generates `DebitNote` with DN number, per-line descriptive strings with return reason codes, OPEN status, `outstandingAmount = totalAmount`.
+  - `settleDebitNote()`: cumulative settlement tracking → PARTIALLY_SETTLED or SETTLED; RTV auto-transitions to SETTLED on full clearance.
+  - `computeVendorBalance()`: snapshots open vs settled debit notes per vendor; aggregates total/outstanding/settled values.
+  - 9 RTV statuses, 7 return reason codes (QUALITY_DEFECT, DAMAGED_IN_TRANSIT, WRONG_ITEM, EXCESS_SUPPLY, SHORT_EXPIRY, PRICE_DISCREPANCY, SPECIFICATION_MISMATCH).
+  - Immutable audit trail with actor, timestamp, note on every lifecycle transition.
+- **Vendor Return Modal (`src/components/procurement/VendorReturnModal.tsx`)**:
+  - 3-tab: RTV workflow with one-click lifecycle buttons, debit note detail with settlement progress bar, vendor balance ledger with open debit note list.
+- **Frontend Certification Test Suite (`src/tests/vendorReturnEngine.test.ts`)**:
+  - Validated 4/4 test stages: per-line GST computation, full lifecycle to SETTLED, partial+full settlement, vendor ledger aggregation.
+
+### [3.102.0] - 2026-08-28
+
+#### Store-Level Profit & Loss Dashboard (v1.0.0-GA)
+- **P&L Dashboard Engine (`src/utils/plDashboardEngine.ts`)**:
+  - `computePL()`: Gross Sales → Returns → Net Revenue → COGS → Gross Margin (GM%) → Shrinkage Cost → Markdown Cost (above `PL_CONFIG.markdownPolicyThresholdPct` = 10%) → Operating Cost → Net Profit. All filtered to branch and date range.
+  - Markdown cost policy: only discount above 10% of line gross sales classified as markdown — separates normal trading discount from margin-eroding markdown events.
+  - `computeTrend()`: auto-sorts periods ascending by label, computes avg GM%, avg net margin%, MoM revenue growth %.
+  - `compareBranches()`: sorts reports by net profit descending for branch ranking.
+  - `PLLine[]` waterfall with `pctOfRevenue` on all deduction lines for drill-through.
+- **P&L Dashboard Modal (`src/components/finance/PLDashboardModal.tsx`)**:
+  - Branch/period selector; 3-tab: P&L waterfall statement, trend sparklines with period-by-period GM% progress bars, branch ranking comparison with medal icons.
+- **Frontend Certification Test Suite (`src/tests/plDashboardEngine.test.ts`)**:
+  - Validated 4/4 test stages: P&L with branch filter + markdown threshold, return rate + avg order value, trend sort + MoM growth, branch comparison.
+
+### [3.101.0] - 2026-08-28
+
+
+#### Vendor Purchase Order Approval Workflow & 3-Way Match Engine (v1.0.0-GA)
+- **Three-Way Match Engine (`src/utils/threeWayMatchEngine.ts`)**:
+  - Full PO lifecycle: DRAFT → PENDING_APPROVAL → APPROVED → SENT → PARTIALLY_RECEIVED / RECEIVED → INVOICED → CLOSED / DISPUTED / CANCELLED.
+  - Per-line computed totals: `lineTotal = orderedQty × unitPrice`, `taxTotal` from line-level GST rate, `grandTotal`.
+  - `approve()`: persists `approvedBy` via `extras` spread on `transition()`.
+  - `reject()`: persists `rejectedBy` + `rejectionReason`, status → CANCELLED.
+  - `applyGRN()`: overlays `receivedQty` + `receivedUnitPrice` per lineId; auto-resolves RECEIVED vs PARTIALLY_RECEIVED.
+  - `applyInvoice()`: overlays `invoicedQty` + `invoicedUnitPrice` per lineId.
+  - `runThreeWayMatch()`: per-line `qtyVariancePct` and `priceVariancePct` vs configurable tolerance bands (±2% qty, ±1% price); resolves MATCHED / PRICE_VARIANCE / QTY_VARIANCE / BOTH_VARIANCE; worst-case determines `overallResult`.
+  - `closeOrDispute()`: CLOSED on match, DISPUTED on variance — single call.
+  - Immutable audit trail with fromStatus, toStatus, action, performedBy, timestamp, note.
+- **PO Approval & Match Modal (`src/components/procurement/POApprovalMatchModal.tsx`)**:
+  - PO queue with lifecycle action buttons; 2-tab: PO Workflow (lines, totals, audit trail) and 3-Way Match (per-line comparison table with tolerance indicators).
+- **Frontend Certification Test Suite (`src/tests/threeWayMatchEngine2.test.ts`)**:
+  - Validated 4/4 test stages: PO creation totals + approve, full MATCHED cycle → CLOSED, PRICE_VARIANCE → DISPUTED, PO rejection.
+
+### [3.100.0] - 2026-08-28
+
+#### Warehouse Wave Picking Optimiser (v1.0.0-GA)
+- **Wave Picking Engine (`src/utils/wavePickingOptimiser.ts`)**:
+  - `createWave()`: builds `PickTask[]` from order lines with serpentine sort keys (`zoneIdx×100000 + aisle×1000 + bayKey×10 + level`; odd aisles ascending, even descending).
+  - `assignTasks()`: groups tasks by zone, builds zone-preference picker pools, round-robin assignment, transitions wave to IN_PROGRESS.
+  - `optimisePath()`: returns a picker's zone tasks in ascending sort-key (serpentine walk) order.
+  - `recordPick()`: computes `shortQty`, sets PICKED / SHORTED / SKIPPED per task; auto-COMPLETED when all tasks terminal.
+  - `computeMetrics()`: completion rate, short rate, total units requested/picked, picker utilisation map, avgTasksPerPicker.
+  - 4 task statuses: PENDING, PICKED, SHORTED, SKIPPED.
+  - 3 wave statuses: OPEN, IN_PROGRESS, COMPLETED.
+- **Wave Picking Studio Modal (`src/components/warehouse/WavePickingStudioModal.tsx`)**:
+  - Wave creation, task queue with zone/picker filter, serpentine-sorted tasks, Full/Short pick actions, per-picker progress, metrics dashboard.
+- **Frontend Certification Test Suite (`src/tests/wavePickingOptimiser.test.ts`)**:
+  - Validated 4/4 test stages: wave creation + sort keys, zone-preference picker assignment, path optimisation, pick recording + auto-completion + metrics.
+
+### [3.99.0] - 2026-08-28
+
+#### Advanced Pricing Rules & Promotional Discount Engine (v1.0.0-GA)
+- **Pricing Discount Engine (`src/utils/pricingDiscountEngine.ts`)**:
+  - 4-layer hierarchy: Base → Customer Group Override → Best Promotional Offer (highest-discount wins, priority tie-break) → Coupon stacking.
+  - `resolveLine()`: sequential layer application with per-layer `[L1]–[L4]` human-readable trace entries in `PriceResolutionResult`.
+  - `resolveInvoice()`: multi-line resolution, invoice-level 40% max discount cap enforcement with `capBreached` flag.
+  - `validateCoupon()`: checks `isActive`, `usedCount < maxUsages`, `validFrom/validTo`; returns `{ valid, reason }`.
+  - `getActiveOffers()`: date-aware active offer filter.
+  - `isStackable` flag on offers controls coupon combination eligibility.
+  - `PRICING_CONFIG` constants: `maxDiscountCapPct` (40%), `couponStackingAllowed` (true).
+- **Pricing Studio Modal (`src/components/pricing/PricingStudioModal.tsx`)**:
+  - 3-tab: live invoice resolver (customer group + coupon controls, per-line discount breakdown), active offers catalogue, per-line L1–L4 pricing trace.
+- **Frontend Certification Test Suite (`src/tests/pricingDiscountEngine.test.ts`)**:
+  - Validated 4/4 test stages: 4-layer resolution, wholesale group + highest-discount offer selection, discount cap enforcement, coupon validation (expired/exhausted/inactive).
+
+### [3.98.0] - 2026-08-28
+
+
+#### Customer Segmentation & AI Micro-Cohort Engine (v1.0.0-GA)
+- **Segmentation Engine (`src/utils/customerSegmentationEngine.ts`)**:
+  - RFM quintile scoring: fixed threshold arrays for Recency (days), Frequency (txn count), Monetary (LTV ₹).
+  - Weighted composite score: `(R×0.30 + F×0.35 + M×0.35) × 20` (0–100 scale).
+  - 10-micro-cohort rule-chain resolver: CHAMPIONS, LOYAL, POTENTIAL_LOYALISTS, NEW, PROMISING, NEED_ATTENTION, AT_RISK, CANT_LOSE_THEM, HIBERNATING, LOST.
+  - 6 promotion eligibility flags derived from cohort + monetary score: winbackOffer, loyaltyDoublePts, earlyAccess, birthdayCoupon, flashSaleInvite, reEngagementEmail.
+  - `buildReport()`: full SegmentationReport with cohortSummary, avgLTV, avgAOV, topCohortByCount.
+  - `filterByCohort()` and `filterByPromotion()` utilities for campaign list building.
+- **Segmentation Modal (`src/components/crm/CustomerSegmentationModal.tsx`)**:
+  - 3-tab: RFM-scored customer cards (R/F/M score bars + promo chips), cohort reference grid, promotion eligibility filter panel.
+- **Frontend Certification Test Suite (`src/tests/customerSegmentationEngine.test.ts`)**:
+  - Validated 4/4 test stages: Champions scoring, Lost customer, full report, promotion eligibility filtering.
+
+### [3.97.0] - 2026-08-28
+
+#### Multi-Branch Stock Transfer & Inter-Branch Requisition (v1.0.0-GA)
+- **Stock Transfer Engine (`src/utils/stockTransferEngine.ts`)**:
+  - Full lifecycle: SUBMITTED → APPROVED → DISPATCHED → RECEIVED / PARTIALLY_RECEIVED.
+  - 3 transfer types: INTER_BRANCH, WAREHOUSE_TO_BRANCH, BRANCH_TO_WAREHOUSE.
+  - Per-line qty tracking: requestedQty, approvedQty, dispatchedQty, receivedQty, shortQty.
+  - `approve()`: per-line `approvedQty` override, recalculates `totalTransferValue`, persists `approvedBy`.
+  - `dispatch()`: logistics reference, expected arrival, per-line dispatchedQty.
+  - `receive()`: auto-detects PARTIALLY_RECEIVED when any line has shortQty > 0.
+  - `computeMetrics()`: inTransit count/value, pendingApproval, received, avgTransitDays, shortReceiptRate.
+  - Immutable audit trail with fromStatus, toStatus, performedBy, timestamp, note per entry.
+- **Stock Transfer Studio Modal (`src/components/inventory/StockTransferStudioModal.tsx`)**:
+  - Order queue with per-line qty table and action buttons; metrics dashboard tab.
+- **Frontend Certification Test Suite (`src/tests/stockTransferEngine.test.ts`)**:
+  - Validated 4/4 test stages (bug fix: `approvedBy` not persisted — resolved by passing `{ approvedBy }` in `extras`).
+
+### [3.96.0] - 2026-08-28
+
+#### Dynamic Loyalty Points Burn & Earn Ledger (v1.0.0-GA)
+- **Loyalty Ledger Engine (`src/utils/loyaltyLedgerEngine.ts`)**:
+  - Double-entry ledger: 5 EARN types (PURCHASE, SIGNUP_BONUS, REFERRAL, BIRTHDAY, MANUAL_CREDIT), 4 BURN types (REDEMPTION, VOUCHER_CONVERSION, EXPIRY_WRITEOFF, ADJUSTMENT).
+  - TTL-based expiry: 365-day configurable TTL, expiry-aware `availableBalance` computed without mutating entries.
+  - Redemption cap: 20% of invoice value converted to points at ₹0.25/pt; minimum 50-pt balance guard.
+  - `runExpirySweep()`: consolidates expired ACTIVE entries per customer into BURN_EXPIRY_WRITEOFF.
+  - `LOYALTY_CONFIG` constants for all policy parameters.
+- **Loyalty Ledger Modal (`src/components/crm/LoyaltyLedgerModal.tsx`)**:
+  - 3-tab: earn/burn ledger, live redemption with cap preview, expiry sweep results.
+- **Frontend Certification Test Suite (`src/tests/loyaltyLedgerEngine.test.ts`)**:
+  - Validated 4/4 test stages: earn + expiry calc, balance with expiry exclusion, redemption cap/guard, expiry sweep write-off.
+
 ### [3.95.0] - 2026-08-28
+
 
 #### Employee Shift Management & Commission Calculation Engine (v1.0.0-GA)
 - **Shift Engine (`src/utils/shiftEngine.ts`)**:

@@ -176,7 +176,8 @@ export class StockTransferEngine {
       { ...order, lines, totalTransferValue },
       "APPROVED",
       approvedBy,
-      `Approved by ${approvedBy}`
+      `Approved by ${approvedBy}`,
+      { approvedBy }
     );
   }
 
