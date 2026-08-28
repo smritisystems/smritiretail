@@ -30,6 +30,9 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-28 | v1.0.0 | Employee Shift Management & Commission Calculation Engine | [Walkthrough](./hrm/Shift_Management_Commission_Engine_v1.0.0.md) | [Plan](../implementation/hrm/Shift_Management_Commission_Engine_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Advanced GST e-Invoice IRN Generation & QR Code Printing Studio | [Walkthrough](./compliance/GST_eInvoice_IRN_QR_Studio_v1.0.0.md) | [Plan](../implementation/compliance/GST_eInvoice_IRN_QR_Studio_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Omnichannel Order Management & Click-and-Collect Engine | [Walkthrough](./pos/Omnichannel_Order_Management_ClickCollect_v1.0.0.md) | [Plan](../implementation/pos/Omnichannel_Order_Management_ClickCollect_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Smart Replenishment & Min-Max Inventory Reorder Automation | [Walkthrough](./inventory/Smart_Replenishment_MinMax_Reorder_v1.0.0.md) | [Plan](../implementation/inventory/Smart_Replenishment_MinMax_Reorder_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Enterprise RMA & Reverse Logistics Engine | [Walkthrough](./purchase/RMA_Reverse_Logistics_v1.0.0.md) | [Plan](../implementation/purchase/RMA_Reverse_Logistics_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Supplier Scorecard & Vendor SLA Compliance Audit | [Walkthrough](./purchase/Supplier_Scorecard_Vendor_SLA_Audit_v1.0.0.md) | [Plan](../implementation/purchase/Supplier_Scorecard_Vendor_SLA_Audit_v1.0.0.md) | Completed |
