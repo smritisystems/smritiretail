@@ -30,6 +30,12 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-28 | v1.0.0 | Smart Replenishment & Min-Max Inventory Reorder Automation | [Walkthrough](./inventory/Smart_Replenishment_MinMax_Reorder_v1.0.0.md) | [Plan](../implementation/inventory/Smart_Replenishment_MinMax_Reorder_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Enterprise RMA & Reverse Logistics Engine | [Walkthrough](./purchase/RMA_Reverse_Logistics_v1.0.0.md) | [Plan](../implementation/purchase/RMA_Reverse_Logistics_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Supplier Scorecard & Vendor SLA Compliance Audit | [Walkthrough](./purchase/Supplier_Scorecard_Vendor_SLA_Audit_v1.0.0.md) | [Plan](../implementation/purchase/Supplier_Scorecard_Vendor_SLA_Audit_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | RFID Smart Fitting Room & Garment Interaction Analytics Engine | [Walkthrough](./inventory/RFID_Fitting_Room_Analytics_v1.0.0.md) | [Plan](../implementation/inventory/RFID_Fitting_Room_Analytics_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Universal Customer 360 & Loyalty Tier Progression Matrix | [Walkthrough](./crm/Customer360_Loyalty_Tier_Progression_v1.0.0.md) | [Plan](../implementation/crm/Customer360_Loyalty_Tier_Progression_v1.0.0.md) | Completed |
+| 2026-08-28 | v1.0.0 | Enterprise Gift Card, Voucher Lifecycle & Stored-Value Ledger | [Walkthrough](./pos/Gift_Card_Voucher_Lifecycle_v1.0.0.md) | [Plan](../implementation/pos/Gift_Card_Voucher_Lifecycle_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Real-Time Dynamic Pricing & Happy Hours POS Discount Engine | [Walkthrough](./pos/Dynamic_Pricing_Happy_Hours_Engine_v1.0.0.md) | [Plan](../implementation/pos/Dynamic_Pricing_Happy_Hours_Engine_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Warehouse Wave Picking & RFID Bin Verification Studio | [Walkthrough](./inventory/Warehouse_Wave_Picking_RFID_Verification_v1.0.0.md) | [Plan](../implementation/inventory/Warehouse_Wave_Picking_RFID_Verification_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Full End-to-End Enterprise E2E Test Suite Automation | [Walkthrough](./foundation/Enterprise_E2E_Playwright_Automation_v1.0.0.md) | [Plan](../implementation/foundation/Enterprise_E2E_Playwright_Automation_v1.0.0.md) | Completed |
