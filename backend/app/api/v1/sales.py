@@ -16,7 +16,7 @@ from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_company_db, get_tenant_context, TenantContext, require_role, require_permission
+from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, require_role, require_permission
 from ...models.auth import UserRole
 from ...schemas.sales import (
     SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
@@ -504,10 +504,13 @@ async def convert_sales_order_to_tax_invoice(
 )
 async def create_sales_return(
     sr_in: SalesReturnCreate,
+    request: Request,
+    control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    return await SalesService(db, tenant_ctx).create_sales_return(sr_in)
+    idempotency_key = request.headers.get("Idempotency-Key")
+    return await SalesService(db, tenant_ctx, control_db=control_db).create_sales_return(sr_in, idempotency_key=idempotency_key)
 
 
 @router.get("/returns", response_model=List[SalesReturnResponse])

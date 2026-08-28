@@ -265,6 +265,11 @@ class SalesReturn(BaseEntity):
     is_interstate      = Column(Boolean, default=False)
     status             = Column(String(20), default="Draft")  # Draft | Submitted | Approved | Cancelled
     customer_id        = Column(String(50),    nullable=True, index=True)  # v1374: denorm from orig invoice
+    idempotency_key    = Column(String(100), nullable=True, index=True)
+    policy_id          = Column(String(100), nullable=True)
+    policy_version     = Column(Integer, nullable=True)
+    policy_scope       = Column(String(100), nullable=True)
+    policy_snapshot    = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
 
     # Relationships
     items = relationship("SalesReturnItem", back_populates="sales_return", cascade="all, delete-orphan")

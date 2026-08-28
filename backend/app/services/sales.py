@@ -49,6 +49,7 @@ from ..schemas.sales import (
 )
 from .crm import CrmService
 from .inventory import InventoryService
+from .sales_return_policy import SalesReturnPolicyResolver
 from ..api.deps import TenantContext
 
 
@@ -57,11 +58,12 @@ def _uid() -> str:
 
 
 class SalesService:
-    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
+    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext, control_db: Optional[AsyncSession] = None):
         self.db = db
         self.tenant_ctx = tenant_ctx
         self.crm_service = CrmService(db, tenant_ctx)
         self.inventory_service = InventoryService(db, tenant_ctx)
+        self.sales_return_policy_resolver = SalesReturnPolicyResolver(control_db)
 
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Invoice
@@ -799,19 +801,36 @@ class SalesService:
     # Sales Return
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    async def create_sales_return(self, sr_in: SalesReturnCreate) -> SalesReturn:
-        # Check original invoice exists
+    async def create_sales_return(self, sr_in: SalesReturnCreate, idempotency_key: Optional[str] = None) -> SalesReturn:
+        policy = await self.sales_return_policy_resolver.resolve()
+        # Lock the invoice while validating returnable quantities and creating effects.
         inv_res = await self.db.execute(
-            select(SalesInvoice).filter(
+            select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(
                 SalesInvoice.id == sr_in.original_invoice_id,
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
                 SalesInvoice.branch_id == self.tenant_ctx.branch_id,
                 SalesInvoice.is_deleted == False
-            )
+            ).with_for_update()
         )
         orig_invoice = inv_res.scalars().first()
         if not orig_invoice:
             raise HTTPException(status_code=404, detail="Original sales invoice not found")
+
+        if idempotency_key:
+            existing_key = await self.db.execute(
+                select(SalesReturn).options(selectinload(SalesReturn.items)).filter(
+                    SalesReturn.idempotency_key == idempotency_key,
+                    SalesReturn.company_id == self.tenant_ctx.company_id,
+                    SalesReturn.branch_id == self.tenant_ctx.branch_id,
+                    SalesReturn.is_deleted == False,
+                )
+            )
+            existing_return = existing_key.scalars().first()
+            if existing_return:
+                if existing_return.original_invoice_id != sr_in.original_invoice_id or existing_return.return_no != sr_in.return_no:
+                    raise HTTPException(status_code=409, detail="Idempotency key collision: request identity differs from previous request")
+                return existing_return
+
         existing = await self.db.execute(
             select(SalesReturn).filter(
                 SalesReturn.return_no == sr_in.return_no,
@@ -828,6 +847,26 @@ class SalesService:
         sr_items = []
         product_stock_updates = []
 
+        successful_statuses = {"approved", "processed", "completed", "submitted"}
+        returned_quantities = {}
+        previous_returns = await self.db.execute(
+            select(SalesReturnItem.product_id, SalesReturnItem.quantity)
+            .join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id)
+            .where(
+                SalesReturn.original_invoice_id == sr_in.original_invoice_id,
+                SalesReturn.company_id == self.tenant_ctx.company_id,
+                SalesReturn.branch_id == self.tenant_ctx.branch_id,
+                SalesReturn.is_deleted == False,
+                SalesReturn.status.in_(successful_statuses),
+                SalesReturnItem.product_id.is_not(None),
+            )
+        )
+        for product_id, quantity in previous_returns.all():
+            returned_quantities[product_id] = returned_quantities.get(product_id, Decimal("0")) + quantity
+
+        invoice_items = {item.product_id: item for item in orig_invoice.items}
+        requested_quantities = {}
+
         for item in sr_in.items:
             # Check product
             res = await self.db.execute(
@@ -842,8 +881,21 @@ class SalesService:
             if not product:
                 raise HTTPException(status_code=404, detail=f"Product with ID {item.product_id} not found")
 
-            item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-            item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
+            invoice_item = invoice_items.get(item.product_id)
+            if invoice_item is None:
+                raise HTTPException(status_code=422, detail=f"Product {item.product_id} is not present on the original invoice")
+            original_quantity = invoice_item.quantity
+            requested_quantities[item.product_id] = requested_quantities.get(item.product_id, Decimal("0")) + item.quantity
+            remaining_quantity = original_quantity - returned_quantities.get(item.product_id, Decimal("0"))
+            if requested_quantities[item.product_id] <= Decimal("0") or requested_quantities[item.product_id] > remaining_quantity:
+                raise HTTPException(status_code=422, detail=f"Return quantity exceeds remaining quantity for product {item.product_id}")
+
+            # Prices and tax rates come from the original invoice snapshot, not the client payload.
+            original_unit_price = invoice_item.price
+            original_gst_rate = invoice_item.gst_rate or Decimal("0.00")
+            original_tax_per_unit = (invoice_item.tax_amount or Decimal("0.00")) / original_quantity if original_quantity else Decimal("0.00")
+            item_tax = (item.quantity * original_tax_per_unit).quantize(Decimal("0.01"))
+            item_total = (item.quantity * original_unit_price + item_tax).quantize(Decimal("0.01"))
             tax_total += item_tax
             grand_total += item_total
 
@@ -852,8 +904,8 @@ class SalesService:
                 code=item.code,
                 name=item.name,
                 quantity=item.quantity,
-                price=item.price,
-                gst_rate=item.gst_rate,
+                price=original_unit_price,
+                gst_rate=original_gst_rate,
                 tax_amount=item_tax,
                 total_amount=item_total
             ))
@@ -874,6 +926,15 @@ class SalesService:
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
             customer_id=orig_invoice.customer_id if orig_invoice else None,  # v1374
+            idempotency_key=idempotency_key,
+            policy_id=policy.policy_id,
+            policy_version=policy.policy_version,
+            policy_scope=policy.resolution_scope,
+            policy_snapshot={
+                "values": policy.values,
+                "resolution_source": policy.resolution_source,
+                "resolved_at": policy.resolved_at,
+            },
         )
 
         # Apply stock increments (returned items add back to stock) and record stock movements
@@ -917,6 +978,23 @@ class SalesService:
             creator=_ret_creator,
         )
         # -- End Sprint 15 hooks --
+        from .compliance_audit import ComplianceAuditService
+        await ComplianceAuditService.record_audit_event(
+            session=self.db,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            event_type="RETURN_CREATED",
+            entity_name="SalesReturn",
+            entity_id=db_sr.id,
+            action_summary=f"Sales return {db_sr.return_no} created for invoice {db_sr.original_invoice_id}",
+            after_state={
+                "invoice_id": db_sr.original_invoice_id,
+                "return_no": db_sr.return_no,
+                "policy_id": db_sr.policy_id,
+                "policy_version": db_sr.policy_version,
+                "policy_scope": db_sr.policy_scope,
+            },
+        )
         self.db.add(db_sr)
         try:
             await self.db.commit()
