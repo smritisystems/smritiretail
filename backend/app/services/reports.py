@@ -791,18 +791,30 @@ class ReportsService:
         agg: Dict[tuple, dict] = {}
         for item, prod in rows:
             cat = (prod.category if prod else None) or "General"
+            product_code = (prod.code if prod else None) or getattr(item, "code", None) or "N/A"
+            product_name = (prod.name if prod else None) or getattr(item, "name", None) or "Uncatalogued Item"
+            style_code = (prod.style_code if prod else None) or product_code
             brand = (prod.brand if prod else None) or "Standard"
             color = (prod.color if prod else None) or "N/A"
             size = (prod.size if prod else None) or "Standard"
             
-            key = (cat, brand, color, size)
+            key = (product_code, style_code, brand, color, size)
             qty = Decimal(str(getattr(item, "quantity", 0) or 0))
-            gross = Decimal(str(getattr(item, "total_amount", None) or getattr(item, "amount", 0) or 0))
-            disc = Decimal(str(getattr(item, "discount_amount", 0) or 0))
-            net = gross - disc if gross >= disc else gross
+            net = Decimal(str(getattr(item, "total_amount", None) or getattr(item, "amount", 0) or 0))
+            explicit_discount = getattr(item, "discount_amount", None)
+            if explicit_discount is not None:
+                disc = Decimal(str(explicit_discount or 0))
+            else:
+                mrp = Decimal(str(getattr(item, "mrp", 0) or 0))
+                disc_pct = Decimal(str(getattr(item, "disc_pct", 0) or 0))
+                disc = (mrp * qty * disc_pct / Decimal("100")) if mrp and disc_pct else max((mrp * qty) - net, Decimal("0"))
+            gross = net + disc
             
             if key not in agg:
                 agg[key] = {
+                    "product_code": product_code,
+                    "product_name": product_name,
+                    "style_code": style_code,
                     "category": cat,
                     "brand": brand,
                     "color": color,

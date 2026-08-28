@@ -282,6 +282,9 @@ class ItemWiseReturnsReport(BaseModel):
 
 
 class AttributeSizeSalesLine(BaseModel):
+    product_code:   Optional[str] = None
+    product_name:   Optional[str] = None
+    style_code:     Optional[str] = None
     category:       str
     brand:          Optional[str] = None
     color:          Optional[str] = None

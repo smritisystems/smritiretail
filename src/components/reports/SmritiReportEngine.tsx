@@ -35,7 +35,9 @@ import {
   Info,
   Check,
   Calculator,
-  Sigma
+  Sigma,
+  Save,
+  PanelRight
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters";
 import { GlobalExportService } from "../../services/globalExportService";
@@ -108,6 +110,8 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
   // Column Visibility Chooser
   const [showColumnChooser, setShowColumnChooser] = useState<boolean>(false);
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<Record<string, boolean>>({});
+  const [showInspector, setShowInspector] = useState<boolean>(true);
+  const [isViewSaved, setIsViewSaved] = useState<boolean>(false);
 
   // Auto-detect columns if not provided
   const columns: ReportColumnDef[] = useMemo(() => {
@@ -411,23 +415,34 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
     setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const saveView = () => {
+    setIsViewSaved(true);
+    onNotification?.("success", `View saved for ${reportTitle}.`);
+  };
+
+  const chartColumn = activeColumns.find((column) => column.datatype === "currency" || column.datatype === "number");
+  const chartRows = chartColumn ? filteredData.slice(0, 8) : [];
+  const chartMaximum = chartColumn
+    ? Math.max(...chartRows.map((row) => Math.abs(Number(row[chartColumn.key]) || 0)), 1)
+    : 1;
+
   return (
     <div className="space-y-4">
       {/* 1. TOP HEADER & METRIC SUMMARY */}
-      <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl shadow-xl backdrop-blur-md">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <div className="bg-theme-surface-1 border border-theme-border p-5 rounded-xl shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-theme-divider">
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-theme-selection text-theme-primary border border-theme-primary/30">
                 {reportCategory}
               </span>
-              <span className="text-xs font-mono text-slate-500">#{reportId}</span>
+              <span className="text-xs font-mono text-theme-muted">#{reportId}</span>
             </div>
-            <h3 className="text-lg font-bold text-white mt-1 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-theme-body mt-1 flex items-center gap-2">
               {reportTitle}
             </h3>
             {description && (
-              <p className="text-xs text-slate-400 mt-0.5 leading-relaxed max-w-3xl">
+              <p className="text-xs text-theme-muted mt-0.5 leading-relaxed max-w-3xl">
                 {description}
               </p>
             )}
@@ -440,7 +455,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                 type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+                className="p-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted rounded-lg border border-theme-border transition-colors cursor-pointer disabled:opacity-50"
                 title="Reload Latest Data"
               >
                 <RefreshCw size={14} className={isLoading ? "animate-spin text-indigo-400" : ""} />
@@ -451,7 +466,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             <button
               type="button"
               onClick={() => handleExport("xlsx")}
-              className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <TableProperties size={13} /> Excel (.xlsx)
             </button>
@@ -460,7 +475,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             <button
               type="button"
               onClick={() => handleExport("pdf")}
-              className="px-3 py-1.5 bg-rose-700 hover:bg-rose-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Printer size={13} /> Print / PDF
             </button>
@@ -469,7 +484,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             <button
               type="button"
               onClick={() => handleExport("csv")}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <FileSpreadsheet size={13} /> CSV
             </button>
@@ -478,10 +493,35 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             <button
               type="button"
               onClick={() => handleExport("gsheet")}
-              className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
               title="Copies table to clipboard and opens Google Sheets"
             >
               <ExternalLink size={13} /> Google Sheets
+            </button>
+
+            <button
+              type="button"
+              onClick={saveView}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-colors cursor-pointer ${
+                isViewSaved
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border-theme-border"
+              }`}
+            >
+              <Save size={13} /> {isViewSaved ? "View Saved" : "Save View"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowInspector((prev) => !prev)}
+              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                showInspector
+                  ? "bg-theme-selection text-theme-primary border-theme-primary/40"
+                  : "bg-theme-surface-2 text-theme-muted border-theme-border"
+              }`}
+              title="Toggle report inspector"
+            >
+              <PanelRight size={15} />
             </button>
           </div>
         </div>
@@ -491,11 +531,11 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
           {Object.entries(kpis).map(([label, val], idx) => {
             if (val === null || val === undefined) return null;
             return (
-              <div key={idx} className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl">
-                <span className="text-[10px] font-mono uppercase font-bold text-slate-400 tracking-wider block">
+              <div key={idx} className="p-3 bg-theme-surface-2 border border-theme-border rounded-lg">
+                <span className="text-[10px] font-mono uppercase font-bold text-theme-muted tracking-wider block">
                   {label}
                 </span>
-                <p className="text-base font-black font-mono text-white mt-1">
+                <p className="text-base font-black font-mono text-theme-body mt-1">
                   {val}
                 </p>
               </div>
@@ -505,11 +545,11 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       </div>
 
       {/* 2. UNIVERSAL FILTER & SUMMARY CONFIGURATION BAR */}
-      <div className="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl shadow-lg space-y-3">
+      <div className="bg-theme-surface-1 border border-theme-border p-4 rounded-xl shadow-xs space-y-3">
         {/* Preset Date Buttons Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/60">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-theme-divider">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-bold text-slate-400 font-mono mr-1 flex items-center gap-1">
+            <span className="text-xs font-bold text-theme-muted font-mono mr-1 flex items-center gap-1">
               <Calendar size={13} className="text-indigo-400" /> Range:
             </span>
             {(["today", "yesterday", "this_week", "mtd", "qtd", "fytd", "custom"] as DatePreset[]).map((p) => {
@@ -530,8 +570,8 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                   onClick={() => handlePresetChange(p)}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-bold font-mono transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                      : "bg-slate-800/70 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700/60"
+                      ? "bg-theme-primary text-white shadow-xs"
+                      : "bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body border border-theme-border"
                   }`}
                 >
                   {labels[p]}
@@ -547,14 +587,14 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="px-2.5 py-1 bg-theme-surface-2 border border-theme-border rounded-lg text-theme-body focus:outline-none focus:border-theme-primary"
               />
               <span className="text-slate-500">to</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="px-2.5 py-1 bg-theme-surface-2 border border-theme-border rounded-lg text-theme-body focus:outline-none focus:border-theme-primary"
               />
             </div>
           )}
@@ -564,13 +604,13 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
           {/* Universal Search */}
           <div className="relative md:col-span-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
             <input
               type="text"
               placeholder="Search across all fields..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-950/70 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              className="w-full pl-9 pr-3 py-1.5 bg-theme-surface-2 border border-theme-border rounded-lg text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary"
             />
           </div>
 
@@ -578,8 +618,6 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
           <div>
             <select
               value={selectedStore}
-              onChange={(e) => setSelectedStore(e.target.value)}
-              className="w-full px-3 py-1.5 bg-slate-950/70 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
             >
               <option value="ALL">🏢 All Stores / Sites</option>
               {uniqueStores.map((st) => (
@@ -589,13 +627,14 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
               ))}
             </select>
           </div>
+            <div className={`grid grid-cols-1 ${showInspector ? "xl:grid-cols-[minmax(0,1fr)_248px]" : ""} gap-4 items-start`}>
 
           {/* Status Filter */}
           <div>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-3 py-1.5 bg-slate-950/70 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              className="w-full px-3 py-1.5 bg-theme-surface-2 border border-theme-border rounded-lg text-xs text-theme-body focus:outline-none focus:border-theme-primary"
             >
               <option value="ALL">🏷️ All Statuses</option>
               {uniqueStatuses.map((st) => (
@@ -616,7 +655,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                 if (val !== "none") setViewMode("grouped");
                 else setViewMode("grid");
               }}
-              className="w-full px-2.5 py-1.5 bg-slate-950/70 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              className="w-full px-2.5 py-1.5 bg-theme-surface-2 border border-theme-border rounded-lg text-xs text-theme-body focus:outline-none focus:border-theme-primary"
             >
               <option value="none">Ungrouped Flat Grid</option>
               <option value="store_code">Group by Store Code</option>
@@ -634,8 +673,8 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
               onClick={() => setShowGrandTotal(!showGrandTotal)}
               className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1 border transition-all cursor-pointer ${
                 showGrandTotal
-                  ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-300 shadow-sm"
-                  : "bg-slate-900 border-slate-800 text-slate-500 opacity-60"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700 shadow-xs"
+                  : "bg-theme-surface-2 border-theme-border text-theme-muted opacity-60"
               }`}
               title="Toggle Grand Total Row"
             >
@@ -650,8 +689,8 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                 onClick={() => setShowSubTotals(!showSubTotals)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1 border transition-all cursor-pointer ${
                   showSubTotals
-                    ? "bg-indigo-950/60 border-indigo-500/50 text-indigo-300 shadow-sm"
-                    : "bg-slate-900 border-slate-800 text-slate-500 opacity-60"
+                    ? "bg-theme-selection border-theme-primary/40 text-theme-primary shadow-xs"
+                    : "bg-theme-surface-2 border-theme-border text-theme-muted opacity-60"
                 }`}
                 title="Toggle Group Sub-Totals"
               >
@@ -664,7 +703,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             <button
               type="button"
               onClick={() => setShowColumnChooser(!showColumnChooser)}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg cursor-pointer transition-colors"
+              className="p-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted border border-theme-border rounded-lg cursor-pointer transition-colors"
               title="Show / Hide Columns"
             >
               <SlidersHorizontal size={15} />
@@ -674,13 +713,13 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
 
         {/* Expandable Column Chooser Drawer */}
         {showColumnChooser && (
-          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-            <div className="flex justify-between items-center text-xs font-bold text-slate-300 pb-1 border-b border-slate-800">
+          <div className="p-3 bg-theme-surface-2 rounded-lg border border-theme-border space-y-2">
+            <div className="flex justify-between items-center text-xs font-bold text-theme-body pb-1 border-b border-theme-divider">
               <span>Configure Columns to Display</span>
               <button
                 type="button"
                 onClick={() => setVisibleColumnKeys({})}
-                className="text-[10px] text-indigo-400 hover:underline cursor-pointer"
+                className="text-[10px] text-theme-primary hover:underline cursor-pointer"
               >
                 Reset All Columns
               </button>
@@ -700,8 +739,8 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                     }
                     className={`px-2 py-0.5 rounded text-[11px] font-mono flex items-center gap-1 border transition-colors cursor-pointer ${
                       isVisible
-                        ? "bg-indigo-950/60 border-indigo-500/50 text-indigo-300"
-                        : "bg-slate-900 border-slate-800 text-slate-500 line-through"
+                        ? "bg-theme-selection border-theme-primary/40 text-theme-primary"
+                        : "bg-theme-surface-1 border-theme-border text-theme-muted line-through"
                     }`}
                   >
                     {isVisible && <Check size={11} />}
@@ -715,9 +754,35 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       </div>
 
       {/* 3. REPORT DATA GRID & ACCORDION GROUP VIEW */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+      <div className="bg-theme-surface-1 border border-theme-border rounded-xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          {viewMode === "grouped" && groupedData ? (
+          {viewMode === "chart" ? (
+            <div className="p-5 min-h-[260px]">
+              {chartColumn && chartRows.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-theme-body">{chartColumn.label}</span>
+                    <span className="text-theme-muted">Showing first {chartRows.length} records</span>
+                  </div>
+                  {chartRows.map((row, index) => {
+                    const value = Number(row[chartColumn.key]) || 0;
+                    const labelColumn = activeColumns.find((column) => column.datatype === "text") || activeColumns[0];
+                    return (
+                      <div key={index} className="grid grid-cols-[minmax(90px,150px)_1fr_auto] items-center gap-3 text-xs">
+                        <span className="truncate text-theme-muted">{String(row[labelColumn.key] ?? `Record ${index + 1}`)}</span>
+                        <div className="h-2.5 bg-theme-surface-2 rounded-full overflow-hidden">
+                          <div className="h-full bg-theme-primary rounded-full transition-all" style={{ width: `${Math.max((Math.abs(value) / chartMaximum) * 100, 3)}%` }} />
+                        </div>
+                        <span className="font-mono font-semibold text-theme-body">{chartColumn.datatype === "currency" ? formatCurrency(value) : formatNumber(value)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="min-h-[220px] flex items-center justify-center text-sm text-theme-muted">No numeric data is available for chart view.</div>
+              )}
+            </div>
+          ) : viewMode === "grouped" && groupedData ? (
             /* GROUPED ACCORDION VIEW WITH SUB-TOTALS */
             <div className="divide-y divide-slate-800">
               {groupedData.map(([groupName, rows], gIdx) => {
@@ -908,6 +973,78 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             <span className="text-[10px] text-slate-500">SMRITI Universal Engine v3.30.0 • Totals Configured</span>
           </div>
         </div>
+      </div>
+
+      {showInspector && (
+        <aside className="bg-theme-surface-1 border border-theme-border rounded-xl shadow-xs overflow-hidden xl:sticky xl:top-4">
+          <div className="px-4 py-3 border-b border-theme-divider bg-theme-surface-2 flex items-center gap-2">
+            <PanelRight size={14} className="text-theme-primary" />
+            <span className="text-xs font-bold uppercase tracking-wider text-theme-body">Report Inspector</span>
+          </div>
+          <div className="p-4 space-y-4 text-xs">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-theme-muted">Canvas</span>
+              <div className="grid grid-cols-3 gap-1 mt-2">
+                {([
+                  ["grid", "Table", Grid],
+                  ["grouped", "Grouped", Layers],
+                  ["chart", "Chart", BarChart3]
+                ] as const).map(([mode, label, Icon]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setViewMode(mode)}
+                    className={`px-1.5 py-2 rounded-md border flex flex-col items-center gap-1 text-[10px] font-semibold transition-colors cursor-pointer ${
+                      viewMode === mode
+                        ? "bg-theme-selection text-theme-primary border-theme-primary/40"
+                        : "bg-theme-surface-2 text-theme-muted border-theme-border hover:text-theme-body"
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-theme-muted">Group rows by</label>
+              <select
+                value={groupBy}
+                onChange={(e) => {
+                  const nextGroup = e.target.value as GroupByOption;
+                  setGroupBy(nextGroup);
+                  setViewMode(nextGroup === "none" ? "grid" : "grouped");
+                }}
+                className="w-full mt-2 px-2.5 py-2 bg-theme-surface-2 border border-theme-border rounded-lg text-theme-body focus:outline-none focus:border-theme-primary"
+              >
+                <option value="none">No grouping</option>
+                <option value="store_code">Store</option>
+                <option value="customer_name">Customer</option>
+                <option value="style_name">Style</option>
+                <option value="category">Category</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-theme-muted">Summary</span>
+              <label className="flex items-center justify-between text-theme-body cursor-pointer">
+                <span>Grand total</span>
+                <input type="checkbox" checked={showGrandTotal} onChange={(e) => setShowGrandTotal(e.target.checked)} />
+              </label>
+              <label className="flex items-center justify-between text-theme-body cursor-pointer">
+                <span>Group subtotals</span>
+                <input type="checkbox" checked={showSubTotals} onChange={(e) => setShowSubTotals(e.target.checked)} />
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowColumnChooser((prev) => !prev)}
+              className="w-full px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-border rounded-lg text-theme-body font-semibold flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <SlidersHorizontal size={13} /> Configure columns
+            </button>
+          </div>
+        </aside>
+      )}
       </div>
     </div>
   );

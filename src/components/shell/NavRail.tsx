@@ -10,7 +10,7 @@
  * License      : Proprietary Commercial Software
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   BusinessContext,
   TransactionState,
@@ -41,6 +41,8 @@ export const NavRail: React.FC<NavRailProps> = ({
   onSelectModule,
   onToggleRailState,
 }) => {
+  const [isReportsExpanded, setIsReportsExpanded] = useState(true);
+
   if (railState === 'HIDDEN') {
     return null;
   }
@@ -55,6 +57,17 @@ export const NavRail: React.FC<NavRailProps> = ({
     transactionState,
     userRole,
   });
+
+  const reportStudios = [
+    { id: 'sales_studio', label: 'Sales' },
+    { id: 'purchase_studio', label: 'Purchase' },
+    { id: 'inventory_studio', label: 'Inventory' },
+    { id: 'tax_studio', label: 'Tax & Compliance' },
+    { id: 'mis_studio', label: 'MIS & Analytics' },
+    { id: 'customer_studio', label: 'Customer' },
+    { id: 'merchandise_studio', label: 'Merchandise' },
+    { id: 'operations_studio', label: 'Operations' },
+  ];
 
   return (
     <aside
@@ -90,7 +103,11 @@ export const NavRail: React.FC<NavRailProps> = ({
               <button
                 type="button"
                 disabled={isDisabled}
-                onClick={() => !isDisabled && onSelectModule(item.id)}
+                onClick={() => {
+                  if (isDisabled) return;
+                  onSelectModule(item.id);
+                  if (item.id === 'report-designer') setIsReportsExpanded((prev) => !prev);
+                }}
                 title={
                   isDisabled
                     ? `${item.title} (${item.disabledReason || 'Action disabled'})`
@@ -138,6 +155,27 @@ export const NavRail: React.FC<NavRailProps> = ({
                   </span>
                 )}
               </button>
+
+                {item.id === 'report-designer' && isActive && isExpanded && isReportsExpanded && (
+                  <div className="ml-8 mt-1 mb-2 pl-3 border-l border-[#c5c5d4] space-y-0.5">
+                    <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-[#757684]">
+                      Report Studios
+                    </div>
+                    {reportStudios.map((studio) => (
+                      <button
+                        key={studio.id}
+                        type="button"
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('smriti_report_studio_select', { detail: { studioId: studio.id } }));
+                          onSelectModule('report-designer');
+                        }}
+                        className="w-full text-left px-2 py-1.5 rounded-md text-[11px] text-[#3d425f] hover:bg-[#e5eeff] hover:text-[#24389c] transition-colors"
+                      >
+                        {studio.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
               {/* Disabled Action Explanation Tooltip */}
               {isDisabled && isExpanded && item.disabledReason && (

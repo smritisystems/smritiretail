@@ -110,6 +110,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     paymentMode: "All"
   });
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
   // Drilldown breadcrumbs inside report viewer
   const [breadcrumbs, setBreadcrumbs] = useState<DrilldownBreadcrumb[]>([]);
@@ -243,6 +244,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         console.error("Failed to load reports from FastAPI:", err);
       } finally {
         setLoadingReports(false);
+        setLastRefreshedAt(new Date());
       }
     }
     loadReportsData();
@@ -277,6 +279,19 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     fetchStudios();
     fetchSchedules();
   }, [activeRole]);
+
+  useEffect(() => {
+    const handleStudioSelect = (event: Event) => {
+      const studioId = (event as CustomEvent<{ studioId?: string }>).detail?.studioId;
+      if (!studioId) return;
+      setActiveStudio(studioId);
+      setActiveView("bi_center");
+      setSelectedReport(null);
+    };
+
+    window.addEventListener("smriti_report_studio_select", handleStudioSelect);
+    return () => window.removeEventListener("smriti_report_studio_select", handleStudioSelect);
+  }, []);
 
   const showNotification = (type: "success" | "error", text: string) => {
     setNotifMessage({ type, text });
@@ -409,6 +424,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       showNotification("error", "Failed to retrieve reports metadata from SMRITI registry.");
     } finally {
       setLoading(false);
+      setLastRefreshedAt(new Date());
     }
   };
 
@@ -774,10 +790,32 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               Studios v2.2
             </span>
           </div>
-          <p className="text-xs text-theme-muted font-mono mt-0.5">
-            Multi-studio analytical terminal with real-time aggregates, immutable ledger trails, and secure Rule 10 policy enforcement.
+            <p className="text-xs text-theme-muted font-mono mt-0.5">
+            Report Designer Studio / governed analytics workspace for live retail reporting, publishing, and distribution.
           </p>
         </div>
+
+          <div className="flex items-center gap-2 self-stretch md:self-auto">
+            <button
+              type="button"
+              onClick={() => showNotification("success", "New report workspace ready for configuration.")}
+              className="px-3 py-2 bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus size={13} /> New Report
+            </button>
+            <button
+              type="button"
+              onClick={() => showNotification("success", "New dashboard workspace ready for configuration.")}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <LayoutGrid size={13} /> New Dashboard
+            </button>
+            {lastRefreshedAt && (
+              <span className="hidden xl:flex items-center gap-1 text-[10px] text-theme-muted font-mono whitespace-nowrap" title={lastRefreshedAt.toLocaleString()}>
+                <Clock size={12} className="text-emerald-600" /> Live | {lastRefreshedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
+          </div>
 
         {/* RBAC Role Swapper for Instant Interactive Testing */}
         <div className="flex items-center gap-2 self-stretch md:self-auto bg-theme-surface-2 border border-theme-border px-3 py-1.5 rounded-lg text-xs">
@@ -803,50 +841,31 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         </div>
       </div>
 
+      {activeView === "bi_center" && (
+        <div className="bg-theme-surface-1 border border-theme-border rounded-xl px-4 py-3 shadow-xs flex flex-col xl:flex-row xl:items-center gap-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-theme-body whitespace-nowrap">
+            <Filter size={14} className="text-theme-primary" />
+            Reporting scope
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <label className="flex items-center gap-2 text-theme-muted">
+              From
+              <input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-theme-body focus:outline-none focus:border-theme-primary" />
+            </label>
+            <label className="flex items-center gap-2 text-theme-muted">
+              To
+              <input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-theme-body focus:outline-none focus:border-theme-primary" />
+            </label>
+            <button type="button" onClick={() => setFilters({ startDate: new Date().toISOString().split("T")[0], endDate: new Date().toISOString().split("T")[0], productGroup: "All", paymentMode: "All" })} className="px-2.5 py-1.5 text-theme-muted hover:text-theme-body border border-theme-border rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer">
+              Reset
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main View Manager */}
       {activeView === "bi_center" && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 items-start">
-
-          {/* Sidebar Navigation - 8 specialized Studios */}
-          <div className="lg:col-span-1 space-y-2 bg-theme-surface-1 border border-theme-border p-3 rounded-xl shadow-xs shrink-0">
-            <div className="px-2 py-1 border-b border-theme-divider mb-1.5 flex items-center justify-between text-xs font-bold text-theme-muted font-mono uppercase">
-              <span>EXPLORER STUDIOS</span>
-              <Database size={13} className="text-theme-primary" />
-            </div>
-
-            {Object.entries(studios).map(([key, data]: [string, any]) => {
-              const isActive = activeStudio === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setActiveStudio(key)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-between group transition-all relative overflow-hidden border cursor-pointer ${
-                    isActive
-                      ? "bg-theme-selection border-theme-primary text-theme-primary font-bold shadow-xs"
-                      : "bg-transparent border-transparent hover:bg-theme-surface-hover text-theme-body"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className={`material-symbols-outlined text-[18px] ${isActive ? "text-theme-primary" : "text-theme-muted group-hover:text-theme-body"}`}>
-                      {data.icon}
-                    </span>
-                    <div className="truncate">
-                      <div className="font-bold">{data.name}</div>
-                      <div className="text-[10px] text-theme-muted font-normal truncate max-w-[150px]">
-                        {data.description}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 font-mono text-[10px] bg-theme-surface-2 px-1.5 py-0.5 rounded border border-theme-border font-bold">
-                    <span>{data.reports?.length || 0}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right Pane - Studio Workspace */}
-          <div className="lg:col-span-3 space-y-5">
+        <div className="space-y-5">
             {loading ? (
               <div className="bg-theme-surface-1 border border-theme-border rounded-xl h-96 flex flex-col items-center justify-center text-center shadow-xs">
                 <RefreshCw className="animate-spin text-theme-primary mb-3" size={28} />
@@ -1094,7 +1113,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                                       onClick={() => runReport(r)}
                                       className="px-3 py-1.5 bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                     >
-                                      <Play size={10} /> Run Engine
+                                      <Play size={10} /> Run Report
                                     </button>
                                   ) : (
                                     <span className="text-rose-700 font-mono font-bold text-[10px] uppercase flex items-center gap-1 justify-end">
@@ -1149,8 +1168,6 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </>
             )}
           </div>
-
-        </div>
       )}
 
       {/* SMRITI ACTIVE REPORT VIEWER (Genuinely interactive tables with mock drill-down state) */}
@@ -2174,6 +2191,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
                       <tr>
+                        <th className="p-3">Product</th>
+                        <th className="p-3">Style</th>
                         <th className="p-3">Category</th>
                         <th className="p-3">Brand</th>
                         <th className="p-3">Color</th>
@@ -2186,10 +2205,15 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                     </thead>
                     <tbody className="divide-y divide-theme-divider/40">
                       {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
-                        <tr><td colSpan={8} className="p-6 text-center text-theme-muted">No merchandise sales matrix data found for the selected period.</td></tr>
+                        <tr><td colSpan={10} className="p-6 text-center text-theme-muted">No merchandise sales matrix data found for the selected period.</td></tr>
                       ) : (
                         genericReportData.lines.map((l: any, idx: number) => (
                           <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3">
+                              <div className="font-semibold text-theme-body">{l.product_name || "Uncatalogued Item"}</div>
+                              <div className="text-[10px] font-mono text-theme-muted">{l.product_code || "N/A"}</div>
+                            </td>
+                            <td className="p-3 font-mono text-theme-primary">{l.style_code || "N/A"}</td>
                             <td className="p-3 font-semibold text-theme-body">{l.category}</td>
                             <td className="p-3 text-theme-muted">{l.brand}</td>
                             <td className="p-3 font-mono text-theme-muted">{l.color}</td>
@@ -2199,9 +2223,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                               </span>
                             </td>
                             <td className="p-3 text-right font-mono font-bold text-blue-300">{Number(l.qty_sold).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono">{Number(l.gross_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono">{Number(l.gross_revenue ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                             <td className="p-3 text-right font-mono text-amber-400">{Number(l.discount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono font-bold text-emerald-400">{Number(l.net_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-400">{Number(l.net_revenue ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                           </tr>
                         ))
                       )}
