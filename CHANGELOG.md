@@ -28,7 +28,52 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.95.0] - 2026-08-28
+
+#### Employee Shift Management & Commission Calculation Engine (v1.0.0-GA)
+- **Shift Engine (`src/utils/shiftEngine.ts`)**:
+  - Implemented clock-in with late arrival detection (`lateMinutes = max(0, actual − scheduled)`).
+  - Clock-out computes net `hoursWorked` (gross minus break durations), `overtimeHours` at 1.5× beyond 8h, `earlyDepartureMinutes`, and auto-sets HALF_DAY if < 4h.
+  - Break tracking: `startBreak` / `endBreak` with ISO timestamp and computed `durationMinutes`.
+  - 4-tier commission matrix (BRONZE/SILVER/GOLD/PLATINUM): base rate + incentive rate above configurable sales threshold.
+  - `calculateCommission()`: base pay (standard + 1.5× overtime), base commission, incentive bonus, per-invoice breakdown.
+- **Shift Commission Studio Modal (`src/components/hrm/ShiftCommissionStudioModal.tsx`)**:
+  - 3-tab view: Roster (shift KPIs + pay summary), Team Commission (incentive progress bars), Tier Reference.
+- **Frontend Certification Test Suite (`src/tests/shiftEngine.test.ts`)**:
+  - Validated 4/4 test stages: tier definitions, clock-in/out, GOLD commission + incentive, break tracking.
+
+### [3.94.0] - 2026-08-28
+
+#### Advanced GST e-Invoice IRN Generation & QR Code Printing Studio (v1.0.0-GA)
+- **e-Invoice Engine (`src/utils/eInvoiceEngine.ts`)**:
+  - Implemented GSTN API v1.03 schema: GSTParty, GSTLineItem, EInvoice, BulkPrintJob types.
+  - Line item GST computation: intra-state (CGST+SGST) / inter-state (IGST) routing with cess support.
+  - Deterministic 64-char IRN simulation (SHA-256-style) — idempotent on identical inputs.
+  - CBIC-spec QR payload: 8-field pipe-delimited canonical string (SupplierGSTIN|BuyerGSTIN|DocNo|DocDate|GrandTotal|IRN|AckNo|AckDate).
+  - IndAS 115-compliant round-off as explicit `EInvoiceTotals.roundOff` field.
+  - IRN cancellation guard (REGISTERED-only), bulk print queue with COMPLETED/FAILED status.
+- **e-Invoice Studio Modal (`src/components/compliance/EInvoiceStudioModal.tsx`)**:
+  - Invoice list with IRN registration action, IRN/QR display panel, GST line item table, and print queue tab.
+- **Frontend Certification Test Suite (`src/tests/eInvoiceEngine.test.ts`)**:
+  - Validated 4/4 test stages: GST computation, IRN registration determinism, totals, cancellation + bulk print.
+
+### [3.93.0] - 2026-08-28
+
+#### Omnichannel Order Management & Click-and-Collect Engine (v1.0.0-GA)
+- **Omni Order Engine (`src/utils/omniOrderEngine.ts`)**:
+  - Implemented unified order pool across 5 channels: POS, WEBSITE, MOBILE_APP, WHATSAPP, PHONE.
+  - 4 fulfilment modes: BOPIS, HOME_DELIVERY, CURBSIDE, SHIP_FROM_STORE.
+  - 9-status lifecycle with immutable audit trail (performedBy, channel, timestamp, note per entry).
+  - Slot reservation with capacity guard, branch validation, and 6-digit OTP pickup token generation.
+  - Line-level pick recording with auto-READY_FOR_PICKUP transition when all lines are fully picked.
+  - Metrics: byChannel, byFulfilmentMode, byStatus, avg fulfilment minutes, slot utilisation %, cancellation rate.
+- **Omni Order Studio Modal (`src/components/pos/OmniOrderStudioModal.tsx`)**:
+  - Order queue with status transition controls, pickup token display, line items, and audit trail.
+- **Frontend Certification Test Suite (`src/tests/omniOrderEngine.test.ts`)**:
+  - Validated 4/4 test stages with 100% green pass rate across 66 test files (436/436 tests).
+
 ### [3.92.0] - 2026-08-28
+
 
 #### Smart Replenishment & Min-Max Inventory Reorder Automation (v1.0.0-GA)
 - **Replenishment Engine (`src/utils/replenishmentEngine.ts`)**:
