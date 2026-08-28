@@ -28,6 +28,105 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.77.0] - 2026-08-28
+
+#### UI Automation Hub & Report Scheduling Modal (v1.0.0-GA)
+- **Automated Report Distribution Modal (`src/components/reports/ScheduleReportModal.tsx`)**:
+  - Implemented 2-tab glassmorphic scheduling modal supporting New Schedule Creation and Active Schedule Management.
+  - Added retail business frequency presets (Daily EOD, Daily Morning, Weekly Monday, Monthly 1st, Custom Cron) and multi-format selector (`XLSX`, `PDF`, `CSV`, `JSON`).
+  - Added multi-channel distribution configuration for Email, WhatsApp gateway, and Statutory Compliance Vault.
+  - Implemented on-demand **"Run Now"** trigger dispatch and deletion workflows.
+- **Frontend Certification Test Suite (`src/tests/scheduleReportModal.test.ts`)**:
+  - Validated 4/4 test stages, certifying complete schedule creation, multi-channel parsing, and immediate trigger dispatch with 100% green pass rate.
+
+### [3.76.0] - 2026-08-28
+
+#### Store Manager Conflict Reconciliation UI Widget (v1.0.0-GA)
+- **Store Manager Reconciliation Modal (`src/components/billing/propos/ProPosReconciliationDlg.tsx`)**:
+  - Implemented glassmorphic dual-pane modal for reviewing offline transaction drifts, stock variances, and credit limit breaches.
+  - Added filter tabs (`NEEDS_REVIEW`, `FAILED`, `PENDING`, `ALL`), search bar, and detailed transaction diagnostic panels.
+  - Implemented authoritative manager actions: **"Approve Override"** (authorizes and commits transaction) and **"Reject & Reversal"** (rejects and flags for reversal).
+- **Frontend Certification Test Suite (`src/tests/proposReconciliation.test.tsx`)**:
+  - Validated 4/4 test stages, certifying complete modal lifecycle, item listing, approve override, and reject workflows with 100% green pass rate.
+
+### [3.75.0] - 2026-08-28
+
+#### ProPOS Offline Master Catalog Cache & Scanner Lookup (v1.0.0-GA)
+- **Edge Product & Customer Multi-Index Cache (`src/sync/ProPosMasterCatalogCache.ts`)**:
+  - Implemented `ProPosMasterCatalogCache` supporting sub-millisecond barcode lookup (`lookupByBarcode`) across primary EAN/UPC, secondary/alias barcodes, and item codes.
+  - Implemented high-speed fuzzy search (`searchProducts`) across names, categories, codes, and SKUs with active item filtering.
+  - Implemented normalized phone index and customer search (`lookupCustomer`) supporting flexible phone inputs (`+91`, national 10-digit), GSTINs, and customer names.
+- **FastAPI Background Catalog Hydration (`syncCatalogFromServer`)**:
+  - Asynchronously pulls and caches active product matrices and customer directories from `/api/v1/products` and `/api/v1/crm/customers`.
+- **Frontend Certification Test Suite (`src/tests/proposCatalogCache.test.ts`)**:
+  - Validated 4/4 test stages, increasing the certified frontend test suite to 356/356 passing tests across 46 test files.
+
+### [3.74.0] - 2026-08-28
+
+#### Multi-Tenant Concurrency Stress-Testing & Live Benchmark (v1.0.0-GA)
+- **Multi-Tenant Isolation Under Concurrency (`backend/tests/test_multitenant_concurrency_benchmark.py`)**:
+  - Implemented 5-tenant parallel checkout stress runner (100 invoices total) asserting zero cross-tenant row contamination or sequence collision.
+- **50-Terminal High-Throughput POS Checkout Serialization**:
+  - Validated deterministic sequence numbering invariants across 50 concurrent checkout write threads with zero collisions.
+- **25-Thread Concurrent Stock Decrement Invariants**:
+  - Verified race-free inventory decrement counts and zero ghost-stock drift under heavy stock contention.
+- **Live Database Offline Batch Ingestion Throughput**:
+  - Validated 10 concurrent offline batches (100 multi-table transactions) against PostgreSQL 16 `AsyncSession` with `SELECT FOR UPDATE` row locks and safe retry conflict resolution.
+- **Monotonic Snapshot Aggregation Under Write Pressure**:
+  - Validated real-time reporting aggregation stability during concurrent checkout write bursts.
+
+### [3.73.0] - 2026-08-28
+
+#### ProPOS Offline-First Sync Engine & Edge Resiliency (v1.0.0-GA)
+- **Client Queue Engine & Idempotency (`src/sync/ProPosOfflineSyncEngine.ts`)**:
+  - Implemented `ProPosOfflineSyncEngine` managing edge offline transaction queuing and states (`QUEUED`, `SYNCING`, `SYNCED`, `NEEDS_REVIEW`, `REJECTED`, `FAILED`).
+  - Added deterministic client transaction UUID generation (`tx-pos-{terminal}-{timestamp}-{rand}`).
+- **Batch Upstream Synchronization (`/api/v1/sync/push`)**:
+  - Implemented `flushSyncBatch` bundling pending transactions into `SyncBatchRequest` payloads and syncing with FastAPI + Postgres sole backend.
+  - Handled 5-tier server conflict classifications (`ACCEPTED`, `ACCEPTED_WARN`, `DEDUPLICATED`, `NEEDS_REVIEW`, `REJECTED`).
+- **Autonomous Auto-Sync Background Worker**:
+  - Implemented `startAutoSyncWorker` polling and listening to network recovery events (`navigator.onLine`) to flush queues automatically.
+- **Frontend Certification Test Suite (`src/tests/proposOfflineSync.test.ts`)**:
+  - Validated 5/5 test stages with 100% green pass rate, scaling the certified frontend test suite to 352/352 passing tests across 45 test files.
+
+### [3.72.0] - 2026-08-28
+
+#### Automated Scheduled Reports & Multi-Channel Distribution Engine (v1.0.0-GA)
+- **Pluggable Multi-Channel Distribution Connectors (`backend/app/services/reporting_distribution_svc.py`)**:
+  - Implemented `EmailDispatcher` delivering multipart MIME emails with `.xlsx`, `.pdf`, `.csv`, and `.json` report attachments.
+  - Implemented `WhatsAppDispatcher` generating executive statutory summary alerts with SHA-256 integrity digests.
+  - Implemented `StatutoryVaultDispatcher` creating immutable, sealed archive files in statutory storage folders with automated SHA-256 integrity token sealing.
+- **Deterministic Cron Scheduling & Orchestration**:
+  - Created `CronEvaluator` computing next execution timestamps across 5-part cron cadences.
+  - Built `ReportDistributionEngine` coordinating asynchronous parallel dispatches (`asyncio.gather`), multi-format payload serialization, and lifecycle status management.
+- **Forensic Audit Logging & Database Architecture (`backend/app/models/report_schedule.py`)**:
+  - Enhanced `ReportSchedule` model with channels, recipient configurations, filter overrides, and latency tracking.
+  - Created `ReportDispatchLog` model recording delivery targets, payload byte sizes, execution latencies, and SHA-256 cryptographic forensic envelopes.
+- **FastAPI REST Endpoints (`backend/app/api/v1/scheduled_reports.py`)**:
+  - Mounted `/api/v1/reporting/schedules` for CRUD schedule management, ad-hoc execution triggers (`/trigger`), and forensic audit log inspection (`/logs`).
+- **Comprehensive Certification Test Suite (`backend/tests/test_scheduled_reports_engine.py`)**:
+  - Validated 6/6 test stages with 100% green pass rate, scaling the backend certified regression suite to 51/51 passing tests.
+
+### [3.71.0] - 2026-08-28
+
+#### SMRITI Government Integration Platform (SGIP) — E-Invoice & E-Way Bill Gateway (v1.0.0-GA)
+- **Statutory GSTN E-Invoice Connector (`backend/app/compliance/connectors/einvoice/`)**:
+  - Implemented `EInvoiceConnector` adhering to `ConnectorV1` and GSTN Schema v1.03 for B2B tax invoice regularization.
+  - Added deterministic 64-character SHA-256 IRN hash calculation (`SupplierGSTIN + FinancialYear + DocType + DocNo`).
+  - Added base64 statutory signed QR code payload builder with digital token hashing.
+- **Statutory NIC E-Way Bill Connector (`backend/app/compliance/connectors/ewaybill/`)**:
+  - Implemented `EWayBillConnector` supporting Part A (Invoice & Tax) and Part B (Vehicle & Transporter) generation.
+  - Automated distance-based validity hours calculation (1 day / 24 hours per 200 km).
+  - Implemented standard 12-digit numeric E-Way Bill Number generation.
+- **Orchestration Services & Resilient Outbox Worker (`backend/app/compliance/services/`)**:
+  - Created `EInvoiceService` and `EWayBillService` with persistent audit logging in `compliance_audit_logs`.
+  - Added statutory ₹50,000 threshold detection (`requires_eway_bill`) for mandatory transport compliance.
+  - Implemented `ComplianceRetryWorker` with exponential backoff (15s, 30s, 60s, 120s, 240s) and dead-letter queue (DLQ) transitions.
+- **FastAPI Statutory Compliance Endpoints (`backend/app/compliance/api/router.py`)**:
+  - Mounted `/api/v1/compliance/einvoice/generate`, `/api/v1/compliance/einvoice/cancel`, `/api/v1/compliance/ewaybill/generate`, `/api/v1/compliance/ewaybill/cancel`, and `/api/v1/compliance/connectors`.
+- **Master Test Suite & Certification (`backend/tests/test_sgip_einvoice_ewaybill.py`)**:
+  - Executed 9 automated tests verifying schema formatting, SHA-256 IRN invariance, QR payload generation, statutory thresholds, and API integration with 100% green pass rate.
+
 ### [3.70.0] - 2026-08-28
 
 #### SMRITI Reporting & BI Engine v1.0.0-GA — Integration, Reconciliation & Master Certification

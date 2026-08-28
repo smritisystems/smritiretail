@@ -264,15 +264,15 @@ class OfflineConflictResolutionEngine:
                 # If still None (extremely rare edge case), skip credit check
                 pass
 
-        credit_limit_val = getattr(cust, "credit_limit", None)
-        if not credit_limit_val and cust.customer_group_id:
+        credit_limit_val = getattr(cust, "credit_limit", None) if cust else None
+        if cust and not credit_limit_val and getattr(cust, "customer_group_id", None):
             from ..models.crm import CustomerGroup
             cg_stmt = select(CustomerGroup).where(CustomerGroup.id == cust.customer_group_id)
             cg = (await session.execute(cg_stmt)).scalar_one_or_none()
             if cg:
                 credit_limit_val = cg.credit_limit
 
-        if credit_limit_val and credit_limit_val > 0:
+        if cust and credit_limit_val and credit_limit_val > 0:
             current_balance = cust.outstanding or getattr(cust, "current_balance", Decimal("0.00")) or Decimal("0.00")
             if current_balance > credit_limit_val:
                 has_credit_breach = True

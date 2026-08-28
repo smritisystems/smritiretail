@@ -40,7 +40,12 @@ import {
   AlignCenter,
   AlignRight,
   Image as ImageIcon,
-  HelpCircle
+  HelpCircle,
+  Zap,
+  Truck,
+  QrCode,
+  CheckCircle2,
+  AlertTriangle
 } from "lucide-react";
 
 export interface HeaderCustomizationConfig {
@@ -57,6 +62,9 @@ export interface HeaderCustomizationConfig {
   headerAlignment: "left" | "center" | "right";
   showLogo: boolean;
   eWayBillNo?: string;
+  irn?: string;
+  ackNo?: number;
+  ackDate?: string;
   bankName?: string;
   bankAccountNo?: string;
   bankIfsc?: string;
@@ -93,6 +101,23 @@ export const TaxInvoicePrintPage: React.FC = () => {
   const [invoicesList, setInvoicesList] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [showListModal, setShowListModal] = useState<boolean>(false);
+
+  // SGIP Statutory Compliance Gateway State
+  const [einvoiceState, setEinvoiceState] = useState<{
+    irn?: string;
+    ackNo?: number;
+    ackDate?: string;
+    signedQr?: string;
+    loading: boolean;
+    error?: string;
+  }>({ loading: false });
+
+  const [ewaybillState, setEwaybillState] = useState<{
+    ewbNo?: string;
+    validUpto?: string;
+    loading: boolean;
+    error?: string;
+  }>({ loading: false });
 
   // Presentation Header Customization State
   const [isHeaderDrawerOpen, setIsHeaderDrawerOpen] = useState<boolean>(false);
@@ -388,6 +413,129 @@ export const TaxInvoicePrintPage: React.FC = () => {
     }
   };
 
+  // SGIP Statutory Compliance Gateway Handlers
+  const handleGenerateEInvoice = async () => {
+    if (!invoice) return;
+    setEinvoiceState(prev => ({ ...prev, loading: true, error: undefined }));
+    try {
+      const items = (invoice.items || []).map((itm: any, idx: number) => ({
+        item_code: itm.itemCode || `SKU-${idx + 1}`,
+        description: itm.description || itm.itemName || "Retail Garments",
+        hsn_code: itm.hsnCode || "6203",
+        quantity: Number(itm.qty || itm.quantity || 1),
+        unit: "PCS",
+        unit_price: Number(itm.rate || itm.unitPrice || 1000),
+        gross_amount: Number(itm.amount || itm.grossAmount || 1000),
+        discount_amount: Number(itm.discount || 0),
+        taxable_amount: Number(itm.taxableValue || itm.amount || 1000),
+        gst_rate: Number(itm.gstRate || 12),
+        cgst_amount: Number(itm.cgstAmount || 0),
+        sgst_amount: Number(itm.sgstAmount || 0),
+        igst_amount: Number(itm.igstAmount || 0),
+        total_item_value: Number(itm.total || itm.amount || 1000),
+      }));
+
+      const reqPayload = {
+        invoice_id: invoice.id || activeInvoiceId,
+        invoice_no: invoice.invoiceNo || "INV/2026/001",
+        invoice_date: invoice.date ? invoice.date.split("T")[0] : "28/08/2026",
+        supplier_gstin: invoice.companyGst || "27AAXFT2508H1ZR",
+        supplier_legal_name: headerConfig.companyDisplayName || "Tattly Threads",
+        supplier_address: headerConfig.companyAddressDisplay || "Mumbai",
+        supplier_pincode: "400003",
+        supplier_state_code: "27",
+        buyer_gstin: invoice.customerGst || "URP",
+        buyer_legal_name: invoice.customerName || "Consumer",
+        buyer_address: invoice.customerAddress || "Market",
+        buyer_pincode: "400001",
+        buyer_state_code: "27",
+        items: items.length > 0 ? items : [{
+          item_code: "SKU-001",
+          description: "Retail Garments",
+          hsn_code: "6203",
+          quantity: 1,
+          unit: "PCS",
+          unit_price: Number(invoice.grandTotal || 1000),
+          gross_amount: Number(invoice.grandTotal || 1000),
+          discount_amount: 0,
+          taxable_amount: Number(invoice.taxableAmount || invoice.grandTotal || 1000),
+          gst_rate: 12,
+          cgst_amount: Number(invoice.cgstTotal || 0),
+          sgst_amount: Number(invoice.sgstTotal || 0),
+          igst_amount: Number(invoice.igstTotal || 0),
+          total_item_value: Number(invoice.grandTotal || 1000),
+        }],
+        total_taxable_value: Number(invoice.taxableAmount || invoice.grandTotal || 1000),
+        total_cgst_value: Number(invoice.cgstTotal || 0),
+        total_sgst_value: Number(invoice.sgstTotal || 0),
+        total_igst_value: Number(invoice.igstTotal || 0),
+        total_invoice_value: Number(invoice.grandTotal || 1000),
+        financial_year: "2026-27",
+      };
+
+      const res = await apiFetchV1("/compliance/einvoice/generate", {
+        method: "POST",
+        body: JSON.stringify(reqPayload),
+      });
+
+      setEinvoiceState({
+        irn: res.irn,
+        ackNo: res.ack_no,
+        ackDate: res.ack_date,
+        signedQr: res.signed_qr_code,
+        loading: false,
+      });
+      updateHeaderConfig({
+        irn: res.irn,
+        ackNo: res.ack_no,
+        ackDate: res.ack_date,
+      });
+    } catch (err: any) {
+      setEinvoiceState(prev => ({
+        ...prev,
+        loading: false,
+        error: err?.message || "Failed to generate E-Invoice",
+      }));
+    }
+  };
+
+  const handleGenerateEWayBill = async () => {
+    if (!invoice) return;
+    setEwaybillState(prev => ({ ...prev, loading: true, error: undefined }));
+    try {
+      const reqPayload = {
+        invoice_id: invoice.id || activeInvoiceId,
+        doc_no: invoice.invoiceNo || "INV/2026/001",
+        doc_type: "INV",
+        from_gstin: invoice.companyGst || "27AAXFT2508H1ZR",
+        to_gstin: invoice.customerGst || "27BBBCU9603R1ZM",
+        from_pincode: "400003",
+        to_pincode: "400001",
+        trans_distance_km: 120,
+        vehicle_no: "MH01AB1234",
+        total_invoice_value: Number(invoice.grandTotal || 1000),
+      };
+
+      const res = await apiFetchV1("/compliance/ewaybill/generate", {
+        method: "POST",
+        body: JSON.stringify(reqPayload),
+      });
+
+      setEwaybillState({
+        ewbNo: res.eway_bill_no,
+        validUpto: res.valid_upto,
+        loading: false,
+      });
+      updateHeaderConfig({ eWayBillNo: res.eway_bill_no });
+    } catch (err: any) {
+      setEwaybillState(prev => ({
+        ...prev,
+        loading: false,
+        error: err?.message || "Failed to generate E-Way Bill",
+      }));
+    }
+  };
+
   const handleBack = () => {
     if (typeof window !== "undefined") {
       if (window.history.length > 1) {
@@ -416,8 +564,11 @@ export const TaxInvoicePrintPage: React.FC = () => {
       headerAlignment: headerConfig.headerAlignment,
       showLogo: headerConfig.showLogo,
       eWayBillNo: headerConfig.eWayBillNo || invoice.eWayBillNo || "",
+      irn: headerConfig.irn || einvoiceState.irn,
+      ackNo: headerConfig.ackNo || einvoiceState.ackNo,
+      ackDate: headerConfig.ackDate || einvoiceState.ackDate,
     };
-  }, [invoice, headerConfig]);
+  }, [invoice, headerConfig, einvoiceState]);
 
   if (loading) {
     return (
@@ -511,6 +662,48 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
           {/* Right Action Buttons */}
           <div className="flex items-center space-x-2.5">
+            {/* SGIP E-Invoice Action */}
+            <button
+              onClick={handleGenerateEInvoice}
+              disabled={einvoiceState.loading || !!einvoiceState.irn}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md transition border ${
+                einvoiceState.irn
+                  ? "bg-emerald-950/80 text-emerald-300 border-emerald-600"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 shadow-emerald-600/30"
+              }`}
+              title="Generate Statutory GSTN E-Invoice (IRN & Signed QR Code)"
+            >
+              {einvoiceState.loading ? (
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : einvoiceState.irn ? (
+                <CheckCircle2 size={14} className="text-emerald-400" />
+              ) : (
+                <Zap size={14} />
+              )}
+              <span>{einvoiceState.irn ? "IRN Active" : "Generate IRN"}</span>
+            </button>
+
+            {/* SGIP E-Way Bill Action */}
+            <button
+              onClick={handleGenerateEWayBill}
+              disabled={ewaybillState.loading || !!(ewaybillState.ewbNo || headerConfig.eWayBillNo)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md transition border ${
+                ewaybillState.ewbNo || headerConfig.eWayBillNo
+                  ? "bg-amber-950/80 text-amber-300 border-amber-600"
+                  : "bg-amber-600 hover:bg-amber-500 text-white border-amber-400 shadow-amber-600/30"
+              }`}
+              title="Generate Statutory NIC E-Way Bill"
+            >
+              {ewaybillState.loading ? (
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : ewaybillState.ewbNo || headerConfig.eWayBillNo ? (
+                <CheckCircle2 size={14} className="text-amber-400" />
+              ) : (
+                <Truck size={14} />
+              )}
+              <span>{ewaybillState.ewbNo || headerConfig.eWayBillNo ? "EWB Active" : "Generate EWB"}</span>
+            </button>
+
             <button
               onClick={() => setIsHeaderDrawerOpen(true)}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-indigo-600/30 border border-indigo-400 transition"
@@ -531,7 +724,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
             <button
               onClick={handleExportPDF}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-emerald-600/30 transition"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold shadow-md border border-slate-700 transition"
               title="Export / Download PDF"
             >
               <Download size={14} />
@@ -549,6 +742,51 @@ export const TaxInvoicePrintPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ── SGIP STATUTORY COMPLIANCE STATUS BANNER (No-Print) ── */}
+      {(einvoiceState.irn || ewaybillState.ewbNo || headerConfig.eWayBillNo || einvoiceState.error || ewaybillState.error) && (
+        <div className="max-w-4xl mx-auto mb-4 no-print">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-emerald-950 border border-emerald-500/30 text-emerald-400">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-bold text-slate-100">SGIP Statutory Status:</span>
+                  {einvoiceState.irn && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/40">
+                      IRN Active
+                    </span>
+                  )}
+                  {(ewaybillState.ewbNo || headerConfig.eWayBillNo) && (
+                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-500/40">
+                      EWB Active ({ewaybillState.ewbNo || headerConfig.eWayBillNo})
+                    </span>
+                  )}
+                </div>
+                {einvoiceState.irn && (
+                  <p className="font-mono text-[10px] text-slate-400 mt-0.5 truncate max-w-xl">
+                    IRN: {einvoiceState.irn} | Ack: {einvoiceState.ackNo}
+                  </p>
+                )}
+                {(einvoiceState.error || ewaybillState.error) && (
+                  <p className="text-rose-400 text-[11px] mt-0.5 flex items-center gap-1">
+                    <AlertTriangle size={12} />
+                    <span>{einvoiceState.error || ewaybillState.error}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 text-[11px] text-slate-400 font-mono">
+              <span>Sandbox Gateway</span>
+              <span>•</span>
+              <span>GSTN Schema v1.03</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MAIN A4 PRINT PREVIEW AREA ── */}
       <div className="max-w-4xl mx-auto print:max-w-none print:shadow-none print:m-0 print:p-0 print:w-full">

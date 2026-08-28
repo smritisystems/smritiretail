@@ -27,7 +27,7 @@ from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity
 from .user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
 from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment
-from .report_schedule import ReportSchedule
+from .report_schedule import ReportSchedule, ReportDispatchLog
 from .role import Role
 
 

@@ -21,7 +21,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext, get_db, get_tenant_context
 from app.compliance.exceptions import PolicyViolationException
-from app.compliance.schemas.compliance import ComplianceOutboxOut, DebugOutboxIn, HealthStatusOut
+from app.compliance.schemas.compliance import (
+    CancelComplianceDocRequest,
+    ComplianceOutboxOut,
+    DebugOutboxIn,
+    EInvoiceGenerationRequest,
+    EInvoiceResponse,
+    EWayBillGenerationRequest,
+    EWayBillResponse,
+    HealthStatusOut,
+)
 from app.compliance.services.compliance_service import ComplianceService
 from app.compliance.services.policy_service import PolicyService
 from app.compliance.services.registry_service import RegistryService
@@ -117,3 +126,89 @@ async def insert_debug_outbox(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         ) from e
+
+
+@router.get(
+    "/connectors",
+    summary="List Registered Connectors",
+    description="Returns all active compliance connectors discovered by the registry."
+)
+async def list_connectors(
+    registry_service: RegistryService = Depends(get_registry_service)
+) -> list[dict[str, Any]]:
+    return registry_service.list_manifests()
+
+
+@router.post(
+    "/einvoice/generate",
+    response_model=EInvoiceResponse,
+    summary="Generate GSTN E-Invoice (IRN & QR)",
+    description="Transforms sales tax invoice into GSTN INV-01 format, computes IRN hash, and generates signed QR code."
+)
+async def generate_einvoice_endpoint(
+    payload: EInvoiceGenerationRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext | None = Depends(get_tenant_context),
+) -> EInvoiceResponse:
+    from app.compliance.services.einvoice_service import EInvoiceService
+    svc = EInvoiceService(db, tenant_ctx)
+    try:
+        return await svc.generate_einvoice(payload)
+    except PolicyViolationException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+@router.post(
+    "/einvoice/cancel",
+    summary="Cancel GSTN E-Invoice (IRN)",
+    description="Cancels an active IRN within the statutory 24-hour window."
+)
+async def cancel_einvoice_endpoint(
+    payload: CancelComplianceDocRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext | None = Depends(get_tenant_context),
+) -> dict[str, Any]:
+    from app.compliance.services.einvoice_service import EInvoiceService
+    svc = EInvoiceService(db, tenant_ctx)
+    try:
+        return await svc.cancel_einvoice(payload)
+    except PolicyViolationException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+@router.post(
+    "/ewaybill/generate",
+    response_model=EWayBillResponse,
+    summary="Generate NIC E-Way Bill",
+    description="Generates statutory 12-digit E-Way Bill Part A and Part B with distance-based validity."
+)
+async def generate_ewaybill_endpoint(
+    payload: EWayBillGenerationRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext | None = Depends(get_tenant_context),
+) -> EWayBillResponse:
+    from app.compliance.services.ewaybill_service import EWayBillService
+    svc = EWayBillService(db, tenant_ctx)
+    try:
+        return await svc.generate_ewaybill(payload)
+    except PolicyViolationException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+@router.post(
+    "/ewaybill/cancel",
+    summary="Cancel NIC E-Way Bill",
+    description="Cancels an active E-Way Bill within 24 hours of generation."
+)
+async def cancel_ewaybill_endpoint(
+    payload: CancelComplianceDocRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext | None = Depends(get_tenant_context),
+) -> dict[str, Any]:
+    from app.compliance.services.ewaybill_service import EWayBillService
+    svc = EWayBillService(db, tenant_ctx)
+    try:
+        return await svc.cancel_ewaybill(payload)
+    except PolicyViolationException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
