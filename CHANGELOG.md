@@ -28,6 +28,29 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.70.0] - 2026-08-28
+
+#### SMRITI Reporting & BI Engine v1.0.0-GA — Integration, Reconciliation & Master Certification
+- **Governed Metric Layer & Pure Formula Dictionary (`backend/app/core/metric_dictionary.py`)**:
+  - Implemented single source of truth for all retail mathematical KPIs (`calculate_net_sales`, `calculate_abv`, `calculate_upt`, `calculate_gross_margin_pct`, `calculate_gmroi`, `calculate_sell_through_pct`, `calculate_stock_aging_bucket`).
+  - Added `list_all_metrics` and pure Decimal calculation functions enforcing Invariant 2 (No KPI defines its own formula outside the Governed Metric Layer).
+- **Central Report Registry & Shoper 9 Metadata Adapter (`backend/app/schemas/report_registry.py`, `backend/app/db/seed_reports_registry.py`, `backend/app/services/report_registry_svc.py`)**:
+  - Seeded 22 canonical reports across 5 business studios (`sales_studio`, `merchandise_studio`, `inventory_studio`, `tax_studio`, `mis_studio`).
+  - Implemented decoupled legacy alias resolution supporting natural prefixes (`MnuNo 411`, `SR202000`, `SR236300`, `472`) with zero domain model contamination (Invariant 3).
+- **Server-Side RBAC & Field-Level Masking Engine (`backend/app/core/report_security.py`)**:
+  - Implemented recursive field masking for commercial confidential metrics (`cost_price`, `cogs`, `unit_cost`, `gross_margin_amt`, `gross_margin_pct`, `gmroi`, `stock_valuation_amt`).
+  - Enforced zero financial data leakage to `CASHIER` and `STORE_SUPERVISOR` roles while granting full visibility to `ACCOUNTANT`, `MANAGER`, and `CEO` (Invariant 4 & 9).
+- **4-Tier Query Performance Router (`backend/app/core/performance_router.py`)**:
+  - Configured automated performance SLA routing: Tier 1 Interactive POS (<50ms), Tier 2 Analytical Matrix (<300ms), Tier 3 Historical Async Background, Tier 4 Streaming Export (Invariant 5).
+- **3-Tier Inventory State Engine & Point-in-Time Reconstruction (`backend/app/core/inventory_snapshot_engine.py`)**:
+  - Bounded historical valuation calculation using nearest frozen period snapshot + incremental delta movements with SHA256 integrity hash verification (Invariant 6).
+- **5-Level Universal Drill-Down & Cryptographic Audit Lineage (`backend/app/core/audit_lineage.py`)**:
+  - Standardized 5 hierarchical drill levels: `L1_REGISTER` $\to$ `L2_PERIOD` $\to$ `L3_DEPARTMENT` $\to$ `L4_BRAND_STYLE` $\to$ `L5_TRANSACTION_DOC` with deterministic SHA256 lineage traces (Invariant 7 & 8).
+- **OpenXML PKZIP XLSX Binary Serialization (`src/services/globalExportService.ts`)**:
+  - Implemented native `serializeToOpenXMLXLSX` generating valid OpenXML `.xlsx` ZIP containers with Calibri typography, Indian Rupee currency formats (`[$₹-en-IN] #,##0.00`), frozen panes, and auto-width columns.
+- **Master 12-Stage Integration & Certification Suite (`backend/tests/test_reporting_certification_suite.py`)**:
+  - Verified 12/12 certification tests green, 36/36 backend reporting tests green, and 347/347 frontend Vitest tests green.
+
 ### [3.68.0] - 2026-08-27
 
 #### Stock Movement Ledger Safety, FEFO Batch Allocation & Historical Reconciliation Engine

@@ -121,6 +121,8 @@ FINANCIAL_SENSITIVE_FIELDS: Set[str] = {
     "profit_amount",
 }
 
+SENSITIVE_FINANCIAL_FIELDS = FINANCIAL_SENSITIVE_FIELDS
+
 
 class ReportSecurityEngine:
     """Server-side field masking and authorization validator."""

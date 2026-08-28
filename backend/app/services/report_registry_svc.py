@@ -79,6 +79,13 @@ class ReportRegistryService:
         to its canonical modern SMRITI report contract.
         """
         clean_query = query_code.strip().upper()
+        # Normalize and strip natural query prefixes
+        for prefix in ["MNUNO", "MNU NO", "MNU", "MENU", "CODE", "REPORT", "RPT"]:
+            if clean_query.startswith(prefix):
+                candidate = clean_query[len(prefix):].strip()
+                if candidate:
+                    clean_query = candidate
+                break
         
         for report in CANONICAL_REPORT_REGISTRY.values():
             # Match directly against shoper_aliases
@@ -106,6 +113,15 @@ class ReportRegistryService:
             query_code=query_code,
             is_matched=False
         )
+
+    @classmethod
+    def get_all_shoper_aliases(cls) -> Dict[str, str]:
+        """Returns flat mapping of all legacy Shoper jump-codes to canonical report IDs."""
+        mapping: Dict[str, str] = {}
+        for report in CANONICAL_REPORT_REGISTRY.values():
+            for alias in report.shoper_aliases:
+                mapping[alias] = report.report_id
+        return mapping
 
     @classmethod
     def validate_execution_request(
