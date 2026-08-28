@@ -28,7 +28,53 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.107.0] - 2026-08-28
+
+#### Staff Commission & Incentive Engine (v1.0.0-GA)
+- **Commission Engine (`src/utils/commissionEngine.ts`)**:
+  - `DEFAULT_COMMISSION_CONFIG`: 4-tier progressive slabs — 0–50k: 2%, 50k–100k: 3.5%, 100k–200k: 5%, 200k+: 6.5%.
+  - `computeTieredCommission()`: remainder-based waterfall consuming net sales across tiers; returns `appliedTiers[]` audit trace with per-slab `salesInSlab` and `commission`.
+  - `computeRepCommission()`: filters entries by repId + period prefix, computes net sales (gross - returns - discounts), applies tiered commission + target bonus (≥100% revenue achievement) + top-performer bonus.
+  - `computeBranchCommissions()`: groups targets by branch, identifies top performer per branch (highest net sales), delegates to `computeRepCommission()`, sorts output by net sales descending.
+  - `raisePayout()`: snapshots summary into `CommissionPayout` (PENDING) with sequenced `payoutNo`; payout is immutable after raising.
+  - Payout lifecycle: PENDING → APPROVED → PAID / DISPUTED / CANCELLED.
+  - `payoutLedger()`: groups payouts by status, sums commissions, computes `avgCommission`.
+- **Commission Studio Modal (`src/components/hr/CommissionStudioModal.tsx`)**:
+  - 3-tab: ranked leaderboard with medal icons + target/top-performer badges + achievement bars; tier breakdown waterfall with full computation trace; payout ledger with approve/paid/dispute action buttons.
+- **Frontend Certification Test Suite (`src/tests/commissionEngine.test.ts`)**:
+  - Validated 4/4 test stages: 4-tier slab (205k→8075), target+top-performer bonuses, below-target zero bonus, payout lifecycle + ledger.
+
+### [3.106.0] - 2026-08-28
+
+#### Markdown & Clearance Planning Engine (v1.0.0-GA)
+- **Markdown Engine (`src/utils/markdownEngine.ts`)**:
+  - Plan lifecycle: DRAFT → ACTIVE → COMPLETED (auto on target hit) / PAUSED / CANCELLED.
+  - `applyStep()`: recomputes per-SKU `effectivePrice = basePrice × (1 − discountPct/100)` for all SKU lines; marks step `isActive` and `activatedAt`.
+  - `recordSellThrough()`: per-SKU `sellThroughPct = unitsSold/openingStock×100`; averages across SKUs; auto-transitions to COMPLETED when `currentAvgSellThrough ≥ targetSellThroughPct`.
+  - `checkAutoTrigger()`: fires when `elapsedPct ≥ 60%` AND `currentAvgSellThrough < 50%`; idempotent (`autoTriggerFired` guard); sets `nextRecommendedStep` to first step beyond current.
+  - `generateReport()`: `onTrack = currentAvgSellThrough ≥ target × (timeElapsedPct/100)`; `recommendation` emitted whenever `nextRecommendedStep` is set OR `!onTrack`.
+  - `MARKDOWN_CONFIG`: `autoTriggerCheckPct=60`, `autoTriggerThreshold=50`.
+- **Markdown Planning Modal (`src/components/pricing/MarkdownPlanningModal.tsx`)**:
+  - Plan list with status badges; detail: sell-through gauge, clickable step cards with effective price, SKU table (colour-coded ST%); sell-through report tab with pace status + auto-trigger recommendation banner.
+- **Frontend Certification Test Suite (`src/tests/markdownEngine.test.ts`)**:
+  - Validated 4/4 test stages: step effective price, sell-through auto-complete, auto-trigger at 65% time/20% ST, report with onTrack + recommendation.
+
+### [3.105.0] - 2026-08-28
+
+#### Inter-Store Purchase Order (IPO) Engine (v1.0.0-GA)
+- **IPO Engine (`src/utils/ipoEngine.ts`)**:
+  - Full lifecycle: DRAFT → SUBMITTED → APPROVED → PICKING → DISPATCHED → AUTO_GRN → CLOSED / DISPUTED / CANCELLED.
+  - `approve()`: per-line `approvedQty` override clamped to `requestedQty` — prevents over-commit at fulfilling branch.
+  - `dispatch()`: per-line `pickedQty` → `dispatchedQty` → `lineValue` → `lineStatus` (FULFILLED / PARTIAL / CANCELLED); calls `recalcTotals()` for `totalValue`, `fulfillmentRate`.
+  - `generateAutoGRN()`: builds full `AutoGRN` document with per-line `shortQty` and `hasVariance` flag; defaults missing lines to full receipt.
+  - 9 IPO statuses; immutable audit trail on every transition.
+- **IPO Studio Modal (`src/components/warehouse/IPOStudioModal.tsx`)**:
+  - Sidebar order list; detail panel: KPI strip (requested, dispatched, fulfillment%, value), lines table with per-line status badges, one-click lifecycle buttons, audit trail; Auto-GRN tab with variance highlighting.
+- **Frontend Certification Test Suite (`src/tests/ipoEngine.test.ts`)**:
+  - Validated 4/4 test stages: creation + totals, approval qty clamping, dispatch line values + 94.44% fulfillment rate, auto-GRN full receipt → CLOSED.
+
 ### [3.104.0] - 2026-08-28
+
 
 #### Customer Complaint & After-Sales CRM Engine (v1.0.0-GA)
 - **Complaint CRM Engine (`src/utils/complaintCRMEngine.ts`)**:
