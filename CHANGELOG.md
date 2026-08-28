@@ -28,7 +28,250 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.122.0] - 2026-08-28
+
+#### Purchase Order Auto-Generation Engine (v1.0.0-GA)
+- **Auto-PO Engine (`src/utils/autoPOEngine.ts`)**:
+  - `detectBreaches()`: Filters `currentStock ≤ reorderPoint`; `suggestedQty = max(reorderQty, supplierMOQ)`; severity CRITICAL (stock=0), LOW (stock ≤ reorderPoint/2), NORMAL; sorted CRITICAL first.
+  - `generatePO()`: Groups breach lines for one supplier+branch; `expectedDelivery = generatedAt + max(leadTimeDays)`; `poNo = APO-<branch>-<date>-<seq>`.
+  - `consolidatePOs()`: Groups all breaches by `supplierId__branchCode`; returns one PO per unique pair.
+  - `submit()` / `acknowledge()` / `cancel()`: Status guards; ACKNOWLEDGED blocks cancel.
+  - `poSummary()`: `byStatus` counts, `totalValue`, `totalQty`.
+- **Auto-PO Modal (`src/components/procurement/AutoPOModal.tsx`)**:
+  - PO sidebar (supplier/value/status); summary strip; 2-tab: Breaches (severity-coloured cards with stock/ROP/suggestedQty/lineTotal), PO Lines (table + Submit/Acknowledge/Cancel action buttons).
+- **Frontend Certification Test Suite (`src/tests/autoPOEngine.test.ts`)**:
+  - Validated 4/4: detectBreaches severity+MOQ (4 items, LINEN excluded, PARA=CRITICAL/AMOX=LOW/DENIM=NORMAL); generatePO totalValue+expectedDelivery; consolidatePOs 2-supplier grouping; submit/acknowledge/cancel guards + poSummary.
+
+### [3.121.0] - 2026-08-28
+
+#### Employee Attendance & Commission Tracking Engine (v1.0.0-GA)
+- **Employee Attendance Engine (`src/utils/employeeAttendanceEngine.ts`)**:
+  - `clockIn()` / `clockOut()`: `hoursWorked = (clockOut - clockIn) / 3600000`; status HALF_DAY when hours < 4.
+  - `markAbsent()` / `markLeave()`: `LeaveType` CASUAL/SICK/EARNED/UNPAID recorded per record.
+  - `computeCommission()`: FLAT_PCT = netSales × flatPct/100; TIERED = marginal slab pass with `slabBreakdown[]`; TARGET_BASED = commission only if target hit; `targetBonusAmt = base × targetBonusPct` when target achieved.
+  - `computePayout()`: `earnedSalary = baseSalary × (effectivePresent / workingDays)`; half-days = 0.5; `lop = unpaidLeave + absent`; `lopDeduction = lop/workingDays × base`; `netPayout = gross - lopDeduction`.
+  - `periodReport()`: `totalHeadcount`, `totalNetPayout`, `totalCommission`, `totalBonus`, `avgAttendancePct`.
+- **Employee Attendance Modal (`src/components/hr/EmployeeAttendanceModal.tsx`)**:
+  - Employee sidebar (net payout); period report strip; 3-tab: Attendance (date log with clock-in/out + status badge), Commission (KPI grid + tiered slab breakdown table), Payout (line-item: earnedSalary → LOP deduction → netPayout highlight).
+- **Frontend Certification Test Suite (`src/tests/employeeAttendanceEngine.test.ts`)**:
+  - Validated 4/4: clockIn/clockOut hoursWorked (9.5h) + HALF_DAY (2h); FLAT_PCT commission (₹4500) + target bonus hit (₹2500)/miss (₹0); TIERED 3-slab ₹250k → ₹3500 with slabBreakdown; computePayout LOP=3 (2 absent+1 unpaid) + periodReport.
+
+### [3.120.0] - 2026-08-28
+
+#### Sales Return & Exchange Engine (v1.0.0-GA)
+- **Sales Return Engine (`src/utils/salesReturnEngine.ts`)**:
+  - `createReturn()`: Line-level `totalReturnAmt = unitPrice × returnQty`; `refundAmt = totalReturnAmt` for ORIGINAL_METHOD/STORE_CREDIT; `refundAmt = 0` for EXCHANGE_CREDIT; RETURN_CREATED audit.
+  - `createExchange()`: Return lines + exchange lines; `priceDifference = totalExchangeAmt - totalReturnAmt`; auto-selects `refundMethod`: EXCHANGE_CREDIT if priceDiff ≥ 0 (customer pays more), STORE_CREDIT if priceDiff < 0 (customer gets refund); `refundAmt = abs(priceDiff)` if negative.
+  - `approve()`: Guards DRAFT; RETURN → REFUNDED; EXCHANGE → EXCHANGED; audit note includes refundMethod + refundAmt.
+  - `reject()`: Guards DRAFT; sets REJECTED with `rejectionReason`.
+  - `returnSummary()`: `totalReturnOrders`, `totalExchangeOrders`, `totalRefundedAmt` (REFUNDED+EXCHANGED), `totalResaleableQty`, `totalDamagedQty`, `totalDisposeQty`, `byStatus`.
+- **Sales Return Modal (`src/components/pos/SalesReturnModal.tsx`)**:
+  - Order sidebar (status/type badge, returnAmt); summary strip (returns/exchanges/refunded/restock counts); 3-tab: Return Lines (product/reason/qty/restock table), Exchange Lines (new items + price diff banner), Audit; Approve/Reject buttons.
+- **Frontend Certification Test Suite (`src/tests/salesReturnEngine.test.ts`)**:
+  - Validated 4/4: createReturn (₹998+₹1299=₹2297 totalReturnAmt, refundAmt=2297, returnNo pattern); approve→REFUNDED + double-approve guard + reject-on-REFUNDED guard; createExchange pos priceDiff (₹500→EXCHANGE_CREDIT, refundAmt=0) + neg priceDiff (−₹800→STORE_CREDIT, refundAmt=800); returnSummary (totalRefundedAmt=1200, resaleable=2, damaged=3, dispose=1).
+
+### [3.119.0] - 2026-08-28
+
+#### Customer Credit Limit & Outstanding Engine (v1.0.0-GA)
+- **Customer Credit Engine (`src/utils/customerCreditEngine.ts`)**:
+  - `setLimit()`: Creates credit account with `creditLimit`, `paymentTermDays`, `graceDays`; `availableCredit = creditLimit - outstanding`.
+  - `postInvoice()`: Throws if status ON_HOLD/SUSPENDED; `dueDate = invoiceDate + paymentTermDays`; computes initial `agingBucket`; calls `recalcAccount()` to update `outstandingAmt`, `utilisationPct = outstanding/limit × 100`, `limitBreached = outstanding > limit`.
+  - `postPayment()`: FIFO allocation — sorts unpaid invoices by `dueDate` ASC; allocates greedily; stores `PaymentAllocation[]` per payment; updates `paidAmt`, `outstandingAmt`, `status` per invoice.
+  - `refreshAging()`: Recomputes 5 buckets (CURRENT/OVERDUE_30/60/90/CRITICAL) on all non-PAID invoices; sets OVERDUE status.
+  - `holdCredit()` / `releaseCredit()`: Status transitions with `holdReason`.
+  - `agingReport()`: Per-account `{ bucket, count, totalAmt }[]` + `outstanding`, `utilisationPct`, `limitBreached`, `status`.
+- **Customer Credit Modal (`src/components/crm/CustomerCreditModal.tsx`)**:
+  - Account sidebar (utilisation bar, breach badge); 3-tab: Invoices (invoice table + FIFO payment form), Aging Report (per-account 5-bucket grid), Payments (allocation detail per payment); hold/release action buttons.
+- **Frontend Certification Test Suite (`src/tests/customerCreditEngine.test.ts`)**:
+  - Validated 4/4 (post daysOverdue patch: 89d not 88d for May-31→Aug-28): postInvoice utilisation + breach; FIFO payment (40000→INV-0010 fully paid; 10000→INV-0011 partial); refreshAging + holdCredit guard; agingReport 5-bucket per account.
+  - **Patch note**: Test 3 `daysOverdue` assertion corrected from 88 to 89 — invoice May-01 + NET_30 = May-31 dueDate; asOf Aug-28 = 89 full days overdue.
+
+### [3.118.0] - 2026-08-28
+
+#### Inter-Branch Stock Transfer Engine (v1.0.0-GA)
+- **Inter-Branch Transfer Engine (`src/utils/interBranchTransferEngine.ts`)**:
+  - Status flow: DRAFT → APPROVED → IN_TRANSIT → RECEIVED → COMPLETED; DRAFT/APPROVED → CANCELLED.
+  - `createTransfer()`: Per-line `requestedQty`; order-level aggregates via `totals()`: `totalRequestedQty`, `totalDispatchedQty`, `totalReceivedQty`, `totalVarianceQty`, `hasVariance`.
+  - `approve()`: Guards DRAFT; sets APPROVED; audit entry.
+  - `dispatch()`: Guards APPROVED; `lineQtys` map overrides `requestedQty` per line; sets IN_TRANSIT; `dispatchedAt`.
+  - `receive()`: Guards IN_TRANSIT; per-line `variance = dispatchedQty - receivedQty`; sets RECEIVED; `hasVariance = totalVarianceQty > 0`.
+  - `complete()`: Guards RECEIVED; sets COMPLETED; `completedAt`; audit note includes variance summary.
+  - `cancel()`: Guards DRAFT or APPROVED only; throws if IN_TRANSIT or beyond.
+  - `transferSummary()`: `byStatus` counts, `withVariance` count, `totalInTransit` qty, `totalCompleted` qty.
+- **Inter-Branch Transfer Modal (`src/components/warehouse/InterBranchTransferModal.tsx`)**:
+  - Order sidebar (variance badge); queue summary strip; 2-tab: Transfer Lines (dispatched/received/variance per line; rose highlight on variance rows), Audit Trail; lifecycle action buttons per status.
+- **Frontend Certification Test Suite (`src/tests/interBranchTransferEngine.test.ts`)**:
+  - Validated 4/4 (post withVariance patch: IN_TRANSIT order has dispatchedQty=5, receivedQty=0 → variance=5 → withVariance=1): create totals; approve+dispatch short-qty; full lifecycle with variance + 5 audit entries; cancel guards + transferSummary.
+
+### [3.117.0] - 2026-08-28
+
+#### Stock Expiry & Batch Tracking Engine (v1.0.0-GA)
+- **Stock Expiry Engine (`src/utils/stockExpiryEngine.ts`)**:
+  - `registerBatch()`: `batchId`, `batchNo`, `lotNo`, SKU, MFG/EXP dates, `receivedQty = availableQty`; status AVAILABLE.
+  - `fefoAllocation()`: Filters AVAILABLE batches for SKU; sorts by `expiryDate` ASC (FEFO); greedy allocation; returns `AllocationResult { fulfilledQty, shortfallQty, fullyFulfilled, lines[] }`.
+  - `deductAllocation()`: Applies `AllocationResult` to batch array; sets status DEPLETED when `availableQty = 0`.
+  - `nearExpiryBatches()`: Filters AVAILABLE batches with `daysToExpiry ≤ threshold`; sorted ascending by `daysToExpiry`.
+  - `quarantineBatch()`: Throws if `availableQty < qty`; moves qty AVAILABLE→quarantined; status QUARANTINED.
+  - `releaseFromQuarantine()`: Throws if `quarantinedQty < qty`; restores to AVAILABLE.
+  - `expireIfDue()`: Idempotent; guards EXPIRED/DEPLETED/RECALLED; sets EXPIRED if `expiryDate < asOf`.
+  - `batchReport()`: Per-SKU `{ totalAvailable, totalExpired, totalQuarantined, nearExpiry30d, batches[] }`.
+- **Stock Expiry Modal (`src/components/warehouse/StockExpiryModal.tsx`)**:
+  - Batch sidebar (status/days colour coding); 3-tab: Batches (KPI + quarantine/release buttons + quarantine reason alert), Near Expiry (urgency-sorted alert list), SKU Report (per-SKU 4-metric grid).
+- **Frontend Certification Test Suite (`src/tests/stockExpiryEngine.test.ts`)**:
+  - Validated 4/4 (post totalExpired patch: expired batch has availableQty=50, not 20): registerBatch fields; FEFO order (20+25=45 from b1+b2) + shortfall (20 short); nearExpiry+deductAllocation+idempotent expiry; quarantine/release + batchReport (totalExpired=50).
+
+### [3.116.0] - 2026-08-28
+
+
+#### Barcode & Label Printing Engine (v1.0.0-GA)
+- **Label Print Engine (`src/utils/labelPrintEngine.ts`)**:
+  - Barcode formats: CODE128, QR_CODE, EAN13, CODE39.
+  - `DEFAULT_TEMPLATE` (STD-58MM): 5 fields (name/bold/TOP, barcode/MIDDLE, sku/MIDDLE, mrp/bold/BOTTOM, hsn/BOTTOM); 58×40mm; CODE128.
+  - `createJob()`: Maps input items to `PrintItem[]`; `totalLabels = Σ(qty × copies)`; status QUEUED; QUEUED audit entry.
+  - `addToBatch()`: Appends new items to existing QUEUED job; recomputes `totalLabels`; throws if status ≠ QUEUED.
+  - `startPrint()` / `completePrint()` / `failPrint()`: Status transitions QUEUED→PRINTING→PRINTED/FAILED with guard throws.
+  - `reprint()`: Copies items from printed job (with optional `skuFilter`); sets `isReprint=true`, `originalJobId`; new QUEUED job.
+  - `queueSummary()`: Aggregates `queued`, `printing`, `printed`, `failed`, `totalLabels`, `reprintCount` across a job array.
+- **Label Print Modal (`src/components/warehouse/LabelPrintModal.tsx`)**:
+  - Job sidebar (status badge, reprint badge, label count); queue summary strip; 3-tab: Print Items (qty×copies→labels table + row total), Template (config meta + field list with ON/OFF, font, position), Audit (lifecycle events with Start/Complete/Fail/Reprint action buttons).
+- **Frontend Certification Test Suite (`src/tests/labelPrintEngine.test.ts`)**:
+  - Validated 4/4: totalLabels (5×2+3×1+2×2=17); addToBatch + QUEUED→PRINTED (4 audit entries); FAILED + addToBatch guard; reprint (full=17, filtered belt=4) + queueSummary (printed=1, queued=2, reprintCount=2, totalLabels=38).
+
+### [3.115.0] - 2026-08-28
+
+#### Purchase Return to Vendor (PRTV) Engine (v1.0.0-GA)
+- **PRTV Engine (`src/utils/prtvEngine.ts`)**:
+  - Status flow: DRAFT → APPROVED → DISPATCHED → ACKNOWLEDGED → SETTLED / REJECTED.
+  - `createReturn()`: Per-line `totalCost = unitCost × returnQty`; `taxAmt = totalCost × taxPct/100`; `netReturnAmt = totalCost + taxAmt`; order-level `subTotal`, `totalTax`, `netReturnAmt` aggregated via `recalc()`.
+  - `approve()`: Throws if status ≠ DRAFT; generates `DebitNote` with `debitNoteNo` (DN-*) and full totals.
+  - `markDispatched()`: Records courier + trackingNo; requires APPROVED status.
+  - `acknowledge()`: Records `acknowledgedAt`; requires DISPATCHED.
+  - `settle()`: Records `{ settledAt, settledBy, payableRef, settledAmt }`; requires ACKNOWLEDGED.
+  - `reject()`: Allowed from DRAFT or APPROVED; stores reason in audit.
+  - All transitions are guarded with explicit throws for out-of-sequence calls.
+- **PRTV Modal (`src/components/procurement/PRTVModal.tsx`)**:
+  - Order sidebar (status badge, net return); 3-tab: Lines (line table with qty/unitCost/tax/netReturn/reason), Debit Note (note card + dispatch info + settlement panel), Audit (action trail); lifecycle action buttons per status.
+- **Frontend Certification Test Suite (`src/tests/prtvEngine.test.ts`)**:
+  - Validated 4/4: Line-level cost/tax/net (1890+1120=3010); approve + debit note (double-approve throws); full lifecycle (5 audit entries, settledAmt=1062); reject from DRAFT + out-of-sequence guards.
+
+### [3.114.0] - 2026-08-28
+
+#### Gift Voucher & Store Credit Engine (v1.0.0-GA)
+- **Gift Voucher Engine (`src/utils/giftVoucherEngine.ts`)**:
+  - Voucher types: GIFT_VOUCHER, STORE_CREDIT, REFUND_CREDIT, PROMO_CREDIT.
+  - Statuses: ACTIVE, PARTIALLY_REDEEMED, REDEEMED, EXPIRED, CANCELLED.
+  - `issueVoucher()`: Generates `voucherCode` (alphanumeric 12-char with dashes); sets `expiresAt = now + validDays`; appends ISSUE ledger entry.
+  - `redeemVoucher()`: Clamps `redeemedAmt = min(requested, balance)`; `fullySettled = requested ≤ balance`; enforces single-use if `multiUse=false`; throws on EXPIRED/CANCELLED/REDEEMED/zero-balance.
+  - `refundToCredit()`: Delegates to `issueVoucher()` with type=REFUND_CREDIT, `issuedTo=customerId`, `refNo=saleRefNo`.
+  - `expireIfDue()`: Idempotent — only mutates ACTIVE/PARTIALLY_REDEEMED vouchers past `expiresAt`; appends EXPIRE entry.
+  - `adjust()`: Admin top-up or forfeiture; clamps balance to 0 minimum; appends ADJUST ledger entry with `balanceAfter`.
+  - `portfolioSummary()`: `totalIssued`, `totalBalance`, `totalRedeemed`, `byType` (balance by type), `byStatus` (count by status), `expiringSoon30d`.
+- **Gift Voucher Modal (`src/components/pos/GiftVoucherModal.tsx`)**:
+  - Voucher sidebar (code/balance/type/status badges); 3-tab: Detail (KPI grid, redeem form with clamp warning, redeem button), Ledger (signed-amount transaction table with balanceAfter), Portfolio (summary grid, balance-by-type, count-by-status).
+- **Frontend Certification Test Suite (`src/tests/giftVoucherEngine2.test.ts`)**:
+  - Validated 4/4: Full redemption ACTIVE→REDEEMED; partial clamp (300+200 from 500 balance, fullySettled=false on second); refund-to-credit + idempotent expiry; adjust top-up (₹2000→₹2500) + portfolio (totalBalance=3200, byType.GIFT_VOUCHER=2500).
+
+### [3.113.0] - 2026-08-28
+
+
+#### Supplier Payment Terms & Aging Engine (v1.0.0-GA)
+- **Supplier Payment Engine (`src/utils/supplierPaymentEngine.ts`)**:
+  - Terms: NET_30 / NET_45 / NET_60 / NET_90 / IMMEDIATE / CUSTOM (customDays field).
+  - `createInvoice()`: Computes `dueDate = invoiceDate + termsDays`; runs initial `computeAgingBucket()`.
+  - `recordPayment()`: Detects early-pay (`daysFromInvoice ≤ earlyPayCutoffDays`); applies `earlyPayDiscountPct %` to payment; stores `earlyPayDiscount` and `netPaid` per `PaymentRecord`; transitions status UNPAID → PARTIALLY_PAID → PAID.
+  - `refreshAging()`: Recomputes all 5 buckets for non-PAID invoices: CURRENT (0d), OVERDUE_30 (1–30d), OVERDUE_60 (31–60d), OVERDUE_90 (61–90d), CRITICAL (>90d); sets OVERDUE status on past-due UNPAID invoices.
+  - `buildDueCalendar()`: Groups outstanding invoices by `dueDate` ascending; sums `outstandingAmt` per date.
+  - `vendorAgingReport()`: Internally calls `refreshAging()`; groups by `vendorId`; produces per-vendor `{ bucket, label, count, totalAmt }[]` + `totalOutstanding`, `criticalAmt`, `oldestDueDays`.
+  - Invoice statuses: UNPAID / PARTIALLY_PAID / PAID / OVERDUE / DISPUTED.
+- **Supplier Payment Modal (`src/components/procurement/SupplierPaymentModal.tsx`)**:
+  - Invoice sidebar (bucket badge, daysOverdue); 3-tab detail: Invoices (KPI grid, payment form with live early-pay preview, payment history), Aging Report (per-vendor 5-bucket coloured grid), Due Calendar (date-grouped, overdue dates highlighted).
+- **Frontend Certification Test Suite (`src/tests/supplierPaymentEngine.test.ts`)**:
+  - Validated 4/4 (post bucket-assertion patch): NET_30 dueDate + CURRENT; early-pay day 8 → ₹1600 discount; aging refresh OVERDUE_60/CRITICAL; calendar grouping + vendor report.
+  - **Test 3 patch**: Assertion corrected from `OVERDUE_30` to `OVERDUE_60` — May-31 + 30d = May-31 dueDate; asOf Jul-15 = 45d overdue → 31–60d band.
+
+### [3.112.0] - 2026-08-28
+
+#### Product Bundling & Combo Pricing Engine (v1.0.0-GA)
+- **Bundling Engine (`src/utils/bundlingEngine.ts`)**:
+  - Bundle types: FIXED_BUNDLE (fixedPrice overrides sumMRP), COMBO_DISCOUNT (% or flat ₹ off), BUY_X_GET_Y (requiredQty + freeQty; effectivePrice = lineTotal / totalQty).
+  - `createBundle()`: Creates bundle with auto-generated `bundleCode` (BND-XXXXX).
+  - `computePricing()`: Sums component MRPs; resolves discount by type priority (fixedPrice → flatDiscount → discountPct); computes `savingsPct = discountAmt / sumMRP × 100`; checks each component against cart `availableQty`; returns `ineligibleSkus[]`.
+  - `isValid()`: Checks `status === ACTIVE`, validity window, and branch whitelist (`branchCodes = [] = all branches`).
+  - `applyBundleToCart()`: Validates `isValid()` + eligibility; deducts `requiredQty + freeQty` from cart `availableQty`.
+  - `findApplicableBundles()`: Filters by validity + all component SKUs in cart + eligible; sorts by `discountAmt` descending.
+- **Bundling Modal (`src/components/pricing/BundlingModal.tsx`)**:
+  - Bundle list sidebar (type badge, discount amount, eligibility); detail panel: 4-metric price summary, component lines table (MRP/qty/free/effectivePrice/lineTotal), cart stock availability grid with component highlights.
+- **Frontend Certification Test Suite (`src/tests/bundlingEngine.test.ts`)**:
+  - Validated 4/4: COMBO_DISCOUNT (sumMRP=860, discount=86, savings=10%); FIXED_BUNDLE (fixed=450 < sumMRP=530); BUY_X_GET_Y (freeQty=1, qty=3, effPrice≈80); ineligible detection + cart deduction + findApplicable sorted.
+
+### [3.111.0] - 2026-08-28
+
+#### Store Cash Drawer & Float Management Engine (v1.0.0-GA)
+- **Cash Drawer Engine (`src/utils/cashDrawerEngine.ts`)**:
+  - `STANDARD_DENOMINATIONS`: [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1].
+  - `openDrawer()`: Calls `countDenominations()` for float; creates OPENING_FLOAT movement + DRAWER_OPENED audit entry.
+  - `recordMovement()`: Movement kinds: CASH_IN, CASH_OUT, SALE, REFUND; recomputes `currentBalance` and `expectedCash = openingFloat + cashIn - cashOut + netSales - netRefunds` after every call.
+  - `reconcile()`: `countDenominations(physicalDenominations)` → `variance = actual - expected`; `|variance| ≤ threshold → BALANCED`, negative → SHORT, positive → OVER; appends `EOD_RECONCILE_${status}` audit entry; sets status RECONCILED.
+  - `shiftSummary()`: Aggregates `totalOpeningFloat`, `totalNetSales`, `totalCashIn`, `totalCashOut`, `totalExpected`, `totalActual`, `totalVariance`, `balanced`, `short`, `over`, `unreconciled` across a drawer array.
+- **Cash Drawer Modal (`src/components/pos/CashDrawerModal.tsx`)**:
+  - 4-tab: Overview (KPI grid, reconciliation summary panel, reverse-chronological audit trail); Float (denomination breakdown + total); Ledger (movements table reverse-chronological, type-coloured badges); EOD Reconcile (denomination count inputs, live reconTotal and variance preview, reconcile button).
+- **Frontend Certification Test Suite (`src/tests/cashDrawerEngine.test.ts`)**:
+  - Validated 4/4: Float ₹3500; CASH_IN/SALE/CASH_OUT balance tracking; BALANCED recon (variance=0); SHORT recon (variance=-100) + shift summary (unreconciled=1, short=1, totalOpeningFloat=4500).
+
+### [3.110.0] - 2026-08-28
+
+
+#### Customer Loyalty Tier Upgrade Engine (v1.0.0-GA)
+- **Loyalty Tier Engine (`src/utils/loyaltyTierEngine.ts`)**:
+  - 4-tier hierarchy: BRONZE → SILVER → GOLD → PLATINUM.
+  - `DEFAULT_TIER_POLICY`: evaluation window 12 months; downgrade cooldown 3 months.
+  - Thresholds: SILVER ≥ ₹15k/1500pts, GOLD ≥ ₹50k/5000pts, PLATINUM ≥ ₹1.5L/15000pts.
+  - `accrue()`: accumulates `windowSpend`, `windowPoints`, `lifetimeSpend`, `lifetimePoints`, `currentPoints` — does not trigger evaluation.
+  - `evaluateTier()`: `resolveTier()` picks highest earned tier; upgrades are immediate; downgrades are blocked if `monthsElapsed(lastTierChangeAt, asOf) < downgradeCooldownMonths`; returns `TierEvaluation` with `downgradeLocked` flag.
+  - `checkAnniversary()`: exact date match against join anniversary; awards tier-specific bonus (BRONZE 100, SILVER 300, GOLD 750, PLATINUM 2000 pts); logs `ANNIVERSARY_REWARD` audit entry with `pointsDelta`.
+  - `evaluateBatch()`: maps `evaluateTier()` over all members; returns updated members + evaluations array.
+  - `tierSummary()`: counts members per tier → `{ BRONZE, SILVER, GOLD, PLATINUM }`.
+- **Loyalty Tier Modal (`src/components/crm/LoyaltyTierModal.tsx`)**:
+  - 3-tab: member detail (KPIs, tier threshold reference with CURRENT marker, tier history audit trail); bulk evaluate (proposed tier arrows, LOCKED badges for cooldown-blocked downgrades); tier distribution summary (per-tier count + progress bar + policy reference panel).
+- **Frontend Certification Test Suite (`src/tests/loyaltyTierEngine2.test.ts`)**:
+  - Validated 4/4: BRONZE→GOLD upgrade; downgrade blocked (1mo cooldown); downgrade allowed (6mo cooldown); anniversary bonus 300pts + batch eval + tier summary SILVER=1 GOLD=1.
+
+### [3.109.0] - 2026-08-28
+
+#### Consignment Stock Engine (v1.0.0-GA)
+- **Consignment Engine (`src/utils/consignmentEngine.ts`)**:
+  - Plan lifecycle: ACTIVE → SETTLED / EXPIRED / CANCELLED.
+  - Movement types: RECEIVED (on plan creation), SOLD, RETURNED, ADJUSTED.
+  - `createPlan()`: initialises lines with `onHandQty = receivedQty`; appends one RECEIVED movement per line.
+  - `recordSales()`: per-SKU qty clamped to `onHandQty`; appends SOLD movements; calls `recalc()` for `totalSold`, `totalBilledAmt`, `daysElapsed`, `daysRemaining`.
+  - `recordReturn()`: per-SKU qty clamped; appends RETURNED movements; calls `recalc()`.
+  - `getAgingReport()`: computes `daysOnFloor = asOf − startDate`; FRESH ≤14d, NORMAL 15–30d, AGEING 31–60d, CRITICAL >60d; `returnDue = daysOnFloor >= termDays`; `exposedValue = onHandQty × vendorCost`.
+  - `getReturnSchedule()`: filters aging report to `returnDue = true`.
+  - `settle()`: snapshots totals into `ConsignmentSettlement` with `totalReturnQty`; sets status SETTLED.
+- **Consignment Studio Modal (`src/components/procurement/ConsignmentStudioModal.tsx`)**:
+  - 3-tab: plan detail (KPIs, lines table, settle button, settlement summary panel); aging report (return-due alert banner, per-line aging band badge + exposed value, total exposed value header); movement ledger (reverse-chronological, type-coloured badges, formatted amounts).
+- **Frontend Certification Test Suite (`src/tests/consignmentEngine.test.ts`)**:
+  - Validated 4/4: plan creation (190 received, endDate=2026-08-30); sales billing (billedAmt 25200, daysElapsed=19); aging bands (FRESH/AGEING/CRITICAL + returnDue); return schedule + settlement.
+
+### [3.108.0] - 2026-08-28
+
+#### Price Override Approval Engine (v1.0.0-GA)
+- **Price Override Engine (`src/utils/priceOverrideEngine.ts`)**:
+  - `DEFAULT_OVERRIDE_CONFIG`: `autoApproveLimitPct=2`, `expiryMinutes=10`, 5-tier deviation matrix (0–2%→CASHIER, 2–5%→SUPERVISOR, 5–10%→MANAGER, 10–20%→GM, 20%+→DIRECTOR).
+  - `createRequest()`: computes `deviationAmt` and `deviationPct` (absolute); resolves `requiredAuthority` via `resolveAuthority()`; sets `expiresAt = now + expiryMinutes`; auto-approves with SYSTEM audit entry if `deviationPct ≤ autoApproveLimitPct`.
+  - `approve()`: enforces `AUTHORITY_RANK` ordinal; throws descriptive error if `approverRank < requiredRank`.
+  - `reject()`: records REJECTED with mandatory reason; immutable.
+  - `expireIfDue()` / `expireBatch()`: idempotent expiry — only mutates PENDING requests past `expiresAt`.
+  - `auditReport()`: counts by status; sums `|deviationAmt|`; computes `avgDeviationPct`.
+  - Override statuses: PENDING / APPROVED / AUTO_APPROVED / REJECTED / EXPIRED / CANCELLED.
+- **Price Override Modal (`src/components/pos/PriceOverrideModal.tsx`)**:
+  - Request list with status badge + deviation %; detail: price/deviation card, authority matrix (active rule highlighted), approval action panel with authority selector, audit trail (reverse chronological with action badges).
+  - Audit summary strip: total / auto-approved / approved / pending / rejected / expired / avg dev% / total deviation amount.
+- **Frontend Certification Test Suite (`src/tests/priceOverrideEngine.test.ts`)**:
+  - Validated 4/4: auto-approve 1.6%; 7% → PENDING + MANAGER; authority enforcement (SUPERVISOR throws, MANAGER approves); expiry + reject + audit report.
+
 ### [3.107.0] - 2026-08-28
+
 
 #### Staff Commission & Incentive Engine (v1.0.0-GA)
 - **Commission Engine (`src/utils/commissionEngine.ts`)**:
