@@ -28,7 +28,89 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.92.0] - 2026-08-28
+
+#### Smart Replenishment & Min-Max Inventory Reorder Automation (v1.0.0-GA)
+- **Replenishment Engine (`src/utils/replenishmentEngine.ts`)**:
+  - Implemented 5-trigger hierarchy: SAFETY_STOCK_BREACH > REORDER_POINT_HIT > MIN_STOCK_BREACH > SEASONAL_PUSH > MANUAL_OVERRIDE.
+  - Order-up-to-max model: `suggestedOrderQty = maxStockLevel - currentStock`.
+  - Stockout date projection: `currentStock / avgDailySales` with calendar date computation.
+  - Full branch scan with priority sorting and total suggested PO value aggregation.
+  - PO lifecycle state transitions: PENDING → APPROVED → PO_RAISED / CANCELLED.
+- **Smart Replenishment Modal (`src/components/inventory/SmartReplenishmentModal.tsx`)**:
+  - Implemented suggestion cards with trigger badges, stockout progress bar, and approve/auto-PO actions.
+- **Frontend Certification Test Suite (`src/tests/replenishmentEngine.test.ts`)**:
+  - Validated 4/4 test stages with 100% green pass rate.
+
+### [3.91.0] - 2026-08-28
+
+#### Enterprise Return Merchandise Authorization (RMA) & Reverse Logistics Engine (v1.0.0-GA)
+- **RMA Engine (`src/utils/rmaEngine.ts`)**:
+  - Implemented 10-status lifecycle: DRAFT → SUBMITTED → APPROVED → IN_TRANSIT → RECEIVED_AT_WAREHOUSE → QUALITY_INSPECTION → CREDIT_NOTE_ISSUED → REFUND_PROCESSED → REJECTED → CLOSED.
+  - Immutable audit trail with `fromStatus`/`toStatus`, operator ID, remarks, and ISO timestamp per transition.
+  - Restocking fee calculation: applied only for `CUSTOMER_CHANGED_MIND` reason (IndAS 115 compliant).
+  - Reverse logistics metrics: total RMAs, pending, in-transit, credit notes, return value, avg resolution days, byReason / byResolution breakdowns.
+- **RMA Management Modal (`src/components/purchase/RMAManagementModal.tsx`)**:
+  - Implemented queue with status transition actions, refund summary, line item table, and full audit trail display.
+- **Frontend Certification Test Suite (`src/tests/rmaEngine.test.ts`)**:
+  - Validated 4/4 test stages with 100% green pass rate.
+
+### [3.90.0] - 2026-08-28
+
+#### Supplier Scorecard & Vendor SLA Compliance Audit (v1.0.0-GA)
+- **Supplier Scorecard Engine (`src/utils/supplierScorecardEngine.ts`)**:
+  - Implemented weighted composite scorecard: OTD 50% / Fill Rate 35% / Quality 15%.
+  - Quality score formula: `max(0, 100 - rejectionPct × 10)` — 1% rejection = -10 score points.
+  - 4-band SLA status classification: GREEN (≥85), AMBER (≥70), RED (≥50), CRITICAL (<50).
+  - Per-day late delivery penalty accrual from contracted vs actual delivery dates.
+  - Multi-supplier report with descending scorecard ranking and average score.
+- **Supplier Scorecard Modal (`src/components/purchase/SupplierScorecardModal.tsx`)**:
+  - Ranked supplier list panel with composite score bar, KPI grid, and PO audit table.
+- **Frontend Certification Test Suite (`src/tests/supplierScorecardEngine.test.ts`)**:
+  - Validated 4/4 test stages covering lead-time calc, composite scoring, penalty accrual, and multi-supplier report with 100% green pass rate across 63 test files (424/424 tests).
+
+### [3.89.0] - 2026-08-28
+
+
+#### RFID Smart Fitting Room & Garment Interaction Analytics Engine (v1.0.0-GA)
+- **Fitting Room Engine (`src/utils/fittingRoomEngine.ts`)**:
+  - Implemented real-time RFID garment session management with `BROUGHT_IN`, `TAKEN_OUT`, and `PURCHASED` events per session.
+  - Built affinity-based cross-sell recommendation engine with 0.7 affinity threshold and top-5 cap covering Apparel, Denim, Formals, and Footwear categories.
+  - Implemented multi-session analytics: conversion rate, avg trial duration, top trialled SKUs, and abandoned garment tracking.
+- **RFID Fitting Room Studio Modal (`src/components/inventory/RFIDFittingRoomStudioModal.tsx`)**:
+  - Implemented 4-room fitting room HUD with live garment scan-in, cross-sell recommendation panel, and analytics dashboard.
+- **Frontend Certification Test Suite (`src/tests/fittingRoomEngine.test.ts`)**:
+  - Validated 4/4 test stages with 100% green pass rate.
+
+### [3.88.0] - 2026-08-28
+
+#### Universal Customer 360 & Loyalty Tier Progression Matrix (v1.0.0-GA)
+- **Loyalty Engine (`src/utils/loyaltyEngine.ts`)**:
+  - Implemented 5-tier loyalty engine: Bronze (₹0), Silver (₹10K), Gold (₹50K), Platinum (₹1.5L), Diamond (₹5L).
+  - Tier-specific earn rates (1–10 pts per ₹100), redemption rates (₹0.25–₹0.75 per point), and birthday month multipliers (2x–5x).
+  - Automatic tier upgrade detection with welcome bonus points (200–2500 pts per tier jump).
+  - Point redemption guard: minimum 50 points, tier-specific cash equivalent.
+- **Customer 360 Loyalty Modal (`src/components/crm/Customer360LoyaltyModal.tsx`)**:
+  - Implemented split-panel 360 view with tier progression bar, key metrics, benefits grid, and earn/redeem action panels.
+- **Frontend Certification Test Suite (`src/tests/loyaltyEngine.test.ts`)**:
+  - Validated 4/4 test stages with 100% green pass rate.
+
+### [3.87.0] - 2026-08-28
+
+#### Enterprise Gift Card, Voucher Lifecycle & Stored-Value Ledger (v1.0.0-GA)
+- **Gift Card Engine (`src/utils/giftCardEngine.ts`)**:
+  - Implemented complete gift card lifecycle: issuance, top-up, OTP-secured redemption, and breakage revenue analysis.
+  - TOTP-style 30-second OTP windows with ±1 window tolerance for POS terminal clock drift.
+  - Immutable ledger entries with `balanceBefore` / `balanceAfter` per transaction for IndAS 115 audit trail.
+  - Automatic `FULLY_REDEEMED` status transition on zero balance.
+  - Breakage revenue analysis: expired card residual balance calculation with breakage percentage.
+- **Gift Card Lifecycle Modal (`src/components/pos/GiftCardLifecycleModal.tsx`)**:
+  - 5-tab modal: Issue, Top-Up, OTP-Secured Redeem, Stored-Value Ledger, Breakage Analysis.
+- **Frontend Certification Test Suite (`src/tests/giftCardEngine.test.ts`)**:
+  - Validated 4/4 test stages covering issuance, top-up, OTP redemption, and breakage recognition with 100% green pass rate across 60 test files (412/412 tests).
+
 ### [3.86.0] - 2026-08-28
+
 
 #### Real-Time Dynamic Pricing & Happy Hours POS Discount Engine (v1.0.0-GA)
 - **Dynamic Pricing Engine (`src/utils/dynamicPricingEngine.ts`)**:
