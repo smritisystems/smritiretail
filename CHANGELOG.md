@@ -28,6 +28,101 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.86.0] - 2026-08-28
+
+#### Real-Time Dynamic Pricing & Happy Hours POS Discount Engine (v1.0.0-GA)
+- **Dynamic Pricing Engine (`src/utils/dynamicPricingEngine.ts`)**:
+  - Implemented time-window and day-of-week promotional discount calculation engine supporting Happy Hours, Category-Tiered cuts, and Flat cart discounts.
+  - Added minute-level clock boundary evaluation and non-stackable discount isolation.
+- **Dynamic Pricing Studio Modal (`src/components/billing/propos/DynamicPricingStudioModal.tsx`)**:
+  - Implemented visual promotional rules manager with interactive time-scrubber simulator and live POS cart valuation preview.
+- **Frontend Certification Test Suite (`src/tests/dynamicPricingEngine.test.ts`)**:
+  - Validated 4/4 test stages, certifying time-window detection, category discount math, and boundary protections with 100% green pass rate across 57 test files.
+
+### [3.85.0] - 2026-08-28
+
+#### Warehouse Wave Picking & RFID Bin Verification Studio (v1.0.0-GA)
+- **Warehouse Wave Picking Modal (`src/components/inventory/WarehouseWavePickingModal.tsx`)**:
+  - Implemented multi-aisle wave picking studio with optimized pick path sequencing, real-time RFID bin tag verification, shortage tracking, and staging bay routing.
+  - Added real-time progress bar, over-pick prevention, and 1-click **"Complete Wave & Dispatch to Staging"** workflow.
+- **Frontend Certification Test Suite (`src/tests/warehouseWavePicking.test.ts`)**:
+  - Validated 4/4 test stages, certifying wave models, RFID tag recognition, progress math, and over-pick prevention with 100% green pass rate across 56 test files.
+
+### [3.84.0] - 2026-08-28
+
+#### Full End-to-End Enterprise E2E Test Suite Automation (v1.0.0-GA)
+- **Enterprise E2E Verification Harness (`scripts/run_enterprise_omnichannel_e2e.py`)**:
+  - Implemented 5-stage comprehensive enterprise E2E verification runner validating Master Catalogs, ProPOS Register Checkout with Supervisor PINs, Omnichannel WhatsApp Gateways, Purchase 3-Way Match AP Posting, and Multi-Branch Consolidated Financial Matrices.
+  - Executed 75/75 automated validation steps with 100% green pass rate.
+- **Frontend E2E Integration Suite (`src/tests/e2eTestSuiteRunner.test.ts`)**:
+  - Validated 4/4 end-to-end integration stages certifying SKU data structures, POS double-entry tax balancing, 3-way variance drift isolation, and consolidated balance sheet equations across 55 test files.
+
+### [3.83.0] - 2026-08-28
+
+#### Enterprise Multi-Store Consolidated Financial Balance Sheet Matrix (v1.0.0-GA)
+- **Consolidated Balance Sheet Modal (`src/components/reports/ConsolidatedBalanceSheetModal.tsx`)**:
+  - Implemented multi-branch consolidated balance sheet matrix supporting dynamic branch columns, automated inter-company eliminations, and real-time live equation validation (`Assets == Liabilities + Equity`).
+  - Added categorized financial structures across Current/Fixed Assets, Current/Term Liabilities, and Equity & Reserves.
+  - Added export engine exporting consolidated statements to XLSX, PDF, and CSV.
+- **Frontend Certification Test Suite (`src/tests/consolidatedBalanceSheet.test.ts`)**:
+  - Validated 4/4 test stages, certifying balance sheet line models, multi-branch aggregation, inter-company elimination math, and accounting balance invariants with 100% green pass rate across 54 test files.
+
+### [3.82.0] - 2026-08-28
+
+#### SMRITI Real-Time Store Terminal Broadcast Hub & Alerts (v1.0.0-GA)
+- **Store Terminal Broadcast Hub (`src/sync/StoreTerminalBroadcastHub.ts`)**:
+  - Implemented singleton edge broadcast bus with WebSocket and local event dispatch capabilities across multi-terminal store environments.
+  - Added support for 5 event types: `MANAGER_OVERRIDE_REQUEST`, `PRICE_UPDATE_BROADCAST`, `STOCK_OUT_ALERT`, `SYSTEM_LOCKOUT_NOTICE`, `EMERGENCY_ANNOUNCEMENT`.
+  - Added terminal-targeted message routing and recent history buffer (50 items).
+- **Store Broadcast Notification Banner (`src/components/global/StoreBroadcastNotificationBanner.tsx`)**:
+  - Implemented glassmorphic real-time HUD alert banner with 1-click **"Review Override"** action for store supervisors.
+- **Frontend Certification Test Suite (`src/tests/storeTerminalBroadcast.test.ts`)**:
+  - Validated 4/4 test stages, certifying broadcast bus lifecycle, event delivery, and targeted message isolation with 100% green pass rate across 53 test files.
+
+### [3.81.0] - 2026-08-28
+
+#### Purchase Studio 3-Way Invoice Matching & GRN Auto-Reconciliation (v1.0.0-GA)
+- **3-Way Matching Comparator Modal (`src/components/purchase/ThreeWayMatchingModal.tsx`)**:
+  - Implemented automated 3-way reconciliation modal in Purchase Studio comparing Purchase Orders (PO), Goods Receipt Notes (GRN), and Vendor Tax Invoices.
+  - Added line-by-line drift analysis across ordered quantities, accepted quantities, billed quantities, unit rates, and values.
+  - Added automatic match classification (`MATCHED`, `QTY_MISMATCH`, `RATE_MISMATCH`) and overall invoice status (`AUTO_APPROVED` vs `REQUIRES_SUPERVISOR_OVERRIDE`).
+  - Integrated 1-click **"Commit 3-Way Match & Post AP"** posting verified invoices to `/api/v1/purchase/3way-matching/commit`.
+- **Frontend Certification Test Suite (`src/tests/threeWayMatching.test.ts`)**:
+  - Validated 4/4 test stages, certifying document context structures, quantity drift isolation, and backend AP voucher posting with 100% green pass rate across 52 test files.
+
+### [3.80.0] - 2026-08-28
+
+#### SMRITI Omnichannel Communicator & WhatsApp Gateway UI (v1.0.0-GA)
+- **Omnichannel Communicator Studio (`src/components/communicator/CommunicatorStudioTab.tsx`)**:
+  - Implemented unified multi-channel communication studio supporting WhatsApp Cloud API v19.0, DLT SMS, and Transactional Email.
+  - Added live Mustache template variable interpolation with real-time handset preview.
+  - Added real-time delivery status logs (`SENT`, `DELIVERED`, `READ`, `FAILED`) and interactive inbound webhook delivery simulator.
+  - Integrated with FastAPI `/api/v1/communicator/*` endpoints and background retry queues.
+- **Frontend Certification Test Suite (`src/tests/communicatorStudio.test.ts`)**:
+  - Validated 4/4 test stages, certifying message dispatch payloads, data models, and webhook delivery status handling with 100% green pass rate across 51 test files.
+
+### [3.79.0] - 2026-08-28
+
+#### ProPOS Real-Time Supervisor PIN Authorization & Lockout Control (v1.0.0-GA)
+- **Supervisor PIN Authorization Modal (`src/components/billing/propos/ProPosSupervisorAuthModal.tsx`)**:
+  - Implemented secure supervisor PIN authorization modal for high-risk POS operations: Negative Cash Drawer Pulls, Forced Day-End Shift Resets, Line Item Price Overrides, Excess Cash Variances, and High-Value Returns.
+  - Added touchscreen numeric virtual keypad (0-9, Clear, Backspace) + keyboard inputs, masked password entry, and action trigger diagnostics.
+  - Connected with FastAPI authentication backend (`/api/v1/auth/verify-supervisor-pin`) to return cryptographic manager audit tokens (`SupervisorAuthResult`).
+- **Frontend Certification Test Suite (`src/tests/proposSupervisorAuth.test.ts`)**:
+  - Validated 4/4 test stages, certifying complete supervisor challenge lifecycle, data models, and backend authorization verification with 100% green pass rate across 50 test files.
+
+### [3.78.0] - 2026-08-28
+
+#### Enterprise E-Invoice & E-Way Bill Dispatcher UI (v1.0.0-GA)
+- **SGIP Statutory Dispatch Gateway Modal (`src/components/sales/components/ComplianceDispatchModal.tsx`)**:
+  - Implemented dual-tab statutory compliance modal for GSTN Schema v1.03 E-Invoicing and NIC E-Way Bill generation directly within SMRITI Sales Studio.
+  - Added live B2B invoice financial summary banner (Buyer GSTIN, legal name, tax breakdown, total value).
+  - Implemented 1-click **"Generate E-Invoice"** with 64-character SHA-256 IRN rendering, Ack No, and signed QR code display.
+  - Implemented 1-click **"Generate E-Way Bill"** with distance (KM), vehicle number tracking, and 12-digit EWB number validity monitoring.
+  - Implemented statutory cancellation actions with reason prompt for both E-Invoice and E-Way Bill streams.
+- **Frontend Certification Test Suite (`src/tests/complianceDispatchModal.test.ts`)**:
+  - Validated 4/4 test stages, certifying complete modal lifecycle, payload generation, and government API interactions with 100% green pass rate across 49 test files.
+
 ### [3.77.0] - 2026-08-28
 
 #### UI Automation Hub & Report Scheduling Modal (v1.0.0-GA)
