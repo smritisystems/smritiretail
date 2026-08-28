@@ -46,6 +46,7 @@ from . import (
     roles,
     sales,
     sales_reports,
+    scheduled_reports,
     security,
     staff,
     supplier_payment,

@@ -93,6 +93,7 @@ from .api.v1 import (
     roles,
     sales,
     sales_reports,
+    scheduled_reports,
     search,
     security,
     staff,
@@ -241,6 +242,7 @@ app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Off
 app.include_router(analytics.router, prefix=settings.API_V1_STR + "/analytics", tags=["Analytics & Intelligence Plane"])
 app.include_router(integration.router, prefix=settings.API_V1_STR + "/integration", tags=["Integration Hub & Audit"])
 app.include_router(legacy_menu_map.router, prefix=settings.API_V1_STR + "/legacy-menu-map", tags=["Legacy Migration Registry"])  # Sprint 2/3: read-only Shoper9->SMRITI lineage
+app.include_router(scheduled_reports.router, prefix=settings.API_V1_STR)
 
 
 

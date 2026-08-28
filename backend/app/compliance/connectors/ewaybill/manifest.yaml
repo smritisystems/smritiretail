@@ -1,0 +1,40 @@
+# Project      : SMRITI Retail OS
+# Author       : Jawahar Ramkripal Mallah
+# Designation  : Chief Systems Architect & Creator
+# Email        : support@smritibooks.com
+# Websites     : smritibooks.com | erpnbook.com | aitdl.com
+# Version      : 3.35.0
+# Created      : 2026-08-28
+# Modified     : 2026-08-28
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# License      : Proprietary Commercial Software
+# Classification: Internal
+
+id: ewaybill
+name: NIC E-Way Bill Gateway
+version: 1.0.0
+provider: NIC
+api_version: v1.0
+status: active
+display_name: E-Way Bill Integration (EWB Generation & Transit Tracking)
+description: Statutory E-Way Bill generation, vehicle update, cancellation, and barcode tokenization for goods movement.
+documentation_url: https://smritibooks.com/docs/compliance/ewaybill
+minimum_platform_version: 3.16.0
+authentication:
+  type: token
+environments:
+  sandbox:
+    enabled: true
+    auth_url: https://ewb-apisandbox.nic.in/ewbv1/auth
+    generate_url: https://ewb-apisandbox.nic.in/ewbv1/ewayapi/genewaybill
+    cancel_url: https://ewb-apisandbox.nic.in/ewbv1/ewayapi/vehewaybill
+  production:
+    enabled: false
+    auth_url: https://ewaybill.nic.in/ewbv1/auth
+    generate_url: https://ewaybill.nic.in/ewbv1/ewayapi/genewaybill
+    cancel_url: https://ewaybill.nic.in/ewbv1/ewayapi/vehewaybill
+capabilities:
+  - generate_ewb
+  - cancel_ewb
+  - update_vehicle
+  - extend_validity
