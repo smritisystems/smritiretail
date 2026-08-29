@@ -32,6 +32,7 @@ from app.models.sales import (
 from app.models.crm import Customer, CustomerGroup
 from app.api.deps import get_db, get_tenant_context, TenantContext
 from app.core.security import hash_password, create_access_token
+from app.db.ctrl_seeder import ControlPlaneSeeder
 
 pytestmark = pytest.mark.asyncio
 
@@ -45,6 +46,8 @@ from app.tests.conftest import clear_db
 async def override_db_and_tenant(db_session):
     """Wire the test DB session into the app dependency."""
     await clear_db(db_session)
+    await ControlPlaneSeeder.seed_governed_logic(db_session)
+    await db_session.commit()
 
     async def _get_db():
         yield db_session
