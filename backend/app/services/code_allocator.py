@@ -23,16 +23,16 @@ CONTROL_PLANE_DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT
 class CompanyCodeAllocator:
     """
     Concurrency-Safe Alphanumeric 3-Character Company Code Allocator.
-    Allocates and validates 4-character alphanumeric company codes [A-Z0-9].
-    '0000' and 'SYS0' are permanently reserved.
+    Allocates and validates 3-character alphanumeric company codes [A-Z0-9].
+    '000' and 'SYS' are permanently reserved.
     """
 
-    RESERVED_CODES = {"0000", "SYS0"}
+    RESERVED_CODES = {"000", "SYS"}
 
     @staticmethod
     def allocate_next_available_code(db_cursor=None) -> str:
         """
-        Determines the next available 4-digit numeric fallback company code (0001 - 9999).
+        Determines the next available 3-digit numeric fallback company code (001 - 999).
         """
         local_conn = None
         if db_cursor is None:
@@ -55,12 +55,12 @@ class CompanyCodeAllocator:
                     local_conn.rollback()
                 assigned_codes = set()
 
-            for code in range(1, 10000):
-                code_str = f"{code:04d}"
+            for code in range(1, 1000):
+                code_str = f"{code:03d}"
                 if code_str not in assigned_codes and code_str not in CompanyCodeAllocator.RESERVED_CODES:
                     return code_str
 
-            raise RuntimeError("Numeric company code allocation limit reached (0001-9999). Use explicit alphanumeric code.")
+            raise RuntimeError("Numeric company code allocation limit reached (001-999). Use explicit alphanumeric code.")
 
         finally:
             if local_conn:
@@ -75,12 +75,12 @@ class CompanyCodeAllocator:
             return False
         
         code = str(company_code).strip().upper()
-        if code.isdigit() and len(code) <= 4:
-            code = code.zfill(4)
-        if len(code) != 4 or not code.isalnum():
+        if code.isdigit() and len(code) <= 3:
+            code = code.zfill(3)
+        if len(code) != 3 or not code.isalnum():
             return False
             
-        if code in {"0000", "SYS0"}:
+        if code in {"000", "SYS"}:
             return False
 
         local_conn = None
