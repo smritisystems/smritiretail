@@ -33,9 +33,11 @@ from app.models.payment_ledger import PaymentTransaction
 from app.models.audit import ComplianceImmutableAuditLog
 from app.models.governed_logic import PolicyDefinition
 from app.models.numbering import DocumentSeries, NumberingAuditLog
+from app.models.pos import CashRegister
 from app.api.deps import get_db, get_company_db, get_tenant_context, TenantContext
 from app.core.security import hash_password, create_access_token
 from app.db.ctrl_seeder import ControlPlaneSeeder
+from app.services.inventory_warehouse_resolver import InventoryWarehouseResolver
 from app.services.sales_return_policy import resolve_sales_return_policy, SalesReturnPolicyResolver
 from app.services.documents_engine import DocumentsEngine
 from app.services.compliance_audit import ComplianceAuditService
@@ -217,6 +219,58 @@ def _set_tenant(company_id: str, branch_id: str):
     async def _get_tenant():
         return TenantContext(company_id=company_id, branch_id=branch_id)
     app.dependency_overrides[get_tenant_context] = _get_tenant
+
+
+async def test_inventory_warehouse_config_switch_001(db_session):
+    company, branch = await _make_tenant(db_session, "whcfg")
+    wh_a = Warehouse(
+        id="wh-a-cfg",
+        company_id=company.id,
+        branch_id=branch.id,
+        code="WH-A",
+        name="Warehouse A",
+        is_active=True,
+        is_deleted=False,
+    )
+    wh_b = Warehouse(
+        id="wh-b-cfg",
+        company_id=company.id,
+        branch_id=branch.id,
+        code="WH-B",
+        name="Warehouse B",
+        is_active=True,
+        is_deleted=False,
+    )
+    reg = CashRegister(
+        id="reg-wh-cfg",
+        company_id=company.id,
+        branch_id=branch.id,
+        name="Register 1",
+        code="REG-1",
+        warehouse="WH-A",
+        is_active=True,
+        is_deleted=False,
+        is_locked=False,
+    )
+    db_session.add_all([wh_a, wh_b, reg])
+    await db_session.commit()
+
+    resolver = InventoryWarehouseResolver(db_session)
+    resolved_a = await resolver.resolve(company_id=company.id, branch_id=branch.id, register_id=reg.id)
+    assert resolved_a.id == wh_a.id
+
+    reg.warehouse = "WH-B"
+    await db_session.commit()
+    resolved_b = await resolver.resolve(company_id=company.id, branch_id=branch.id, register_id=reg.id)
+    assert resolved_b.id == wh_b.id
+
+
+async def test_inventory_warehouse_missing_001(db_session):
+    company, branch = await _make_tenant(db_session, "whmissing")
+    resolver = InventoryWarehouseResolver(db_session)
+
+    with pytest.raises(ValueError, match="INVENTORY_WAREHOUSE_NOT_CONFIGURED"):
+        await resolver.resolve(company_id=company.id, branch_id=branch.id)
 
 
 # ---------------------------------------------------------------------------

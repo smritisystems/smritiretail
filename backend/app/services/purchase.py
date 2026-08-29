@@ -302,8 +302,13 @@ class PurchaseService:
             )
 
         from .inventory_wms import InventoryWmsService
+        from .inventory_warehouse_resolver import InventoryWarehouseResolver
         wms_service = InventoryWmsService(self.db, self.tenant)
-        warehouse_id = req.warehouse_id or "wh-central-001"
+        resolver = InventoryWarehouseResolver(self.db)
+        warehouse_id = req.warehouse_id
+        if not warehouse_id:
+            warehouse = await resolver.resolve(company_id=self.tenant.company_id, branch_id=self.tenant.branch_id)
+            warehouse_id = warehouse.id
 
         subtotal = Decimal("0.00")
         tax_total = Decimal("0.00")
