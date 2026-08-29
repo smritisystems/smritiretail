@@ -21,7 +21,8 @@ from ...models.tenant import Company
 from ...models.company_registry import CompanyDatabaseRegistry
 from ...models.auth import User
 
-# Canonical Model Aliases (Legacy Control Models Retired)
+# Canonical model aliases for legacy control-plane references.
+# The real table is tenant.companies; there is no control_companies table.
 ControlCompany = Company
 ControlCompanyDatabase = CompanyDatabaseRegistry
 ControlUser = User
@@ -34,7 +35,7 @@ class ControlPSVConfig(Base):
     __tablename__ = "control_psv_configs"
 
     id = Column(String(50), primary_key=True)
-    company_id = Column(String(50), ForeignKey("control_companies.id", ondelete="CASCADE"), nullable=False, unique=True)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, unique=True)
     company_code = Column(String(50), nullable=False, unique=True)
     psv_enabled = Column(Boolean, nullable=False, default=False)
     psv_mode = Column(String(30), nullable=False, default="CENTRAL") # CENTRAL (shared SmritiPSV), DEDICATED (SmritiPSV_<Code>)

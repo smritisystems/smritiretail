@@ -16,6 +16,7 @@ from .crm import CustomerGroup, Customer
 from .inventory import Product, StockMovement
 from .sales import SalesInvoice, SalesInvoiceItem
 from .tenant import Company, Branch
+from .company_registry import CompanyDatabaseRegistry
 from .auth import User, RefreshTokenBlacklist, UserRole
 from .purchase import (
     Supplier,
