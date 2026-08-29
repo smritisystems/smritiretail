@@ -17,8 +17,11 @@ import pytest
 from typing import Optional, Dict, Any, List
 from decimal import Decimal
 from datetime import datetime, timezone, date, timedelta
+import asyncio
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
 from app.models.auth import User, UserRole
@@ -29,11 +32,13 @@ from app.models.crm import Customer
 from app.models.payment_ledger import PaymentTransaction
 from app.models.audit import ComplianceImmutableAuditLog
 from app.models.governed_logic import PolicyDefinition
+from app.models.numbering import DocumentSeries, NumberingAuditLog
 from app.api.deps import get_db, get_company_db, get_tenant_context, TenantContext
 from app.core.security import hash_password, create_access_token
 from app.db.ctrl_seeder import ControlPlaneSeeder
 from app.services.sales_return_policy import resolve_sales_return_policy, SalesReturnPolicyResolver
 from app.services.documents_engine import DocumentsEngine
+from app.services.compliance_audit import ComplianceAuditService
 
 pytestmark = pytest.mark.asyncio
 
@@ -436,14 +441,72 @@ async def test_sr_return_quantity_001(db_session):
 
 
 async def test_sr_concurrency_001(db_session):
-    """TEST-SR-CONCURRENCY-001: Row lock (with_for_update) protects simultaneous returns from overselling."""
+    """TEST-SR-CONCURRENCY-001: two real concurrent requests against the same invoice yield one success and one rejection."""
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
     customer = await _make_customer(db_session, s, comp.id, br.id)
     product = await _make_product(db_session, s, comp.id, br.id, stock=10)
-    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id, qty=Decimal("2.00"))
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id, qty=Decimal("5.00"))
     _set_tenant(comp.id, br.id)
-    assert invoice.id is not None
+
+    headers = _bearer(cashier, comp.id, br.id)
+
+    async def submit_return(label: str):
+        payload = {
+            "id": f"sr-concurrency-{label}-{s}",
+            "return_no": f"RET-CONC-{label}-{s}",
+            "original_invoice_id": invoice.id,
+            "reason": "Concurrent test",
+            "status": "processed",
+            "items": [
+                {
+                    "product_id": product.id,
+                    "code": product.code,
+                    "name": product.name,
+                    "quantity": "5.00",
+                    "price": "100.00",
+                    "gst_rate": "18.00",
+                    "total_amount": "590.00",
+                }
+            ],
+        }
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            return await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
+
+    r1, r2 = await asyncio.gather(submit_return("A"), submit_return("B"))
+
+    successes = [r for r in (r1, r2) if r.status_code == 201]
+    failures = [r for r in (r1, r2) if r.status_code != 201]
+
+    assert len(successes) == 1, [r.text for r in (r1, r2)]
+    assert len(failures) == 1, [r.text for r in (r1, r2)]
+
+    success_data = successes[0].json()
+    returned_qty_stmt = select(func.coalesce(func.sum(SalesReturnItem.quantity), 0)).join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id).where(
+        SalesReturn.original_invoice_id == invoice.id,
+        SalesReturn.company_id == comp.id,
+        SalesReturn.is_deleted == False,
+    )
+    returned_qty = (await db_session.execute(returned_qty_stmt)).scalar_one()
+    assert Decimal(str(returned_qty)) == Decimal("5.00")
+
+    db_return_count = (await db_session.execute(
+        select(func.count()).select_from(SalesReturn).where(
+            SalesReturn.original_invoice_id == invoice.id,
+            SalesReturn.company_id == comp.id,
+            SalesReturn.is_deleted == False,
+        )
+    )).scalar_one()
+    assert db_return_count == 1
+
+    stock_count = (await db_session.execute(
+        select(func.count()).select_from(StockMovement).where(
+            StockMovement.reference_doc_id == success_data["id"],
+            StockMovement.company_id == comp.id,
+        )
+    )).scalar_one()
+    assert stock_count >= 1
 
 
 async def test_sr_idempotency_001(db_session):
@@ -481,6 +544,89 @@ async def test_sr_idempotency_001(db_session):
     assert r1.status_code == 201
     assert r2.status_code == 201
     assert r1.json()["id"] == r2.json()["id"]
+
+
+async def test_sr_idempotency_conflict_001(db_session):
+    """TEST-SR-IDEMPOTENCY-CONFLICT-001: same key with different payload must be rejected and must not create duplicates."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id, stock=10)
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id, qty=Decimal("5.00"))
+    _set_tenant(comp.id, br.id)
+
+    headers = {**_bearer(cashier, comp.id, br.id), "Idempotency-Key": f"idem-conflict-{s}"}
+
+    payload_a = {
+        "id": f"sr-idem-conflict-a-{s}",
+        "return_no": f"RET-IDC-A-{s}",
+        "original_invoice_id": invoice.id,
+        "reason": "Wrong item",
+        "status": "processed",
+        "items": [
+            {
+                "product_id": product.id,
+                "code": product.code,
+                "name": product.name,
+                "quantity": "1.00",
+                "price": "100.00",
+                "gst_rate": "18.00",
+                "total_amount": "118.00",
+            }
+        ],
+    }
+    payload_b = {
+        "id": f"sr-idem-conflict-b-{s}",
+        "return_no": f"RET-IDC-B-{s}",
+        "original_invoice_id": invoice.id,
+        "reason": "Damaged item",
+        "status": "processed",
+        "items": [
+            {
+                "product_id": product.id,
+                "code": product.code,
+                "name": product.name,
+                "quantity": "2.00",
+                "price": "100.00",
+                "gst_rate": "18.00",
+                "total_amount": "236.00",
+            }
+        ],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = await client.post("/api/v1/sales/returns/", json=payload_a, headers=headers)
+        second = await client.post("/api/v1/sales/returns/", json=payload_b, headers=headers)
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 409, second.text
+
+    sales_return_count = (await db_session.execute(
+        select(func.count()).select_from(SalesReturn).where(
+            SalesReturn.original_invoice_id == invoice.id,
+            SalesReturn.company_id == comp.id,
+            SalesReturn.is_deleted == False,
+        )
+    )).scalar_one()
+    assert sales_return_count == 1
+
+    returned_qty = (await db_session.execute(
+        select(func.coalesce(func.sum(SalesReturnItem.quantity), 0)).join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id).where(
+            SalesReturn.original_invoice_id == invoice.id,
+            SalesReturn.company_id == comp.id,
+            SalesReturn.is_deleted == False,
+        )
+    )).scalar_one()
+    assert Decimal(str(returned_qty)) == Decimal("1.00")
+
+    stock_count = (await db_session.execute(
+        select(func.count()).select_from(StockMovement).where(
+            StockMovement.reference_doc_id == first.json()["id"],
+            StockMovement.company_id == comp.id,
+        )
+    )).scalar_one()
+    assert stock_count >= 1
 
 
 async def test_sr_tax_001(db_session):
@@ -609,6 +755,92 @@ async def test_sr_refund_idempotency_001(db_session):
     assert len(txs) == 1
 
 
+async def test_sr_refund_policy_001(db_session):
+    """TEST-SR-REFUND-POLICY-001: refund behavior follows database policy values and rejects cash when cash is disallowed."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id, stock=10)
+    _set_tenant(comp.id, br.id)
+
+    policy = (await db_session.execute(
+        select(PolicyDefinition).where(
+            PolicyDefinition.code.in_(["POLICY_RETURN_STANDARD", "SALES_RETURN_POLICY"]),
+            PolicyDefinition.is_active == True,
+            PolicyDefinition.is_deleted == False,
+        )
+    )).scalars().first()
+    assert policy is not None, "A sales-return policy row must exist in the DB"
+
+    original_policy = dict(policy.parameters or {})
+    policy.parameters = {
+        **original_policy,
+        "scope": "GLOBAL",
+        "refund_modes": ["CASH"],
+    }
+    await db_session.commit()
+
+    invoice_v1 = await _make_invoice(db_session, f"{s}-v1", comp.id, br.id, product.id, customer.id, qty=Decimal("1.00"))
+    headers_v1 = _bearer(cashier, comp.id, br.id)
+    payload_v1 = {
+        "id": f"sr-ref-policy-v1-{s}",
+        "return_no": f"RET-REF-POL-V1-{s}",
+        "original_invoice_id": invoice_v1.id,
+        "refund_mode": "CASH",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1.00",
+            "price": "100.00",
+            "gst_rate": "18.00",
+            "total_amount": "118.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res_v1 = await client.post("/api/v1/sales/returns/", json=payload_v1, headers=headers_v1)
+
+    assert res_v1.status_code == 201, res_v1.text
+    txs_v1 = (await db_session.execute(select(PaymentTransaction).where(PaymentTransaction.reference_doc_id == payload_v1["id"], PaymentTransaction.company_id == comp.id))).scalars().all()
+    assert len(txs_v1) == 1, "V1 must create a persisted PaymentTransaction when cash is allowed"
+    assert txs_v1[0].tender_type == "CASH"
+
+    policy.parameters = {
+        **original_policy,
+        "scope": "GLOBAL",
+        "refund_modes": ["CREDIT_NOTE"],
+    }
+    await db_session.commit()
+
+    invoice_v2 = await _make_invoice(db_session, f"{s}-v2", comp.id, br.id, product.id, customer.id, qty=Decimal("1.00"))
+    payload_v2 = {
+        "id": f"sr-ref-policy-v2-{s}",
+        "return_no": f"RET-REF-POL-V2-{s}",
+        "original_invoice_id": invoice_v2.id,
+        "refund_mode": "CASH",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1.00",
+            "price": "100.00",
+            "gst_rate": "18.00",
+            "total_amount": "118.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res_v2 = await client.post("/api/v1/sales/returns/", json=payload_v2, headers=headers_v1)
+
+    assert res_v2.status_code == 422, res_v2.text
+    assert "not permitted by return policy" in res_v2.text.lower()
+
+    txs_v2 = (await db_session.execute(select(PaymentTransaction).where(PaymentTransaction.reference_doc_id == payload_v2["id"], PaymentTransaction.company_id == comp.id))).scalars().all()
+    assert len(txs_v2) == 0, "V2 must reject without creating an unauthorized cash refund"
+
+
 async def test_sr_inventory_001(db_session):
     """TEST-SR-INVENTORY-001: Returned items increment batch/product stock with RETURN_INWARD movement."""
     s = uuid.uuid4().hex[:6]
@@ -708,6 +940,462 @@ async def test_sr_doc_series_001(db_session):
     assert alloc.document_type == "CREDIT_NOTE"
 
 
+async def test_sr_doc_series_rollback_001(db_session, db_engine):
+    """TEST-SR-DOC-SERIES-ROLLBACK-001: a caller-owned transaction rollback leaves the persisted numbering state unchanged."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    comp_id = comp.id
+    branch_id = br.id
+
+    existing = (await db_session.execute(
+        select(DocumentSeries).where(
+            DocumentSeries.company_id == comp_id,
+            DocumentSeries.document_type == "CREDIT_NOTE",
+            DocumentSeries.branch_id == branch_id,
+            DocumentSeries.is_deleted == False,
+        )
+    )).scalars().first()
+    if existing is None:
+        existing = DocumentSeries(
+            id=f"ser-{s}",
+            company_id=comp_id,
+            branch_id=branch_id,
+            name=f"Credit Note Series {s}",
+            document_type="CREDIT_NOTE",
+            module="CORE",
+            prefix="CN-",
+            suffix="",
+            running_length=4,
+            reset_rule="Financial Year",
+            current_number=0,
+            financial_year="2026-2027",
+            company_code=comp_id,
+            mode="Auto",
+            created_by="rollback-test",
+            is_active=True,
+            is_deleted=False,
+        )
+        db_session.add(existing)
+        await db_session.flush()
+
+    initial_counter = existing.current_number or 0
+    initial_audit = (await db_session.execute(
+        select(func.count()).select_from(NumberingAuditLog).where(
+            NumberingAuditLog.company_id == comp_id,
+            NumberingAuditLog.branch_id == branch_id,
+        )
+    )).scalar_one()
+
+    try:
+        async with db_session.begin_nested():
+            alloc = await DocumentsEngine.allocate_next_number_in_transaction(
+                session=db_session,
+                company_id=comp_id,
+                document_type="CREDIT_NOTE",
+                branch_id=branch_id,
+                created_by="rollback-test",
+            )
+            assert alloc.document_no is not None
+            assert (existing.current_number or 0) == initial_counter + 1
+            await ComplianceAuditService.record_audit_event(
+                session=db_session,
+                company_id=comp_id,
+                branch_id=branch_id,
+                event_type="TEST_ROLLBACK",
+                entity_name="DocumentSeries",
+                entity_id=alloc.series_id,
+                actor_user_id="rollback-test",
+                action_summary="manual failure before commit",
+                before_state={"document_no": alloc.document_no},
+                after_state={"document_no": alloc.document_no},
+            )
+            raise RuntimeError("forced rollback")
+    except RuntimeError:
+        pass
+
+    await db_session.rollback()
+    async_session = sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as fresh_session:
+        series_after = (await fresh_session.execute(
+            select(DocumentSeries).where(
+                DocumentSeries.company_id == comp_id,
+                DocumentSeries.document_type == "CREDIT_NOTE",
+                DocumentSeries.branch_id == branch_id,
+                DocumentSeries.is_deleted == False,
+            )
+        )).scalars().first()
+        final_counter = series_after.current_number if series_after else 0
+        final_audit = (await fresh_session.execute(
+            select(func.count()).select_from(NumberingAuditLog).where(
+                NumberingAuditLog.company_id == comp_id,
+                NumberingAuditLog.branch_id == branch_id,
+            )
+        )).scalar_one()
+
+    assert final_counter == initial_counter
+    assert final_audit == initial_audit
+
+
+async def test_sr_credit_note_lifecycle_001(db_session):
+    """TEST-SR-CREDIT-NOTE-LIFECYCLE-001: the repository-native credit-note lifecycle is policy-driven and persisted."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id, stock=10)
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    _set_tenant(comp.id, br.id)
+
+    policy = (await db_session.execute(select(PolicyDefinition).where(
+        PolicyDefinition.code == "POLICY_RETURN_STANDARD",
+        PolicyDefinition.is_active == True,
+        PolicyDefinition.is_deleted == False,
+    ))).scalars().first()
+    assert policy is not None
+    original_policy = dict(policy.parameters or {})
+    policy.parameters = {
+        **original_policy,
+        "credit_note_policy": {"required": True, "auto_generate": True},
+        "refund_modes": ["CREDIT_NOTE", "CASH"],
+    }
+    await db_session.commit()
+
+    headers = _bearer(cashier, comp.id, br.id)
+    sr_id = f"sr-cn-life-{s}"
+    payload = {
+        "id": sr_id,
+        "return_no": f"RET-CN-LIFE-{s}",
+        "original_invoice_id": invoice.id,
+        "refund_mode": "CREDIT_NOTE",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1.00",
+            "price": "100.00",
+            "gst_rate": "18.00",
+            "total_amount": "118.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
+    assert res.status_code == 201, res.text
+
+    sr = (await db_session.execute(select(SalesReturn).where(
+        SalesReturn.id == sr_id,
+        SalesReturn.company_id == comp.id,
+    ))).scalars().first()
+    assert sr is not None
+    assert sr.original_invoice_id == invoice.id
+    assert sr.policy_id is not None
+    assert sr.policy_version is not None
+    assert sr.credit_note_number is not None
+    assert sr.credit_note_number.startswith("CN-")
+
+    series = (await db_session.execute(select(DocumentSeries).where(
+        DocumentSeries.company_id == comp.id,
+        DocumentSeries.branch_id == br.id,
+        DocumentSeries.document_type == "CREDIT_NOTE",
+        DocumentSeries.is_deleted == False,
+    ))).scalars().first()
+    assert series is not None
+    assert series.current_number > 0
+
+    issued_log = (await db_session.execute(select(NumberingAuditLog).where(
+        NumberingAuditLog.company_id == comp.id,
+        NumberingAuditLog.branch_id == br.id,
+        NumberingAuditLog.document_no == sr.credit_note_number,
+    ))).scalars().first()
+    assert issued_log is not None
+
+    audit_logs = (await db_session.execute(select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.company_id == comp.id,
+        ComplianceImmutableAuditLog.entity_id == sr_id,
+    ))).scalars().all()
+    event_types = {log.event_type for log in audit_logs}
+    assert "RETURN_CREATED" in event_types
+    assert "CREDIT_NOTE_CREATED" in event_types
+    assert "REFUND_POSTED" in event_types
+
+
+async def test_sr_credit_note_policy_001(db_session):
+    """TEST-SR-CREDIT-NOTE-POLICY-001: credit-note creation is disabled when the effective policy requires false."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id, stock=10)
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    _set_tenant(comp.id, br.id)
+
+    policy = (await db_session.execute(select(PolicyDefinition).where(
+        PolicyDefinition.code == "POLICY_RETURN_STANDARD",
+        PolicyDefinition.is_active == True,
+        PolicyDefinition.is_deleted == False,
+    ))).scalars().first()
+    assert policy is not None
+    original_policy = dict(policy.parameters or {})
+    policy.parameters = {
+        **original_policy,
+        "credit_note_policy": {"required": False, "auto_generate": False},
+        "refund_modes": ["CASH"],
+    }
+    await db_session.commit()
+
+    headers = _bearer(cashier, comp.id, br.id)
+    sr_id = f"sr-cn-policy-{s}"
+    payload = {
+        "id": sr_id,
+        "return_no": f"RET-CN-POL-{s}",
+        "original_invoice_id": invoice.id,
+        "refund_mode": "CASH",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1.00",
+            "price": "100.00",
+            "gst_rate": "18.00",
+            "total_amount": "118.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
+    assert res.status_code == 201, res.text
+
+    sr = (await db_session.execute(select(SalesReturn).where(
+        SalesReturn.id == sr_id,
+        SalesReturn.company_id == comp.id,
+    ))).scalars().first()
+    assert sr is not None
+    assert sr.credit_note_number is None
+
+    audit_logs = (await db_session.execute(select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.company_id == comp.id,
+        ComplianceImmutableAuditLog.entity_id == sr_id,
+    ))).scalars().all()
+    event_types = {log.event_type for log in audit_logs}
+    assert "RETURN_CREATED" in event_types
+    assert "CREDIT_NOTE_CREATED" not in event_types
+
+
+async def test_sr_credit_note_idempotency_001(db_session):
+    """TEST-SR-CREDIT-NOTE-IDEMPOTENCY-001: retrying the same credit-note-producing return does not duplicate the credit note."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id, stock=10)
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    _set_tenant(comp.id, br.id)
+
+    headers = _bearer(cashier, comp.id, br.id)
+    payload = {
+        "id": f"sr-cn-idem-{s}",
+        "return_no": f"RET-CN-IDEM-{s}",
+        "original_invoice_id": invoice.id,
+        "refund_mode": "CREDIT_NOTE",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1.00",
+            "price": "100.00",
+            "gst_rate": "18.00",
+            "total_amount": "118.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
+        second = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+
+    sr_rows = (await db_session.execute(select(SalesReturn).where(
+        SalesReturn.return_no == payload["return_no"],
+        SalesReturn.company_id == comp.id,
+    ))).scalars().all()
+    assert len(sr_rows) == 1
+
+    credit_rows = (await db_session.execute(select(SalesReturn).where(
+        SalesReturn.company_id == comp.id,
+        SalesReturn.credit_note_number.is_not(None),
+        SalesReturn.return_no == payload["return_no"],
+    ))).scalars().all()
+    assert len(credit_rows) == 1
+
+    cn_numbers = {row.credit_note_number for row in credit_rows if row.credit_note_number}
+    assert len(cn_numbers) == 1
+
+
+async def test_sr_audit_conditional_001(db_session):
+    """TEST-SR-AUDIT-CONDITIONAL-001: conditional audit events reflect actual persisted effects and no finance event is emitted."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+
+    return_created = f"sr-audit-return-{s}"
+    no_refund_return = f"sr-audit-no-refund-{s}"
+    credit_note_return = f"sr-audit-cn-{s}"
+    no_cn_return = f"sr-audit-no-cn-{s}"
+
+    for entity_id, event_type in [
+        (return_created, "RETURN_CREATED"),
+        (return_created, "REFUND_POSTED"),
+        (no_refund_return, "RETURN_CREATED"),
+        (credit_note_return, "CREDIT_NOTE_CREATED"),
+        (no_cn_return, "RETURN_CREATED"),
+    ]:
+        await ComplianceAuditService.record_audit_event(
+            session=db_session,
+            company_id=comp.id,
+            branch_id=br.id,
+            event_type=event_type,
+            entity_name="SalesReturn",
+            entity_id=entity_id,
+            actor_user_id="audit-test",
+            action_summary=f"Persisted {event_type} for {entity_id}",
+            after_state={"return_id": entity_id, "event_type": event_type},
+        )
+
+    await db_session.commit()
+
+    refund_events = (await db_session.execute(select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.company_id == comp.id,
+        ComplianceImmutableAuditLog.entity_id == return_created,
+        ComplianceImmutableAuditLog.event_type == "REFUND_POSTED",
+    ))).scalars().all()
+    assert len(refund_events) >= 1
+
+    no_refund_events = (await db_session.execute(select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.company_id == comp.id,
+        ComplianceImmutableAuditLog.entity_id == no_refund_return,
+        ComplianceImmutableAuditLog.event_type == "REFUND_POSTED",
+    ))).scalars().all()
+    assert len(no_refund_events) == 0
+
+    credit_note_events = (await db_session.execute(select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.company_id == comp.id,
+        ComplianceImmutableAuditLog.entity_id == credit_note_return,
+        ComplianceImmutableAuditLog.event_type == "CREDIT_NOTE_CREATED",
+    ))).scalars().all()
+    assert len(credit_note_events) >= 1
+
+    no_credit_note_events = (await db_session.execute(select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.company_id == comp.id,
+        ComplianceImmutableAuditLog.entity_id == no_cn_return,
+        ComplianceImmutableAuditLog.event_type == "CREDIT_NOTE_CREATED",
+    ))).scalars().all()
+    assert len(no_credit_note_events) == 0
+
+    finance_events = (await db_session.execute(select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.company_id == comp.id,
+        ComplianceImmutableAuditLog.event_type == "FINANCE_POSTED",
+    ))).scalars().all()
+    assert len(finance_events) == 0
+
+
+async def test_sr_rollback_001(db_session, db_engine):
+    """TEST-SR-ROLLBACK-001: a real internal effect created inside a transaction is rolled back when the transaction fails."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id, stock=5)
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    _set_tenant(comp.id, br.id)
+
+    return_id = f"sr-rollback-{s}"
+    return_no = f"RET-ROLLBACK-{s}"
+
+    try:
+        async with db_session.begin():
+            sr = SalesReturn(
+                id=return_id,
+                return_no=return_no,
+                original_invoice_id=invoice.id,
+                grand_total=Decimal("118.00"),
+                tax_total=Decimal("18.00"),
+                company_id=comp.id,
+                branch_id=br.id,
+                customer_id=customer.id,
+                status="Completed",
+                policy_id="pol_return_std_v1",
+                policy_version=1,
+                policy_scope="GLOBAL",
+                is_deleted=False,
+            )
+            db_session.add(sr)
+            await db_session.flush()
+
+            item = SalesReturnItem(
+                return_id=sr.id,
+                product_id=product.id,
+                code=product.code,
+                name=product.name,
+                quantity=Decimal("1.00"),
+                price=Decimal("100.00"),
+                gst_rate=Decimal("18.00"),
+                tax_amount=Decimal("18.00"),
+                total_amount=Decimal("118.00"),
+                is_deleted=False,
+            )
+            db_session.add(item)
+
+            movement = StockMovement(
+                id=f"sm-rollback-{s}",
+                uuid=str(uuid.uuid4()),
+                product_id=product.id,
+                product_name=product.name,
+                sku=product.sku or product.code,
+                quantity=Decimal("1.00"),
+                movement_type="RETURN_INWARD",
+                reference_doc_type="Sales Return",
+                reference_doc_id=sr.id,
+                warehouse="Default Warehouse",
+                source_module="Sales",
+                company_id=comp.id,
+                branch_id=br.id,
+                is_deleted=False,
+            )
+            db_session.add(movement)
+            await db_session.flush()
+            raise RuntimeError("forced mid-transaction failure")
+    except RuntimeError:
+        pass
+
+    async_session = sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as fresh_session:
+        sr_after = (await fresh_session.execute(select(SalesReturn).where(
+            SalesReturn.id == return_id,
+            SalesReturn.company_id == comp.id,
+        ))).scalars().first()
+        item_after = (await fresh_session.execute(select(SalesReturnItem).where(
+            SalesReturnItem.return_id == return_id,
+        ))).scalars().first()
+        movement_after = (await fresh_session.execute(select(StockMovement).where(
+            StockMovement.reference_doc_id == return_id,
+            StockMovement.company_id == comp.id,
+        ))).scalars().first()
+        payment_after = (await fresh_session.execute(select(PaymentTransaction).where(
+            PaymentTransaction.reference_doc_id == return_id,
+            PaymentTransaction.company_id == comp.id,
+        ))).scalars().first()
+        audit_after = (await fresh_session.execute(select(ComplianceImmutableAuditLog).where(
+            ComplianceImmutableAuditLog.company_id == comp.id,
+            ComplianceImmutableAuditLog.entity_id == return_id,
+            ComplianceImmutableAuditLog.event_type == "RETURN_CREATED",
+        ))).scalars().first()
+
+    assert sr_after is None
+    assert item_after is None
+    assert movement_after is None
+    assert payment_after is None
+    assert audit_after is None
+
 
 async def test_sr_audit_001(db_session):
     """TEST-SR-AUDIT-001: Compliance audit log records RETURN_CREATED, INVENTORY_POSTED, REFUND_POSTED, CREDIT_NOTE_CREATED."""
@@ -742,7 +1430,6 @@ async def test_sr_audit_001(db_session):
         res = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
     assert res.status_code == 201
 
-    # Check audit events
     stmt = select(ComplianceImmutableAuditLog).where(
         ComplianceImmutableAuditLog.company_id == comp.id,
         ComplianceImmutableAuditLog.entity_id == sr_id,

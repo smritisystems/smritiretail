@@ -1076,9 +1076,13 @@ class SalesService:
             # If strict threshold enforced: record audit authorization need or proceed with token
             pass
 
-        # Allocate transaction-safe Credit Note Number if needed
+        # Credit Note is policy-driven; a return only creates one when the effective policy requires or auto-generates it.
+        credit_note_policy = (policy.values.get("credit_note_policy") or {}) if isinstance(policy.values.get("credit_note_policy"), dict) else {}
+        credit_note_required = bool(credit_note_policy.get("required", False))
+        auto_generate_credit_note = bool(credit_note_policy.get("auto_generate", False))
         credit_note_no = sr_in.credit_note_number
-        if not credit_note_no or credit_note_no == f"CN-{sr_in.return_no}":
+
+        if (credit_note_required or auto_generate_credit_note) and (not credit_note_no or credit_note_no == f"CN-{sr_in.return_no}"):
             try:
                 cn_alloc = await DocumentsEngine.allocate_next_number_in_transaction(
                     session=self.db,
@@ -1089,7 +1093,11 @@ class SalesService:
                 )
                 credit_note_no = cn_alloc.document_no
             except Exception:
-                credit_note_no = sr_in.credit_note_number or f"CN-{sr_in.return_no}"
+                credit_note_no = sr_in.credit_note_number if sr_in.credit_note_number else None
+        elif credit_note_no == f"CN-{sr_in.return_no}":
+            credit_note_no = None
+        elif not credit_note_required and not auto_generate_credit_note:
+            credit_note_no = None
 
         db_sr = SalesReturn(
             id=sr_in.id,
@@ -1191,7 +1199,7 @@ class SalesService:
             creator=_ret_creator,
         )
 
-        # Record CREDIT_NOTE_CREATED audit event
+        # Record CREDIT_NOTE_CREATED audit event only when an actual credit note was created.
         if db_sr.credit_note_number:
             await ComplianceAuditService.record_audit_event(
                 session=self.db,

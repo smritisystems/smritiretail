@@ -59,13 +59,22 @@ class SalesReturnRefundAdapter:
                 "transaction_id": None,
             }
 
-        # Policy validation for refund modes
-        allowed_modes = policy.values.get("refund_modes") or [
-            "ORIGINAL_PAYMENT", "CASH", "STORE_CREDIT", "CREDIT_NOTE"
-        ]
-        
+        # Policy validation for refund modes — database policy is the only operational authority.
+        allowed_modes = policy.values.get("refund_modes")
+        if allowed_modes is None:
+            raise HTTPException(
+                status_code=500,
+                detail="REFUND_POLICY_NOT_CONFIGURED: missing refund_modes in the effective policy.",
+            )
+        if not isinstance(allowed_modes, list):
+            raise HTTPException(
+                status_code=500,
+                detail="REFUND_POLICY_NOT_CONFIGURED: refund_modes must be a list in the effective policy.",
+            )
+
+        allowed_modes_norm = [str(m).upper() for m in allowed_modes]
         mode = (requested_refund_mode or "CREDIT_NOTE").upper()
-        if mode not in [m.upper() for m in allowed_modes]:
+        if mode not in allowed_modes_norm:
             raise HTTPException(
                 status_code=422,
                 detail=f"Refund mode '{mode}' is not permitted by return policy. Allowed modes: {allowed_modes}",
