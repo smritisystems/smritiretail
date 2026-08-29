@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
+from app.db.ctrl_seeder import ControlPlaneSeeder
 
 # Force SelectorEventLoop on Windows to avoid proactor loop lifecycle race conditions in tests
 if sys.platform == "win32":
@@ -228,6 +229,10 @@ async def clear_db(db_session: AsyncSession):
     from sqlalchemy import text
     delete_order = [
         "sales_invoice_lines",
+        "formula_definitions",
+        "business_rule_definitions",
+        "workflow_definitions",
+        "policy_definitions",
         "loyalty_transactions",
         "loyalty_members",
         "loyalty_tiers",

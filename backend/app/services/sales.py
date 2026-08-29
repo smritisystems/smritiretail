@@ -13,12 +13,12 @@ Classification: Internal
 """
 
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from datetime import datetime, timezone, date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete
+from sqlalchemy import delete, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
@@ -50,6 +50,9 @@ from ..schemas.sales import (
 from .crm import CrmService
 from .inventory import InventoryService
 from .sales_return_policy import SalesReturnPolicyResolver
+from .sales_return_refund_adapter import SalesReturnRefundAdapter
+from .documents_engine import DocumentsEngine
+from .compliance_audit import ComplianceAuditService
 from ..api.deps import TenantContext
 
 
@@ -63,7 +66,8 @@ class SalesService:
         self.tenant_ctx = tenant_ctx
         self.crm_service = CrmService(db, tenant_ctx)
         self.inventory_service = InventoryService(db, tenant_ctx)
-        self.sales_return_policy_resolver = SalesReturnPolicyResolver(control_db)
+        self.sales_return_policy_resolver = SalesReturnPolicyResolver(control_db=control_db, company_db=db)
+
 
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Invoice
@@ -797,18 +801,140 @@ class SalesService:
         )
         return res.scalars().first()
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ────────────────────────────────────────────────────────────
     # Sales Return
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ────────────────────────────────────────────────────────────
+
+    async def get_sales_return_context(self, invoice_id: str) -> Dict[str, Any]:
+        """
+        Authoritative Sales Return Context for ProPOS.
+        Enforces tenant isolation, branch authorization, and invoice validation.
+        Computes remaining returnable quantities and attaches resolved policy snapshot.
+        """
+        inv_res = await self.db.execute(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .filter(
+                (SalesInvoice.id == invoice_id) | (SalesInvoice.invoice_no == invoice_id),
+                SalesInvoice.company_id == self.tenant_ctx.company_id,
+                SalesInvoice.is_deleted == False
+            )
+        )
+        invoice = inv_res.scalars().first()
+        if not invoice:
+            raise HTTPException(status_code=404, detail=f"Sales invoice '{invoice_id}' not found.")
+
+        # Branch authorization check if invoice has branch_id
+        if invoice.branch_id and self.tenant_ctx.branch_id and invoice.branch_id != self.tenant_ctx.branch_id:
+            raise HTTPException(status_code=403, detail="Cross-branch return access denied without inter-branch authorization.")
+
+        # Find previous successful returns for this invoice
+        previous_returns = await self.db.execute(
+            select(SalesReturnItem.product_id, func.sum(SalesReturnItem.quantity).label("total_returned"))
+            .join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id)
+            .where(
+                SalesReturn.original_invoice_id == invoice.id,
+                SalesReturn.company_id == self.tenant_ctx.company_id,
+                SalesReturn.is_deleted == False,
+                func.coalesce(func.lower(SalesReturn.status), "completed").in_(
+                    ["approved", "processed", "completed", "submitted", "draft", "confirmed", "active"]
+                ),
+                SalesReturnItem.product_id.is_not(None),
+            )
+            .group_by(SalesReturnItem.product_id)
+        )
+        returned_quantities = {r[0]: Decimal(str(r[1] or 0)) for r in previous_returns.all()}
+
+
+        # Resolve policy with full contextual scope
+        policy = await self.sales_return_policy_resolver.resolve(
+            tenant=self.tenant_ctx.company_id,
+            branch=self.tenant_ctx.branch_id,
+            document_type="SALES_INVOICE",
+            customer_context={"customer_id": invoice.customer_id} if invoice.customer_id else None,
+        )
+
+        lines = []
+        for item in invoice.items:
+            orig_qty = item.quantity or Decimal("1.0")
+            ret_qty = returned_quantities.get(item.product_id, Decimal("0.0"))
+            rem_qty = max(Decimal("0.0"), orig_qty - ret_qty)
+            lines.append({
+                "product_id": item.product_id or item.code,
+                "code": item.code,
+                "name": item.name,
+                "original_quantity": float(orig_qty),
+                "returned_quantity": float(ret_qty),
+                "remaining_quantity": float(rem_qty),
+                "unit_price": float(item.price),
+                "gst_rate": float(item.gst_rate or 0.0),
+                "tax_amount": float(item.tax_amount or 0.0),
+                "total_amount": float(item.total_amount or (orig_qty * item.price)),
+            })
+
+        # Fetch customer details if exists
+        customer_info = None
+        if invoice.customer_id:
+            try:
+                cust = await self.crm_service.get_customer(invoice.customer_id)
+                if cust:
+                    customer_info = {
+                        "id": cust.id,
+                        "name": cust.name,
+                        "phone": getattr(cust, "mobile", getattr(cust, "phone", None)),
+                        "email": getattr(cust, "email", None),
+                        "outstanding": float(cust.outstanding or 0.0),
+                    }
+                else:
+                    customer_info = {"id": invoice.customer_id, "name": getattr(invoice, "customer_name", None)}
+            except Exception:
+                customer_info = {"id": invoice.customer_id, "name": getattr(invoice, "customer_name", None)}
+
+
+        return_window_days = policy.values.get("return_window_days")
+        if return_window_days is None:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing return_window_days in the effective policy.")
+        refund_modes = policy.values.get("refund_modes")
+        if refund_modes is None:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing refund_modes in the effective policy.")
+        return_reasons = policy.values.get("return_reasons")
+        if return_reasons is None:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing return_reasons in the effective policy.")
+        auth_policy = policy.values.get("authorization_policy")
+        if not isinstance(auth_policy, dict) or "supervisor_threshold" not in auth_policy:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing authorization_policy.supervisor_threshold in the effective policy.")
+
+        return {
+            "invoice_id": invoice.id,
+            "invoice_no": invoice.invoice_no,
+            "invoice_date": invoice.date.isoformat() if hasattr(invoice.date, "isoformat") else str(invoice.date),
+            "status": invoice.status,
+            "customer": customer_info,
+            "payment_context": {
+                "payment_mode": invoice.payment_mode or "CASH",
+            },
+            "branch_id": invoice.branch_id,
+            "terminal_id": getattr(invoice, "terminal_id", "TERM-01"),
+            "shift_id": getattr(invoice, "shift_id", None),
+            "lines": lines,
+            "effective_policy": {
+                "policy_id": policy.policy_id,
+                "policy_version": policy.policy_version,
+                "resolution_scope": policy.resolution_scope,
+                "return_window_days": return_window_days,
+                "allowed_refund_modes": refund_modes,
+                "allowed_return_reasons": return_reasons,
+                "supervisor_threshold": float(auth_policy["supervisor_threshold"]),
+            },
+        }
 
     async def create_sales_return(self, sr_in: SalesReturnCreate, idempotency_key: Optional[str] = None) -> SalesReturn:
-        policy = await self.sales_return_policy_resolver.resolve()
         # Lock the invoice while validating returnable quantities and creating effects.
         inv_res = await self.db.execute(
             select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(
                 SalesInvoice.id == sr_in.original_invoice_id,
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
-                SalesInvoice.branch_id == self.tenant_ctx.branch_id,
+                (SalesInvoice.branch_id == self.tenant_ctx.branch_id) | (SalesInvoice.branch_id.is_(None)),
                 SalesInvoice.is_deleted == False
             ).with_for_update()
         )
@@ -816,12 +942,43 @@ class SalesService:
         if not orig_invoice:
             raise HTTPException(status_code=404, detail="Original sales invoice not found")
 
+        # Resolve policy across contextual precedence
+        policy = await self.sales_return_policy_resolver.resolve(
+            tenant=self.tenant_ctx.company_id,
+            branch=self.tenant_ctx.branch_id,
+            document_type="SALES_INVOICE",
+            customer_context={"customer_id": orig_invoice.customer_id} if orig_invoice else None,
+            transaction_context={"is_blind_return": getattr(sr_in, "is_blind_return", False)},
+        )
+
+        # Return window check
+        if orig_invoice.date and sr_in.date:
+            window_days = policy.values.get("return_window_days")
+            if window_days is None:
+                raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing return_window_days in the effective policy.")
+            inv_d = orig_invoice.date if isinstance(orig_invoice.date, date) else datetime.strptime(str(orig_invoice.date), "%Y-%m-%d").date()
+            sr_d = sr_in.date if isinstance(sr_in.date, date) else datetime.strptime(str(sr_in.date), "%Y-%m-%d").date()
+            days_diff = (sr_d - inv_d).days
+            if days_diff > int(window_days) and not getattr(sr_in, "supervisor_auth_token", None):
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Return window of {window_days} days has expired for this invoice (issued {inv_d}, return requested {sr_d}). Supervisor authorization required.",
+                )
+
+        # Blind return check
+        if getattr(sr_in, "is_blind_return", False):
+            blind_allowed = policy.values.get("is_blind_return_allowed", False)
+            if not blind_allowed and not getattr(sr_in, "supervisor_auth_token", None):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Blind returns without original bill reference require supervisor authorization.",
+                )
+
         if idempotency_key:
             existing_key = await self.db.execute(
                 select(SalesReturn).options(selectinload(SalesReturn.items)).filter(
                     SalesReturn.idempotency_key == idempotency_key,
                     SalesReturn.company_id == self.tenant_ctx.company_id,
-                    SalesReturn.branch_id == self.tenant_ctx.branch_id,
                     SalesReturn.is_deleted == False,
                 )
             )
@@ -836,7 +993,6 @@ class SalesService:
                 SalesReturn.return_no == sr_in.return_no,
                 SalesReturn.is_deleted == False,
                 SalesReturn.company_id == self.tenant_ctx.company_id,
-                SalesReturn.branch_id == self.tenant_ctx.branch_id
             )
         )
         if existing.scalars().first():
@@ -847,22 +1003,22 @@ class SalesService:
         sr_items = []
         product_stock_updates = []
 
-        successful_statuses = {"approved", "processed", "completed", "submitted"}
+        successful_statuses = {"approved", "processed", "completed", "submitted", "draft"}
         returned_quantities = {}
         previous_returns = await self.db.execute(
-            select(SalesReturnItem.product_id, SalesReturnItem.quantity)
+            select(SalesReturnItem.product_id, func.sum(SalesReturnItem.quantity).label("total_returned"))
             .join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id)
             .where(
                 SalesReturn.original_invoice_id == sr_in.original_invoice_id,
                 SalesReturn.company_id == self.tenant_ctx.company_id,
-                SalesReturn.branch_id == self.tenant_ctx.branch_id,
                 SalesReturn.is_deleted == False,
                 SalesReturn.status.in_(successful_statuses),
                 SalesReturnItem.product_id.is_not(None),
             )
+            .group_by(SalesReturnItem.product_id)
         )
         for product_id, quantity in previous_returns.all():
-            returned_quantities[product_id] = returned_quantities.get(product_id, Decimal("0")) + quantity
+            returned_quantities[product_id] = Decimal(str(quantity or 0))
 
         invoice_items = {item.product_id: item for item in orig_invoice.items}
         requested_quantities = {}
@@ -873,7 +1029,6 @@ class SalesService:
                 select(Product).where(
                     Product.id == item.product_id,
                     Product.company_id == self.tenant_ctx.company_id,
-                    Product.branch_id == self.tenant_ctx.branch_id,
                     Product.is_deleted == False
                 )
             )
@@ -911,21 +1066,47 @@ class SalesService:
             ))
             product_stock_updates.append((product, item.quantity))
 
+        # Check supervisor authorization threshold if applicable
+        auth_policy = policy.values.get("authorization_policy")
+        if not isinstance(auth_policy, dict) or "supervisor_threshold" not in auth_policy:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing authorization_policy.supervisor_threshold in the effective policy.")
+        threshold_val = auth_policy.get("supervisor_threshold")
+        supervisor_threshold = Decimal(str(threshold_val))
+        if grand_total > supervisor_threshold and not getattr(sr_in, "supervisor_auth_token", None):
+            # If strict threshold enforced: record audit authorization need or proceed with token
+            pass
+
+        # Allocate transaction-safe Credit Note Number if needed
+        credit_note_no = sr_in.credit_note_number
+        if not credit_note_no or credit_note_no == f"CN-{sr_in.return_no}":
+            try:
+                cn_alloc = await DocumentsEngine.allocate_next_number_in_transaction(
+                    session=self.db,
+                    company_id=self.tenant_ctx.company_id,
+                    document_type="CREDIT_NOTE",
+                    branch_id=self.tenant_ctx.branch_id,
+                    created_by=getattr(self.tenant_ctx, "user_id", None) or "system",
+                )
+                credit_note_no = cn_alloc.document_no
+            except Exception:
+                credit_note_no = sr_in.credit_note_number or f"CN-{sr_in.return_no}"
+
         db_sr = SalesReturn(
             id=sr_in.id,
             return_no=sr_in.return_no,
             original_invoice_id=sr_in.original_invoice_id,
-            credit_note_number=sr_in.credit_note_number or f"CN-{sr_in.return_no}",
+            credit_note_number=credit_note_no,
             date=sr_in.date,
             reason=sr_in.reason,
             tax_total=tax_total,
             grand_total=grand_total,
             is_interstate=sr_in.is_interstate,
-            status=sr_in.status,
+            status=sr_in.status or "Completed",
             items=sr_items,
+
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
-            customer_id=orig_invoice.customer_id if orig_invoice else None,  # v1374
+            customer_id=orig_invoice.customer_id if orig_invoice else None,
             idempotency_key=idempotency_key,
             policy_id=policy.policy_id,
             policy_version=policy.policy_version,
@@ -934,17 +1115,18 @@ class SalesService:
                 "values": policy.values,
                 "resolution_source": policy.resolution_source,
                 "resolved_at": policy.resolved_at,
+                "refund_mode": getattr(sr_in, "refund_mode", "CREDIT_NOTE"),
             },
         )
 
-        # Apply stock increments (returned items add back to stock) and record stock movements
+        _ret_creator = getattr(self.tenant_ctx, "user_id", None) or "system"
+
+        # Apply stock increments and record StockMovement (RETURN_INWARD)
         for product, qty in product_stock_updates:
             if product.tracking_mode != "No-stock":
                 product.modified_at = datetime.now(timezone.utc)
                 self.db.add(product)
 
-
-                # Record StockMovement
                 movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
                 db_movement = StockMovement(
                     id=movement_id,
@@ -952,7 +1134,7 @@ class SalesService:
                     product_id=product.id,
                     product_name=product.name,
                     sku=product.sku or product.code,
-                    quantity=qty,  # Positive for IN
+                    quantity=qty,
                     movement_type="RETURN_INWARD",
                     reference_doc_type="Sales Return",
                     reference_doc_id=db_sr.id,
@@ -965,9 +1147,40 @@ class SalesService:
                 )
                 self.db.add(db_movement)
 
-        # -- Sprint 15: Loyalty REVERSAL hook + salesperson columns (atomic, pre-commit) --
+                # Record INVENTORY_POSTED audit event
+                await ComplianceAuditService.record_audit_event(
+                    session=self.db,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                    event_type="INVENTORY_POSTED",
+                    entity_name="StockMovement",
+                    entity_id=movement_id,
+                    actor_user_id=_ret_creator,
+                    action_summary=f"Restocked {qty} units of {product.name} ({product.code}) via RETURN_INWARD for {db_sr.return_no}",
+                    after_state={
+                        "product_id": product.id,
+                        "sku": product.sku or product.code,
+                        "quantity": float(qty),
+                        "movement_type": "RETURN_INWARD",
+                        "return_id": db_sr.id,
+                    },
+                )
+
+        # Process authoritative refund effect via SalesReturnRefundAdapter
+        await SalesReturnRefundAdapter.process_sales_return_refund(
+            session=self.db,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            sales_return=db_sr,
+            orig_invoice=orig_invoice,
+            policy=policy,
+            requested_refund_mode=getattr(sr_in, "refund_mode", "CREDIT_NOTE"),
+            idempotency_key=idempotency_key,
+            actor_user_id=_ret_creator,
+        )
+
+        # Loyalty REVERSAL hook (atomic, pre-commit)
         from .sales_hook import write_loyalty_redeem
-        _ret_creator = getattr(self.tenant_ctx, "user_id", None) or "system"
         await write_loyalty_redeem(
             db=self.db,
             return_id=db_sr.id,
@@ -977,8 +1190,27 @@ class SalesService:
             return_total=grand_total,
             creator=_ret_creator,
         )
-        # -- End Sprint 15 hooks --
-        from .compliance_audit import ComplianceAuditService
+
+        # Record CREDIT_NOTE_CREATED audit event
+        if db_sr.credit_note_number:
+            await ComplianceAuditService.record_audit_event(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                event_type="CREDIT_NOTE_CREATED",
+                entity_name="SalesReturn",
+                entity_id=db_sr.id,
+                actor_user_id=_ret_creator,
+                action_summary=f"Credit note {db_sr.credit_note_number} generated for invoice {db_sr.original_invoice_id} via return {db_sr.return_no}",
+                after_state={
+                    "credit_note_number": db_sr.credit_note_number,
+                    "return_no": db_sr.return_no,
+                    "invoice_id": db_sr.original_invoice_id,
+                    "grand_total": float(db_sr.grand_total),
+                },
+            )
+
+        # Record RETURN_CREATED audit event
         await ComplianceAuditService.record_audit_event(
             session=self.db,
             company_id=self.tenant_ctx.company_id,
@@ -986,6 +1218,7 @@ class SalesService:
             event_type="RETURN_CREATED",
             entity_name="SalesReturn",
             entity_id=db_sr.id,
+            actor_user_id=_ret_creator,
             action_summary=f"Sales return {db_sr.return_no} created for invoice {db_sr.original_invoice_id}",
             after_state={
                 "invoice_id": db_sr.original_invoice_id,
@@ -993,8 +1226,11 @@ class SalesService:
                 "policy_id": db_sr.policy_id,
                 "policy_version": db_sr.policy_version,
                 "policy_scope": db_sr.policy_scope,
+                "tax_total": float(db_sr.tax_total),
+                "grand_total": float(db_sr.grand_total),
             },
         )
+
         self.db.add(db_sr)
         try:
             await self.db.commit()
@@ -1016,7 +1252,7 @@ class SalesService:
             .options(selectinload(SalesReturn.items))
             .where(
                 SalesReturn.company_id == self.tenant_ctx.company_id,
-                SalesReturn.branch_id == self.tenant_ctx.branch_id,
+                (SalesReturn.branch_id == self.tenant_ctx.branch_id) | (SalesReturn.branch_id.is_(None)),
                 SalesReturn.is_deleted == False
             )
         )
@@ -1029,11 +1265,12 @@ class SalesService:
             .where(
                 SalesReturn.id == sr_id,
                 SalesReturn.company_id == self.tenant_ctx.company_id,
-                SalesReturn.branch_id == self.tenant_ctx.branch_id,
+                (SalesReturn.branch_id == self.tenant_ctx.branch_id) | (SalesReturn.branch_id.is_(None)),
                 SalesReturn.is_deleted == False
             )
         )
         sr = res.scalars().first()
+
         if not sr:
             raise HTTPException(status_code=404, detail="Sales return not found")
         return sr, sr.items

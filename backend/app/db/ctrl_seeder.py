@@ -579,6 +579,26 @@ class ControlPlaneSeeder:
                     "status": "ACTIVE"
                 },
                 {
+                    "id": "pol_return_std_v1",
+                    "code": "POLICY_RETURN_STANDARD",
+                    "version": 1,
+                    "name": "Standard Sales Return Policy",
+                    "policy_type": "RETURN_POLICY",
+                    "parameters": {
+                        "scope": "GLOBAL",
+                        "return_window_days": 30,
+                        "return_types": ["FULL_RETURN", "PARTIAL_RETURN", "EXCHANGE", "DAMAGED_RETURN", "RESTOCKABLE_RETURN", "NON_RESTOCKABLE_RETURN"],
+                        "return_reasons": ["DEFECTIVE", "SIZE_FIT", "CUSTOMER_CHANGED_MIND", "WRONG_ITEM", "DAMAGED", "QUALITY_ISSUE"],
+                        "refund_modes": ["ORIGINAL_PAYMENT", "CASH", "STORE_CREDIT", "CREDIT_NOTE"],
+                        "credit_note_policy": {"required": True, "auto_generate": True},
+                        "inventory_policy": {"restock_destination": "RETURN_INWARD", "auto_increment": True, "allow_non_restockable": False},
+                        "authorization_policy": {"supervisor_threshold": 5000.00, "blind_return": True, "blind_return_requires_auth": True},
+                        "shift_policy": {"allow_cross_shift_return": True},
+                        "is_blind_return_allowed": False,
+                    },
+                    "status": "ACTIVE"
+                },
+                {
                     "id": "pol_billing_ctrl_v1",
                     "code": "POLICY_BILLING_CONTROLS",
                     "version": 1,
@@ -640,9 +660,17 @@ class ControlPlaneSeeder:
                         PolicyDefinition.version == p["version"]
                     )
                 )).scalar_one_or_none()
-                if not existing:
+                if existing:
+                    existing.name = p["name"]
+                    existing.policy_type = p["policy_type"]
+                    existing.parameters = p["parameters"]
+                    existing.status = p["status"]
+                    existing.is_active = True
+                else:
                     session.add(PolicyDefinition(**p))
                     counts["policies"] += 1
+                if p["code"] == "POLICY_RETURN_STANDARD":
+                    counts["policies"] += 0
 
         # 4. Workflows
         tbl_wf = await session.execute(text("SELECT to_regclass('public.workflow_definitions');"))

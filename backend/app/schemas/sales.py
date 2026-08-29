@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, date as datetime_date
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, AliasChoices
@@ -344,6 +344,9 @@ class SalesReturnBase(BaseModel):
     grand_total: Decimal = Decimal("0.00")
     is_interstate: bool = False
     status: str = "Draft"
+    refund_mode: Optional[str] = Field("CREDIT_NOTE", validation_alias=AliasChoices("refund_mode", "refundMode"))
+    supervisor_auth_token: Optional[str] = Field(None, validation_alias=AliasChoices("supervisor_auth_token", "supervisorAuthToken"))
+    is_blind_return: Optional[bool] = Field(False, validation_alias=AliasChoices("is_blind_return", "isBlindReturn"))
 
 class SalesReturnCreate(SalesReturnBase):
     id: str = Field(..., max_length=50)
@@ -359,6 +362,7 @@ class SalesReturnUpdate(BaseModel):
     grand_total: Optional[Decimal] = None
     is_interstate: Optional[bool] = None
     status: Optional[str] = None
+    refund_mode: Optional[str] = None
     items: Optional[List[SalesReturnItemCreate]] = None
 
 class SalesReturnResponse(SalesReturnBase):
@@ -366,6 +370,7 @@ class SalesReturnResponse(SalesReturnBase):
     uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
+    customer_id: Optional[str] = None
     created_at: Optional[datetime] = None
     modified_at: Optional[datetime] = None
     is_active: Optional[bool] = True
@@ -379,3 +384,35 @@ class SalesReturnResponse(SalesReturnBase):
     items: List[SalesReturnItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SalesReturnContextLine(BaseModel):
+    product_id: str
+    code: str
+    name: str
+    original_quantity: Decimal
+    returned_quantity: Decimal
+    remaining_quantity: Decimal
+    unit_price: Decimal
+    gst_rate: Decimal
+    tax_amount: Decimal
+    total_amount: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SalesReturnContextResponse(BaseModel):
+    invoice_id: str
+    invoice_no: str
+    invoice_date: datetime_date
+    status: str
+    customer: Optional[Dict[str, Any]] = None
+    payment_context: Optional[Dict[str, Any]] = None
+    branch_id: Optional[str] = None
+    terminal_id: Optional[str] = None
+    shift_id: Optional[str] = None
+    lines: List[SalesReturnContextLine] = []
+    effective_policy: Dict[str, Any] = {}
+
+    model_config = ConfigDict(from_attributes=True)
+

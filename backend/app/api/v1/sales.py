@@ -23,7 +23,9 @@ from ...schemas.sales import (
     SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
     SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse,
     SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
+    SalesReturnContextResponse,
 )
+
 from ...repositories.sales import SalesInvoiceRepository
 from ...services.sales import SalesService
 from ...services.eway_bill_service import EWayBillService
@@ -490,8 +492,32 @@ async def convert_sales_order_to_tax_invoice(
 
 # ─────────────────────────── Sales Return ───────────────────────────
 
+@router.get(
+    "/invoices/{invoice_id}/return-context",
+    response_model=SalesReturnContextResponse,
+    summary="Get Authoritative Return Context for Sales Invoice",
+    dependencies=[Depends(require_permission("sales_billing", "VIEW"))],
+)
+@router.get(
+    "/{invoice_id}/return-context",
+    response_model=SalesReturnContextResponse,
+    summary="Get Authoritative Return Context for Sales Invoice (Direct Route)",
+    dependencies=[Depends(require_permission("sales_billing", "VIEW"))],
+)
+async def get_sales_invoice_return_context(
+    invoice_id: str,
+    control_db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Retrieve authoritative sales invoice return context including remaining quantities and effective policy."""
+    service = SalesService(db, tenant_ctx, control_db=control_db)
+    return await service.get_sales_return_context(invoice_id)
+
+
 @router.post(
     "/returns",
+
     response_model=SalesReturnResponse,
     status_code=201,
     dependencies=[Depends(require_permission("sales_billing", "RETURN"))],
