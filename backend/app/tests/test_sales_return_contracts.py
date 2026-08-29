@@ -76,25 +76,25 @@ async def override_db_and_tenant(db_session):
 # ---------------------------------------------------------------------------
 
 async def _make_tenant(db_session, suffix: str):
+    uid = uuid.uuid4().hex[:6]
+    tenant_id = f"{suffix}-{uid}"
     company = Company(
-        id=f"comp-sal-{suffix}", name=f"Sales Co {suffix}",
+        id=f"comp-sal-{tenant_id}", name=f"Sales Co {tenant_id}",
         gst_number="27ABCDE1234F1Z5", is_active=True,
     )
     branch = Branch(
-        id=f"br-sal-{suffix}", company_id=company.id,
-        name=f"Sales Br {suffix}", code=f"BRSAL-{suffix}", is_active=True,
+        id=f"br-sal-{tenant_id}", company_id=company.id,
+        name=f"Sales Br {tenant_id}", code=f"BRSAL-{tenant_id}", is_active=True,
     )
     db_session.add(company)
     await db_session.flush()
     db_session.add(branch)
     await db_session.flush()
-    wh_check = await db_session.get(Warehouse, "wh-central-001")
-    if not wh_check:
-        warehouse = Warehouse(
-            id="wh-central-001", company_id=company.id, branch_id=branch.id,
-            code=f"WH-SAL-{suffix}", name="Central Warehouse", is_active=True,
-        )
-        db_session.add(warehouse)
+    warehouse = Warehouse(
+        id=f"wh-central-{tenant_id}", company_id=company.id, branch_id=branch.id,
+        code=f"WH-SAL-{tenant_id}", name="Central Warehouse", is_active=True,
+    )
+    db_session.add(warehouse)
     await db_session.commit()
     return company, branch
 
@@ -267,6 +267,9 @@ async def test_inventory_warehouse_config_switch_001(db_session):
 
 async def test_inventory_warehouse_missing_001(db_session):
     company, branch = await _make_tenant(db_session, "whmissing")
+    await db_session.execute(delete(Warehouse).where(Warehouse.company_id == company.id))
+    await db_session.commit()
+
     resolver = InventoryWarehouseResolver(db_session)
 
     with pytest.raises(ValueError, match="INVENTORY_WAREHOUSE_NOT_CONFIGURED"):
