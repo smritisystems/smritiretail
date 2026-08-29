@@ -1069,7 +1069,10 @@ class InvoicePdfService:
         os.makedirs(os.path.dirname(os.path.abspath(output_pdf_path)), exist_ok=True)
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+            )
             page = await browser.new_page()
             await page.set_content(html_content, wait_until="networkidle")
 
@@ -1123,7 +1126,10 @@ class InvoicePdfService:
         )
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+            )
             page = await browser.new_page()
             await page.set_content(html_content, wait_until="networkidle")
 

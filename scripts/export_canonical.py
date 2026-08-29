@@ -77,7 +77,10 @@ async def export_invoices_pdf(invoices: List[SalesInvoice], out_dir: Path):
 
     out_dir.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+        )
         page = await browser.new_page()
 
         for idx, inv in enumerate(invoices, 1):

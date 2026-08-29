@@ -24,6 +24,8 @@ class Company(Base):
     uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
     name = Column(String(255), nullable=False)
     gst_number = Column(String(15), nullable=True)
+    company_code = Column(String(50), nullable=True, unique=True, index=True)
+    logo_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
     is_deleted = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)

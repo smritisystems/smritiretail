@@ -56,16 +56,14 @@ class LifecycleActionRequest(BaseModel):
 # Endpoints
 @router.post("/companies/validate-code")
 def validate_company_code(payload: ValidateCodeRequest):
-    """Validates 4-character alphanumeric company code [A-Z0-9]. Rejects 0000 and SYS0."""
+    """Validates 3-character alphanumeric company code [A-Z0-9]. Rejects 000 and SYS."""
     code = payload.company_code.strip().upper()
-    if code.isdigit() and len(code) <= 4:
-        code = code.zfill(4)
-    if len(code) != 4 or not code.isalnum():
+    if len(code) != 3 or not code.isalnum():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Company code '{payload.company_code}' must be exactly 3 alphanumeric characters [A-Z0-9]."
         )
-    if code in ("0000", "SYS0"):
+    if code in ("000", "SYS"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Company code '{code}' is permanently reserved and cannot be assigned."

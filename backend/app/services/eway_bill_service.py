@@ -26,6 +26,7 @@ from ..models.crm import Customer
 from ..models.tenant import Company
 from ..api.deps import TenantContext
 from ..core.config import settings
+from ..services.company_policy_service import CompanyPolicyService
 
 # Statutory Indian GSTIN validation pattern
 GSTIN_REGEX = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$")
@@ -237,8 +238,12 @@ class EWayBillService:
             item_no += 1
 
         doc_date = transfer.created_at.strftime("%d/%m/%Y") if transfer.created_at else datetime.now().strftime("%d/%m/%Y")
-
-        is_threshold_applicable = total_taxable_value >= 50000.0
+        threshold_value = await CompanyPolicyService.get_effective_compliance_threshold_decimal(
+            self.db,
+            "EWAY_BILL_THRESHOLD_INR",
+            (transfer.created_at or datetime.now()).date(),
+        )
+        is_threshold_applicable = total_taxable_value >= float(threshold_value)
 
         eway_payload = {
             "version": "1.0.0",
@@ -516,8 +521,12 @@ class EWayBillService:
         sgst_val = 0.0 if is_inter_state else round(tax_tot / 2.0, 2)
         igst_val = round(tax_tot, 2) if is_inter_state else 0.0
         taxable_tot = float(getattr(invoice, 'taxable_value', None) or (invoice.grand_total - invoice.tax_total))
-
-        is_threshold_applicable = float(invoice.grand_total) >= 50000.0
+        threshold_value = await CompanyPolicyService.get_effective_compliance_threshold_decimal(
+            self.db,
+            "EWAY_BILL_THRESHOLD_INR",
+            (invoice.created_at or datetime.now()).date(),
+        )
+        is_threshold_applicable = float(invoice.grand_total) >= float(threshold_value)
 
         eway_payload = {
             "version": "1.0.0",

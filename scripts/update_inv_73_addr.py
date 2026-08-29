@@ -125,7 +125,10 @@ async def generate_and_update_pdfs():
     ]
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+        )
         page = await browser.new_page()
         await page.set_content(html, wait_until="networkidle")
 

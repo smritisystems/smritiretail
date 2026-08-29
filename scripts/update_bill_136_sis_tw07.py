@@ -172,7 +172,10 @@ async def update_bill_136_sis_tw07():
     )
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+        )
         page = await browser.new_page()
         await page.set_content(html_content, wait_until="networkidle")
         pdf_bytes = await page.pdf(

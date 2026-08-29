@@ -49,17 +49,15 @@ class CompanyDatabaseProvisioner:
         }
 
     def allocate_company_code(self, company_code: Optional[str] = None) -> str:
-        """Step 2: Allocate or validate 4-character alphanumeric company code [A-Z0-9]."""
+        """Step 2: Allocate or validate 3-character alphanumeric company code [A-Z0-9]."""
         if company_code:
             code = str(company_code).strip().upper()
-            if code.isdigit() and len(code) <= 4:
-                code = code.zfill(4)
-            if len(code) != 4 or not code.isalnum():
-                raise ValueError(f"Company code '{company_code}' must be exactly 4 alphanumeric characters [A-Z0-9].")
-            if code == "0000":
-                raise ValueError("Company code '0000' is permanently reserved.")
-            if code == "SYS0":
-                raise ValueError("Company code 'SYS0' is permanently reserved for SMRITI Control Plane.")
+            if len(code) != 3 or not code.isalnum():
+                raise ValueError(f"Company code '{company_code}' must be exactly 3 alphanumeric characters [A-Z0-9].")
+            if code == "000":
+                raise ValueError("Company code '000' is permanently reserved.")
+            if code == "SYS":
+                raise ValueError("Company code 'SYS' is permanently reserved for SMRITI Control Plane.")
             return code
         return CompanyCodeAllocator.allocate_next_available_code()
 
