@@ -94,7 +94,7 @@ class DistributionService:
         party_id: str,
         territory_code: str,
         salesman_id: Optional[str] = None,
-        credit_limit: Decimal = Decimal("500000.00"),
+        credit_limit: Decimal = Decimal("50000.00"),
         credit_days: int = 30
     ) -> DealerAssignment:
         """Assigns a dealer/distributor Party to a geographic territory."""

@@ -35,7 +35,10 @@ async def run_responsive_touch_audit():
     ]
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+        )
         resp_results = []
 
         for vname, w, h, is_touch in viewports:

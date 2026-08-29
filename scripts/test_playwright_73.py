@@ -11,16 +11,22 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import sys
 import asyncio
 from playwright.async_api import async_playwright
 from pypdf import PdfReader
+
+sys.stdout.reconfigure(encoding='utf-8')
 
 async def main():
     with open(r"exports\test_73_updated.html", "r", encoding="utf-8") as f:
         html = f.read()
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+        )
         page = await browser.new_page()
         await page.set_content(html, wait_until="networkidle")
         pdf_path = r"exports\test_73_updated.pdf"

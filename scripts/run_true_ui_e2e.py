@@ -57,7 +57,10 @@ async def run_true_ui_certification():
     ui_evidence = {}
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+        )
         context = await browser.new_context(viewport={"width": 1920, "height": 1080})
         page = await context.new_page()
 

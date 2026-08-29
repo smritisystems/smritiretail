@@ -62,17 +62,20 @@ def seed_control_plane_test_assignments():
         )
 
     try:
+        ctrl_cur.execute("ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS company_code VARCHAR(50);")
+        ctrl_cur.execute("ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);")
+
         # 0. Insert governance companies into smritisys (Control Plane)
         ctrl_cur.execute("""
             INSERT INTO companies (id, uuid, name, gst_number, company_code, is_active, is_deleted, created_at, modified_at)
             VALUES ('COMP-001', %s, 'Tattly Threads', '27AAXFT2508H1ZR', '001', true, false, NOW(), NOW())
-            ON CONFLICT (id) DO UPDATE SET name = 'Tattly Threads', gst_number = '27AAXFT2508H1ZR', is_active = true, is_deleted = false;
+            ON CONFLICT (id) DO UPDATE SET name = 'Tattly Threads', gst_number = '27AAXFT2508H1ZR', company_code = '001', is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
         ctrl_cur.execute("""
             INSERT INTO companies (id, uuid, name, company_code, is_active, is_deleted, created_at, modified_at)
             VALUES ('comp-default', %s, 'SMRITI Default Company', 'DEF', true, false, NOW(), NOW())
-            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+            ON CONFLICT (id) DO UPDATE SET name = 'SMRITI Default Company', company_code = 'DEF', is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
         # 0a. Insert default branch MAIN for COMP-001 into smritisys.
@@ -130,32 +133,52 @@ def seed_control_plane_test_assignments():
             ("usr_store_manager_a", "usr_store_manager_a", "MANAGER", False),
         ]
         for uid, uname, urole, is_admin in users_data:
-            ctrl_cur.execute("""
-                INSERT INTO users (id, uuid, username, hashed_password, role, is_active, is_deleted, created_at, modified_at, status, country, employment_type)
-                VALUES (%s, %s, %s, 'dummy_hash', %s, true, false, NOW(), NOW(), 'ACTIVE', 'IN', 'FULL_TIME')
-                ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = true, is_deleted = false;
-            """, (uid, str(uuid.uuid4()), uname, urole))
+            ctrl_cur.execute("SELECT id FROM users WHERE username = %s LIMIT 1;", (uname,))
+            existing_user = ctrl_cur.fetchone()
+            if existing_user:
+                ctrl_cur.execute("""
+                    UPDATE users
+                    SET hashed_password = 'dummy_hash',
+                        role = %s,
+                        is_active = true,
+                        is_deleted = false,
+                        status = 'ACTIVE',
+                        country = 'IN',
+                        employment_type = 'FULL_TIME',
+                        modified_at = NOW()
+                    WHERE username = %s;
+                """, (urole, uname))
+                actual_user_id = existing_user[0]
+            else:
+                ctrl_cur.execute("""
+                    INSERT INTO users (id, uuid, username, hashed_password, role, is_active, is_deleted, created_at, modified_at, status, country, employment_type)
+                    VALUES (%s, %s, %s, 'dummy_hash', %s, true, false, NOW(), NOW(), 'ACTIVE', 'IN', 'FULL_TIME');
+                """, (uid, str(uuid.uuid4()), uname, urole))
+                actual_user_id = uid
 
-        # 2. Insert test company assignments into smritisys.user_company_assignments (Control Plane routing)
-        # user_company_assignments has a partial unique index:
         #   ix_user_company_assignments_user_id_company_id_active ON (user_id, company_id) WHERE (is_deleted = false)
         # ON CONFLICT (id) alone is insufficient — must specify the partial index for correct upsert.
         assignments = [
-            ("uca-super-001", "usr-super", "COMP-001"),
-            ("uca-super-def", "usr-super", "comp-default"),
+            ("uca-super-001", "usr_super", "COMP-001"),
+            ("uca-super-def", "usr_super", "comp-default"),
             ("uca-sysadmin-001", "usr_sysadmin", "COMP-001"),
-            ("uca-cashier-001", "usr-cashier", "COMP-001"),
-            ("uca-cashier-def", "usr-cashier", "comp-default"),
-            ("uca-manager-001", "usr-manager", "COMP-001"),
+            ("uca-cashier-001", "usr_cashier", "COMP-001"),
+            ("uca-cashier-def", "usr_cashier", "comp-default"),
+            ("uca-manager-001", "usr_manager", "COMP-001"),
             ("uca-store-mgr-a-001", "usr_store_manager_a", "COMP-001"),
         ]
-        for uca_id, uid, cid in assignments:
+        for uca_id, uname, cid in assignments:
+            ctrl_cur.execute("SELECT id FROM users WHERE username = %s LIMIT 1;", (uname,))
+            user_row = ctrl_cur.fetchone()
+            if not user_row:
+                raise RuntimeError(f"User '{uname}' missing from smritisys.users before assignment seed")
+            actual_user_id = user_row[0]
             ctrl_cur.execute("""
                 INSERT INTO user_company_assignments (id, uuid, user_id, company_id, is_default, is_active, is_deleted, created_at, modified_at)
                 VALUES (%s, %s, %s, %s, false, true, false, NOW(), NOW())
                 ON CONFLICT (user_id, company_id) WHERE (is_deleted = false)
                 DO UPDATE SET is_active = true, is_deleted = false;
-            """, (uca_id, str(uuid.uuid4()), uid, cid))
+            """, (uca_id, str(uuid.uuid4()), actual_user_id, cid))
 
         # 3. Seed smriti_menus (Control Plane — exactly 34 canonical immutable menus)
         canonical_menus = [
@@ -266,12 +289,18 @@ def seed_control_plane_test_assignments():
         if acnt < 40:
             for i in range(acnt, 40):
                 ctrl_cur.execute("""
-                    INSERT INTO smriti_audit_log (id, changed_table, changed_record_id, changed_by, changed_at)
-                    VALUES (%s, 'test_table', 'rec-001', 'usr-sysadmin', NOW())
-                    ON CONFLICT (id) DO NOTHING;
-                """, (f"audit-{i}",))
-
-        ctrl_conn.commit()
+                        INSERT INTO smriti_audit_log (
+                            id, tenant_id, entity_id, changed_table, changed_record_id, field_name,
+                            old_value, new_value, change_type, change_reason, change_source,
+                            changed_by, changed_by_name, changed_at, sha256_hash
+                        )
+                        VALUES (
+                            %s, 'COMP-001', 'entity-test', 'test_table', 'rec-001', 'seed',
+                            NULL, NULL, 'INSERT', 'Fixture bootstrap', 'pytest',
+                            'usr-sysadmin', 'System Seed', NOW(), %s
+                        )
+                        ON CONFLICT (id) DO NOTHING;
+                    """, (f"audit-{i}", f"seed-{i}"))
         ctrl_conn.close()
 
     except pytest.fail.Exception:

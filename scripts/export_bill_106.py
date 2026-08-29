@@ -67,7 +67,10 @@ async def export_bill_106():
         html = InvoicePdfService.generate_invoice_html_from_model(inv)
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch()
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+            )
             page = await browser.new_page()
             await page.set_content(html)
 
