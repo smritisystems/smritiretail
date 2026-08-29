@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, Any
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.inventory import Warehouse
@@ -52,12 +52,13 @@ class InventoryWarehouseResolver:
             )
             reg_res = await self.db.execute(reg_stmt)
             register = reg_res.scalars().first()
-            if register and getattr(register, "warehouse", None):
+            register_warehouse = getattr(register, "warehouse", None)
+            if register_warehouse:
                 wh_stmt = select(Warehouse).where(
-                    Warehouse.id == register.warehouse,
                     Warehouse.company_id == company_id,
                     Warehouse.is_deleted == False,
                     Warehouse.is_active == True,
+                    or_(Warehouse.id == register_warehouse, Warehouse.code == register_warehouse),
                 )
                 wh_res = await self.db.execute(wh_stmt)
                 register_wh = wh_res.scalars().first()
