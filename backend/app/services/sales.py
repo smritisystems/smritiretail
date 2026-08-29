@@ -1132,6 +1132,7 @@ class SalesService:
         # Apply stock increments and record StockMovement (RETURN_INWARD)
         for product, qty in product_stock_updates:
             if product.tracking_mode != "No-stock":
+                product.stock = int((product.stock or 0) + Decimal(str(qty)))
                 product.modified_at = datetime.now(timezone.utc)
                 self.db.add(product)
 
