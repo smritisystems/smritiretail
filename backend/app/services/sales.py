@@ -144,8 +144,13 @@ class SalesService:
             is_interstate = invoice_in.is_interstate
 
         from .inventory_wms import InventoryWmsService
+        from .inventory_warehouse_resolver import InventoryWarehouseResolver
         wms_service = InventoryWmsService(self.db, self.tenant_ctx)
-        warehouse_id = invoice_in.warehouse_id or "wh-central-001"
+        resolver = InventoryWarehouseResolver(self.db)
+        warehouse_id = invoice_in.warehouse_id
+        if not warehouse_id:
+            warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
+            warehouse_id = warehouse.id
 
         # 1. Validate items and calculate totals
         calculated_taxable_total = Decimal("0.00")
@@ -1137,6 +1142,7 @@ class SalesService:
                 self.db.add(product)
 
                 movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+                resolved_warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
                 db_movement = StockMovement(
                     id=movement_id,
                     uuid=str(uuid.uuid4()),
@@ -1147,7 +1153,8 @@ class SalesService:
                     movement_type="RETURN_INWARD",
                     reference_doc_type="Sales Return",
                     reference_doc_id=db_sr.id,
-                    warehouse="Default Warehouse",
+                    warehouse_id=resolved_warehouse.id,
+                    warehouse=resolved_warehouse.name,
                     unit_cost=product.cost_price or product.price,
                     remarks=f"Stock incremented for sales return: {db_sr.return_no}",
                     source_module="Sales",
@@ -1380,7 +1387,11 @@ class SalesService:
 
         from .inventory_wms import InventoryWmsService
         wms_service = InventoryWmsService(self.db, self.tenant_ctx)
-        wh_id = invoice.warehouse_id or "wh-central-001"
+        resolver = InventoryWarehouseResolver(self.db)
+        wh_id = invoice.warehouse_id
+        if not wh_id:
+            wh = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
+            wh_id = wh.id
 
         # Restore batch stock for each line item
         for item in invoice.items:

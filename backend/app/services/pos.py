@@ -30,6 +30,7 @@ from ..models.pos import CashRegister, Shift, ShiftCashTransaction
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement
 from ..api.deps import TenantContext
+from ..services.inventory_warehouse_resolver import InventoryWarehouseResolver
 from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
     CashRegisterCreate, ShiftOpen, ShiftClose,
@@ -1131,6 +1132,7 @@ class POSService:
                     f"SM-{int(datetime.now(timezone.utc).timestamp())}-"
                     f"{uuid.uuid4().hex[:6]}"
                 )
+                resolved_warehouse = await resolver.resolve(company_id=self.tenant.company_id, branch_id=self.tenant.branch_id)
                 movements.append(StockMovement(
                     id=movement_id,
                     uuid=str(uuid.uuid4()),
@@ -1141,7 +1143,8 @@ class POSService:
                     movement_type="OUT",
                     reference_doc_type="POS Invoice",
                     reference_doc_id=invoice_id,
-                    warehouse="Default Warehouse",
+                    warehouse_id=resolved_warehouse.id,
+                    warehouse=resolved_warehouse.name,
                     unit_cost=product.cost_price or product.price,
                     remarks=f"POS sale: {req.invoice_no}",
                     source_module="POS",
