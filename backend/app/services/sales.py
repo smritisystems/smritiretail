@@ -49,6 +49,7 @@ from ..schemas.sales import (
 )
 from .crm import CrmService
 from .inventory import InventoryService
+from .inventory_warehouse_resolver import InventoryWarehouseResolver
 from .sales_return_policy import SalesReturnPolicyResolver
 from .sales_return_refund_adapter import SalesReturnRefundAdapter
 from .documents_engine import DocumentsEngine
@@ -1133,6 +1134,7 @@ class SalesService:
         )
 
         _ret_creator = getattr(self.tenant_ctx, "user_id", None) or "system"
+        resolver = InventoryWarehouseResolver(self.db)
 
         # Apply stock increments and record StockMovement (RETURN_INWARD)
         for product, qty in product_stock_updates:
