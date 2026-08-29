@@ -4,7 +4,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "v1377_sales_return_policy_snapshot"
+revision = "v1377_sales_return_policy"
 down_revision = "v1376_sales_return_idempotency"
 branch_labels = None
 depends_on = None

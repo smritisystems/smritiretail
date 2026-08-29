@@ -256,6 +256,9 @@ def upgrade() -> None:
     """)
 
     # ── 9. psv_sku_tracking ────────────────────────────────────────────────────
+    # Keep this table aligned with the canonical ORM model used by the repo.
+    # The generated-column form is not compatible with the current migration
+    # baseline and is not reflected in backend/app/models/psv.py.
     op.execute("""
         CREATE TABLE IF NOT EXISTS psv_sku_tracking (
             id                  SERIAL      PRIMARY KEY,
@@ -264,19 +267,10 @@ def upgrade() -> None:
             sku                 VARCHAR(100) NOT NULL,
             invoiced_qty        INT         DEFAULT 0,
             confirmed_sold_qty  INT         DEFAULT 0,
-            returned_qty        INT         DEFAULT 0,
-            lying_stock         INT         GENERATED ALWAYS AS (
-                GREATEST(0, invoiced_qty - confirmed_sold_qty - returned_qty)
-            ) STORED,
-            sell_through_pct    NUMERIC(5,2) GENERATED ALWAYS AS (
-                CASE WHEN invoiced_qty <= 0 THEN 0.00
-                ELSE LEAST(100.00, (confirmed_sold_qty::numeric / invoiced_qty::numeric) * 100.00)
-                END
-            ) STORED
+            returned_qty        INT         DEFAULT 0
         )
     """)
     op.execute("CREATE INDEX IF NOT EXISTS idx_psv_sku_lookup   ON psv_sku_tracking (party_id, sku)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_psv_lying_stock  ON psv_sku_tracking (lying_stock)")
 
     # ── 10. audit_logs ─────────────────────────────────────────────────────────
     op.execute("""

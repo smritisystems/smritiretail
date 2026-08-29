@@ -23,6 +23,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.db.ctrl_seeder import ControlPlaneSeeder
+import app.models  # noqa: F401
 
 # Force SelectorEventLoop on Windows to avoid proactor loop lifecycle race conditions in tests
 if sys.platform == "win32":
@@ -59,6 +60,15 @@ async def db_engine():
         await conn.run_sync(Base.metadata.create_all)
         try:
             await conn.execute(text("""
+                ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS buying_price NUMERIC(15, 2);
+                ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(15, 2);
+                ALTER TABLE IF EXISTS sales_invoice_items ADD COLUMN IF NOT EXISTS mrp NUMERIC(15, 2);
+                ALTER TABLE IF EXISTS sales_invoice_items ADD COLUMN IF NOT EXISTS disc_pct NUMERIC(7, 4);
+                ALTER TABLE IF EXISTS sales_invoice_items ADD COLUMN IF NOT EXISTS taxable_value NUMERIC(15, 2);
+                ALTER TABLE IF EXISTS sales_invoice_items ADD COLUMN IF NOT EXISTS igst_amount NUMERIC(15, 2) DEFAULT 0.00;
+                ALTER TABLE IF EXISTS sales_invoice_items ADD COLUMN IF NOT EXISTS cgst_amount NUMERIC(15, 2) DEFAULT 0.00;
+                ALTER TABLE IF EXISTS sales_invoice_items ADD COLUMN IF NOT EXISTS sgst_amount NUMERIC(15, 2) DEFAULT 0.00;
+                ALTER TABLE IF EXISTS sales_invoice_items ADD COLUMN IF NOT EXISTS line_no INTEGER;
                 ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100);
                 ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_id VARCHAR(100);
                 ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER;

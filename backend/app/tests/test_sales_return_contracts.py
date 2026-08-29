@@ -1191,7 +1191,7 @@ async def test_sr_credit_note_idempotency_001(db_session):
     invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
     _set_tenant(comp.id, br.id)
 
-    headers = _bearer(cashier, comp.id, br.id)
+    headers = {**_bearer(cashier, comp.id, br.id), "Idempotency-Key": f"idem-credit-note-{s}"}
     payload = {
         "id": f"sr-cn-idem-{s}",
         "return_no": f"RET-CN-IDEM-{s}",
@@ -1214,6 +1214,7 @@ async def test_sr_credit_note_idempotency_001(db_session):
 
     assert first.status_code == 201, first.text
     assert second.status_code == 201, second.text
+    assert first.json()["id"] == second.json()["id"]
 
     sr_rows = (await db_session.execute(select(SalesReturn).where(
         SalesReturn.return_no == payload["return_no"],
