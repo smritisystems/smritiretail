@@ -149,7 +149,7 @@ class SalesReturnRefundAdapter:
             cust = (await session.execute(cust_stmt)).scalars().first()
             if cust:
                 if hasattr(cust, "outstanding") and cust.outstanding is not None:
-                    cust.outstanding = max(Decimal("0.00"), cust.outstanding - refund_amount)
+                    cust.outstanding = max(Decimal("0.00"), Decimal(str(cust.outstanding or 0)) - refund_amount)
                     cust.modified_at = now
                     session.add(cust)
 

@@ -96,14 +96,14 @@ services:
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Smriti_Retail_2026!}"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-netmanthan@123}"
       MSSQL_PID: "Developer"
     ports:
       - "${MSSQL_PORT:-1433}:1433"
     volumes:
       - smriti_mssql_volume:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD:-Smriti_Retail_2026!}\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD:-Smriti_Retail_2026!}\" -Q \"SELECT 1\" || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD:-netmanthan@123}\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD:-netmanthan@123}\" -Q \"SELECT 1\" || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 5

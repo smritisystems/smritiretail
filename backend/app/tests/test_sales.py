@@ -235,8 +235,9 @@ async def test_create_sales_quotation_as_cashier(db_session):
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["quotation_no"] == f"QUOT-{suffix}"
-    assert Decimal(body["tax_total"]) == Decimal("36.00")
-    assert Decimal(body["grand_total"]) == Decimal("236.00")
+    # qty=1, price=100, gst=18% => tax=18, total=118
+    assert Decimal(body["tax_total"]) == Decimal("18.00")
+    assert Decimal(body["grand_total"]) == Decimal("118.00")
 
 
 async def test_create_sales_quotation_duplicate_rejected(db_session):

@@ -1,0 +1,149 @@
+================================================================================
+EXACT SCHEMA DIFFERENCE ANALYSIS
+Database: smriti001_stage
+Generated: 2026-08-30T13:10:59.569231
+================================================================================
+
+SUMMARY
+--------------------------------------------------------------------------------
+Total tables in database: 210
+Canonical tables present: 34/40
+Missing canonical tables: 6
+Missing CRITICAL tables: 2
+
+CRITICAL MISSING TABLES (Blocking Regression Tests)
+--------------------------------------------------------------------------------
+
+Table: smriti_permissions
+Purpose: All permission checks and auth tests
+
+Table: company_database_registries
+Purpose: Bootstrap and company registration
+
+MISSING CANONICAL TABLES (v1385-v1388)
+--------------------------------------------------------------------------------
+  module_audit_logs
+  module_states
+  platform_capabilities
+  report_dispatch_logs
+  tally_configs
+  workspace_templates
+
+EXISTING CANONICAL TABLES (v1385-v1388)
+--------------------------------------------------------------------------------
+Table Name                          Columns   Rows
+--------------------------------------------------------------------------------
+approval_actions                         19           0
+approval_policies                        22           0
+approval_requests                        22           0
+cge_unified_policies                     19           0
+crm_campaigns                            23           0
+crm_customer_activities                  21           0
+crm_leads                                25           0
+crm_opportunities                        24           0
+distribution_claims                      25           0
+distribution_route_stops                 19           0
+distribution_routes                      22           0
+distribution_settlements                 29           0
+ecom_channels                            26           0
+ecom_order_imports                       37           0
+ecom_reconciliations                     27           0
+ecom_sku_mappings                        21           0
+ecom_stock_sync_logs                     22           0
+eway_bills                               24           0
+item_batches                             20           1
+item_serials                             18           1
+item_warehouse_locations                 19           1
+loading_sheet_items                      20           0
+loading_sheets                           24           0
+party_addresses                          25           0
+party_contacts                           21           0
+party_relationships                      17           0
+pdt_demand_signals                       19           0
+pdt_distribution_predictions             24           0
+pdt_model_registry                       20           0
+pdt_sku_twin_cache                       20           0
+psv_party_scopes                         17           0
+psv_visibility_policies                  17           0
+tenant_capability_bindings               19           0
+user_workspace_configs                   18           0
+
+DATA PRESENT IN EXISTING CANONICAL TABLES
+--------------------------------------------------------------------------------
+Tables with data: 3
+Tables empty: 31
+
+Tables with data:
+  item_batches: 1 rows
+  item_serials: 1 rows
+  item_warehouse_locations: 1 rows
+
+Tables empty:
+  approval_actions
+  approval_policies
+  approval_requests
+  cge_unified_policies
+  crm_campaigns
+  crm_customer_activities
+  crm_leads
+  crm_opportunities
+  distribution_claims
+  distribution_route_stops
+  distribution_routes
+  distribution_settlements
+  ecom_channels
+  ecom_order_imports
+  ecom_reconciliations
+  ecom_sku_mappings
+  ecom_stock_sync_logs
+  eway_bills
+  loading_sheet_items
+  loading_sheets
+  party_addresses
+  party_contacts
+  party_relationships
+  pdt_demand_signals
+  pdt_distribution_predictions
+  pdt_model_registry
+  pdt_sku_twin_cache
+  psv_party_scopes
+  psv_visibility_policies
+  tenant_capability_bindings
+  user_workspace_configs
+
+NON-CANONICAL EXISTING TABLES
+--------------------------------------------------------------------------------
+Total: 176
+
+First 30:
+  account_balance_snapshots
+  accounts
+  action_definitions
+  alembic_version
+  analytics_daily_sales_facts
+  approval_workflow_logs
+  attribute_definitions
+  attribute_groups
+  bank_statement_lines
+  bank_statements
+  barcode_layouts
+  barcode_providers
+  branches
+  business_rule_definitions
+  cash_registers
+  category_attribute_group_mappings
+  commission_ledgers
+  commission_participants
+  commission_programs
+  commission_rules
+  communicator_logs
+  communicator_templates
+  companies
+  compliance_audit_logs
+  compliance_credentials
+  compliance_immutable_audit_logs
+  compliance_outboxes
+  connector_registry
+  control_companies
+  control_company_databases
+  ... and 146 more

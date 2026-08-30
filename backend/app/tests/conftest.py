@@ -50,6 +50,58 @@ def restore_baseline_after_tests():
     except Exception as e:
         print(f"[conftest] Post-test seed error: {e}")
 
+async def _ensure_schema_compatibility(conn):
+    """Apply all missing schema columns for backward compatibility with legacy test data."""
+    from sqlalchemy import text
+    schema_fixes = [
+        "ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS buying_price NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS po_number VARCHAR(100);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS po_date DATE;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS delivery_date DATE;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS site_code VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS site_name VARCHAR(255);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS delivery_address TEXT;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS vendor_code VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS customer_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS customer_gstin VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS basic_total NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS is_interstate BOOLEAN DEFAULT TRUE;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS total_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS billed_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS billed_value NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS pending_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS pending_value NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS fulfillment_status VARCHAR(50) DEFAULT 'UNFULFILLED';",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS po_metadata JSONB NOT NULL DEFAULT '{}'::jsonb;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS sr_no INTEGER;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS article_no VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS ean VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS vendor_style VARCHAR(100);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS color VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS size VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS uom VARCHAR(20) DEFAULT 'EA';",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS mrp NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS base_cost NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS taxable_value NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS igst_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS cgst_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS sgst_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS line_total NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS delivery_date DATE;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS site_code VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS po_quantity NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS invoice_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS invoice_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS pending_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS pending_amount NUMERIC(15, 2) DEFAULT 0.00;",
+    ]
+    for stmt in schema_fixes:
+        try:
+            await conn.execute(text(stmt))
+        except Exception:
+            pass
+
 @pytest.fixture
 async def db_engine():
     engine = create_async_engine(settings.DATABASE_URL)
@@ -58,6 +110,8 @@ async def db_engine():
     import app.models.psv  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Apply schema compatibility fixes before any tests run
+        await _ensure_schema_compatibility(conn)
         try:
             statements = [
                 "ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);",
@@ -65,113 +119,16 @@ async def db_engine():
                 "CREATE TABLE IF NOT EXISTS company_policy_settings (company_id VARCHAR(50) NOT NULL, key VARCHAR(100) NOT NULL, value TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW(), updated_by VARCHAR(50), PRIMARY KEY (company_id, key));",
                 "CREATE TABLE IF NOT EXISTS compliance_thresholds (key VARCHAR(100) NOT NULL, value TEXT NOT NULL, effective_from DATE NOT NULL, effective_to DATE NULL, source_reference VARCHAR(255), updated_by VARCHAR(50), updated_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (key, effective_from));",
                 "INSERT INTO compliance_thresholds (key, value, effective_from, source_reference, updated_by) SELECT 'EWAY_BILL_THRESHOLD_INR', '50000', DATE '2021-04-01', 'Rule 138 CGST Rules', 'system' WHERE NOT EXISTS (SELECT 1 FROM compliance_thresholds WHERE key = 'EWAY_BILL_THRESHOLD_INR' AND effective_from = DATE '2021-04-01');",
-                "ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS buying_price NUMERIC(15, 2);",
-                "ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(15, 2);",
                 "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100);",
                 "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_id VARCHAR(100);",
                 "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER;",
                 "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_scope VARCHAR(100);",
                 "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb;",
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_return_idempotency_active ON sales_returns (company_id, branch_id, idempotency_key) WHERE is_deleted = false AND idempotency_key IS NOT NULL;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS voucher_no VARCHAR(100);",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS voucher_type VARCHAR(50) DEFAULT 'JOURNAL';",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS voucher_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS posting_date TIMESTAMPTZ DEFAULT NOW();",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS reference_doc_type VARCHAR(50);",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS reference_doc_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS reference_doc_no VARCHAR(100);",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS narration TEXT;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR';",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(18,6) DEFAULT 1.000000;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS total_foreign_debit NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS total_foreign_credit NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS total_debit NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS total_credit NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS is_posted BOOLEAN DEFAULT TRUE;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS is_cancelled BOOLEAN DEFAULT FALSE;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS posted_at TIMESTAMPTZ;",
-                "ALTER TABLE IF EXISTS journal_vouchers ADD COLUMN IF NOT EXISTS created_by VARCHAR(100);",
-                "ALTER TABLE IF EXISTS journal_vouchers ALTER COLUMN ref_document_type DROP NOT NULL;",
-                "ALTER TABLE IF EXISTS journal_vouchers ALTER COLUMN ref_document_id DROP NOT NULL;",
-                "ALTER TABLE IF EXISTS journal_vouchers ALTER COLUMN ref_document_no DROP NOT NULL;",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS voucher_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS account_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS entry_type VARCHAR(10);",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS posting_date TIMESTAMPTZ DEFAULT NOW();",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS amount NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS debit_amount NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS credit_amount NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS foreign_amount NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS foreign_debit NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS foreign_credit NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR';",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(18,6) DEFAULT 1.000000;",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS narration TEXT;",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS reference_doc_type VARCHAR(50);",
-                "ALTER TABLE IF EXISTS general_ledger_entries ADD COLUMN IF NOT EXISTS reference_doc_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS fiscal_periods ADD COLUMN IF NOT EXISTS fiscal_year_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS fiscal_periods ADD COLUMN IF NOT EXISTS period_name VARCHAR(50) DEFAULT 'P1';",
-                "ALTER TABLE IF EXISTS fiscal_periods ADD COLUMN IF NOT EXISTS period_number INTEGER DEFAULT 1;",
-                "ALTER TABLE IF EXISTS fiscal_periods ADD COLUMN IF NOT EXISTS start_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS fiscal_periods ADD COLUMN IF NOT EXISTS end_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS fiscal_periods ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'OPEN';",
-                "ALTER TABLE IF EXISTS fiscal_periods ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;",
-                "ALTER TABLE IF EXISTS fiscal_periods ADD COLUMN IF NOT EXISTS closed_by VARCHAR(100);",
-                "ALTER TABLE IF EXISTS fiscal_years ADD COLUMN IF NOT EXISTS financial_year_code VARCHAR(20) DEFAULT 'FY2026-27';",
-                "ALTER TABLE IF EXISTS fiscal_years ADD COLUMN IF NOT EXISTS start_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS fiscal_years ADD COLUMN IF NOT EXISTS end_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS fiscal_years ADD COLUMN IF NOT EXISTS is_closed BOOLEAN DEFAULT FALSE;",
-                "ALTER TABLE IF EXISTS fiscal_years ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE;",
-                "ALTER TABLE IF EXISTS fiscal_years ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;",
-                "ALTER TABLE IF EXISTS fiscal_years ADD COLUMN IF NOT EXISTS closed_by VARCHAR(100);",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS bank_account_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS statement_no VARCHAR(100);",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS statement_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS from_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS to_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS closing_balance NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS is_reconciled BOOLEAN DEFAULT FALSE;",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS reconciled_at TIMESTAMPTZ;",
-                "ALTER TABLE IF EXISTS bank_statements ADD COLUMN IF NOT EXISTS reconciled_by VARCHAR(100);",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS statement_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS line_number INTEGER DEFAULT 1;",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS transaction_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS value_date DATE DEFAULT CURRENT_DATE;",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS reference_no VARCHAR(100);",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS description TEXT;",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS withdrawal_amount NUMERIC(15,2) DEFAULT 0.00;",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS balance_after_transaction NUMERIC(15,2);",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS reconciled_gl_entry_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS reconciliation_status VARCHAR(30) DEFAULT 'UNMATCHED';",
-                "ALTER TABLE IF EXISTS bank_statement_lines ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMPTZ;",
                 "ALTER TABLE IF EXISTS products ALTER COLUMN mrp SET DEFAULT 0.00;",
                 "ALTER TABLE IF EXISTS products ALTER COLUMN gst_percentage SET DEFAULT 18.00;",
                 "ALTER TABLE IF EXISTS products ALTER COLUMN hsn_code SET DEFAULT '6403';",
                 "ALTER TABLE IF EXISTS products ALTER COLUMN mrp DROP NOT NULL;",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS source_event_id VARCHAR(100);",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS correlation_id VARCHAR(100);",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS causation_id VARCHAR(100);",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS event_type VARCHAR(100);",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS aggregate_type VARCHAR(50);",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS aggregate_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS event_schema_version VARCHAR(20) DEFAULT '1.0';",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS target_channel VARCHAR(50) DEFAULT 'GENERAL_OUTBOX';",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS payload_json JSONB;",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'PENDING';",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0;",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS error_message TEXT;",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMPTZ;",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ;",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS claim_expires_at TIMESTAMPTZ;",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();",
-                "ALTER TABLE IF EXISTS integration_outbox_events ADD COLUMN IF NOT EXISTS dispatched_at TIMESTAMPTZ;",
-                "CREATE OR REPLACE FUNCTION fn_reconcile_inventory_state() RETURNS TRIGGER AS 'BEGIN UPDATE products SET stock = COALESCE(stock, 0) + NEW.quantity WHERE id = NEW.product_id; RETURN NEW; END;' LANGUAGE plpgsql;",
-                "DROP TRIGGER IF EXISTS trg_inventory_state_reconciliation ON stock_movements;",
-                "CREATE TRIGGER trg_inventory_state_reconciliation AFTER INSERT ON stock_movements FOR EACH ROW EXECUTE FUNCTION fn_reconcile_inventory_state();",
             ]
             for stmt in statements:
                 try:
@@ -191,6 +148,7 @@ async def db_session(db_engine) -> AsyncSession:
     async with async_session() as session:  # type: ignore[attr-defined]  # SQLAlchemy async sessionmaker known limitation
         yield session
         await session.rollback()
+        await clear_db(session)
 
 @pytest.fixture(autouse=True)
 async def auto_override_company_db(db_session):
@@ -303,9 +261,12 @@ async def clear_db(db_session: AsyncSession):
     ]
     for tbl in delete_order:
         try:
-            async with db_session.begin_nested():
-                await db_session.execute(text(f"DELETE FROM {tbl};"))
+            await db_session.execute(text(f"TRUNCATE TABLE {tbl} RESTART IDENTITY CASCADE;"))
         except Exception:
-            pass
+            try:
+                async with db_session.begin_nested():
+                    await db_session.execute(text(f"DELETE FROM {tbl};"))
+            except Exception:
+                pass
     await db_session.commit()
 
