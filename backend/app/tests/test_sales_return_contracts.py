@@ -326,7 +326,10 @@ async def test_sr_policy_001(db_session):
 
 async def test_sr_policy_missing_001(db_session):
     """TEST-SR-POLICY-MISSING-001: Missing sales return policy must fail safely instead of using Python defaults."""
-    await db_session.execute(delete(PolicyDefinition).where(PolicyDefinition.code.in_(["POLICY_RETURN_STANDARD", "SALES_RETURN_POLICY"])))
+    await db_session.execute(delete(PolicyDefinition).where(
+        (PolicyDefinition.code.in_(["POLICY_RETURN_STANDARD", "SALES_RETURN_POLICY"])) |
+        (PolicyDefinition.policy_type == "RETURN_POLICY")
+    ))
     await db_session.commit()
 
     with pytest.raises(ValueError, match="SALES_RETURN_POLICY_NOT_CONFIGURED"):
@@ -340,7 +343,10 @@ async def test_sr_policy_missing_001(db_session):
 
 async def test_sr_policy_data_driven_001(db_session):
     """TEST-CONFIG-DATA-DRIVEN-001: same code, different DB policy values produce different behavior."""
-    await db_session.execute(delete(PolicyDefinition).where(PolicyDefinition.code.in_(["POLICY_RETURN_STANDARD", "SALES_RETURN_POLICY"])))
+    await db_session.execute(delete(PolicyDefinition).where(
+        (PolicyDefinition.code.in_(["POLICY_RETURN_STANDARD", "SALES_RETURN_POLICY"])) |
+        (PolicyDefinition.policy_type == "RETURN_POLICY")
+    ))
     await db_session.commit()
 
     db_session.add(

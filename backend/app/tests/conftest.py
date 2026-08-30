@@ -259,6 +259,9 @@ async def clear_db(db_session: AsyncSession):
         "tenants",
         "companies"
     ]
+    await db_session.rollback()
+    await db_session.execute(text("TRUNCATE TABLE users RESTART IDENTITY CASCADE;"))
+    await db_session.commit()
     for tbl in delete_order:
         try:
             await db_session.execute(text(f"TRUNCATE TABLE {tbl} RESTART IDENTITY CASCADE;"))

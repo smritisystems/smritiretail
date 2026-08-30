@@ -101,13 +101,10 @@ class CrmService:
             )
             mobile_cust = existing_mobile.scalars().first()
             if mobile_cust:
-                for k, v in cust_dict.items():
-                    if v is not None and hasattr(mobile_cust, k):
-                        setattr(mobile_cust, k, v)
-                mobile_cust.modified_at = datetime.utcnow()
-                await self.db.commit()
-                await self.db.refresh(mobile_cust)
-                return mobile_cust
+                raise HTTPException(
+                    status_code=400,
+                    detail="Customer with this mobile number already exists",
+                )
 
         # 3. Validate customer group exists if specified, or auto-assign/create default group
         if customer_in.customer_group_id:

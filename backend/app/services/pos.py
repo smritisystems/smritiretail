@@ -1060,6 +1060,8 @@ class POSService:
 
         Returns {"invoice": SalesInvoice, "shift": Shift, "cached": bool}
         """
+        resolver = InventoryWarehouseResolver(self.db)
+
         # 1. Validate shift with pessimistic row locking to prevent race with shift close
         shift = await self.get_shift(req.shift_id, for_update=True)
         if shift.status != "OPEN":
@@ -1125,6 +1127,7 @@ class POSService:
                         detail=f"Insufficient stock for '{item.name}'. "
                                f"Available: {product.stock}, requested: {int(qty)}.",
                     )
+                product.stock = int(product.stock) - int(qty)
                 product.modified_at = datetime.now(timezone.utc)
                 self.db.add(product)
 
