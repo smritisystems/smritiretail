@@ -83,6 +83,12 @@ No feature, sub-system, or architecture item may transition to `Verified` or `Do
 - **Named Architectural Mechanisms:** The exact technical primitives enforcing the guarantee (e.g. `SELECT FOR UPDATE row lock`, `asyncio.gather 5-terminal runner`, `two-phase spool ACK`, `RSA-2048 SHA512 signing`).
 - **Verifiable Evidence Citation:** Concrete commit hash, test suite file path, or terminal verification log.
 
+## 12. Strict Prohibition of EXISTS-Only Table Claims & Mandatory Column/AST Parity (MANDATORY)
+No coding assistant agent may claim a database table is present, valid, or matching based solely on table existence (`SELECT 1 FROM information_schema.tables WHERE table_name = ...` or `EXISTS`).
+- Every schema verification MUST perform a column-by-column, datatype, nullability, default value, primary key, unique constraint, foreign key, and migration lineage diff against the canonical migration/ORM contract.
+- If column count, column names, or constraint definitions deviate from the canonical specification, the table status MUST be labeled `CRITICAL_DRIFT` or `DRIFTED`, never `Done` or `Verified`.
+- Any table found in the database without a verifiable tracked Alembic migration lineage MUST be explicitly flagged as `MANUAL_OR_ADHOC_ORIGIN` and blocked from automatic stamping.
+
 ---
 
 ### Self-check before sending any report
@@ -97,6 +103,7 @@ Before presenting a verification report, the agent should confirm:
 - [ ] Every "Ran command" / "Edited" / "Used tool" line is followed by its actual output (Rule 8)
 - [ ] Evidence, Interpretation, and Recommendation appear as distinct labeled sections, not blended into one narrative (Rule 9)
 - [ ] Status updates meet the 3-part quantitative metric, named mechanism, and commit citation rule (Rule 11)
+- [ ] Table validations perform full column, datatype, and constraint diffs, not bare EXISTS checks (Rule 12)
 
 ---
 

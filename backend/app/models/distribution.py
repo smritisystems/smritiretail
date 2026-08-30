@@ -210,3 +210,21 @@ class DistributionSettlement(BaseEntity):
     
     status = Column(String(30), default="DRAFT")  # DRAFT, RECONCILED, APPROVED, POSTED
     settled_at = Column(DateTime, default=datetime.utcnow)
+
+
+class EWayBill(BaseEntity):
+    """
+    E-Way Bill tracking entity for GST compliance and goods transit governance.
+    """
+    __tablename__ = "eway_bills"
+
+    eway_bill_no = Column(String(50), nullable=False, unique=True, index=True)
+    document_type = Column(String(50), nullable=False)  # INVOICE, DELIVERY_CHALLAN, CREDIT_NOTE
+    document_id = Column(String(50), nullable=False, index=True)
+    gstin_from = Column(String(15), nullable=False)
+    gstin_to = Column(String(15), nullable=False)
+    transporter_id = Column(String(50), nullable=True)
+    vehicle_number = Column(String(30), nullable=True)
+    document_value = Column(Numeric(15, 2), nullable=False, default=0.00)
+    status = Column(String(30), nullable=False, default="GENERATED")  # GENERATED, CANCELLED, REJECTED, EXPIRED
+

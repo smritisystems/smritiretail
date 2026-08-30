@@ -214,8 +214,9 @@ def upgrade() -> None:
     op.create_table(
         'eway_bills',
         sa.Column('id', sa.String(50), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.Column('uuid', sa.String(36), nullable=False),
+        sa.Column('company_id', sa.String(50), nullable=True),
+        sa.Column('branch_id', sa.String(50), nullable=True),
         sa.Column('eway_bill_no', sa.String(50), nullable=False),
         sa.Column('document_type', sa.String(50), nullable=False),
         sa.Column('document_id', sa.String(50), nullable=False),
@@ -225,10 +226,25 @@ def upgrade() -> None:
         sa.Column('vehicle_number', sa.String(30), nullable=True),
         sa.Column('document_value', sa.Numeric(15, 2), nullable=False, server_default='0.00'),
         sa.Column('status', sa.String(30), nullable=False, server_default='GENERATED'),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('modified_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('created_by', sa.String(100), nullable=True),
+        sa.Column('updated_by', sa.String(100), nullable=True),
+        sa.Column('is_active', sa.Boolean(), server_default='true', nullable=True),
+        sa.Column('is_deleted', sa.Boolean(), server_default='false', nullable=True),
+        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('deleted_by', sa.String(100), nullable=True),
+        sa.Column('version', sa.Integer(), server_default='1', nullable=True),
         sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('uuid', name='uq_eway_bills_uuid'),
         sa.UniqueConstraint('eway_bill_no', name='uq_eway_bill_no'),
+        sa.ForeignKeyConstraint(['company_id'], ['companies.id'], ondelete='RESTRICT'),
+        sa.ForeignKeyConstraint(['branch_id'], ['branches.id'], ondelete='RESTRICT'),
         schema='public'
     )
+    op.create_index(op.f('ix_eway_bills_eway_bill_no'), 'eway_bills', ['eway_bill_no'], unique=False, schema='public')
+    op.create_index(op.f('ix_eway_bills_document_id'), 'eway_bills', ['document_id'], unique=False, schema='public')
+
 
 
 def downgrade() -> None:
