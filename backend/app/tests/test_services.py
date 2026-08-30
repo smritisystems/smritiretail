@@ -17,6 +17,7 @@ import pytest
 from fastapi import HTTPException
 from app.models.crm import Customer
 from app.models.inventory import Product
+from app.models.inventory import Warehouse
 from app.models.tenant import Company, Branch
 from app.schemas.crm import CustomerCreate, CustomerGroupCreate
 from app.schemas.inventory import ProductCreate
@@ -33,6 +34,11 @@ async def test_crm_and_inventory_services(db_session):
     company = Company(id=f"comp-{suffix}", name="Test Company", is_active=True)
     branch = Branch(id=f"br-{suffix}", company_id=company.id, name="Test Branch", code=f"BR-{suffix}", is_active=True)
     db_session.add_all([company, branch])
+    await db_session.flush()
+    db_session.add(Warehouse(
+        id=f"wh-{suffix}", company_id=company.id, branch_id=branch.id,
+        code=f"WH-{suffix}", name="Test Warehouse", is_active=True,
+    ))
     await db_session.commit()
 
     tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)
@@ -112,6 +118,11 @@ async def test_sales_invoice_service(db_session):
     company = Company(id=f"comp-{suffix}", name="Sales Company", is_active=True)
     branch = Branch(id=f"br-{suffix}", company_id=company.id, name="Sales Branch", code=f"BR-{suffix}", is_active=True)
     db_session.add_all([company, branch])
+    await db_session.flush()
+    db_session.add(Warehouse(
+        id=f"wh-{suffix}", company_id=company.id, branch_id=branch.id,
+        code=f"WH-{suffix}", name="Sales Warehouse", is_active=True,
+    ))
     await db_session.commit()
 
     tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)

@@ -88,13 +88,16 @@ class InventoryWarehouseResolver:
             if wh:
                 return wh
 
-        stmt = select(Warehouse).where(
-            Warehouse.is_deleted == False,
-            Warehouse.is_active == True,
-        ).order_by(Warehouse.created_at.asc())
-        res = await self.db.execute(stmt)
-        wh = res.scalars().first()
-        if wh:
-            return wh
+        # Final fallback remains tenant-scoped to prevent cross-company leakage.
+        if company_id:
+            stmt = select(Warehouse).where(
+                Warehouse.company_id == company_id,
+                Warehouse.is_deleted == False,
+                Warehouse.is_active == True,
+            ).order_by(Warehouse.created_at.asc())
+            res = await self.db.execute(stmt)
+            wh = res.scalars().first()
+            if wh:
+                return wh
 
         raise ValueError("INVENTORY_WAREHOUSE_NOT_CONFIGURED")

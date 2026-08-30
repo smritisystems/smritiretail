@@ -81,13 +81,11 @@ async def _make_tenant(db_session, suffix: str):
     await db_session.flush()
     db_session.add(branch)
     await db_session.flush()
-    wh_check = await db_session.get(Warehouse, "wh-central-001")
-    if not wh_check:
-        warehouse = Warehouse(
-            id="wh-central-001", company_id=company.id, branch_id=branch.id,
-            code=f"WH-PUR-{suffix}", name="Central Warehouse", is_active=True,
-        )
-        db_session.add(warehouse)
+    warehouse = Warehouse(
+        id=f"wh-central-{suffix}", company_id=company.id, branch_id=branch.id,
+        code=f"WH-PUR-{suffix}", name="Central Warehouse", is_active=True,
+    )
+    db_session.add(warehouse)
     await db_session.commit()
     return company, branch
 
