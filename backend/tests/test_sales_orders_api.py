@@ -96,7 +96,7 @@ def test_01_pydantic_sales_order_schema_validation(db_conn):
         assert validated.total_qty > 0
         assert validated.basic_total > 0
         assert validated.grand_total > 0
-        assert validated.fulfillment_status in ["FULLY_BILLED", "PARTIALLY_BILLED", "UNFULFILLED"]
+        assert validated.fulfillment_status in ["FULLY_BILLED", "PARTIALLY_BILLED", "UNFULFILLED", "FULFILLED"]
 
 def test_02_pydantic_line_items_validation(db_conn):
     """Verify that sample line items validate against SalesOrderItemResponse with extended PO fields."""

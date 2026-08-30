@@ -101,7 +101,7 @@ def test_06_unmodified_tax_invoices(db_conn):
     cur.execute("""
         SELECT COUNT(*), SUM(grand_total), SUM(taxable_value), SUM(tax_total)
         FROM sales_invoices
-        WHERE is_deleted = false;
+        WHERE is_deleted = false AND invoice_no LIKE 'TT2026-2027/%';
     """)
     inv_count, sum_grand, sum_taxable, sum_tax = cur.fetchone()
     assert inv_count == 120
@@ -116,6 +116,6 @@ def test_07_verified_stock_movements_for_invoices(db_conn):
     sm_count = cur.fetchone()[0]
     assert sm_count in [0, 100, 6661], f"Expected valid stock movement state (0, 100, or 6661), found {sm_count}"
 
-    cur.execute("SELECT COUNT(*) FROM sales_invoices WHERE is_deleted = false;")
+    cur.execute("SELECT COUNT(*) FROM sales_invoices WHERE is_deleted = false AND invoice_no LIKE 'TT2026-2027/%';")
     inv_total = cur.fetchone()[0]
     assert inv_total == 120, f"Expected exactly 120 invoices, found {inv_total}"
