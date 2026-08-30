@@ -1,0 +1,121 @@
+PRODUCTION EXECUTION CHECKLIST: v1390 & v1391 Migrations
+========================================================================
+Date: 2026-08-30
+Status: READY FOR EXECUTION
+
+PRE-EXECUTION (Do Now)
+================================
+□ Create full backup of smritisys
+  Command: pg_dump smritisys > backup_smritisys_pre_v1390_20260830.sql
+  
+□ Create full backup of smriti001
+  Command: pg_dump smriti001 > backup_smriti001_pre_v1390_20260830.sql
+
+□ Verify backups are valid
+  Command: pg_restore -l backup_*.sql | head -20
+
+□ Document current schema version
+  Command: SELECT * FROM alembic_version;
+  Expected: v1389_park
+
+EXECUTION WINDOW (During Maintenance Window)
+================================
+□ Disable application traffic
+  - Stop web services
+  - Stop background workers
+  - Stop scheduled tasks
+
+□ Connect to database as postgres
+
+□ Run Alembic upgrade
+  Command: alembic upgrade head
+  Expected: INFO [alembic.runtime.migration] Running upgrade v1389_park -> v1390_control_plane_missing_tables
+             INFO [alembic.runtime.migration] Running upgrade v1390_control_plane_missing_tables -> v1391_missing_platform_tables
+
+□ Verify tables were created
+  Commands: 
+    SELECT to_regclass('public.company_database_registries');
+    SELECT to_regclass('public.smriti_permissions');
+    SELECT to_regclass('public.platform_capabilities');
+  Expected: All return non-NULL (oid values)
+
+□ Verify Alembic version
+  Command: SELECT * FROM alembic_version;
+  Expected: v1391_missing_platform_tables
+
+POST-EXECUTION (Immediate After)
+================================
+□ Enable application traffic
+  - Start web services
+  - Start background workers
+  - Verify no connection errors in logs
+
+□ Run regression tests
+  pytest backend/app/tests/test_permission_schema.py -v
+  pytest backend/app/tests/test_inventory.py::test_soft_delete_product_success -v
+  pytest backend/app/tests/t_sales_contract.py -v
+  
+  Expected: All PASS (8 previously failing tests now pass)
+
+□ Check application logs for errors
+  - No "relation does not exist" errors
+  - No foreign key violation errors
+  - No permission system errors
+
+□ Seed platform capabilities (if using)
+  python backend/app/db/ctrl_seeder.py
+  python backend/app/db/seed_cap_master.py
+
+VALIDATION (30 Minutes After)
+================================
+□ Query newly-created tables
+  - Test smriti_permissions queries
+  - Test company_database_registries lookups
+  - Verify indexes are used (EXPLAIN plans)
+
+□ Monitor application health metrics
+  - Response times normal
+  - Error rates normal
+  - No database connection pool issues
+
+□ Spot-check key workflows
+  - Company selection works
+  - Permission checks work
+  - Module state queries work
+
+ROLLBACK (If Critical Issues - Rare)
+================================
+Command (if needed):
+  alembic downgrade v1389_park
+
+Restore from backup:
+  pg_restore backup_smritisys_pre_v1390_20260830.sql
+
+Timeline: Should complete in <5 minutes
+
+SUCCESS CRITERIA
+================================
+✅ All tables created successfully
+✅ All indexes exist and are valid
+✅ All regression tests pass
+✅ No application errors in logs
+✅ Normal performance metrics
+✅ All workflows function normally
+
+RESOURCES
+================================
+Migration files:
+  - backend/alembic/versions/v1390_control_plane_missing_tables.py
+  - backend/alembic/versions/v1391_missing_platform_tables.py
+
+Backup location:
+  - Production backup server: [SPECIFY]
+
+Contacts for escalation:
+  - DBA Lead: [SPECIFY]
+  - DevOps Lead: [SPECIFY]
+  - Architect on-call: [SPECIFY]
+
+---
+This checklist should be executed in order during a scheduled maintenance window.
+Do not skip validation steps.

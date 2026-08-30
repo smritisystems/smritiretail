@@ -90,6 +90,7 @@ async def _make_tenant(db_session, suffix: str):
     await db_session.flush()
     db_session.add(branch)
     await db_session.flush()
+    # Make warehouse ID unique using the full unique tenant_id
     warehouse = Warehouse(
         id=f"wh-central-{tenant_id}", company_id=company.id, branch_id=branch.id,
         code=f"WH-SAL-{tenant_id}", name="Central Warehouse", is_active=True,
@@ -222,32 +223,33 @@ def _set_tenant(company_id: str, branch_id: str):
 
 
 async def test_inventory_warehouse_config_switch_001(db_session):
-    company, branch = await _make_tenant(db_session, "whcfg")
+    tenant_id = f"whcfg-{uuid.uuid4().hex[:8]}"
+    company, branch = await _make_tenant(db_session, tenant_id)
     wh_a = Warehouse(
-        id="wh-a-cfg",
+        id=f"wh-a-{tenant_id}",
         company_id=company.id,
         branch_id=branch.id,
-        code="WH-A",
+        code=f"WH-A-{tenant_id}",
         name="Warehouse A",
         is_active=True,
         is_deleted=False,
     )
     wh_b = Warehouse(
-        id="wh-b-cfg",
+        id=f"wh-b-{tenant_id}",
         company_id=company.id,
         branch_id=branch.id,
-        code="WH-B",
+        code=f"WH-B-{tenant_id}",
         name="Warehouse B",
         is_active=True,
         is_deleted=False,
     )
     reg = CashRegister(
-        id="reg-wh-cfg",
+        id=f"reg-wh-{tenant_id}",
         company_id=company.id,
         branch_id=branch.id,
         name="Register 1",
-        code="REG-1",
-        warehouse="WH-A",
+        code=f"REG-1-{tenant_id}",
+        warehouse=wh_a.code,
         is_active=True,
         is_deleted=False,
         is_locked=False,
@@ -259,7 +261,7 @@ async def test_inventory_warehouse_config_switch_001(db_session):
     resolved_a = await resolver.resolve(company_id=company.id, branch_id=branch.id, register_id=reg.id)
     assert resolved_a.id == wh_a.id
 
-    reg.warehouse = "WH-B"
+    reg.warehouse = wh_b.code
     await db_session.commit()
     resolved_b = await resolver.resolve(company_id=company.id, branch_id=branch.id, register_id=reg.id)
     assert resolved_b.id == wh_b.id
