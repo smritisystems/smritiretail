@@ -21,6 +21,35 @@
 let _refreshingToken = false;
 let _refreshWaiters: Array<(newToken: string | null) => void> = [];
 
+const AUTH_STORAGE_KEYS = [
+  "smriti_jwt_token",
+  "smriti_session_token",
+  "smriti_refresh_token",
+  "smriti_company_id",
+  "smriti_company_code",
+  "smriti_branch_id",
+  "smriti_branch_code",
+  "smriti_company_name",
+  "smriti_branch_name",
+];
+
+export function clearAuthSession(reason?: string): void {
+  if (typeof window !== "undefined") {
+    for (const key of AUTH_STORAGE_KEYS) {
+      localStorage.removeItem(key);
+    }
+    window.dispatchEvent(new CustomEvent("smriti_auth_session_cleared", { detail: { reason } }));
+  } else {
+    for (const key of AUTH_STORAGE_KEYS) {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // no-op in non-browser contexts
+      }
+    }
+  }
+}
+
 async function _attemptSilentRefresh(): Promise<string | null> {
   // If a refresh is already in-flight, queue up and wait for it
   if (_refreshingToken) {
@@ -60,12 +89,7 @@ async function _attemptSilentRefresh(): Promise<string | null> {
   }
 
   // Refresh failed — clear all auth state
-  localStorage.removeItem("smriti_jwt_token");
-  localStorage.removeItem("smriti_session_token");
-  localStorage.removeItem("smriti_refresh_token");
-  localStorage.removeItem("smriti_company_id");
-  localStorage.removeItem("smriti_company_code");
-  localStorage.removeItem("smriti_branch_id");
+  clearAuthSession("refresh_failed");
   _refreshWaiters.forEach(r => r(null));
   _refreshWaiters = [];
   _refreshingToken = false;
@@ -141,6 +165,7 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
       } catch { /* fall through */ }
     }
     // Refresh unavailable or retry failed
+    clearAuthSession("token_expired");
     throw new Error("Token is invalid or has expired. Please log in again.");
   }
   // ────────────────────────────────────────────────────────────────────────────

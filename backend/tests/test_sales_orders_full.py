@@ -84,12 +84,24 @@ async def test_sales_order_full_suite():
         assert var_data["summary"]["total_booked_pairs"] > 0
 
         # Test 4: 1-Click Convert Sales Order to Tax Invoice
-        r_conv = await client.post(f"/api/v1/sales/orders/{order_id}/convert-to-invoice", headers=headers)
-        assert r_conv.status_code == 201, f"Convert failed: {r_conv.text}"
-        inv_data = r_conv.json()
-        assert inv_data["id"].startswith("inv-")
-        assert "TT2026-2027/" in inv_data["invoice_no"]
-        assert len(inv_data.get("items", [])) > 0
-        assert float(inv_data["grand_total"]) > 0
+        inv_id = None
+        try:
+            r_conv = await client.post(f"/api/v1/sales/orders/{order_id}/convert-to-invoice", headers=headers)
+            assert r_conv.status_code == 201, f"Convert failed: {r_conv.text}"
+            inv_data = r_conv.json()
+            inv_id = inv_data.get("id")
+            assert inv_id.startswith("inv-")
+            assert "TT2026-2027/" in inv_data["invoice_no"]
+            assert len(inv_data.get("items", [])) > 0
+            assert float(inv_data["grand_total"]) > 0
+        finally:
+            if inv_id:
+                async with sm() as db:
+                    from sqlalchemy import text
+                    await db.execute(text("DELETE FROM sales_order_invoice_allocations WHERE invoice_id = :iid"), {"iid": inv_id})
+                    await db.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": inv_id})
+                    await db.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": inv_id})
+                    await db.commit()
 
         print("\n[SUCCESS] All Sales Order endpoints verified: Single GET, Preview HTML, Fulfillment Variance, 1-Click Invoice Conversion.")
+

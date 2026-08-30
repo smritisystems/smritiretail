@@ -62,11 +62,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
       const data = await res.json();
       if (res.ok && data.access_token) {
+        // Clear any stale auth context before establishing a fresh session.
+        localStorage.removeItem("smriti_session_token");
+        localStorage.removeItem("smriti_jwt_token");
+        localStorage.removeItem("smriti_refresh_token");
+        localStorage.removeItem("smriti_company_id");
+        localStorage.removeItem("smriti_company_code");
+        localStorage.removeItem("smriti_branch_id");
         localStorage.setItem("smriti_jwt_token", data.access_token);
         if (data.refresh_token) {
           localStorage.setItem("smriti_refresh_token", data.refresh_token);
         }
-        localStorage.removeItem("smriti_session_token"); // clear legacy token
         const user = data.user ?? {};
         const compId = data.company_id ?? user.company_id ?? "COMP-001";
         const brId = data.branch_id ?? user.branch_id ?? "BR-MAIN-001";
