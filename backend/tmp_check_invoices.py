@@ -1,0 +1,12 @@
+import psycopg2
+conn = psycopg2.connect('postgresql://postgres:postgres@localhost:5432/smriti001')
+cur = conn.cursor()
+cur.execute("SELECT COUNT(*) FROM sales_invoices WHERE is_deleted=false;")
+print("invoices:", cur.fetchone()[0])
+cur.execute("SELECT COUNT(*) FROM sales_invoice_items sii JOIN sales_invoices si ON si.id=sii.invoice_id WHERE si.is_deleted=false;")
+print("invoice_lines:", cur.fetchone()[0])
+cur.execute("SELECT COUNT(*) FROM sales_invoices WHERE is_deleted=false AND company_id='COMP-001';")
+print("invoices COMP-001:", cur.fetchone()[0])
+cur.execute("SELECT COUNT(*) FROM sales_invoice_items sii JOIN sales_invoices si ON si.id=sii.invoice_id WHERE si.is_deleted=false AND si.company_id='COMP-001';")
+print("lines COMP-001:", cur.fetchone()[0])
+conn.close()

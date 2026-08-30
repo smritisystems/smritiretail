@@ -198,7 +198,10 @@ async def test_draft_invoice_creates_no_movement():
         sales_svc = SalesService(session, tenant_ctx)
 
         res = await session.execute(
-            select(Product).filter(Product.is_deleted == False).limit(1)
+            select(Product).filter(
+                Product.is_deleted == False,
+                Product.company_id == "COMP-001"
+            ).limit(1)
         )
         prod = res.scalars().first()
         if not prod:
