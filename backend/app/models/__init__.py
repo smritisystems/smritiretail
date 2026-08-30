@@ -177,6 +177,16 @@ from .distribution import (
     DealerAssignment,
     DistributionOrder,
     DistributionOrderItem,
+    EWayBill,
+)
+
+# E-Commerce Channel & Marketplace Integration Models (Section 9)
+from .ecom import (
+    EcomChannel,
+    EcomSkuMapping,
+    EcomOrderImport,
+    EcomStockSyncLog,
+    EcomReconciliation,
 )
 
 # Offline Synchronization Models (Section 10)
