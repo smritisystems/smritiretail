@@ -337,6 +337,14 @@ def seed_control_plane_test_assignments():
         comp_conn = psycopg2.connect(COMPANY_001_DB_URL)
         comp_cur = comp_conn.cursor()
 
+        # Ensure policy columns exist on sales_returns in Company DB
+        comp_cur.execute("""
+            ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_id VARCHAR(100);
+            ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER DEFAULT 1;
+            ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_scope VARCHAR(50) DEFAULT 'GLOBAL';
+            ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_snapshot JSONB;
+        """)
+
         # Seed sample products for integration tests in Company DB
         comp_cur.execute("""
             INSERT INTO products (id, uuid, code, name, barcode, category, brand, company_id, branch_id, stock, reserved_stock, price, is_active, is_deleted, created_at, modified_at)
@@ -361,6 +369,21 @@ def seed_control_plane_test_assignments():
             INSERT INTO customers (id, uuid, code, name, mobile, email, customer_group_id, company_id, branch_id, outstanding, is_active, is_deleted, created_at, modified_at)
             VALUES ('cust-ril-1888', %s, 'CUST-RIL-1888', 'Reliance Retail Ltd', '9876543210', 'ril@test.com', 'cg-default', 'COMP-001', 'MAIN', 0.00, true, false, NOW(), NOW())
             ON CONFLICT (id) DO UPDATE SET company_id = 'COMP-001', branch_id = 'MAIN', customer_group_id = 'cg-default', outstanding = 0.00, is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        # Seed standard sales return policy in Company DB
+        comp_cur.execute("""
+            INSERT INTO policy_definitions (
+                id, uuid, company_id, branch_id, code, version, name, policy_type,
+                parameters, status, is_active, is_deleted, created_at, modified_at
+            )
+            VALUES (
+                'pol_return_std_v1', %s, 'COMP-001', 'MAIN', 'POLICY_RETURN_STANDARD', 1,
+                'Standard Sales Return Policy', 'RETURN_POLICY',
+                '{"scope": "GLOBAL", "return_window_days": 30, "return_types": ["FULL_RETURN", "PARTIAL_RETURN", "EXCHANGE", "DAMAGED_RETURN", "RESTOCKABLE_RETURN", "NON_RESTOCKABLE_RETURN"], "return_reasons": ["DEFECTIVE", "SIZE_FIT", "CUSTOMER_CHANGED_MIND", "WRONG_ITEM", "DAMAGED", "QUALITY_ISSUE"], "refund_modes": ["ORIGINAL_PAYMENT", "CASH", "STORE_CREDIT", "CREDIT_NOTE"], "credit_note_policy": {"required": true, "auto_generate": true}, "inventory_policy": {"restock_destination": "RETURN_INWARD", "auto_increment": true, "allow_non_restockable": false}, "authorization_policy": {"supervisor_threshold": 5000.0, "blind_return": true, "blind_return_requires_auth": true}, "shift_policy": {"allow_cross_shift_return": true}, "is_blind_return_allowed": false}'::jsonb,
+                'ACTIVE', true, false, NOW(), NOW()
+            )
+            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
         comp_conn.commit()

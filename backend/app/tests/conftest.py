@@ -153,7 +153,7 @@ async def db_session(db_engine) -> AsyncSession:
 @pytest.fixture(autouse=True)
 async def auto_override_company_db(db_session):
     from app.main import app
-    from app.api.deps import get_db, get_company_db
+    from app.api.deps import get_db, get_company_db, get_current_user, get_tenant_context
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
@@ -161,6 +161,8 @@ async def auto_override_company_db(db_session):
     yield
     app.dependency_overrides.pop(get_db, None)
     app.dependency_overrides.pop(get_company_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_tenant_context, None)
 
 async def clear_db(db_session: AsyncSession):
     """

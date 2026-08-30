@@ -247,19 +247,30 @@ async def test_04_concurrent_offline_batch_ingestion_throughput():
             latency_ms = (time.perf_counter() - start) * 1000
             return resp, latency_ms
 
-    start_all = time.perf_counter()
-    batch_results = await asyncio.gather(*[submit_batch(t) for t in range(batch_count)])
-    total_time_ms = (time.perf_counter() - start_all) * 1000
+    try:
+        start_all = time.perf_counter()
+        batch_results = await asyncio.gather(*[submit_batch(t) for t in range(batch_count)])
+        total_time_ms = (time.perf_counter() - start_all) * 1000
 
-    total_accepted = sum(r[0].accepted_count for r in batch_results)
-    assert total_accepted == 100
+        total_accepted = sum(r[0].accepted_count for r in batch_results)
+        assert total_accepted == 100
 
-    latencies = [r[1] for r in batch_results]
-    avg_batch_latency_ms = sum(latencies) / len(latencies)
-    avg_per_tx_latency_ms = avg_batch_latency_ms / tx_per_batch
+        latencies = [r[1] for r in batch_results]
+        avg_batch_latency_ms = sum(latencies) / len(latencies)
+        avg_per_tx_latency_ms = avg_batch_latency_ms / tx_per_batch
 
-    # Verify high throughput SLA (< 2000ms per transaction in concurrent async multi-table DB environment)
-    assert avg_per_tx_latency_ms < 2000.0
+        # Verify high throughput SLA (< 2000ms per transaction in concurrent async multi-table DB environment)
+        assert avg_per_tx_latency_ms < 2000.0
+    finally:
+        async with sessionmaker() as cleanup_session:
+            from sqlalchemy import text
+            await cleanup_session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id IN (SELECT id FROM sales_invoices WHERE invoice_no LIKE 'OFF-T%');"))
+            await cleanup_session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id IN (SELECT id FROM sales_invoices WHERE invoice_no LIKE 'OFF-T%') OR product_id = :prod_id;"), {"prod_id": prod_id})
+            await cleanup_session.execute(text("DELETE FROM sales_invoices WHERE invoice_no LIKE 'OFF-T%';"))
+            await cleanup_session.execute(text("DELETE FROM pos_offline_sync_queue WHERE terminal_id LIKE 'POS-%';"))
+            await cleanup_session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :prod_id;"), {"prod_id": prod_id})
+            await cleanup_session.execute(text("DELETE FROM products WHERE id = :prod_id;"), {"prod_id": prod_id})
+            await cleanup_session.commit()
 
 
 @pytest.mark.asyncio

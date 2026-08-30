@@ -262,7 +262,7 @@ async def test_sales_return_creates_return_inward_movement():
         )
         sales_svc = SalesService(session, tenant_ctx)
 
-        # Lookup an existing sales invoice
+        # Lookup an existing sales invoice and its line item
         inv_res = await session.execute(
             select(SalesInvoice).filter(
                 SalesInvoice.is_deleted == False,
@@ -274,15 +274,31 @@ async def test_sales_return_creates_return_inward_movement():
         if not orig_inv:
             pytest.skip("No sales invoice found for return test")
 
+        item_res = await session.execute(
+            select(SalesInvoiceItem).filter(
+                SalesInvoiceItem.invoice_id == orig_inv.id,
+                SalesInvoiceItem.product_id.isnot(None)
+            ).limit(1)
+        )
+        inv_item = item_res.scalars().first()
+        if not inv_item:
+            pytest.skip("No line item found on invoice")
+
         res = await session.execute(
             select(Product).filter(
-                Product.tracking_mode != "No-stock",
+                Product.id == inv_item.product_id,
                 Product.is_deleted == False
-            ).limit(1)
+            )
         )
         prod = res.scalars().first()
         if not prod:
-            pytest.skip("No product found")
+            pytest.skip("Product on invoice not found")
+
+        return_qty = min(Decimal("1.00"), inv_item.quantity)
+        return_price = inv_item.price or Decimal("100.00")
+        return_gst = inv_item.gst_rate or Decimal("18.00")
+        return_tax = (return_price * return_qty * return_gst / Decimal("100.00")).quantize(Decimal("0.01"))
+        return_total = (return_price * return_qty) + return_tax
 
         test_ret_id = f"sr-{uuid.uuid4().hex[:8]}"
         test_ret_no = f"RET-TEST-{uuid.uuid4().hex[:6]}"
@@ -297,11 +313,11 @@ async def test_sales_return_creates_return_inward_movement():
                     product_id=prod.id,
                     code=prod.code,
                     name=prod.name,
-                    quantity=Decimal("3.00"),
-                    price=Decimal("200.00"),
-                    gst_rate=Decimal("18.00"),
-                    tax_amount=Decimal("36.00"),
-                    total_amount=Decimal("636.00"),
+                    quantity=return_qty,
+                    price=return_price,
+                    gst_rate=return_gst,
+                    tax_amount=return_tax,
+                    total_amount=return_total,
                 )
             ]
         )
@@ -322,7 +338,7 @@ async def test_sales_return_creates_return_inward_movement():
 
             assert movement is not None
             assert movement.movement_type == "RETURN_INWARD"
-            assert movement.quantity == Decimal("3.00")
+            assert movement.quantity == return_qty
             assert movement.company_id == "COMP-001"
             assert movement.branch_id == "MAIN"
         finally:
