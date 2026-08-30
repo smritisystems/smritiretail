@@ -16,7 +16,8 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context
+from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context, get_current_user
+from app.db.session import get_db as session_get_db
 from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
@@ -35,6 +36,7 @@ async def override_db_and_tenant(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[session_get_db] = _get_db
     app.dependency_overrides[get_company_db] = _get_db
     try:
         yield
@@ -44,6 +46,7 @@ async def override_db_and_tenant(db_session):
         except Exception:
             pass
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(session_get_db, None)
         app.dependency_overrides.pop(get_company_db, None)
         app.dependency_overrides.pop(get_tenant_context, None)
 
@@ -82,10 +85,14 @@ def _bearer(user: User, comp_id: str, br_id: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _set_tenant(db_session, comp_id, br_id):
+def _set_tenant(db_session, comp_id, br_id, user=None):
     async def _gt():
         return TenantContext(company_id=comp_id, branch_id=br_id)
     app.dependency_overrides[get_tenant_context] = _gt
+    if user:
+        async def _gu():
+            return user
+        app.dependency_overrides[get_current_user] = _gu
 
 
 @pytest.mark.asyncio
@@ -93,7 +100,7 @@ async def test_get_and_save_printer_settings(db_session):
     comp, br = await _make_tenant(db_session, "s1")
     manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Default settings
@@ -121,7 +128,7 @@ async def test_print_labels_recording_history(db_session):
     comp, br = await _make_tenant(db_session, "s2")
     manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     # Seed layout
     lay_id = f"lay-test-print-{uuid.uuid4().hex[:6]}"
@@ -178,7 +185,7 @@ async def test_print_labels_dynamic_placeholder_replacement(db_session):
     comp, br = await _make_tenant(db_session, "s3")
     manager = await _make_user(db_session, "mgr3", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     # Seed layout with custom PRN template containing dynamic placeholders
     layout_data = {
@@ -245,7 +252,7 @@ async def test_print_labels_qz_tray_mode(db_session):
     comp, br = await _make_tenant(db_session, "qz1")
     manager = await _make_user(db_session, "mgr_qz", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     lay_id = f"lay-qz-test-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
@@ -304,7 +311,7 @@ async def test_print_labels_prn_mode(db_session):
     comp, br = await _make_tenant(db_session, "prn1")
     manager = await _make_user(db_session, "mgr_prn", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     lay_id = f"lay-prn-test-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
@@ -351,7 +358,7 @@ async def test_print_job_ack_endpoint_success_and_failure(db_session):
     comp, br = await _make_tenant(db_session, "ack1")
     manager = await _make_user(db_session, "mgr_ack", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     # Seed a Pending PrintHistory entry
     job_id = f"prn-test-ack-{uuid.uuid4().hex[:6]}"
