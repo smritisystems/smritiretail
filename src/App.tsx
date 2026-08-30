@@ -96,6 +96,7 @@ import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { CompanySelectionScreen } from "./components/CompanySelectScree.tsx";
 import { SmritiErrorBoundary } from "./components/ErrorBoundary.tsx";
+import { clearAuthSession } from "./lib/apiFetchV1.ts";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
 import { SecManageDlg } from "./components/security/SecManageDlg.tsx";
@@ -152,8 +153,7 @@ const AppContent: React.FC = () => {
       }
     } catch {
       // apiFetchV1 throws on non-2xx (e.g. 401 expired) — clear token and treat as unauthenticated
-      localStorage.removeItem("smriti_jwt_token");
-      localStorage.removeItem("smriti_session_token");
+      clearAuthSession("auth_check_failed");
       setCurrentUser(null);
       setCompanyContextResolved(false);
     } finally {
@@ -171,10 +171,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("smriti_session_token");
-    localStorage.removeItem("smriti_jwt_token");
-    localStorage.removeItem("smriti_company_id");
-    localStorage.removeItem("smriti_company_code");
+    clearAuthSession("manual_logout");
     setCurrentUser(null);
     setCompanyContextResolved(false);
   };
