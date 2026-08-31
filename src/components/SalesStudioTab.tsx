@@ -33,6 +33,7 @@ import { normalizeSalesOrders, normalizeQuotations } from "../utils/normalizeSal
 import { isValidMobile } from "../utils/validators.ts";
 import { DistTaxInvoice } from "./sales/DistTaxInvoice.tsx";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
+import { SalesOrderFormPremium, SalesOrderFormData } from "./sales/SalesOrderFormPremium";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
 
 interface ParsedRow {
@@ -289,6 +290,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   // Editor states (for creating/editing Quotations)
   const [isCreatingQuotation, setIsCreatingQuotation] = useState<boolean>(false);
+  const [isCreatingSalesOrder, setIsCreatingSalesOrder] = useState<boolean>(false);
   const [editorCustomerName, setEditorCustomerName] = useState<string>("");
   const [editorItems, setEditorItems] = useState<any[]>([]); // items in current draft
   const [editorStatus, setEditorStatus] = useState<"Draft" | "Submitted">("Draft");
@@ -858,6 +860,53 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   };
 
+  const handleCreateSalesOrder = async (formData: SalesOrderFormData) => {
+    if (isReadOnly) {
+      onNotification("Access Denied", "Operating under a Read-Only Report User role. Write operations are prohibited.", "error");
+      return;
+    }
+
+    if (!formData.customerCode && !formData.customerName) {
+      onNotification("Validation Error", "Please select a customer before saving the sales order.", "error");
+      return;
+    }
+
+    if (!formData.items || formData.items.length === 0) {
+      onNotification("Validation Error", "Please add at least one item line.", "error");
+      return;
+    }
+
+    try {
+      await apiFetchV1("/sales/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          doc_prefix: formData.docPrefix || "SO",
+          doc_number: formData.docNumber || undefined,
+          doc_date: formData.docDate || new Date().toISOString().slice(0, 10),
+          doc_time: formData.docTime || new Date().toTimeString().slice(0, 5),
+          customer_id: formData.customerId || formData.customerCode || "",
+          customer_code: formData.customerCode || formData.customerId || "",
+          customer_name: formData.customerName || "Walk-in Customer",
+          sales_staff: formData.salesStaff || "",
+          items: (formData.items || []).map((item) => ({
+            stock_no: item.stockNo || "",
+            description: item.description || "",
+            rate: Number(item.rate || 0),
+            quantity: Number(item.quantity || 0),
+            disc_percent: Number(item.discPercent || 0),
+            disc_amount: Number(item.discAmount || 0),
+            sales_staff: item.salesStaff || formData.salesStaff || "",
+          })),
+        })
+      });
+
+      onNotification("Success", "Sales order generated successfully and written to ledger.", "success");
+      setIsCreatingSalesOrder(false);
+      fetchSalesOrders();
+    } catch (e: any) {
+      onNotification("Network Error", e.message || "Connection failed while creating Sales Order.", "error");
+    }
+  };
 
   const handleWorkflowAction = async (docType: string, id: string, action: string) => {
     try {
@@ -1239,6 +1288,22 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <span>Generate Quotation</span>
             </button>
           )}
+          {subView === "orders" && (
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}${window.location.pathname}?standalone_sales_order=1`;
+                const popup = window.open(url, "_blank", "popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=1440,height=980,left=80,top=40");
+                if (popup) {
+                  popup.focus();
+                }
+              }}
+              disabled={isReadOnly}
+              className={`px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center space-x-2 shadow-lg hover:shadow-emerald-900/30 transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              <Plus size={14} />
+              <span>Generate Sales Order</span>
+            </button>
+          )}
           {subView === "invoices" && (
             <button
               onClick={() => {
@@ -1312,8 +1377,27 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
         {/* Left 2/3: Lists & Forms */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Create New Quotation Panel */}
-          {isCreatingQuotation ? (
+          {/* Create New Sales Order Panel */}
+          {isCreatingSalesOrder ? (
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-200">
+              <div className="bg-theme-surface-3 border-b border-theme-divider px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-display font-bold text-sm text-theme-body">Create Sales Order</h3>
+                  <p className="text-[11px] text-theme-muted">Header, detail, and summary sections in one screen</p>
+                </div>
+                <button
+                  onClick={() => setIsCreatingSalesOrder(false)}
+                  className="p-1 rounded bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="p-2">
+                <SalesOrderFormPremium onSubmit={handleCreateSalesOrder} onCancel={() => setIsCreatingSalesOrder(false)} />
+              </div>
+            </div>
+          ) : isCreatingQuotation ? (
             <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-200">
               <div className="bg-theme-surface-3 border-b border-theme-divider px-6 py-4 flex items-center justify-between">
                 <div>
@@ -2733,7 +2817,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 )
               ) : subView === "orders" ? (
                 /* Sales Orders Book Registry */
-                salesOrders.length === 0 ? (
+                isCreatingSalesOrder ? null : salesOrders.length === 0 ? (
                   <div className="p-16 text-center text-theme-muted text-xs font-mono">
                     No sales orders match current filters or none exist in SMRITI.
                   </div>

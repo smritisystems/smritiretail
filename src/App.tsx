@@ -72,6 +72,7 @@ import { clearAuthSession } from "./lib/apiFetchV1.ts";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
 import { SecManageDlg } from "./components/security/SecManageDlg.tsx";
+import { SalesOrderFormPremium } from "./components/sales/SalesOrderFormPremium.tsx";
 import { X } from "lucide-react";
 
 // Lazy-loaded components (heavy feature modules)
@@ -111,6 +112,147 @@ const TabLoadingFallback = () => (
     <p className="mt-4 text-sm font-mono text-theme-muted">Loading module...</p>
   </div>
 );
+
+const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string; label: string; icon: string; }>; renderTabSafe: (id: string) => React.ReactNode; }> = ({ registeredWorkspaces, renderTabSafe }) => {
+  const standaloneTab = new URLSearchParams(window.location.search).get("standalone_tab");
+  const standaloneSalesOrder = new URLSearchParams(window.location.search).get("standalone_sales_order") === "1";
+
+  if (standaloneSalesOrder) {
+    return (
+      <div className="fixed inset-0 z-[10000] flex flex-col overflow-hidden bg-[#eceff3] text-slate-800 font-sans select-none border border-slate-300 shadow-2xl">
+        {/* Optimized Header - 2 lines, compact spacing */}
+        <div className="px-1.5 bg-[#dfe5ee] border-b border-slate-300 flex flex-col shrink-0 shadow-inner">
+          {/* Line 1: Action buttons + Title + Window controls */}
+          <div className="h-[24px] flex items-center justify-between gap-1 overflow-hidden">
+            <div className="flex items-center gap-0.5 shrink-0 min-w-0">
+              <button type="button" className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap">View</button>
+              <button type="button" className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap">Edit</button>
+              <button type="button" className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap">Print</button>
+              <button type="button" className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap">Exit</button>
+            </div>
+            <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-slate-700 text-center whitespace-nowrap flex-shrink-0 px-1">SALES ORDER</span>
+            <div className="flex items-center gap-0.5 shrink-0 min-w-0">
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams(window.location.search);
+                  const hasFullscreen = params.get("fullscreen") === "1";
+                  if (hasFullscreen) {
+                    params.delete("fullscreen");
+                  } else {
+                    params.set("fullscreen", "1");
+                  }
+                  const nextUrl = `${window.location.pathname}?${params.toString()}`;
+                  window.location.href = nextUrl;
+                }}
+                className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap"
+                title="Toggle Full Screen"
+              >
+                ⛶
+              </button>
+              <button
+                onClick={() => window.close()}
+                className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-rose-100 hover:text-rose-600 active:bg-rose-200 transition-colors whitespace-nowrap"
+                title="Close Window"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          {/* Line 2: Document info (minimal, appears on tab/desktop) */}
+          <div className="h-[20px] px-1 flex items-center gap-2 bg-slate-100/50 border-t border-slate-200 text-[9px] text-slate-600 leading-none overflow-hidden">
+            <span className="font-mono whitespace-nowrap">Doc No: SO-000001</span>
+            <span className="font-mono whitespace-nowrap">|</span>
+            <span className="font-mono whitespace-nowrap">Date: --/--/----</span>
+            <span className="flex-1 min-w-0"></span>
+            <span className="text-slate-500 whitespace-nowrap">Ready for entry</span>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-slate-50">
+          <SalesOrderFormPremium
+            compact
+            onSubmit={async () => {}}
+            onCancel={() => window.close()}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (!standaloneTab) return null;
+
+  const tabMeta = registeredWorkspaces.find((w) => w.id === standaloneTab);
+  const title = tabMeta ? tabMeta.label : standaloneTab;
+  const icon = tabMeta ? tabMeta.icon : "description";
+  const isStandaloneFullscreen = new URLSearchParams(window.location.search).get("fullscreen") === "1";
+
+  useEffect(() => {
+    if (!isStandaloneFullscreen) return;
+    const request = () => {
+      try {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        }
+      } catch {
+        // Ignore if fullscreen request is blocked.
+      }
+    };
+    const timer = window.setTimeout(request, 200);
+    return () => window.clearTimeout(timer);
+  }, [isStandaloneFullscreen]);
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex flex-col overflow-hidden bg-theme-base text-theme-body font-sans select-none">
+      <div className="h-10 px-4 bg-theme-surface-1 border-b border-theme-divider flex items-center justify-between shrink-0 shadow-xs">
+        <div className="flex items-center space-x-2.5 min-w-0">
+          <span className="material-symbols-outlined text-indigo-500 text-lg shrink-0">{icon}</span>
+          <span className="text-xs font-bold text-theme-text-primary tracking-wide truncate">{title}</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-mono border border-indigo-500/20 shrink-0">
+            Isolated Window
+          </span>
+        </div>
+        <div className="flex items-center space-x-2 shrink-0">
+          <button
+            onClick={() => {
+              const params = new URLSearchParams(window.location.search);
+              const hasFullscreen = params.get("fullscreen") === "1";
+              if (hasFullscreen) {
+                params.delete("fullscreen");
+              } else {
+                params.set("fullscreen", "1");
+              }
+              const nextUrl = `${window.location.pathname}?${params.toString()}`;
+              window.location.href = nextUrl;
+            }}
+            className="px-2.5 py-1 rounded text-[11px] font-bold bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-divider transition-all cursor-pointer"
+            title={isStandaloneFullscreen ? "Exit Fullscreen" : "Open in Fullscreen"}
+          >
+            {isStandaloneFullscreen ? "Exit Fullscreen" : "Full Screen"}
+          </button>
+          <button
+            onClick={() => {
+              window.location.href = window.location.origin + window.location.pathname;
+            }}
+            className="px-2.5 py-1 rounded text-[11px] font-bold bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-divider transition-all cursor-pointer"
+            title="Return to Main Application Workspace Shell"
+          >
+            Dock Back
+          </button>
+          <button
+            onClick={() => window.close()}
+            className="p-1.5 rounded hover:bg-rose-500/10 text-theme-muted hover:text-rose-400 transition-colors cursor-pointer"
+            title="Close Standalone Window"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto p-2 relative">
+        {renderTabSafe(standaloneTab)}
+      </div>
+    </div>
+  );
+};
 
 interface AppNotification {
   id: string;
@@ -839,53 +981,7 @@ const AppContent: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      {/* Standalone External Popout Window View (No Shell Header, No Dock Bar) */}
-      {(() => {
-        const standaloneTab = new URLSearchParams(window.location.search).get("standalone_tab");
-        if (!standaloneTab) return null;
-
-        const tabMeta = registeredWorkspaces.find((w) => w.id === standaloneTab);
-        const title = tabMeta ? tabMeta.label : standaloneTab;
-        const icon = tabMeta ? tabMeta.icon : "description";
-
-        return (
-          <div className="fixed inset-0 z-[10000] flex flex-col overflow-hidden bg-theme-base text-theme-body font-sans select-none">
-            {/* Minimal Standalone Titlebar */}
-            <div className="h-10 px-4 bg-theme-surface-1 border-b border-theme-divider flex items-center justify-between shrink-0 shadow-xs">
-              <div className="flex items-center space-x-2.5 min-w-0">
-                <span className="material-symbols-outlined text-indigo-500 text-lg shrink-0">{icon}</span>
-                <span className="text-xs font-bold text-theme-text-primary tracking-wide truncate">{title}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-mono border border-indigo-500/20 shrink-0">
-                  Standalone Window
-                </span>
-              </div>
-              <div className="flex items-center space-x-2 shrink-0">
-                <button
-                  onClick={() => {
-                    window.location.href = window.location.origin + window.location.pathname;
-                  }}
-                  className="px-2.5 py-1 rounded text-[11px] font-bold bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-divider transition-all cursor-pointer"
-                  title="Return to Main Application Workspace Shell"
-                >
-                  Dock Back
-                </button>
-                <button
-                  onClick={() => window.close()}
-                  className="p-1.5 rounded hover:bg-rose-500/10 text-theme-muted hover:text-rose-400 transition-colors cursor-pointer"
-                  title="Close Standalone Window"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-
-            {/* Full-screen Standalone Module Content without Header or Browser Bar */}
-            <div className="flex-1 overflow-auto p-2 relative">
-              {renderTabSafe(standaloneTab)}
-            </div>
-          </div>
-        );
-      })()}
+      <StandaloneWindowView registeredWorkspaces={registeredWorkspaces} renderTabSafe={renderTabSafe} />
 
       {/* Authoritative Single Application Workspace Canvas */}
       <div className="flex-1 flex flex-col h-full w-full min-w-0 max-w-full overflow-hidden relative">
