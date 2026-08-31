@@ -219,9 +219,9 @@ Contributors should preserve:
 
 | Layer | Allowed | Forbidden |
 |---|---|---|
-| Business service / studio / API | `from smriti_retail_os import smriti` | `import frappe` for ORM calls |
-| `core/platform/` only | `frappe.get_doc(...)`, `frappe.db.*`, etc. | — (this is the only permitted location) |
-| Repository layer | Delegates to `smriti.core.platform` | Direct `frappe.*` for new code |
+| Business service / studio / API | `from smriti_retail_os import smriti` | Direct DB/ORM calls bypassing service layer |
+| `core/platform/` only | `SessionLocal()`, repository calls | Raw SQL outside repository |
+| Repository layer | Delegates to `smriti.core.platform` | Direct session creation in business logic |
 
 **Correct pattern in a business service:**
 ```python
@@ -235,8 +235,8 @@ smriti.errors.raise_validation("Supplier Required", "Please select a supplier.")
 
 **Forbidden in a business service:**
 ```python
-import frappe
-doc = frappe.get_doc("Customer", name)   # VIOLATION — Guard 6 will flag this
+# VIOLATION — raw DB access outside repository layer:
+db.execute("SELECT * FROM customer")   # Guard will flag this
 ```
 
 ### Adding a new SMRITI model
@@ -259,10 +259,11 @@ smriti.api.call("smriti_retail_os.my_api.method", { arg })
 
 smriti.navigation.go(smriti.navigation.routes.customers);
 
-// Forbidden
-frappe.call({ method: "...", ... });   // VIOLATION
-frappe.show_alert(...);               // VIOLATION
-frappe.set_route(...);               // VIOLATION
+```javascript
+// Forbidden — bypass apiFetchV1:
+fetch("/api/v1/...");                    // VIOLATION
+new XMLHttpRequest();                   // VIOLATION
+axios.get("/api/v1/...");               // VIOLATION
 ```
 
 Reference: `ARCHITECTURE.md §15`, `docs/implementation/foundation/SMRITI_Core_Framework_v1.0.md`

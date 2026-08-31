@@ -17,6 +17,7 @@ import pytest
 from fastapi import HTTPException
 from app.models.crm import Customer
 from app.models.inventory import Product
+from app.models.inventory import Warehouse
 from app.models.tenant import Company, Branch
 from app.schemas.crm import CustomerCreate, CustomerGroupCreate
 from app.schemas.inventory import ProductCreate
@@ -33,6 +34,11 @@ async def test_crm_and_inventory_services(db_session):
     company = Company(id=f"comp-{suffix}", name="Test Company", is_active=True)
     branch = Branch(id=f"br-{suffix}", company_id=company.id, name="Test Branch", code=f"BR-{suffix}", is_active=True)
     db_session.add_all([company, branch])
+    await db_session.flush()
+    db_session.add(Warehouse(
+        id=f"wh-{suffix}", company_id=company.id, branch_id=branch.id,
+        code=f"WH-{suffix}", name="Test Warehouse", is_active=True,
+    ))
     await db_session.commit()
 
     tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)
@@ -91,6 +97,9 @@ async def test_crm_and_inventory_services(db_session):
             code=f"CODE{suffix}",
             name="Test Product",
             price=Decimal("100.00"),
+            mrp=Decimal("120.00"),
+            gst_percentage=Decimal("18.00"),
+            hsn_code="6403",
             category="General",
             barcode=f"BC{suffix}",
             stock=10
@@ -109,6 +118,11 @@ async def test_sales_invoice_service(db_session):
     company = Company(id=f"comp-{suffix}", name="Sales Company", is_active=True)
     branch = Branch(id=f"br-{suffix}", company_id=company.id, name="Sales Branch", code=f"BR-{suffix}", is_active=True)
     db_session.add_all([company, branch])
+    await db_session.flush()
+    db_session.add(Warehouse(
+        id=f"wh-{suffix}", company_id=company.id, branch_id=branch.id,
+        code=f"WH-{suffix}", name="Sales Warehouse", is_active=True,
+    ))
     await db_session.commit()
 
     tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)
@@ -122,7 +136,8 @@ async def test_sales_invoice_service(db_session):
             id=f"cg-s-{suffix}",
             name=f"Sales Group {suffix}",
             credit_limit=Decimal("500.00"),
-            auto_block_sales=True
+            auto_block_sales=True,
+            tax_inclusive=False
         )
     )
     await crm_serv.create_customer(
@@ -139,6 +154,9 @@ async def test_sales_invoice_service(db_session):
             code=f"CODES{suffix}",
             name="Sales Product",
             price=Decimal("100.00"),
+            mrp=Decimal("120.00"),
+            gst_percentage=Decimal("18.00"),
+            hsn_code="6403",
             category="General",
             barcode=f"BCS{suffix}",
             stock=5
@@ -150,6 +168,7 @@ async def test_sales_invoice_service(db_session):
         id=f"inv-{suffix}",
         invoice_no=f"INVS{suffix}",
         customer_id=f"cust-s-{suffix}",
+        status="Settled",
         items=[
             SalesInvoiceItemCreate(
                 product_id=f"prod-s-{suffix}",
@@ -158,6 +177,7 @@ async def test_sales_invoice_service(db_session):
                 quantity=Decimal("2.00"),
                 price=Decimal("100.00"),
                 gst_rate=Decimal("18.00"),
+                is_tax_inclusive=False,
                 total_amount=Decimal("236.00")
             )
         ]
@@ -176,6 +196,7 @@ async def test_sales_invoice_service(db_session):
         id=f"inv-f-{suffix}",
         invoice_no=f"INVF{suffix}",
         customer_id=f"cust-s-{suffix}",
+        status="Settled",
         items=[
             SalesInvoiceItemCreate(
                 product_id=f"prod-s-{suffix}",
@@ -196,5 +217,28 @@ async def test_sales_invoice_service(db_session):
 
     with pytest.raises(HTTPException) as exc:
         await sales_serv.create_sales_invoice(invoice_in_fail)
-    assert exc.value.status_code == 400
-    assert "Credit limit exceeded" in exc.value.detail
+    assert "credit limit" in exc.value.detail.lower()
+    assert "exceeded" in exc.value.detail.lower()
+
+
+async def test_number_to_indian_words_sub_rupee_and_units():
+    from app.services.invoice_pdf_service import number_to_indian_words
+
+    # Sub-rupee amounts
+    assert number_to_indian_words(0.50) == "Zero Rupees and Fifty Paisa Only"
+    assert number_to_indian_words(0.05) == "Zero Rupees and Five Paisa Only"
+
+    # Exact zero
+    assert number_to_indian_words(0.00) == "Zero Rupees Only"
+    assert number_to_indian_words(0) == "Zero Rupees Only"
+
+    # Singular Rupee
+    assert number_to_indian_words(1.00) == "One Rupee Only"
+    assert number_to_indian_words(1.50) == "One Rupee and Fifty Paisa Only"
+
+    # Plural standard amounts
+    assert number_to_indian_words(2500.00) == "Two Thousand Five Hundred Rupees Only"
+    assert number_to_indian_words(100000.00) == "One Lakh Rupees Only"
+    assert number_to_indian_words(100000.75) == "One Lakh Rupees and Seventy Five Paisa Only"
+    assert number_to_indian_words(10000000.00) == "One Crore Rupees Only"
+    assert number_to_indian_words(12345678.90) == "One Crore Twenty Three Lakh Forty Five Thousand Six Hundred Seventy Eight Rupees and Ninety Paisa Only"

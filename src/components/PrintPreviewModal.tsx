@@ -29,7 +29,8 @@ import {
   X, Printer, RotateCcw, LayoutTemplate, Scale, Settings2, Plus, 
   Trash2, FileText, CheckCircle2, ChevronRight, Sliders, Play,
   Grid, Contrast, Eye, Layers, QrCode, Share2, Copy, Check, Smartphone,
-  ShieldCheck, Download, Lock, Image, Upload, Landmark
+  ShieldCheck, Download, Lock, Image, Upload, Landmark,
+  Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut, Expand
 } from "lucide-react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
@@ -129,7 +130,8 @@ const MOCK_TAB_DATA: Record<string, any> = {
 interface PrintPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  activeTabId: string;
+  activeTabId?: string;
+  data?: any;
 }
 
 interface PaperDimension {
@@ -404,7 +406,7 @@ const WATERMARK_PRESETS = [
   }
 ];
 
-export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, activeTabId }) => {
+export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, activeTabId = "pos", data }) => {
   const { 
     print, 
     templates,
@@ -462,6 +464,135 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
 
   // React Ref targeting the exact unscaled physical document element for pixel-perfect PDF export
   const printPreviewRef = useRef<HTMLDivElement>(null);
+  const modalContainerRef = useRef<HTMLDivElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  // Fullscreen and Detached Popout States
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  const handleToggleFullscreen = () => {
+    setIsFullscreen(prev => !prev);
+    if (!document.fullscreenElement) {
+      modalContainerRef.current?.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
+
+  const handlePopoutPreview = () => {
+    if (!printPreviewRef.current) return;
+    const printContent = printPreviewRef.current.innerHTML;
+    const popoutWin = window.open("", "_blank", "width=960,height=1020,menubar=no,toolbar=no,location=no,status=no");
+    if (!popoutWin) {
+      alert("Pop-up window blocked. Please allow pop-ups for SMRITI Retail OS to view detached preview.");
+      return;
+    }
+    
+    popoutWin.document.open();
+    popoutWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${activeTemplate?.name || "Tax Invoice"} - SMRITI Detached Print Preview</title>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+          <style>
+            @media print {
+              @page { size: auto; margin: 0; }
+              body { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .no-print { display: none !important; }
+            }
+            body {
+              background: #0f172a;
+              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              margin: 0;
+              padding: 24px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              min-height: 100vh;
+            }
+            .popout-toolbar {
+              position: sticky;
+              top: 12px;
+              z-index: 50;
+              background: #1e293b;
+              color: white;
+              padding: 10px 20px;
+              border-radius: 12px;
+              border: 1px solid #334155;
+              box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+              display: flex;
+              gap: 12px;
+              align-items: center;
+              margin-bottom: 24px;
+            }
+            .popout-btn {
+              background: #2563eb;
+              color: white;
+              border: none;
+              padding: 6px 14px;
+              border-radius: 8px;
+              font-size: 12px;
+              font-weight: 600;
+              cursor: pointer;
+              transition: all 0.2s;
+            }
+            .popout-btn:hover { background: #1d4ed8; }
+            .popout-btn-secondary { background: #475569; }
+            .popout-btn-secondary:hover { background: #64748b; }
+            .preview-sheet {
+              background: white;
+              color: black;
+              box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+              width: ${PAPER_DIMENSIONS[paperSize](orientation).width};
+              min-height: ${PAPER_DIMENSIONS[paperSize](orientation).minHeight || "auto"};
+              border-radius: 4px;
+              overflow: hidden;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="popout-toolbar no-print">
+            <span style="font-size: 13px; font-weight: bold; margin-right: 8px; color: #93c5fd;">SMRITI Popout Document Studio</span>
+            <button class="popout-btn" onclick="window.print()">Print Document</button>
+            <button class="popout-btn popout-btn-secondary" onclick="window.close()">Close Window</button>
+          </div>
+          <div class="preview-sheet">
+            ${printContent}
+          </div>
+        </body>
+      </html>
+    `);
+    popoutWin.document.close();
+  };
+
+  const handleFitToWidth = () => {
+    if (!canvasContainerRef.current) return;
+    const containerWidth = canvasContainerRef.current.clientWidth - 80;
+    let baseDocWidthPx = 794;
+    if (paperSize === "Thermal80") baseDocWidthPx = 302;
+    else if (paperSize === "Thermal58") baseDocWidthPx = 220;
+    else if (paperSize === "Label") baseDocWidthPx = 200;
+    else if (paperSize === "A5") baseDocWidthPx = orientation === "portrait" ? 559 : 794;
+    else if (orientation === "landscape") baseDocWidthPx = 1123;
+
+    const calcScale = Math.min(180, Math.max(35, Math.round((containerWidth / baseDocWidthPx) * 100)));
+    setPageSizeScale(calcScale);
+  };
+
+  const handleFitToPage = () => {
+    setPageSizeScale(100);
+  };
+
+  const handleZoomIn = () => {
+    setPageSizeScale(prev => Math.min(200, prev + 10));
+  };
+
+  const handleZoomOut = () => {
+    setPageSizeScale(prev => Math.max(30, prev - 10));
+  };
 
   // Watermark Customization Panel States
   const [isWatermarkEnabled, setIsWatermarkEnabled] = useState<boolean>(false);
@@ -485,7 +616,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
       const targetTabId = isSharedPrint && params.get("tab") ? params.get("tab")! : activeTabId;
       const baseKey = MOCK_TAB_DATA[targetTabId] ? targetTabId : "default";
       
-      let initData = JSON.parse(JSON.stringify(MOCK_TAB_DATA[baseKey]));
+      let initData = data ? JSON.parse(JSON.stringify(data)) : JSON.parse(JSON.stringify(MOCK_TAB_DATA[baseKey]));
       
       // Override document data from share payload if present
       const sharedDocData = params.get("docData");
@@ -872,15 +1003,22 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden flex justify-center items-center p-4 md:p-6 select-none font-sans bg-[#0c1224] bg-opacity-70 backdrop-blur-sm">
+    <div 
+      ref={modalContainerRef}
+      className={`fixed inset-0 z-50 overflow-hidden flex justify-center items-center select-none font-sans bg-[#0c1224] ${
+        isFullscreen ? "p-0" : "p-3 md:p-6 bg-opacity-75 backdrop-blur-sm"
+      }`}
+    >
       {/* Semi-transparent dark background */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 cursor-pointer"
-      />
+      {!isFullscreen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 cursor-pointer"
+        />
+      )}
 
       {/* Main Modal Container */}
       <motion.div
@@ -888,7 +1026,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 15 }}
         transition={{ type: "spring", duration: 0.4 }}
-        className="relative bg-theme-surface-1 border border-theme-divider rounded-2xl w-full h-full max-w-7xl flex flex-col overflow-hidden shadow-2xl z-10 text-theme-body"
+        className={`relative bg-theme-surface-1 border border-theme-divider flex flex-col overflow-hidden shadow-2xl z-10 text-theme-body transition-all ${
+          isFullscreen ? "w-screen h-screen rounded-none max-w-none border-none" : "rounded-2xl w-full h-full max-w-7xl"
+        }`}
       >
         
         {/* Top Header */}
@@ -907,12 +1047,32 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
             </div>
           </div>
           
-          <button 
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors cursor-pointer"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center space-x-1.5">
+            <button
+              type="button"
+              onClick={handlePopoutPreview}
+              className="p-2 rounded-lg text-theme-muted hover:text-blue-400 hover:bg-theme-surface-hover transition-colors cursor-pointer"
+              title="Popout in Detached Window"
+            >
+              <ExternalLink size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={handleToggleFullscreen}
+              className="p-2 rounded-lg text-theme-muted hover:text-blue-400 hover:bg-theme-surface-hover transition-colors cursor-pointer"
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Preview Mode"}
+            >
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+            <button 
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-lg text-theme-muted hover:text-rose-400 hover:bg-theme-surface-hover transition-colors cursor-pointer"
+              title="Close Preview"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Workspace Splitted Panel */}
@@ -2004,13 +2164,86 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
           </div>
 
           {/* Right Panel: Immersive physical canvas preview */}
-          <div className="flex-1 bg-theme-surface-3 overflow-auto relative p-6 md:p-12 flex justify-center items-start min-h-0">
+          <div 
+            ref={canvasContainerRef}
+            className="flex-1 bg-theme-surface-3 overflow-auto relative p-6 md:p-12 flex justify-center items-start min-h-0"
+          >
             {/* Background drafting radial-dots pattern */}
             <div className="absolute inset-0 pointer-events-none" style={{ 
               backgroundImage: 'radial-gradient(var(--color-theme-divider) 1.2px, transparent 1.2px)',
               backgroundSize: '24px 24px',
               opacity: 0.4
             }}></div>
+
+            {/* Floating Top Zoom & Fit Actions Bar */}
+            <div className="sticky top-0 z-40 bg-theme-surface-1/95 backdrop-blur-md border border-theme-divider rounded-full px-3.5 py-1.5 shadow-xl flex items-center space-x-2 text-xs mb-4">
+              <button
+                type="button"
+                onClick={handleZoomOut}
+                className="p-1 rounded-full text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors cursor-pointer"
+                title="Zoom Out (-10%)"
+              >
+                <ZoomOut size={14} />
+              </button>
+
+              <span className="font-mono font-bold text-[11px] text-theme-primary px-1.5 min-w-[44px] text-center select-none">
+                {pageSizeScale}%
+              </span>
+
+              <button
+                type="button"
+                onClick={handleZoomIn}
+                className="p-1 rounded-full text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors cursor-pointer"
+                title="Zoom In (+10%)"
+              >
+                <ZoomIn size={14} />
+              </button>
+
+              <div className="h-3.5 w-px bg-theme-divider" />
+
+              <button
+                type="button"
+                onClick={handleFitToWidth}
+                className="px-2.5 py-1 rounded-full font-semibold text-[10px] text-blue-400 hover:bg-blue-500/10 border border-blue-500/20 transition-all flex items-center gap-1 cursor-pointer"
+                title="Fit Document to Viewport Width"
+              >
+                <Expand size={12} />
+                Fit Width
+              </button>
+
+              <button
+                type="button"
+                onClick={handleFitToPage}
+                className={`px-2.5 py-1 rounded-full font-semibold text-[10px] transition-all cursor-pointer ${
+                  pageSizeScale === 100 
+                    ? "bg-theme-surface-3 text-theme-primary border border-theme-divider shadow-xs" 
+                    : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
+                }`}
+                title="Actual 100% Page Scale"
+              >
+                100%
+              </button>
+
+              <div className="h-3.5 w-px bg-theme-divider" />
+
+              <button
+                type="button"
+                onClick={handlePopoutPreview}
+                className="p-1 rounded-full text-theme-muted hover:text-blue-400 hover:bg-theme-surface-hover transition-colors cursor-pointer"
+                title="Popout in Detached Window"
+              >
+                <ExternalLink size={13} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleToggleFullscreen}
+                className="p-1 rounded-full text-theme-muted hover:text-blue-400 hover:bg-theme-surface-hover transition-colors cursor-pointer"
+                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Preview Mode"}
+              >
+                {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              </button>
+            </div>
 
             {/* Scaled & Rotated layout wrapper */}
             <div className="relative flex justify-center py-6 select-text">

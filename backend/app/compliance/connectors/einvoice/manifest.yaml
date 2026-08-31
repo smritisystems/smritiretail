@@ -1,0 +1,40 @@
+# Project      : SMRITI Retail OS
+# Author       : Jawahar Ramkripal Mallah
+# Designation  : Chief Systems Architect & Creator
+# Email        : support@smritibooks.com
+# Websites     : smritibooks.com | erpnbook.com | aitdl.com
+# Version      : 3.35.0
+# Created      : 2026-08-28
+# Modified     : 2026-08-28
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# License      : Proprietary Commercial Software
+# Classification: Internal
+
+id: einvoice
+name: NIC GSTN E-Invoice Gateway
+version: 1.0.0
+provider: NIC
+api_version: v1.03
+status: active
+display_name: E-Invoice Integration (IRN & QR Code)
+description: Standard statutory GSTN/NIC E-Invoice generation, cancellation, and signed QR code rendering.
+documentation_url: https://smritibooks.com/docs/compliance/einvoice
+minimum_platform_version: 3.16.0
+authentication:
+  type: token
+environments:
+  sandbox:
+    enabled: true
+    auth_url: https://einv-apisandbox.nic.in/eivital/v1.03/auth
+    generate_url: https://einv-apisandbox.nic.in/eivital/v1.03/Invoice
+    cancel_url: https://einv-apisandbox.nic.in/eivital/v1.03/Invoice/Cancel
+  production:
+    enabled: false
+    auth_url: https://einvoice1.gst.gov.in/eivital/v1.03/auth
+    generate_url: https://einvoice1.gst.gov.in/eivital/v1.03/Invoice
+    cancel_url: https://einvoice1.gst.gov.in/eivital/v1.03/Invoice/Cancel
+capabilities:
+  - generate_irn
+  - cancel_irn
+  - get_irn_details
+  - generate_qr_code

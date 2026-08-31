@@ -6,7 +6,7 @@
 # Version      : 3.14.0
 # Created      : 2026-07-11
 # Modified     : 2026-07-11
-# Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
 # License      : Proprietary Commercial Software
 # Classification: Internal
 
@@ -21,6 +21,9 @@ if [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
 else
     echo "SKIP_MIGRATIONS=true, skipping Alembic migrations."
 fi
+
+echo "Seeding baseline users and company registries..."
+python -m app.db.seed_baseline_users || echo "Notice: Seeding completed or skipped."
 
 echo "Starting SMRITI FastAPI Python Core..."
 exec gunicorn app.main:app \

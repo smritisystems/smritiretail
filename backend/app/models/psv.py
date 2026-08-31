@@ -4,17 +4,19 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.21.0
+Version      : 6.16.0
 Created      : 2026-07-16
-Modified     : 2026-08-14
+Modified     : 2026-08-25
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+Classification: Internal
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Index
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Index, Boolean
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
-from ..db.base import Base
+from ..db.base import Base, BaseEntity
 
 class PSVParty(Base):
     __tablename__ = "psv_parties"
@@ -55,9 +57,9 @@ class PSVStockEvent(Base):
     __tablename__ = "psv_stock_events"
 
     event_id = Column(String(50), primary_key=True)
-    source_event_id = Column(String(100), nullable=False, unique=True) # ULID generated at event creation
-    correlation_id = Column(String(100), nullable=False, index=True) # Trace ID across Order -> Inv -> PSV
-    causation_id = Column(String(100), nullable=True) # Parent doc/event ID
+    source_event_id = Column(String(100), nullable=False, unique=True)
+    correlation_id = Column(String(100), nullable=False, index=True)
+    causation_id = Column(String(100), nullable=True)
     event_schema_version = Column(String(20), nullable=False, default="1.0")
     company_code = Column(String(50), nullable=False, index=True)
     source_database = Column(String(100), nullable=False)
@@ -65,15 +67,15 @@ class PSVStockEvent(Base):
     source_document_id = Column(String(50), nullable=False)
     source_document_line_id = Column(String(50), nullable=True)
     psv_party_id = Column(String(50), nullable=False)
-    destination_type = Column(String(30), default="RETAIL_STORE") # RETAIL_STORE, WAREHOUSE, DISTRIBUTION_CENTER, TRANSPORTER
+    destination_type = Column(String(30), default="RETAIL_STORE")
     destination_id = Column(String(50), nullable=True)
-    psv_store_id = Column(String(50), nullable=True) # Nullable store reference
+    psv_store_id = Column(String(50), nullable=True)
     sku = Column(String(100), nullable=False, index=True)
-    movement_type = Column(String(30), nullable=False) # GST_BILLED, DISPATCHED, IN_TRANSIT, STORE_RECEIVED, SOLD, RETURNED, TRANSFERRED
+    movement_type = Column(String(30), nullable=False)
     quantity = Column(Numeric(12, 4), nullable=False)
     source_event_created_at = Column(DateTime(timezone=True), nullable=False)
     event_date = Column(DateTime(timezone=True), nullable=False)
-    sync_status = Column(String(20), nullable=False, default="PENDING", index=True) # PENDING -> PROCESSING -> PROJECTED / FAILED -> DEAD_LETTER
+    sync_status = Column(String(20), nullable=False, default="PENDING", index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
@@ -98,5 +100,27 @@ class PSVStockBalance(Base):
     returned_qty = Column(Numeric(12, 4), nullable=False, default=0.0000)
     transferred_qty = Column(Numeric(12, 4), nullable=False, default=0.0000)
     current_balance = Column(Numeric(12, 4), nullable=False, default=0.0000)
-    last_event_id = Column(String(50), nullable=True)
-    last_updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class PSVVisibilityPolicy(BaseEntity):
+    """
+    PSVVisibilityPolicy — Governs party visibility policies and permitted projection scopes.
+    """
+    __tablename__ = "psv_visibility_policies"
+
+    policy_code = Column(String(50), nullable=False, unique=True, index=True)
+    name = Column(String(255), nullable=False)
+    allowed_sku_patterns = Column(ARRAY(String), server_default="{}")
+    max_lookback_days = Column(Integer, default=90)
+
+
+class PSVPartyScope(BaseEntity):
+    """
+    PSVPartyScope — Binds specific parties to authorized branch/warehouse visibility projections.
+    """
+    __tablename__ = "psv_party_scopes"
+
+    party_id = Column(String(50), nullable=False, index=True)
+    policy_code = Column(String(50), nullable=False, index=True)
+    allowed_branch_ids = Column(ARRAY(String), server_default="{}")
+    allowed_categories = Column(ARRAY(String), server_default="{}")

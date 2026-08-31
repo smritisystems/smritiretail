@@ -77,8 +77,19 @@ Every verification report must structure its conclusions into three explicitly l
 ## 10. Evidence Policy (MANDATORY)
 Every completion claim must be backed by directly observable evidence. If evidence is unavailable, the agent must report the status as "claimed but unverified" rather than marking it complete.
 
----
+## 11. Quantitative & Named Mechanism Requirement for Status Documents (MANDATORY)
+No feature, sub-system, or architecture item may transition to `Verified` or `Done` in `docs/architecture/SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md` or any status registry with a bare status label. Every `Verified` entry MUST explicitly include:
+- **Quantitative Metrics:** Exact numbers (e.g. `53/53 tests green`, `20-cycle rolling load`, `0 errors`, `latency < 15ms`).
+- **Named Architectural Mechanisms:** The exact technical primitives enforcing the guarantee (e.g. `SELECT FOR UPDATE row lock`, `asyncio.gather 5-terminal runner`, `two-phase spool ACK`, `RSA-2048 SHA512 signing`).
+- **Verifiable Evidence Citation:** Concrete commit hash, test suite file path, or terminal verification log.
 
+## 12. Strict Prohibition of EXISTS-Only Table Claims & Mandatory Column/AST Parity (MANDATORY)
+No coding assistant agent may claim a database table is present, valid, or matching based solely on table existence (`SELECT 1 FROM information_schema.tables WHERE table_name = ...` or `EXISTS`).
+- Every schema verification MUST perform a column-by-column, datatype, nullability, default value, primary key, unique constraint, foreign key, and migration lineage diff against the canonical migration/ORM contract.
+- If column count, column names, or constraint definitions deviate from the canonical specification, the table status MUST be labeled `CRITICAL_DRIFT` or `DRIFTED`, never `Done` or `Verified`.
+- Any table found in the database without a verifiable tracked Alembic migration lineage MUST be explicitly flagged as `MANUAL_OR_ADHOC_ORIGIN` and blocked from automatic stamping.
+
+---
 
 ### Self-check before sending any report
 Before presenting a verification report, the agent should confirm:
@@ -91,6 +102,8 @@ Before presenting a verification report, the agent should confirm:
 - [ ] Every item is labeled with one of exactly four states — Done, Failed, Partially Verified, Unverified — not a score or adjective (Rule 7)
 - [ ] Every "Ran command" / "Edited" / "Used tool" line is followed by its actual output (Rule 8)
 - [ ] Evidence, Interpretation, and Recommendation appear as distinct labeled sections, not blended into one narrative (Rule 9)
+- [ ] Status updates meet the 3-part quantitative metric, named mechanism, and commit citation rule (Rule 11)
+- [ ] Table validations perform full column, datatype, and constraint diffs, not bare EXISTS checks (Rule 12)
 
 ---
 
@@ -437,51 +450,44 @@ The agent must discover what needs updating based on the files it changed:
 # SMRITI Backend System-of-Record Policy
 
 **Status:** MANDATORY — applies to ALL agents, ALL sessions, ALL tasks.
-**Effective:** 2026-07-12
+**Effective:** 2026-07-12 (Updated 2026-08-22: Express Fully Retired)
 
-## Rule 1. FastAPI + Postgres Backend
-FastAPI + Postgres (`backend/app/`) is the system of record for all transactional data. Express (`server.ts`, `src/routes/*.ts`) and `db_store.json` are in feature freeze — no new business logic, routes, or data models may be added there, for any reason, until this policy is explicitly revised.
+## Rule 1. FastAPI + Postgres Sole Backend Architecture
+FastAPI + Postgres (`backend/app/`) is the sole, canonical backend system of record for all transactional data, APIs, authentication, compliance gateways, and business logic. Express (`server.ts`, `src/routes/*.ts`) has been completely decommissioned and deleted from the codebase.
 
-## Rule 2. Strangler-Fig Migration Order
-Migration proceeds module by module (strangler-fig), in this order: Reports → Inventory/Products → Auth → Sales/Purchase/POS. A module is not "migrated" until the frontend calls FastAPI directly for it via `src/lib/apiFetchV1.ts` AND the equivalent Express/db_store.json path for that data has been removed.
+## Rule 2. Strangler-Fig Migration Status: COMPLETE
+All application modules (Reports, Inventory, Products, Auth, Sales, Purchase, POS, CRM, Master Data) communicate directly with FastAPI via `src/lib/apiFetchV1.ts` (`/api/v1/*`). Express routes and in-memory JSON stores have been completely removed.
 
 ## Rule 3. AI and Analytical Capabilities
 Any AI/forecast/OCR/recommendation module under `backend/app/ai/` stays unimplemented (scaffolding only) until real transaction volume exists in Postgres to build it against. Do not build analytical features against seed/test data and present them as functional.
 
 ## Rule 4. Backend Capability Target
-Every new backend capability, from this point forward, goes into `backend/app/`, never into `server.ts` or `src/routes/*.ts`.
+Every new backend capability, endpoint, or data model resides exclusively in `backend/app/` (FastAPI + Postgres).
 
 ## Rule 5. Integration & Compliance Gateways (MANDATORY)
-All external government, banking, tax, and third-party integrations (GSTN, NIC, E-Way Bill, E-Invoice, Payment Gateways), including their credentials storage, audit logging, and background retry queue engines, must reside inside the FastAPI + Postgres backend (`backend/app/`). Express is in feature freeze and must never handle credentials decryption, queue scheduling, or external compliance gateway communication. It may only act as a proxy router to FastAPI compliance endpoints.
+All external government, banking, tax, and third-party integrations (GSTN, NIC, E-Way Bill, E-Invoice, Payment Gateways), including their credentials storage, audit logging, and background retry queue engines, reside inside the FastAPI + Postgres backend (`backend/app/`).
 
 ---
 
-# SMRITI Platform Abstraction Layer (PAL) — Permanent Governance Rules
+# SMRITI Platform Architecture & Communication Layer
 
 **Status:** MANDATORY — applies to ALL agents, ALL sessions, ALL tasks.
 
-## 1. SMRITI Architecture Dependency Rule
-Dependencies shall point inward only:
+## 1. SMRITI Architecture Hierarchy
 ```text
-UI (Frontend)
-    ↓
-Express API (Dev/Mock Routing Gateway)
-    ↓
-Platform Abstraction Layer (PAL Container & Interfaces)
-    ↓
-FastAPI + Postgres (Transactional System-of-Record Backend)
+React 18 + Vite (Frontend Client Layer - Port 3000)
+    ↓  (Reverse Proxy /api/v1 -> Backend)
+FastAPI Core + PostgreSQL (Transactional System-of-Record Backend - Port 8000)
 ```
-* No lower layer may reference a higher layer.
-* Business services shall remain framework-independent and database-agnostic.
+* Business services remain domain-driven, transactional, and database-backed in PostgreSQL.
 
 ## 2. API Communication Policy
-* Client applications must use `src/lib/apiFetch.ts` for Express API endpoints (`/api/*`) and `src/lib/apiFetchV1.ts` for FastAPI API endpoints (`/api/v1/*`).
-* Direct raw fetch or XMLHttpRequest calls are prohibited outside these helper modules.
-* Express serves as the layout routing host and dev mock server; FastAPI serves as the true transactional backend.
+* Client applications must use `src/lib/apiFetchV1.ts` for all API endpoints (`/api/v1/*`).
+* `src/lib/apiFetch.ts` serves as a backward-compatible alias forwarding directly to `apiFetchV1`.
+* Direct raw fetch or XMLHttpRequest calls outside these helper modules are prohibited.
 
 ## 3. Database Layer Independence
-* All transactional data (stock movements, shifts, invoices, purchase orders) must reside in PostgreSQL.
-* Express-level in-memory stores are for transient UI caching/migration fallback only and must not be used as transactional systems of record.
+* All transactional data (stock movements, shifts, invoices, purchase orders, customer records) resides in PostgreSQL.
 
 ---
 
@@ -1016,7 +1022,7 @@ The canonical statutory Tax Invoice layout and rendering standard named **`SMRIT
 - PostgreSQL database trigger protection (`trg_prevent_tax_template_mutation`) preventing update or deletion of `SMRITITAXINVOICE`.
 
 ## 2. Integrity Verification
-Any modification attempting to alter `backend/app/services/smrititaxinvoice_frozen_spec.py` or mutate the template in `tax_invoice_templates` must be rejected by `pytest backend/tests/test_smrititaxinvoice_immutability_guard.py`.
+Any modification attempting to alter `backend/app/services/tax_invoice_spec.py` or mutate the template in `tax_invoice_templates` must be rejected by `pytest backend/tests/t_inv_immutable.py`.
 
 ---
 

@@ -16,7 +16,7 @@
 
 import React, { useState, useEffect } from "react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
-import { approvalMatrixConfig, ApprovalMatrix } from "./global/configs/approvalMatrix.config.tsx";
+import { approvalMatrixConfig, ApprovalMatrix } from "./global/configs/approvalMatrix.con.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 import { CheckCircle2, XCircle, Clock, FileCheck, RefreshCw } from "lucide-react";
 

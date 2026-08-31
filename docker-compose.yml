@@ -5,7 +5,7 @@
 # Version      : 3.15.0
 # Created      : 2026-07-11
 # Modified     : 2026-07-12
-# Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
 # License      : Proprietary Commercial Software
 # Classification: Internal
 
@@ -78,6 +78,7 @@ services:
       # Recommended long-term: run migrations as a one-off job from CI or an init container.
       SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-true}"
     volumes:
+      - ./backend/app:/app/app
       - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:
       db:
@@ -89,6 +90,28 @@ services:
       retries: 3
       start_period: 20s
 
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: smriti-mssql
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-netmanthan@123}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "${MSSQL_PORT:-1433}:1433"
+    volumes:
+      - smriti_mssql_volume:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD:-netmanthan@123}\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD:-netmanthan@123}\" -Q \"SELECT 1\" || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
 volumes:
   smriti_db_volume:
     name: smriti_db_volume
+  smriti_mssql_volume:
+    name: smriti_mssql_volume
+

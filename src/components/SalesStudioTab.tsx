@@ -11,10 +11,10 @@
  * License      : Proprietary Commercial Software
  */
 import React, { useState, useEffect } from "react";
-import { Printer, MessageCircle, Mail, AlignJustify, 
-  FileText, Plus, Search, Grid, Trash2, Edit3, 
-  RefreshCw, User, Calendar, DollarSign, Percent, 
-  ArrowRight, FileCheck, AlertCircle, ShoppingCart, 
+import { Printer, MessageCircle, Mail, AlignJustify,
+  FileText, Plus, Search, Grid, Trash2, Edit3,
+  RefreshCw, User, Calendar, DollarSign, Percent,
+  ArrowRight, FileCheck, AlertCircle, ShoppingCart,
   CheckCircle2, X, Eye, Layers, Undo2, Ban, ShieldAlert,
   UserCheck, UserX, CreditCard, Check, MoreVertical,
   Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet
@@ -28,8 +28,11 @@ import { getCustomers, getCustomerGroups, saveCustomers } from "../services/cust
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
 import { CompanySelector } from "./layout/CompanySelector.tsx";
-import { formatDate, formatDateTime, formatCurrency } from "../utils/formatters.ts";
+import { formatDate, formatDateTime, formatCurrency, formatNumber, safeNumber } from "../utils/formatters.ts";
+import { normalizeSalesOrders, normalizeQuotations } from "../utils/normalizeSales.ts";
 import { isValidMobile } from "../utils/validators.ts";
+import { DistTaxInvoice } from "./sales/DistTaxInvoice.tsx";
+import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
 
 interface ParsedRow {
@@ -104,7 +107,7 @@ function generateNextCustomerId(existing: Customer[], indexOffset: number = 0): 
 
 function processParsedRows(headers: string[], dataRows: string[][], groups: CustomerGroup[], existingCustomers: Customer[]): ParsedRow[] {
   const headerMap: Record<string, number> = {};
-  
+
   headers.forEach((h, idx) => {
     const clean = h.trim().toLowerCase();
     if (clean === "name" || clean === "customer name" || clean === "full name" || clean === "client" || clean === "party") {
@@ -210,8 +213,8 @@ function processParsedRows(headers: string[], dataRows: string[][], groups: Cust
       errors.push("Customer Group is required.");
     } else {
       const normalizedGroup = groupInput.toLowerCase();
-      const groupFound = groups.find(g => 
-        g.id.toLowerCase() === normalizedGroup || 
+      const groupFound = groups.find(g =>
+        g.id.toLowerCase() === normalizedGroup ||
         g.name.toLowerCase() === normalizedGroup ||
         g.name.toLowerCase().includes(normalizedGroup)
       );
@@ -255,13 +258,13 @@ function processParsedRows(headers: string[], dataRows: string[][], groups: Cust
 
 interface SalesStudioTabProps {
   products: Product[];
-  onNotification: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string; companyId?: string; branchId?: string } | null;
 }
 
 export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNotification, currentUser }) => {
   const { openMenu } = useACAS();
-  const isReadOnly = currentUser?.role === "Report User";
+  const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const hasTenantContext = Boolean(currentUser?.companyId && currentUser?.branchId);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
@@ -282,6 +285,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [selectedReturn, setSelectedReturn] = useState<SalesReturn | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
 
   // Editor states (for creating/editing Quotations)
   const [isCreatingQuotation, setIsCreatingQuotation] = useState<boolean>(false);
@@ -340,7 +344,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   // Dual entry mode state
   const [entryMode, setEntryMode] = useState<"manual" | "matrix">("manual");
-  
+
   // Manual entry fields
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [manualQty, setManualQty] = useState<number>(1);
@@ -398,7 +402,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
       // Step 2: Server-side validation
       setIsValidatingOnServer(true);
-      
+
       const runServerValidation = async () => {
         try {
           const data = await apiFetchV1("/attributes/import-validate", {
@@ -453,6 +457,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
         ...si,
         invoiceNo: si.invoiceNo || si.invoice_no || "INV",
         customerId: si.customerId || si.customer_id || "",
+        createdAt: si.createdAt || si.created_at,
+        modifiedAt: si.modifiedAt || si.modified_at,
         grandTotal: typeof si.grandTotal === "number" ? si.grandTotal : parseFloat(si.grand_total || "0"),
         taxTotal: typeof si.taxTotal === "number" ? si.taxTotal : parseFloat(si.tax_total || "0"),
         isInterstate: si.isInterstate ?? si.is_interstate ?? false,
@@ -496,14 +502,45 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   };
 
-  const fetchCustomers = () => {
+  const fetchCustomers = async () => {
     try {
+      const data = await apiFetchV1("/crm/customers?skip=0&limit=100");
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped = data.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          mobile: c.mobile || c.phone || "",
+          email: c.email || "",
+          address: c.address || "",
+          city: c.city || "",
+          state: c.state || "",
+          pincode: c.pincode || "",
+          gstin: c.gst_number || c.gstin || "",
+          gstNumber: c.gst_number || c.gstin || "",
+          customerGroup: c.customer_group_id || "General",
+          customerGroupId: c.customer_group_id || "CG-Retail",
+          creditLimit: Number(c.credit_limit || 0),
+          creditDays: Number(c.credit_days || 0),
+          outstandingBalance: Number(c.outstanding_balance || 0),
+          outstanding: Number(c.outstanding_balance || 0),
+          loyaltyPoints: Number(c.loyalty_points || 0),
+          status: c.is_active ? "Active" : "Inactive",
+          createdAt: c.created_at || new Date().toISOString(),
+          createdDate: (c.created_at || new Date().toISOString()).split("T")[0]
+        }));
+        setCustomers(mapped);
+        saveCustomers(mapped);
+      } else {
+        const custs = getCustomers();
+        setCustomers(custs);
+      }
+      const groups = getCustomerGroups();
+      setCustomerGroups(groups);
+    } catch (e) {
       const custs = getCustomers();
       const groups = getCustomerGroups();
       setCustomers(custs);
       setCustomerGroups(groups);
-    } catch (e) {
-      onNotification("Local Error", "Failed to load customer profiles.", "error");
     }
   };
 
@@ -641,7 +678,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       if (filters && filters.date?.start) params.append("startDate", String(filters.date.start));
       if (filters && filters.date?.end) params.append("endDate", String(filters.date.end));
       const data = await apiFetchV1(`/sales/quotations/${params.toString() ? `?${params.toString()}` : ""}`);
-      setQuotations(data);
+      setQuotations(normalizeQuotations(data));
     } catch (e) {
       onNotification("Sync Error", "Failed to load quotations ledger.", "error");
     } finally {
@@ -651,17 +688,22 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   const fetchSalesOrders = async (filters: Record<string, any> = activeFilters) => {
     try {
-      // Migrated: GET /api/sales/orders (Express unmounted) → GET /api/v1/sales/orders/ (FastAPI)
       const params = new URLSearchParams();
       if (filters && filters.customer) params.append("customer", String(filters.customer));
       if (filters && filters.status) {
         const statusVal = Array.isArray(filters.status) ? filters.status.join(",") : String(filters.status);
         if (statusVal) params.append("status", statusVal);
       }
-      if (filters && filters.date?.start) params.append("startDate", String(filters.date.start));
-      if (filters && filters.date?.end) params.append("endDate", String(filters.date.end));
-      const data = await apiFetchV1(`/sales/orders/${params.toString() ? `?${params.toString()}` : ""}`);
-      setSalesOrders(data);
+      if (filters && filters.fulfillmentStatus) {
+        params.append("fulfillment_status", String(filters.fulfillmentStatus));
+      }
+      const sDate = filters?.startDate || filters?.date?.start || filters?.from_date;
+      const eDate = filters?.endDate || filters?.date?.end || filters?.to_date;
+      if (sDate) params.append("from_date", String(sDate));
+      if (eDate) params.append("to_date", String(eDate));
+      const queryString = params.toString();
+      const data = await apiFetchV1(`/sales/orders/${queryString ? `?${queryString}` : ""}`);
+      setSalesOrders(normalizeSalesOrders(data));
     } catch (e) {
       onNotification("Sync Error", "Failed to load sales orders ledger.", "error");
     }
@@ -816,7 +858,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   };
 
-  
+
   const handleWorkflowAction = async (docType: string, id: string, action: string) => {
     try {
       // Migrated: workflow actions → apiFetchV1 (FastAPI)
@@ -1017,11 +1059,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
         {(["quotations", "orders", "invoices", "returns", "customers"] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => { 
-              setSubView(tab); 
-              setSelectedIds(new Set()); 
-              setSelectedQuotation(null); 
-              setSelectedOrder(null); 
+            onClick={() => {
+              setSubView(tab);
+              setSelectedIds(new Set());
+              setSelectedQuotation(null);
+              setSelectedOrder(null);
               setSelectedInvoice(null);
               setSelectedReturn(null);
               setSelectedCustomer(null);
@@ -1068,7 +1110,28 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           transition={{ duration: 0.2 }}
           className="space-y-6"
         >
-          
+
+          {/* Business Summary Header Banner */}
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono uppercase tracking-wider">
+                  Commercial Orders Hub
+                </span>
+                <h3 className="text-base font-bold text-theme-body font-display">Sales &amp; Commercial Orders Book</h3>
+              </div>
+              <p className="text-xs text-theme-muted mt-1 leading-relaxed">
+                Centralized registry for customer purchase orders, quotations, sales order execution, and invoice allocations.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-left md:text-right px-3 py-1.5 bg-theme-surface-2 rounded-xl border border-theme-divider">
+                <span className="text-[10px] text-theme-muted uppercase font-mono block">Tenant Data Plane</span>
+                <span className="text-xs font-bold font-mono text-theme-body">COMP-001 • MAIN</span>
+              </div>
+            </div>
+          </div>
+
           {/* Overview Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
@@ -1088,12 +1151,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
             <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
               <div>
-                <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">SALES ORDERS GENERATED</span>
+                <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">SALES ORDERS</span>
                 <span className="text-2xl font-bold font-display text-emerald-400 mt-1 block">
                   {salesOrders.length} <span className="text-xs font-normal text-theme-muted">Orders</span>
                 </span>
                 <span className="text-[11px] text-theme-muted mt-1 block">
-                  {convertedQuotations} converted from Quotations
+                  {convertedQuotations} Converted Orders
                 </span>
               </div>
               <div className="w-12 h-12 rounded-xl bg-emerald-950 flex items-center justify-center text-emerald-400 border border-emerald-900">
@@ -1103,12 +1166,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
             <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
               <div>
-                <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">TOTAL BOOKED REVENUE</span>
+                <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">TOTAL SALES ORDER VALUE</span>
                 <span className="text-2xl font-bold font-display text-theme-body mt-1 block">
-                  ₹{(totalSalesOrdered).toLocaleString("en-IN")}
+                  {formatCurrency(totalSalesOrdered)}
                 </span>
                 <span className="text-[11px] text-theme-muted mt-1 block">
-                  Total sales booking in ledger
+                  Total commercial sales order value
                 </span>
               </div>
               <div className="w-12 h-12 rounded-xl bg-sky-950 flex items-center justify-center text-sky-400 border border-sky-900">
@@ -1142,8 +1205,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
             <div className="flex items-center space-x-3 w-full xl:w-auto justify-end">
               <CompanySelector />
-              <SmartFilter 
-                filters={filterConfig} 
+              <SmartFilter
+                filters={filterConfig}
                 onApply={(filters) => {
                   setActiveFilters(filters);
                   recordAuditAction("FILTER", "sales", subView, `Applied sales filters: ${JSON.stringify(filters)}`);
@@ -1151,7 +1214,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   else if (subView === "orders") fetchSalesOrders(filters);
                   else if (subView === "invoices") fetchSalesInvoices(filters);
                   else if (subView === "returns") fetchSalesReturns(filters);
-                }} 
+                }}
               />
               <button
                 onClick={() => {
@@ -1245,10 +1308,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
       {/* Main Studio View Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left 2/3: Lists & Forms */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Create New Quotation Panel */}
           {isCreatingQuotation ? (
             <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-200">
@@ -1257,7 +1320,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   <h3 className="font-display font-bold text-sm text-theme-body">Generate Quotation Draft</h3>
                   <p className="text-[11px] text-theme-muted">Draft quotation with dual-mode item entry</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsCreatingQuotation(false)}
                   className="p-1 rounded bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
                 >
@@ -1288,8 +1351,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         type="button"
                         onClick={() => setEditorStatus("Draft")}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          editorStatus === "Draft" 
-                            ? "bg-[#2563EB] border-blue-500 text-theme-body" 
+                          editorStatus === "Draft"
+                            ? "bg-[#2563EB] border-blue-500 text-theme-body"
                             : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-body"
                         }`}
                       >
@@ -1299,8 +1362,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         type="button"
                         onClick={() => setEditorStatus("Submitted")}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          editorStatus === "Submitted" 
-                            ? "bg-amber-600 border-amber-500 text-white" 
+                          editorStatus === "Submitted"
+                            ? "bg-amber-600 border-amber-500 text-white"
                             : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-white"
                         }`}
                       >
@@ -1434,7 +1497,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         <div className="space-y-4 pt-2 border-t border-theme-divider/50">
                           <div className="bg-theme-surface-1 p-3.5 rounded-lg border border-theme-divider">
                             <h4 className="text-[10px] font-mono text-indigo-300 uppercase tracking-wider mb-3">VARIANT SIZE ALLOCATIONS MATRIX</h4>
-                            
+
                             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
                               {matrixVariants.map(variant => (
                                 <div key={variant.id} className="bg-theme-surface-2 p-2 rounded border border-theme-divider/60 flex flex-col items-center">
@@ -1478,7 +1541,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 {/* Current Draft Items Table */}
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-mono uppercase tracking-wider text-theme-muted">Draft Item Lines List</h4>
-                  
+
                   {editorItems.length === 0 ? (
                     <div className="p-8 text-center bg-theme-surface-2 border border-dashed border-theme-divider rounded-xl text-theme-muted text-xs">
                       No items added yet. Choose manual or matrix entry above to build the quotation document lines.
@@ -1536,16 +1599,16 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   {item.quantity}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono">
-                                  ₹{item.price.toLocaleString("en-IN")}
+                                  {formatCurrency(item.price)}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-amber-400">
                                   {taxRate}%
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-theme-muted">
-                                  ₹{Math.round(taxAmount).toLocaleString("en-IN")}
+                                  {formatCurrency(taxAmount)}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-emerald-400 font-semibold">
-                                  ₹{Math.round(lineTotal).toLocaleString("en-IN")}
+                                  {formatCurrency(lineTotal)}
                                 </td>
                                 <td className="px-4 py-2 text-center">
                                   <button
@@ -1569,13 +1632,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         </div>
                         <div className="space-y-1 text-right w-full sm:w-auto">
                           <div>
-                            Base Net Total: <span className="font-mono text-theme-body">₹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price), 0).toLocaleString("en-IN")}</span>
+                            Base Net Total: <span className="font-mono text-theme-body">{formatCurrency(editorItems.reduce((acc, item) => acc + (safeNumber(item.quantity) * safeNumber(item.price)), 0))}</span>
                           </div>
                           <div>
-                            Taxes Consolidated: <span className="font-mono text-theme-body">₹{editorItems.reduce((acc, item) => acc + ((item.quantity * item.price * (item.taxRate || 18)) / 100), 0).toFixed(1)}</span>
+                            Taxes Consolidated: <span className="font-mono text-theme-body">{formatCurrency(editorItems.reduce((acc, item) => acc + ((safeNumber(item.quantity) * safeNumber(item.price) * (safeNumber(item.taxRate, 18))) / 100), 0))}</span>
                           </div>
                           <div className="text-sm font-bold text-emerald-400">
-                            Grand Quotation Total: ₹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + (item.taxRate || 18) / 100)), 0).toLocaleString("en-IN")}
+                            Grand Quotation Total: {formatCurrency(editorItems.reduce((acc, item) => acc + (safeNumber(item.quantity) * safeNumber(item.price) * (1 + safeNumber(item.taxRate, 18) / 100)), 0))}
                           </div>
                         </div>
                       </div>
@@ -1606,396 +1669,16 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               </div>
             </div>
           ) : isCreatingInvoice ? (
-            /* Create New Sales Invoice Panel */
-            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-200">
-              <div className="bg-theme-surface-3 border-b border-theme-divider px-6 py-4 flex items-center justify-between">
-                <div>
-                  <h3 className="font-display font-bold text-sm text-theme-body">Generate Sales Invoice</h3>
-                  <p className="text-[11px] text-theme-muted">Generate commercial invoice with dual-mode entry</p>
-                </div>
-                <button 
-                  onClick={() => setIsCreatingInvoice(false)}
-                  className="p-1 rounded bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-6">
-                {/* Header Fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50">
-                  <div className="sm:col-span-2">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Select Customer *</label>
-                    <select
-                      value={invoiceCustomerId}
-                      onChange={(e) => setInvoiceCustomerId(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">-- Choose Customer Entity --</option>
-                      {customers.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.mobile}) - Outstanding: ₹{c.outstanding}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Is Interstate?</label>
-                    <div className="flex items-center h-9">
-                      <input
-                        type="checkbox"
-                        checked={invoiceIsInterstate}
-                        onChange={(e) => setInvoiceIsInterstate(e.target.checked)}
-                        className="rounded border-theme-divider bg-theme-surface-1 accent-indigo-500 mr-2 h-4 w-4"
-                      />
-                      <span className="text-xs text-theme-body">IGST (Interstate)</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">E-Way Bill No.</label>
-                    <div className="flex items-center space-x-1.5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={23}
-                        value={invoiceEWayBill}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (/^\d*$/.test(val) && val.length <= 23) {
-                            setInvoiceEWayBill(val);
-                          }
-                        }}
-                        placeholder="Up to 23-digit numeric"
-                        className="w-[200px] bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono font-bold text-theme-body focus:outline-none focus:border-blue-500 tracking-wider"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/40">
-                  <div>
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Workflow Status</label>
-                    <div className="flex space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => setInvoiceStatus("Draft")}
-                        className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          invoiceStatus === "Draft" 
-                            ? "bg-[#2563EB] border-blue-500 text-theme-body" 
-                            : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-body"
-                        }`}
-                      >
-                        Keep Draft
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setInvoiceStatus("Submitted")}
-                        className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          invoiceStatus === "Submitted" 
-                            ? "bg-amber-600 border-amber-500 text-white" 
-                            : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-white"
-                        }`}
-                      >
-                        Submit Invoice
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Entry Modes Tabs */}
-                <div>
-                  <div className="flex border-b border-theme-divider mb-4">
-                    <button
-                      type="button"
-                      onClick={() => setEntryMode("manual")}
-                      className={`px-4 py-2 text-xs font-bold font-display flex items-center space-x-2 border-b-2 transition-all cursor-pointer ${
-                        entryMode === "manual" ? "border-blue-500 text-theme-body" : "border-transparent text-theme-muted hover:text-theme-body"
-                      }`}
-                    >
-                      <Layers size={14} />
-                      <span>Manual Scan / Resolve</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEntryMode("matrix")}
-                      className={`px-4 py-2 text-xs font-bold font-display flex items-center space-x-2 border-b-2 transition-all cursor-pointer ${
-                        entryMode === "matrix" ? "border-blue-500 text-theme-body" : "border-transparent text-theme-muted hover:text-theme-body"
-                      }`}
-                    >
-                      <Grid size={14} />
-                      <span>Matrix Grid Entry (SMRITI Footwear/Apparel)</span>
-                    </button>
-                  </div>
-
-                  {/* Manual Entry Form */}
-                  {entryMode === "manual" && (
-                    <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                        <div className="sm:col-span-6">
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">SELECT VARIANT</label>
-                          <select
-                            value={selectedProduct}
-                            onChange={(e) => setSelectedProduct(e.target.value)}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          >
-                            <option value="">-- Choose Article Variant --</option>
-                            {products.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} ({p.color || "N/A"} - Size {p.size || "N/A"}) - ₹{p.price} [SMR-Barcode: {p.barcode}]
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="sm:col-span-3">
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">QTY</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={manualQty}
-                            onChange={(e) => setManualQty(Math.max(1, parseInt(e.target.value) || 1))}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div className="sm:col-span-3">
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">GST TAX %</label>
-                          <select
-                            value={manualTax}
-                            onChange={(e) => setManualTax(parseInt(e.target.value) || 18)}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          >
-                            <option value="5">5% GST</option>
-                            <option value="12">12% GST</option>
-                            <option value="18">18% GST</option>
-                            <option value="28">28% GST</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={handleAddManualItem}
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          Add Item Line
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Matrix Entry Grid Form */}
-                  {entryMode === "matrix" && (
-                    <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">SELECT BASE ARTICLE</label>
-                          <select
-                            value={selectedBaseArticle}
-                            onChange={(e) => {
-                              setSelectedBaseArticle(e.target.value);
-                              setSelectedBaseColor("");
-                              setMatrixQuantities({});
-                            }}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          >
-                            <option value="">-- Choose Base Article --</option>
-                            {baseArticles.map(art => (
-                              <option key={art} value={art}>{art}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">SELECT COLOR</label>
-                          <select
-                            value={selectedBaseColor}
-                            onChange={(e) => {
-                              setSelectedBaseColor(e.target.value);
-                              setMatrixQuantities({});
-                            }}
-                            disabled={!selectedBaseArticle}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                          >
-                            <option value="">-- Choose Color --</option>
-                            {availableColors.map(col => (
-                              <option key={col} value={col}>{col}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {selectedBaseArticle && selectedBaseColor && (
-                        <div className="space-y-4 pt-2 border-t border-theme-divider/50">
-                          <div className="bg-theme-surface-1 p-3.5 rounded-lg border border-theme-divider">
-                            <h4 className="text-[10px] font-mono text-indigo-300 uppercase tracking-wider mb-3">VARIANT SIZE ALLOCATIONS MATRIX</h4>
-                            
-                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                              {matrixVariants.map(variant => (
-                                <div key={variant.id} className="bg-theme-surface-2 p-2 rounded border border-theme-divider/60 flex flex-col items-center">
-                                  <span className="text-[10px] font-mono text-theme-muted">Size {variant.size || "OS"}</span>
-                                  <span className="text-xs font-semibold text-theme-body mt-0.5">₹{variant.price}</span>
-                                  <span className="text-[9px] text-emerald-400 mt-0.5">Stock: {variant.stock}</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={matrixQuantities[variant.id] || ""}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Math.max(0, parseInt(e.target.value) || 0);
-                                      setMatrixQuantities({
-                                        ...matrixQuantities,
-                                        [variant.id]: val
-                                      });
-                                    }}
-                                    className="w-full text-center bg-theme-surface-1 border border-theme-divider rounded mt-2 py-1 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="flex justify-end">
-                            <button
-                              type="button"
-                              onClick={handleAddMatrixItems}
-                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                            >
-                              Add Matrix Items to Draft
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Current Draft Items Table */}
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-mono uppercase tracking-wider text-theme-muted">Invoice Item Lines List</h4>
-                  
-                  {invoiceItems.length === 0 ? (
-                    <div className="p-8 text-center bg-theme-surface-2 border border-dashed border-theme-divider rounded-xl text-theme-muted text-xs">
-                      No items added yet. Choose manual or matrix entry above to build the invoice lines.
-                    </div>
-                  ) : (
-                    <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-theme-surface-3 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                            <th className="px-4 py-2.5">Article / Variant</th>
-                            <th className="px-4 py-2.5">Color/Size</th>
-                            <th className="px-4 py-2.5 text-right">Qty</th>
-                            <th className="px-4 py-2.5 text-right">Price</th>
-                            <th className="px-4 py-2.5 text-right">GST %</th>
-                            <th className="px-4 py-2.5 text-right">Tax</th>
-                            <th className="px-4 py-2.5 text-right">Total</th>
-                            <th className="px-4 py-2.5 text-center">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {invoiceItems.map((item, index) => {
-                            const taxRate = item.taxRate || 18;
-                            const baseTotal = item.quantity * item.price;
-                            const taxAmount = (baseTotal * taxRate) / 100;
-                            const lineTotal = baseTotal + taxAmount;
-
-                            const relatedProd = products.find(p => p.id === item.productId || p.code === item.code);
-                            const policyStr = localStorage.getItem("smriti_spif_display_policy");
-                            const showImage = policyStr ? JSON.parse(policyStr).showInSales : true;
-                            const hoverZoom = policyStr ? JSON.parse(policyStr).hoverZoom : true;
-                            const imageSize = (policyStr ? JSON.parse(policyStr).salesSize : "small") as "small" | "medium";
-
-                            return (
-                              <tr key={index} className="border-b border-theme-divider/40 hover:bg-theme-surface-1 text-theme-body">
-                                <td className="px-4 py-2">
-                                  <div className="flex items-center space-x-3">
-                                    {showImage && relatedProd?.primaryImageUrl && (
-                                      <ProductImage
-                                        src={relatedProd.primaryImageUrl}
-                                        alt={item.name}
-                                        size={imageSize}
-                                        hoverZoom={hoverZoom}
-                                      />
-                                    )}
-                                    <div>
-                                      <div className="font-semibold">{item.name}</div>
-                                      <div className="text-[10px] text-theme-muted font-mono">{item.code}</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-2 font-mono">
-                                  {item.color || "N/A"} / {item.size || "N/A"}
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono font-semibold">
-                                  {item.quantity}
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono">
-                                  ₹{item.price.toLocaleString("en-IN")}
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono text-amber-400">
-                                  {taxRate}%
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono text-theme-muted">
-                                  ₹{Math.round(taxAmount).toLocaleString("en-IN")}
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono text-emerald-400 font-semibold">
-                                  ₹{Math.round(lineTotal).toLocaleString("en-IN")}
-                                </td>
-                                <td className="px-4 py-2 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveDraftItem(index)}
-                                    className="p-1 rounded text-rose-500 hover:bg-rose-950/50 transition-colors"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-
-                      {/* Summary Section */}
-                      <div className="p-4 bg-theme-surface-3 border-t border-theme-divider text-xs text-theme-muted flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div className="text-[11px] leading-relaxed">
-                          SMRITI tax engine automatically back-calculates and segregates SGST/CGST breakdown lines.
-                        </div>
-                        <div className="space-y-1 text-right w-full sm:w-auto">
-                          <div>
-                            Base Net Total: <span className="font-mono text-theme-body">₹{invoiceItems.reduce((acc, item) => acc + (item.quantity * item.price), 0).toLocaleString("en-IN")}</span>
-                          </div>
-                          <div>
-                            Taxes Consolidated: <span className="font-mono text-theme-body">₹{invoiceItems.reduce((acc, item) => acc + ((item.quantity * item.price * (item.taxRate || 18)) / 100), 0).toFixed(1)}</span>
-                          </div>
-                          <div className="text-sm font-bold text-emerald-400">
-                            Grand Invoice Total: ₹{invoiceItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + (item.taxRate || 18) / 100)), 0).toLocaleString("en-IN")}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Form Actions */}
-                <div className="flex justify-end space-x-3 pt-4 border-t border-theme-divider/50">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCreatingInvoice(false);
-                      setInvoiceItems([]);
-                    }}
-                    className="px-4 py-2 rounded-lg bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-muted hover:text-theme-body text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    Cancel Draft
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveInvoice}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-lg transition-colors cursor-pointer"
-                  >
-                    Commit & Write Ledger
-                  </button>
-                </div>
-              </div>
+            /* Smriti Distributor Stitch-Integrated Tax Invoice Workspace */
+            <div className="w-full h-full overflow-hidden animate-in fade-in duration-200">
+              <DistTaxInvoice
+                onExit={() => {
+                  setIsCreatingInvoice(false);
+                  fetchSalesInvoices();
+                }}
+                onNotification={onNotification}
+                currentUser={currentUser}
+              />
             </div>
           ) : isCreatingReturn ? (
             /* Record Sales Return Panel */
@@ -2005,7 +1688,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   <h3 className="font-display font-bold text-sm text-theme-body">Record Sales Return (Credit Note)</h3>
                   <p className="text-[11px] text-theme-muted">Select approved sales invoice to reverse items and record returns</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsCreatingReturn(false)}
                   className="p-1 rounded bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
                 >
@@ -2091,8 +1774,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         type="button"
                         onClick={() => setReturnStatus("Draft")}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          returnStatus === "Draft" 
-                            ? "bg-rose-900/80 border-rose-500 text-theme-body" 
+                          returnStatus === "Draft"
+                            ? "bg-rose-900/80 border-rose-500 text-theme-body"
                             : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-body"
                         }`}
                       >
@@ -2102,8 +1785,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         type="button"
                         onClick={() => setReturnStatus("Submitted")}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          returnStatus === "Submitted" 
-                            ? "bg-amber-600 border-amber-500 text-white" 
+                          returnStatus === "Submitted"
+                            ? "bg-amber-600 border-amber-500 text-white"
                             : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-white"
                         }`}
                       >
@@ -2116,7 +1799,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 {/* Return Items List Table */}
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-mono uppercase tracking-wider text-theme-muted">Select Return Quantities from Invoice</h4>
-                  
+
                   {returnItems.length === 0 ? (
                     <div className="p-8 text-center bg-theme-surface-2 border border-dashed border-theme-divider rounded-xl text-theme-muted text-xs">
                       Please select an approved sales invoice above to load invoice line details.
@@ -2190,10 +1873,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   />
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-theme-muted">
-                                  ₹{Math.round(taxAmount).toLocaleString("en-IN")}
+                                  {formatCurrency(taxAmount)}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-rose-400 font-semibold">
-                                  ₹{Math.round(lineTotal).toLocaleString("en-IN")}
+                                  {formatCurrency(lineTotal)}
                                 </td>
                               </tr>
                             );
@@ -2208,7 +1891,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         </div>
                         <div className="space-y-1 text-right w-full sm:w-auto">
                           <div className="text-sm font-bold text-rose-400">
-                            Total Credit Note Value: ₹{returnItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + item.gstRate / 100)), 0).toLocaleString("en-IN")}
+                            Total Credit Note Value: {formatCurrency(returnItems.reduce((acc, item) => acc + (safeNumber(item.quantity) * safeNumber(item.price) * (1 + safeNumber(item.gstRate) / 100)), 0))}
                           </div>
                         </div>
                       </div>
@@ -2249,7 +1932,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   </h3>
                   <p className="text-[11px] text-theme-muted">Register a single client with real-time Smriti verification</p>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     setIsAddingCustomer(false);
                     setNewCustomerName("");
@@ -2487,7 +2170,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   </h3>
                   <p className="text-[11px] text-theme-muted">Upload and validate local CSV files to expand the customer ledger</p>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     setIsImportingCustomers(false);
                     setCsvFile(null);
@@ -2503,13 +2186,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left Column: Drag & Drop and Settings */}
                   <div className="space-y-4">
-                    <div 
+                    <div
                       onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
                       onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
                       onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
-                      onDrop={(e) => { 
-                        e.preventDefault(); 
-                        setDragActive(false); 
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragActive(false);
                         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                           const file = e.dataTransfer.files[0];
                           if (!file.name.endsWith(".csv")) {
@@ -2523,8 +2206,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         }
                       }}
                       className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
-                        dragActive 
-                          ? "border-indigo-500 bg-indigo-950/20" 
+                        dragActive
+                          ? "border-indigo-500 bg-indigo-950/20"
                           : "border-theme-divider hover:border-theme-muted bg-theme-surface-2/40 hover:bg-theme-surface-2/70"
                       }`}
                     >
@@ -2542,9 +2225,9 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         </div>
                         <label className="px-4 py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-muted hover:text-theme-body text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-sm">
                           Choose File
-                          <input 
-                            type="file" 
-                            accept=".csv" 
+                          <input
+                            type="file"
+                            accept=".csv"
                             onChange={(e) => {
                               if (e.target.files && e.target.files[0]) {
                                 const file = e.target.files[0];
@@ -2557,8 +2240,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 reader.onload = (ev) => setRawCsvText(ev.target?.result as string);
                                 reader.readAsText(file);
                               }
-                            }} 
-                            className="hidden" 
+                            }}
+                            className="hidden"
                           />
                         </label>
                       </div>
@@ -2583,11 +2266,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         <div><span className="text-theme-body font-semibold">Status</span> (Active, Inactive, Blocked)</div>
                         <div><span className="text-theme-body font-semibold">Outstanding</span> (Balance due)</div>
                       </div>
-                      
+
                       <div className="flex justify-between items-center pt-2 border-t border-theme-divider/40">
                         <div className="flex items-center space-x-2">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             id="firstRowHeader"
                             checked={firstRowHeader}
                             onChange={(e) => setFirstRowHeader(e.target.checked)}
@@ -2597,7 +2280,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             First row contains column headers
                           </label>
                         </div>
-                        <button 
+                        <button
                           onClick={() => {
                             const headers = ["Name", "Mobile", "Email", "GSTIN", "PAN", "Group", "Status", "Outstanding"];
                             const sampleData = [
@@ -2713,7 +2396,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 onNotification("No Valid Records", "There are no valid customer records to import.", "error");
                                 return;
                               }
-                              
+
                               const importedCustomers: Customer[] = validRows.map((row, idx) => {
                                 const newId = generateNextCustomerId(customers, idx);
                                 return {
@@ -2733,12 +2416,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                               const consolidatedList = [...customers, ...importedCustomers];
                               saveCustomers(consolidatedList);
                               fetchCustomers();
-                              
+
                               setIsImportingCustomers(false);
                               setCsvFile(null);
                               setRawCsvText("");
                               setParsedRows([]);
-                              
+
                               onNotification("Import Complete", `Successfully imported ${importedCustomers.length} customer profiles to SMRITI ledger.`, "success");
                             }}
                             className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs shadow-lg transition-colors cursor-pointer flex items-center space-x-2"
@@ -2832,7 +2515,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   {subView === "quotations" ? "Quotations Registry" : subView === "orders" ? "Sales Orders Registry" : subView === "invoices" ? "Sales Invoices Registry" : subView === "returns" ? "Sales Returns Registry" : "Customers Directory"}
                 </span>
                 <span className="text-[10px] font-mono text-theme-muted">
-                  {subView === "quotations" ? `${quotations.length} Active Records` : subView === "orders" ? `${salesOrders.length} Confirmed Bookings` : subView === "invoices" ? `${salesInvoices.length} Registered Invoices` : subView === "returns" ? `${salesReturns.length} Logged Returns` : customerSearchQuery ? `${filteredCustomers.length} of ${customers.length} Filtered Profiles` : `${customers.length} Client Profiles`}
+                  {subView === "quotations" ? `${quotations.length} Active Records` : subView === "orders" ? `${salesOrders.length} Sales Orders` : subView === "invoices" ? `${salesInvoices.length} Registered Invoices` : subView === "returns" ? `${salesReturns.length} Logged Returns` : customerSearchQuery ? `${filteredCustomers.length} of ${customers.length} Filtered Profiles` : `${customers.length} Client Profiles`}
                 </span>
               </div>
 
@@ -2939,8 +2622,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       </thead>
                       <tbody>
                         {quotations.map(q => (
-                          <tr 
-                            key={q.id} 
+                          <tr
+                            key={q.id}
                             onClick={() => setSelectedQuotation(q)}
                             className={`border-b border-theme-divider/40 hover:bg-theme-surface-3/50 cursor-pointer transition-colors ${
                               selectedQuotation?.id === q.id ? "bg-theme-surface-3" : ""
@@ -2965,7 +2648,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             </td>
                             <td className={`px-5 ${densityPadding} text-theme-body font-medium`}>{q.customerName}</td>
                             <td className={`px-5 ${densityPadding} text-theme-muted font-mono`}>
-                              {formatDateTime(q.date)}
+                              {formatDate(q.date)}
                             </td>
                             <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
                               {q.items.reduce((acc, i) => acc + i.quantity, 0)} units
@@ -2994,7 +2677,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 <button onClick={(e) => { e.stopPropagation(); onNotification("Print", "Printing Quotation " + q.quotationNo, "success"); window.print(); }} className="p-1 rounded hover:bg-theme-surface-3 text-slate-400" title="Print"><Printer size={14} /></button>
                                 <button onClick={(e) => { e.stopPropagation(); onNotification("WhatsApp", "Generating PDF for WhatsApp", "success"); window.open('https://wa.me/?text=Quotation%20' + q.quotationNo); }} className="p-1 rounded hover:bg-theme-surface-3 text-emerald-400" title="WhatsApp"><MessageCircle size={14} /></button>
                                 <button onClick={(e) => { e.stopPropagation(); onNotification("Email", "Drafting Email with PDF", "success"); window.open('mailto:?subject=Quotation%20' + q.quotationNo); }} className="p-1 rounded hover:bg-theme-surface-3 text-blue-400" title="Email"><Mail size={14} /></button>
-                                
+
                                 {q.status === "Draft" && (
                                   <button
                                     onClick={() => handleWorkflowAction("Quotation", q.id, "submit")}
@@ -3051,15 +2734,15 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               ) : subView === "orders" ? (
                 /* Sales Orders Book Registry */
                 salesOrders.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No confirmed sales bookings match current filters or none exist in SMRITI.
+                  <div className="p-16 text-center text-theme-muted text-xs font-mono">
+                    No sales orders match current filters or none exist in SMRITI.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                          <th className={`px-5 ${densityPadding} w-10`}>
+                          <th className={`px-4 ${densityPadding} w-10`}>
                             <input
                               type="checkbox"
                               checked={salesOrders.length > 0 && selectedIds.size === salesOrders.length}
@@ -3070,73 +2753,85 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                               className="rounded border-theme-divider bg-theme-surface-1 accent-indigo-500"
                             />
                           </th>
-                          <th className={`px-5 ${densityPadding}`}>Order No</th>
-                          <th className={`px-5 ${densityPadding}`}>Client Name</th>
-                          <th className={`px-5 ${densityPadding}`}>Order Date</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Items Booking</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Booked Value</th>
-                          <th className={`px-5 ${densityPadding} text-center`}>Status</th>
-                          <th className={`px-5 ${densityPadding} text-center`}>Source QTN</th>
+                          <th className={`px-4 ${densityPadding}`}>Order No.</th>
+                          <th className={`px-4 ${densityPadding}`}>PO Number</th>
+                          <th className={`px-4 ${densityPadding}`}>Customer</th>
+                          <th className={`px-4 ${densityPadding}`}>Order Date</th>
+                          <th className={`px-4 ${densityPadding} text-right`}>Items / Quantity</th>
+                          <th className={`px-4 ${densityPadding} text-right`}>Order Value</th>
+                          <th className={`px-4 ${densityPadding} text-right`}>Billed Value</th>
+                          <th className={`px-4 ${densityPadding} text-right`}>Pending Value</th>
+                          <th className={`px-4 ${densityPadding} text-center`}>Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {salesOrders.map(so => (
-                          <tr 
-                            key={so.id} 
-                            onClick={() => setSelectedOrder(so)}
-                            className={`border-b border-theme-divider/40 hover:bg-theme-surface-3/50 cursor-pointer transition-colors ${
-                              selectedOrder?.id === so.id ? "bg-theme-surface-3" : ""
-                            }`}
-                          >
-                            <td className={`px-5 ${densityPadding}`} onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.has(so.id)}
-                                onChange={(e) => {
-                                  const newSet = new Set(selectedIds);
-                                  if (e.target.checked) newSet.add(so.id);
-                                  else newSet.delete(so.id);
-                                  setSelectedIds(newSet);
-                                }}
-                                className="rounded border-theme-divider bg-theme-surface-1 accent-indigo-500"
-                              />
-                            </td>
-                            <td className={`px-5 ${densityPadding} font-mono font-bold text-theme-body flex items-center space-x-2`}>
-                              <ShoppingCart size={13} className="text-theme-muted" />
-                              <span>{so.orderNo}</span>
-                            </td>
-                            <td className={`px-5 ${densityPadding} text-theme-body font-medium`}>{so.customerName}</td>
-                            <td className={`px-5 ${densityPadding} text-theme-muted font-mono`}>
-                              {formatDateTime(so.date)}
-                            </td>
-                            <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
-                              {so.items.reduce((acc, i) => acc + i.quantity, 0)} units
-                            </td>
-                            <td className={`px-5 ${densityPadding} text-right font-mono font-semibold text-emerald-400`}>
-                              {formatCurrency(so.grandTotal)}
-                            </td>
-                            <td className={`px-5 ${densityPadding} text-center`}>
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                so.status === "Draft" ? "bg-theme-surface-3 text-theme-muted border border-theme-divider" :
-                                so.status === "Submitted" ? "bg-amber-950/80 text-amber-400 border border-amber-800" :
-                                so.status === "Approved" || so.status === "Confirmed" ? "bg-indigo-950/80 text-indigo-400 border border-indigo-800" :
-                                so.status === "Rejected" || so.status === "Cancelled" ? "bg-rose-950/80 text-rose-400 border border-rose-800" :
-                                "bg-emerald-950/80 text-emerald-400 border border-emerald-800"
-                              }`}>
-                                {so.status}
-                              </span>
-                            </td>
-                            <td className={`px-5 ${densityPadding} text-center font-mono text-theme-muted`}>
-                              {so.sourceQuotationId ? (
-                                <span className="bg-indigo-950 text-indigo-300 border border-indigo-900 px-1.5 py-0.2 rounded text-[10px]">
-                                  LINKED
+                        {salesOrders.map(so => {
+                          const orderQty = so.totalQty || so.items.reduce((acc, i) => acc + i.quantity, 0);
+                          const billedVal = so.billedValue || 0;
+                          const pendingVal = so.pendingValue ?? Math.max(0, (so.grandTotal || 0) - billedVal);
+                          const displayStatus = so.fulfillmentStatus || so.status;
+
+                          return (
+                            <tr
+                              key={so.id}
+                              onClick={() => setSelectedOrder(so)}
+                              className={`border-b border-theme-divider/40 hover:bg-theme-surface-3/50 cursor-pointer transition-colors ${
+                                selectedOrder?.id === so.id ? "bg-theme-surface-3" : ""
+                              }`}
+                            >
+                              <td className={`px-4 ${densityPadding}`} onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIds.has(so.id)}
+                                  onChange={(e) => {
+                                    const newSet = new Set(selectedIds);
+                                    if (e.target.checked) newSet.add(so.id);
+                                    else newSet.delete(so.id);
+                                    setSelectedIds(newSet);
+                                  }}
+                                  className="rounded border-theme-divider bg-theme-surface-1 accent-indigo-500"
+                                />
+                              </td>
+                              <td className={`px-4 ${densityPadding} font-mono font-bold text-theme-body flex items-center space-x-2`}>
+                                <ShoppingCart size={13} className="text-theme-muted shrink-0" />
+                                <span className="text-indigo-300 hover:underline">{so.orderNo}</span>
+                              </td>
+                              <td className={`px-4 ${densityPadding} font-mono text-theme-body font-semibold`}>
+                                {so.poNumber || "-"}
+                              </td>
+                              <td className={`px-4 ${densityPadding} text-theme-body font-medium`}>
+                                {so.customerName}
+                              </td>
+                              <td className={`px-4 ${densityPadding} text-theme-muted font-mono whitespace-nowrap`}>
+                                {formatDate(so.date)}
+                              </td>
+                              <td className={`px-4 ${densityPadding} text-right font-mono text-theme-muted whitespace-nowrap`}>
+                                {so.items.length} items ({formatNumber(orderQty, 0)} qty)
+                              </td>
+                              <td className={`px-4 ${densityPadding} text-right font-mono font-semibold text-emerald-400 whitespace-nowrap`}>
+                                {formatCurrency(so.grandTotal)}
+                              </td>
+                              <td className={`px-4 ${densityPadding} text-right font-mono font-semibold text-sky-400 whitespace-nowrap`}>
+                                {formatCurrency(billedVal)}
+                              </td>
+                              <td className={`px-4 ${densityPadding} text-right font-mono font-semibold text-amber-400 whitespace-nowrap`}>
+                                {formatCurrency(pendingVal)}
+                              </td>
+                              <td className={`px-4 ${densityPadding} text-center whitespace-nowrap`}>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                  displayStatus === "FULLY_BILLED" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" :
+                                  displayStatus === "PARTIALLY_BILLED" ? "bg-sky-950/80 text-sky-400 border border-sky-800" :
+                                  displayStatus === "UNFULFILLED" ? "bg-amber-950/80 text-amber-400 border border-amber-800" :
+                                  displayStatus === "Confirmed" || displayStatus === "Approved" ? "bg-indigo-950/80 text-indigo-400 border border-indigo-800" :
+                                  displayStatus === "Draft" ? "bg-theme-surface-3 text-theme-muted border border-theme-divider" :
+                                  "bg-rose-950/80 text-rose-400 border border-rose-800"
+                                }`}>
+                                  {displayStatus.replace(/_/g, " ")}
                                 </span>
-                              ) : (
-                                "DIRECT"
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -3177,8 +2872,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         {salesInvoices.map(si => {
                           const cust = customers.find(c => c.id === si.customerId);
                           return (
-                            <tr 
-                              key={si.id} 
+                            <tr
+                              key={si.id}
                               onClick={() => setSelectedInvoice(si)}
                               onContextMenu={(e) => {
                                 e.preventDefault();
@@ -3212,7 +2907,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                               </td>
                               <td className={`px-5 ${densityPadding} text-theme-body font-medium`}>{cust?.name || "Walk-In"}</td>
                               <td className={`px-5 ${densityPadding} text-theme-muted font-mono`}>
-                                {formatDateTime(si.date)}
+                                {formatDate(si.date)}
                               </td>
                               <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
                                 {si.items.reduce((acc, i) => acc + i.quantity, 0)} units
@@ -3302,8 +2997,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         {salesReturns.map(sr => {
                           const origInvoice = salesInvoices.find(si => si.id === sr.originalInvoiceId);
                           return (
-                            <tr 
-                              key={sr.id} 
+                            <tr
+                              key={sr.id}
                               onClick={() => setSelectedReturn(sr)}
                               onContextMenu={(e) => {
                                 e.preventDefault();
@@ -3343,7 +3038,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 {sr.reason}
                               </td>
                               <td className={`px-5 ${densityPadding} text-theme-muted font-mono`}>
-                                {formatDateTime(sr.date)}
+                                {formatDate(sr.date)}
                               </td>
                               <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
                                 {sr.items.reduce((acc, i) => acc + i.quantity, 0)} units
@@ -3422,8 +3117,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         {filteredCustomers.map(c => {
                           const group = customerGroups.find(g => g.id === c.customerGroupId);
                           return (
-                            <tr 
-                              key={c.id} 
+                            <tr
+                              key={c.id}
                               onClick={() => setSelectedCustomer(c)}
                               onContextMenu={(e) => {
                                 e.preventDefault();
@@ -3464,8 +3159,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                     <span className="text-[10px] text-theme-muted italic font-mono">-</span>
                                   ) : (
                                     (c.tags || []).map(t => (
-                                      <span 
-                                        key={t} 
+                                      <span
+                                        key={t}
                                         className="inline-block px-1.5 py-0.5 rounded bg-indigo-950/60 text-indigo-400 border border-indigo-900/40 text-[9px] font-bold font-mono whitespace-nowrap"
                                       >
                                         {t}
@@ -3501,7 +3196,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
         {/* Right 1/3: Context Details Drawer */}
         <div className="lg:col-span-1">
-          
+
           {selectedQuotation ? (
             /* Selected Quotation Side Pane */
             <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-6 shadow-xl sticky top-24">
@@ -3558,8 +3253,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-theme-body">₹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
-                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">₹{line.price} + {line.taxRate}% GST</div>
+                        <div className="font-semibold text-theme-body">{formatCurrency(line.totalAmount)}</div>
+                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">{formatCurrency(line.price)} + {line.taxRate || line.gstRate || 0}% GST</div>
                       </div>
                     </div>
                   ))}
@@ -3570,11 +3265,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>Consolidated Taxes (GST)</span>
-                  <span className="font-mono text-theme-body">₹{selectedQuotation.taxTotal.toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">{formatCurrency(selectedQuotation.taxTotal)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
                   <span>Grand Ledger Total</span>
-                  <span className="text-emerald-400 font-mono text-sm">₹{selectedQuotation.grandTotal.toLocaleString("en-IN")}</span>
+                  <span className="text-emerald-400 font-mono text-sm">{formatCurrency(selectedQuotation.grandTotal)}</span>
                 </div>
               </div>
 
@@ -3589,7 +3284,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 </button>
               )}
 
-              
+
               {selectedQuotation.status === "Submitted" && (
                 <div className="flex gap-2">
                   <button
@@ -3630,16 +3325,54 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
             </div>
           ) : selectedOrder ? (
-            /* Selected Sales Order Side Pane */
-            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-6 shadow-xl sticky top-24">
-              <div className="flex items-start justify-between">
+            /* Selected Sales Order Side Pane — Clean Business Presentation */
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-5 shadow-xl sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
+              {/* Header */}
+              <div className="flex items-start justify-between pb-3 border-b border-theme-divider">
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-900 rounded px-1.5 py-0.2 font-mono font-bold uppercase">SALES ORDER</span>
-                    <span className="text-xs text-theme-muted font-mono font-medium">#{selectedOrder.id.slice(-5)}</span>
+                    <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-900 rounded px-1.5 py-0.5 font-mono font-bold uppercase">
+                      SALES ORDER
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${
+                      (selectedOrder.fulfillmentStatus || selectedOrder.status) === "FULLY_BILLED" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" :
+                      (selectedOrder.fulfillmentStatus || selectedOrder.status) === "PARTIALLY_BILLED" ? "bg-sky-950/80 text-sky-400 border border-sky-800" :
+                      "bg-amber-950/80 text-amber-400 border border-amber-800"
+                    }`}>
+                      {(selectedOrder.fulfillmentStatus || selectedOrder.status).replace(/_/g, " ")}
+                    </span>
                   </div>
                   <h4 className="font-display font-bold text-base text-theme-body mt-1.5">{selectedOrder.orderNo}</h4>
-                  <p className="text-[11px] text-theme-muted mt-0.5">Customer Name: <span className="text-theme-body font-medium">{selectedOrder.customerName}</span></p>
+                  {selectedOrder.poNumber && (
+                    <div className="text-xs font-mono text-indigo-300 font-semibold mt-0.5">
+                      PO #{selectedOrder.poNumber}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <a
+                      href={`/api/v1/sales/orders/${selectedOrder.id}/pdf`}
+                      download
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Download size={12} /> PDF
+                    </a>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const inv = await apiFetchV1(`/sales/orders/${selectedOrder.id}/convert-to-invoice`, { method: "POST" });
+                          onNotification("Invoice Generated", `Sales Order ${selectedOrder.orderNo} converted to Tax Invoice ${inv.invoice_no}!`, "success");
+                          fetchSalesOrders();
+                          fetchSalesInvoices();
+                        } catch (err: any) {
+                          onNotification("Conversion Error", err?.message || "Failed to convert sales order to invoice.", "error");
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <FileCheck size={12} /> Convert to Invoice
+                    </button>
+                  </div>
                 </div>
                 <button
                   onClick={() => setSelectedOrder(null)}
@@ -3649,98 +3382,175 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 </button>
               </div>
 
-              <div className="space-y-4 border-t border-b border-theme-divider py-4">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-theme-muted font-medium">Booking Date</span>
-                  <span className="text-theme-body font-mono">{formatDate(selectedOrder.date)}</span>
+              {/* Customer & PO Information Card */}
+              <div className="bg-theme-surface-2 p-3.5 rounded-xl border border-theme-divider space-y-2 text-xs">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-theme-muted font-bold border-b border-theme-divider/60 pb-1">
+                  CUSTOMER &amp; PO DETAILS
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-theme-muted font-medium">Workflow Status</span>
-                  
-                  <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                    selectedOrder.status === "Draft" ? "bg-theme-surface-3 text-theme-muted border border-theme-divider" :
-                    selectedOrder.status === "Submitted" ? "bg-amber-950/80 text-amber-400 border border-amber-800" :
-                    selectedOrder.status === "Approved" || selectedOrder.status === "Confirmed" ? "bg-indigo-950/80 text-indigo-400 border border-indigo-800" :
-                    selectedOrder.status === "Rejected" || selectedOrder.status === "Cancelled" ? "bg-rose-950/80 text-rose-400 border border-rose-800" :
-                    "bg-emerald-950/80 text-emerald-400 border border-emerald-800"
-                  }`}>
-                    {selectedOrder.status}
-                  </span>
-
+                <div className="flex justify-between items-center">
+                  <span className="text-theme-muted">Customer:</span>
+                  <span className="text-theme-body font-semibold text-right">{selectedOrder.customerName}</span>
                 </div>
-                {selectedOrder.sourceQuotationId && (
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-theme-muted font-medium">Source Document</span>
-                    <span className="text-sky-400 font-mono font-semibold">CONVERTED QTN</span>
+                {selectedOrder.customerGstin && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-theme-muted">Customer GSTIN:</span>
+                    <span className="text-theme-body font-mono text-right">{selectedOrder.customerGstin}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-theme-muted">PO Date:</span>
+                  <span className="text-theme-body font-mono">{formatDate(selectedOrder.poDate || selectedOrder.date)}</span>
+                </div>
+                {selectedOrder.deliveryDate && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-theme-muted">Delivery Date:</span>
+                    <span className="text-theme-body font-mono">{formatDate(selectedOrder.deliveryDate)}</span>
+                  </div>
+                )}
+                {(selectedOrder.siteCode || selectedOrder.siteName) && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-theme-muted">Destination Store/Site:</span>
+                    <span className="text-theme-body font-medium text-right">
+                      {selectedOrder.siteCode ? `${selectedOrder.siteCode} • ` : ""}{selectedOrder.siteName || "Default Store"}
+                    </span>
+                  </div>
+                )}
+                {selectedOrder.vendorCode && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-theme-muted">Vendor Code:</span>
+                    <span className="text-theme-body font-mono text-right">{selectedOrder.vendorCode}</span>
+                  </div>
+                )}
+                {selectedOrder.deliveryAddress && (
+                  <div className="pt-1 border-t border-theme-divider/40">
+                    <span className="text-theme-muted block text-[10px] uppercase font-mono">Delivery Address:</span>
+                    <p className="text-[11px] text-theme-body mt-0.5 leading-relaxed">{selectedOrder.deliveryAddress}</p>
                   </div>
                 )}
               </div>
 
-              {/* Items Breakdown list */}
-              <div className="space-y-3">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block">COMMITTED BOOKINGS</span>
-                <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1.5">
+              {/* Financial & Fulfillment Summary Box */}
+              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2.5">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-theme-muted font-bold border-b border-theme-divider/60 pb-1">
+                  ORDER FINANCIALS &amp; FULFILLMENT
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 bg-theme-surface-1 rounded-lg border border-theme-divider/50">
+                    <span className="text-[10px] text-theme-muted uppercase font-mono block">Order Value</span>
+                    <span className="text-sm font-bold text-emerald-400 font-mono block mt-0.5">{formatCurrency(selectedOrder.grandTotal)}</span>
+                    <span className="text-[10px] text-theme-muted font-mono">{formatNumber(selectedOrder.totalQty || selectedOrder.items.reduce((acc, i) => acc + i.quantity, 0), 0)} units</span>
+                  </div>
+                  <div className="p-2 bg-theme-surface-1 rounded-lg border border-theme-divider/50">
+                    <span className="text-[10px] text-theme-muted uppercase font-mono block">Billed Value</span>
+                    <span className="text-sm font-bold text-sky-400 font-mono block mt-0.5">{formatCurrency(selectedOrder.billedValue || 0)}</span>
+                    <span className="text-[10px] text-theme-muted font-mono">{formatNumber(selectedOrder.billedQty || 0, 0)} billed</span>
+                  </div>
+                  <div className="p-2 bg-theme-surface-1 rounded-lg border border-theme-divider/50">
+                    <span className="text-[10px] text-theme-muted uppercase font-mono block">Pending Value</span>
+                    <span className="text-sm font-bold text-amber-400 font-mono block mt-0.5">
+                      {formatCurrency(selectedOrder.pendingValue ?? Math.max(0, (selectedOrder.grandTotal || 0) - (selectedOrder.billedValue || 0)))}
+                    </span>
+                    <span className="text-[10px] text-theme-muted font-mono">
+                      {formatNumber(selectedOrder.pendingQty ?? Math.max(0, (selectedOrder.totalQty || selectedOrder.items.reduce((acc, i) => acc + i.quantity, 0)) - (selectedOrder.billedQty || 0)), 0)} pending
+                    </span>
+                  </div>
+                  <div className="p-2 bg-theme-surface-1 rounded-lg border border-theme-divider/50">
+                    <span className="text-[10px] text-theme-muted uppercase font-mono block">Tax Total (GST)</span>
+                    <span className="text-sm font-bold text-theme-body font-mono block mt-0.5">{formatCurrency(selectedOrder.taxTotal)}</span>
+                    <span className="text-[10px] text-theme-muted font-mono">Basic: {formatCurrency(selectedOrder.basicTotal || (selectedOrder.grandTotal - selectedOrder.taxTotal))}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-theme-muted font-bold">
+                    ORDER ITEM LINES ({selectedOrder.items.length})
+                  </span>
+                </div>
+                <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1">
                   {selectedOrder.items.map((line, idx) => (
-                    <div key={idx} className="bg-theme-surface-2 p-3 rounded-lg border border-theme-divider/60 flex justify-between items-start text-xs">
+                    <div key={idx} className="bg-theme-surface-2 p-2.5 rounded-lg border border-theme-divider/60 flex justify-between items-start text-xs">
                       <div>
                         <div className="font-semibold text-theme-body">{line.name}</div>
                         <div className="text-[10px] text-theme-muted font-mono mt-0.5">
-                          {line.color || "N/A"} / {line.size || "N/A"} • Qty {line.quantity}
+                          {line.vendorStyle || line.articleNo || line.code} • {line.color || "N/A"} / {line.size || "N/A"} • Qty {line.quantity}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-theme-body">₹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
-                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">₹{line.price} + {line.taxRate}% GST</div>
+                        <div className="font-semibold text-theme-body font-mono">{formatCurrency(line.totalAmount)}</div>
+                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">{formatCurrency(line.price)} + {line.taxRate || line.gstRate || 0}% GST</div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Totals Box */}
-              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
-                <div className="flex justify-between items-center text-xs text-theme-muted">
-                  <span>Consolidated Taxes (GST)</span>
-                  <span className="font-mono text-theme-body">₹{selectedOrder.taxTotal.toLocaleString("en-IN")}</span>
+              {/* Related Invoices / Allocations */}
+              {selectedOrder.allocations && selectedOrder.allocations.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-theme-divider">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-theme-muted font-bold block">
+                    RELATED TAX INVOICES ({selectedOrder.allocations.length})
+                  </span>
+                  <div className="space-y-1.5">
+                    {selectedOrder.allocations.map((alloc, idx) => (
+                      <div key={idx} className="p-2.5 bg-theme-surface-2 rounded-lg border border-theme-divider/60 flex justify-between items-center text-xs">
+                        <div>
+                          <div className="font-mono font-bold text-sky-400">{alloc.invoiceNo}</div>
+                          <div className="text-[10px] text-theme-muted font-mono">{formatDate(alloc.invoiceDate)} • {alloc.billedQuantity} units</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono font-semibold text-emerald-400">{formatCurrency(alloc.billedValue)}</div>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950/60 text-emerald-400 font-mono font-bold uppercase">
+                            {alloc.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
-                  <span>Grand Booking Value</span>
-                  <span className="text-emerald-400 font-mono text-sm">₹{selectedOrder.grandTotal.toLocaleString("en-IN")}</span>
-                </div>
-              </div>
+              )}
 
-              
-              {selectedOrder.status === "Draft" && (
+              {/* Expandable Technical Details Section */}
+              <div className="pt-2 border-t border-theme-divider">
                 <button
-                  onClick={() => handleWorkflowAction("SalesOrder", selectedOrder.id, "submit")}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center space-x-2.5 transition-all cursor-pointer"
+                  type="button"
+                  onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                  className="w-full py-1.5 px-3 bg-theme-surface-2 hover:bg-theme-surface-hover rounded-lg border border-theme-divider text-[11px] font-mono text-theme-muted hover:text-theme-body flex items-center justify-between transition-colors cursor-pointer"
                 >
-                  <ArrowRight size={16} />
-                  <span>Submit Sales Order</span>
+                  <span>{showTechnicalDetails ? "[-] Hide Technical Details" : "[+] Technical Details & Audit Trail"}</span>
+                  <span className="text-[10px] font-bold">{showTechnicalDetails ? "COLLAPSE" : "EXPAND"}</span>
                 </button>
-              )}
-              {selectedOrder.status === "Submitted" && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleWorkflowAction("SalesOrder", selectedOrder.id, "approve")}
-                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center space-x-2.5 transition-all cursor-pointer"
-                  >
-                    <CheckCircle2 size={16} />
-                    <span>Approve</span>
-                  </button>
-                  <button
-                    onClick={() => handleWorkflowAction("SalesOrder", selectedOrder.id, "reject")}
-                    className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center space-x-2.5 transition-all cursor-pointer"
-                  >
-                    <X size={16} />
-                    <span>Reject</span>
-                  </button>
-                </div>
-              )}
-              <div className="bg-indigo-950/40 p-3 rounded-xl border border-indigo-900/60 text-[10px] text-indigo-200 leading-relaxed flex items-start space-x-2">
 
-                <AlertCircle size={14} className="mt-0.5 text-indigo-400 shrink-0" />
-                <p>This sales order is committed to inventory logic. Quantities are reserved and waiting for shipment dispatch protocols (Phase 2).</p>
+                {showTechnicalDetails && (
+                  <div className="mt-2.5 p-3 bg-theme-surface-3 rounded-lg border border-theme-divider space-y-2 text-[11px] font-mono text-theme-muted">
+                    <div className="flex justify-between">
+                      <span>Internal UUID:</span>
+                      <span className="text-theme-body font-bold">{selectedOrder.id}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Company / Branch:</span>
+                      <span className="text-theme-body">COMP-001 / MAIN</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Source Quotation:</span>
+                      <span className="text-theme-body">{selectedOrder.sourceQuotationId || "None (Direct PO)"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Fulfillment Status:</span>
+                      <span className="text-theme-body">{selectedOrder.fulfillmentStatus || "UNFULFILLED"}</span>
+                    </div>
+                    {selectedOrder.poMetadata && Object.keys(selectedOrder.poMetadata).length > 0 && (
+                      <div className="pt-1.5 border-t border-theme-divider/50">
+                        <span className="block text-[10px] uppercase text-theme-muted mb-1">PO Metadata Payload:</span>
+                        <pre className="p-2 bg-theme-surface-1 rounded border border-theme-divider text-[10px] text-theme-body overflow-x-auto max-h-32">
+                          {JSON.stringify(selectedOrder.poMetadata, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ) : selectedInvoice ? (
@@ -3835,11 +3645,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div>
                         <div className="font-semibold text-theme-body">{line.name}</div>
                         <div className="text-[10px] text-theme-muted font-mono mt-0.5">
-                          Qty {line.quantity} × ₹{line.price}
+                          Qty {line.quantity} × {formatCurrency(line.price)}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-theme-body">₹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
+                        <div className="font-semibold text-theme-body">{formatCurrency(line.totalAmount)}</div>
                         <div className="text-[9px] text-theme-muted mt-0.5 font-mono">GST {line.gstRate}%</div>
                       </div>
                     </div>
@@ -3850,15 +3660,15 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>GST Total</span>
-                  <span className="font-mono text-theme-body">₹{selectedInvoice.taxTotal.toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">{formatCurrency(selectedInvoice.taxTotal)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>Subtotal</span>
-                  <span className="font-mono text-theme-body">₹{(selectedInvoice.grandTotal - selectedInvoice.taxTotal).toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">{formatCurrency(selectedInvoice.grandTotal - selectedInvoice.taxTotal)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
                   <span>Total Payable</span>
-                  <span className="text-emerald-400 font-mono text-sm">₹{selectedInvoice.grandTotal.toLocaleString("en-IN")}</span>
+                  <span className="text-emerald-400 font-mono text-sm">{formatCurrency(selectedInvoice.grandTotal)}</span>
                 </div>
               </div>
 
@@ -3959,7 +3769,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 </h3>
                 <p className="text-[11px] text-theme-muted">Rapidly update contact fields for {quickEditingCustomer.name}</p>
               </div>
-              <button 
+              <button
                 onClick={() => setQuickEditingCustomer(null)}
                 className="p-1 rounded bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
               >
@@ -4104,8 +3914,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       saveCustomers(updatedCustomersList);
                       fetchCustomers();
                       onNotification(
-                        "Customer Updated", 
-                        `Successfully updated contact info for ${quickEditingCustomer.name}`, 
+                        "Customer Updated",
+                        `Successfully updated contact info for ${quickEditingCustomer.name}`,
                         "success"
                       );
                       setQuickEditingCustomer(null);

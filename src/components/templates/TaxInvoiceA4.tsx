@@ -90,7 +90,7 @@ export const BarcodeCode128Svg: React.FC<{ value: string }> = ({ value }) => {
 
   return (
     <div className="flex flex-col items-start my-0.5">
-      <svg viewBox="0 0 140 20" className="w-28 h-5 object-contain">
+      <svg viewBox="0 0 140 20" className="w-36 h-7 object-contain">
         <rect x="0" y="0" width="140" height="20" fill="white" />
         {bars.map((bar, idx) => {
           const x = currentX;
@@ -99,7 +99,7 @@ export const BarcodeCode128Svg: React.FC<{ value: string }> = ({ value }) => {
           return <rect key={idx} x={x * 1.4} y="1" width={bar.width * 1.4} height="18" fill="#111827" />;
         })}
       </svg>
-      <span className="font-mono text-[7px] font-bold text-gray-800 tracking-wider mt-0.5">{value}</span>
+      <span className="font-mono text-[8px] font-bold text-gray-900 tracking-wider mt-0.5">{value}</span>
     </div>
   );
 };
@@ -209,11 +209,15 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
       ? Number(item.line_total)
       : unitPrice * qty;
 
-    // IGST is strictly calculated as 5% GST-exclusive tax on Taxable Value (taxableValue * 0.05)
-    const igst = taxableValue * 0.05;
-    const cgst = 0;
-    const sgst = 0;
-    const itemTotal = taxableValue + igst;
+    const gstRate = Number(item.gst_rate ?? item.gstRate ?? (item.tax_rate ?? 5));
+    const isInter = isInterstate;
+
+    // Dynamic tax calculations based on line gst_rate and jurisdiction
+    const totalTax = taxableValue * (gstRate / 100);
+    const igst = isInter ? totalTax : 0;
+    const cgst = isInter ? 0 : totalTax / 2;
+    const sgst = isInter ? 0 : totalTax / 2;
+    const itemTotal = taxableValue + totalTax;
 
     const unitBaseCost = qty > 0 ? (taxableValue / qty) : unitPrice;
 
@@ -227,7 +231,6 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
     ));
 
     const hsn = item.hsn || item.hsn_code || "64041990";
-    const gstRate = 5;
 
     totalQuantity += qty;
     totalTaxableValue += taxableValue;
@@ -297,13 +300,13 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
   const logoB64 = data.logoUrl || "data:image/png;base64,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";
 
   return (
-    <div className="tax-invoice-a4-wrapper w-full max-w-[210mm] bg-white text-black p-[6mm] mx-auto box-border text-[11px] leading-normal font-sans border border-gray-200 print:border-none print:p-0 print:m-0 print:w-full print:max-w-none">
+    <div className="tax-invoice-a4-wrapper w-full max-w-[210mm] bg-white text-black p-[6mm] pl-[10mm] mx-auto box-border text-[11px] leading-normal font-sans border border-gray-200 print:border-none print:p-0 print:m-0 print:w-full print:max-w-none">
 
       {/* Universal Print Styles for A4 Multi-Page Pagination & Visibility */}
       <style>{`
         @page {
           size: A4 portrait;
-          margin: 8mm;
+          margin: 8mm 6mm 10mm 12mm;
         }
         @media print {
           html, body, #root, main {
@@ -364,16 +367,18 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
             className="h-12 w-auto object-contain mt-0.5"
           />
           <div>
-            <h1 className="text-gray-900 font-bold text-sm leading-tight tracking-wide">TATTLY THREADS</h1>
-            <p className="text-gray-600 text-[10px] leading-snug mt-0.5">
+            <h1 className="text-gray-900 font-bold text-base leading-tight tracking-wide">TATTLY THREADS</h1>
+            <p className="text-gray-700 text-[11px] leading-relaxed mt-0.5 font-medium">
               {data.companyAddressDisplay || "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003"}
             </p>
-            <div className="text-gray-600 text-[10px] mt-1 font-mono leading-tight">
+            <div className="text-gray-700 text-[10.5px] mt-1 font-mono leading-tight">
               <div>Web: {data.companyWebsite || "www.tattlythreads.com"}</div>
               <div>Dispatch: {data.dispatchEmail || "dispatch@tattlythreads.com"}</div>
               <div>Accounts: {data.accountsEmail || "accounts@tattlythreads.com"}</div>
             </div>
-            <p className="text-gray-900 font-bold mt-1 font-mono text-[10px]">GSTIN: {data.companyGst || "27AAXFT2508H1ZR"}</p>
+            <p className="text-gray-950 font-extrabold mt-1.5 font-mono text-[12.5px] tracking-wide">
+              GSTIN: <span className="text-blue-900 font-black tracking-wider">{data.companyGst || "27AAXFT2508H1ZR"}</span>
+            </p>
           </div>
         </div>
 
@@ -383,7 +388,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
               <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider mb-0.5">TAX INVOICE</h2>
               <BarcodeCode128Svg value={data.invoiceNo} />
             </div>
-            <QrCodeSvg value={`GSTIN:${data.companyGst || '27AAXFT2508H1ZR'}|INV:${data.invoiceNo}|VAL:${grandTotal.toFixed(2)}|DATE:${data.date}`} size={54} />
+            <QrCodeSvg value={`GSTIN:${data.companyGst || '27AAXFT2508H1ZR'}|INV:${data.invoiceNo}|VAL:${grandTotal.toFixed(2)}|DATE:${data.date}`} size={68} />
           </div>
           <table className="w-full font-mono text-[10px] border-collapse">
             <tbody>
@@ -406,7 +411,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
                 </td>
               </tr>
               <tr className="border-b border-gray-100">
-                <td className="py-0.5 text-gray-500 font-normal text-left whitespace-nowrap">SIS Code:</td>
+                <td className="py-0.5 text-gray-500 font-normal text-left whitespace-nowrap">Store Code:</td>
                 <td className="py-0.5 font-bold text-gray-900 text-right whitespace-nowrap">{data.sisCode || "1977"}</td>
               </tr>
               <tr className="border-b border-gray-100">
@@ -441,26 +446,26 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
       </div>
 
       {/* Bill To vs Ship To */}
-      <div className="grid grid-cols-2 gap-4 border border-gray-300 p-2.5 rounded mb-3 bg-gray-50/40">
+      <div className="grid grid-cols-2 gap-4 border border-gray-300 p-3 rounded mb-3 bg-gray-50/50">
         <div>
-          <h3 className="font-bold text-blue-800 uppercase text-[9px] tracking-wider border-b border-gray-300 pb-1 mb-1.5">
+          <h3 className="font-bold text-blue-800 uppercase text-[10px] tracking-wider border-b border-gray-300 pb-1 mb-1.5">
             BILLED TO (RECIPIENT)
           </h3>
-          <p className="font-bold text-gray-900 text-xs">{data.customerName || "Reliance Retail Limited"}</p>
-          <p className="text-gray-700 whitespace-pre-line leading-relaxed text-[10px] mt-1">{billingAddr}</p>
-          <p className="font-bold text-gray-900 mt-1 font-mono text-[10px]">
+          <p className="font-bold text-gray-950 text-sm">{data.customerName || "Reliance Retail Limited"}</p>
+          <p className="text-gray-800 whitespace-pre-line leading-relaxed text-[11px] mt-1 font-medium">{billingAddr}</p>
+          <p className="font-bold text-gray-950 mt-1 font-mono text-[11px]">
             GSTIN: <span className="text-blue-900">{data.billingGst || "27AABCR1718E1ZL"}</span>
           </p>
         </div>
 
         <div>
-          <h3 className="font-bold text-blue-800 uppercase text-[9px] tracking-wider border-b border-gray-300 pb-1 mb-1.5">
+          <h3 className="font-bold text-blue-800 uppercase text-[10px] tracking-wider border-b border-gray-300 pb-1 mb-1.5">
             SHIPPED TO (DELIVERY SITE)
           </h3>
-          <p className="font-bold text-gray-900 text-xs">{data.shippingName || data.customerName || "Reliance Retail Limited"}</p>
-          <p className="text-gray-700 whitespace-pre-line leading-relaxed text-[10px] mt-1">{shippingAddr}</p>
+          <p className="font-bold text-gray-950 text-sm">{data.shippingName || data.customerName || "Reliance Retail Limited"}</p>
+          <p className="text-gray-800 whitespace-pre-line leading-relaxed text-[11px] mt-1 font-medium">{shippingAddr}</p>
           {(data.shippingGst || data.customerGst) && (
-            <p className="font-bold text-gray-900 mt-1 font-mono text-[10px]">
+            <p className="font-bold text-gray-950 mt-1 font-mono text-[11px]">
               GSTIN: <span className="text-blue-900">{data.shippingGst || data.customerGst}</span>
             </p>
           )}
@@ -587,14 +592,14 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
 
               {isInterstate ? (
                 <>
-                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">IGST @ 5%:</div>
+                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">IGST:</div>
                   <div className="p-1.5 pr-3 font-semibold text-gray-900">₹{totalIGST.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </>
               ) : (
                 <>
-                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">CGST @ 2.5%:</div>
+                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">CGST:</div>
                   <div className="p-1.5 pr-3 font-semibold text-gray-900">₹{totalCGST.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">SGST @ 2.5%:</div>
+                  <div className="p-1.5 bg-gray-50/50 text-gray-600 pr-3 border-r border-gray-200 font-semibold">SGST:</div>
                   <div className="p-1.5 pr-3 font-semibold text-gray-900">₹{totalSGST.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </>
               )}
@@ -612,70 +617,71 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
           </div>
         </div>
 
-        {/* GST Breakdown Summary Table */}
-        <div className="mb-4">
-          <h4 className="font-bold text-gray-800 uppercase text-[9px] tracking-wider mb-1">
-            GST Summary / HSN-wise tax breakdown
-          </h4>
-          <table className="w-full border border-gray-300 border-collapse text-left text-[9px] font-mono">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-300 font-bold uppercase text-[8px] text-gray-700">
-                <th className="p-1 border-r border-gray-300">HSN/SAC</th>
-                <th className="p-1 border-r border-gray-300 text-right">Taxable Value</th>
-                {isInterstate ? (
-                  <>
-                    <th className="p-1 border-r border-gray-300 text-right w-20">IGST Rate</th>
-                    <th className="p-1 border-r border-gray-300 text-right">IGST Amount</th>
-                  </>
-                ) : (
-                  <>
-                    <th className="p-1 border-r border-gray-300 text-right w-16">CGST Rate</th>
-                    <th className="p-1 border-r border-gray-300 text-right">CGST Amount</th>
-                    <th className="p-1 border-r border-gray-300 text-right w-16">SGST Rate</th>
-                    <th className="p-1 border-r border-gray-300 text-right">SGST Amount</th>
-                  </>
-                )}
-                <th className="p-1 text-right">Total Tax</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {Object.entries(hsnBreakdown).map(([hsn, v]) => {
-                const totalTax = v.cgst + v.sgst + v.igst;
-                return (
-                  <tr key={hsn}>
-                    <td className="p-1.5 border-r border-gray-300 font-bold">{hsn}</td>
-                    <td className="p-1.5 border-r border-gray-300 text-right">₹{v.taxable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    {isInterstate ? (
-                      <>
-                        <td className="p-1.5 border-r border-gray-300 text-right">5%</td>
-                        <td className="p-1.5 border-r border-gray-300 text-right">₹{v.igst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="p-1.5 border-r border-gray-300 text-right">2.5%</td>
-                        <td className="p-1.5 border-r border-gray-300 text-right">₹{v.cgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td className="p-1.5 border-r border-gray-300 text-right">2.5%</td>
-                        <td className="p-1.5 border-r border-gray-300 text-right">₹{v.sgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      </>
-                    )}
-                    <td className="p-1.5 text-right font-bold">₹{totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      {/* GST Breakdown Summary Table */}
+      <div className="mb-4">
+        <h4 className="font-bold text-gray-800 uppercase text-[9px] tracking-wider mb-1">
+          GST Summary / HSN-wise tax breakdown
+        </h4>
+        <table className="w-full border border-gray-300 border-collapse text-left text-[9px] font-mono">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-300 font-bold uppercase text-[8px] text-gray-700">
+              <th className="p-1 border-r border-gray-300">HSN/SAC</th>
+              <th className="p-1 border-r border-gray-300 text-right">Taxable Value</th>
+              {isInterstate ? (
+                <>
+                  <th className="p-1 border-r border-gray-300 text-right w-20">IGST Rate</th>
+                  <th className="p-1 border-r border-gray-300 text-right">IGST Amount</th>
+                </>
+              ) : (
+                <>
+                  <th className="p-1 border-r border-gray-300 text-right w-16">CGST Rate</th>
+                  <th className="p-1 border-r border-gray-300 text-right">CGST Amount</th>
+                  <th className="p-1 border-r border-gray-300 text-right w-16">SGST Rate</th>
+                  <th className="p-1 border-r border-gray-300 text-right">SGST Amount</th>
+                </>
+              )}
+              <th className="p-1 text-right">Total Tax</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {Object.entries(hsnBreakdown).map(([hsn, v]) => {
+              const totalTax = v.cgst + v.sgst + v.igst;
+              return (
+                <tr key={hsn}>
+                  <td className="p-1.5 border-r border-gray-300 font-bold">{hsn}</td>
+                  <td className="p-1.5 border-r border-gray-300 text-right">₹{v.taxable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  {isInterstate ? (
+                    <>
+                      <td className="p-1.5 border-r border-gray-300 text-right">{v.gstRate}%</td>
+                      <td className="p-1.5 border-r border-gray-300 text-right">₹{v.igst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-1.5 border-r border-gray-300 text-right">{(v.gstRate / 2).toFixed(1)}%</td>
+                      <td className="p-1.5 border-r border-gray-300 text-right">₹{v.cgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="p-1.5 border-r border-gray-300 text-right">{(v.gstRate / 2).toFixed(1)}%</td>
+                      <td className="p-1.5 border-r border-gray-300 text-right">₹{v.sgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </>
+                  )}
+                  <td className="p-1.5 text-right font-bold">₹{totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
         {/* Footer Info: Bank / Note / Signature */}
         <div className="grid grid-cols-2 gap-4 border-t border-gray-200 pt-3 mt-2 text-[10px]">
           <div>
-            <div className="mb-2 p-2 border border-gray-200 rounded bg-gray-50/20">
+            <div className="mb-2 p-2 border border-gray-200 rounded bg-gray-50/30">
               <span className="text-gray-500 font-mono text-[9px] uppercase font-bold block mb-1">
                 Bank Details
               </span>
-              <p className="font-semibold text-gray-900">{data.bankName || ""}</p>
-              <p className="text-gray-600 font-mono">A/C No: {data.bankAccountNo || ""}</p>
-              <p className="text-gray-600 font-mono">IFSC: {data.bankIfsc || ""} {data.bankBranch ? `| Branch: ${data.bankBranch}` : ""}</p>
+              <p className="font-semibold text-gray-900 font-mono text-[10px]">A/C Name: <span className="font-bold text-gray-950">{((data as any).accountHolderName ?? (data as any).accountName ?? "TATTLY THREADS")}</span></p>
+              <p className="font-bold text-gray-950 text-xs mt-0.5">{data.bankName || "STATE BANK OF INDIA"}</p>
+              <p className="text-gray-700 font-mono mt-0.5">A/C No: <span className="font-bold text-gray-950">{data.bankAccountNo || "43976711765"}</span></p>
+              <p className="text-gray-700 font-mono mt-0.5">IFSC: <span className="font-bold text-gray-950">{data.bankIfsc || "SBIN0030425"}</span> | Branch: <span className="font-semibold text-gray-900">{data.bankBranch || "WARDHMAN NAGAR NAGPUR"}</span></p>
               {data.paymentTerms && <p className="text-gray-700 mt-1 italic">Terms: {data.paymentTerms}</p>}
             </div>
 

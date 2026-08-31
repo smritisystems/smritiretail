@@ -21,17 +21,17 @@
 
 ```text
  ✓ src/tests/logoutButtons.test.ts (2 tests) 91ms
- ✓ src/tests/validatorsAndFormatters.test.ts (6 tests) 51ms
- ✓ src/tests/oneToManyAliasMapping.test.ts (4 tests) 19ms
- ✓ src/tests/headerMappingEngine.test.ts (13 tests) 49ms
- ✓ src/tests/companySelectorHardening.test.ts (4 tests) 9ms
- ✓ src/tests/customerCrmLoyaltyDecoupling.test.ts (9 tests) 9ms
+ ✓ src/tests/validators.test.ts (6 tests) 51ms
+ ✓ src/tests/aliasMap.test.ts (4 tests) 19ms
+ ✓ src/tests/headerMap.test.ts (13 tests) 49ms
+ ✓ src/tests/companySelect.test.ts (4 tests) 9ms
+ ✓ src/tests/crmLoyalty.test.ts (9 tests) 9ms
  ✓ src/tests/fioriLaunchpad.test.ts (6 tests) 11ms
- ✓ src/tests/metadataRegistry.test.ts (5 tests) 8ms
- ✓ src/tests/phase2Architectures.test.ts (6 tests) 8ms
- ✓ src/tests/masterListPagination.test.ts (5 tests) 9ms
+ ✓ src/tests/metaRegistry.test.ts (5 tests) 8ms
+ ✓ src/tests/phase2Arch.test.ts (6 tests) 8ms
+ ✓ src/tests/masterPage.test.ts (5 tests) 9ms
  ✓ src/tests/helpers.test.ts (12 tests) 3775ms
- ✓ src/tests/skuGenerationEngine.test.ts (5 tests) 8ms
+ ✓ src/tests/skuEngine.test.ts (5 tests) 8ms
  ✓ src/tests/numbering.test.ts (2 tests) 6ms
  ✓ src/tests/indianFormat.test.ts (5 tests) 6ms
  ✓ src/tests/gst.test.ts (6 tests) 6ms
@@ -46,7 +46,7 @@
 
 ## 2. Backend Test Suite (`Pytest`)
 
-**Command:** `pytest tests/test_production_certification_suite.py`  
+**Command:** `pytest tests/t_prod_cert.py`  
 **Result:** `29/29 passed in 2.76s`
 
 ```text

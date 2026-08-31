@@ -19,7 +19,7 @@ from typing import Dict, Any, List
 
 sys.path.insert(0, "backend")
 from app.db.provisioning import sanitize_company_db_name, provision_postgresql_database
-from app.services.control_database_registry import ControlDatabaseRegistryService
+from app.services.control_registry import ControlDatabaseRegistryService
 
 logger = logging.getLogger("smriti.migration_engine")
 

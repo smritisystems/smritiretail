@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import TenantContext
 from app.compliance.exceptions import VaultException
 from app.compliance.models.compliance import ComplianceCredentials
-from app.compliance.repositories.credentials_repository import ComplianceCredentialsRepository
+from app.compliance.repositories.credentials_repo import ComplianceCredentialsRepository
 from app.compliance.vault.crypto import decrypt_data, encrypt_data
 
 

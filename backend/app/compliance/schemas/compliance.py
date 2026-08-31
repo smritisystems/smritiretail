@@ -115,3 +115,98 @@ class DebugOutboxIn(BaseModel):
     action: str = Field(..., max_length=100)
     payload: str
     idempotency_key: str = Field(..., max_length=100)
+
+
+# ---------------------------------------------------------------------------
+# E-Invoice & E-Way Bill Business Request / Response Schemas
+# ---------------------------------------------------------------------------
+
+class EInvoiceItem(BaseModel):
+    item_code: str
+    description: str
+    hsn_code: str
+    quantity: float
+    unit: str = "PCS"
+    unit_price: float
+    gross_amount: float
+    discount_amount: float = 0.0
+    taxable_amount: float
+    gst_rate: float
+    cgst_amount: float = 0.0
+    sgst_amount: float = 0.0
+    igst_amount: float = 0.0
+    total_item_value: float
+
+
+class EInvoiceGenerationRequest(BaseModel):
+    invoice_id: str = Field(..., description="Internal SMRITI sales_invoices ID")
+    invoice_no: str = Field(..., description="Statutory invoice series number")
+    invoice_date: str = Field(..., description="Invoice date DD/MM/YYYY")
+    supplier_gstin: str
+    supplier_legal_name: str
+    supplier_address: str
+    supplier_pincode: str
+    supplier_state_code: str
+    buyer_gstin: str = Field("URP", description="Buyer GSTIN or URP for unregistered")
+    buyer_legal_name: str
+    buyer_address: str
+    buyer_pincode: str
+    buyer_state_code: str
+    items: list[EInvoiceItem]
+    total_taxable_value: float
+    total_cgst_value: float = 0.0
+    total_sgst_value: float = 0.0
+    total_igst_value: float = 0.0
+    total_invoice_value: float
+    financial_year: str = "2026-27"
+    environment: str = "sandbox"
+
+
+class EInvoiceResponse(BaseModel):
+    status: str
+    invoice_id: str
+    invoice_no: str
+    irn: str
+    ack_no: int
+    ack_date: str
+    signed_invoice: str
+    signed_qr_code: str
+    status_code: str
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class EWayBillGenerationRequest(BaseModel):
+    invoice_id: str = Field(..., description="Internal SMRITI sales_invoices or transfer ID")
+    doc_no: str = Field(..., description="Invoice or Delivery Challan number")
+    doc_type: str = Field("INV", description="INV (Tax Invoice) or CHL (Delivery Challan)")
+    from_gstin: str
+    to_gstin: str
+    from_pincode: str
+    to_pincode: str
+    trans_distance_km: int = Field(100, description="Transit distance in kilometers")
+    transporter_id: str | None = None
+    transporter_name: str | None = None
+    vehicle_no: str | None = None
+    total_invoice_value: float
+    items_count: int = 1
+    environment: str = "sandbox"
+
+
+class EWayBillResponse(BaseModel):
+    status: str
+    invoice_id: str
+    doc_no: str
+    eway_bill_no: str
+    eway_bill_date: str
+    valid_upto: str
+    trans_distance_km: int
+    vehicle_no: str | None = None
+    transporter_id: str | None = None
+    status_code: str
+
+
+class CancelComplianceDocRequest(BaseModel):
+    document_type: str = Field(..., description="EINVOICE or EWAYBILL")
+    document_no: str = Field(..., description="IRN hash or 12-digit EWB Number")
+    reason: str = Field("Duplicate", description="Cancellation reason code/text")
+    remarks: str | None = None

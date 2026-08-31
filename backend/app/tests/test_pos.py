@@ -27,6 +27,7 @@ from app.models.auth import User, RefreshTokenBlacklist, UserRole
 from app.models.tenant import Company, Branch
 from app.models.pos import CashRegister, Shift
 from app.models.sales import SalesInvoice
+from app.models.inventory import Warehouse
 from app.api.deps import get_db, get_tenant_context, TenantContext
 from app.core.security import hash_password, create_access_token
 
@@ -62,6 +63,12 @@ async def _make_tenant(db_session, suffix):
     br   = Branch(id=f"br-pos-{suffix}", company_id=comp.id,
                   name=f"POS Br {suffix}", code=f"BRPOS-{suffix}", is_active=True)
     db_session.add_all([comp, br])
+    await db_session.flush()
+    warehouse = Warehouse(
+        id=f"wh-central-{suffix}", company_id=comp.id, branch_id=br.id,
+        code=f"WH-POS-{suffix}", name="Central Warehouse", is_active=True,
+    )
+    db_session.add(warehouse)
     await db_session.commit()
     return comp, br
 

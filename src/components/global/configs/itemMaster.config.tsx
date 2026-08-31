@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 3.33.0
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -32,14 +32,22 @@ export const itemMasterConfig: MasterConfig<Product> = {
     const rawList = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
     return rawList.map((p: any) => {
       const secBarcodes = Array.isArray(p.secondary_barcodes) ? p.secondary_barcodes : [];
+      const mrpNum = p.mrp != null && p.mrp !== "" ? parseFloat(p.mrp) : parseFloat(p.price || 0);
+      const priceNum = p.price != null && p.price !== "" && parseFloat(p.price) > 0 ? parseFloat(p.price) : mrpNum;
+      const buyingNum = p.buying_price != null && p.buying_price !== "" ? parseFloat(p.buying_price) : (p.buyingPrice != null && p.buyingPrice !== "" ? parseFloat(p.buyingPrice) : 0);
+      const costNum = p.cost_price != null && p.cost_price !== "" ? parseFloat(p.cost_price) : (p.costPrice != null && p.costPrice !== "" ? parseFloat(p.costPrice) : 0);
+
       return {
         ...p,
         id: p.id,
         code: p.code,
         name: p.name,
-        price: parseFloat(p.price || 0),
-        mrp: p.mrp ? parseFloat(p.mrp) : parseFloat(p.price || 0),
-        costPrice: p.cost_price ? parseFloat(p.cost_price) : 0,
+        price: priceNum,
+        mrp: mrpNum,
+        buyingPrice: buyingNum,
+        buying_price: buyingNum,
+        costPrice: costNum,
+        cost_price: costNum,
         stock: Number(p.stock || 0),
         category: p.category || "",
         brand: p.brand || "",
@@ -62,10 +70,20 @@ export const itemMasterConfig: MasterConfig<Product> = {
     if (mode === "create" && !payload.id) {
       payload.id = `prod-${Date.now().toString(36)}`;
     }
-    payload.price = Number(payload.price || 0);
-    payload.mrp = Number(payload.mrp || payload.price || 0);
-    payload.costPrice = Number(payload.costPrice || 0);
-    payload.cost_price = Number(payload.costPrice || 0);
+    const mrpVal = Number(payload.mrp != null && payload.mrp !== "" ? payload.mrp : (payload.price || 0));
+    const priceVal = payload.price != null && payload.price !== "" && Number(payload.price) > 0 ? Number(payload.price) : mrpVal;
+
+    payload.mrp = mrpVal;
+    payload.price = priceVal > 0 ? priceVal : mrpVal;
+
+    const buyingVal = Number(payload.buyingPrice != null && payload.buyingPrice !== "" ? payload.buyingPrice : (payload.buying_price || 0));
+    const costVal = Number(payload.costPrice != null && payload.costPrice !== "" ? payload.costPrice : (payload.cost_price || 0));
+
+    payload.buyingPrice = buyingVal;
+    payload.buying_price = buyingVal;
+    payload.costPrice = costVal;
+    payload.cost_price = costVal;
+
     payload.stock = Number(payload.stock != null ? payload.stock : 100);
     payload.gstRate = Number(payload.gstRate != null ? payload.gstRate : 5);
     payload.gst_percentage = Number(payload.gstRate != null ? payload.gstRate : 5);
@@ -124,6 +142,18 @@ export const itemMasterConfig: MasterConfig<Product> = {
       )
     },
     {
+      key: "buyingPrice",
+      label: "Buying Price",
+      width: "115px",
+      align: "right",
+      sortable: true,
+      render: (val, item) => (
+        <span className="font-mono text-cyan-400 font-semibold text-[11px]">
+          ₹ {Number(val || (item as any).buying_price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+        </span>
+      )
+    },
+    {
       key: "costPrice",
       label: "Cost Price",
       width: "115px",
@@ -136,18 +166,6 @@ export const itemMasterConfig: MasterConfig<Product> = {
       )
     },
     {
-      key: "price",
-      label: "Sale Price",
-      width: "120px",
-      align: "right",
-      sortable: true,
-      render: (val) => (
-        <span className="font-mono font-bold text-theme-primary">
-          ₹ {Number(val || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-        </span>
-      )
-    },
-    {
       key: "mrp",
       label: "MRP",
       width: "110px",
@@ -155,6 +173,18 @@ export const itemMasterConfig: MasterConfig<Product> = {
       sortable: true,
       render: (val) => (
         <span className="font-mono text-theme-muted text-[11px]">
+          ₹ {Number(val || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+        </span>
+      )
+    },
+    {
+      key: "price",
+      label: "Selling Price",
+      width: "120px",
+      align: "right",
+      sortable: true,
+      render: (val) => (
+        <span className="font-mono font-bold text-emerald-400">
           ₹ {Number(val || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
         </span>
       )
@@ -210,14 +240,18 @@ export const itemMasterConfig: MasterConfig<Product> = {
       label: "SKU / Item Code",
       type: "text",
       required: true,
+      disabled: (_form, isEdit) => Boolean(isEdit),
       placeholder: "e.g. SHIRT-COTTON-001",
+      description: "Permanent SKU identifier (locked when modifying existing items)",
       colSpan: 1
     },
     {
       name: "barcode",
       label: "Barcode / EAN-13",
       type: "text",
+      disabled: (_form, isEdit) => Boolean(isEdit),
       placeholder: "Scan or enter barcode number",
+      description: "Permanent barcode identifier (locked when modifying existing items)",
       colSpan: 1
     },
     {
@@ -236,10 +270,16 @@ export const itemMasterConfig: MasterConfig<Product> = {
       colSpan: 1
     },
     {
-      name: "price",
-      label: "Selling Price",
+      name: "buyingPrice",
+      label: "Buying Price (₹)",
       type: "number",
-      required: true,
+      placeholder: "0.00",
+      colSpan: 1
+    },
+    {
+      name: "costPrice",
+      label: "Cost Price (₹)",
+      type: "number",
       placeholder: "0.00",
       colSpan: 1
     },
@@ -251,10 +291,11 @@ export const itemMasterConfig: MasterConfig<Product> = {
       colSpan: 1
     },
     {
-      name: "costPrice",
-      label: "Purchase / Cost Price",
+      name: "price",
+      label: "Selling Price (₹ = MRP)",
       type: "number",
-      placeholder: "0.00",
+      required: true,
+      placeholder: "0.00 (defaults to MRP)",
       colSpan: 1
     },
     {

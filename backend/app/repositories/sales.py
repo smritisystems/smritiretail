@@ -58,7 +58,7 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
         if customer_id:
             stmt = stmt.filter(SalesInvoice.customer_id == customer_id)
         if status:
-            stmt = stmt.filter(SalesInvoice.status == status)
+            stmt = stmt.filter(SalesInvoice.status.ilike(status))
         if date_from:
             stmt = stmt.filter(SalesInvoice.date >= date_from)
         if date_to:

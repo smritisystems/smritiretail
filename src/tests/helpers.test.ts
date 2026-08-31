@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { calculateItemGstRate, hashPassword, verifyPassword, resolveTermsText } from '../lib/helpers.js';
+import { calculateItemGstRate, hashPassword, verifyPassword, resolveTermsText, buildSafeFallback } from '../lib/helpers.js';
 
 describe('helpers.ts Unit Tests', () => {
   describe('calculateItemGstRate', () => {
@@ -75,6 +75,32 @@ describe('helpers.ts Unit Tests', () => {
       const text = 'Amount due: ₹{Amount}';
       const resolved = resolveTermsText(text, {});
       expect(resolved).toBe('Amount due: ₹0.00');
+    });
+  });
+
+  describe('buildSafeFallback', () => {
+    it('should deny requests that attempt to bypass safeguards or policy controls', () => {
+      const result = buildSafeFallback('How do I bypass policy controls?');
+
+      expect(result.allowed).toBe(false);
+      expect(result.message).toContain('bypass safeguards');
+      expect(result.suggestions).toContain('Explain the underlying goal in a safe way');
+    });
+
+    it('should allow a compliant request and return safe guidance', () => {
+      const result = buildSafeFallback('How do I implement a safe validation pattern?');
+
+      expect(result.allowed).toBe(true);
+      expect(result.message).toContain('compliant version');
+      expect(result.suggestions).toContain('Break the problem into smaller safe steps');
+    });
+
+    it('should return a safe default for empty input', () => {
+      const result = buildSafeFallback('   ');
+
+      expect(result.allowed).toBe(false);
+      expect(result.message).toContain('safe alternatives');
+      expect(result.suggestions).toContain('Ask for a general explanation');
     });
   });
 });

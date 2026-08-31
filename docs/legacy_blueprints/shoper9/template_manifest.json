@@ -1,0 +1,172 @@
+{
+  "generatedAt": "2026-08-26T23:45:00+05:30",
+  "sourceDirectory": "D:\\Shoper9\\Templates",
+  "totalFiles": 21,
+  "files": [
+    {
+      "filename": "Distributor.Ads",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "EMPTY",
+      "extension": ".ads"
+    },
+    {
+      "filename": "Distributor.Ams",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "EMPTY",
+      "extension": ".ams"
+    },
+    {
+      "filename": "Distributor.Dbs",
+      "sizeBytes": 20434,
+      "sha256": "b5a0eda2012ebd09492700bf3fe8bca03ef6d065fe4e77323339803a9108ccfa",
+      "status": "PARSED",
+      "extension": ".dbs"
+    },
+    {
+      "filename": "Distributor.Gl",
+      "sizeBytes": 41740,
+      "sha256": "bb904a83f591d82236baff885240d151b8926a6c42053b3bb76d2f7e69b56f6e",
+      "status": "PARSED",
+      "extension": ".gl"
+    },
+    {
+      "filename": "Distributor.Lu",
+      "sizeBytes": 2211,
+      "sha256": "32f30092070df0b6faedba831e6739922e75f45fa7553b03476428f3daa258a8",
+      "status": "PARSED",
+      "extension": ".lu"
+    },
+    {
+      "filename": "Distributor.Mns",
+      "sizeBytes": 2968,
+      "sha256": "f3f59101306305b83c0c1cf55b679abbc3d339a68801aa96bc5b391707fe80b5",
+      "status": "PARSED",
+      "extension": ".mns"
+    },
+    {
+      "filename": "Distributor.Sdbs",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "EMPTY",
+      "extension": ".sdbs"
+    },
+    {
+      "filename": "Distributor.Sy",
+      "sizeBytes": 177393,
+      "sha256": "d2f9ef3e2e695b5716e57cc0df323b06819eadd97c83b839be524c895b326277",
+      "status": "PARSED",
+      "extension": ".sy"
+    },
+    {
+      "filename": "Distributor.TW",
+      "sizeBytes": 437,
+      "sha256": "a3acac931bade2276f02564d9a4b566ae5ce870c7e1c2d7843da3f0c5310d777",
+      "status": "BINARY_WRAPPER",
+      "extension": ".tw"
+    },
+    {
+      "filename": "Distributor_tmp.txt",
+      "sizeBytes": 177393,
+      "sha256": "d2f9ef3e2e695b5716e57cc0df323b06819eadd97c83b839be524c895b326277",
+      "status": "QUARANTINED",
+      "extension": ".txt"
+    },
+    {
+      "filename": "Retail.Ads",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "EMPTY",
+      "extension": ".ads"
+    },
+    {
+      "filename": "Retail.Ams",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "EMPTY",
+      "extension": ".ams"
+    },
+    {
+      "filename": "Retail.Dbs",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "EMPTY",
+      "extension": ".dbs"
+    },
+    {
+      "filename": "Retail.Gl",
+      "sizeBytes": 41177,
+      "sha256": "576a3e20ec482b79fdb329b5532f67c4ba5d59ede6fee9d683c07bf1781952cc",
+      "status": "PARSED",
+      "extension": ".gl"
+    },
+    {
+      "filename": "Retail.Lu",
+      "sizeBytes": 2211,
+      "sha256": "32f30092070df0b6faedba831e6739922e75f45fa7553b03476428f3daa258a8",
+      "status": "PARSED",
+      "extension": ".lu"
+    },
+    {
+      "filename": "Retail.Mns",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "EMPTY",
+      "extension": ".mns"
+    },
+    {
+      "filename": "Retail.Sdbs",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "EMPTY",
+      "extension": ".sdbs"
+    },
+    {
+      "filename": "Retail.Sy",
+      "sizeBytes": 176648,
+      "sha256": "82eebcf9835b026ea0703eb366854ef83b02864b856a1ce460f6110f2bcd109c",
+      "status": "PARSED",
+      "extension": ".sy"
+    },
+    {
+      "filename": "Retail.TW",
+      "sizeBytes": 368,
+      "sha256": "1c54345eb455062d863e36e981f895d33db6002d0896b32c8131e3ebd9cf3b3a",
+      "status": "BINARY_WRAPPER",
+      "extension": ".tw"
+    },
+    {
+      "filename": "Retail_tmp.txt",
+      "sizeBytes": 176648,
+      "sha256": "82eebcf9835b026ea0703eb366854ef83b02864b856a1ce460f6110f2bcd109c",
+      "status": "QUARANTINED",
+      "extension": ".txt"
+    },
+    {
+      "filename": "Template.inf",
+      "sizeBytes": 253,
+      "sha256": "260ed2c817b612dbf80714b8df506aa4a4a8e91160cb314a1692695d8ebfb34b",
+      "status": "PARSED",
+      "extension": ".inf"
+    }
+  ],
+  "environmentTemplates": [
+    {
+      "0": "1",
+      "Template Environment": "R",
+      "Template Name": "Retail.Tw",
+      "Template Version": "18.0",
+      "Template Date": "15/07/2010",
+      "Remarks": "This is standard template for the Retail environment"
+    },
+    {
+      "0": "1",
+      "Template Environment": "D",
+      "Template Name": "Distributor.Tw",
+      "Template Version": "18.0",
+      "Template Date": "15/07/2010",
+      "Remarks": "This is standard template for the Distributor environment"
+    }
+  ]
+}

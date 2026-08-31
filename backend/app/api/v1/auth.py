@@ -38,7 +38,7 @@ from ...schemas.auth import (
 from ...schemas.masters_tier2 import CompanyResponse, BranchResponse
 from ...models.auth import User, UserRole
 from ...models.tenant import Company, Branch
-from ...models.company_database_registry import CompanyDatabaseRegistry
+from ...models.company_registry import CompanyDatabaseRegistry
 from ...models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 
 router = APIRouter()

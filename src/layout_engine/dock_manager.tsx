@@ -26,7 +26,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useLayoutEngine } from "./layout_store.js";
 import { useResponsiveLayout } from "./responsive_manager.js";
-import { NavigationRenderer } from "./navigation_renderer.js";
+import { NavigationRenderer } from "./NavRenderer.js";
 import { SmritiScrollArea } from "../components/SmritiScrollArea.tsx";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar.tsx";

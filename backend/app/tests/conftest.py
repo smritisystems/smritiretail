@@ -22,6 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
+from app.db.ctrl_seeder import ControlPlaneSeeder
+import app.models  # noqa: F401
 
 # Force SelectorEventLoop on Windows to avoid proactor loop lifecycle race conditions in tests
 if sys.platform == "win32":
@@ -48,6 +50,58 @@ def restore_baseline_after_tests():
     except Exception as e:
         print(f"[conftest] Post-test seed error: {e}")
 
+async def _ensure_schema_compatibility(conn):
+    """Apply all missing schema columns for backward compatibility with legacy test data."""
+    from sqlalchemy import text
+    schema_fixes = [
+        "ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS buying_price NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS po_number VARCHAR(100);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS po_date DATE;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS delivery_date DATE;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS site_code VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS site_name VARCHAR(255);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS delivery_address TEXT;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS vendor_code VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS customer_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS customer_gstin VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS basic_total NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS is_interstate BOOLEAN DEFAULT TRUE;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS total_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS billed_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS billed_value NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS pending_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS pending_value NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS fulfillment_status VARCHAR(50) DEFAULT 'UNFULFILLED';",
+        "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS po_metadata JSONB NOT NULL DEFAULT '{}'::jsonb;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS sr_no INTEGER;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS article_no VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS ean VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS vendor_style VARCHAR(100);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS color VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS size VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS uom VARCHAR(20) DEFAULT 'EA';",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS mrp NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS base_cost NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS taxable_value NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS igst_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS cgst_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS sgst_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS line_total NUMERIC(15, 2);",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS delivery_date DATE;",
+        "ALTER TABLE IF EXISTS sales_order_items ADD COLUMN IF NOT EXISTS site_code VARCHAR(50);",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS po_quantity NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS invoice_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS invoice_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS pending_qty NUMERIC(15, 4) DEFAULT 0.0000;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS pending_amount NUMERIC(15, 2) DEFAULT 0.00;",
+    ]
+    for stmt in schema_fixes:
+        try:
+            await conn.execute(text(stmt))
+        except Exception:
+            pass
+
 @pytest.fixture
 async def db_engine():
     engine = create_async_engine(settings.DATABASE_URL)
@@ -56,10 +110,31 @@ async def db_engine():
     import app.models.psv  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Apply schema compatibility fixes before any tests run
+        await _ensure_schema_compatibility(conn)
         try:
-            await conn.execute(text("CREATE OR REPLACE FUNCTION fn_reconcile_inventory_state() RETURNS TRIGGER AS 'BEGIN UPDATE products SET stock = COALESCE(stock, 0) + NEW.quantity WHERE id = NEW.product_id; RETURN NEW; END;' LANGUAGE plpgsql;"))
-            await conn.execute(text("DROP TRIGGER IF EXISTS trg_inventory_state_reconciliation ON stock_movements;"))
-            await conn.execute(text("CREATE TRIGGER trg_inventory_state_reconciliation AFTER INSERT ON stock_movements FOR EACH ROW EXECUTE FUNCTION fn_reconcile_inventory_state();"))
+            statements = [
+                "ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);",
+                "CREATE TABLE IF NOT EXISTS company_bank_accounts (id VARCHAR(50) PRIMARY KEY, company_id VARCHAR(50) NOT NULL, bank_name VARCHAR(255), account_no VARCHAR(50), ifsc VARCHAR(20), branch VARCHAR(255), is_default BOOLEAN DEFAULT TRUE, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());",
+                "CREATE TABLE IF NOT EXISTS company_policy_settings (company_id VARCHAR(50) NOT NULL, key VARCHAR(100) NOT NULL, value TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW(), updated_by VARCHAR(50), PRIMARY KEY (company_id, key));",
+                "CREATE TABLE IF NOT EXISTS compliance_thresholds (key VARCHAR(100) NOT NULL, value TEXT NOT NULL, effective_from DATE NOT NULL, effective_to DATE NULL, source_reference VARCHAR(255), updated_by VARCHAR(50), updated_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (key, effective_from));",
+                "INSERT INTO compliance_thresholds (key, value, effective_from, source_reference, updated_by) SELECT 'EWAY_BILL_THRESHOLD_INR', '50000', DATE '2021-04-01', 'Rule 138 CGST Rules', 'system' WHERE NOT EXISTS (SELECT 1 FROM compliance_thresholds WHERE key = 'EWAY_BILL_THRESHOLD_INR' AND effective_from = DATE '2021-04-01');",
+                "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100);",
+                "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_id VARCHAR(100);",
+                "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER;",
+                "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_scope VARCHAR(100);",
+                "ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb;",
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_return_idempotency_active ON sales_returns (company_id, branch_id, idempotency_key) WHERE is_deleted = false AND idempotency_key IS NOT NULL;",
+                "ALTER TABLE IF EXISTS products ALTER COLUMN mrp SET DEFAULT 0.00;",
+                "ALTER TABLE IF EXISTS products ALTER COLUMN gst_percentage SET DEFAULT 18.00;",
+                "ALTER TABLE IF EXISTS products ALTER COLUMN hsn_code SET DEFAULT '6403';",
+                "ALTER TABLE IF EXISTS products ALTER COLUMN mrp DROP NOT NULL;",
+            ]
+            for stmt in statements:
+                try:
+                    await conn.execute(text(stmt))
+                except Exception:
+                    pass
         except Exception:
             pass
     yield engine
@@ -73,93 +148,130 @@ async def db_session(db_engine) -> AsyncSession:
     async with async_session() as session:  # type: ignore[attr-defined]  # SQLAlchemy async sessionmaker known limitation
         yield session
         await session.rollback()
+        await clear_db(session)
+
+@pytest.fixture(autouse=True)
+async def auto_override_company_db(db_session):
+    from app.main import app
+    from app.api.deps import get_db, get_company_db, get_current_user, get_tenant_context
+    async def _get_db():
+        yield db_session
+    app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
+    yield
+    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_company_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_tenant_context, None)
 
 async def clear_db(db_session: AsyncSession):
     """
     Cleans up all database tables in a strictly safe foreign-key order.
     Ensures that test runs across different modules do not conflict or cause integrity errors.
     """
-    from sqlalchemy import delete
-
-    from app.models.auth import RefreshTokenBlacklist, User
-    from app.models.crm import Customer, CustomerGroup
-    from app.models.exchange import DataExchangeTask, DataExchangeFieldMapping
-    from app.models.inventory import Product, StockMovement, Store, Warehouse
-    from app.models.pos import CashRegister, Shift
-    from app.models.purchase import PurchaseOrder, PurchaseOrderItem, PurchaseReceipt, PurchaseReceiptItem, Supplier
-    from app.models.sales import (
-        SalesInvoice, SalesInvoiceItem,
-        SalesQuotation, SalesQuotationItem,
-        SalesOrder, SalesOrderItem,
-        SalesReturn, SalesReturnItem,
-    )
-    from app.models.supplier_payment import SupplierPayment
-    from app.models.tenant import Branch, Company
-    from app.models.barcode import BarcodeLayout, PrintHistory
-    from app.models.product_identity import BarcodeProvider, IdentityRule, ProductIdentity
-    from app.models.system import SystemConfig
-    from app.models.master_lookup import MasterType, MasterValue
-    from app.models.workflow import WorkflowEvent
-    from app.models.report_schedule import ReportSchedule
-    from app.models.psv import PSVParty, PSVPartySkuTracking
-
-    await db_session.execute(delete(PSVPartySkuTracking))
-    await db_session.execute(delete(PSVParty))
-    await db_session.execute(delete(SalesReturnItem))
-    await db_session.execute(delete(SalesReturn))
-
-    await db_session.execute(delete(ProductIdentity))
-    await db_session.execute(delete(BarcodeProvider))
-    await db_session.execute(delete(IdentityRule))
-    await db_session.execute(delete(SalesOrderItem))
-    await db_session.execute(delete(SalesOrder))
-    await db_session.execute(delete(SalesQuotationItem))
-    await db_session.execute(delete(SalesQuotation))
-    await db_session.execute(delete(SalesInvoiceItem))
-    await db_session.execute(delete(SalesInvoice))
-    await db_session.execute(delete(Shift))
-    await db_session.execute(delete(CashRegister))
-    await db_session.execute(delete(PurchaseOrderItem))
-    await db_session.execute(delete(PurchaseOrder))
-    await db_session.execute(delete(PurchaseReceiptItem))
-    await db_session.execute(delete(PurchaseReceipt))
-    await db_session.execute(delete(SupplierPayment))
-    await db_session.execute(delete(Supplier))
-    await db_session.execute(delete(StockMovement))
-    await db_session.execute(delete(Product))
-    await db_session.execute(delete(Customer))
-    await db_session.execute(delete(CustomerGroup))
-    await db_session.execute(delete(WorkflowEvent))
-    await db_session.execute(delete(RefreshTokenBlacklist))
-    await db_session.execute(delete(PrintHistory))
-    await db_session.execute(delete(BarcodeLayout))
-    await db_session.execute(delete(SystemConfig))
-    await db_session.execute(delete(DataExchangeTask))
-    await db_session.execute(delete(DataExchangeFieldMapping))
-    from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
-    await db_session.execute(delete(UserCompanyAssignment))
-    await db_session.execute(delete(UserBranchAssignment))
-    await db_session.execute(delete(User))
-    await db_session.execute(delete(Store))
-    await db_session.execute(delete(Warehouse))
-    await db_session.execute(delete(MasterValue))
-    await db_session.execute(delete(MasterType))
-    from app.models.tax_invoice_template import TaxInvoiceTemplate, TaxInvoiceTemplateVersion, InvoiceDocumentArtifact
-    await db_session.execute(delete(InvoiceDocumentArtifact))
-    await db_session.execute(delete(TaxInvoiceTemplateVersion))
-    await db_session.execute(delete(TaxInvoiceTemplate))
-    await db_session.execute(delete(ReportSchedule))
-    await db_session.execute(delete(Branch))
-    for tbl in ["company_financial_years", "company_tax_profiles", "company_control_center"]:
+    from sqlalchemy import text
+    delete_order = [
+        "sales_invoice_lines",
+        "formula_definitions",
+        "business_rule_definitions",
+        "workflow_definitions",
+        "policy_definitions",
+        "loyalty_transactions",
+        "loyalty_members",
+        "loyalty_tiers",
+        "spif_images",
+        "product_images",
+        "ecom_sync_logs",
+        "ecom_channels",
+        "bank_statement_lines",
+        "general_ledger_entries",
+        "journal_vouchers",
+        "bank_statements",
+        "fiscal_periods",
+        "fiscal_years",
+        "accounts",
+        "integration_outbox_events",
+        "approval_actions",
+        "approval_requests",
+        "approval_policies",
+        "psv_sku_tracking",
+        "psv_party_sku_tracking",
+        "psv_stock_events",
+        "psv_parties",
+        "sales_return_items",
+        "sales_returns",
+        "product_identity",
+        "barcode_providers",
+        "identity_rules",
+        "sales_order_items",
+        "sales_orders",
+        "sales_quotation_items",
+        "sales_quotations",
+        "sales_invoice_items",
+        "sales_invoices",
+        "shifts",
+        "cash_registers",
+        "purchase_order_items",
+        "purchase_orders",
+        "purchase_receipt_items",
+        "purchase_receipts",
+        "supplier_payments",
+        "suppliers",
+        "stock_movements",
+        "inventory_batches",
+        "inventory_serials",
+        "inventory_stock",
+        "inventory_bins",
+        "inventory_zones",
+        "inventory_locations",
+        "warehouses",
+        "stores",
+        "products",
+        "customers",
+        "customer_groups",
+        "workflow_events",
+        "refresh_token_blacklist",
+        "print_history",
+        "barcode_layouts",
+        "system_config",
+        "system_settings",
+        "data_exchange_tasks",
+        "data_exchange_field_mappings",
+        "user_preferences",
+        "user_company_assignments",
+        "user_branch_assignments",
+        "report_schedules",
+        "users",
+        "master_values",
+        "master_types",
+        "invoice_document_artifacts",
+        "tax_invoice_template_versions",
+        "tax_invoice_templates",
+        "branches",
+        "company_financial_years",
+        "company_tax_profiles",
+        "company_database_registry",
+        "company_center",
+        "smriti_theme_variants",
+        "smriti_themes",
+        "smriti_workspace_profiles",
+        "smriti_menus",
+        "smriti_audit_log",
+        "audit_logs",
+        "tenants",
+        "companies"
+    ]
+    await db_session.rollback()
+    await db_session.execute(text("TRUNCATE TABLE users RESTART IDENTITY CASCADE;"))
+    await db_session.commit()
+    for tbl in delete_order:
         try:
-            await db_session.execute(text(f"DELETE FROM {tbl};"))
+            await db_session.execute(text(f"TRUNCATE TABLE {tbl} RESTART IDENTITY CASCADE;"))
         except Exception:
-            pass
-    try:
-        await db_session.execute(text("DELETE FROM smriti_menus;"))
-        await db_session.execute(text("DELETE FROM smriti_audit_log;"))
-    except Exception:
-        pass
-    await db_session.execute(delete(Company))
+            try:
+                async with db_session.begin_nested():
+                    await db_session.execute(text(f"DELETE FROM {tbl};"))
+            except Exception:
+                pass
     await db_session.commit()
 

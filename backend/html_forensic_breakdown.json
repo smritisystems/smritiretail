@@ -1,0 +1,863 @@
+{
+  "total_files": 74,
+  "total_bytes": 3537588,
+  "total_lines": 52063,
+  "categories": {
+    "PRINT_PDF": {
+      "bytes": 16919,
+      "lines": 293,
+      "count": 3
+    },
+    "GENERATED": {
+      "bytes": 3103694,
+      "lines": 46509,
+      "count": 62
+    },
+    "RUNTIME_UI": {
+      "bytes": 1422,
+      "lines": 43,
+      "count": 1
+    },
+    "TEST_FIXTURE": {
+      "bytes": 415553,
+      "lines": 5218,
+      "count": 8
+    }
+  },
+  "top_30": [
+    {
+      "path": "exports/test_73_updated.html",
+      "bytes": 359913,
+      "lines": 2195,
+      "directory": "exports",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "exports/canonical_tax_invoices/html/TT2026-2027_99.html",
+      "bytes": 252458,
+      "lines": 1304,
+      "directory": "exports/canonical_tax_invoices/html",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "exports/canonical_tax_invoices/html/TT-INTRA-2026_01.html",
+      "bytes": 197527,
+      "lines": 1245,
+      "directory": "exports/canonical_tax_invoices/html",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/test_77.html",
+      "bytes": 196729,
+      "lines": 1544,
+      "directory": "scratch",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "exports/canonical_tax_invoices/html/TT2026-2027_98.html",
+      "bytes": 194640,
+      "lines": 1204,
+      "directory": "exports/canonical_tax_invoices/html",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/postgres/PostgresRepositories.ts.html",
+      "bytes": 161756,
+      "lines": 2851,
+      "directory": "coverage/SMRITRretailNX/src/db/postgres",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/purchase.ts.html",
+      "bytes": 143933,
+      "lines": 2746,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/sales.ts.html",
+      "bytes": 118006,
+      "lines": 2158,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/TT2026-2027_18_frozen.html",
+      "bytes": 114517,
+      "lines": 1567,
+      "directory": "scratch",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "exports/SMRITI_All_Tax_Invoices_Master.html",
+      "bytes": 106105,
+      "lines": 1230,
+      "directory": "exports",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/services/customerStore.ts.html",
+      "bytes": 95866,
+      "lines": 2182,
+      "directory": "coverage/SMRITRretailNX/src/services",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/attributes.ts.html",
+      "bytes": 90346,
+      "lines": 1567,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/exchange.ts.html",
+      "bytes": 88590,
+      "lines": 1669,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/state/store.ts.html",
+      "bytes": 84248,
+      "lines": 1849,
+      "directory": "coverage/SMRITRretailNX/src/state",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/memory/MemoryRepositories.ts.html",
+      "bytes": 76582,
+      "lines": 1396,
+      "directory": "coverage/SMRITRretailNX/src/db/memory",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner/metrics.ts.html",
+      "bytes": 74662,
+      "lines": 1432,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/TT2026-2027_18_canonical.html",
+      "bytes": 64496,
+      "lines": 1364,
+      "directory": "scratch",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/assistant.ts.html",
+      "bytes": 58347,
+      "lines": 1066,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/barcode.ts.html",
+      "bytes": 57794,
+      "lines": 1021,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/users.ts.html",
+      "bytes": 57584,
+      "lines": 1081,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner/markdown.ts.html",
+      "bytes": 57421,
+      "lines": 1045,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/terms.ts.html",
+      "bytes": 50123,
+      "lines": 976,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/pos.ts.html",
+      "bytes": 47104,
+      "lines": 982,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/customers.ts.html",
+      "bytes": 46450,
+      "lines": 904,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/core/services/BillingService.ts.html",
+      "bytes": 45671,
+      "lines": 955,
+      "directory": "coverage/SMRITRretailNX/src/core/services",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/system.ts.html",
+      "bytes": 43324,
+      "lines": 910,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/lib/helpers.ts.html",
+      "bytes": 41559,
+      "lines": 895,
+      "directory": "coverage/SMRITRretailNX/src/lib",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/init.ts.html",
+      "bytes": 39946,
+      "lines": 799,
+      "directory": "coverage/SMRITRretailNX/src/db",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/reports.ts.html",
+      "bytes": 36802,
+      "lines": 682,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/products.ts.html",
+      "bytes": 36167,
+      "lines": 700,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    }
+  ],
+  "all_files": [
+    {
+      "path": "backend/app/templates/errors/base.html",
+      "bytes": 4399,
+      "lines": 92,
+      "directory": "backend/app/templates/errors",
+      "category": "PRINT_PDF",
+      "is_tracked": true
+    },
+    {
+      "path": "backend/app/templates/errors/error.html",
+      "bytes": 5993,
+      "lines": 96,
+      "directory": "backend/app/templates/errors",
+      "category": "PRINT_PDF",
+      "is_tracked": true
+    },
+    {
+      "path": "backend/app/templates/errors/landing.html",
+      "bytes": 6527,
+      "lines": 105,
+      "directory": "backend/app/templates/errors",
+      "category": "PRINT_PDF",
+      "is_tracked": true
+    },
+    {
+      "path": "coverage/SMRITRretailNX/index.html",
+      "bytes": 4423,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/server.ts.html",
+      "bytes": 28933,
+      "lines": 610,
+      "directory": "coverage/SMRITRretailNX",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/bootstrap/di.ts.html",
+      "bytes": 21733,
+      "lines": 448,
+      "directory": "coverage/SMRITRretailNX/src/bootstrap",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/bootstrap/index.html",
+      "bytes": 4474,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/bootstrap",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/core/services/BillingService.ts.html",
+      "bytes": 45671,
+      "lines": 955,
+      "directory": "coverage/SMRITRretailNX/src/core/services",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/core/services/index.html",
+      "bytes": 4537,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/core/services",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/core/sync/SyncEngine.ts.html",
+      "bytes": 22696,
+      "lines": 496,
+      "directory": "coverage/SMRITRretailNX/src/core/sync",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/core/sync/index.html",
+      "bytes": 4553,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/core/sync",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/index.html",
+      "bytes": 5102,
+      "lines": 131,
+      "directory": "coverage/SMRITRretailNX/src/db",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/indexeddb/IndexedDbRepositories.ts.html",
+      "bytes": 28857,
+      "lines": 448,
+      "directory": "coverage/SMRITRretailNX/src/db/indexeddb",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/indexeddb/index.html",
+      "bytes": 4617,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/db/indexeddb",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/init.ts.html",
+      "bytes": 39946,
+      "lines": 799,
+      "directory": "coverage/SMRITRretailNX/src/db",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/memory/MemoryRepositories.ts.html",
+      "bytes": 76582,
+      "lines": 1396,
+      "directory": "coverage/SMRITRretailNX/src/db/memory",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/memory/index.html",
+      "bytes": 4568,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/db/memory",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/pool.ts.html",
+      "bytes": 8294,
+      "lines": 211,
+      "directory": "coverage/SMRITRretailNX/src/db",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/postgres/PostgresRepositories.ts.html",
+      "bytes": 161756,
+      "lines": 2851,
+      "directory": "coverage/SMRITRretailNX/src/db/postgres",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/postgres/index.html",
+      "bytes": 4616,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/db/postgres",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/sqlite/SqliteRepositories.ts.html",
+      "bytes": 28394,
+      "lines": 448,
+      "directory": "coverage/SMRITRretailNX/src/db/sqlite",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/db/sqlite/index.html",
+      "bytes": 4526,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/db/sqlite",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/lib/helpers.ts.html",
+      "bytes": 41559,
+      "lines": 895,
+      "directory": "coverage/SMRITRretailNX/src/lib",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/lib/index.html",
+      "bytes": 4546,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/lib",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/middleware/index.html",
+      "bytes": 4538,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/middleware",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/middleware/sessionResolver.ts.html",
+      "bytes": 9190,
+      "lines": 217,
+      "directory": "coverage/SMRITRretailNX/src/middleware",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/api/devTracker.controller.ts.html",
+      "bytes": 10571,
+      "lines": 247,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/api",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/api/devTracker.routes.ts.html",
+      "bytes": 7307,
+      "lines": 187,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/api",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/api/index.html",
+      "bytes": 5304,
+      "lines": 131,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/api",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner/index.html",
+      "bytes": 7114,
+      "lines": 176,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner/markdown.ts.html",
+      "bytes": 57421,
+      "lines": 1045,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner/metrics.ts.html",
+      "bytes": 74662,
+      "lines": 1432,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner/parser.ts.html",
+      "bytes": 30870,
+      "lines": 637,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner/reporter.ts.html",
+      "bytes": 17984,
+      "lines": 382,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner/scanner.ts.html",
+      "bytes": 9293,
+      "lines": 223,
+      "directory": "coverage/SMRITRretailNX/src/modules/dev_tracker/scanner",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/assistant.ts.html",
+      "bytes": 58347,
+      "lines": 1066,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/attributes.ts.html",
+      "bytes": 90346,
+      "lines": 1567,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/auth.ts.html",
+      "bytes": 33878,
+      "lines": 748,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/barcode.ts.html",
+      "bytes": 57794,
+      "lines": 1021,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/customers.ts.html",
+      "bytes": 46450,
+      "lines": 904,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/exchange.ts.html",
+      "bytes": 88590,
+      "lines": 1669,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/index.html",
+      "bytes": 15065,
+      "lines": 356,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/inventory.ts.html",
+      "bytes": 8673,
+      "lines": 211,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/masters.ts.html",
+      "bytes": 26729,
+      "lines": 472,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/numbering.ts.html",
+      "bytes": 22364,
+      "lines": 478,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/pos.ts.html",
+      "bytes": 47104,
+      "lines": 982,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/products.ts.html",
+      "bytes": 36167,
+      "lines": 700,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/purchase.ts.html",
+      "bytes": 143933,
+      "lines": 2746,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/reports.ts.html",
+      "bytes": 36802,
+      "lines": 682,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/sales.ts.html",
+      "bytes": 118006,
+      "lines": 2158,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/system.ts.html",
+      "bytes": 43324,
+      "lines": 910,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/terms.ts.html",
+      "bytes": 50123,
+      "lines": 976,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/routes/users.ts.html",
+      "bytes": 57584,
+      "lines": 1081,
+      "directory": "coverage/SMRITRretailNX/src/routes",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/services/customerStore.ts.html",
+      "bytes": 95866,
+      "lines": 2182,
+      "directory": "coverage/SMRITRretailNX/src/services",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/services/index.html",
+      "bytes": 5188,
+      "lines": 131,
+      "directory": "coverage/SMRITRretailNX/src/services",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/services/workflowEngine.ts.html",
+      "bytes": 19290,
+      "lines": 403,
+      "directory": "coverage/SMRITRretailNX/src/services",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/state/index.html",
+      "bytes": 4545,
+      "lines": 116,
+      "directory": "coverage/SMRITRretailNX/src/state",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/SMRITRretailNX/src/state/store.ts.html",
+      "bytes": 84248,
+      "lines": 1849,
+      "directory": "coverage/SMRITRretailNX/src/state",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "coverage/index.html",
+      "bytes": 15342,
+      "lines": 341,
+      "directory": "coverage",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "dist/index.html",
+      "bytes": 2656,
+      "lines": 57,
+      "directory": "dist",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "exports/SMRITI_All_Tax_Invoices_Master.html",
+      "bytes": 106105,
+      "lines": 1230,
+      "directory": "exports",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "exports/canonical_tax_invoices/html/TT-INTRA-2026_01.html",
+      "bytes": 197527,
+      "lines": 1245,
+      "directory": "exports/canonical_tax_invoices/html",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "exports/canonical_tax_invoices/html/TT2026-2027_98.html",
+      "bytes": 194640,
+      "lines": 1204,
+      "directory": "exports/canonical_tax_invoices/html",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "exports/canonical_tax_invoices/html/TT2026-2027_99.html",
+      "bytes": 252458,
+      "lines": 1304,
+      "directory": "exports/canonical_tax_invoices/html",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "exports/test_73_updated.html",
+      "bytes": 359913,
+      "lines": 2195,
+      "directory": "exports",
+      "category": "GENERATED",
+      "is_tracked": false
+    },
+    {
+      "path": "index.html",
+      "bytes": 1422,
+      "lines": 43,
+      "directory": ".",
+      "category": "RUNTIME_UI",
+      "is_tracked": true
+    },
+    {
+      "path": "scratch/TT2026-2027_18_canonical.html",
+      "bytes": 64496,
+      "lines": 1364,
+      "directory": "scratch",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/TT2026-2027_18_frozen.html",
+      "bytes": 114517,
+      "lines": 1567,
+      "directory": "scratch",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/acroform_test_output/blank_ewb.html",
+      "bytes": 808,
+      "lines": 20,
+      "directory": "scratch/acroform_test_output",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/acroform_test_output/existing_ewb.html",
+      "bytes": 729,
+      "lines": 20,
+      "directory": "scratch/acroform_test_output",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/acroform_test_output/shifted_ewb.html",
+      "bytes": 809,
+      "lines": 20,
+      "directory": "scratch/acroform_test_output",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/distributor_invoice_preview.html",
+      "bytes": 11066,
+      "lines": 193,
+      "directory": "scratch",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/tax_invoice_ref.html",
+      "bytes": 26399,
+      "lines": 490,
+      "directory": "scratch",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    },
+    {
+      "path": "scratch/test_77.html",
+      "bytes": 196729,
+      "lines": 1544,
+      "directory": "scratch",
+      "category": "TEST_FIXTURE",
+      "is_tracked": false
+    }
+  ]
+}

@@ -20,7 +20,7 @@
 
 ## 1. Company Database Registry
 
-### Source: backend/app/models/company_database_registry.py
+### Source: backend/app/models/company_registry.py
 
 Schema fields confirmed present:
 - company_id (FK -> companies.id)
@@ -29,7 +29,7 @@ Schema fields confirmed present:
 - schema_version
 - health_check_at
 
-### Documentation alignment: ALIGNED with SMRITI_COMPANY_DATABASE_LIFECYCLE_v1.0.md lifecycle states
+### Documentation alignment: ALIGNED with COMPANY_DATABASE_2.md lifecycle states
 
 ### Status: ALIGNED
 
@@ -37,8 +37,8 @@ Schema fields confirmed present:
 
 ## 2. Control Plane Tables (smritisys)
 
-### Claim: 248 total tables classified in SMRITI_CONTROL_PLANE_AUDIT_v1.0.md
-### Evidence: SMRITI_CONTROL_PLANE_AUDIT_v1.0.md states "Total Tables Classified: 248 tables" "ZERO database mutations verified"
+### Claim: 248 total tables classified in CONTROL_PLANE_2_3.md
+### Evidence: CONTROL_PLANE_2_3.md states "Total Tables Classified: 248 tables" "ZERO database mutations verified"
 ### Note: The Excel workbook SMRITI_Control_Plane_Architecture_Review.xlsx is referenced as source of evidence but binary -- not parseable in audit.
 ### Cannot verify 248-table claim from code inspection alone.
 ### Status: PARTIALLY_VERIFIED
@@ -50,10 +50,10 @@ Schema fields confirmed present:
 ### Claim: Masters (Company, Branch, Store, Warehouse, Product, Supplier, Customer) live in smritisys
 ### Evidence:
 - backend/app/models/tenant.py: Company, Branch with company_id/branch_id scope columns
-- backend/app/tests/test_masters_consolidation.py: tests /api/v1/masters/companies, /api/v1/masters/branches, /api/v1/masters/stores, /api/v1/masters/warehouses via AsyncClient against smritisys DATABASE_URL
+- backend/app/tests/t_masters_consol.py: tests /api/v1/masters/companies, /api/v1/masters/branches, /api/v1/masters/stores, /api/v1/masters/warehouses via AsyncClient against smritisys DATABASE_URL
 - backend/app/tests/conftest.py db_engine fixture uses settings.DATABASE_URL = smritisys
 
-### Documentation claims: SMRITI_CONFIGURATION_OWNERSHIP_MATRIX_v1.0.md Row "COMPANY SETTINGS": "REUSE companies table for enterprise identity & setup -- smritisys"
+### Documentation claims: CONFIGURATION.md Row "COMPANY SETTINGS": "REUSE companies table for enterprise identity & setup -- smritisys"
 ### Status: ALIGNED
 
 ---
@@ -75,7 +75,7 @@ Schema fields confirmed present:
 
 ### Claim: 34 immutable menu IDs in smritisys; menu IDs must never change
 ### Evidence:
-- backend/tests/test_multi_company_database_architecture.py line 56-59: SELECT COUNT(*) FROM smriti_menus asserts count == 34
+- backend/tests/t_multi_comp_db.py line 56-59: SELECT COUNT(*) FROM smriti_menus asserts count == 34
 - backend/app/tests/conftest.py line 141: DELETE FROM smriti_menus (test teardown -- clears menus in test DB)
 
 ### DISCREPANCY: Test teardown clears smriti_menus. If test runs against smritisys (not a test-specific DB), this would destroy production data. The test uses a separate in-memory/test-only DB engine -- this is safe.
@@ -88,9 +88,9 @@ Schema fields confirmed present:
 
 ### Claim: schema_version = "3.16.0" in company_database_registries
 ### Evidence:
-- SMRITI_COMPANY_DATABASE_PROVISIONING_ENGINE_v1.0.md Dry-Run Step 6: "schema_version": "3.16.0"
-- SMRITI_COMPANY_DATABASE_LIFECYCLE_v1.0.md line 43: health check verifies "schema_version (3.16.0)"
-- backend/app/models/company_database_registry.py: schema_version column exists
+- COMPANY_DATABASE.md Dry-Run Step 6: "schema_version": "3.16.0"
+- COMPANY_DATABASE_2.md line 43: health check verifies "schema_version (3.16.0)"
+- backend/app/models/company_registry.py: schema_version column exists
 
 ### FINDING: DEVELOPMENT_STATUS.md generated date 2026-08-17 and CHANGELOG records version 3.25.0+ in some walkthroughs, but schema_version docs still reference 3.16.0. This version may be stale.
 ### Status: PARTIALLY_VERIFIED
@@ -101,9 +101,9 @@ Schema fields confirmed present:
 
 ### Claim: Masters consolidation reduced tables via REUSE strategy; ZERO new Control Plane tables required
 ### Evidence:
-- SMRITI_CONTROL_PLANE_AUDIT_v1.0.md: "ZERO new database tables are required"
-- SMRITI_CONFIGURATION_OWNERSHIP_MATRIX_v1.0.md: All 25 configuration areas mapped to existing tables
-- Walkthrough Foundation_Master_Data_Consolidation_v3.17.0.md: existence confirmed in file inventory
+- CONTROL_PLANE_2_3.md: "ZERO new database tables are required"
+- CONFIGURATION.md: All 25 configuration areas mapped to existing tables
+- Walkthrough Fdn_Master_Data.md: existence confirmed in file inventory
 
 ### Status: ALIGNED (by documentation; DB state unverifiable without live connection)
 
@@ -114,7 +114,7 @@ Schema fields confirmed present:
 ### Finding from Phase 0:
 - Migration j6k7l8m9n0o (add product identity engine tables) FAILED in alembic_status.txt
 - Tables barcode_providers, identity_rules, product_identities may NOT exist in smritisys
-- The PRODUCT_IDENTITY_ENGINE.md architecture doc claims these tables are IMPLEMENTED
+- The PRODUCT_IDENTITY_13.md architecture doc claims these tables are IMPLEMENTED
 - This is a DOCUMENTATION vs REALITY DISCREPANCY
 
 ### Status: FAILED (documentation claims IMPLEMENTED but migration is broken)

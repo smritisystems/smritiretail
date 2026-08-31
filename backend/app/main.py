@@ -16,13 +16,15 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version      : 3.17.0
+* Version    : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-07-14
+Modified     : 2026-08-23
 Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import sys
+import os
 import datetime
 import time
 
@@ -35,39 +37,78 @@ from fastapi.responses import JSONResponse
 from app.compliance.api import router as compliance_router
 
 from .api.v1 import (
+    accounting,
     ai,
+    analytics,
+    approval,
     approval_matrix,
     attributes,
     auth,
     assignments,
     barcode,
+    barcodes,
+    boundaries,
+    capability_registry,
+    cge,
     changelog,
-    company_control_center,
+    communicator,
+    company_center,
     crm,
+    crm_cge,
+    crm_reports,
+    database_manager,
     dev_tracker,
+    distribution,
     docs,
+    documents,
     ecom,
     exchange,
+    finance,
+    fulfillment,
+    governance,
+    governed_logic,
     health_flags,
+    integration,
     inventory,
+    inventory_reports,
+    legacy_menu_map,
+    localization,
     master_lookup,
     masters,
     menus,
     metadata,
     numbering,
     pos,
+    physical_stock,
+    payments,
+    pdt,
+    pricing,
     product_identity,
+    promotions,
+    psv,
     purchase,
+    reference_data,
+    reporting_governance,
     reports,
     roles,
     sales,
+    sales_reports,
+    scheduled_reports,
+    search,
+    security,
+    staff,
     supplier_payment,
+    sync,
     system,
     terms,
     training,
     ui_control_plane,
+    universal_master,
     users,
+    wms,
     workflow,
+    workspace_ui,
+    cge_unified,
 )
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
@@ -81,10 +122,20 @@ STARTUP_TIME = time.time()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """SMRITI startup: log banner. Yield for request handling. Shutdown is a no-op."""
+    """SMRITI startup: log banner and ensure baseline users and company registries are seeded."""
     print(SMRITI_BANNER)
     logger.info(f"[SMRITI] Starting FastAPI Python Core on port {settings.PORT}...")
     logger.info(f"[SMRITI] Mode: {settings.EDITION} | Version: {settings.VERSION}")
+    
+    # Auto-seed baseline users and company registries idempotently on container startup
+    if "pytest" not in sys.modules and not os.environ.get("PYTEST_CURRENT_TEST"):
+        try:
+            from .db.seed_baseline_users import seed as seed_baseline_users
+            await seed_baseline_users()
+            logger.info("[SMRITI Startup] Baseline users, companies, and database registries verified/seeded successfully.")
+        except Exception as e:
+            logger.warning(f"[SMRITI Startup] Notice during baseline user auto-seeding: {e}")
+
     yield
 
 # Initialize FastAPI instance
@@ -120,18 +171,25 @@ app.include_router(changelog.router, prefix=settings.API_V1_STR)
 app.include_router(dev_tracker.router, prefix=settings.API_V1_STR)
 app.include_router(auth.router,      prefix=settings.API_V1_STR + "/auth",          tags=["Authentication"])
 app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",         tags=["User Management"])
-app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])
-app.include_router(inventory.router, prefix=settings.API_V1_STR + "/products",       tags=["Inventory"])
-app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
-app.include_router(crm.router,       prefix=settings.API_V1_STR + "/crm",          tags=["CRM"])
-app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated — remove at v3.20.0
-app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Contract URL (Phase 4A)
-app.include_router(sales.router,     prefix=settings.API_V1_STR + "/tattly",         tags=["Tattly Invoices"])
+app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory",          tags=["Inventory"])
+app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/products",           tags=["Inventory"])
+app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory/products", tags=["Inventory"])
+app.include_router(inventory_reports.router, prefix=settings.API_V1_STR,                          tags=["Inventory Reports"])
+app.include_router(crm.router,          prefix=settings.API_V1_STR,           tags=["CRM"])
+app.include_router(crm.router,          prefix=settings.API_V1_STR + "/crm",  tags=["CRM"])
+app.include_router(crm_reports.router,  prefix=settings.API_V1_STR,           tags=["CRM Reports"])
+app.include_router(staff.router,        prefix=settings.API_V1_STR,           tags=["Staff Management"])
+app.include_router(sales.router,         prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated -- remove at v3.20.0
+app.include_router(sales.router,         prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Contract URL (Phase 4A)
+app.include_router(sales.router,         prefix=settings.API_V1_STR + "/tattly",         tags=["Tattly Invoices"])
+app.include_router(sales_reports.router, prefix=settings.API_V1_STR,                     tags=["Sales Reports"])
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Deprecated — remove at v3.20.0
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Contract URL (Phase 4A)
-app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
+app.include_router(pos.router,            prefix=settings.API_V1_STR,           tags=["POS Shift"])
+app.include_router(physical_stock.router, prefix=settings.API_V1_STR,           tags=["Physical Stock"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
+app.include_router(reporting_governance.router, prefix=settings.API_V1_STR,           tags=["Reporting Governance"])
 app.include_router(master_lookup.router,    prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
 app.include_router(masters.router,          prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
 app.include_router(assignments.router,      prefix=settings.API_V1_STR,                      tags=["Assignments"])
@@ -146,12 +204,47 @@ app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs"
 app.include_router(system.router,           prefix=settings.API_V1_STR,                     tags=["System"])
 app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
 app.include_router(menus.router,            prefix=settings.API_V1_STR + "/menus",         tags=["Menu Governance"])
+app.include_router(security.router,         prefix=settings.API_V1_STR + "/security",      tags=["Security Management"])
 app.include_router(ui_control_plane.router, prefix=settings.API_V1_STR + "/ui",            tags=["UI Control Plane"])
+app.include_router(workspace_ui.router,      prefix=settings.API_V1_STR)
 app.include_router(training.router,         prefix=settings.API_V1_STR,                     tags=["Training Academy"])
 app.include_router(ecom.router,             prefix=settings.API_V1_STR,                     tags=["eCommerce / Omnichannel Engine"])
-app.include_router(company_control_center.router, prefix=settings.API_V1_STR, tags=["Company Control Center"])
+app.include_router(company_center.router, prefix=settings.API_V1_STR, tags=["Company Control Center"])
+app.include_router(database_manager.router,       prefix=settings.API_V1_STR + "/database-manager", tags=["Database Manager"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 app.include_router(approval_matrix.router,  prefix=settings.API_V1_STR + "/approval-matrix", tags=["Approval Matrix"])
+app.include_router(wms.router,              prefix=settings.API_V1_STR + "/wms", tags=["Warehouse & Batch Management"])
+app.include_router(accounting.router,       prefix=settings.API_V1_STR + "/accounting", tags=["Authoritative Accounting"])
+app.include_router(finance.router,          prefix=settings.API_V1_STR + "/finance",     tags=["Finance & Cash Reports"])
+app.include_router(governance.router,       prefix=settings.API_V1_STR + "/governance",  tags=["Governance & System Config"])
+app.include_router(reference_data.router,    prefix=settings.API_V1_STR, tags=["Global Reference Data & Localization"])
+app.include_router(localization.router,      prefix=settings.API_V1_STR)
+app.include_router(capability_registry.router, prefix=settings.API_V1_STR, tags=["Capability & Module Registry"])
+app.include_router(governed_logic.router, prefix=settings.API_V1_STR + "/governed-logic", tags=["Governed Logic & Reproducibility"])
+app.include_router(universal_master.router, prefix=settings.API_V1_STR + "/universal", tags=["Universal Party & Item Master"])
+app.include_router(boundaries.router, prefix=settings.API_V1_STR + "/boundaries", tags=["Stock & Accounting Boundaries"])
+app.include_router(pricing.router, prefix=settings.API_V1_STR + "/pricing", tags=["Pricing Engine"])
+app.include_router(promotions.router, prefix=settings.API_V1_STR + "/promotions", tags=["Promotions & Offers Engine"])
+app.include_router(payments.router, prefix=settings.API_V1_STR + "/payments", tags=["Payments Engine"])
+app.include_router(documents.router, prefix=settings.API_V1_STR + "/documents", tags=["Documents Engine"])
+app.include_router(fulfillment.router, prefix=settings.API_V1_STR + "/fulfillment", tags=["Fulfillment Engine"])
+app.include_router(barcodes.router, prefix=settings.API_V1_STR + "/barcodes", tags=["Barcode & Labels Engine"])
+app.include_router(approval.router, prefix=settings.API_V1_STR + "/approval", tags=["Approval Matrix Engine"])
+app.include_router(search.router, prefix=settings.API_V1_STR + "/search", tags=["Universal Search Engine"])
+app.include_router(communicator.router, prefix=settings.API_V1_STR + "/communicator", tags=["Communicator Engine"])
+app.include_router(crm_cge.router, prefix=settings.API_V1_STR + "/crm-growth", tags=["CRM & Commercial Growth Engine"])
+app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
+app.include_router(psv.router, prefix=settings.API_V1_STR, tags=["Projected Stock Visibility"])
+app.include_router(pdt.router, prefix=settings.API_V1_STR, tags=["Predictive Distribution Twin"])
+app.include_router(cge_unified.router, prefix=settings.API_V1_STR, tags=["CGE Unified Policies"])
+app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
+app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])
+app.include_router(analytics.router, prefix=settings.API_V1_STR + "/analytics", tags=["Analytics & Intelligence Plane"])
+app.include_router(integration.router, prefix=settings.API_V1_STR + "/integration", tags=["Integration Hub & Audit"])
+app.include_router(legacy_menu_map.router, prefix=settings.API_V1_STR + "/legacy-menu-map", tags=["Legacy Migration Registry"])  # Sprint 2/3: read-only Shoper9->SMRITI lineage
+app.include_router(scheduled_reports.router, prefix=settings.API_V1_STR)
+
+
 
 
 # 4. Standard Health Diagnostics Endpoints

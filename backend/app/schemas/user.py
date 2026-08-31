@@ -228,6 +228,7 @@ class StaffUserResponse(BaseModel):
     departmentId: Optional[str] = None
     designationId: Optional[str] = None
     branchId: Optional[str] = None
+    companyId: Optional[str] = None
     dateOfJoining: str
     reportingManager: str
     employmentType: str

@@ -37,7 +37,7 @@ export interface LoyaltyStudioTabProps {
 }
 
 export const LoyaltyStudioTab: React.FC<LoyaltyStudioTabProps> = ({ currentUser }) => {
-  const isReadOnly = currentUser?.role === "Report User";
+  const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "wallets" | "tiers" | "rules">("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [pointsRate, setPointsRate] = useState(1);

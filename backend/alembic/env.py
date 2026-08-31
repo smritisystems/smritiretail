@@ -12,9 +12,16 @@ License      : Proprietary Commercial Software
 """
 
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
 from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
+
+# Ensure backend root is in sys.path
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 # Import our settings and base metadata
 from app.core.config import settings
@@ -54,6 +61,16 @@ from app.models.product_identity import BarcodeProvider, IdentityRule, ProductId
 from app.models.role import Role
 from app.models.master_lookup import MasterType, MasterValue
 from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
+# v1368: UI/Experience Engine (smritisys Control Plane)
+from app.models.ui_control_plane import (
+    SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile,
+    ScreenDefinition, FieldDefinition, ActionDefinition, LayoutDefinition, IconRegistry,
+)
+# v1369: Integration Hub Registry (smritisys Control Plane)
+from app.models.integration_hub import (
+    ProviderRegistry, ConnectorRegistry, IntegrationRegistry,
+    IntegrationCredentialReference, IntegrationPolicy, IntegrationVersion,
+)
 config = context.config
 
 if config.config_file_name is not None:
@@ -124,13 +141,73 @@ def include_object(object, name, type_, reflected, compare_to):
             "sales_return_items",
             "purchase_reorder_configs",
             "purchase_jurisdiction_configs",
+            "product_batch_stocks",
+            "stock_transfers",
+            "stock_transfer_items",
+            "stock_audits",
+            "stock_audit_items",
+            "eway_bills",
+            "pricing_rules",
+            "price_books",
+            "price_book_entries",
+            "payment_transactions",
+            "approval_rules",
+            "approval_requests",
+            "communication_templates",
+            "communication_dispatches",
+            "integration_outbox_events",
+            "accounts",
+            "journal_vouchers",
+            "general_ledger_entries",
+            "account_balance_snapshots",
+            "fiscal_years",
+            "fiscal_periods",
+            "bank_statements",
+            "bank_statement_lines",
+            "currency_exchange_rates",
+            "shift_cash_transactions",
+            # v1368: UI/Experience Engine
+            "screen_definitions",
+            "field_definitions",
+            "action_definitions",
+            "layout_definitions",
+            "icon_registry",
+            # v1369: Integration Hub Registry
+            "provider_registry",
+            "connector_registry",
+            "integration_registry",
+            "integration_credentials_reference",
+            "integration_policies",
+            "integration_versions",
         ]
     return True
 
 
+
+
+def get_target_db_url() -> str:
+    x_args = context.get_x_argument(as_dictionary=True)
+    if "db_url" in x_args:
+        return x_args["db_url"]
+    if "db" in x_args:
+        db_name = x_args["db"]
+        from urllib.parse import urlparse
+        import os
+        parsed = urlparse(settings.DATABASE_URL)
+        scheme = parsed.scheme or "postgresql+asyncpg"
+        user = os.getenv("POSTGRES_USER") or parsed.username
+        password = os.getenv("POSTGRES_PASSWORD") or parsed.password
+        host = os.getenv("POSTGRES_HOST") or parsed.hostname or "localhost"
+        port = int(os.getenv("POSTGRES_PORT") or parsed.port or 5432)
+        auth = f"{user}:{password}@" if (user and password) else (f"{user}@" if user else "")
+        return f"{scheme}://{auth}{host}:{port}/{db_name}"
+    return config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = settings.DATABASE_URL
+    url = get_target_db_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -153,7 +230,8 @@ def do_run_migrations(connection) -> None:
         context.run_migrations()
 
 async def run_async_migrations() -> None:
-    connectable = create_async_engine(settings.DATABASE_URL)
+    database_url = get_target_db_url()
+    connectable = create_async_engine(database_url)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

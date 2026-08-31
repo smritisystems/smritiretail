@@ -6,37 +6,44 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-07-16
+Modified     : 2026-08-23  (idempotency_key made mandatory on public financial request schemas)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 from decimal import Decimal
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field
 
 
 class CashRegisterCreate(BaseModel):
-    id:        str
-    name:      str
-    code:      str
-    notes:     Optional[str] = None
+    id:        str = Field(..., max_length=50)
+    name:      str = Field(..., min_length=2, max_length=100)
+    code:      str = Field(..., min_length=2, max_length=50)
+    notes:     Optional[str] = Field(None, max_length=500)
     cashier:   Optional[str] = None
     warehouse: Optional[str] = None
 
 
 class CashRegisterResponse(BaseModel):
-    id:         str
-    name:       str
-    code:       str
-    notes:      Optional[str] = None
-    is_active:  bool
-    is_locked:  bool = False
-    cashier:    Optional[str] = None
-    warehouse:  Optional[str] = None
-    company_id: Optional[str] = None
-    branch_id:  Optional[str] = None
+    id:                  str
+    name:                str
+    code:                str
+    notes:               Optional[str] = None
+    is_active:           bool
+    created_at:          datetime
+    modified_at:         datetime
+    total_shifts:        int = 0
+    total_sales:         Decimal = Decimal("0.00")
+    active_shift_id:     Optional[str] = None
+    active_cashier_id:   Optional[str] = None
+    active_shift_opened: Optional[datetime] = None
+    is_locked:           bool = False
+    cashier:             Optional[str] = None
+    warehouse:           Optional[str] = None
+    company_id:          Optional[str] = None
+    branch_id:           Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -44,68 +51,206 @@ class CashRegisterResponse(BaseModel):
 
 class POSProfileCreate(BaseModel):
     """Maps the frontend PosProfilesTab create form to CashRegister fields."""
-    name:      str
-    cashier:   str
-    warehouse: str
-    notes:     Optional[str] = None
+    name:        str = Field(..., min_length=2, max_length=100)
+    code:        str = Field(..., min_length=2, max_length=50)
+    cashier:     Optional[str] = Field(None, max_length=100)
+    warehouse:   Optional[str] = Field(None, max_length=100)
+    is_locked:   Optional[bool] = False
+    notes:       Optional[str] = Field(None, max_length=500)
 
 
 class POSProfileResponse(BaseModel):
     """Frontend-facing view of a CashRegister as a POS Profile."""
-    id:        str
-    name:      str
-    cashier:   Optional[str] = None
-    warehouse: Optional[str] = None
-    isActive:  bool
-    isLocked:  bool
+    id:          str
+    name:        str
+    code:        str
+    cashier:     Optional[str] = None
+    warehouse:   Optional[str] = None
+    is_locked:   bool = False
+    is_active:   bool = True
+    created_at:  datetime
+    modified_at: datetime
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_register(cls, reg: "CashRegister") -> "POSProfileResponse":  # type: ignore[name-defined]
+    def from_register(cls, reg: Any) -> "POSProfileResponse":
         return cls(
             id=reg.id,
             name=reg.name,
-            cashier=reg.cashier,
-            warehouse=reg.warehouse,
-            isActive=reg.is_active,
-            isLocked=reg.is_locked,
+            code=reg.code,
+            cashier=getattr(reg, "cashier", None),
+            warehouse=getattr(reg, "warehouse", None),
+            is_locked=getattr(reg, "is_locked", False),
+            is_active=reg.is_active,
+            created_at=reg.created_at,
+            modified_at=reg.modified_at,
         )
 
 
 class ShiftOpen(BaseModel):
-    id:              str
-    register_id:     str
-    opening_balance: Decimal = Decimal("0.00")
+    id:              str = Field(..., max_length=50)
+    register_id:     str = Field(..., max_length=50)
+    opening_balance: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
 
 
-class ShiftClose(BaseModel):
-    closing_balance: Decimal
-    closing_notes:   Optional[str] = None
+class CashDenominationBreakdown(BaseModel):
+    notes_2000:  int = Field(0, ge=0)
+    notes_500:   int = Field(0, ge=0)
+    notes_200:   int = Field(0, ge=0)
+    notes_100:   int = Field(0, ge=0)
+    notes_50:    int = Field(0, ge=0)
+    notes_20:    int = Field(0, ge=0)
+    notes_10:    int = Field(0, ge=0)
+    notes_5:     int = Field(0, ge=0)
+    notes_2:     int = Field(0, ge=0)
+    notes_1:     int = Field(0, ge=0)
+    coins_total: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
+
+    def calculate_total(self) -> Decimal:
+        return (
+            Decimal(str(self.notes_2000 * 2000)) +
+            Decimal(str(self.notes_500 * 500)) +
+            Decimal(str(self.notes_200 * 200)) +
+            Decimal(str(self.notes_100 * 100)) +
+            Decimal(str(self.notes_50 * 50)) +
+            Decimal(str(self.notes_20 * 20)) +
+            Decimal(str(self.notes_10 * 10)) +
+            Decimal(str(self.notes_5 * 5)) +
+            Decimal(str(self.notes_2 * 2)) +
+            Decimal(str(self.notes_1 * 1)) +
+            self.coins_total
+        ).quantize(Decimal("0.01"))
 
 
-class ShiftResponse(BaseModel):
+class ShiftCashInRequest(BaseModel):
+    """
+    Cash In — treasury float injection into the open shift drawer.
+
+    `idempotency_key` is REQUIRED. Callers must generate a stable,
+    client-side UUID (or equivalent) before submitting. On a network
+    retry, resubmit the same key. Submitting without a key is rejected
+    at schema-validation time so that automatic random key generation
+    is never silently used as a deduplication substitute.
+    """
+    amount:            Decimal = Field(..., gt=Decimal("0.00"))
+    source_account_id: Optional[str] = Field(None, max_length=50)  # Defaults to 1020 (Bank) or 1010 vault
+    reason:            str = Field(..., min_length=3, max_length=255)
+    receipt_ref:       Optional[str] = Field(None, max_length=100)
+    idempotency_key:   str = Field(..., min_length=8, max_length=100,
+                                   description="Stable client-generated key. Resubmit unchanged on retry.")
+
+
+class ShiftCashDropRequest(BaseModel):
+    """
+    Cash Drop — mid-shift transfer of surplus cash from drawer to safe/bank.
+
+    `idempotency_key` is REQUIRED. See ShiftCashInRequest for the same
+    client-idempotency contract.
+    """
+    amount:            Decimal = Field(..., gt=Decimal("0.00"))
+    target_account_id: Optional[str] = Field(None, max_length=50)  # Defaults to 1020 (Bank) or 1010 vault
+    reason:            str = Field(..., min_length=3, max_length=255)
+    receipt_ref:       Optional[str] = Field(None, max_length=100)
+    idempotency_key:   str = Field(..., min_length=8, max_length=100,
+                                   description="Stable client-generated key. Resubmit unchanged on retry.")
+
+
+class ShiftTillExpenseRequest(BaseModel):
+    """
+    Till Expense — petty cash payout from drawer for operational expenses.
+
+    `idempotency_key` is REQUIRED. See ShiftCashInRequest for the same
+    client-idempotency contract.
+    """
+    amount:             Decimal = Field(..., gt=Decimal("0.00"))
+    expense_account_id: Optional[str] = Field(None, max_length=50)  # Defaults to 5000 (Expenses)
+    reason:             str = Field(..., min_length=3, max_length=255)
+    receipt_ref:        Optional[str] = Field(None, max_length=100)
+    idempotency_key:    str = Field(..., min_length=8, max_length=100,
+                                    description="Stable client-generated key. Resubmit unchanged on retry.")
+
+
+class ShiftCashTransactionResponse(BaseModel):
     id:               str
-    register_id:      str
-    cashier_id:       str
-    status:           str
-    opened_at:        datetime
-    closed_at:        Optional[datetime] = None
-    opening_balance:  Decimal
-    cash_sales_total: Decimal
-    card_sales_total: Decimal
-    upi_sales_total:  Decimal
-    total_sales:      Decimal
-    total_invoices:   str
-    closing_balance:  Optional[Decimal] = None
-    expected_cash:    Optional[Decimal] = None
-    variance:         Optional[Decimal] = None
-    closing_notes:    Optional[str] = None
-    company_id:       Optional[str] = None
-    branch_id:        Optional[str] = None
+    shift_id:         str
+    transaction_type: str
+    amount:           Decimal
+    account_id:       Optional[str] = None
+    reason:           str
+    performed_by:     str
+    gl_voucher_id:    Optional[str] = None
+    gl_voucher_no:    Optional[str] = None
+    receipt_ref:      Optional[str] = None
+    idempotency_key:  Optional[str] = None
+    created_at:       datetime
     model_config = {"from_attributes": True}
 
 
+class ShiftClose(BaseModel):
+    closing_balance: Optional[Decimal] = Field(None, ge=Decimal("0.00"))
+    denominations:   Optional[CashDenominationBreakdown] = None
+    closing_notes:   Optional[str] = Field(None, max_length=500)
+    idempotency_key: Optional[str] = Field(None, max_length=100)
+
+
+class ShiftResponse(BaseModel):
+    id:                  str
+    register_id:         str
+    cashier_id:          str
+    status:              str
+    opened_at:           datetime
+    closed_at:           Optional[datetime] = None
+    opening_balance:     Decimal
+    cash_sales_total:    Decimal
+    card_sales_total:    Decimal
+    upi_sales_total:     Decimal
+    total_sales:         Decimal
+    total_invoices:      str
+    cash_drops_total:    Decimal = Decimal("0.00")
+    till_expenses_total: Decimal = Decimal("0.00")
+    cash_in_total:       Decimal = Decimal("0.00")
+    closing_balance:     Optional[Decimal] = None
+    expected_cash:       Optional[Decimal] = None
+    variance:            Optional[Decimal] = None
+    denominations:       Optional[Dict[str, Any]] = None
+    closing_notes:       Optional[str] = None
+    company_id:          Optional[str] = None
+    branch_id:           Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
+class POSZReportResponse(BaseModel):
+    shift_id:            str
+    register_id:         str
+    cashier_id:          str
+    status:              str
+    opened_at:           datetime
+    closed_at:           Optional[datetime] = None
+    opening_balance:     Decimal
+    cash_sales_total:    Decimal
+    card_sales_total:    Decimal
+    upi_sales_total:     Decimal
+    total_sales:         Decimal
+    total_invoices:      int
+    cash_drops_total:    Decimal = Decimal("0.00")
+    till_expenses_total: Decimal = Decimal("0.00")
+    cash_in_total:       Decimal = Decimal("0.00")
+    expected_cash:       Decimal
+    closing_balance:     Decimal
+    variance:            Decimal
+    denominations:       Optional[Dict[str, Any]] = None
+    closing_notes:       Optional[str] = None
+    gl_voucher_id:       Optional[str] = None
+    gl_voucher_no:       Optional[str] = None
+    company_id:          Optional[str] = None
+    branch_id:           Optional[str] = None
+    cash_movements:      Optional[List[ShiftCashTransactionResponse]] = None
+    model_config = {"from_attributes": True}
+
+
+
 # ─────────────────────────── POS Checkout ───────────────────────────
+
 
 class POSCheckoutItem(BaseModel):
     """

@@ -139,16 +139,24 @@ class PurchaseOrderResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+from datetime import datetime, date
+
+
 # ─────────────────────────── Purchase Receipt (GRN) ───────────────────────────
 
 class PurchaseReceiptItemCreate(BaseModel):
-    product_id:       str
-    code:             str
-    name:             str
+    product_id:        str
+    code:              str
+    name:              str
+    batch_no:          Optional[str] = None
+    mfg_date:          Optional[date] = None
+    expiry_date:       Optional[date] = None
+    mrp:               Optional[Decimal] = None
     quantity_ordered:  Optional[Decimal] = None
     quantity_received: Decimal
-    cost_price:       Decimal
-    gst_rate:         Decimal = Decimal("18.00")
+    quantity_damaged:  Optional[Decimal] = Decimal("0.00")
+    cost_price:        Decimal
+    gst_rate:          Decimal = Decimal("18.00")
 
 
 class PurchaseReceiptItemResponse(BaseModel):
@@ -156,8 +164,13 @@ class PurchaseReceiptItemResponse(BaseModel):
     product_id:        str
     code:              str
     name:              str
+    batch_no:          Optional[str] = None
+    mfg_date:          Optional[date] = None
+    expiry_date:       Optional[date] = None
+    mrp:               Optional[Decimal] = None
     quantity_ordered:  Optional[Decimal] = None
     quantity_received: Decimal
+    quantity_damaged:  Decimal = Decimal("0.00")
     cost_price:        Decimal
     gst_rate:          Decimal
     tax_amount:        Decimal
@@ -167,27 +180,29 @@ class PurchaseReceiptItemResponse(BaseModel):
 
 
 class PurchaseReceiptCreate(BaseModel):
-    id:          str
-    receipt_no:  str
-    supplier_id: str
-    order_id:    Optional[str] = None   # link to PO — optional
-    notes:       Optional[str] = None
-    items:       List[PurchaseReceiptItemCreate]
+    id:           str
+    receipt_no:   str
+    supplier_id:  str
+    warehouse_id: Optional[str] = None  # target godown — optional (defaults to Central Godown)
+    order_id:     Optional[str] = None   # link to PO — optional
+    notes:        Optional[str] = None
+    items:        List[PurchaseReceiptItemCreate]
 
 
 class PurchaseReceiptResponse(BaseModel):
-    id:          str
-    receipt_no:  str
-    supplier_id: str
-    order_id:    Optional[str] = None
-    status:      str
-    notes:       Optional[str] = None
-    subtotal:    Decimal
-    tax_total:   Decimal
-    grand_total: Decimal
-    items:       List[PurchaseReceiptItemResponse] = []
-    company_id:  Optional[str] = None
-    branch_id:   Optional[str] = None
+    id:           str
+    receipt_no:   str
+    supplier_id:  str
+    warehouse_id: Optional[str] = None
+    order_id:     Optional[str] = None
+    status:       str
+    notes:        Optional[str] = None
+    subtotal:     Decimal
+    tax_total:    Decimal
+    grand_total:  Decimal
+    items:        List[PurchaseReceiptItemResponse] = []
+    company_id:   Optional[str] = None
+    branch_id:    Optional[str] = None
 
     model_config = {"from_attributes": True}
 

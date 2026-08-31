@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.17.0
+Version      : 3.28.0
 Created      : 2026-07-11
-Modified     : 2026-07-14
+Modified     : 2026-08-24
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -23,20 +23,32 @@ from . import (
     barcode,
     changelog,
     crm,
+    crm_reports,
     dev_tracker,
     docs,
     exchange,
+    finance,
+    governance,
+    governed_logic,
     inventory,
+    inventory_reports,
+    legacy_menu_map,
     master_lookup,
     masters,
     metadata,
     numbering,
     pos,
+    physical_stock,
     product_identity,
     purchase,
+    reporting_governance,
     reports,
     roles,
     sales,
+    sales_reports,
+    scheduled_reports,
+    security,
+    staff,
     supplier_payment,
     terms,
     users,
