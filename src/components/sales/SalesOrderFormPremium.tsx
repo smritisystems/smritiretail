@@ -1329,27 +1329,40 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Form Sections */}
-      <PremiumSalesOrderHeader
-        formData={formData}
-        onFieldChange={handleFieldChange}
-        errors={errors}
-        onImportClick={() => setShowImportModal(true)}
-        onRecallClick={() => setShowRecallModal(true)}
-      />
-      <PremiumSalesOrderDetail
-        items={formData.items || []}
-        onItemsChange={handleItemsChange}
-      />
-      <PremiumSalesOrderFooter items={formData.items || []} />
+      {/* Unified Form Container - Professional Sticky Layout */}
+      <div className="flex flex-col h-full bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+        
+        {/* STICKY HEADER */}
+        <div className="sticky top-0 z-20 bg-white border-b border-slate-200 flex-shrink-0">
+          <PremiumSalesOrderHeader
+            formData={formData}
+            onFieldChange={handleFieldChange}
+            errors={errors}
+            onImportClick={() => setShowImportModal(true)}
+            onRecallClick={() => setShowRecallModal(true)}
+          />
+        </div>
 
-      {/* Action Buttons */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="mt-4 flex gap-2 justify-end items-center"
-      >
+        {/* SCROLLABLE DETAIL SECTION */}
+        <div className="flex-1 overflow-y-auto min-h-0 bg-white">
+          <PremiumSalesOrderDetail
+            items={formData.items || []}
+            onItemsChange={handleItemsChange}
+          />
+        </div>
+
+        {/* STICKY FOOTER */}
+        <div className="sticky bottom-0 z-20 bg-white border-t border-slate-200 flex-shrink-0">
+          <PremiumSalesOrderFooter items={formData.items || []} />
+        </div>
+
+        {/* Action Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="flex gap-2 justify-end items-center px-4 py-3 bg-slate-50 border-t border-slate-200 flex-shrink-0"
+        >
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -1378,7 +1391,8 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
             </>
           )}
         </motion.button>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {/* Import and Recall Modals */}
       <ImportPDTModal
