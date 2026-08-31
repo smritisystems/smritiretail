@@ -182,14 +182,24 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setActiveWindowId(id);
   };
 
-  const popOutExternalWindow = (tabId: string, title: string, icon?: string) => {
-    const url = `${window.location.origin}${window.location.pathname}?standalone_tab=${encodeURIComponent(tabId)}`;
+  const popOutExternalWindow = (tabId: string, title: string, icon?: string, options?: { fullScreen?: boolean }) => {
+    const fullScreen = options?.fullScreen === true;
+    const url = `${window.location.origin}${window.location.pathname}?standalone_tab=${encodeURIComponent(tabId)}${fullScreen ? "&fullscreen=1" : ""}`;
     const windowName = `smriti_popout_${tabId}_${Date.now()}`;
     const windowFeatures = "popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=1280,height=800,left=100,top=100";
     try {
       const popupWindow = window.open(url, windowName, windowFeatures);
       if (popupWindow) {
         popupWindow.focus();
+        if (fullScreen) {
+          setTimeout(() => {
+            try {
+              popupWindow.document?.documentElement?.requestFullscreen?.().catch(() => {});
+            } catch {
+              // Ignore if the browser blocks this programmatic fullscreen request.
+            }
+          }, 350);
+        }
       } else {
         popOutTab(tabId, title, icon || "description");
       }

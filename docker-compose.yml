@@ -73,6 +73,7 @@ services:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smritisys}"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       JWT_SECRET_KEY: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env — see .env.example}"
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY in .env — see .env.example}"
       SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:?Set SGIP_VAULT_MASTER_KEY in .env — see .env.example}"
       # When true, the container will skip running Alembic migrations on startup.
       # Recommended long-term: run migrations as a one-off job from CI or an init container.

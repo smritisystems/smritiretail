@@ -689,13 +689,24 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
 
           <button
             onClick={() => {
-              popOutExternalWindow(contextMenu.tabId, contextMenu.label, contextMenu.icon);
+              popOutExternalWindow(contextMenu.tabId, contextMenu.label, contextMenu.icon, { fullScreen: false });
               setContextMenu(null);
             }}
             className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-amber-400 hover:bg-theme-surface-3 transition-colors cursor-pointer"
           >
             <ExternalLink size={12} className="text-amber-400" />
-            <span>Pop Out Standalone Window (No Header / Toolbar)</span>
+            <span>Open Isolated Browser Window</span>
+          </button>
+
+          <button
+            onClick={() => {
+              popOutExternalWindow(contextMenu.tabId, contextMenu.label, contextMenu.icon, { fullScreen: true });
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-violet-400 hover:bg-theme-surface-3 transition-colors cursor-pointer"
+          >
+            <Maximize size={12} className="text-violet-400" />
+            <span>Open Isolated Fullscreen Window</span>
           </button>
         </div>
       )}

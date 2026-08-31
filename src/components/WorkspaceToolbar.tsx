@@ -221,11 +221,19 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
             </button>
 
             <button
-              onClick={() => popOutExternalWindow(currentTabId, title, icon)}
+              onClick={() => popOutExternalWindow(currentTabId, title, icon, { fullScreen: false })}
               className="p-1.5 rounded-lg text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10 transition-all cursor-pointer"
-              title="Pop Out to Standalone External Window (No Header / Toolbar)"
+              title="Open Isolated Browser Window"
             >
               <ExternalLink size={14} />
+            </button>
+
+            <button
+              onClick={() => popOutExternalWindow(currentTabId, title, icon, { fullScreen: true })}
+              className="p-1.5 rounded-lg text-violet-500/80 hover:text-violet-400 hover:bg-violet-500/10 transition-all cursor-pointer"
+              title="Open Isolated Fullscreen Browser Window"
+            >
+              <Maximize2 size={14} />
             </button>
 
             <button
