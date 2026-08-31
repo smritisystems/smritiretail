@@ -110,10 +110,33 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   return headers;
 }
 
-export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
+  body?: BodyInit | Record<string, unknown> | null;
+}
+
+export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
   const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
   const companyCode = localStorage.getItem("smriti_company_code") || "001";
   const companyId = localStorage.getItem("smriti_company_id") || "COMP-001";
+
+  const requestInit: RequestInit = {
+    ...options,
+    body: undefined,
+  };
+  if (
+    options.body !== undefined &&
+    options.body !== null &&
+    !(options.body instanceof FormData) &&
+    !(options.body instanceof URLSearchParams) &&
+    !(options.body instanceof Blob) &&
+    !(options.body instanceof ArrayBuffer) &&
+    !(ArrayBuffer.isView(options.body)) &&
+    typeof options.body !== "string"
+  ) {
+    requestInit.body = JSON.stringify(options.body);
+  } else if (options.body !== undefined && options.body !== null) {
+    requestInit.body = options.body as BodyInit;
+  }
 
   // Sanitize endpoint string — remove any embedded docker hostname prefixes
   let cleanEndpoint = endpoint
@@ -134,8 +157,8 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
   let response: Response;
   try {
     response = await fetch(url, {
-      ...options,
-      headers: _buildHeaders(token, companyCode, companyId, options)
+      ...requestInit,
+      headers: _buildHeaders(token, companyCode, companyId, requestInit)
     });
   } catch (networkError: any) {
     console.error(`[apiFetchV1 Network Error] Target URL "${url}" unreachable:`, networkError);
@@ -151,8 +174,8 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
       // Retry original request with the fresh token
       try {
         const retryResponse = await fetch(url, {
-          ...options,
-          headers: _buildHeaders(newToken, companyCode, companyId, options)
+          ...requestInit,
+          headers: _buildHeaders(newToken, companyCode, companyId, requestInit)
         });
         if (retryResponse.ok) {
           if (retryResponse.status === 204 || retryResponse.headers.get("content-length") === "0") return null as unknown as T;

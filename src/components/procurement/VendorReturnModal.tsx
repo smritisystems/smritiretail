@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.103.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -15,7 +15,7 @@
 import React, { useState, useMemo } from "react";
 import VendorReturnEngine, {
   ReturnToVendorOrder, RTVStatus, ReturnReason,
-} from "../../../utils/vendorReturnEngine";
+} from "../../utils/vendorReturnEngine";
 
 interface VendorReturnModalProps {
   isOpen: boolean;
@@ -98,7 +98,7 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
       else return;
     }
     update(r);
-    onNotification?.("RTV Updated", `${r.rtvNo} → ${r.status.replace(/_/g, " ")}`, "success");
+    onNotification?.("RTV Updated", `${r.rtvNo} â†’ ${r.status.replace(/_/g, " ")}`, "success");
   };
 
   const actionBtn = (label: string, action: string, color: string) => (
@@ -128,7 +128,7 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Vendor Return & Debit Note Engine</h2>
-              <p className="text-xs text-slate-400">RTV Lifecycle · Auto Debit Note · GST Reversal · Partial Settlement · Vendor Balance Ledger</p>
+              <p className="text-xs text-slate-400">RTV Lifecycle Â· Auto Debit Note Â· GST Reversal Â· Partial Settlement Â· Vendor Balance Ledger</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                 <div className="text-[10px] text-slate-400 mt-0.5 truncate">{o.vendorName}</div>
                 <div className="flex items-center justify-between mt-1.5">
                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_STYLE[o.status]}`}>{o.status.replace(/_/g, " ")}</span>
-                  <span className="text-[10px] font-mono text-slate-400">₹{o.totalWithGST.toLocaleString("en-IN")}</span>
+                  <span className="text-[10px] font-mono text-slate-400">â‚¹{o.totalWithGST.toLocaleString("en-IN")}</span>
                 </div>
               </button>
             ))}
@@ -168,7 +168,7 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                   <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
                       <p className="text-lg font-bold font-mono text-slate-100">{selected.rtvNo}</p>
-                      <p className="text-xs text-slate-400">{selected.vendorName} · {selected.branchCode}</p>
+                      <p className="text-xs text-slate-400">{selected.vendorName} Â· {selected.branchCode}</p>
                       {selected.originalPONo && <p className="text-[10px] text-indigo-400 mt-0.5">PO: {selected.originalPONo}</p>}
                       {selected.approvedBy && <p className="text-[10px] text-emerald-400">Acknowledged by: {selected.approvedBy}</p>}
                       {selected.dispatchRef && <p className="text-[10px] text-sky-400">Dispatch: {selected.dispatchRef}</p>}
@@ -178,7 +178,7 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                       {nextAction && actionBtn(nextAction.label, nextAction.action, nextAction.color)}
                       {selected.status === "DEBIT_NOTE_RAISED" && selected.debitNote?.status !== "SETTLED" && (
                         <div className="flex items-center gap-2">
-                          <input type="number" placeholder="₹ Amount" value={settlementAmt} onChange={(e) => setSettlementAmt(e.target.value)}
+                          <input type="number" placeholder="â‚¹ Amount" value={settlementAmt} onChange={(e) => setSettlementAmt(e.target.value)}
                             className="w-28 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-rose-500/60" />
                           {actionBtn("Settle", "settle", "bg-emerald-600 hover:bg-emerald-500")}
                         </div>
@@ -189,9 +189,9 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                   {/* Totals */}
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { label: "Net Return Value", value: `₹${selected.totalNetValue.toLocaleString("en-IN")}`, color: "text-slate-300" },
-                      { label: "GST Reversal",     value: `₹${selected.totalGST.toLocaleString("en-IN")}`,     color: "text-rose-400" },
-                      { label: "Total Debit",      value: `₹${selected.totalWithGST.toLocaleString("en-IN")}`, color: "text-indigo-400" },
+                      { label: "Net Return Value", value: `â‚¹${selected.totalNetValue.toLocaleString("en-IN")}`, color: "text-slate-300" },
+                      { label: "GST Reversal",     value: `â‚¹${selected.totalGST.toLocaleString("en-IN")}`,     color: "text-rose-400" },
+                      { label: "Total Debit",      value: `â‚¹${selected.totalWithGST.toLocaleString("en-IN")}`, color: "text-indigo-400" },
                     ].map((m) => (
                       <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-3 text-center">
                         <div className={`text-lg font-black font-mono ${m.color}`}>{m.value}</div>
@@ -217,9 +217,9 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                             <td className="py-2 px-3 font-sans text-slate-200">{l.productName}<div className="text-[10px] text-slate-500">{l.sku}</div></td>
                             <td className="py-2 px-3"><span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/20">{l.reason.replace(/_/g, " ")}</span></td>
                             <td className="py-2 px-3 text-right text-slate-400">{l.returnQty}</td>
-                            <td className="py-2 px-3 text-right text-slate-300">₹{l.unitCost}</td>
-                            <td className="py-2 px-3 text-right text-rose-400">₹{l.gstAmount}</td>
-                            <td className="py-2 px-3 text-right font-bold text-slate-100">₹{l.totalWithGST.toLocaleString("en-IN")}</td>
+                            <td className="py-2 px-3 text-right text-slate-300">â‚¹{l.unitCost}</td>
+                            <td className="py-2 px-3 text-right text-rose-400">â‚¹{l.gstAmount}</td>
+                            <td className="py-2 px-3 text-right font-bold text-slate-100">â‚¹{l.totalWithGST.toLocaleString("en-IN")}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -236,7 +236,7 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_STYLE[e.toStatus]}`}>{e.toStatus.replace(/_/g, " ")}</span>
-                              <span className="text-slate-500 text-[10px] font-mono">{e.performedBy} · {new Date(e.timestamp).toLocaleString("en-IN")}</span>
+                              <span className="text-slate-500 text-[10px] font-mono">{e.performedBy} Â· {new Date(e.timestamp).toLocaleString("en-IN")}</span>
                             </div>
                             {e.note && <p className="text-slate-400 mt-1">{e.note}</p>}
                           </div>
@@ -253,7 +253,7 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <div>
                         <p className="text-lg font-bold font-mono text-slate-100">{selected.debitNote.debitNoteNo}</p>
-                        <p className="text-xs text-slate-400">{selected.debitNote.vendorName} · Issued {new Date(selected.debitNote.issuedAt).toLocaleDateString("en-IN")}</p>
+                        <p className="text-xs text-slate-400">{selected.debitNote.vendorName} Â· Issued {new Date(selected.debitNote.issuedAt).toLocaleDateString("en-IN")}</p>
                       </div>
                       <span className={`text-sm font-black px-3 py-1.5 rounded-full border ${
                         selected.debitNote.status === "SETTLED" ? "text-emerald-300 bg-emerald-500/20 border-emerald-500/30" :
@@ -263,9 +263,9 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       {[
-                        { label: "Net Amount",   value: `₹${selected.debitNote.netAmount.toLocaleString("en-IN")}`,      color: "text-slate-300" },
-                        { label: "Settled",      value: `₹${selected.debitNote.settledAmount.toLocaleString("en-IN")}`,  color: "text-emerald-400" },
-                        { label: "Outstanding",  value: `₹${selected.debitNote.outstandingAmount.toLocaleString("en-IN")}`, color: selected.debitNote.outstandingAmount > 0 ? "text-rose-400" : "text-slate-500" },
+                        { label: "Net Amount",   value: `â‚¹${selected.debitNote.netAmount.toLocaleString("en-IN")}`,      color: "text-slate-300" },
+                        { label: "Settled",      value: `â‚¹${selected.debitNote.settledAmount.toLocaleString("en-IN")}`,  color: "text-emerald-400" },
+                        { label: "Outstanding",  value: `â‚¹${selected.debitNote.outstandingAmount.toLocaleString("en-IN")}`, color: selected.debitNote.outstandingAmount > 0 ? "text-rose-400" : "text-slate-500" },
                       ].map((m) => (
                         <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-3 text-center">
                           <div className={`text-lg font-black font-mono ${m.color}`}>{m.value}</div>
@@ -296,8 +296,8 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                             <tr key={i}>
                               <td className="py-2 px-3 font-sans text-slate-300 text-xs">{l.description}</td>
                               <td className="py-2 px-3 text-right text-slate-400">{l.qty}</td>
-                              <td className="py-2 px-3 text-right text-slate-300">₹{l.lineValue.toLocaleString("en-IN")}</td>
-                              <td className="py-2 px-3 text-right text-rose-400">₹{l.gstAmount}</td>
+                              <td className="py-2 px-3 text-right text-slate-300">â‚¹{l.lineValue.toLocaleString("en-IN")}</td>
+                              <td className="py-2 px-3 text-right text-rose-400">â‚¹{l.gstAmount}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -316,9 +316,9 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                   <div className="grid grid-cols-2 gap-3">
                     {[
                       { label: "Total Debit Notes",  value: ledger.totalDebitNotes, color: "text-slate-300" },
-                      { label: "Total Debit Value",  value: `₹${ledger.totalDebitValue.toLocaleString("en-IN")}`, color: "text-indigo-400" },
-                      { label: "Total Settled",      value: `₹${ledger.totalSettled.toLocaleString("en-IN")}`, color: "text-emerald-400" },
-                      { label: "Outstanding",        value: `₹${ledger.totalOutstanding.toLocaleString("en-IN")}`, color: ledger.totalOutstanding > 0 ? "text-rose-400" : "text-slate-500" },
+                      { label: "Total Debit Value",  value: `â‚¹${ledger.totalDebitValue.toLocaleString("en-IN")}`, color: "text-indigo-400" },
+                      { label: "Total Settled",      value: `â‚¹${ledger.totalSettled.toLocaleString("en-IN")}`, color: "text-emerald-400" },
+                      { label: "Outstanding",        value: `â‚¹${ledger.totalOutstanding.toLocaleString("en-IN")}`, color: ledger.totalOutstanding > 0 ? "text-rose-400" : "text-slate-500" },
                     ].map((m) => (
                       <div key={m.label} className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4 text-center">
                         <div className={`text-xl font-black font-mono ${m.color}`}>{m.value}</div>
@@ -326,17 +326,17 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Open Debit Notes — {ledger.vendorName}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Open Debit Notes â€” {ledger.vendorName}</p>
                   {ledger.openDebitNotes.length === 0
                     ? <p className="text-slate-500 text-sm">All debit notes fully settled.</p>
                     : ledger.openDebitNotes.map((dn) => (
                       <div key={dn.debitNoteId} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 flex items-center justify-between">
                         <div>
                           <p className="text-xs font-bold font-mono text-slate-200">{dn.debitNoteNo}</p>
-                          <p className="text-[10px] text-slate-400">Total: ₹{dn.totalAmount.toLocaleString("en-IN")} · Settled: ₹{dn.settledAmount.toLocaleString("en-IN")}</p>
+                          <p className="text-[10px] text-slate-400">Total: â‚¹{dn.totalAmount.toLocaleString("en-IN")} Â· Settled: â‚¹{dn.settledAmount.toLocaleString("en-IN")}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-black font-mono text-rose-400">₹{dn.outstandingAmount.toLocaleString("en-IN")}</p>
+                          <p className="text-sm font-black font-mono text-rose-400">â‚¹{dn.outstandingAmount.toLocaleString("en-IN")}</p>
                           <p className="text-[10px] text-slate-500">outstanding</p>
                         </div>
                       </div>
@@ -356,3 +356,4 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
 };
 
 export default VendorReturnModal;
+

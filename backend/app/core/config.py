@@ -12,8 +12,6 @@ License      : Proprietary Commercial Software
 """
 
 import os
-os.environ.setdefault("JWT_SECRET_KEY", "dev-test-jwt-secret-key-32-chars-long-smriti")
-os.environ.setdefault("INTERNAL_SERVICE_KEY", "dev-test-internal-service-key-32-chars")
 import json
 import socket
 import asyncio
@@ -167,9 +165,14 @@ class Settings(BaseSettings):
     }
 
 def load_settings() -> Settings:
-    # 1. Base defaults loaded from env / BaseSettings
-    # We must ensure JWT_SECRET_KEY is present in env, otherwise Pydantic will raise error.
+    # Single-source production rule: JWT_SECRET_KEY and INTERNAL_SERVICE_KEY must come from the
+    # runtime environment/deployment secret source. No hardcoded production fallback is allowed.
     base_settings = Settings()
+
+    if not base_settings.JWT_SECRET_KEY:
+        raise ValueError("JWT_SECRET_KEY is required. Set it via the runtime environment or deployment secret manager.")
+    if not base_settings.INTERNAL_SERVICE_KEY:
+        raise ValueError("INTERNAL_SERVICE_KEY is required. Set it via the runtime environment or deployment secret manager.")
     
     # 2. Layer JSON configs from smriti-config.json
     root_dir = Path(__file__).resolve().parent.parent.parent.parent
@@ -221,15 +224,13 @@ def load_settings() -> Settings:
 
     # Fail closed on insecure secrets in production
     if env in {"production", "prod"}:
-        dev_jwt = "dev-test-jwt-secret-key-32-chars-long-smriti"
-        dev_internal = "dev-test-internal-service-key-32-chars"
-        if not base_settings.JWT_SECRET_KEY or base_settings.JWT_SECRET_KEY == dev_jwt or len(base_settings.JWT_SECRET_KEY) < 32:
+        if not base_settings.JWT_SECRET_KEY or len(base_settings.JWT_SECRET_KEY) < 32:
             raise ValueError(
-                "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong JWT_SECRET_KEY (min 32 chars). Dev defaults forbidden."
+                "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong JWT_SECRET_KEY (min 32 chars) from the runtime secret store."
             )
-        if not base_settings.INTERNAL_SERVICE_KEY or base_settings.INTERNAL_SERVICE_KEY == dev_internal or len(base_settings.INTERNAL_SERVICE_KEY) < 32:
+        if not base_settings.INTERNAL_SERVICE_KEY or len(base_settings.INTERNAL_SERVICE_KEY) < 32:
             raise ValueError(
-                "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong INTERNAL_SERVICE_KEY (min 32 chars). Dev defaults forbidden."
+                "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong INTERNAL_SERVICE_KEY (min 32 chars) from the runtime secret store."
             )
         pg_pwd = os.getenv("POSTGRES_PASSWORD") or ""
         if not pg_pwd or pg_pwd == "postgres" or ":postgres@" in base_settings.DATABASE_URL:

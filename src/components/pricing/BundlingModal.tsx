@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.112.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -15,7 +15,7 @@
 import React, { useState, useMemo } from "react";
 import BundlingEngine, {
   BundleConfig, BundleType, CartItem,
-} from "../../../utils/bundlingEngine";
+} from "../../utils/bundlingEngine";
 
 interface BundlingModalProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ const TYPE_STYLE: Record<BundleType, string> = {
   BUY_X_GET_Y:     "text-emerald-300 bg-emerald-500/15 border-emerald-500/25",
 };
 
-const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const fmt = (n: number) => `â‚¹${n.toLocaleString("en-IN")}`;
 
 const SAMPLE_CART: CartItem[] = [
   { sku: "FAB-DENIM-BLU",  productName: "Denim Blue 1m",    mrp: 250, qty: 0, availableQty: 10 },
@@ -42,7 +42,7 @@ const SAMPLE_CART: CartItem[] = [
 function buildSampleBundles(): BundleConfig[] {
   return [
     BundlingEngine.createBundle({
-      name: "Fabric Combo Pack", description: "Denim + Cotton — 10% off",
+      name: "Fabric Combo Pack", description: "Denim + Cotton â€” 10% off",
       type: "COMBO_DISCOUNT", discountPct: 10,
       components: [
         { sku: "FAB-DENIM-BLU",  productName: "Denim Blue 1m",  mrp: 250, requiredQty: 2 },
@@ -51,7 +51,7 @@ function buildSampleBundles(): BundleConfig[] {
       validFrom: "2026-01-01", validTo: "2026-12-31",
     }),
     BundlingEngine.createBundle({
-      name: "Accessories Value Pack", description: "Belt + Scarf — fixed ₹450",
+      name: "Accessories Value Pack", description: "Belt + Scarf â€” fixed â‚¹450",
       type: "FIXED_BUNDLE", fixedPrice: 450,
       components: [
         { sku: "ACC-BELT-BRN",   productName: "Leather Belt", mrp: 350, requiredQty: 1 },
@@ -87,7 +87,7 @@ export const BundlingModal: React.FC<BundlingModalProps> = ({ isOpen, onClose, o
     try {
       const result = BundlingEngine.applyBundleToCart(selected, cart, NOW);
       setCart(result.updatedCart);
-      onNotification?.("Bundle Applied", `${selected.name} — saved ${fmt(result.totalSavings)}`, "success");
+      onNotification?.("Bundle Applied", `${selected.name} â€” saved ${fmt(result.totalSavings)}`, "success");
     } catch (e: any) {
       onNotification?.("Error", e.message, "error");
     }
@@ -98,10 +98,10 @@ export const BundlingModal: React.FC<BundlingModalProps> = ({ isOpen, onClose, o
       <div className="flex flex-col w-full max-w-5xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-2xl">🎁</div>
+            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-2xl">ðŸŽ</div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Product Bundling & Combo Pricing Engine</h2>
-              <p className="text-xs text-slate-400">Fixed Bundle · Combo Discount · Buy X Get Y · Cart Apply</p>
+              <p className="text-xs text-slate-400">Fixed Bundle Â· Combo Discount Â· Buy X Get Y Â· Cart Apply</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -141,8 +141,8 @@ export const BundlingModal: React.FC<BundlingModalProps> = ({ isOpen, onClose, o
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <p className="text-lg font-bold text-slate-100">{selected.name}</p>
-                  <p className="text-xs text-slate-400">{selected.description} · {selected.bundleCode}</p>
-                  <p className="text-[10px] text-slate-500">Valid: {selected.validFrom} → {selected.validTo}</p>
+                  <p className="text-xs text-slate-400">{selected.description} Â· {selected.bundleCode}</p>
+                  <p className="text-[10px] text-slate-500">Valid: {selected.validFrom} â†’ {selected.validTo}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${TYPE_STYLE[selected.type]}`}>
@@ -193,7 +193,7 @@ export const BundlingModal: React.FC<BundlingModalProps> = ({ isOpen, onClose, o
                           <td className="py-2 px-3 font-sans"><p className="text-xs text-slate-200">{l.productName}</p><p className="text-[10px] text-slate-500">{l.sku}</p></td>
                           <td className="py-2 px-3 text-right text-slate-500 line-through">{fmt(l.mrp)}</td>
                           <td className="py-2 px-3 text-right text-slate-300">{l.qty}</td>
-                          <td className="py-2 px-3 text-right text-emerald-400">{l.freeQty > 0 ? `+${l.freeQty}` : "—"}</td>
+                          <td className="py-2 px-3 text-right text-emerald-400">{l.freeQty > 0 ? `+${l.freeQty}` : "â€”"}</td>
                           <td className="py-2 px-3 text-right text-violet-400">{fmt(l.effectivePrice)}</td>
                           <td className="py-2 px-3 text-right text-slate-200">{fmt(l.lineTotal)}</td>
                         </tr>
@@ -231,3 +231,4 @@ export const BundlingModal: React.FC<BundlingModalProps> = ({ isOpen, onClose, o
 };
 
 export default BundlingModal;
+

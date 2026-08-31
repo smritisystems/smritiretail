@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.16.0
  * Created      : 2026-08-19
  * Modified     : 2026-08-19
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
@@ -245,7 +245,7 @@ export const DocumentStudioScreen: React.FC<DocumentStudioScreenProps> = ({
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-blue-400 font-bold uppercase tracking-wider">
             <Layers size={14} />
-            <span>Document Studio • {config.documentType}</span>
+            <span>Document Studio â€¢ {config.documentType}</span>
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-theme-primary font-display mt-1">{config.title}</h1>
           <p className="text-xs text-theme-muted mt-0.5">{config.subtitle}</p>
@@ -548,3 +548,4 @@ export const DocumentStudioScreen: React.FC<DocumentStudioScreenProps> = ({
     </div>
   );
 };
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.55.0
  * Created      : 2026-08-19
  * Modified     : 2026-08-27
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
@@ -173,9 +173,9 @@ export function LedgerScreen<T extends Record<string, any>>({
     const sizes = new Set<string>();
 
     items.forEach((item) => {
-      if (item.brand && item.brand !== "—" && item.brand !== "-") brands.add(item.brand);
-      if (item.color && item.color !== "—" && item.color !== "-") colors.add(item.color);
-      if (item.size && item.size !== "—" && item.size !== "-") sizes.add(item.size);
+      if (item.brand && item.brand !== "â€”" && item.brand !== "-") brands.add(item.brand);
+      if (item.color && item.color !== "â€”" && item.color !== "-") colors.add(item.color);
+      if (item.size && item.size !== "â€”" && item.size !== "-") sizes.add(item.size);
     });
 
     return {
@@ -196,7 +196,7 @@ export function LedgerScreen<T extends Record<string, any>>({
       const counts: Record<string, number> = {};
       items.forEach((item) => {
         const raw = item[colKey];
-        const valStr = raw !== undefined && raw !== null && String(raw).trim() !== "" ? String(raw) : "—";
+        const valStr = raw !== undefined && raw !== null && String(raw).trim() !== "" ? String(raw) : "â€”";
         counts[valStr] = (counts[valStr] || 0) + 1;
       });
 
@@ -240,7 +240,7 @@ export function LedgerScreen<T extends Record<string, any>>({
       ];
 
       for (const c of candidates) {
-        if (c.val && typeof c.val === "string" && c.val !== "—" && c.val.toLowerCase().includes(q)) {
+        if (c.val && typeof c.val === "string" && c.val !== "â€”" && c.val.toLowerCase().includes(q)) {
           const key = `${c.type}:${c.val}`;
           if (!seen.has(key)) {
             seen.add(key);
@@ -402,7 +402,7 @@ export function LedgerScreen<T extends Record<string, any>>({
       for (const [colKey, allowedVals] of Object.entries(columnFilters)) {
         if (allowedVals && allowedVals.length > 0) {
           const raw = item[colKey];
-          const valStr = raw !== undefined && raw !== null && String(raw).trim() !== "" ? String(raw) : "—";
+          const valStr = raw !== undefined && raw !== null && String(raw).trim() !== "" ? String(raw) : "â€”";
           if (!allowedVals.includes(valStr)) {
             return false;
           }
@@ -433,8 +433,8 @@ export function LedgerScreen<T extends Record<string, any>>({
         const valB = b[sortField];
 
         if (valA === valB) return 0;
-        if (valA === null || valA === undefined || valA === "—") return 1;
-        if (valB === null || valB === undefined || valB === "—") return -1;
+        if (valA === null || valA === undefined || valA === "â€”") return 1;
+        if (valB === null || valB === undefined || valB === "â€”") return -1;
 
         const numA = typeof valA === "number" ? valA : parseFloat(String(valA));
         const numB = typeof valB === "number" ? valB : parseFloat(String(valB));
@@ -1043,7 +1043,7 @@ export function LedgerScreen<T extends Record<string, any>>({
             </span>
             {sortField && (
               <span className="text-indigo-400">
-                • Sorted by <strong>{sortField}</strong> ({sortDirection?.toUpperCase()})
+                â€¢ Sorted by <strong>{sortField}</strong> ({sortDirection?.toUpperCase()})
               </span>
             )}
             {hasAnyFilterActive && (
@@ -1159,7 +1159,7 @@ export function LedgerScreen<T extends Record<string, any>>({
                               }`}
                             >
                               <ArrowUp size={11} />
-                              <span>Sort A → Z</span>
+                              <span>Sort A â†’ Z</span>
                             </button>
                             <button
                               type="button"
@@ -1174,7 +1174,7 @@ export function LedgerScreen<T extends Record<string, any>>({
                               }`}
                             >
                               <ArrowDown size={11} />
-                              <span>Sort Z → A</span>
+                              <span>Sort Z â†’ A</span>
                             </button>
                           </div>
 
@@ -1280,7 +1280,7 @@ export function LedgerScreen<T extends Record<string, any>>({
                             col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
                           }`}
                         >
-                          {col.render ? col.render(val, record, index) : val !== undefined && val !== null ? String(val) : "—"}
+                          {col.render ? col.render(val, record, index) : val !== undefined && val !== null ? String(val) : "â€”"}
                         </td>
                       );
                     })}
@@ -1313,14 +1313,14 @@ export function LedgerScreen<T extends Record<string, any>>({
                     if (key === "in_qty") {
                       return (
                         <td key={key} className="px-3.5 py-2 text-right text-emerald-400 font-bold">
-                          {pageSubTotals.in_qty > 0 ? `+${pageSubTotals.in_qty}` : "—"}
+                          {pageSubTotals.in_qty > 0 ? `+${pageSubTotals.in_qty}` : "â€”"}
                         </td>
                       );
                     }
                     if (key === "out_qty") {
                       return (
                         <td key={key} className="px-3.5 py-2 text-right text-rose-400 font-bold">
-                          {pageSubTotals.out_qty > 0 ? `-${pageSubTotals.out_qty}` : "—"}
+                          {pageSubTotals.out_qty > 0 ? `-${pageSubTotals.out_qty}` : "â€”"}
                         </td>
                       );
                     }
@@ -1342,7 +1342,7 @@ export function LedgerScreen<T extends Record<string, any>>({
                     }
                     return (
                       <td key={key} className="px-3.5 py-2 text-theme-muted/40 text-center">
-                        —
+                        â€”
                       </td>
                     );
                   })}
@@ -1370,14 +1370,14 @@ export function LedgerScreen<T extends Record<string, any>>({
                     if (key === "in_qty") {
                       return (
                         <td key={key} className="px-3.5 py-2.5 text-right text-emerald-400 font-bold text-xs">
-                          {grandTotals.in_qty > 0 ? `+${grandTotals.in_qty}` : "—"}
+                          {grandTotals.in_qty > 0 ? `+${grandTotals.in_qty}` : "â€”"}
                         </td>
                       );
                     }
                     if (key === "out_qty") {
                       return (
                         <td key={key} className="px-3.5 py-2.5 text-right text-rose-400 font-bold text-xs">
-                          {grandTotals.out_qty > 0 ? `-${grandTotals.out_qty}` : "—"}
+                          {grandTotals.out_qty > 0 ? `-${grandTotals.out_qty}` : "â€”"}
                         </td>
                       );
                     }
@@ -1419,7 +1419,7 @@ export function LedgerScreen<T extends Record<string, any>>({
                     }
                     return (
                       <td key={key} className="px-3.5 py-2.5 text-theme-muted/40 text-center">
-                        —
+                        â€”
                       </td>
                     );
                   })}
@@ -1464,3 +1464,4 @@ export function LedgerScreen<T extends Record<string, any>>({
     </div>
   );
 }
+

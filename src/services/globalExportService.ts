@@ -1161,7 +1161,9 @@ export class GlobalExportService {
       blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     } else if (format === "xlsx") {
       const xlsxBytes = serializeToOpenXMLXLSX(columns, sanitizedRows, metadata, sheetName || moduleName);
-      blob = new Blob([xlsxBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const xlsxArray = new Uint8Array(xlsxBytes.length);
+      xlsxArray.set(xlsxBytes);
+      blob = new Blob([xlsxArray], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     } else if (format === "json") {
       const jsonContent = serializeToJSON(columns, sanitizedRows, metadata);
       blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });

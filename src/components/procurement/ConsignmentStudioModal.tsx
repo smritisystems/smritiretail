@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.109.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -15,7 +15,7 @@
 import React, { useState, useMemo } from "react";
 import ConsignmentEngine, {
   ConsignmentPlan, AgingBand, DEFAULT_AGING_CONFIG,
-} from "../../../utils/consignmentEngine";
+} from "../../utils/consignmentEngine";
 
 interface ConsignmentStudioModalProps {
   isOpen: boolean;
@@ -30,7 +30,7 @@ const BAND_STYLE: Record<AgingBand, string> = {
   CRITICAL: "text-rose-300 bg-rose-500/15 border-rose-500/25",
 };
 
-const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const fmt = (n: number) => `â‚¹${n.toLocaleString("en-IN")}`;
 
 function buildSamplePlans(): ConsignmentPlan[] {
   let p1 = ConsignmentEngine.createPlan({
@@ -77,7 +77,7 @@ export const ConsignmentStudioModal: React.FC<ConsignmentStudioModalProps> = ({ 
     if (!selected) return;
     const settled = ConsignmentEngine.settle(selected, "VNDR-MGR", NOW);
     update(settled);
-    onNotification?.("Settlement Created", `${selected.planNo} settled — billed ${fmt(settled.settlement!.totalBilledAmt)}`, "success");
+    onNotification?.("Settlement Created", `${selected.planNo} settled â€” billed ${fmt(settled.settlement!.totalBilledAmt)}`, "success");
   };
 
   const totalExposedValue = aging.reduce((s, i) => s + i.exposedValue, 0);
@@ -92,7 +92,7 @@ export const ConsignmentStudioModal: React.FC<ConsignmentStudioModalProps> = ({ 
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Consignment Stock Engine</h2>
-              <p className="text-xs text-slate-400">Vendor-Owned Stock · Sale-or-Return · Aging Bands · Return Schedule</p>
+              <p className="text-xs text-slate-400">Vendor-Owned Stock Â· Sale-or-Return Â· Aging Bands Â· Return Schedule</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -132,8 +132,8 @@ export const ConsignmentStudioModal: React.FC<ConsignmentStudioModalProps> = ({ 
                   <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
                       <p className="text-lg font-bold font-mono text-slate-100">{selected.planNo}</p>
-                      <p className="text-xs text-slate-400">{selected.vendorName} · {selected.branchCode}</p>
-                      <p className="text-[10px] text-slate-500">{selected.startDate} → {selected.endDate} ({selected.termDays} days)</p>
+                      <p className="text-xs text-slate-400">{selected.vendorName} Â· {selected.branchCode}</p>
+                      <p className="text-[10px] text-slate-500">{selected.startDate} â†’ {selected.endDate} ({selected.termDays} days)</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${selected.status === "ACTIVE" ? "text-emerald-300 bg-emerald-500/15 border-emerald-500/25" : "text-teal-300 bg-teal-500/15 border-teal-500/25"}`}>{selected.status}</span>
@@ -177,7 +177,7 @@ export const ConsignmentStudioModal: React.FC<ConsignmentStudioModalProps> = ({ 
                       <tbody className="divide-y divide-slate-800/40 font-mono">
                         {selected.lines.map((l) => (
                           <tr key={l.lineId}>
-                            <td className="py-2 px-3 font-sans"><p className="text-xs text-slate-200">{l.productName}</p><p className="text-[10px] text-slate-500">{l.sku} · {fmt(l.vendorCost)}/unit</p></td>
+                            <td className="py-2 px-3 font-sans"><p className="text-xs text-slate-200">{l.productName}</p><p className="text-[10px] text-slate-500">{l.sku} Â· {fmt(l.vendorCost)}/unit</p></td>
                             <td className="py-2 px-3 text-right text-slate-400">{l.receivedQty}</td>
                             <td className="py-2 px-3 text-right text-teal-400">{l.soldQty}</td>
                             <td className="py-2 px-3 text-right text-slate-300">{l.onHandQty}</td>
@@ -190,7 +190,7 @@ export const ConsignmentStudioModal: React.FC<ConsignmentStudioModalProps> = ({ 
 
                   {selected.settlement && (
                     <div className="bg-teal-950/20 border border-teal-500/30 rounded-xl p-4">
-                      <p className="text-xs font-bold text-teal-300 mb-2">Settlement — {new Date(selected.settlement.settledAt).toLocaleString("en-IN")}</p>
+                      <p className="text-xs font-bold text-teal-300 mb-2">Settlement â€” {new Date(selected.settlement.settledAt).toLocaleString("en-IN")}</p>
                       <div className="grid grid-cols-3 gap-3 text-xs text-center">
                         {[
                           { label: "Billed",   value: fmt(selected.settlement.totalBilledAmt), color: "text-emerald-400" },
@@ -211,7 +211,7 @@ export const ConsignmentStudioModal: React.FC<ConsignmentStudioModalProps> = ({ 
               {activeTab === "AGING" && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between flex-wrap gap-3">
-                    <p className="text-sm font-bold text-slate-200">Aging Report — {NOW.toLocaleDateString("en-IN")}</p>
+                    <p className="text-sm font-bold text-slate-200">Aging Report â€” {NOW.toLocaleDateString("en-IN")}</p>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] text-slate-500">Exposed Value:</span>
                       <span className="text-sm font-black font-mono text-orange-400">{fmt(totalExposedValue)}</span>
@@ -219,8 +219,8 @@ export const ConsignmentStudioModal: React.FC<ConsignmentStudioModalProps> = ({ 
                   </div>
                   {returnSched.length > 0 && (
                     <div className="bg-rose-950/20 border border-rose-500/30 rounded-xl p-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-rose-400 mb-1">⚠ Return Due ({returnSched.length} lines)</p>
-                      <p className="text-xs text-slate-300">{returnSched.map((i) => `${i.productName} (${i.onHandQty} units)`).join(" · ")}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-rose-400 mb-1">âš  Return Due ({returnSched.length} lines)</p>
+                      <p className="text-xs text-slate-300">{returnSched.map((i) => `${i.productName} (${i.onHandQty} units)`).join(" Â· ")}</p>
                     </div>
                   )}
                   <div className="space-y-2">
@@ -230,7 +230,7 @@ export const ConsignmentStudioModal: React.FC<ConsignmentStudioModalProps> = ({ 
                       <div key={item.sku} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
                         <div>
                           <p className="text-xs font-medium text-slate-200">{item.productName}</p>
-                          <p className="text-[10px] text-slate-500">{item.sku} · Received: {item.receivedDate}</p>
+                          <p className="text-[10px] text-slate-500">{item.sku} Â· Received: {item.receivedDate}</p>
                         </div>
                         <div className="flex items-center gap-4 flex-wrap">
                           <div className="text-center"><div className="text-sm font-black font-mono text-slate-300">{item.daysOnFloor}d</div><div className="text-[9px] text-slate-500">On Floor</div></div>
@@ -294,3 +294,4 @@ export const ConsignmentStudioModal: React.FC<ConsignmentStudioModalProps> = ({ 
 };
 
 export default ConsignmentStudioModal;
+

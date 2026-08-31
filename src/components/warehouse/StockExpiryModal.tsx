@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,13 +7,13 @@
  * Version      : 3.117.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useMemo } from "react";
-import StockExpiryEngine, { StockBatch, BatchStatus } from "../../../utils/stockExpiryEngine";
+import StockExpiryEngine, { StockBatch, BatchStatus } from "../../utils/stockExpiryEngine";
 
 interface StockExpiryModalProps {
   isOpen: boolean;
@@ -72,7 +72,7 @@ export const StockExpiryModal: React.FC<StockExpiryModalProps> = ({ isOpen, onCl
     try {
       const updated = StockExpiryEngine.quarantineBatch(selected, "Manual QC hold", selected.availableQty, "QC-001");
       setBatches((prev) => prev.map((b) => b.batchId === updated.batchId ? updated : b));
-      onNotification?.("Quarantined", `${updated.batchNo} — ${updated.quarantinedQty} units held`, "info");
+      onNotification?.("Quarantined", `${updated.batchNo} â€” ${updated.quarantinedQty} units held`, "info");
     } catch (e: any) { onNotification?.("Error", e.message, "error"); }
   };
 
@@ -81,7 +81,7 @@ export const StockExpiryModal: React.FC<StockExpiryModalProps> = ({ isOpen, onCl
     try {
       const updated = StockExpiryEngine.releaseFromQuarantine(selected, selected.quarantinedQty, "QC-001");
       setBatches((prev) => prev.map((b) => b.batchId === updated.batchId ? updated : b));
-      onNotification?.("Released", `${updated.batchNo} — ${updated.availableQty} units released`, "success");
+      onNotification?.("Released", `${updated.batchNo} â€” ${updated.availableQty} units released`, "success");
     } catch (e: any) { onNotification?.("Error", e.message, "error"); }
   };
 
@@ -90,10 +90,10 @@ export const StockExpiryModal: React.FC<StockExpiryModalProps> = ({ isOpen, onCl
       <div className="flex flex-col w-full max-w-5xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-2xl">🧪</div>
+            <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-2xl">ðŸ§ª</div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Stock Expiry & Batch Tracking Engine</h2>
-              <p className="text-xs text-slate-400">FEFO Allocation · Near-Expiry Alerts · Quarantine · Batch Report</p>
+              <p className="text-xs text-slate-400">FEFO Allocation Â· Near-Expiry Alerts Â· Quarantine Â· Batch Report</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -132,7 +132,7 @@ export const StockExpiryModal: React.FC<StockExpiryModalProps> = ({ isOpen, onCl
                 <div className="flex items-start justify-between flex-wrap gap-3">
                   <div>
                     <p className="text-lg font-bold font-mono text-slate-100">{selected.batchNo}</p>
-                    <p className="text-xs text-slate-400">{selected.productName} · {selected.sku} · {selected.branchCode}</p>
+                    <p className="text-xs text-slate-400">{selected.productName} Â· {selected.sku} Â· {selected.branchCode}</p>
                     {selected.lotNo && <p className="text-[10px] text-slate-500">Lot: {selected.lotNo}</p>}
                   </div>
                   <div className="flex items-center gap-2">
@@ -158,8 +158,8 @@ export const StockExpiryModal: React.FC<StockExpiryModalProps> = ({ isOpen, onCl
                   {[
                     { label: "MFG Date",    value: selected.mfgDate },
                     { label: "Expiry Date", value: selected.expiryDate },
-                    { label: "Unit Cost",   value: `₹${selected.unitCost}` },
-                    { label: "Supplier",    value: selected.supplierId ?? "—" },
+                    { label: "Unit Cost",   value: `â‚¹${selected.unitCost}` },
+                    { label: "Supplier",    value: selected.supplierId ?? "â€”" },
                   ].map((m) => (
                     <div key={m.label} className="flex items-center justify-between px-3 py-2 bg-slate-800/30 border border-slate-700/60 rounded-lg">
                       <span className="text-slate-500">{m.label}</span>
@@ -169,7 +169,7 @@ export const StockExpiryModal: React.FC<StockExpiryModalProps> = ({ isOpen, onCl
                 </div>
                 {selected.quarantineReason && (
                   <div className="p-3 bg-amber-950/20 border border-amber-500/20 rounded-lg text-xs text-amber-400">
-                    ⚠ Quarantine Reason: {selected.quarantineReason}
+                    âš  Quarantine Reason: {selected.quarantineReason}
                   </div>
                 )}
               </>
@@ -183,11 +183,11 @@ export const StockExpiryModal: React.FC<StockExpiryModalProps> = ({ isOpen, onCl
                   <div key={b.batchId} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${b.daysToExpiry <= 7 ? "bg-rose-950/20 border-rose-500/30" : "bg-amber-950/10 border-amber-500/20"}`}>
                     <div>
                       <p className="text-xs font-mono font-bold text-slate-200">{b.batchNo}</p>
-                      <p className="text-[10px] text-slate-400">{b.productName} · {b.sku}</p>
+                      <p className="text-[10px] text-slate-400">{b.productName} Â· {b.sku}</p>
                     </div>
                     <div className="text-right">
                       <p className={`text-sm font-black font-mono ${EXPIRY_BADGE(b.daysToExpiry)}`}>{b.daysToExpiry}d left</p>
-                      <p className="text-[10px] text-slate-500">{b.availableQty} units · Exp: {b.expiryDate.slice(0, 10)}</p>
+                      <p className="text-[10px] text-slate-500">{b.availableQty} units Â· Exp: {b.expiryDate.slice(0, 10)}</p>
                     </div>
                   </div>
                 ))}
@@ -234,3 +234,4 @@ export const StockExpiryModal: React.FC<StockExpiryModalProps> = ({ isOpen, onCl
 };
 
 export default StockExpiryModal;
+

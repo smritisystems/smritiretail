@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.113.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -15,7 +15,7 @@
 import React, { useState, useMemo } from "react";
 import SupplierPaymentEngine, {
   SupplierInvoice, AgingBucket, InvoiceStatus,
-} from "../../../utils/supplierPaymentEngine";
+} from "../../utils/supplierPaymentEngine";
 
 interface SupplierPaymentModalProps {
   isOpen: boolean;
@@ -39,7 +39,7 @@ const STATUS_STYLE: Record<InvoiceStatus, string> = {
   DISPUTED:        "text-slate-300 bg-slate-600/15 border-slate-500/25",
 };
 
-const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const fmt = (n: number) => `â‚¹${n.toLocaleString("en-IN")}`;
 
 const NOW = new Date("2026-08-28T00:00:00.000Z");
 
@@ -79,7 +79,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
     const discount = updated.payments.at(-1)?.earlyPayDiscount ?? 0;
     onNotification?.(
       "Payment Recorded",
-      `${selected.invoiceNo} — paid ${fmt(amt)}${discount > 0 ? ` · Early-pay discount: ${fmt(discount)}` : ""}`,
+      `${selected.invoiceNo} â€” paid ${fmt(amt)}${discount > 0 ? ` Â· Early-pay discount: ${fmt(discount)}` : ""}`,
       "success"
     );
     setPayAmt("");
@@ -96,7 +96,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Supplier Payment Terms & Aging Engine</h2>
-              <p className="text-xs text-slate-400">Aging Buckets · Due Calendar · Early-Pay Discount · Payment Ledger</p>
+              <p className="text-xs text-slate-400">Aging Buckets Â· Due Calendar Â· Early-Pay Discount Â· Payment Ledger</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -155,8 +155,8 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
                 <div className="flex items-start justify-between flex-wrap gap-3">
                   <div>
                     <p className="text-lg font-bold font-mono text-slate-100">{selected.invoiceNo}</p>
-                    <p className="text-xs text-slate-400">{selected.vendorName} · {selected.branchCode}</p>
-                    <p className="text-[10px] text-slate-500">Terms: {selected.terms} · Due: {selected.dueDate} · Early-pay cutoff: {selected.earlyPayCutoffDays}d at {selected.earlyPayDiscountPct}%</p>
+                    <p className="text-xs text-slate-400">{selected.vendorName} Â· {selected.branchCode}</p>
+                    <p className="text-[10px] text-slate-500">Terms: {selected.terms} Â· Due: {selected.dueDate} Â· Early-pay cutoff: {selected.earlyPayCutoffDays}d at {selected.earlyPayDiscountPct}%</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-xs font-bold px-2 py-1 rounded-full border ${BUCKET_STYLE[selected.agingBucket]}`}>{selected.agingBucket.replace("_", " ")}</span>
@@ -199,8 +199,8 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
                         {(() => {
                           const days = Math.floor((new Date(payDate).getTime() - new Date(selected.invoiceDate).getTime()) / 86400000);
                           return days <= selected.earlyPayCutoffDays
-                            ? `✓ Early-pay discount applies: ${fmt(Math.round(parseFloat(payAmt || "0") * selected.earlyPayDiscountPct / 100 * 100) / 100)} (${selected.earlyPayDiscountPct}%)`
-                            : `✗ Payment on day ${days} — beyond ${selected.earlyPayCutoffDays}-day cutoff`;
+                            ? `âœ“ Early-pay discount applies: ${fmt(Math.round(parseFloat(payAmt || "0") * selected.earlyPayDiscountPct / 100 * 100) / 100)} (${selected.earlyPayDiscountPct}%)`
+                            : `âœ— Payment on day ${days} â€” beyond ${selected.earlyPayCutoffDays}-day cutoff`;
                         })()}
                       </p>
                     )}
@@ -215,9 +215,9 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
                       {selected.payments.map((p) => (
                         <div key={p.paymentId} className="flex items-center gap-3 px-3 py-2.5 bg-slate-800/30 border border-slate-800/60 rounded-xl text-xs font-mono">
                           <span className="text-slate-300">{fmt(p.paidAmt)}</span>
-                          <span className="text-slate-600">·</span>
+                          <span className="text-slate-600">Â·</span>
                           <span className="text-slate-500">{p.paidOn}</span>
-                          <span className="text-slate-600">·</span>
+                          <span className="text-slate-600">Â·</span>
                           <span className="text-slate-500">{p.reference}</span>
                           {p.earlyPayDiscount > 0 && (
                             <span className="ml-auto text-emerald-400 text-[10px] font-bold">
@@ -234,13 +234,13 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
 
             {activeTab === "AGING" && (
               <div className="space-y-5">
-                <p className="text-sm font-bold text-slate-200">Vendor Aging Report — {NOW.toLocaleDateString("en-IN")}</p>
+                <p className="text-sm font-bold text-slate-200">Vendor Aging Report â€” {NOW.toLocaleDateString("en-IN")}</p>
                 {agingReport.map((vendor) => (
                   <div key={vendor.vendorId} className="bg-slate-800/20 border border-slate-700/60 rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-bold text-slate-200">{vendor.vendorName}</p>
-                        <p className="text-[10px] text-slate-500">{vendor.invoiceCount} invoice(s) · Oldest: {vendor.oldestDueDays}d overdue</p>
+                        <p className="text-[10px] text-slate-500">{vendor.invoiceCount} invoice(s) Â· Oldest: {vendor.oldestDueDays}d overdue</p>
                       </div>
                       <div className="text-right">
                         <div className="text-base font-black font-mono text-orange-400">{fmt(vendor.totalOutstanding)}</div>
@@ -250,7 +250,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
                     <div className="grid grid-cols-5 gap-2">
                       {vendor.buckets.map((b) => (
                         <div key={b.bucket} className={`rounded-lg p-2 text-center text-xs border ${b.totalAmt > 0 ? BUCKET_STYLE[b.bucket] : "bg-slate-900/30 border-slate-800/30 text-slate-600"}`}>
-                          <div className="font-black font-mono">{b.count > 0 ? fmt(b.totalAmt) : "—"}</div>
+                          <div className="font-black font-mono">{b.count > 0 ? fmt(b.totalAmt) : "â€”"}</div>
                           <div className="text-[9px] opacity-70 mt-0.5">{b.label.split(" ")[0]}<br />{b.label.split(" ").slice(1).join(" ")}</div>
                         </div>
                       ))}
@@ -303,3 +303,4 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
 };
 
 export default SupplierPaymentModal;
+

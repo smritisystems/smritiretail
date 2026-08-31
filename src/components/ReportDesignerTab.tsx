@@ -273,7 +273,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   // Fetch report registry categorized under studios
   const [studios, setStudios] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState<boolean>(true);
-  const [notifMessage, setNotifMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [notifMessage, setNotifMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
 
   useEffect(() => {
     fetchStudios();
@@ -293,7 +293,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     return () => window.removeEventListener("smriti_report_studio_select", handleStudioSelect);
   }, []);
 
-  const showNotification = (type: "success" | "error", text: string) => {
+  const showNotification = (type: "success" | "error" | "info", text: string) => {
     setNotifMessage({ type, text });
     setTimeout(() => setNotifMessage(null), 4000);
   };

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.88.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -18,7 +18,7 @@ import LoyaltyEngine, {
   TIER_DEFINITIONS,
   TIER_ORDER,
   LoyaltyTier,
-} from "../../../utils/loyaltyEngine";
+} from "../../utils/loyaltyEngine";
 
 interface Customer360LoyaltyModalProps {
   isOpen: boolean;
@@ -73,7 +73,7 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
     const { customer: updated, event, progression: prog } = LoyaltyEngine.earnPoints(selectedCustomer, amt, `INV-${Date.now()}`, new Date());
     setCustomers((prev) => prev.map((c) => c.customerId === selectedId ? updated : c));
     const msg = prog.tierChanged
-      ? `Earned ${event.points} pts! Congratulations — upgraded to ${prog.newTier}! (+${prog.upgradeBonus?.points ?? 0} upgrade bonus)`
+      ? `Earned ${event.points} pts! Congratulations â€” upgraded to ${prog.newTier}! (+${prog.upgradeBonus?.points ?? 0} upgrade bonus)`
       : `Earned ${event.points} pts. Balance: ${updated.availablePoints} pts`;
     onNotification?.("Points Earned", msg, "success");
   };
@@ -84,7 +84,7 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
     const { customer: updated, result } = LoyaltyEngine.redeemPoints(selectedCustomer, pts, `REDEEM-${Date.now()}`);
     if (result.success) {
       setCustomers((prev) => prev.map((c) => c.customerId === selectedId ? updated : c));
-      onNotification?.("Points Redeemed", `${pts} pts redeemed for ₹${result.cashEquivalent}. Remaining: ${result.balanceAfter} pts`, "success");
+      onNotification?.("Points Redeemed", `${pts} pts redeemed for â‚¹${result.cashEquivalent}. Remaining: ${result.balanceAfter} pts`, "success");
     } else {
       onNotification?.("Redemption Failed", result.errorMessage ?? "Unknown error", "error");
     }
@@ -108,7 +108,7 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Customer 360 & Loyalty Tier Progression Matrix</h2>
-              <p className="text-xs text-slate-400">5-Tier VIP Program · Dynamic Points Earn · Birthday Multipliers · Auto-Redemption</p>
+              <p className="text-xs text-slate-400">5-Tier VIP Program Â· Dynamic Points Earn Â· Birthday Multipliers Â· Auto-Redemption</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
@@ -159,14 +159,14 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
                     <p className="text-[10px] text-pink-400 mt-1 flex items-center gap-1">
                       <span className="material-symbols-outlined text-[12px]">cake</span>
                       Birthday month: {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][selectedCustomer.birthdayMonth - 1]}
-                      {" "}· {tierDef.birthdayMultiplier}x bonus active this month
+                      {" "}Â· {tierDef.birthdayMultiplier}x bonus active this month
                     </p>
                   )}
                 </div>
                 <div className="text-right">
                   <div className={`text-3xl font-black font-mono ${tierColor.text}`}>{selectedCustomer.availablePoints.toLocaleString("en-IN")}</div>
                   <div className="text-xs text-slate-400">Available Points</div>
-                  <div className="text-xs text-slate-500 mt-1">Cash Value: <span className="text-emerald-400 font-bold">₹{(selectedCustomer.availablePoints * tierDef.redemptionRate).toLocaleString("en-IN")}</span></div>
+                  <div className="text-xs text-slate-500 mt-1">Cash Value: <span className="text-emerald-400 font-bold">â‚¹{(selectedCustomer.availablePoints * tierDef.redemptionRate).toLocaleString("en-IN")}</span></div>
                 </div>
               </div>
 
@@ -175,7 +175,7 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
                 <div className="mt-4">
                   <div className="flex justify-between text-[10px] text-slate-400 mb-1.5">
                     <span>{selectedCustomer.currentTier}</span>
-                    <span>Next: {progression.nextTier} (₹{progression.lifetimeSpendToNextTier.toLocaleString("en-IN")} more)</span>
+                    <span>Next: {progression.nextTier} (â‚¹{progression.lifetimeSpendToNextTier.toLocaleString("en-IN")} more)</span>
                   </div>
                   <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                     <div
@@ -188,7 +188,7 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
               )}
               {!progression.nextTier && (
                 <div className="mt-3 text-xs text-violet-300 font-bold text-center py-2 bg-violet-500/10 rounded-xl border border-violet-500/30">
-                  Diamond — Highest Tier Achieved
+                  Diamond â€” Highest Tier Achieved
                 </div>
               )}
             </div>
@@ -196,7 +196,7 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
             {/* Key Metrics */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Lifetime Spend", value: `₹${selectedCustomer.lifetimeSpend.toLocaleString("en-IN")}`, icon: "payments" },
+                { label: "Lifetime Spend", value: `â‚¹${selectedCustomer.lifetimeSpend.toLocaleString("en-IN")}`, icon: "payments" },
                 { label: "Total Earned", value: `${selectedCustomer.totalEarnedPoints.toLocaleString("en-IN")} pts`, icon: "star" },
                 { label: "Total Redeemed", value: `${selectedCustomer.totalRedeemedPoints.toLocaleString("en-IN")} pts`, icon: "redeem" },
               ].map((m) => (
@@ -215,10 +215,10 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Current Tier Benefits</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-xs">
                 {[
-                  { label: "Points Earn Rate", value: `${tierDef.pointsEarnRate} pt/₹100` },
-                  { label: "Redemption Rate", value: `₹${tierDef.redemptionRate}/pt` },
+                  { label: "Points Earn Rate", value: `${tierDef.pointsEarnRate} pt/â‚¹100` },
+                  { label: "Redemption Rate", value: `â‚¹${tierDef.redemptionRate}/pt` },
                   { label: "Birthday Multiplier", value: `${tierDef.birthdayMultiplier}x` },
-                  { label: "Upgrade Bonus", value: tierDef.bonusUpgradePoints > 0 ? `${tierDef.bonusUpgradePoints} pts` : "—" },
+                  { label: "Upgrade Bonus", value: tierDef.bonusUpgradePoints > 0 ? `${tierDef.bonusUpgradePoints} pts` : "â€”" },
                 ].map((b) => (
                   <div key={b.label} className="bg-slate-900/60 rounded-xl py-3 px-2">
                     <div className={`text-lg font-black ${tierColor.text}`}>{b.value}</div>
@@ -236,13 +236,13 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
                   Record Purchase & Earn Points
                 </p>
                 <div>
-                  <label className="text-[10px] text-slate-500 block mb-1">Purchase Amount (₹)</label>
+                  <label className="text-[10px] text-slate-500 block mb-1">Purchase Amount (â‚¹)</label>
                   <input type="number" value={purchaseAmount} onChange={(e) => setPurchaseAmount(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-900 border border-slate-700 outline-none focus:border-emerald-500 transition-colors font-mono" />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {[500, 1000, 2000, 5000].map((a) => (
-                    <button key={a} onClick={() => setPurchaseAmount(String(a))} className="px-2 py-1 text-[10px] rounded-lg bg-slate-700 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-600 hover:border-emerald-500/50 transition-all font-mono">₹{a.toLocaleString("en-IN")}</button>
+                    <button key={a} onClick={() => setPurchaseAmount(String(a))} className="px-2 py-1 text-[10px] rounded-lg bg-slate-700 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-600 hover:border-emerald-500/50 transition-all font-mono">â‚¹{a.toLocaleString("en-IN")}</button>
                   ))}
                 </div>
                 <button onClick={handleEarn} className="w-full py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20">
@@ -261,9 +261,9 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-900 border border-slate-700 outline-none focus:border-amber-500 transition-colors font-mono" />
                 </div>
                 <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded-lg px-3 py-2 font-mono">
-                  Cash Equivalent: <span className="text-amber-400 font-bold">₹{Math.round(parseInt(redeemPoints || "0") * tierDef.redemptionRate * 100) / 100}</span>
+                  Cash Equivalent: <span className="text-amber-400 font-bold">â‚¹{Math.round(parseInt(redeemPoints || "0") * tierDef.redemptionRate * 100) / 100}</span>
                 </div>
-                <div className="text-[10px] text-slate-500 pb-1">Min redemption: 50 pts · Available: {selectedCustomer.availablePoints} pts</div>
+                <div className="text-[10px] text-slate-500 pb-1">Min redemption: 50 pts Â· Available: {selectedCustomer.availablePoints} pts</div>
                 <button onClick={handleRedeem} className="w-full py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 transition-all shadow-lg shadow-amber-500/20">
                   Redeem Points
                 </button>
@@ -281,8 +281,8 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
                   return (
                     <div key={tier} className={`p-3 rounded-xl border text-center transition-all ${tc.bg} ${tc.border} ${isCurrentTier ? "shadow-lg scale-105" : "opacity-60"}`}>
                       <div className={`text-sm font-black ${tc.text}`}>{def.label}</div>
-                      <div className="text-[10px] text-slate-400 mt-1">₹{(def.minLifetimeSpend / 1000).toFixed(0)}K+</div>
-                      <div className={`text-[10px] font-bold ${tc.text} mt-1`}>{def.pointsEarnRate} pt/₹100</div>
+                      <div className="text-[10px] text-slate-400 mt-1">â‚¹{(def.minLifetimeSpend / 1000).toFixed(0)}K+</div>
+                      <div className={`text-[10px] font-bold ${tc.text} mt-1`}>{def.pointsEarnRate} pt/â‚¹100</div>
                     </div>
                   );
                 })}
@@ -303,3 +303,4 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
 };
 
 export default Customer360LoyaltyModal;
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.102.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -15,7 +15,7 @@
 import React, { useState, useMemo } from "react";
 import PLDashboardEngine, {
   BranchPLReport, SalesTxn, ShrinkageEntry, OperatingCost, PeriodType,
-} from "../../../utils/plDashboardEngine";
+} from "../../utils/plDashboardEngine";
 
 interface PLDashboardModalProps {
   isOpen: boolean;
@@ -52,7 +52,7 @@ const METRIC_COLORS = {
   neutral:  "text-slate-300",
 };
 
-function fmt(n: number) { return `₹${Math.abs(n).toLocaleString("en-IN")}`; }
+function fmt(n: number) { return `â‚¹${Math.abs(n).toLocaleString("en-IN")}`; }
 
 export const PLDashboardModal: React.FC<PLDashboardModalProps> = ({ isOpen, onClose }) => {
   const [selectedBranch, setSelectedBranch] = useState(BRANCHES[0]);
@@ -104,7 +104,7 @@ export const PLDashboardModal: React.FC<PLDashboardModalProps> = ({ isOpen, onCl
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Store-Level Profit & Loss Dashboard</h2>
-              <p className="text-xs text-slate-400">Revenue · COGS · GM% · Shrinkage · Markdown · Net Profit · Multi-Period Trend</p>
+              <p className="text-xs text-slate-400">Revenue Â· COGS Â· GM% Â· Shrinkage Â· Markdown Â· Net Profit Â· Multi-Period Trend</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -138,8 +138,8 @@ export const PLDashboardModal: React.FC<PLDashboardModalProps> = ({ isOpen, onCl
           </div>
           <div className="ml-auto flex items-center gap-2">
             {report.netProfit >= 0
-              ? <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">📈 Profitable</span>
-              : <span className="text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-full">📉 Loss Making</span>
+              ? <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">ðŸ“ˆ Profitable</span>
+              : <span className="text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-full">ðŸ“‰ Loss Making</span>
             }
           </div>
         </div>
@@ -167,7 +167,7 @@ export const PLDashboardModal: React.FC<PLDashboardModalProps> = ({ isOpen, onCl
             {/* P&L waterfall */}
             <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden text-xs">
               <div className="px-4 py-2 border-b border-slate-800 bg-slate-950/60">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Profit & Loss Statement — {report.periodLabel} · {report.branchCode}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Profit & Loss Statement â€” {report.periodLabel} Â· {report.branchCode}</p>
               </div>
               <div className="divide-y divide-slate-800/40">
                 {report.plLines.map((line, i) => {
@@ -175,7 +175,7 @@ export const PLDashboardModal: React.FC<PLDashboardModalProps> = ({ isOpen, onCl
                   return (
                     <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${isTotal ? "bg-slate-900/60" : ""}`}>
                       <div className="flex items-center gap-2">
-                        {line.isDeduction && <span className="text-slate-600 text-[10px]">↳</span>}
+                        {line.isDeduction && <span className="text-slate-600 text-[10px]">â†³</span>}
                         <span className={`text-xs ${isTotal ? "font-bold text-slate-100" : "text-slate-400"}`}>{line.label}</span>
                       </div>
                       <div className="flex items-center gap-6">
@@ -256,7 +256,7 @@ export const PLDashboardModal: React.FC<PLDashboardModalProps> = ({ isOpen, onCl
 
         {activeTab === "COMPARE" && (
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Branch Ranking — {selectedPeriod} (sorted by net profit)</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Branch Ranking â€” {selectedPeriod} (sorted by net profit)</p>
             {compareReports.map((r, i) => (
               <div key={r.branchCode} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -295,3 +295,4 @@ export const PLDashboardModal: React.FC<PLDashboardModalProps> = ({ isOpen, onCl
 };
 
 export default PLDashboardModal;
+

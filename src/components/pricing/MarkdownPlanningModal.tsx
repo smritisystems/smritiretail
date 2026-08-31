@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.106.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -15,7 +15,7 @@
 import React, { useState, useMemo } from "react";
 import MarkdownEngine, {
   MarkdownPlan, MarkdownStatus, SellThroughReport,
-} from "../../../utils/markdownEngine";
+} from "../../utils/markdownEngine";
 
 interface MarkdownPlanningModalProps {
   isOpen: boolean;
@@ -112,7 +112,7 @@ export const MarkdownPlanningModal: React.FC<MarkdownPlanningModalProps> = ({ is
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Markdown & Clearance Planning Engine</h2>
-              <p className="text-xs text-slate-400">SKU-Level Markdown Steps · Sell-Through Tracking · Auto-Trigger Recommendations</p>
+              <p className="text-xs text-slate-400">SKU-Level Markdown Steps Â· Sell-Through Tracking Â· Auto-Trigger Recommendations</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -140,7 +140,7 @@ export const MarkdownPlanningModal: React.FC<MarkdownPlanningModalProps> = ({ is
                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_STYLE[p.status]}`}>{p.status}</span>
                   <span className="text-[10px] font-mono text-slate-400">{p.currentAvgSellThrough}%</span>
                 </div>
-                {p.autoTriggerFired && <p className="text-[9px] text-orange-400 mt-1">⚡ Auto-trigger fired</p>}
+                {p.autoTriggerFired && <p className="text-[9px] text-orange-400 mt-1">âš¡ Auto-trigger fired</p>}
               </button>
             ))}
           </div>
@@ -152,14 +152,14 @@ export const MarkdownPlanningModal: React.FC<MarkdownPlanningModalProps> = ({ is
                   <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
                       <p className="text-base font-bold text-slate-100">{selected.planName}</p>
-                      <p className="text-xs text-slate-400">{selected.branchCode} · {selected.season} · Target: {selected.targetSellThroughPct}% by {selected.deadline}</p>
+                      <p className="text-xs text-slate-400">{selected.branchCode} Â· {selected.season} Â· Target: {selected.targetSellThroughPct}% by {selected.deadline}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${STATUS_STYLE[selected.status]}`}>{selected.status}</span>
                       {selected.autoTriggerFired && selected.nextRecommendedStep && (
                         <button onClick={() => applyStep(selected.nextRecommendedStep!)}
                           className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 transition-all flex items-center gap-1">
-                          ⚡ Apply Step {selected.nextRecommendedStep}
+                          âš¡ Apply Step {selected.nextRecommendedStep}
                         </button>
                       )}
                     </div>
@@ -191,8 +191,8 @@ export const MarkdownPlanningModal: React.FC<MarkdownPlanningModalProps> = ({ is
                         <div key={s.stepNo} onClick={() => applyStep(s.stepNo)}
                           className={`cursor-pointer rounded-xl border p-3 text-center transition-all hover:border-orange-500/40 ${s.isActive ? "bg-orange-950/20 border-orange-500/40" : "bg-slate-800/30 border-slate-700/50"}`}>
                           <div className="text-lg font-black text-orange-400">{s.discountPct}% OFF</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">Step {s.stepNo} — {s.activateOn}</div>
-                          {s.isActive && <div className="text-[9px] text-emerald-400 font-bold mt-1">● ACTIVE</div>}
+                          <div className="text-[10px] text-slate-500 mt-0.5">Step {s.stepNo} â€” {s.activateOn}</div>
+                          {s.isActive && <div className="text-[9px] text-emerald-400 font-bold mt-1">â— ACTIVE</div>}
                           {s.activatedAt && <div className="text-[9px] text-slate-600 mt-0.5">{new Date(s.activatedAt).toLocaleDateString("en-IN")}</div>}
                         </div>
                       ))}
@@ -225,8 +225,8 @@ export const MarkdownPlanningModal: React.FC<MarkdownPlanningModalProps> = ({ is
                               </span>
                             </td>
                             <td className="py-2 px-3 text-right font-mono">
-                              <span className="text-orange-400">₹{l.currentEffectivePrice}</span>
-                              <span className="text-slate-600 ml-1 text-[10px]">(was ₹{l.basePrice})</span>
+                              <span className="text-orange-400">â‚¹{l.currentEffectivePrice}</span>
+                              <span className="text-slate-600 ml-1 text-[10px]">(was â‚¹{l.basePrice})</span>
                             </td>
                             <td className="py-2 px-3 text-right font-mono text-slate-400">{l.currentMarkdownStep > 0 ? `Step ${l.currentMarkdownStep}` : "Base"}</td>
                           </tr>
@@ -255,7 +255,7 @@ export const MarkdownPlanningModal: React.FC<MarkdownPlanningModalProps> = ({ is
 
                   {report.recommendation && (
                     <div className="bg-orange-950/20 border border-orange-500/30 rounded-xl p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-orange-400 mb-1">⚡ Auto-Trigger Recommendation</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-orange-400 mb-1">âš¡ Auto-Trigger Recommendation</p>
                       <p className="text-xs text-slate-200">{report.recommendation}</p>
                     </div>
                   )}
@@ -268,7 +268,7 @@ export const MarkdownPlanningModal: React.FC<MarkdownPlanningModalProps> = ({ is
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-xs text-slate-300">{l.productName}</span>
                             <div className="flex items-center gap-3">
-                              <span className="text-[10px] font-mono text-orange-400">₹{l.currentEffectivePrice}</span>
+                              <span className="text-[10px] font-mono text-orange-400">â‚¹{l.currentEffectivePrice}</span>
                               <span className={`text-sm font-black font-mono ${l.sellThroughPct >= selected.targetSellThroughPct ? "text-emerald-400" : l.sellThroughPct >= 50 ? "text-amber-400" : "text-rose-400"}`}>{l.sellThroughPct}%</span>
                             </div>
                           </div>
@@ -294,3 +294,4 @@ export const MarkdownPlanningModal: React.FC<MarkdownPlanningModalProps> = ({ is
 };
 
 export default MarkdownPlanningModal;
+

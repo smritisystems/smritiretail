@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.92.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -17,7 +17,7 @@ import ReplenishmentEngine, {
   InventoryItem,
   ReplenishmentSuggestion,
   ReplenishmentTrigger,
-} from "../../../utils/replenishmentEngine";
+} from "../../utils/replenishmentEngine";
 
 interface SmartReplenishmentModalProps {
   isOpen: boolean;
@@ -26,7 +26,7 @@ interface SmartReplenishmentModalProps {
 }
 
 const TRIGGER_STYLES: Record<ReplenishmentTrigger, { badge: string; label: string }> = {
-  SAFETY_STOCK_BREACH: { badge: "bg-red-600/20 text-red-300 border-red-500/30",   label: "⚠ Safety Stock Breach" },
+  SAFETY_STOCK_BREACH: { badge: "bg-red-600/20 text-red-300 border-red-500/30",   label: "âš  Safety Stock Breach" },
   REORDER_POINT_HIT:   { badge: "bg-rose-500/20 text-rose-300 border-rose-500/30", label: "Reorder Point Hit" },
   MIN_STOCK_BREACH:    { badge: "bg-amber-500/20 text-amber-300 border-amber-500/30", label: "Min Stock Breach" },
   SEASONAL_PUSH:       { badge: "bg-violet-500/20 text-violet-300 border-violet-500/30", label: "Seasonal Push" },
@@ -88,7 +88,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Smart Replenishment & Min-Max Inventory Reorder Automation</h2>
-              <p className="text-xs text-slate-400">Safety Stock Breach · Reorder Point · Stockout Projection · Auto-PO Generation</p>
+              <p className="text-xs text-slate-400">Safety Stock Breach Â· Reorder Point Â· Stockout Projection Â· Auto-PO Generation</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
@@ -102,7 +102,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
             { label: "Total SKUs", value: report.totalSKUs, color: "text-slate-300" },
             { label: "Critical (Safety Breach)", value: report.criticalSKUs, color: "text-red-400" },
             { label: "Reorder Due", value: report.reorderDueSKUs, color: "text-amber-400" },
-            { label: "Suggested PO Value", value: `₹${(report.totalSuggestedPOValue).toLocaleString("en-IN")}`, color: "text-teal-400" },
+            { label: "Suggested PO Value", value: `â‚¹${(report.totalSuggestedPOValue).toLocaleString("en-IN")}`, color: "text-teal-400" },
           ].map((m) => (
             <div key={m.label} className="px-5 py-3 text-center">
               <div className={`text-lg font-black font-mono ${m.color}`}>{m.value}</div>
@@ -142,7 +142,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${ts.badge}`}>{ts.label}</span>
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${sc}`}>{sugg.status}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">{sugg.sku} · {sugg.category} · {sugg.branchCode}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{sugg.sku} Â· {sugg.category} Â· {sugg.branchCode}</div>
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
                       )}
                       {sugg.status === "APPROVED" && (
                         <button onClick={() => handleRaisePO(sugg.suggestionId)} className="px-3 py-1.5 text-xs font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-500 transition-all shadow-lg shadow-teal-500/20">
-                          🤖 Auto-Raise PO
+                          ðŸ¤– Auto-Raise PO
                         </button>
                       )}
                       {sugg.status === "PO_RAISED" && (
@@ -170,7 +170,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
                       { label: "Reorder Point", value: sugg.reorderPoint, color: "text-slate-300" },
                       { label: "Order Qty", value: sugg.suggestedOrderQty, color: "text-teal-400" },
                       { label: "Days Remaining", value: `${sugg.daysOfStockRemaining}d`, color: sugg.daysOfStockRemaining <= 7 ? "text-red-400" : "text-amber-400" },
-                      { label: "Est. PO Value", value: `₹${sugg.estimatedPOValue.toLocaleString("en-IN")}`, color: "text-violet-400" },
+                      { label: "Est. PO Value", value: `â‚¹${sugg.estimatedPOValue.toLocaleString("en-IN")}`, color: "text-violet-400" },
                     ].map((m) => (
                       <div key={m.label} className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-3 text-center">
                         <div className={`text-base font-black font-mono ${m.color}`}>{m.value}</div>
@@ -185,7 +185,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
                       <span>Today</span>
                       <span className={sugg.daysOfStockRemaining <= 7 ? "text-red-400 font-bold" : "text-slate-400"}>
                         Stockout: {stockoutDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                        {sugg.preferredSupplierId && ` · Supplier: ${sugg.preferredSupplierId}`}
+                        {sugg.preferredSupplierId && ` Â· Supplier: ${sugg.preferredSupplierId}`}
                       </span>
                     </div>
                     <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
@@ -208,3 +208,4 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
 };
 
 export default SmartReplenishmentModal;
+
