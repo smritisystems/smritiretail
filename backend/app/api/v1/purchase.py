@@ -153,6 +153,18 @@ async def amend_purchase_order_contract(
 # ─────────────────────────── Purchase Receipts (GRN) ───────────────────────────
 
 @router.post(
+    "/receipts",
+    response_model=PurchaseReceiptResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
+    "/receipts/",
+    response_model=PurchaseReceiptResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
     "/purchase-receipts/",
     response_model=PurchaseReceiptResponse,
     status_code=201,
@@ -170,11 +182,31 @@ async def create_purchase_receipt(
     service = PurchaseService(db, tenant)
     receipt = await service.create_purchase_receipt(req)
     _, items = await service.get_purchase_receipt(receipt.id)
-    resp = PurchaseReceiptResponse.model_validate(receipt)
-    resp.items = [PurchaseReceiptItemResponse.model_validate(i) for i in items]
-    return resp
+    return PurchaseReceiptResponse(
+        id=receipt.id,
+        receipt_no=receipt.receipt_no,
+        supplier_id=receipt.supplier_id,
+        warehouse_id=receipt.warehouse_id,
+        order_id=receipt.order_id,
+        status=receipt.status,
+        notes=receipt.notes,
+        subtotal=receipt.subtotal,
+        tax_total=receipt.tax_total,
+        grand_total=receipt.grand_total,
+        company_id=receipt.company_id,
+        branch_id=receipt.branch_id,
+        items=[PurchaseReceiptItemResponse.model_validate(i) for i in items],
+    )
 
 
+@router.get(
+    "/receipts",
+    response_model=List[PurchaseReceiptResponse],
+)
+@router.get(
+    "/receipts/",
+    response_model=List[PurchaseReceiptResponse],
+)
 @router.get(
     "/purchase-receipts/",
     response_model=List[PurchaseReceiptResponse],
@@ -189,6 +221,10 @@ async def list_purchase_receipts(
 
 
 @router.get(
+    "/receipts/{receipt_id}",
+    response_model=PurchaseReceiptResponse,
+)
+@router.get(
     "/purchase-receipts/{receipt_id}",
     response_model=PurchaseReceiptResponse,
 )
@@ -200,9 +236,21 @@ async def get_purchase_receipt(
     """Get a purchase receipt with its line items."""
     service = PurchaseService(db, tenant)
     receipt, items = await service.get_purchase_receipt(receipt_id)
-    resp = PurchaseReceiptResponse.model_validate(receipt)
-    resp.items = [PurchaseReceiptItemResponse.model_validate(i) for i in items]
-    return resp
+    return PurchaseReceiptResponse(
+        id=receipt.id,
+        receipt_no=receipt.receipt_no,
+        supplier_id=receipt.supplier_id,
+        warehouse_id=receipt.warehouse_id,
+        order_id=receipt.order_id,
+        status=receipt.status,
+        notes=receipt.notes,
+        subtotal=receipt.subtotal,
+        tax_total=receipt.tax_total,
+        grand_total=receipt.grand_total,
+        company_id=receipt.company_id,
+        branch_id=receipt.branch_id,
+        items=[PurchaseReceiptItemResponse.model_validate(i) for i in items],
+    )
 
 
 

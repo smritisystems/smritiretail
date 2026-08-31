@@ -15,7 +15,7 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.api.deps import TenantContext, get_db, get_tenant_context
+from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context
 from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
@@ -36,6 +36,7 @@ async def override_db_and_tenant(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_company_db] = _get_db
     try:
         yield
     finally:
@@ -44,22 +45,25 @@ async def override_db_and_tenant(db_session):
         except Exception:
             pass
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_company_db, None)
         app.dependency_overrides.pop(get_tenant_context, None)
 
 
 async def _make_tenant(db_session, suffix):
-    comp = Company(id=f"comp-exc-{suffix}", name=f"Exc Co {suffix}",
+    s = f"{suffix}_{uuid.uuid4().hex[:6]}"
+    comp = Company(id=f"comp-exc-{s}", name=f"Exc Co {s}",
                    gst_number="27ABCDE1234F1Z5", is_active=True)
-    br   = Branch(id=f"br-exc-{suffix}", company_id=comp.id,
-                   name=f"Exc Br {suffix}", code=f"BREXC-{suffix}", is_active=True)
+    br   = Branch(id=f"br-exc-{s}", company_id=comp.id,
+                   name=f"Exc Br {s}", code=f"BREXC-{s}", is_active=True)
     db_session.add_all([comp, br])
     await db_session.commit()
     return comp, br
 
 
 async def _make_user(db_session, suffix, comp_id, br_id, role=UserRole.MANAGER):
+    s = f"{suffix}_{uuid.uuid4().hex[:6]}"
     user = User(
-        id=f"usr-exc-{suffix}", username=f"usr_exc_{suffix}",
+        id=f"usr-exc-{s}", username=f"usr_exc_{s}",
         hashed_password=hash_password("Test@1234"),
         role=role, is_active=True, is_deleted=False,
         company_id=comp_id, branch_id=br_id,
@@ -103,6 +107,8 @@ async def test_execute_product_export_task(db_session):
         stock=50,
         category="Electronics",
         barcode=f"bc-{uuid.uuid4().hex[:8]}",
+        company_id=comp.id,
+        branch_id=br.id,
         is_favorite=False,
         is_deleted=False,
         is_active=True
@@ -118,6 +124,8 @@ async def test_execute_product_export_task(db_session):
         entity_type="Products",
         file_type="CSV",
         status="Idle",
+        company_id=comp.id,
+        branch_id=br.id,
         is_active=True,
         is_deleted=False
     )
@@ -137,5 +145,4 @@ async def test_execute_product_export_task(db_session):
     data = res.json()
     assert data["success"] is True
     assert data["status"] == "Success"
-    assert len(data["exportedData"]) > 0
-    assert data["exportedData"][0]["name"] == "Exchange Test Product"
+    assert any(item.get("name") == "Exchange Test Product" for item in data["exportedData"])

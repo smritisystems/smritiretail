@@ -28,9 +28,9 @@ def test_crm_schema_validation():
     assert group.id == "cg-1"
     assert group.name == "Standard Group"
 
-    # Missing required id should fail
+    # Missing required name should fail
     with pytest.raises(ValidationError):
-        CustomerGroupCreate(name="Standard Group")
+        CustomerGroupCreate(credit_limit=Decimal("1000.00"))
 
 def test_inventory_schema_validation():
     product = ProductCreate(
@@ -39,10 +39,14 @@ def test_inventory_schema_validation():
         name="Soap",
         price=Decimal("10.00"),
         category="Essentials",
-        barcode="123456"
+        barcode="123456",
+        mrp=Decimal("15.00"),
+        gst_percentage=Decimal("18.00"),
+        hsn_code="3401"
     )
     assert product.code == "PROD-1"
     assert product.price == Decimal("10.00")
+    assert product.mrp == Decimal("15.00")
 
 def test_sales_schema_validation():
     # Invalid price negative value

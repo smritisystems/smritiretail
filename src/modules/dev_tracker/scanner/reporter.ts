@@ -79,7 +79,7 @@ export function writeReports(res: ScanResult): void {
     { name: "DATABASE_STATUS.md", content: templates.generateDatabaseStatus(res) },
     { name: "API_STATUS.md", content: templates.generateApiStatus(res) },
     { name: "TEST_STATUS.md", content: templates.generateTestStatus(res) },
-    { name: "DOCUMENTATION_STATUS.md", content: templates.generateDocumentationStatus(res) },
+    { name: "DOCUMENTATION.md", content: templates.generateDocumentationStatus(res) },
     { name: "SECURITY_STATUS.md", content: templates.generateSecurityStatus(res) },
     { name: "TECHNICAL_DEBT.md", content: templates.generateTechnicalDebt(res) },
     { name: "BUG_TRACKER.md", content: templates.generateBugTracker(res) },

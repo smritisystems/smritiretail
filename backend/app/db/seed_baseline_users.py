@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.25.0
 Created      : 2026-08-18
-Modified     : 2026-08-18
+Modified     : 2026-08-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -21,11 +21,11 @@ try:
     import app.models.auth
     import app.models.tenant
     import app.models.user_assignment
-    import app.models.company_database_registry
+    import app.models.company_registry
     from app.models.auth import User, UserRole
     from app.models.role import Role
     from app.models.tenant import Company, Branch
-    from app.models.company_database_registry import CompanyDatabaseRegistry
+    from app.models.company_registry import CompanyDatabaseRegistry
     from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
     from app.core.security import hash_password
 except ImportError:
@@ -34,11 +34,11 @@ except ImportError:
     import backend.app.models.auth
     import backend.app.models.tenant
     import backend.app.models.user_assignment
-    import backend.app.models.company_database_registry
+    import backend.app.models.company_registry
     from backend.app.models.auth import User, UserRole
     from backend.app.models.role import Role
     from backend.app.models.tenant import Company, Branch
-    from backend.app.models.company_database_registry import CompanyDatabaseRegistry
+    from backend.app.models.company_registry import CompanyDatabaseRegistry
     from backend.app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
     from backend.app.core.security import hash_password
 
@@ -127,7 +127,12 @@ async def seed():
 
             # Branches
             for br_def in comp_def["branches"]:
-                br = await db.get(Branch, br_def["id"])
+                res_br = await db.execute(
+                    select(Branch).where(
+                        (Branch.id == br_def["id"]) | (Branch.code == br_def["code"])
+                    )
+                )
+                br = res_br.scalars().first()
                 if not br:
                     br = Branch(
                         id=br_def["id"],
@@ -145,19 +150,41 @@ async def seed():
 
         await db.flush()
 
-        # 2. Users: admin (SYSADMIN - global access to all companies), manager, cashier
+        # 2. Users: admin, sysadmin, manager, cashier with standard hashes
         users_to_seed = [
-            ("admin", "admin@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
-            ("manager", "manager@smritibooks.com", "Password@123", UserRole.MANAGER, "role-manager", "COMP-001", "BR-MAIN-001"),
-            ("cashier", "cashier@smritibooks.com", "Cashier@123", UserRole.CASHIER, "role-cashier", "COMP-001", "BR-MAIN-001"),
+            ("admin", "usr-admin", "admin@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
+            ("sysadmin", "usr-sysadmin-direct", "sysadmin_direct@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
+            ("usr_sysadmin", "usr-sysadmin", "sysadmin@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
+            ("usr_super", "usr-super", "super@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
+            ("manager", "usr-manager-direct", "manager@smritibooks.com", "Manager@123", UserRole.MANAGER, "role-manager", "COMP-001", "BR-MAIN-001"),
+            ("usr_manager", "usr-manager", "usr_manager@smritibooks.com", "Manager@123", UserRole.MANAGER, "role-manager", "COMP-001", "BR-MAIN-001"),
+            ("usr_store_manager_a", "usr-store-manager-a", "store_mgr_a@smritibooks.com", "Manager@123", UserRole.MANAGER, "role-manager", "COMP-001", "BR-MAIN-001"),
+            ("cashier", "usr-cashier-direct", "cashier@smritibooks.com", "Cashier@123", UserRole.CASHIER, "role-cashier", "COMP-001", "BR-MAIN-001"),
+            ("usr_cashier", "usr-cashier", "usr_cashier@smritibooks.com", "Cashier@123", UserRole.CASHIER, "role-cashier", "COMP-001", "BR-MAIN-001"),
         ]
 
-        for uname, email, pwd, role_enum, role_id, comp_id, branch_id in users_to_seed:
-            res = await db.execute(select(User).where(User.username == uname))
+        for uname, target_id, email, pwd, role_enum, role_id, comp_id, target_branch_code in users_to_seed:
+            
+            # Resolve actual branch ID in database
+            actual_branch_id = None
+            if comp_id:
+                res_b = await db.execute(
+                    select(Branch).where(
+                        (Branch.company_id == comp_id) & 
+                        ((Branch.id == target_branch_code) | (Branch.code == target_branch_code) | (Branch.code == "MAIN") | (Branch.id == "MAIN"))
+                    )
+                )
+                b_match = res_b.scalars().first()
+                if b_match:
+                    actual_branch_id = b_match.id
+
+            res = await db.execute(
+                select(User).where((User.username == uname) | (User.id == target_id))
+            )
             u = res.scalars().first()
             if not u:
                 u = User(
-                    id=f"usr-{uname}",
+                    id=target_id,
                     username=uname,
                     email=email,
                     hashed_password=hash_password(pwd),
@@ -166,20 +193,25 @@ async def seed():
                     is_active=True,
                     is_deleted=False,
                     company_id=comp_id,
-                    branch_id=branch_id,
+                    branch_id=actual_branch_id,
                     status="Active",
                 )
                 db.add(u)
                 await db.flush()
             else:
+                u.username = uname
+                u.email = email
                 u.hashed_password = hash_password(pwd)
                 u.role = role_enum
                 u.role_id = role_id
                 u.is_active = True
                 u.is_deleted = False
                 u.status = "Active"
+                if comp_id:
+                    u.company_id = comp_id
+                u.branch_id = actual_branch_id
 
-            # Assign all 3 companies to admin, and COMP-001 to manager and cashier
+            # Assign all 3 companies to sysadmin roles, and COMP-001 to manager and cashier
             target_comps = ["COMP-001", "COMP-002", "COMP-003"] if role_enum == UserRole.SYSADMIN else ["COMP-001"]
             for target_c in target_comps:
                 res_uca = await db.execute(
@@ -200,8 +232,130 @@ async def seed():
                         )
                     )
 
-        await db.commit()
-        print("SUCCESS: Seeded 3 Enterprise Companies with READY database registries and full SYSADMIN access!")
+        # 3. Seed baseline customer groups and active customers for billing
+        try:
+            from app.models.crm import CustomerGroup, Customer
+        except ImportError:
+            from backend.app.models.crm import CustomerGroup, Customer
+
+        # 3. Seed baseline customer groups and active customers for billing
+        try:
+            from app.models.crm import CustomerGroup, Customer
+            from app.db.session import get_company_sessionmaker
+        except ImportError:
+            from backend.app.models.crm import CustomerGroup, Customer
+            from backend.app.db.session import get_company_sessionmaker
+
+        async def _seed_crm_data(target_session, comp_id="COMP-001"):
+            cg_retail = await target_session.get(CustomerGroup, "CG-Retail")
+            if not cg_retail:
+                cg_retail = CustomerGroup(
+                    id="CG-Retail",
+                    name="Retail Clients",
+                    credit_limit=100000.00,
+                    credit_days=30,
+                    company_id=comp_id,
+                    branch_id=None
+                )
+                target_session.add(cg_retail)
+
+            cg_corp = await target_session.get(CustomerGroup, "CG-Corporate")
+            if not cg_corp:
+                cg_corp = CustomerGroup(
+                    id="CG-Corporate",
+                    name="Corporate Clients",
+                    credit_limit=500000.00,
+                    credit_days=60,
+                    company_id=comp_id,
+                    branch_id=None
+                )
+                target_session.add(cg_corp)
+
+            cg_large = await target_session.get(CustomerGroup, "CG-LargeRetail")
+            if not cg_large:
+                cg_large = CustomerGroup(
+                    id="CG-LargeRetail",
+                    name="Large-Format Retail",
+                    credit_limit=1000000.00,
+                    credit_days=90,
+                    company_id=comp_id,
+                    branch_id=None
+                )
+                target_session.add(cg_large)
+            await target_session.flush()
+
+            baseline_customers = [
+                {
+                    "id": "CUST-001",
+                    "code": "CUST-001",
+                    "name": "Reliance Retail Limited",
+                    "mobile": "9822334455",
+                    "email": "operations@relianceretail.com",
+                    "gst_number": "29AABCR1718E1ZL",
+                    "customer_group_id": "CG-LargeRetail",
+                    "outstanding": 180000.00,
+                    "company_id": comp_id,
+                    "branch_id": None
+                },
+                {
+                    "id": "CUST-002",
+                    "code": "CUST-002",
+                    "name": "Shoppers Stop Ltd",
+                    "mobile": "9833445566",
+                    "email": "billing@shoppersstop.com",
+                    "gst_number": "27AAACS4321E1Z2",
+                    "customer_group_id": "CG-LargeRetail",
+                    "outstanding": 250000.00,
+                    "company_id": comp_id,
+                    "branch_id": None
+                },
+                {
+                    "id": "CUST-003",
+                    "code": "CUST-003",
+                    "name": "Lifestyle International",
+                    "mobile": "9844556677",
+                    "email": "accounts@lifestylestores.com",
+                    "gst_number": "27AAACL5678A1Z3",
+                    "customer_group_id": "CG-Corporate",
+                    "outstanding": 120000.00,
+                    "company_id": comp_id,
+                    "branch_id": None
+                },
+                {
+                    "id": "CUST-WALKIN",
+                    "code": "WALK-IN",
+                    "name": "Walk-In / Cash Customer",
+                    "mobile": "9999999999",
+                    "customer_group_id": "CG-Retail",
+                    "outstanding": 0.00,
+                    "company_id": comp_id,
+                    "branch_id": None
+                }
+            ]
+
+            for cust_data in baseline_customers:
+                c = await target_session.get(Customer, cust_data["id"])
+                if not c:
+                    c = Customer(**cust_data)
+                    target_session.add(c)
+                else:
+                    for k, v in cust_data.items():
+                        setattr(c, k, v)
+            await target_session.commit()
+
+        # Seed into control DB
+        await _seed_crm_data(db, "COMP-001")
+
+        # Seed into tenant company DBs
+        for comp_db in ["smriti001", "smriti002", "smriti003"]:
+            try:
+                comp_sm = get_company_sessionmaker(comp_db)
+                async with comp_sm() as cdb:
+                    await _seed_crm_data(cdb, "COMP-001")
+            except Exception as e:
+                print(f"Notice: seeding into company db {comp_db}: {e}")
+
+        print("SUCCESS: Seeded Enterprise Companies with READY database registries, authenticated users, and CRM customers across all databases!")
 
 
 if __name__ == "__main__":

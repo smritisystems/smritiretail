@@ -10,7 +10,7 @@
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { apiFetch, apiFetchV1 } from "./lib/apiFetch.ts";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -29,73 +29,94 @@ import {
 } from "./layout_engine/layout_store.tsx";
 import { LayoutManager } from "./layout_engine/layout_manager.tsx";
 
-// Import tabs components
+// Synchronously imported (lightweight or frequently used)
 import { DashboardTab } from "./components/DashboardTab.tsx";
 import { PosTerminalTab } from "./components/PosTerminalTab.tsx";
 import { FieldExplorerTab } from "./components/FieldExplorerTab.tsx";
 import { FormulaRegistryTab } from "./components/FormulaRegistryTab.tsx";
 import { PsvTab } from "./components/PsvTab.tsx";
 import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
-import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
-import { AdvancedBillingEngine } from "./components/AdvancedBillingEngine.tsx";
-import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
+import { AdvancedBillingEngine } from "./components/AdvancedBillingEng.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
-import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
-import { BarcodeStudioTab } from "./components/BarcodeStudioTab.tsx";
-import { MasterManagementTab } from "./components/MasterManagementTab.tsx";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
-import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
-import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
-import { SupplierDashboardTab } from "./components/SupplierDashboardTab.tsx";
-import { ReportDesignerTab } from "./components/ReportDesignerTab.tsx";
+import { SupplierDashboardTab } from "./components/SupplierDashTab.tsx";
 import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
-import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownBreadcrumbs.tsx";
+import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownCrumbs.tsx";
 import { DrillDownSidePanel } from "./components/drilldown/DrillDownSidePanel.tsx";
 import { GlobalSearch } from "./components/drilldown/GlobalSearch.tsx";
-import { ApprovalMatrixTab } from "./components/ApprovalMatrixTab.tsx";
+import { GlobalF2BrowseModal } from "./components/drilldown/GlobalF2BrowseDlg.tsx";
 import { QuickActionsMenu } from "./components/QuickActionsMenu.tsx";
 import { DocumentSeriesTab } from "./components/DocumentSeriesTab.tsx";
-import { StaffManagementTab } from "./components/StaffManagementTab.tsx";
 import { UserProfileTab } from "./components/UserProfileTab.tsx";
 import { NotificationProvider, useNotifications } from "./notifications/notification_store.tsx";
+import { ActiveFieldProvider } from "./context/ActiveFieldContext.tsx";
+import { ContextualInspectorHUD } from "./components/drilldown/CtxInspectorHUD.tsx";
 import { ContextProvider } from "./context-actions/ContextProvider.tsx";
 import { ContextRenderer } from "./context-actions/ContextRenderer.tsx";
 import { registerAllDefaultActions } from "./context-actions/providers/SMRITIModuleActions.ts";
 import { PrintProvider } from "./print_engine/print_store.tsx";
-import { PrintStudioTab } from "./print_engine/PrintStudioTab.tsx";
-import { PrintHistoryTab } from "./print_engine/PrintHistoryTab.tsx";
 import { AboutSmritiTab } from "./components/AboutSmritiTab.tsx";
-import { TaxInvoicePrintPage } from "./components/TaxInvoicePrintPage.tsx";
-import { TrainingAcademyTab } from "./components/training/TrainingAcademyTab.tsx";
+import { TaxInvoicePrintPage } from "./components/TaxInvoicePrintPag.tsx";
 import { DevTrackerTab } from "./modules/dev_tracker/ui/DevTrackerTab.tsx";
-import { AccountingSyncTab } from "./components/AccountingSyncTab.tsx";
-import { BusinessLedgerTab } from "./components/BusinessLedgerTab.tsx";
-import { StockLedgerTab } from "./components/StockLedgerTab.tsx";
-import { AuditLogsTab } from "./components/AuditLogsTab.tsx";
-import { TermsEngineTab } from "./components/TermsEngineTab.tsx";
-import { DataExchangeTab } from "./components/DataExchangeTab.tsx";
 import { useLayoutModuleRegistration } from "./components/SmritiBaseModule.tsx";
 import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext.tsx";
 import { FloatingWindowHost } from "./components/FloatingWindowHost.tsx";
 import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
-import { WorkspaceTaskbar } from "./components/WorkspaceTaskbar.tsx";
-import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
-import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
-import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
+import { PasswordReset } from "./components/PasswordReset.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
-import { CompanySelectionScreen } from "./components/CompanySelectionScreen.tsx";
-import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
+import { CompanySelectionScreen } from "./components/CompanySelectScree.tsx";
+import { SmritiErrorBoundary } from "./components/ErrorBoundary.tsx";
+import { clearAuthSession } from "./lib/apiFetchV1.ts";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
+import { SecManageDlg } from "./components/security/SecManageDlg.tsx";
 import { X } from "lucide-react";
+
+// Lazy-loaded components (heavy feature modules)
+const SalesStudioTab = lazy(() => import("./components/SalesStudioTab.tsx").then(m => ({ default: m.SalesStudioTab })));
+const ReportDesignerTab = lazy(() => import("./components/ReportDesignerTab.tsx").then(m => ({ default: m.ReportDesignerTab })));
+const PurchaseStudioTab = lazy(() => import("./components/PurchaseStudioTab.tsx").then(m => ({ default: m.PurchaseStudioTab })));
+const ItemMasterTab = lazy(() => import("./components/ItemMasterTab.tsx").then(m => ({ default: m.ItemMasterTab })));
+const BarcodeStudioTab = lazy(() => import("./components/BarcodeStudioTab.tsx").then(m => ({ default: m.BarcodeStudioTab })));
+const MasterManagementTab = lazy(() => import("./components/MasterMgmtTab.tsx").then(m => ({ default: m.MasterManagementTab })));
+const CrmStudioTab = lazy(() => import("./components/CrmStudioTab.tsx").then(m => ({ default: m.CrmStudioTab })));
+const LoyaltyStudioTab = lazy(() => import("./components/LoyaltyStudioTab.tsx").then(m => ({ default: m.LoyaltyStudioTab })));
+const ApprovalMatrixTab = lazy(() => import("./components/ApprovalMatrixTab.tsx").then(m => ({ default: m.ApprovalMatrixTab })));
+const StaffManagementTab = lazy(() => import("./components/StaffManagementTab.tsx").then(m => ({ default: m.StaffManagementTab })));
+const PrintStudioTab = lazy(() => import("./print_engine/PrintStudioTab.tsx").then(m => ({ default: m.PrintStudioTab })));
+const PrintHistoryTab = lazy(() => import("./print_engine/PrintHistoryTab.tsx").then(m => ({ default: m.PrintHistoryTab })));
+const DistTaxInvoice = lazy(() => import("./components/sales/DistTaxInvoice.tsx").then(m => ({ default: m.DistTaxInvoice })));
+const TrainingAcademyTab = lazy(() => import("./components/training/TrainingAcademyTab.tsx").then(m => ({ default: m.TrainingAcademyTab })));
+const AccountingSyncTab = lazy(() => import("./components/AccountingSyncTab.tsx").then(m => ({ default: m.AccountingSyncTab })));
+const BusinessLedgerTab = lazy(() => import("./components/BusinessLedgerTab.tsx").then(m => ({ default: m.BusinessLedgerTab })));
+const StockLedgerTab = lazy(() => import("./components/StockLedgerTab.tsx").then(m => ({ default: m.StockLedgerTab })));
+const AuditLogsTab = lazy(() => import("./components/AuditLogsTab.tsx").then(m => ({ default: m.AuditLogsTab })));
+const TermsEngineTab = lazy(() => import("./components/TermsEngineTab.tsx").then(m => ({ default: m.TermsEngineTab })));
+const DataExchangeTab = lazy(() => import("./components/DataExchangeTab.tsx").then(m => ({ default: m.DataExchangeTab })));
+const DatabaseManagerTab = lazy(() => import("./components/DatabaseManagerTab.tsx").then(m => ({ default: m.DatabaseManagerTab })));
+const LegacyMigDashTab = lazy(() => import("./components/LegacyMigDashTab.tsx").then(m => ({ default: m.LegacyMigDashTab })));
+const PhysicalStockTab = lazy(() => import("./components/PhysicalStockTab.tsx").then(m => ({ default: m.PhysicalStockTab })));
+const StorePolicyStudio = lazy(() => import("./components/StorePolicyStudio.tsx").then(m => ({ default: m.StorePolicyStudio })));
+const WmsStudioTab = lazy(() => import("./components/wms/WmsStudioTab.tsx").then(m => ({ default: m.WmsStudioTab })));
+const SetupWizardTab = lazy(() => import("./components/SetupWizard/SetupWizardTab.tsx").then(m => ({ default: m.SetupWizardTab })));
+const PrintPreviewModal = lazy(() => import("./components/PrintPreviewModal.tsx").then(m => ({ default: m.PrintPreviewModal })));
+const MenuManagerStudioTab = lazy(() => import("./components/MenuManagerStudioTab.tsx").then(m => ({ default: m.MenuManagerStudioTab })));
+
+// Tab loading fallback component
+const TabLoadingFallback = () => (
+  <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-theme-divider border-t-[#2563EB]" />
+    <p className="mt-4 text-sm font-mono text-theme-muted">Loading module...</p>
+  </div>
+);
 
 interface AppNotification {
   id: string;
   title: string;
   message: string;
-  type: "success" | "error";
+  type: "success" | "error" | "info" | "warning";
 }
 
 const AppContent: React.FC = () => {
@@ -141,8 +162,7 @@ const AppContent: React.FC = () => {
       }
     } catch {
       // apiFetchV1 throws on non-2xx (e.g. 401 expired) — clear token and treat as unauthenticated
-      localStorage.removeItem("smriti_jwt_token");
-      localStorage.removeItem("smriti_session_token");
+      clearAuthSession("auth_check_failed");
       setCurrentUser(null);
       setCompanyContextResolved(false);
     } finally {
@@ -160,10 +180,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("smriti_session_token");
-    localStorage.removeItem("smriti_jwt_token");
-    localStorage.removeItem("smriti_company_id");
-    localStorage.removeItem("smriti_company_code");
+    clearAuthSession("manual_logout");
     setCurrentUser(null);
     setCompanyContextResolved(false);
   };
@@ -214,8 +231,14 @@ const AppContent: React.FC = () => {
       ? "dashboard"
       : preferences.lastWorkspace;
 
-  const activeTab = safeLastWorkspace || "dashboard";
+  const [activeTab, setActiveTabState] = useState(safeLastWorkspace || "dashboard");
+
+  useEffect(() => {
+    setActiveTabState(safeLastWorkspace || "dashboard");
+  }, [safeLastWorkspace]);
+
   const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
     addToRecentlyUsed(tab);
   };
 
@@ -272,7 +295,7 @@ const AppContent: React.FC = () => {
   const addNotification = (
     title: string,
     message: string,
-    type: "success" | "error" = "success",
+    type: "success" | "error" | "info" | "warning" = "success",
   ) => {
     toastIdRef.current += 1;
     const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 10);
@@ -392,7 +415,7 @@ const AppContent: React.FC = () => {
 
   const mapModuleId = (id: string): string => {
     const map: Record<string, string> = {
-      launchpad: "dashboard",
+      launchpad: "launchpad",
       item_master: "item-master",
       inventory: "stock-ledger",
       suppliers: "supplier-mgmt",
@@ -402,13 +425,76 @@ const AppContent: React.FC = () => {
       settings: "profiles",
       about: "about-smriti",
       grn: "purchase",
+      "menu-manager": "menu-manager",
+      menu_manager: "menu-manager",
+      menu_studio: "menu-manager",
+      "menu-studio": "menu-manager",
+      "day-close": "day-close",
+      day_close: "day-close",
+      "day-end": "day-close",
+      day_end: "day-close",
+      "eod-report": "day-close",
+      security: "security-management",
+      security_management: "security-management",
+      menu_access: "security-management",
+      "menu-dashboard": "dashboard",
+      "menu-user-profile": "user-profile",
+      "menu-pos": "pos",
+      "menu-sales": "sales",
+      "menu-customer-master": "customer-master",
+      "menu-crm": "crm",
+      "menu-loyalty": "loyalty",
+      "menu-inventory": "inventory",
+      "menu-item-master": "item-master",
+      "menu-barcode": "barcode",
+      "menu-stock-ledger": "stock-ledger",
+      "menu-purchase": "purchase",
+      "menu-supplier-mgmt": "supplier-mgmt",
+      "menu-business-ledger": "business-ledger",
+      "menu-accounting-sync": "accounting-sync",
+      "menu-reports": "report-designer",
+      "menu-report-designer": "report-designer",
+      "menu-masters": "masters",
+      "menu-ufe": "ufe",
+      "menu-formulas": "formulas",
+      "menu-psv": "psv",
+      "menu-document-series": "document-series",
+      "menu-print-studio": "print-studio",
+      "menu-print-history": "print-history",
+      "menu-terms-engine": "terms-engine",
+      "menu-data-exchange": "data-exchange",
+      "menu-staff-management": "staff-management",
+      "menu-approval-matrix": "approval-matrix",
+      "menu-company-setup": "company-setup",
+      "menu-audit-logs": "audit-logs",
     };
     return map[id] || id;
   };
 
+  useEffect(() => {
+    const handleMenuSearchNavigation = (event: Event) => {
+      const detail = (event as CustomEvent<{ moduleId?: string; searchQuery?: string }>).detail;
+      const moduleId = detail?.moduleId;
+      if (moduleId === "stock-ledger" && detail?.searchQuery) {
+        sessionStorage.setItem("smriti_stock_ledger_search", detail.searchQuery);
+      }
+      if (moduleId) setActiveTab(mapModuleId(moduleId));
+    };
+    window.addEventListener("smriti_navigate_module", handleMenuSearchNavigation);
+    return () => window.removeEventListener("smriti_navigate_module", handleMenuSearchNavigation);
+  }, []);
+
   const renderTab = (tabId: string) => {
     switch (tabId) {
       case "dashboard":
+        return (
+          <DashboardTab
+            products={products}
+            formulas={formulas}
+            psvParties={psvParties}
+            onSelectFormula={(formula) => setSelectedFormula(formula)}
+          />
+        );
       case "launchpad":
         return (
           <FioriLaunchpad
@@ -426,6 +512,19 @@ const AppContent: React.FC = () => {
             shifts={shifts}
             onRefreshData={fetchSystemState}
             onNotification={addNotification}
+          />
+        );
+      case "day-close":
+      case "day-end":
+      case "eod-report":
+        return (
+          <PosTerminalTab
+            products={products}
+            profiles={profiles}
+            shifts={shifts}
+            onRefreshData={fetchSystemState}
+            onNotification={addNotification}
+            initialTab="EOD_Z_REPORT"
           />
         );
       case "crm":
@@ -459,16 +558,12 @@ const AppContent: React.FC = () => {
         );
       case "create-tax-invoice":
         return (
-          <AdvancedBillingEngine
-            cart={[]}
-            onClearCart={() => {}}
-            activeShift={shifts[0] || null}
-            activeProfile={profiles[0] || null}
-            onCheckoutSuccess={(bill) => {
-              fetchSystemState();
-            }}
+          <PosTerminalTab
+            products={products}
+            profiles={profiles}
+            shifts={shifts}
+            onRefreshData={fetchSystemState}
             onNotification={addNotification}
-            isStandaloneTab={true}
           />
         );
       case "purchase":
@@ -515,7 +610,13 @@ const AppContent: React.FC = () => {
       case "wiki":
         return <WikiTab onNotification={addNotification} />;
       case "barcode":
-        return <BarcodeStudioTab currentUser={currentUser} />;
+        return (
+          <BarcodeStudioTab
+            currentUser={currentUser}
+            products={products}
+            onNotification={addNotification}
+          />
+        );
       case "masters":
         return <MasterManagementTab onNotification={addNotification} />;
       case "document-series":
@@ -528,6 +629,15 @@ const AppContent: React.FC = () => {
         return <PrintHistoryTab />;
       case "about-smriti":
         return <AboutSmritiTab />;
+      case "tax-invoice":
+      case "distributor-tax-invoice":
+      case "tax-invoice-workspace":
+        return (
+          <DistTaxInvoice
+            onNotification={addNotification}
+            currentUser={currentUser}
+          />
+        );
       case "tax-invoice-print":
       case "statutory-a4":
         return <TaxInvoicePrintPage />;
@@ -547,6 +657,27 @@ const AppContent: React.FC = () => {
         return <TermsEngineTab />;
       case "data-exchange":
         return <DataExchangeTab onNotification={addNotification} />;
+      case "database-manager":
+        return <DatabaseManagerTab onNotification={addNotification} />;
+      case "legacy-migration":
+        return <LegacyMigDashTab />;
+
+      case "physical-stock":
+      case "stock-count":
+      case "physical-inventory":
+        return <PhysicalStockTab />;
+
+      case "store-policies":
+      case "governed-policies":
+      case "policy-studio":
+        return <StorePolicyStudio />;
+
+
+      case "wms":
+      case "wms-dashboard":
+      case "stock-transfers":
+      case "warehouse-management":
+        return <WmsStudioTab currentUser={currentUser} onNotification={addNotification} />;
       case "company-setup":
         return (
           <SetupWizardTab 
@@ -557,15 +688,41 @@ const AppContent: React.FC = () => {
             }} 
           />
         );
+      case "menu-manager":
+      case "menu-studio":
+        return <MenuManagerStudioTab currentUser={currentUser} onNavigateTab={(t) => setActiveTab(t)} />;
+      case "security-management":
+      case "menu-access-control":
+        return (
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <SecManageDlg
+              isOpen={true}
+              onClose={() => setActiveTab("dashboard")}
+              initialTab="Manage Menu Access"
+            />
+          </div>
+        );
+      case "security-configuration":
+        return (
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <SecManageDlg
+              isOpen={true}
+              onClose={() => setActiveTab("dashboard")}
+              initialTab="Configuration"
+            />
+          </div>
+        );
       default:
         return <div className="p-4 text-theme-muted font-mono text-xs">Tab {tabId} not found.</div>;
     }
   };
 
-  // Wrap tab render in SmritiErrorBoundary to isolate module crashes
+  // Wrap tab render in SmritiErrorBoundary to isolate module crashes, and Suspense for lazy-loaded modules
   const renderTabSafe = (tabId: string) => (
     <SmritiErrorBoundary key={tabId} tabId={tabId} onNotification={addNotification}>
-      {renderTab(tabId)}
+      <Suspense fallback={<TabLoadingFallback />}>
+        {renderTab(tabId)}
+      </Suspense>
     </SmritiErrorBoundary>
   );
 
@@ -588,7 +745,7 @@ const AppContent: React.FC = () => {
 
   if (currentUser.passwordResetRequired) {
     return (
-      <PasswordResetScreen
+      <PasswordReset
         onResetSuccess={() => {
           setCurrentUser((prev) => prev ? { ...prev, passwordResetRequired: false } : prev);
         }}
@@ -641,12 +798,15 @@ const AppContent: React.FC = () => {
       activeModuleId={activeTab}
       activeModuleTitle={getTabLabel(activeTab)}
       onSelectModule={(id) => setActiveTab(mapModuleId(id))}
-      onNavigateHome={() => setActiveTab("dashboard")}
+      onNavigateHome={() => {
+        addToRecentlyUsed("dashboard");
+        setActiveTab("dashboard");
+      }}
       onLogout={handleLogout}
       userName={currentUser?.name || "Operator"}
       userRole={currentUser?.role || "Operator"}
     >
-      <div className="relative w-full h-full pb-13">
+      <div className="relative w-full h-full">
       {/* Toast Notification Stack */}
       <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
         <AnimatePresence>
@@ -769,9 +929,6 @@ const AppContent: React.FC = () => {
           activeTabId={activeTab}
         />
       )}
-
-      {/* SMRITI Workspace Taskbar - Only rendered when user is logged in */}
-      <WorkspaceTaskbar />
     </div>
     </AppShell>
   );
@@ -782,19 +939,23 @@ const App: React.FC = () => {
     <PrintProvider>
       <NotificationProvider>
         <DrillDownProvider>
-          <LayoutEngineProvider>
-            <WorkspaceProvider>
-              <ShortcutProvider>
-                <ContextProvider>
-                  <AppContent />
-                  <ContextRenderer />
-                  <GlobalSearch />
-                  <DrillDownSidePanel />
-                  <ShortcutPalette />
-                </ContextProvider>
-              </ShortcutProvider>
-            </WorkspaceProvider>
-          </LayoutEngineProvider>
+          <ActiveFieldProvider>
+            <LayoutEngineProvider>
+              <WorkspaceProvider>
+                <ShortcutProvider>
+                  <ContextProvider>
+                    <AppContent />
+                    <ContextRenderer />
+                    <GlobalSearch />
+                    <GlobalF2BrowseModal />
+                    <ContextualInspectorHUD />
+                    <DrillDownSidePanel />
+                    <ShortcutPalette />
+                  </ContextProvider>
+                </ShortcutProvider>
+              </WorkspaceProvider>
+            </LayoutEngineProvider>
+          </ActiveFieldProvider>
         </DrillDownProvider>
       </NotificationProvider>
     </PrintProvider>

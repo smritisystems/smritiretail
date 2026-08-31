@@ -6,7 +6,7 @@ Status: ACTIVE
 Version: 1.0
 Effective Date:
 Approved By:
-Baseline ADR: ADR-002-SMRITI-METADATA-ARCHITECTURE
+Baseline ADR: ADR-002-SMRITI-MET
 Supersedes: None
 
 This gate defines when implementation work is allowed and how it must remain aligned with the frozen ADR governance baseline.

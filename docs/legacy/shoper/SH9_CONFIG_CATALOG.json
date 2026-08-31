@@ -1,0 +1,4661 @@
+{
+  "metadata": {
+    "total_sysparams": 78,
+    "total_categories": 13,
+    "total_lookup_categories": 6,
+    "total_ddl_tables_found": 320,
+    "source_ini_path": "D:\\Shoper9\\ini",
+    "source_paramdef_path": "D:\\Shoper9\\ParamDef"
+  },
+  "categories_breakdown": {
+    "General System Parameters": 24,
+    "14. Bill - Printing": 3,
+    "17. House Keeping": 9,
+    "22. Till Management": 2,
+    "09. Inwards": 5,
+    "11. Billing": 9,
+    "12. Slips": 2,
+    "23. Excise": 1,
+    "24. Packing": 10,
+    "25. Credit Management": 7,
+    "10. Outwards": 3,
+    "02. Franchisee": 1,
+    "03. Item Classification": 2
+  },
+  "tables_discovered": [
+    "AcceptDisplayDtls",
+    "AccountSummary",
+    "AccountsMaster",
+    "ActualScheduleTask",
+    "AgencyCatDtl",
+    "AgencyCatHdr",
+    "AgentActivity",
+    "AlertDefinition",
+    "AlertEventDefinition",
+    "AlertHistory",
+    "AuthorisedPOSPatches",
+    "BAKAcceptDisplayDtls",
+    "BAKClass12LocWise",
+    "BAKExpectedTrnHdr",
+    "BAKInPackSlipHdr",
+    "BAKInPackSlipTrn",
+    "BAKIncShrmPeriodDtls",
+    "BAKIncentiveGrpItemDtls",
+    "BAKLogTilldtls",
+    "BAKMultiplePrices",
+    "BAKONACCcrdtntLinktbldtls",
+    "BAKONACCcrdtntLinktblhdr",
+    "BAKPhyStockTakingItemBkUp",
+    "BAKPriceRevision",
+    "BAKPriceRevisionHistory",
+    "BAKPurchOrdDtl",
+    "BAKPurchOrdHdr",
+    "BAKStkTrnAddlHdr",
+    "BAKTillAcceptDisplaydtls",
+    "BAKTillOperationJournalDtls",
+    "BAKTillOperationJournalHdr",
+    "BAKTillShiftdtls",
+    "BAKTillTrnswiseDenomination",
+    "BAKcrdtinvrcvdtls",
+    "BAKcrdtinvrcvhdr",
+    "BAKcrdtsalecustopbal",
+    "BakCurrencyDenomination",
+    "BakExciseDutyComponents",
+    "BakExciseDutyDtls",
+    "BakExportGenLookUp",
+    "BakExportSysparam",
+    "BakFactorHeader",
+    "BakGS1Dtls",
+    "BakIncDefTable",
+    "BakItemReClassConfig",
+    "BakItemReClassDtls",
+    "BakItemReClassHeader",
+    "BakPrefixConfig",
+    "BakPrefixMaster",
+    "BakPrefixTerminalGroups",
+    "BakPrefixTrnLog",
+    "BakPrefixTrnNo",
+    "BakSPDefSettings",
+    "BakSalesTaxCat",
+    "BakSalesTaxRevision",
+    "BakSalesTaxRevisionHistory",
+    "BakSeasonsMaster",
+    "BakShrmScript",
+    "BakStkTrnEDDtls",
+    "BakStkTrnEDhdr",
+    "BakTillAcceptDisplaydtls",
+    "Bakfranchiseelog",
+    "Bakfranmismatchlog",
+    "BaleDtl",
+    "BaseCompTemplate",
+    "BillPassHdr",
+    "BillPassdtls",
+    "BrowseSettings",
+    "CRMFinalCustomer",
+    "CRMQryInfo",
+    "ChainStores",
+    "Class1234Combo",
+    "Class12Combo",
+    "Class12LocWise",
+    "CommConfig",
+    "CommunicationConfig",
+    "CrmQryStruc",
+    "CurrencyCat",
+    "CurrencyDenomination",
+    "CustPriceGroups",
+    "CustomPatchLocationDtls",
+    "Customers",
+    "DBO",
+    "DashBoardConfig",
+    "Datasyncconfig",
+    "DayBeginPgms",
+    "DayEndPgms",
+    "DcRefNoDtls",
+    "DiscountDtls72",
+    "DownloadParams",
+    "Errole",
+    "EventExtnFieldConfig",
+    "EventExtnKeyValueConfig",
+    "ExciseDutyComponents",
+    "ExciseDutyDtls",
+    "ExpectedTrnAddonDed",
+    "ExpectedTrnDtls",
+    "ExpectedTrnHdr",
+    "ExpectedTrnRcpts",
+    "ExportGenLookUp",
+    "ExportSysparam",
+    "ExtdItemMaster",
+    "ExtdMailingList",
+    "ExtensionConfigExternal",
+    "ExtensionConfigInfo",
+    "ExtensionConfigInternal",
+    "ExtensionConfigTable",
+    "ExtnPartnerInfo",
+    "FactorHeader",
+    "FeatureIntroDtls",
+    "FileLoadingStatus",
+    "FilesFromHO",
+    "FranchiseeTrans",
+    "Franchiselstloadeddtls",
+    "GS1Dtls",
+    "GenLookUp",
+    "GenLookupExtd",
+    "HotKeys",
+    "InPackSlipHdr",
+    "InPackSlipTrn",
+    "IncDefTable",
+    "IncShrmPeriodDtls",
+    "IncentiveGrpItemDtls",
+    "IniLoadingErrorLog",
+    "ItemClassRestrict",
+    "ItemMaster",
+    "ItemMasterConfig",
+    "ItemMasterLog",
+    "ItemReClassConfig",
+    "ItemReClassDtls",
+    "ItemReClassHeader",
+    "KPIDtls",
+    "LiveUpdatePatDtls",
+    "LogAgentActivity",
+    "LogDataExtractDetail",
+    "LogDataExtractsummary",
+    "LogDataSync",
+    "LogTilldtls",
+    "LstLoadedDtls",
+    "MailingList",
+    "Mismatchvalue",
+    "MissingDocNo",
+    "MultiplePrices",
+    "ONACCcrdtntLinktbldtls",
+    "ONACCcrdtntLinktblhdr",
+    "PCBillDtls",
+    "PHYSTKDL",
+    "POSActivityLogDtls",
+    "POSActivityLogHdr",
+    "POSCashTrn",
+    "POSMODEDATADTLS",
+    "POSPayModes",
+    "PatchDownloadDetails",
+    "PayTermsCat",
+    "Personnel",
+    "PersonnelShrmWise",
+    "PgmWiseFeatureDtls",
+    "PhyStkDtls",
+    "PhyStkHdr",
+    "PhyStockTakingItemBkUp",
+    "PhyTmpStkDtlsSumm",
+    "PhyTmpStkTrnDtls",
+    "PhyTmpStockTakingItem",
+    "PhyTmpStockTakingProgressSumm",
+    "PhyTmpStockTakingSC",
+    "PhyTmpStockTakingSKU",
+    "PosModeBalances",
+    "Poslstloadeddtls",
+    "PrefixConfig",
+    "PrefixMaster",
+    "PrefixTerminalGroups",
+    "PrefixTrnLog",
+    "PrefixTrnNo",
+    "PriceLoadingLog",
+    "PriceRevision",
+    "PriceRevisionHistory",
+    "PrintBusinessHandlerMaster",
+    "PrintConfigSetting",
+    "PrintConfigSettingMaster",
+    "PrintDesignerCategory",
+    "PrintDesignerFields",
+    "PrintDesignerTrnGrpInfo",
+    "PrintLinkDefTrnRenderer",
+    "PrintLinkedRefInterface",
+    "PrintLinkedRefLookUp",
+    "PrintNodeTrnConfigMaster",
+    "PrintRendererMaster",
+    "PrintTemplateConfigDtls",
+    "PromoArApplCustDtls",
+    "PromoArBillLvlDiscDtls",
+    "PromoArBuyItemGrpDtls",
+    "PromoArGetItemGrpDtls",
+    "PromoArHeader",
+    "PromoArItemLvlDiscDtls",
+    "PromoArShowroomDtls",
+    "PromoLogApplCustDtls",
+    "PromoLogBillLvlDiscDtls",
+    "PromoLogBuyItemGrpDtls",
+    "PromoLogGetItemGrpDtls",
+    "PromoLogHeader",
+    "PromoLogItemLvlDiscDtls",
+    "PromoLogShowroomDtls",
+    "PromoMnApplCustDtls",
+    "PromoMnBillLvlDiscDtls",
+    "PromoMnBuyItemGrpDtls",
+    "PromoMnGetItemGrpDtls",
+    "PromoMnHeader",
+    "PromoMnIntermediate",
+    "PromoMnItemLvlDiscDtls",
+    "PromoMnShowroomDtls",
+    "PtInvoiceDtl",
+    "PtInvoiceHdr",
+    "PurchOrdConfig",
+    "PurchOrdDtl",
+    "PurchOrdHdr",
+    "PurchOrdTrl",
+    "PurchPlan",
+    "PurchaseTaxCat",
+    "PurgeLogDtls",
+    "PurgeLogHdr",
+    "ReportActionInfo",
+    "ReportConfigFields",
+    "ReportConfigPreferences",
+    "ReportConfigSettings",
+    "ReportConfigs",
+    "ReportDates",
+    "ReportInfo",
+    "ReportScheduleDetails",
+    "ReportScheduleHeader",
+    "ReportScheduleHistory",
+    "ReportVariableInfo",
+    "RptSelFileName",
+    "SISStatus",
+    "SISSysParam",
+    "SPDefSettings",
+    "SaleTrnHdr",
+    "SalesFactors",
+    "SalesTaxCat",
+    "SalesTaxRevision",
+    "SalesTaxRevisionHistory",
+    "SeasonsMaster",
+    "SeasonsMasterLog",
+    "ShprManiFest",
+    "ShprManifestLink",
+    "ShrmScript",
+    "ShrmScriptExtd",
+    "SizeCat",
+    "SizeEntryFieldsConfig",
+    "StkTrnAddlDtls",
+    "StkTrnAddlHdr",
+    "StkTrnDtls",
+    "StkTrnEDDtls",
+    "StkTrnEDhdr",
+    "StkTrnHdr",
+    "StockCreditNote",
+    "StockMaster",
+    "StockMasterExtd",
+    "StockTrnSummary",
+    "SubClass1Cat",
+    "SubClass2Cat",
+    "SysParam",
+    "SysParamExtd",
+    "SysParamLookUp",
+    "TallyExportedTrans",
+    "TallyHSNRules",
+    "TallyMapPurchTaxCat",
+    "TallyMapSettingInfo",
+    "TallyMasterInfo",
+    "TallyPostingSettings",
+    "TallyPrintConfigDetails",
+    "TallyPrintConfigHeader",
+    "TallyVchInfo",
+    "TillAcceptDisplaydtls",
+    "TillOperationJournalDtls",
+    "TillOperationJournalHdr",
+    "TillShiftdtls",
+    "TillTrnswiseDenomination",
+    "TmpPriceMaster",
+    "TmpVendorItems",
+    "TransactionComponentsDtls",
+    "UserWiseItemConfig",
+    "VAPatchDtls",
+    "VaContextHelpDtls",
+    "VaGenlookup",
+    "VaGroupRestrict",
+    "VaLogHistory",
+    "VaNode",
+    "VaNodeDtls",
+    "VaNodeExtd",
+    "VaNodeRestrict",
+    "VaPasswordHistory",
+    "VaRestrictInfo",
+    "VaRestrictMnu",
+    "VaRestrictMnuConfig",
+    "VaSecurityConfig",
+    "VaUserExtdInfo",
+    "VaUsg",
+    "VaVerTable",
+    "VendorItems",
+    "Vendors",
+    "VersionDtls",
+    "VersionwiseTblsScript",
+    "WalkIn",
+    "crdtinvrcvdtls",
+    "crdtinvrcvhdr",
+    "crdtsalecustopbal",
+    "dbo",
+    "dbtuningconfig",
+    "franchiseelog",
+    "franmismatchlog",
+    "logdbtuningconfig",
+    "vaCompWiseMnuOpt",
+    "vaCompWiseUserPriority",
+    "vaCompany",
+    "vaDeviceids",
+    "vaMenu",
+    "vaRepoActionInfo",
+    "vaRepoInfo",
+    "vaRepoVariableInfo",
+    "vaUser"
+  ],
+  "parameters": [
+    {
+      "id": "SR9-0901-0000458",
+      "param_code": "paymentHOprefill",
+      "description": "Prefill Balance in Payments to HO",
+      "default_boolean": null,
+      "default_int": "0",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_0200_1_0001",
+      "source_file": "SH9_020_EE_1_03.S9Q",
+      "category": "02. Franchisee",
+      "category_description": "This Gives Franchisee Parameters",
+      "fixed_status": "Variable",
+      "display_order": "24",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR9-0920-4000001",
+      "param_code": "SR9-0920-4000001",
+      "description": "Retail and Dealer Price Setting in Multipe Prices",
+      "default_boolean": "",
+      "default_int": "0",
+      "default_text": "1#1",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_0200_9_0004",
+      "source_file": "SH9_020_EE_9_03.S9Q",
+      "category": "03. Item Classification",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": "501",
+      "ui_caption": "Enabling the Prices",
+      "ui_hints": "You can enable/disable the required prices",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Retail Price",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Dealer Price",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR9-0920-4000002",
+      "param_code": "SR9-0920-4000002",
+      "description": "CurrenCost and Last Purchase Price Setting in Multipe Prices",
+      "default_boolean": "",
+      "default_int": "0",
+      "default_text": "0#0",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_0200_9_0004",
+      "source_file": "SH9_020_EE_9_03.S9Q",
+      "category": "03. Item Classification",
+      "category_description": "",
+      "fixed_status": "Hidden",
+      "display_order": "502",
+      "ui_caption": "Enabling the Prices",
+      "ui_hints": "You can enable/disable the required prices",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Cost Price",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Last Purchase Price",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR3-0901-0000396",
+      "param_code": "AllowEditDocActQtyinPTFileLoading",
+      "description": "Allow editing Documented Qty and Actual Qty in PT file loading",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "N#N",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "09. Inwards",
+      "category_description": "This Gives Inwards Parameters",
+      "fixed_status": "Variable",
+      "display_order": "34",
+      "ui_caption": "Allow editing values loaded from PT file loading",
+      "ui_hints": "You can configure Allow editing PT File Loading",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Document Qty",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Actual Qty",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "Rate",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "Retail/Dealer Price",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR3-0901-0000453",
+      "param_code": "AutoCalculatePurchaseTaxonPredefinedRates",
+      "description": "Auto calculate purchase tax based on predefined rates",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "NNNN",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_020_2_0001",
+      "source_file": "SH9_020_EE_2_01.S9Q",
+      "category": "09. Inwards",
+      "category_description": "This Gives Inwards Parameters",
+      "fixed_status": "Variable",
+      "display_order": "40",
+      "ui_caption": "Auto calculate purchase tax based on predefined rates",
+      "ui_hints": "You can configure the options using this parameter",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Purchase",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Transfer In",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "Approval Return",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "Miscellaneous Receipt",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": null,
+      "param_code": "CaptionForInwardDetailSectionFields",
+      "description": "Specify Caption for Detail Section Fields for Inward Audit Trial",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": null,
+      "source_script": "S9Q_016_6_0012",
+      "source_file": "SH9_016_EE_6_12.S9Q",
+      "category": "09. Inwards",
+      "category_description": "This Gives Bill - Printing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "30",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR3-0901-0000422",
+      "param_code": "CaptureTransporterDtls",
+      "description": "Capture transporter details",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "N#N",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_019_2_0001",
+      "source_file": "SH9_019_EE_2_01.S9Q",
+      "category": "09. Inwards",
+      "category_description": "This Gives Inwards Parameters",
+      "fixed_status": "Variable",
+      "display_order": "35",
+      "ui_caption": "Capture transporter details",
+      "ui_hints": "You can Capture transporter details",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Normal",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Size-Wise",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0901-0000425",
+      "param_code": "GIRTransporterDetailsPrinting",
+      "description": "Transporter Details to be printed in Inward",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "1111111111111#0000000000000#0000000000000",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_019_2_0001",
+      "source_file": "SH9_019_EE_2_01.S9Q",
+      "category": "09. Inwards",
+      "category_description": "This Gives Inwards Parameters",
+      "fixed_status": "Variable",
+      "display_order": "38",
+      "ui_caption": "Configure transporter details to be printed in Goods Inward",
+      "ui_hints": "You can configure Configure transporter details to be printed in Goods Inward",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Transport Mode",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Transport Code",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "LR No.",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "LR Date",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "5",
+          "field_type": "Vehicle No.",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "6",
+          "field_type": "Driver Name",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "7",
+          "field_type": "Pre-Sale Tax Srl No.",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "8",
+          "field_type": "Pre-Sale Tax Form Name",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "9",
+          "field_type": "Post-Sale Tax Srl No.",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "10",
+          "field_type": "Post-Sale Tax Form Name",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "11",
+          "field_type": "Additional Info1",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "12",
+          "field_type": "Additional Info2",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "13",
+          "field_type": "Additional Info3",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR3-0901-0000420",
+      "param_code": "AllowIndStockItemGORRecalledPackingSlip",
+      "description": "Allow individual stock items in GOR along with recalled packing/pallet slip",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_019_2_0001",
+      "source_file": "SH9_019_EE_2_01.S9Q",
+      "category": "10. Outwards",
+      "category_description": "This Gives Outwards Parameters",
+      "fixed_status": "Variable",
+      "display_order": "28",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR3-0901-0000418",
+      "param_code": "DispPurchDocSelectingStockNo",
+      "description": "Display the list of Purchase Documents on selecting stock number",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Y",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_019_2_0001",
+      "source_file": "SH9_019_EE_2_01.S9Q",
+      "category": "10. Outwards",
+      "category_description": "This Gives Outwards Parameters",
+      "fixed_status": "Variable",
+      "display_order": "27",
+      "ui_caption": "Display the list of Purchase Documents on selecting stock number",
+      "ui_hints": "You can configure Browse option on selecting stock number",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Browse Option",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR1-0901-0000437",
+      "param_code": "PrintDocPrefixNoInOutwardItemDtls",
+      "description": "Print Reference Doc Prefix and Doc No in Outward Item details",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_019_6_0001",
+      "source_file": "SH9_019_EE_6_01.S9Q",
+      "category": "10. Outwards",
+      "category_description": "This Gives Outwards Parameters",
+      "fixed_status": "Variable",
+      "display_order": "28",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000461",
+      "param_code": "AllowItemScanningWithRecalling",
+      "description": "Allow item Scanning Along With Recalling Expected Transaction",
+      "default_boolean": "1",
+      "default_int": "0",
+      "default_text": "",
+      "default_date": null,
+      "default_float": "0.00",
+      "default_currency": "0.0000",
+      "data_type": "B",
+      "source_script": "S9Q_0200_1_0001",
+      "source_file": "SH9_020_EE_1_03.S9Q",
+      "category": "11. Billing",
+      "category_description": "This Gives Billing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "53",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000446",
+      "param_code": "AllowRateAlterationinSalesReturnWOR",
+      "description": "Allow Rate alteration in Sales Return without Reference",
+      "default_boolean": "1",
+      "default_int": "0",
+      "default_text": null,
+      "default_date": null,
+      "default_float": "0.00",
+      "default_currency": "0",
+      "data_type": "B",
+      "source_script": "S9Q_0191_1_0001",
+      "source_file": "SH9_0191_EE_1_02.S9Q",
+      "category": "11. Billing",
+      "category_description": "This Gives Billing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "32",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000423",
+      "param_code": "AllowRtnWORinWR",
+      "description": "Allow Return without ref. in Return with ref. Transactions",
+      "default_boolean": "1",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_019_1_0007",
+      "source_file": "SH9_019_EE_1_05.S9Q",
+      "category": "11. Billing",
+      "category_description": "This Gives Billing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "36",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000370",
+      "param_code": "ApplyCurbalqty",
+      "description": "Apply Current balance Quanity instead of LSQ",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_017_1_0005",
+      "source_file": "SH9_017_EE_1_04.S9Q",
+      "category": "11. Billing",
+      "category_description": "This Gives Billing -Parameters",
+      "fixed_status": "Variable",
+      "display_order": "48",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR9-0901-0000459",
+      "param_code": "ApplyLsqForReturnWOR",
+      "description": "Apply LSQ for Sales Return without Ref",
+      "default_boolean": "0",
+      "default_int": "0",
+      "default_text": "",
+      "default_date": null,
+      "default_float": "0.00",
+      "default_currency": "0.0000",
+      "data_type": "B",
+      "source_script": "S9Q_0200_1_0001",
+      "source_file": "SH9_020_EE_1_03.S9Q",
+      "category": "11. Billing",
+      "category_description": "This Gives Billing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "53",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000455",
+      "param_code": "DefaultExptTranInBilling",
+      "description": "Default Expected Transaction type in Billing",
+      "default_boolean": "0",
+      "default_int": "9200",
+      "default_text": "",
+      "default_date": null,
+      "default_float": "0.00",
+      "default_currency": "0.0000",
+      "data_type": "I",
+      "source_script": "S9Q_0192_1_0001",
+      "source_file": "SH9_0192_EE_1_01.S9Q",
+      "category": "11. Billing",
+      "category_description": "This Gives Billing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "53",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0922-0000485",
+      "param_code": "DisableLoadItemOptioninsalesreturnWR",
+      "description": "Disable Loading of Items from Bill in Sales Return with Reference",
+      "default_boolean": null,
+      "default_int": "0",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "SH9_0222_EE_0_1001",
+      "source_file": "SH9_0222_EE_0_10.S9Q",
+      "category": "11. Billing",
+      "category_description": "This Gives Billing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "79",
+      "ui_caption": "Disable Loading of Items from Bill in Sales Return with Reference",
+      "ui_hints": "Disable Loading of Items from Bill in Sales Return with Reference",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Disable Loading of Items from Bill in Sales Return with Reference ",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR1-0901-0000462",
+      "param_code": "EnableQtyEditing",
+      "description": "Enable Only Quantity Editing Option in Billing",
+      "default_boolean": "0",
+      "default_int": "0",
+      "default_text": "",
+      "default_date": null,
+      "default_float": "0.00",
+      "default_currency": "0.0000",
+      "data_type": "B",
+      "source_script": "S9Q_0200_1_0001",
+      "source_file": "SH9_020_EE_1_03.S9Q",
+      "category": "11. Billing",
+      "category_description": "This Gives Billing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "53",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000463",
+      "param_code": "Finchkstck",
+      "description": "Finchkstck",
+      "default_boolean": "0",
+      "default_int": "0",
+      "default_text": "",
+      "default_date": null,
+      "default_float": "0.00",
+      "default_currency": "0.0000",
+      "data_type": "I",
+      "source_script": "S9Q_0200_1_0001",
+      "source_file": "SH9_020_EE_1_03.S9Q",
+      "category": "11. Billing",
+      "category_description": "This Gives Billing Parameters",
+      "fixed_status": "Hidden",
+      "display_order": "53",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": null,
+      "param_code": "PrintSlipsRcptAndAdvRcptInSamePg",
+      "description": "Print Slips Receipt & Advance Receipt in same page",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_017_6_0002",
+      "source_file": "SH9_017_EE_6_01.S9Q",
+      "category": "12. Slips",
+      "category_description": "Print slips receipt & adv receipt in same page",
+      "fixed_status": "Variable",
+      "display_order": "17",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": null,
+      "param_code": "SlipFormat",
+      "description": "Slip Format to be used",
+      "default_boolean": null,
+      "default_int": "1",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_018_6_0002",
+      "source_file": "SH9_018_EE_6_01.S9Q",
+      "category": "12. Slips",
+      "category_description": "Slips Printing Paramter",
+      "fixed_status": "Variable",
+      "display_order": "17",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000297",
+      "param_code": "DCPrintingInGraphicPrinter",
+      "description": "DC Printing in Graphic Printer",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "14. Bill - Printing",
+      "category_description": "This Gives Bill - Printing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "47",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000433",
+      "param_code": "PrintInclExclVatSummarySeparately",
+      "description": "Print inclusive and exclusive vat summary breakup separately",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_019_6_0001",
+      "source_file": "SH9_019_EE_6_01.S9Q",
+      "category": "14. Bill - Printing",
+      "category_description": "Gen Printing Parameter",
+      "fixed_status": "Variable",
+      "display_order": "53",
+      "ui_caption": "Receivable Customer details display",
+      "ui_hints": "You can configure List of customer details display in Receivable",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Address",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "ADDR^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Town",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "TWN^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "Postalcode",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "PCD^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "State",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "ST^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "5",
+          "field_type": "Country",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CN^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "6",
+          "field_type": "Locality",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "LO^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "7",
+          "field_type": "Office Phone",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "OPH^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "8",
+          "field_type": "Mobile Phone",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "MPH^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "9",
+          "field_type": "Fax No",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "FNO^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "10",
+          "field_type": "Email id1",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "EM1^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "11",
+          "field_type": "Email id2",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "EM2^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "13",
+          "field_type": "Email id3",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "EM3^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "14",
+          "field_type": "Credit Days",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CDAY^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "15",
+          "field_type": "Credit Limit",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CLIM^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "16",
+          "field_type": "Price Group",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "PRGRP^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "17",
+          "field_type": "Customer Classifcication 1",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC1^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "18",
+          "field_type": "Customer Classifcication 2",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC2^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "19",
+          "field_type": "Customer Classifcication 3",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC3^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "20",
+          "field_type": "Customer Classifcication 4",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC4^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "21",
+          "field_type": "Customer Classifcication 5",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC5^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "21",
+          "field_type": "Customer Profession 1",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP1^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "22",
+          "field_type": "Customer Profession 2",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP2^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "23",
+          "field_type": "Customer Profession 3",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP3^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "24",
+          "field_type": "Customer Profession 4",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP4^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "25",
+          "field_type": "Customer Profession 5",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP5^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "26",
+          "field_type": "Gender",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "GEN^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "27",
+          "field_type": "Date of Birth",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "DOB^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "28",
+          "field_type": "Marital Status",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "MS^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "29",
+          "field_type": "Date of Wedding",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "DOW^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "30",
+          "field_type": "Loyalty Program ID",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "LPID^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "31",
+          "field_type": "Loyalty Program Code",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "LPCD^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "1",
+          "field_type": "Field Name",
+          "control_type": "T",
+          "control_val": "TXT",
+          "min_val": "",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Enable",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR1-0901-0000434",
+      "param_code": "PrintTaxBreakupWithTaxCompDtls",
+      "description": "Print tax breakup with tax component captions",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_019_6_0001",
+      "source_file": "SH9_019_EE_6_01.S9Q",
+      "category": "14. Bill - Printing",
+      "category_description": "Gen Printing Parameter",
+      "fixed_status": "Variable",
+      "display_order": "54",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR5-0901-0000414",
+      "param_code": "AllowOpenDatetoDesiredDate",
+      "description": "Allow Open Date To Enter The Desired Date",
+      "default_boolean": null,
+      "default_int": "0",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_018_0_0002",
+      "source_file": "SH9_018_EE_0_02.S9Q",
+      "category": "17. House Keeping",
+      "category_description": "This Gives House Keeping Parameters",
+      "fixed_status": "Fixed",
+      "display_order": "53",
+      "ui_caption": "Allow Open Date To Enter The Desired Date",
+      "ui_hints": "You can configure Enter The Desired Date",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Type of Option",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR1-0901-0000464",
+      "param_code": "BarcodeFilePath",
+      "description": "Barcode File Path",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "C:\\Shoper9\\Barcode\\Poshak.txt",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_020_0_0002",
+      "source_file": "SH9_020_EE_0_01.S9Q",
+      "category": "17. House Keeping",
+      "category_description": "Barcode File Path",
+      "fixed_status": "Variable",
+      "display_order": "152",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": null,
+      "param_code": "BarcodePrintingType",
+      "description": "Barcode Printing Type",
+      "default_boolean": null,
+      "default_int": "1",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_017_6_0002",
+      "source_file": "SH9_017_EE_6_01.S9Q",
+      "category": "17. House Keeping",
+      "category_description": "Select Printing Type",
+      "fixed_status": "Variable",
+      "display_order": "51",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR4-0901-0000394",
+      "param_code": "CostPriceEncoding",
+      "description": "Encoded Cost Price For Labels",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "0,A#1,B#2,C#3,D#4,E#5,F#6,G#7,H#8,I#9,J",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_017_0_0002",
+      "source_file": "SH9_017_EE_0_02.S9Q",
+      "category": "17. House Keeping",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": "51",
+      "ui_caption": "Fields",
+      "ui_hints": "You can configure Fields to be printed in GOR audit Trail1",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Print",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "0,1,2,3,4,5,6,7,8,9",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Position",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "A,B,C,D,E,F,G,H,I,J",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0901-0000328",
+      "param_code": "GeneratePrintingLogForPrintEngine",
+      "description": "Generate printing log for Print Engine",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_015_6_0004",
+      "source_file": "SH9_015_EE_6_04.S9Q",
+      "category": "17. House Keeping",
+      "category_description": "This Gives Bill - Printing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "48",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000465",
+      "param_code": "LabelsToPrint",
+      "description": "Number of labels per row in a barcode printer",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "1",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_020_0_0002",
+      "source_file": "SH9_020_EE_0_01.S9Q",
+      "category": "17. House Keeping",
+      "category_description": "Number of labels per row in a barcode printer",
+      "fixed_status": "Variable",
+      "display_order": "153",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR7-0901-0000454",
+      "param_code": "PostDocQty",
+      "description": "Post Doc Qty and Value for Inward",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_020_4_0006",
+      "source_file": "SH9_020_EE_4_03.S9Q",
+      "category": "17. House Keeping",
+      "category_description": "Post Doc Qty and Value to Inward",
+      "fixed_status": "Variable",
+      "display_order": "151",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000466",
+      "param_code": "PrintBarcode",
+      "description": "Print barcode after inward transaction",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_020_0_0002",
+      "source_file": "SH9_020_EE_0_01.S9Q",
+      "category": "17. House Keeping",
+      "category_description": "Print barcode after inward transaction",
+      "fixed_status": "Variable",
+      "display_order": "154",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR5-0702-0000314",
+      "param_code": "TallyAppPath",
+      "description": "Tally Application Path",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": "0",
+      "default_currency": "0",
+      "data_type": "T",
+      "source_script": "S9Q_013_4_0002",
+      "source_file": "SH9_013_EE_4_01.S9Q",
+      "category": "17. House Keeping",
+      "category_description": "Tally Application Path",
+      "fixed_status": "Hidden",
+      "display_order": "47",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000374",
+      "param_code": "ReconciliationBeforeDayend",
+      "description": "Reconciliation to be done before Day Close",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_017_1_0004",
+      "source_file": "SH9_017_EE_1_03.S9Q",
+      "category": "22. Till Management",
+      "category_description": "This GivesTill Related Parameters",
+      "fixed_status": "Variable",
+      "display_order": "5",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": null,
+      "param_code": "TillPrnType",
+      "description": "Till Printing Type",
+      "default_boolean": null,
+      "default_int": "50",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": null,
+      "source_script": "S9Q_016_6_0012",
+      "source_file": "SH9_016_EE_6_12.S9Q",
+      "category": "22. Till Management",
+      "category_description": "Select Printing Type",
+      "fixed_status": "Variable",
+      "display_order": "1",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": null,
+      "param_code": "ExcisePrintingType",
+      "description": "Excise Printing Type",
+      "default_boolean": null,
+      "default_int": "50",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": null,
+      "source_script": "S9Q_017_6_0003",
+      "source_file": "SH9_017_EE_6_01.S9Q",
+      "category": "23. Excise",
+      "category_description": "Select Printing Type",
+      "fixed_status": "Variable",
+      "display_order": "1",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR7-0901-0000402",
+      "param_code": "AllowClubDuplicateItemsInCartonGrid",
+      "description": "Allow Club Duplicated Items in Packing Slip",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "N",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Hidden",
+      "display_order": "2",
+      "ui_caption": "Allow Club Duplicate Items In Grid",
+      "ui_hints": "You can configure Allow Club Duplicate Items In Grid",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Packing Slip",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "1,2,3",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0901-0000405",
+      "param_code": "AllowExcessQtyinCarton",
+      "description": "Allow excess quantity in Packing Slip",
+      "default_boolean": null,
+      "default_int": "1",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "5",
+      "ui_caption": "Allow Excess Quantity in Packing Slip",
+      "ui_hints": "You can configure Allow excess quantity in Packing Slip",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Type of Option",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "0,1,2",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0901-0000395",
+      "param_code": "AutoGenerateCartonandPackingSlipNo",
+      "description": "Auto generate Packing and Pallet Slip number",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Y#Y",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "1",
+      "ui_caption": "Auto generate Packing and Pallet Slip number",
+      "ui_hints": "You can configure to generate Packing and Pallet slip number",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Packing Slip",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Pallet Slip",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0901-0000408",
+      "param_code": "CartonFldPrinted1",
+      "description": "Fields to be Printed in Packing Slip1",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Y,01,01,04,02,SNo#N,02,01,02,Stock No#N,03,01,02,Item Description#N,04,01,16,02,C1Cd#N,05,01,16,02,C2Desc#N,06,01,16,02,C2Cd#N,07,01,16,02,C2Desc",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "8",
+      "ui_caption": "Fields to be printed in Packing Slip1",
+      "ui_hints": "You can configure Fields to be printed in Packing Slip1",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Print",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Position",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "Starting Pos",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "Width",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "5",
+          "field_type": "Caption Taken",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "6",
+          "field_type": "Caption",
+          "control_type": "T",
+          "control_val": "TXT",
+          "min_val": "",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0901-0000409",
+      "param_code": "CartonFldPrinted2",
+      "description": "Fields to be Printed in Packing Slip2",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Y,08,01,16,02,SC1Cd#N,09,01,16,02,SC1Desc#N,10,01,16,02,SC2Cd#N,11,01,16,02,SC2Desc#Y,12,01,16,02,SZCd#N,13,01,16,02,A1Cd#N,14,01,16,02,A1Desc#N,15,01,16,02,A2Cd",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "9",
+      "ui_caption": "Fields to be printed in PAcking Slip2-2 of 4",
+      "ui_hints": "You can configure Fields to be printed in Packing Slip2-2 0f 4",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Print",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Position",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "Starting Pos",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "Width",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "5",
+          "field_type": "Caption Taken",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "6",
+          "field_type": "Caption",
+          "control_type": "T",
+          "control_val": "TXT",
+          "min_val": "",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0901-0000410",
+      "param_code": "CartonFldPrinted3",
+      "description": "Fields to be Printed in Packing Slip3",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "N,16,01,16,02,A2Desc#N,17,01,16,02,A3Cd#N,18,01,16,02,A3Desc#N,19,01,16,02,A4Cd#N,20,01,16,02,A4Desc#N,21,01,16,02,A5Cd#N,22,01,16,02,A5Desc#Y,23,01,08,02,Qty",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "10",
+      "ui_caption": "Fields to be printed in Packing Slip3-3 of 4",
+      "ui_hints": "You can configure Fields to be printed in Packing Slip3-3 0f 4",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Print",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "Y,N",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Position",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "Starting Pos",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "Width",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "5",
+          "field_type": "Caption Taken",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "00,01,02",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "6",
+          "field_type": "Caption",
+          "control_type": "T",
+          "control_val": "TXT",
+          "min_val": "",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0901-0000407",
+      "param_code": "CartonPrintingType",
+      "description": "Packing Slip Printing Type",
+      "default_boolean": null,
+      "default_int": "50",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "7",
+      "ui_caption": "Packing Slip Printing Type",
+      "ui_hints": "You can configure Packing Slip Printing Type",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Printing Type",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "1,50",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0901-0000404",
+      "param_code": "EnablePackSlipManagement",
+      "description": "Enable Pallet Slip Management",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "4",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR7-0901-0000403",
+      "param_code": "ListCartonWithOutPartyDtls",
+      "description": "List packing Slip without party details",
+      "default_boolean": "1",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "3",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR7-0901-0000406",
+      "param_code": "ValidateStockItemsAgainstSOandDA",
+      "description": "Validate Stock Items Against Sales Order/Dispatch Advice",
+      "default_boolean": "1",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_018_2_0001",
+      "source_file": "SH9_018_EE_2_01.S9Q",
+      "category": "24. Packing",
+      "category_description": "This Gives Packing Parameters",
+      "fixed_status": "Variable",
+      "display_order": "6",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000431",
+      "param_code": "EnableReceivable",
+      "description": "Enable Credit Sale Management",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_019_1_0020",
+      "source_file": "SH9_019_EE_1_10.S9Q",
+      "category": "25. Credit Management",
+      "category_description": "This Gives Receivable Management",
+      "fixed_status": "Variable",
+      "display_order": "1",
+      "ui_caption": "Enable Receivable in Credit Sale Management",
+      "ui_hints": "You can configure Enable Receivable in Credit Sale Management",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Enable Receivable in Credit Sale Management",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR1-0901-0000438",
+      "param_code": "EnableRecvopbal",
+      "description": "Enable Opening Balance Setting",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_019_1_0020",
+      "source_file": "SH9_019_EE_1_10.S9Q",
+      "category": "25. Credit Management",
+      "category_description": "This Gives Receivable Management",
+      "fixed_status": "Variable",
+      "display_order": "5",
+      "ui_caption": "Opening Balance settings in Credit Sale Management",
+      "ui_hints": "You can configure opening balance settings in Credit Sale Management",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Opening Balance settings in Credit Sale Management",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "0,1,2",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR1-0901-0000444",
+      "param_code": "ReceivablePrintingType",
+      "description": "Printing Type",
+      "default_boolean": null,
+      "default_int": "50",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_019_1_0020",
+      "source_file": "SH9_019_EE_1_10.S9Q",
+      "category": "25. Credit Management",
+      "category_description": "Receivable Printing Option",
+      "fixed_status": "Variable",
+      "display_order": "7",
+      "ui_caption": "Payment Collection Printing Type",
+      "ui_hints": "You can fonfigure Payment Collection Printing Type",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Payment Collection Printing Type",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "50",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR1-0901-0000436",
+      "param_code": "recvaccptpaymodeconfig",
+      "description": "Acceptable paymode configuration",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_019_1_0020",
+      "source_file": "SH9_019_EE_1_10.S9Q",
+      "category": "25. Credit Management",
+      "category_description": "This Gives Receivable Management",
+      "fixed_status": "Variable",
+      "display_order": "4",
+      "ui_caption": "Allowed Payment Mode in Receivable",
+      "ui_hints": "You can configure the paymodes accepted in Receivable using this parameter",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Cash",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Credit Card",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "Debit Card",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "Discount Card",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "5",
+          "field_type": "Gift Coupon",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "6",
+          "field_type": "Cheque",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "7",
+          "field_type": "Advance Receipts",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "8",
+          "field_type": "Credit Note",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "9",
+          "field_type": "Reward Point",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "10",
+          "field_type": "On-Account",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR1-0901-0000435",
+      "param_code": "recvcustomerdtlsdispconfig",
+      "description": "Customer details display configuration",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_019_1_0020",
+      "source_file": "SH9_019_EE_1_10.S9Q",
+      "category": "25. Credit Management",
+      "category_description": "This Gives Receivable Management",
+      "fixed_status": "Variable",
+      "display_order": "3",
+      "ui_caption": "Receivable Customer details display",
+      "ui_hints": "You can configure List of customer details display in Receivable",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Address",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "ADDR^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Town",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "TWN^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "Postalcode",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "PCD^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "State",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "ST^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "5",
+          "field_type": "Country",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CN^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "6",
+          "field_type": "Locality",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "LO^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "7",
+          "field_type": "Office Phone",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "OPH^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "8",
+          "field_type": "Mobile Phone",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "MPH^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "9",
+          "field_type": "Fax No",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "FNO^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "10",
+          "field_type": "Email id1",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "EM1^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "11",
+          "field_type": "Email id2",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "EM2^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "13",
+          "field_type": "Email id3",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "EM3^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "14",
+          "field_type": "Credit Days",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CDAY^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "15",
+          "field_type": "Credit Limit",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CLIM^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "16",
+          "field_type": "Price Group",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "PRGRP^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "17",
+          "field_type": "Customer Classifcication 1",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC1^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "18",
+          "field_type": "Customer Classifcication 2",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC2^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "19",
+          "field_type": "Customer Classifcication 3",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC3^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "20",
+          "field_type": "Customer Classifcication 4",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC4^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "21",
+          "field_type": "Customer Classifcication 5",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CC5^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "21",
+          "field_type": "Customer Profession 1",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP1^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "22",
+          "field_type": "Customer Profession 2",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP2^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "23",
+          "field_type": "Customer Profession 3",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP3^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "24",
+          "field_type": "Customer Profession 4",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP4^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "25",
+          "field_type": "Customer Profession 5",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "CP5^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "26",
+          "field_type": "Gender",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "GEN^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "27",
+          "field_type": "Date of Birth",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "DOB^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "28",
+          "field_type": "Marital Status",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "MS^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "29",
+          "field_type": "Date of Wedding",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "DOW^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "30",
+          "field_type": "Loyalty Program ID",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "LPID^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "31",
+          "field_type": "Loyalty Program Code",
+          "control_type": "COMMAND",
+          "control_val": "CMD",
+          "min_val": "LPCD^1",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "1",
+          "field_type": "Field Name",
+          "control_type": "T",
+          "control_val": "TXT",
+          "min_val": "",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Enable",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "0,1",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR1-0901-0000432",
+      "param_code": "recvfiltercreditdays",
+      "description": "No of days in Filter specification",
+      "default_boolean": null,
+      "default_int": "10",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_019_1_0020",
+      "source_file": "SH9_019_EE_1_10.S9Q",
+      "category": "25. Credit Management",
+      "category_description": "This Gives Receivable Management",
+      "fixed_status": "Variable",
+      "display_order": "2",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000439",
+      "param_code": "recvminvalperc",
+      "description": "Configure Minimum Percentage on Actual Amount",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "S",
+      "source_script": "S9Q_019_1_0020",
+      "source_file": "SH9_019_EE_1_10.S9Q",
+      "category": "25. Credit Management",
+      "category_description": "This Gives Receivable Management minimum value percentage",
+      "fixed_status": "Variable",
+      "display_order": "6",
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000333",
+      "param_code": "AllowApplropriationofFreeItemValue",
+      "description": "Allow Appropriation of free Item value in Offers",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_015_1_0054",
+      "source_file": "SH9_015_EE_1_01.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000334",
+      "param_code": "AllowMultipleCustomersSalesRtn",
+      "description": "Allow Multiple Customers in Sales Return",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_015_1_0054",
+      "source_file": "SH9_015_EE_1_01.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000338",
+      "param_code": "AllowTolFactForStockCheck",
+      "description": "Allow Tolerence Factor Based Stock Check",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "0",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_015_1_0054",
+      "source_file": "SH9_015_EE_1_01.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000315",
+      "param_code": "ExpTrnSlipPrintingType",
+      "description": "Expected Transaction-Slip Printing Type",
+      "default_boolean": null,
+      "default_int": "1",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_013_1_0035",
+      "source_file": "SH9_013_EE_1_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "Print type for Slips Printing",
+      "ui_hints": "You can configure Print type for Slips",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Print Type",
+          "control_type": "I",
+          "control_val": "CMB",
+          "min_val": "1,50",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR7-0913-0000313",
+      "param_code": "PayModesConsideredUnderCashSales",
+      "description": "Pay Modes Considered under Cash Sales",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": "0",
+      "default_currency": "0",
+      "data_type": "T",
+      "source_script": "S9Q_013_1_0008",
+      "source_file": "SH9_013_EE_1_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": null,
+      "param_code": "PostCorrectedVouchers",
+      "description": "Post Corrected Vouchers to Tally",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": null,
+      "source_script": "S9Q_017_4_0004",
+      "source_file": "SH9_017_EE_4_04.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000339",
+      "param_code": "ResoncodesForAdvanceRcpt",
+      "description": "List Of Reason Code for Advance Receipt",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "ADV-RCPT",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_015_1_0054",
+      "source_file": "SH9_015_EE_1_01.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000303",
+      "param_code": "SR1-0901-0000303",
+      "description": "Apply Bill Level Discount first",
+      "default_boolean": null,
+      "default_int": "0",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR1-0901-0000312",
+      "param_code": "SR1-0901-0000312",
+      "description": "Allow rate Alteration in service billing",
+      "default_boolean": null,
+      "default_int": "1",
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_013_0_0020",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR3-0901-0000299",
+      "param_code": "SR3-0901-0000299",
+      "description": "Purchase Order or Indent is mandatory in Goods Inwards",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Y#Y",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "Purchase Order or Indent is mandatory in Goods Inwards",
+      "ui_hints": "Configuring parameter for Mandatory in Goods Inwards for Purchase order or Indent",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Purchase",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "Y,N,C",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Transfer In",
+          "control_type": "T",
+          "control_val": "CMB",
+          "min_val": "Y,N,C",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    },
+    {
+      "id": "SR3-0901-0000366",
+      "param_code": "SR3-0901-0000366",
+      "description": "The Net Value is rounded off to the nearest whole number",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": "0",
+      "data_type": "C",
+      "source_script": "S9Q_017_2_0005",
+      "source_file": "SH9_017_EE_2_05.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR3-0901-0000447",
+      "param_code": "SR3-0901-0000447",
+      "description": "Import Goods Outwards Into Goods Inwards",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_0191_2_0002",
+      "source_file": "SH9_0191_EE_2_02.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR5-0901-0000298",
+      "param_code": "SR5-0901-0000298",
+      "description": "Path to move file after processing",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": ".Processed",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR5-0901-0000300",
+      "param_code": "SR5-0901-0000300",
+      "description": "Display Net Avaliable Quantity in Item Browse for Billing",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_013_0_0048",
+      "source_file": "SH9_013_EE_0_11.S9Q",
+      "category": "General System Parameters",
+      "category_description": null,
+      "fixed_status": "Hidden",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR5-0901-0000302",
+      "param_code": "SR5-0901-0000302",
+      "description": "Post Cost Center information to tally",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR5-0901-0000310",
+      "param_code": "SR5-0901-0000310",
+      "description": "Created detailed log file in tally mapping",
+      "default_boolean": "0",
+      "default_int": null,
+      "default_text": null,
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "B",
+      "source_script": "S9Q_013_0_0024",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR6-0901-0000304",
+      "param_code": "SR6-0901-0000304",
+      "description": "Caption for Address1",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Address1",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR6-0901-0000305",
+      "param_code": "SR6-0901-0000305",
+      "description": "Caption for Address2",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Address2",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR6-0901-0000306",
+      "param_code": "SR6-0901-0000306",
+      "description": "Caption for Address3",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Address3",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR6-0901-0000307",
+      "param_code": "SR6-0901-0000307",
+      "description": "Caption for Address4",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Address4",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR6-0901-0000308",
+      "param_code": "SR6-0901-0000308",
+      "description": "Caption for Address5",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Address5",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR6-0901-0000309",
+      "param_code": "SR6-0901-0000309",
+      "description": "Caption for Default Address",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "Default Address",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_013_0_0022",
+      "source_file": "SH9_013_EE_0_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR9-0920-9000001",
+      "param_code": "SR9-0920-9000001",
+      "description": "Multiple Prices Applicable",
+      "default_boolean": "",
+      "default_int": "0",
+      "default_text": "0",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "I",
+      "source_script": "S9Q_0200_9_0004",
+      "source_file": "SH9_020_EE_9_03.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "",
+      "ui_hints": "",
+      "ui_controls": []
+    },
+    {
+      "id": "SR3-0901-0000457",
+      "param_code": "WhetherMultipleAddonDednApplicable",
+      "description": "Multiple Add-on and Deduction Applicable",
+      "default_boolean": null,
+      "default_int": null,
+      "default_text": "NNNN",
+      "default_date": null,
+      "default_float": null,
+      "default_currency": null,
+      "data_type": "T",
+      "source_script": "S9Q_020_2_0001",
+      "source_file": "SH9_020_EE_2_01.S9Q",
+      "category": "General System Parameters",
+      "category_description": "",
+      "fixed_status": "Variable",
+      "display_order": null,
+      "ui_caption": "Multiple Add-on and Deduction Applicable",
+      "ui_hints": "You can configure the options using this parameter",
+      "ui_controls": [
+        {
+          "segment_caption": "1",
+          "field_type": "Purchase",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "2",
+          "field_type": "Transfer In",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "3",
+          "field_type": "Approval Return",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        },
+        {
+          "segment_caption": "4",
+          "field_type": "Miscellaneous Receipt",
+          "control_type": "B",
+          "control_val": "CMB",
+          "min_val": "N,Y",
+          "max_val": "",
+          "tooltip": ""
+        }
+      ]
+    }
+  ],
+  "lookups": {
+    "Y": [
+      {
+        "code": "VER9_REL1",
+        "description": "Version 9 Release 1.0",
+        "number": "0"
+      },
+      {
+        "code": "VER9_REL1.4",
+        "description": "Version 9 Release 1.4",
+        "number": "0"
+      },
+      {
+        "code": "VER9_REL1.2",
+        "description": "Version 9 Release 1.2",
+        "number": "0"
+      },
+      {
+        "code": "VER9_REL1.3",
+        "description": "Version 9 Release 1.3",
+        "number": "0"
+      },
+      {
+        "code": "VER9_REL1.5",
+        "description": "Version 9 Release 1.5",
+        "number": "0"
+      },
+      {
+        "code": "VER9_REL1.5",
+        "description": "Version 9 Release 1.5",
+        "number": "0"
+      },
+      {
+        "code": "VER9_REL1.7",
+        "description": "Version 9 Release 1.7",
+        "number": "0"
+      },
+      {
+        "code": "VER9_REL1.8",
+        "description": "Version 9 Release 1.8",
+        "number": "0"
+      },
+      {
+        "code": "VER9_REL2.0",
+        "description": "Version 9 Release 2.0",
+        "number": "0"
+      }
+    ],
+    "N": [
+      {
+        "code": "15500",
+        "description": "Type of Address",
+        "number": "0"
+      },
+      {
+        "code": "21100",
+        "description": "Reasons for Purchase",
+        "number": null
+      },
+      {
+        "code": "21200",
+        "description": "Reasons for Transfer In",
+        "number": null
+      },
+      {
+        "code": "21400",
+        "description": "Reasons for Approval Return",
+        "number": null
+      },
+      {
+        "code": "22200",
+        "description": "Reasons for Transfer Out",
+        "number": null
+      },
+      {
+        "code": "22300",
+        "description": "Reasons for Purchase Return",
+        "number": null
+      },
+      {
+        "code": "22400",
+        "description": "Reasons for Approval Issue",
+        "number": null
+      },
+      {
+        "code": "1",
+        "description": "Line",
+        "number": null
+      },
+      {
+        "code": "2",
+        "description": "Bar",
+        "number": null
+      },
+      {
+        "code": "3",
+        "description": "Column",
+        "number": null
+      },
+      {
+        "code": "4",
+        "description": "Pie",
+        "number": null
+      },
+      {
+        "code": "5",
+        "description": "StackedColumn",
+        "number": null
+      }
+    ],
+    "GENERAL": [
+      {
+        "code": "1",
+        "description": "Address Type",
+        "number": null
+      },
+      {
+        "code": "2",
+        "description": "Address Type",
+        "number": null
+      },
+      {
+        "code": "1+01",
+        "description": "PrintGIR.GoodsAudit",
+        "number": null
+      },
+      {
+        "code": "1+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "1+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": "1+01",
+        "description": "SR516800.PrnCashPayRcpt",
+        "number": null
+      },
+      {
+        "code": "1+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "1+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "1+04",
+        "description": "Y#CashRecipt CashPayout Printing",
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": "1+01",
+        "description": "SR516800.PrnCashPayRcpt",
+        "number": null
+      },
+      {
+        "code": "1+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "1+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "1+04",
+        "description": "Y#CashReciptPayout Printing-35Col",
+        "number": null
+      },
+      {
+        "code": "2+01",
+        "description": "SR516800.PrnCashPayRcpt",
+        "number": null
+      },
+      {
+        "code": "2+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "2+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "2+04",
+        "description": "Y#CashReciptPayout Printing-40Col SingleSpread",
+        "number": null
+      },
+      {
+        "code": "3+01",
+        "description": "SR516800.PrnCashPayRcpt",
+        "number": null
+      },
+      {
+        "code": "3+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "3+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "3+04",
+        "description": "Y#CashReciptPayout Printing-40Col DoubleSpread",
+        "number": null
+      },
+      {
+        "code": "4+01",
+        "description": "SR516800.PrnCashPayRcpt",
+        "number": null
+      },
+      {
+        "code": "4+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "4+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "4+04",
+        "description": "Y#CashReciptPayout Printing-80Col",
+        "number": null
+      },
+      {
+        "code": "5+01",
+        "description": "SR516800.PrnCashPayRcpt",
+        "number": null
+      },
+      {
+        "code": "5+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "5+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "5+04",
+        "description": "Y#CashReciptPayout Printing-GUI",
+        "number": null
+      },
+      {
+        "code": "6+01",
+        "description": "SR516800.PrnCashPayRcpt",
+        "number": null
+      },
+      {
+        "code": "6+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "6+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "6+04",
+        "description": "Y#CashReciptPayout Printing-40ColPOS",
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": "50+01",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "50+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "50+04",
+        "description": "Y#PrintEngine-Payin",
+        "number": null
+      },
+      {
+        "code": "50+01",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "50+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "50+04",
+        "description": "Y#PrintEngine-CashRcptPayout",
+        "number": null
+      },
+      {
+        "code": "50+01",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "50+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "50+04",
+        "description": "Y#PrintEngine-Slips",
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": "TillCtrl",
+        "description": "SR539000.ClsStartup",
+        "number": null
+      },
+      {
+        "code": "ShiftCd",
+        "description": "YYYYMMDD-NODEID-NN",
+        "number": null
+      },
+      {
+        "code": "1",
+        "description": "Limit Reached",
+        "number": null
+      },
+      {
+        "code": "2",
+        "description": "Counter Close",
+        "number": null
+      },
+      {
+        "code": "3",
+        "description": "Internal Transfer",
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": "50+01",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "50+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "50+04",
+        "description": "Y#PrintEngine-Payin",
+        "number": null
+      },
+      {
+        "code": "50+01",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "50+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "50+04",
+        "description": "Y#PrintEngine-CashRcptPayout",
+        "number": null
+      },
+      {
+        "code": "50+01",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "50+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "50+04",
+        "description": "Y#PrintEngine-Slips",
+        "number": null
+      },
+      {
+        "code": "50",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": "0"
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": "18100",
+        "description": "Tolerance Factor for Stock check",
+        "number": null
+      },
+      {
+        "code": "18200",
+        "description": "Applying the Current balance Quanity instead of LSQ",
+        "number": null
+      },
+      {
+        "code": "50",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": "ReceivableCtrl",
+        "description": "SR542600.clsstartup",
+        "number": null
+      },
+      {
+        "code": "50",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": "CHART0",
+        "description": "None",
+        "number": "1"
+      },
+      {
+        "code": "TZip",
+        "description": "*2PT#?3ccc0103#?3sss0103#?2mm0102#?2dd0102#*4.ZIP",
+        "number": null
+      },
+      {
+        "code": "TZip",
+        "description": "*2PT#?3ccc0103#?3sss0103#?2mm0102#?2dd0102#*4.ZIP",
+        "number": null
+      },
+      {
+        "code": "6300",
+        "description": "IncentiveDef",
+        "number": "0"
+      },
+      {
+        "code": "6300",
+        "description": "IncentiveDef",
+        "number": "0"
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": "50+01",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "50+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "50+04",
+        "description": "Y#PrintEngine-Payin",
+        "number": null
+      },
+      {
+        "code": "50+01",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "50+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "50+04",
+        "description": "Y#PrintEngine-CashRcptPayout",
+        "number": null
+      },
+      {
+        "code": "50+01",
+        "description": "SR535300.ClsPrintingInterface",
+        "number": null
+      },
+      {
+        "code": "50+02",
+        "description": "99",
+        "number": null
+      },
+      {
+        "code": "50+03",
+        "description": "N",
+        "number": null
+      },
+      {
+        "code": "50+04",
+        "description": "Y#PrintEngine-Slips",
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      },
+      {
+        "code": null,
+        "description": null,
+        "number": null
+      }
+    ],
+    "0": [
+      {
+        "code": "MAILNO",
+        "description": "Mailing List Serial Number",
+        "number": "5000000"
+      }
+    ],
+    "1": [
+      {
+        "code": "SR413400+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR413400+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR130000+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "ASTIMPORT+PROGRAMEND+1",
+        "description": "SR539500.clsItemReClassApply",
+        "number": null
+      },
+      {
+        "code": "ITEMRECLASSPOS+POS+1",
+        "description": "SR539500.clsItemReClassApply",
+        "number": null
+      },
+      {
+        "code": "IRCRUNINMENU+POS+1",
+        "description": "SR539500.clsItemReClassApply",
+        "number": null
+      },
+      {
+        "code": "RUNINDAYBEGIN+POS+1",
+        "description": "SR539500.clsItemReClassApply",
+        "number": null
+      },
+      {
+        "code": "SR406500+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR730000+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR436900+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR537800+PRICEREVISIONUPDATED+1",
+        "description": "AlertInterface.ClsPRUpdate",
+        "number": null
+      },
+      {
+        "code": "SE301400+PROMOIMPORT+1",
+        "description": "AlertInterface.ImportAlerts",
+        "number": null
+      },
+      {
+        "code": "SR330700+PRICEREVISIONIMPORT+1",
+        "description": "AlertInterface.ImportAlerts",
+        "number": null
+      },
+      {
+        "code": "SR406500+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR730000+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR436900+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR311900+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR309000+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SE900310+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR320800+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "SR432000+PROGRAMSTART+1",
+        "description": "shprfw03.ClsUserAuthorise",
+        "number": null
+      },
+      {
+        "code": "8100",
+        "description": "Packing Slip",
+        "number": "1"
+      },
+      {
+        "code": "8200",
+        "description": "Pallet Slip",
+        "number": "1"
+      },
+      {
+        "code": "8100",
+        "description": "Packing Slip",
+        "number": "1"
+      },
+      {
+        "code": "8200",
+        "description": "Pallet Slip",
+        "number": "1"
+      },
+      {
+        "code": "1100+01+SR127000+1",
+        "description": "1#SR544500.clsPrintBarcodeLbls",
+        "number": null
+      },
+      {
+        "code": "1100+02+SR127000+1",
+        "description": "1#SR544500.clsPrintBarcodeLbls",
+        "number": null
+      },
+      {
+        "code": "SR127000+FormLoadCompleted+1",
+        "description": "SR544600.ClsSelfHealingInward",
+        "number": null
+      },
+      {
+        "code": "SR144100+FormLoadCompleted+1",
+        "description": "SR544600.ClsSelfHealingInward",
+        "number": null
+      },
+      {
+        "code": "SR526500+PostInternalZipComponents+1",
+        "description": "SR543100.ClsZipComponent",
+        "number": null
+      },
+      {
+        "code": "SR526500+PostInternalSISComponents+1",
+        "description": "SR543100.ClsSISComponent",
+        "number": null
+      },
+      {
+        "code": "SR127000+InternalToCaptureAddonDedn+1",
+        "description": "SR543600.ClsAddonDedn",
+        "number": null
+      },
+      {
+        "code": "SR526500+PostInternalZipComponents+1",
+        "description": "SR543100.ClsZipComponent",
+        "number": null
+      },
+      {
+        "code": "SR526500+PostInternalSISComponents+1",
+        "description": "SR543100.ClsSISComponent",
+        "number": null
+      },
+      {
+        "code": "SR127000+InternalToCaptureAddonDedn+1",
+        "description": "SR543600.ClsAddonDedn",
+        "number": null
+      },
+      {
+        "code": "1",
+        "description": "Season",
+        "number": "0"
+      },
+      {
+        "code": "2",
+        "description": "Week",
+        "number": "0"
+      },
+      {
+        "code": "3",
+        "description": "Month",
+        "number": "0"
+      },
+      {
+        "code": "4",
+        "description": "Date",
+        "number": "0"
+      },
+      {
+        "code": "5",
+        "description": "Year",
+        "number": "0"
+      }
+    ],
+    "GenerateGraphPOS": [
+      {
+        "code": "CHART1",
+        "description": "Last 7 Days Sales",
+        "number": "2"
+      },
+      {
+        "code": "CHART2",
+        "description": "Last 15 Days Sales",
+        "number": "3"
+      },
+      {
+        "code": "CHART3",
+        "description": "Last Month Sales",
+        "number": "4"
+      },
+      {
+        "code": "CHART4",
+        "description": "This Month Sales",
+        "number": "5"
+      },
+      {
+        "code": "CHART5",
+        "description": "Current Financial Year Sales",
+        "number": "6"
+      },
+      {
+        "code": "CHART6",
+        "description": "Last Financial Year Sales",
+        "number": "7"
+      },
+      {
+        "code": "CHART7",
+        "description": "Current Quarter",
+        "number": "8"
+      },
+      {
+        "code": "CHART8",
+        "description": "Last Quarter",
+        "number": "9"
+      },
+      {
+        "code": "CHART9",
+        "description": "Quarter Wise Comparision",
+        "number": "10"
+      },
+      {
+        "code": "CHART11",
+        "description": "Top 10 <<Class1Cd>>s",
+        "number": "12"
+      },
+      {
+        "code": "CHART12",
+        "description": "Top 10 <<Class2Cd>>s",
+        "number": "13"
+      },
+      {
+        "code": "CHART13",
+        "description": "Top 10 <<SubClass1Cd>>s",
+        "number": "14"
+      },
+      {
+        "code": "CHART14",
+        "description": "10 Least Selling <<Class1Cd>>s",
+        "number": "15"
+      },
+      {
+        "code": "CHART15",
+        "description": "10 Least Selling <<Class2Cd>>s",
+        "number": "16"
+      },
+      {
+        "code": "CHART16",
+        "description": "10 Least Selling <<SubClass1Cd>>s",
+        "number": "17"
+      },
+      {
+        "code": "CHART17",
+        "description": "Sales Person wise Comparison",
+        "number": "18"
+      },
+      {
+        "code": "CHART18",
+        "description": "Payment Mode wise Comparison",
+        "number": "19"
+      },
+      {
+        "code": "CHART19",
+        "description": "Transaction Wise Comparison",
+        "number": "20"
+      }
+    ]
+  }
+}

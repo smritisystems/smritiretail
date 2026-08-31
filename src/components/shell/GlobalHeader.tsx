@@ -11,6 +11,9 @@
  */
 
 import React, { useState } from 'react';
+import { useActiveField } from '../../context/ActiveFieldContext.tsx';
+import { useDrillDown } from '../drilldown/drilldown_store.tsx';
+import { CompanySelector } from '../layout/CompanySelector.tsx';
 
 interface GlobalHeaderProps {
   activeModuleTitle: string;
@@ -45,6 +48,8 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   userName = 'Jawahar Mallah',
   storeName = 'Main Store (Branch 01)',
 }) => {
+  const { category: activeCategory, fieldLabel } = useActiveField();
+  const { setSearchOpen } = useDrillDown();
   const [searchQuery, setSearchQuery] = useState('');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -99,6 +104,17 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
           >
             <span className="material-symbols-outlined text-[18px]">home</span>
           </button>
+          {onSelectModule && (
+            <button
+              type="button"
+              onClick={() => onSelectModule('dashboard')}
+              title="Open Advanced Business Dashboard"
+              aria-label="Open Advanced Business Dashboard"
+              className="p-1.5 hover:bg-[#3f51b5] rounded-md transition-colors text-indigo-100 hover:text-white"
+            >
+              <span className="material-symbols-outlined text-[18px]">account_circle</span>
+            </button>
+          )}
           {canNavigateBack && onNavigateBack && (
             <button
               type="button"
@@ -119,33 +135,33 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
         </div>
       </div>
 
-      {/* Center Omni-Search Bar */}
+      {/* Center Omni-Search Bar with Active Field Context Badge */}
       <div className="flex-1 max-w-md mx-4 relative hidden sm:block">
-        <div className="relative flex items-center">
-          <span className="material-symbols-outlined absolute left-2.5 text-indigo-300 text-[18px]">
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="w-full bg-[#3f51b5]/60 hover:bg-[#3f51b5] text-white text-xs rounded-md pl-8 pr-16 py-1.5 border border-indigo-400/30 hover:border-white transition-all flex items-center justify-between text-left group"
+        >
+          <span className="material-symbols-outlined absolute left-2.5 text-indigo-300 group-hover:text-white text-[18px]">
             search
           </span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Omni-Search (Item, Barcode, PO, Invoice, Customer)..."
-            className="w-full bg-[#3f51b5]/60 text-white placeholder-indigo-200 text-xs rounded-md pl-8 pr-8 py-1.5 border border-indigo-400/30 focus:outline-none focus:bg-[#3f51b5] focus:border-white transition-all"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 text-indigo-200 hover:text-white"
-            >
-              <span className="material-symbols-outlined text-[16px]">close</span>
-            </button>
-          )}
-        </div>
+          <span className="truncate text-indigo-100 group-hover:text-white">
+            {activeCategory === "product" ? `Search Products / Barcode (${fieldLabel})...` :
+             activeCategory === "customer" ? `Search Customers / Mobile (${fieldLabel})...` :
+             activeCategory === "supplier" ? `Search Suppliers (${fieldLabel})...` :
+             activeCategory === "invoice" ? `Search Invoices (${fieldLabel})...` :
+             "Omni-Search (Item, Barcode, PO, Invoice, Customer)..."}
+          </span>
+          <span className="text-[10px] font-mono bg-white/10 px-1.5 py-0.5 rounded border border-white/20 text-indigo-200">
+            Ctrl+K
+          </span>
+        </button>
       </div>
 
       {/* Right Controls (Focus Mode, Notifications, User Menu) */}
       <div className="flex items-center gap-1.5">
+        <CompanySelector />
+
         {/* Focus Mode Toggle */}
         <button
           type="button"
@@ -256,6 +272,16 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                   className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px] text-[#3d425f]">account_circle</span> My Profile Dashboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onSelectModule) onSelectModule('menu-manager');
+                    setIsUserMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#1e40af]">compass_calibration</span> Menu Navigation Studio
                 </button>
                 <button
                   type="button"

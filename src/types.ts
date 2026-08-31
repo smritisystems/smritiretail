@@ -189,39 +189,152 @@ export interface Bill {
 
 export interface SalesItemLine {
   productId: string;
+  product_id?: string;
   code: string;
   name: string;
   color?: string;
   size?: string;
   quantity: number;
   price: number;
-  taxRate: number; // e.g. 18 for 18% GST
+  taxRate?: number; // e.g. 18 for 18% GST
+  gstRate?: number;
+  gst_rate?: number;
   taxAmount: number;
+  tax_amount?: number;
   totalAmount: number;
+  total_amount?: number;
+
+  // Extended PO Line Item Identifiers
+  srNo?: number;
+  sr_no?: number;
+  articleNo?: string;
+  article_no?: string;
+  ean?: string;
+  barcode?: string;
+  vendorStyle?: string;
+  vendor_style?: string;
+  uom?: string;
+  mrp?: number;
+  baseCost?: number;
+  base_cost?: number;
+  taxableValue?: number;
+  taxable_value?: number;
+  igstAmount?: number;
+  igst_amount?: number;
+  cgstAmount?: number;
+  cgst_amount?: number;
+  sgstAmount?: number;
+  sgst_amount?: number;
+  lineTotal?: number;
+  line_total?: number;
+  deliveryDate?: string;
+  delivery_date?: string;
+  siteCode?: string;
+  site_code?: string;
 }
 
 export interface Quotation {
   id: string;
   quotationNo: string;
+  quotation_no?: string;
   date: string;
   customerName: string;
+  customer_name?: string;
   items: SalesItemLine[];
   taxTotal: number;
+  tax_total?: number;
   grandTotal: number;
+  grand_total?: number;
   status: "Draft" | "Submitted" | "Approved" | "Rejected" | "Cancelled" | "Converted";
   salesOrderId?: string;
+  sales_order_id?: string;
+}
+
+export interface SalesOrderInvoiceAllocation {
+  id: string;
+  orderId: string;
+  order_id?: string;
+  orderNo: string;
+  order_no?: string;
+  poNumber: string;
+  po_number?: string;
+  invoiceId: string;
+  invoice_id?: string;
+  invoiceNo: string;
+  invoice_no?: string;
+  invoiceDate: string;
+  invoice_date?: string;
+  poQuantity: number;
+  po_quantity?: number;
+  poValue: number;
+  po_value?: number;
+  billedQuantity: number;
+  billed_quantity?: number;
+  billedValue: number;
+  billed_value?: number;
+  pendingQuantity: number;
+  pending_quantity?: number;
+  pendingValue: number;
+  pending_value?: number;
+  status: string;
+  allocationMetadata?: Record<string, any>;
+  allocation_metadata?: Record<string, any>;
 }
 
 export interface SalesOrder {
   id: string;
   orderNo: string;
+  order_no?: string;
   date: string;
   customerName: string;
+  customer_name?: string;
   items: SalesItemLine[];
   taxTotal: number;
+  tax_total?: number;
   grandTotal: number;
-  status: "Draft" | "Submitted" | "Approved" | "Rejected" | "Confirmed" | "Shipped" | "Cancelled";
+  grand_total?: number;
+  status: "Draft" | "Submitted" | "Approved" | "Rejected" | "Confirmed" | "Shipped" | "Cancelled" | string;
   sourceQuotationId?: string;
+  source_quotation_id?: string;
+
+  // Extended PO & Execution Metadata
+  poNumber?: string;
+  po_number?: string;
+  poDate?: string;
+  po_date?: string;
+  deliveryDate?: string;
+  delivery_date?: string;
+  siteCode?: string;
+  site_code?: string;
+  siteName?: string;
+  site_name?: string;
+  deliveryAddress?: string;
+  delivery_address?: string;
+  vendorCode?: string;
+  vendor_code?: string;
+  customerId?: string;
+  customer_id?: string;
+  customerGstin?: string;
+  customer_gstin?: string;
+  basicTotal?: number;
+  basic_total?: number;
+  isInterstate?: boolean;
+  is_interstate?: boolean;
+  totalQty?: number;
+  total_qty?: number;
+  billedQty?: number;
+  billed_qty?: number;
+  billedValue?: number;
+  billed_value?: number;
+  pendingQty?: number;
+  pending_qty?: number;
+  pendingValue?: number;
+  pending_value?: number;
+  fulfillmentStatus?: string;
+  fulfillment_status?: string;
+  poMetadata?: Record<string, any>;
+  po_metadata?: Record<string, any>;
+  allocations?: SalesOrderInvoiceAllocation[];
 }
 
 export interface PrintTemplate {
@@ -399,7 +512,7 @@ export interface AuditLogEntry {
 // Customer & Customer Group — Policy Inheritance Model
 // CustomerGroup defines defaults; Customer inherits and may selectively override.
 // A field left `undefined` on a Customer means "inherit from its CustomerGroup".
-// Use resolveCustomerPolicy() (src/services/customerPolicyEngine.ts) to merge them
+// Use resolveCustomerPolicy() (src/services/custPolicyEngine.ts) to merge them
 // into the shape actually used at billing/checkout time.
 // ============================================================================
 
@@ -619,6 +732,8 @@ export interface SalesInvoice {
   id: string;
   invoiceNo: string;
   date: string;
+  createdAt?: string;
+  modifiedAt?: string;
   customerId: string; // link to Customer (e.g. Reliance, Shoppers Stop, Lifestyle)
   items: SalesInvoiceItemLine[];
   taxTotal: number;
@@ -813,5 +928,24 @@ export interface GoodsReceipt {
     quantityReceived: number;
   }[];
 }
+
+export interface CustomerPriceGroup {
+  id: string;
+  code: string;
+  description: string;
+  paymentTerms: string;
+  creditDays: number;
+  destTaxType: "Local" | "Interstate" | "Export" | "SEZ (With Tax)" | "SEZ (Without Tax)" | "Exempt" | string;
+  creditLimit: number;
+  itemClassificationPriceFactorApplicable: boolean;
+  allowCreditInvoice: boolean;
+  allowCashInvoice: boolean;
+  taxExclusiveInvoice: boolean;
+  allowMiscIssue: boolean;
+  status?: "Active" | "Inactive";
+  createdAt?: string;
+  modifiedAt?: string;
+}
+
 
 

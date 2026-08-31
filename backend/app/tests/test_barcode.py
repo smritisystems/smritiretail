@@ -16,7 +16,8 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context
+from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context, get_current_user
+from app.db.session import get_db as session_get_db
 from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
@@ -35,6 +36,7 @@ async def override_db_and_tenant(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[session_get_db] = _get_db
     app.dependency_overrides[get_company_db] = _get_db
     try:
         yield
@@ -44,24 +46,27 @@ async def override_db_and_tenant(db_session):
         except Exception:
             pass
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(session_get_db, None)
         app.dependency_overrides.pop(get_company_db, None)
         app.dependency_overrides.pop(get_tenant_context, None)
 
 
 
 async def _make_tenant(db_session, suffix):
-    comp = Company(id=f"comp-bar-{suffix}", name=f"Bar Co {suffix}",
+    s = f"{suffix}_{uuid.uuid4().hex[:6]}"
+    comp = Company(id=f"comp-bar-{s}", name=f"Bar Co {s}",
                    gst_number="27ABCDE1234F1Z5", is_active=True)
-    br   = Branch(id=f"br-bar-{suffix}", company_id=comp.id,
-                   name=f"Bar Br {suffix}", code=f"BRBAR-{suffix}", is_active=True)
+    br   = Branch(id=f"br-bar-{s}", company_id=comp.id,
+                   name=f"Bar Br {s}", code=f"BRBAR-{s}", is_active=True)
     db_session.add_all([comp, br])
     await db_session.commit()
     return comp, br
 
 
 async def _make_user(db_session, suffix, comp_id, br_id, role=UserRole.MANAGER):
+    s = f"{suffix}_{uuid.uuid4().hex[:6]}"
     user = User(
-        id=f"usr-bar-{suffix}", username=f"usr_bar_{suffix}",
+        id=f"usr-bar-{s}", username=f"usr_bar_{s}",
         hashed_password=hash_password("Test@1234"),
         role=role, is_active=True, is_deleted=False,
         company_id=comp_id, branch_id=br_id,
@@ -80,10 +85,14 @@ def _bearer(user: User, comp_id: str, br_id: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _set_tenant(db_session, comp_id, br_id):
+def _set_tenant(db_session, comp_id, br_id, user=None):
     async def _gt():
         return TenantContext(company_id=comp_id, branch_id=br_id)
     app.dependency_overrides[get_tenant_context] = _gt
+    if user:
+        async def _gu():
+            return user
+        app.dependency_overrides[get_current_user] = _gu
 
 
 @pytest.mark.asyncio
@@ -91,7 +100,7 @@ async def test_get_and_save_printer_settings(db_session):
     comp, br = await _make_tenant(db_session, "s1")
     manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Default settings
@@ -119,11 +128,12 @@ async def test_print_labels_recording_history(db_session):
     comp, br = await _make_tenant(db_session, "s2")
     manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     # Seed layout
+    lay_id = f"lay-test-print-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
-        id="lay-test-print",
+        id=lay_id,
         name="Test Print Layout",
         width_mm=50,
         height_mm=25,
@@ -139,9 +149,8 @@ async def test_print_labels_recording_history(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Trigger print labels
-        # Printer is offline so we expect 400 with a detailed connection refusal error, but logs must be captured!
         payload = {
-            "layoutId": "lay-test-print",
+            "layoutId": lay_id,
             "items": [
                 {
                     "code": "SKU-001",
@@ -176,15 +185,16 @@ async def test_print_labels_dynamic_placeholder_replacement(db_session):
     comp, br = await _make_tenant(db_session, "s3")
     manager = await _make_user(db_session, "mgr3", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     # Seed layout with custom PRN template containing dynamic placeholders
     layout_data = {
         "elements": [],
         "prn_template": "^XA^FD{name}^FS^FD{custom_fabric}^FS^FD{custom_color}^FS^XZ"
     }
+    lay_id = f"lay-test-dynamic-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
-        id="lay-test-dynamic",
+        id=lay_id,
         name="Dynamic Print Layout",
         width_mm=50,
         height_mm=25,
@@ -200,7 +210,7 @@ async def test_print_labels_dynamic_placeholder_replacement(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         payload = {
-            "layoutId": "lay-test-dynamic",
+            "layoutId": lay_id,
             "items": [
                 {
                     "code": "SKU-002",
@@ -242,10 +252,11 @@ async def test_print_labels_qz_tray_mode(db_session):
     comp, br = await _make_tenant(db_session, "qz1")
     manager = await _make_user(db_session, "mgr_qz", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
+    lay_id = f"lay-qz-test-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
-        id="lay-qz-test",
+        id=lay_id,
         name="QZ Test Layout",
         width_mm=50,
         height_mm=25,
@@ -261,7 +272,7 @@ async def test_print_labels_qz_tray_mode(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         payload = {
-            "layoutId": "lay-qz-test",
+            "layoutId": lay_id,
             "dispatch_mode": "qz_tray",
             "items": [
                 {
@@ -300,10 +311,11 @@ async def test_print_labels_prn_mode(db_session):
     comp, br = await _make_tenant(db_session, "prn1")
     manager = await _make_user(db_session, "mgr_prn", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
+    lay_id = f"lay-prn-test-{uuid.uuid4().hex[:6]}"
     layout = BarcodeLayout(
-        id="lay-prn-test",
+        id=lay_id,
         name="PRN Test Layout",
         width_mm=50,
         height_mm=25,
@@ -319,7 +331,7 @@ async def test_print_labels_prn_mode(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         payload = {
-            "layoutId": "lay-prn-test",
+            "layoutId": lay_id,
             "saveAsPrn": True,
             "items": [
                 {
@@ -346,7 +358,7 @@ async def test_print_job_ack_endpoint_success_and_failure(db_session):
     comp, br = await _make_tenant(db_session, "ack1")
     manager = await _make_user(db_session, "mgr_ack", comp.id, br.id, role=UserRole.MANAGER)
     headers = _bearer(manager, comp.id, br.id)
-    _set_tenant(db_session, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id, manager)
 
     # Seed a Pending PrintHistory entry
     job_id = f"prn-test-ack-{uuid.uuid4().hex[:6]}"
@@ -394,5 +406,26 @@ async def test_print_job_ack_endpoint_success_and_failure(db_session):
         res_fail = await client.post(f"/api/v1/barcode/print-jobs/{job_id}/ack", json=fail_ack, headers=headers)
         assert res_fail.status_code == 200
         assert res_fail.json()["status"] == "Failed"
+
+
+async def test_qz_certificate_and_signing_endpoints(db_session):
+    """Verify GET /qz/certificate and POST /qz/sign generate valid X.509 cert and SHA512 signatures."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Fetch certificate
+        res_cert = await client.get("/api/v1/barcode/qz/certificate")
+        assert res_cert.status_code == 200
+        assert "-----BEGIN CERTIFICATE-----" in res_cert.text
+        assert "-----END CERTIFICATE-----" in res_cert.text
+
+        # 2. Sign request via GET query param
+        res_sign_get = await client.get("/api/v1/barcode/qz/sign?request=test-to-sign-12345")
+        assert res_sign_get.status_code == 200
+        assert len(res_sign_get.text.strip()) > 30
+
+        # 3. Sign request via POST JSON body
+        res_sign_post = await client.post("/api/v1/barcode/qz/sign", json={"request": "test-to-sign-67890"})
+        assert res_sign_post.status_code == 200
+        assert len(res_sign_post.text.strip()) > 30
+
 
 

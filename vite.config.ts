@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.16.0
+ * * Version    : 3.17.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-13
+ * * Modified   : 2026-08-26
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -27,9 +27,11 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-const pythonCoreTarget = process.env.PYTHON_CORE_HOST && !process.env.PYTHON_CORE_HOST.includes("python-core")
-  ? `http://${process.env.PYTHON_CORE_HOST}`
-  : "http://127.0.0.1:8000";
+const pythonCoreTarget = process.env.PYTHON_CORE_HOST
+  ? (process.env.PYTHON_CORE_HOST.startsWith("http")
+      ? process.env.PYTHON_CORE_HOST
+      : `http://${process.env.PYTHON_CORE_HOST}`)
+  : (process.env.BACKEND_API_URL || "http://127.0.0.1:8000");
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -58,6 +60,7 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -65,7 +68,7 @@ export default defineConfig({
             if (id.includes("recharts") || id.includes("d3")) {
               return "vendor-charts";
             }
-            if (id.includes("lucide-react")) {
+            if (id.includes("lucide-react") || id.includes("@material-symbols")) {
               return "vendor-icons";
             }
             if (id.includes("motion")) {
@@ -76,27 +79,20 @@ export default defineConfig({
             }
             return "vendor-core";
           }
-          if (id.includes("SalesStudioTab")) {
-            return "smriti-sales-studio";
+
+          if (id.includes("/src/components/")) {
+            if (id.includes("SalesStudioTab")) return "smriti-sales-studio";
+            if (id.includes("PurchaseStudioTab")) return "smriti-purchase-studio";
+            if (id.includes("ReportDesignerTab")) return "smriti-report-designer";
+            if (id.includes("TermsEngineTab")) return "smriti-terms-engine";
+            if (id.includes("BarcodeStudioTab")) return "smriti-barcode-studio";
+            if (id.includes("PrintPreviewModal")) return "smriti-print-preview";
+            if (id.includes("DashboardTab")) return "smriti-dashboard";
           }
-          if (id.includes("PurchaseStudioTab")) {
-            return "smriti-purchase-studio";
-          }
-          if (id.includes("ReportDesignerTab")) {
-            return "smriti-report-designer";
-          }
-          if (id.includes("TermsEngineTab")) {
-            return "smriti-terms-engine";
-          }
-          if (id.includes("BarcodeStudioTab")) {
-            return "smriti-barcode-studio";
-          }
-          if (id.includes("PrintPreviewModal")) {
-            return "smriti-print-preview";
-          }
-          if (id.includes("DashboardTab")) {
-            return "smriti-dashboard";
-          }
+
+          if (id.includes("/src/lib/")) return "app-lib";
+          if (id.includes("/src/services/")) return "app-services";
+          if (id.includes("/src/contexts/")) return "app-contexts";
         }
       }
     }

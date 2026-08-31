@@ -19,7 +19,7 @@ def test_supplier_database_schema_and_crud():
     Test Blocker #1 Supplier Master Creation against PostgreSQL database.
     Verifies that supplier record can be inserted and fetched cleanly.
     """
-    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smritisys")
+    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
     cur = conn.cursor()
 
     # Check suppliers table existence
@@ -34,9 +34,9 @@ def test_supplier_database_schema_and_crud():
     cur.execute("DELETE FROM suppliers WHERE code = %s OR id = %s;", (test_code, test_code))
     
     cur.execute("""
-        INSERT INTO suppliers (id, uuid, tenant_id, code, name, gst_number, mobile, email, city, state, is_active)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, true);
-    """, (test_code, "test-supplier-uuid-12345", "smritibus_default", test_code, "Test Audit Supplier Pvt Ltd", "27AABCT1234F1Z5", "+91 9820098200", "audit@testsupplier.com", "Mumbai", "Maharashtra"))
+        INSERT INTO suppliers (id, uuid, company_id, branch_id, code, name, gst_number, mobile, email, city, state, outstanding, is_active, is_deleted)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0.00, true, false);
+    """, (test_code, "test-supplier-uuid-12345", "COMP-001", "MAIN", test_code, "Test Audit Supplier Pvt Ltd", "27AABCT1234F1Z5", "+91 9820098200", "audit@testsupplier.com", "Mumbai", "Maharashtra"))
     conn.commit()
 
     # Query back inserted supplier

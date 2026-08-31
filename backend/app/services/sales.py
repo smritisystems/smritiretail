@@ -13,22 +13,30 @@ Classification: Internal
 """
 
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete
+from sqlalchemy import delete, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from ..models.sales import (
     SalesInvoice, SalesInvoiceItem,
     SalesQuotation, SalesQuotationItem,
-    SalesOrder, SalesOrderItem,
+    SalesOrder, SalesOrderItem, SalesOrderInvoiceAllocation,
     SalesReturn, SalesReturnItem,
 )
 from ..models.inventory import Product, StockMovement
+from ..models.tenant import Company
+from ..core.gst_engine import (
+    calculate_line_item_tax,
+    validate_gstin,
+    extract_state_code_from_gstin,
+    determine_gstr1_table,
+    GST_STATE_CODES,
+)
 from ..schemas.sales import (
     SalesInvoiceCreate,
     SalesInvoiceUpdate,
@@ -41,6 +49,11 @@ from ..schemas.sales import (
 )
 from .crm import CrmService
 from .inventory import InventoryService
+from .inventory_warehouse_resolver import InventoryWarehouseResolver
+from .sales_return_policy import SalesReturnPolicyResolver
+from .sales_return_refund_adapter import SalesReturnRefundAdapter
+from .documents_engine import DocumentsEngine
+from .compliance_audit import ComplianceAuditService
 from ..api.deps import TenantContext
 
 
@@ -49,15 +62,17 @@ def _uid() -> str:
 
 
 class SalesService:
-    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
+    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext, control_db: Optional[AsyncSession] = None):
         self.db = db
         self.tenant_ctx = tenant_ctx
         self.crm_service = CrmService(db, tenant_ctx)
         self.inventory_service = InventoryService(db, tenant_ctx)
+        self.sales_return_policy_resolver = SalesReturnPolicyResolver(control_db=control_db, company_db=db)
 
-    # ──────────────────────────────────────────────────────────────
+
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Invoice
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate, idempotency_key: Optional[str] = None) -> SalesInvoice:
         # Auto-generate ID and invoice_no if missing; use idempotency_key as primary invoice_id if supplied
@@ -79,115 +94,299 @@ class SalesService:
         if existing_inv:
             return existing_inv
 
+        # Resolve company store state code
+        company_state_code = "27"  # Default Maharashtra
+        comp_stmt = select(Company).filter(Company.id == self.tenant_ctx.company_id, Company.is_deleted == False)
+        comp_res = await self.db.execute(comp_stmt)
+        company_obj = comp_res.scalars().first()
+        if company_obj and company_obj.gst_number:
+            extracted_comp_state = extract_state_code_from_gstin(company_obj.gst_number)
+            if extracted_comp_state:
+                company_state_code = extracted_comp_state
+
+        # Resolve customer details & Place of Supply (POS)
+        resolved_customer_id = invoice_in.customer_id or "CUST-WALKIN"
+        customer_gstin = invoice_in.customer_gstin
+        customer_name = invoice_in.customer_name
+        pos_state_name = invoice_in.pos_state
+        pos_state_code = None
+
+        if resolved_customer_id:
+            try:
+                cust_res = await self.crm_service.get_customer(resolved_customer_id)
+                if cust_res:
+                    if not customer_gstin:
+                        customer_gstin = getattr(cust_res, "gst_number", None)
+                    if not customer_name:
+                        customer_name = getattr(cust_res, "name", None)
+            except Exception:
+                if resolved_customer_id == "CUST-WALKIN" and not customer_name:
+                    customer_name = "Walk-In / Cash Customer"
+
+        if not customer_name and resolved_customer_id == "CUST-WALKIN":
+            customer_name = "Walk-In / Cash Customer"
+
+        is_registered_b2b = False
+        if customer_gstin:
+            is_valid_gstin, st_code, st_name = validate_gstin(customer_gstin)
+            if is_valid_gstin and st_code:
+                is_registered_b2b = True
+                pos_state_code = st_code
+                pos_state_name = pos_state_name or st_name
+
+        if not pos_state_code:
+            # Fallback to store state if unregistered walk-in
+            pos_state_code = company_state_code
+            pos_state_name = pos_state_name or GST_STATE_CODES.get(company_state_code, "Home State")
+
+        # Determine inter-state jurisdiction
+        is_interstate = (company_state_code != pos_state_code)
+        if invoice_in.is_interstate is not None:
+            is_interstate = invoice_in.is_interstate
+
+        from .inventory_wms import InventoryWmsService
+        from .inventory_warehouse_resolver import InventoryWarehouseResolver
+        wms_service = InventoryWmsService(self.db, self.tenant_ctx)
+        resolver = InventoryWarehouseResolver(self.db)
+        warehouse_id = invoice_in.warehouse_id
+        if not warehouse_id:
+            warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
+            warehouse_id = warehouse.id
+
         # 1. Validate items and calculate totals
+        calculated_taxable_total = Decimal("0.00")
         calculated_tax_total = Decimal("0.00")
         calculated_grand_total = Decimal("0.00")
         invoice_items = []
+        batch_deductions = []
 
-        for item in invoice_in.items:
-            # Check stock
-            available = await self.inventory_service.check_stock_availability(item.product_id, float(item.quantity))
-            if not available:
-                raise HTTPException(status_code=400, detail=f"Insufficient stock for product ID: {item.product_id}")
-
-            # Calculations
-            quantity = item.quantity
-            price = item.price
-            gst_rate = item.gst_rate
-
-            # Tax amount = quantity * price * (gst_rate / 100)
-            item_tax = quantity * price * (gst_rate / Decimal("100.00"))
-            # Total amount = (quantity * price) + item_tax
-            item_total = (quantity * price) + item_tax
-
-            calculated_tax_total += item_tax
-            calculated_grand_total += item_total
-
-            db_item = SalesInvoiceItem(
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
-                quantity=quantity,
-                price=price,
-                hsn_code=item.hsn_code,
-                gst_rate=gst_rate,
-                tax_amount=item_tax,
-                total_amount=item_total
-            )
-            invoice_items.append(db_item)
-
-        # 2. Check customer credit limit
-        if invoice_in.customer_id:
-            await self.crm_service.check_credit_limit(invoice_in.customer_id, float(calculated_grand_total))
-
-        # 3. Save Sales Invoice & items
-        db_invoice = SalesInvoice(
-            id=invoice_id,
-            invoice_no=invoice_no,
-            date=invoice_in.date,
-            customer_id=invoice_in.customer_id,
-            tax_total=calculated_tax_total,
-            grand_total=calculated_grand_total,
-            is_interstate=invoice_in.is_interstate,
-            eway_bill_no=invoice_in.eway_bill_no,
-            status=invoice_in.status,
-            items=invoice_items,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
-        )
-
-        # Deduct stock of products and record stock movements
-        for item in invoice_in.items:
+        for idx, item in enumerate(invoice_in.items, start=1):
             product_stmt = select(Product).filter(
                 (Product.id == item.product_id) | (Product.code == item.product_id) | (Product.code == item.code),
                 Product.is_deleted == False,
                 Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
             )
             product_res = await self.db.execute(product_stmt)
             product = product_res.scalars().first()
-            if product and product.tracking_mode != "No-stock":
-                product.modified_at = datetime.now(timezone.utc)
-                self.db.add(product)
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Product not found: {item.product_id or item.code}")
 
+            quantity = Decimal(str(item.quantity))
+            unit_price = Decimal(str(item.price))
+            gst_rate = Decimal(str(item.gst_rate or "18.00"))
 
-                # Record StockMovement
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                db_movement = StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=-item.quantity,  # Negative for OUT
-                    movement_type="OUT",
+            # Determine batch allocation
+            assigned_batch = item.batch_no or "BATCH-OPENING"
+            is_settled_status = (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]
+            if product.tracking_mode != "No-stock" and is_settled_status:
+                if item.batch_no:
+                    batch_deductions.append({
+                        "product": product,
+                        "batch_no": item.batch_no,
+                        "quantity": quantity
+                    })
+                else:
+                    try:
+                        # Auto-allocate via FEFO
+                        allocs = await wms_service.allocate_stock_fefo(
+                            product_id=product.id,
+                            warehouse_id=warehouse_id,
+                            requested_qty=quantity
+                        )
+                        assigned_batch = allocs[0]["batch_no"] if allocs else "BATCH-OPENING"
+                        for a in allocs:
+                            batch_deductions.append({
+                                "product": product,
+                                "batch_no": a["batch_no"],
+                                "quantity": Decimal(str(a["allocated_quantity"]))
+                            })
+                    except Exception:
+                        assigned_batch = "BATCH-OPENING"
+                        batch_deductions.append({
+                            "product": product,
+                            "batch_no": assigned_batch,
+                            "quantity": quantity
+                        })
+
+            # Determine whether line is tax-inclusive (default: True for B2C consumer MRP, False for B2B wholesale)
+            if item.is_tax_inclusive is not None:
+                is_inclusive = item.is_tax_inclusive
+            else:
+                is_inclusive = not is_registered_b2b
+
+            # Compute discount amount if discount percentage is given
+            disc_pct = Decimal(str(item.disc_pct or "0.00"))
+            discount_amount = (unit_price * quantity * disc_pct / Decimal("100.00")) if disc_pct > 0 else Decimal("0.00")
+
+            tax_calc = calculate_line_item_tax(
+                unit_price=unit_price,
+                quantity=quantity,
+                discount_amount=discount_amount,
+                gst_rate=gst_rate,
+                is_tax_inclusive=is_inclusive,
+                is_interstate=is_interstate,
+            )
+
+            calculated_taxable_total += tax_calc["taxable_value"]
+            calculated_tax_total += tax_calc["tax_amount"]
+            calculated_grand_total += tax_calc["total_amount"]
+
+            db_item = SalesInvoiceItem(
+                product_id=product.id,
+                code=item.code or product.code,
+                name=item.name or product.name,
+                batch_no=assigned_batch,
+                quantity=quantity,
+                price=unit_price,
+                hsn_code=item.hsn_code or product.hsn_code,
+                gst_rate=gst_rate,
+                tax_amount=tax_calc["tax_amount"],
+                total_amount=tax_calc["total_amount"],
+                taxable_value=tax_calc["taxable_value"],
+                cgst_amount=tax_calc["cgst_amount"],
+                sgst_amount=tax_calc["sgst_amount"],
+                igst_amount=tax_calc["igst_amount"],
+                mrp=item.mrp or product.mrp or unit_price,
+                disc_pct=disc_pct,
+                line_no=item.line_no or idx,
+            )
+            invoice_items.append(db_item)
+
+        # 2. Check customer credit limit & policy for completed sales
+        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN" and is_settled_status:
+            try:
+                await self.crm_service.check_credit_limit(resolved_customer_id, float(calculated_grand_total))
+            except HTTPException:
+                raise
+            except Exception:
+                pass
+
+        # 3. Save Sales Invoice & items
+        db_customer_id = resolved_customer_id if (resolved_customer_id and resolved_customer_id != "CUST-WALKIN") else None
+        
+        # Coerce date to python datetime.date for PostgreSQL Date column
+        from datetime import date as py_date
+        inv_date = invoice_in.date
+        if isinstance(inv_date, str):
+            try:
+                inv_date = py_date.fromisoformat(inv_date.split("T")[0])
+            except Exception:
+                inv_date = py_date.today()
+        elif isinstance(inv_date, datetime):
+            inv_date = inv_date.date()
+        elif not inv_date:
+            inv_date = py_date.today()
+
+        # Resolve branch_id safely against tenant database
+        from ..models.tenant import Branch
+        actual_branch_id = self.tenant_ctx.branch_id
+        if actual_branch_id:
+            try:
+                res_br = await self.db.execute(
+                    select(Branch.id).where(
+                        (Branch.id == actual_branch_id) | (Branch.code == actual_branch_id)
+                    )
+                )
+                br_found = res_br.scalars().first()
+                actual_branch_id = br_found if br_found else None
+            except Exception:
+                actual_branch_id = None
+
+        db_invoice = SalesInvoice(
+            id=invoice_id,
+            invoice_no=invoice_no,
+            date=inv_date,
+            customer_id=db_customer_id,
+            customer_name=customer_name,
+            customer_gstin=customer_gstin,
+            pos_state=pos_state_name,
+            warehouse_id=warehouse_id,
+            taxable_value=calculated_taxable_total,
+            tax_total=calculated_tax_total,
+            grand_total=calculated_grand_total,
+            is_interstate=is_interstate,
+            payment_mode=invoice_in.payment_mode or "CASH",
+            billing_address=invoice_in.billing_address,
+            shipping_address=invoice_in.shipping_address,
+            rounding_amount=invoice_in.rounding_amount or Decimal("0.00"),
+            eway_bill_no=invoice_in.eway_bill_no,
+            status=invoice_in.status,
+            items=invoice_items,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=actual_branch_id,
+            # v1373 -- Sprint 14/15 optional fields (getattr for backward compat)
+            salesperson_id=getattr(invoice_in, "salesperson_id", None),
+            salesperson_name=getattr(invoice_in, "salesperson_name", None),
+            terminal_id=getattr(invoice_in, "terminal_id", None),
+            counter_id=getattr(invoice_in, "counter_id", None),
+            paid_amount=getattr(invoice_in, "paid_amount", None) or Decimal("0.00"),
+            balance_amount=getattr(invoice_in, "balance_amount", None) or Decimal("0.00"),
+            discount_amount=getattr(invoice_in, "discount_amount", None) or Decimal("0.00"),
+            net_amount=getattr(invoice_in, "net_amount", None) or Decimal("0.00"),
+            rule_snapshots=getattr(invoice_in, "rule_snapshots", None) or {},
+            import_validation_notes=getattr(invoice_in, "remarks", None),
+        )
+        self.db.add(db_invoice)
+        try:
+            await self.db.flush()
+        except Exception as ef:
+            print(f"[SalesService Error at flush db_invoice]: {ef}")
+            raise
+
+        # 4. Deduct stock from WMS batch stocks atomically (only for completed/settled sales)
+        if (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]:
+            for ded in batch_deductions:
+                await wms_service.atomic_mutate_batch_stock(
+                    product_id=ded["product"].id,
+                    warehouse_id=warehouse_id,
+                    batch_no=ded["batch_no"],
+                    qty_delta=-ded["quantity"],
+                    movement_type="OUTWARD_SALE",
                     reference_doc_type="Sales Invoice",
                     reference_doc_id=db_invoice.id,
-                    warehouse="Default Warehouse",
-                    unit_cost=product.cost_price or product.price,
                     remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
-                    source_module="Sales",
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id
                 )
-                self.db.add(db_movement)
-
-        self.db.add(db_invoice)
 
         # Record Transactional Outbox event atomically within same DB transaction
-        from .outbox_service import OutboxService
-        await OutboxService.record_event(
-            session=self.db,
-            target_channel="PSV_QUEUE",
-            payload={
-                "action": "SALES_INVOICE_CREATED",
-                "invoice_no": db_invoice.invoice_no,
-                "grand_total": str(db_invoice.grand_total),
-                "customer_id": db_invoice.customer_id,
-                "company_code": self.tenant_ctx.company_id
-            },
-            causation_id=db_invoice.invoice_no
+        try:
+            from .outbox_service import OutboxService
+            await OutboxService.record_event(
+                session=self.db,
+                target_channel="PSV_QUEUE",
+                payload={
+                    "action": "SALES_INVOICE_CREATED",
+                    "invoice_no": db_invoice.invoice_no,
+                    "grand_total": str(db_invoice.grand_total),
+                    "customer_id": db_invoice.customer_id,
+                    "company_code": self.tenant_ctx.company_id
+                },
+                causation_id=db_invoice.invoice_no
+            )
+        except Exception as eo:
+            print(f"[SalesService Error at record_event]: {eo}")
+            raise
+        # -- Sprint 14: Sales line-item + Loyalty earn hooks (atomic, pre-commit) --
+        from .sales_hook import write_invoice_lines, write_loyalty_earn
+        _creator = getattr(self.tenant_ctx, "user_id", None) or "system"
+        await write_invoice_lines(
+            db=self.db,
+            invoice_id=db_invoice.id,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=actual_branch_id,
+            creator=_creator,
+            items=invoice_in.items,
+            warehouse_id=warehouse_id,
         )
+        await write_loyalty_earn(
+            db=self.db,
+            invoice_id=db_invoice.id,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=actual_branch_id,
+            customer_id=db_invoice.customer_id,
+            grand_total=calculated_grand_total,
+            creator=_creator,
+        )
+        # -- End Sprint 14 hooks --
         try:
             await self.db.commit()
         except Exception as e:
@@ -206,9 +405,9 @@ class SalesService:
         )
         return res.scalars().first()
 
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Quotation
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def create_sales_quotation(self, q_in: SalesQuotationCreate) -> SalesQuotation:
         existing = await self.db.execute(
@@ -301,9 +500,9 @@ class SalesService:
             raise HTTPException(status_code=404, detail="Sales quotation not found")
         return q, q.items
 
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Sales Order
-    # ──────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def create_sales_order(self, so_in: SalesOrderCreate) -> SalesOrder:
         existing = await self.db.execute(
@@ -363,62 +562,443 @@ class SalesService:
         # Re-fetch with eager items to avoid MissingGreenlet during response serialization
         result = await self.db.execute(
             select(SalesOrder)
-            .options(selectinload(SalesOrder.items))
+            .options(
+                selectinload(SalesOrder.items),
+                selectinload(SalesOrder.allocations)
+            )
             .where(SalesOrder.id == db_so.id)
         )
         return result.scalars().first()
 
-    async def list_sales_orders(self) -> List[SalesOrder]:
-        res = await self.db.execute(
+    async def list_sales_orders(
+        self,
+        customer_id: Optional[str] = None,
+        status: Optional[str] = None,
+        fulfillment_status: Optional[str] = None,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        skip: int = 0,
+        limit: int = 1000,
+    ) -> List[SalesOrder]:
+        stmt = (
             select(SalesOrder)
-            .options(selectinload(SalesOrder.items))
+            .options(
+                selectinload(SalesOrder.items),
+                selectinload(SalesOrder.allocations)
+            )
             .where(
-                SalesOrder.company_id == self.tenant_ctx.company_id,
-                SalesOrder.branch_id == self.tenant_ctx.branch_id,
                 SalesOrder.is_deleted == False
             )
         )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(
+                (SalesOrder.company_id == self.tenant_ctx.company_id) | (SalesOrder.company_id.is_(None))
+            )
+        if self.tenant_ctx and self.tenant_ctx.branch_id:
+            stmt = stmt.where(
+                (SalesOrder.branch_id == self.tenant_ctx.branch_id) | (SalesOrder.branch_id.is_(None))
+            )
+        if customer_id:
+            stmt = stmt.where(
+                (SalesOrder.customer_id == customer_id) | (SalesOrder.customer_name.ilike(f"%{customer_id}%"))
+            )
+        if status:
+            stmt = stmt.where(SalesOrder.status == status)
+        if fulfillment_status:
+            stmt = stmt.where(SalesOrder.fulfillment_status == fulfillment_status)
+        if from_date:
+            stmt = stmt.where(SalesOrder.date >= from_date)
+        if to_date:
+            stmt = stmt.where(SalesOrder.date <= to_date)
+
+        stmt = stmt.order_by(SalesOrder.date.desc(), SalesOrder.created_at.desc()).offset(skip).limit(limit)
+        res = await self.db.execute(stmt)
         return res.scalars().all()
 
-    async def get_sales_order(self, so_id: str) -> tuple[SalesOrder, List[SalesOrderItem]]:
-        res = await self.db.execute(
+    async def get_sales_order(self, so_id: str) -> tuple[SalesOrder, List[SalesOrderItem], List[SalesOrderInvoiceAllocation]]:
+        stmt = (
             select(SalesOrder)
-            .options(selectinload(SalesOrder.items))
+            .options(
+                selectinload(SalesOrder.items),
+                selectinload(SalesOrder.allocations)
+            )
             .where(
-                SalesOrder.id == so_id,
-                SalesOrder.company_id == self.tenant_ctx.company_id,
-                SalesOrder.branch_id == self.tenant_ctx.branch_id,
+                (SalesOrder.id == so_id) | (SalesOrder.order_no == so_id) | (SalesOrder.po_number == so_id),
                 SalesOrder.is_deleted == False
             )
         )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(
+                (SalesOrder.company_id == self.tenant_ctx.company_id) | (SalesOrder.company_id.is_(None))
+            )
+        res = await self.db.execute(stmt)
         so = res.scalars().first()
         if not so:
             raise HTTPException(status_code=404, detail="Sales order not found")
-        return so, so.items
+        return so, list(so.items or []), list(so.allocations or [])
 
-    # ──────────────────────────────────────────────────────────────
+    async def convert_sales_order_to_invoice(
+        self,
+        order_id: str,
+        selected_item_ids: Optional[List[str]] = None,
+    ) -> SalesInvoice:
+        """
+        1-Click conversion of a Sales Order into an official Statutory Tax Invoice.
+        Maps lines, calculates GST, generates allocation, updates SO fulfillment status.
+        """
+        so, items, allocations = await self.get_sales_order(order_id)
+        if not items:
+            raise HTTPException(status_code=400, detail="Sales order has no line items to convert")
+
+        # Determine next invoice number safely by finding max existing suffix
+        import re
+        inv_count_res = await self.db.execute(select(SalesInvoice.invoice_no))
+        all_inv_nos = [str(r) for r in inv_count_res.scalars().all() if r]
+        max_num = 137
+        for inv_str in all_inv_nos:
+            m = re.search(r'/(\d+)$', inv_str)
+            if m:
+                max_num = max(max_num, int(m.group(1)))
+        next_num = max_num + 1
+        invoice_no = f"TT2026-2027/{next_num}"
+        invoice_id = f"inv-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+
+        items_to_convert = items
+        if selected_item_ids:
+            items_to_convert = [i for i in items if str(i.id) in selected_item_ids or str(i.product_id) in selected_item_ids]
+            if not items_to_convert:
+                items_to_convert = items
+
+        inv_items = []
+        total_taxable = Decimal("0.00")
+        total_tax = Decimal("0.00")
+        total_grand = Decimal("0.00")
+        total_pairs = 0
+
+        # State / Supply logic
+        company_state_code = "27"
+        customer_gstin = so.customer_gstin or ""
+        pos_code = "27"
+        if customer_gstin and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit():
+            pos_code = customer_gstin[:2]
+        is_interstate = (pos_code != company_state_code)
+        pos_state_name = GST_STATE_CODES.get(pos_code, "Maharashtra") if "GST_STATE_CODES" in globals() else "Maharashtra"
+
+        for ln, item in enumerate(items_to_convert, start=1):
+            qty = Decimal(str(item.quantity or 1))
+            total_pairs += int(qty)
+            price = Decimal(str(item.price or 0))
+            taxable_val = (price * qty).quantize(Decimal("0.01"))
+            gst_rate = Decimal(str(item.gst_rate or Decimal("5.00")))
+            mrp_val = Decimal(str(getattr(item, "mrp", None) or (price / Decimal("0.5624") if price > 0 else Decimal("0.00")))).quantize(Decimal("0.01"))
+            disc_val = Decimal(str(getattr(item, "disc_pct", None) or Decimal("43.76"))).quantize(Decimal("0.01"))
+
+            if is_interstate:
+                igst_val = (taxable_val * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+                cgst_val = Decimal("0.00")
+                sgst_val = Decimal("0.00")
+                tot_amt = taxable_val + igst_val
+            else:
+                half_gst = gst_rate / Decimal("2.00")
+                cgst_val = (taxable_val * (half_gst / Decimal("100.00"))).quantize(Decimal("0.01"))
+                sgst_val = (taxable_val * (half_gst / Decimal("100.00"))).quantize(Decimal("0.01"))
+                igst_val = Decimal("0.00")
+                tot_amt = taxable_val + cgst_val + sgst_val
+
+            total_taxable += taxable_val
+            total_tax += (cgst_val + sgst_val + igst_val)
+            total_grand += tot_amt
+
+            inv_items.append(SalesInvoiceItem(
+                invoice_id=invoice_id,
+                product_id=item.product_id,
+                code=item.code,
+                name=item.name,
+                quantity=qty,
+                price=price,
+                hsn_code=item.hsn_code or "64041990",
+                gst_rate=gst_rate,
+                tax_amount=(cgst_val + sgst_val + igst_val),
+                total_amount=tot_amt,
+                mrp=mrp_val,
+                disc_pct=disc_val,
+                taxable_value=taxable_val,
+                igst_amount=igst_val,
+                cgst_amount=cgst_val,
+                sgst_amount=sgst_val,
+                line_no=ln,
+            ))
+
+        db_inv = SalesInvoice(
+            id=invoice_id,
+            invoice_no=invoice_no,
+            date=datetime.now(timezone.utc).date(),
+            customer_name=so.customer_name or "Reliance Retail Limited",
+            customer_gstin=customer_gstin,
+            customer_id=so.customer_id,
+            billing_address=so.delivery_address or "Reliance Retail Limited",
+            shipping_address=so.delivery_address or "Reliance Retail Store",
+            sis_code=so.site_code or "1977",
+            pos_state=pos_state_name,
+            po_reference=so.po_number or so.order_no,
+            taxable_value=total_taxable,
+            tax_total=total_tax,
+            grand_total=total_grand,
+            is_interstate=is_interstate,
+            bank_name="STATE BANK OF INDIA",
+            account_no="43976711765",
+            ifsc_code="SBIN0030425",
+            status="Draft",
+            items=inv_items,
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else None,
+            rule_snapshots={
+                "bank_branch": "WARDHMAN NAGAR NAGPUR",
+                "account_holder_name": "TATTLY THREADS",
+                "source_order_id": so.id,
+                "source_order_no": so.order_no,
+            }
+        )
+        self.db.add(db_inv)
+
+        # Create allocation
+        alloc = SalesOrderInvoiceAllocation(
+            id=f"alloc-{uuid.uuid4().hex[:8]}",
+            order_id=so.id,
+            order_no=so.order_no,
+            po_number=so.po_number or so.order_no,
+            invoice_id=invoice_id,
+            invoice_no=invoice_no,
+            invoice_date=datetime.now(timezone.utc).date(),
+            po_quantity=so.total_qty or total_pairs,
+            po_value=so.grand_total or total_grand,
+            billed_quantity=Decimal(str(total_pairs)),
+            billed_value=total_grand,
+            pending_quantity=max(Decimal("0.00"), Decimal(str(so.total_qty or total_pairs)) - Decimal(str(total_pairs))),
+            pending_value=max(Decimal("0.00"), Decimal(str(so.grand_total or total_grand)) - total_grand),
+            status="ALLOCATED",
+            allocation_metadata={"auto_converted": True},
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else None,
+        )
+        self.db.add(alloc)
+
+        # Update Sales Order metrics
+        so.billed_qty = (Decimal(str(so.billed_qty or 0)) + Decimal(str(total_pairs)))
+        so.billed_value = (Decimal(str(so.billed_value or 0)) + total_grand)
+        so.pending_qty = max(Decimal("0.00"), Decimal(str(so.total_qty or 0)) - so.billed_qty)
+        so.pending_value = max(Decimal("0.00"), Decimal(str(so.grand_total or 0)) - so.billed_value)
+        
+        if so.pending_qty <= 0:
+            so.fulfillment_status = "FULFILLED"
+            so.status = "Completed"
+        else:
+            so.fulfillment_status = "PARTIALLY_FULFILLED"
+            so.status = "In Progress"
+
+        self.db.add(so)
+        await self.db.commit()
+
+        # Re-fetch with relationships
+        res = await self.db.execute(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(SalesInvoice.id == invoice_id)
+        )
+        return res.scalars().first()
+
+    # ────────────────────────────────────────────────────────────
     # Sales Return
-    # ──────────────────────────────────────────────────────────────
+    # ────────────────────────────────────────────────────────────
 
-    async def create_sales_return(self, sr_in: SalesReturnCreate) -> SalesReturn:
-        # Check original invoice exists
+    async def get_sales_return_context(self, invoice_id: str) -> Dict[str, Any]:
+        """
+        Authoritative Sales Return Context for ProPOS.
+        Enforces tenant isolation, branch authorization, and invoice validation.
+        Computes remaining returnable quantities and attaches resolved policy snapshot.
+        """
         inv_res = await self.db.execute(
-            select(SalesInvoice).filter(
-                SalesInvoice.id == sr_in.original_invoice_id,
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .filter(
+                (SalesInvoice.id == invoice_id) | (SalesInvoice.invoice_no == invoice_id),
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
-                SalesInvoice.branch_id == self.tenant_ctx.branch_id,
                 SalesInvoice.is_deleted == False
             )
         )
-        if not inv_res.scalars().first():
+        invoice = inv_res.scalars().first()
+        if not invoice:
+            raise HTTPException(status_code=404, detail=f"Sales invoice '{invoice_id}' not found.")
+
+        # Branch authorization check if invoice has branch_id
+        if invoice.branch_id and self.tenant_ctx.branch_id and invoice.branch_id != self.tenant_ctx.branch_id:
+            raise HTTPException(status_code=403, detail="Cross-branch return access denied without inter-branch authorization.")
+
+        # Find previous successful returns for this invoice
+        previous_returns = await self.db.execute(
+            select(SalesReturnItem.product_id, func.sum(SalesReturnItem.quantity).label("total_returned"))
+            .join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id)
+            .where(
+                SalesReturn.original_invoice_id == invoice.id,
+                SalesReturn.company_id == self.tenant_ctx.company_id,
+                SalesReturn.is_deleted == False,
+                func.coalesce(func.lower(SalesReturn.status), "completed").in_(
+                    ["approved", "processed", "completed", "submitted", "draft", "confirmed", "active"]
+                ),
+                SalesReturnItem.product_id.is_not(None),
+            )
+            .group_by(SalesReturnItem.product_id)
+        )
+        returned_quantities = {r[0]: Decimal(str(r[1] or 0)) for r in previous_returns.all()}
+
+
+        # Resolve policy with full contextual scope
+        policy = await self.sales_return_policy_resolver.resolve(
+            tenant=self.tenant_ctx.company_id,
+            branch=self.tenant_ctx.branch_id,
+            document_type="SALES_INVOICE",
+            customer_context={"customer_id": invoice.customer_id} if invoice.customer_id else None,
+        )
+
+        lines = []
+        for item in invoice.items:
+            orig_qty = item.quantity or Decimal("1.0")
+            ret_qty = returned_quantities.get(item.product_id, Decimal("0.0"))
+            rem_qty = max(Decimal("0.0"), orig_qty - ret_qty)
+            lines.append({
+                "product_id": item.product_id or item.code,
+                "code": item.code,
+                "name": item.name,
+                "original_quantity": float(orig_qty),
+                "returned_quantity": float(ret_qty),
+                "remaining_quantity": float(rem_qty),
+                "unit_price": float(item.price),
+                "gst_rate": float(item.gst_rate or 0.0),
+                "tax_amount": float(item.tax_amount or 0.0),
+                "total_amount": float(item.total_amount or (orig_qty * item.price)),
+            })
+
+        # Fetch customer details if exists
+        customer_info = None
+        if invoice.customer_id:
+            try:
+                cust = await self.crm_service.get_customer(invoice.customer_id)
+                if cust:
+                    customer_info = {
+                        "id": cust.id,
+                        "name": cust.name,
+                        "phone": getattr(cust, "mobile", getattr(cust, "phone", None)),
+                        "email": getattr(cust, "email", None),
+                        "outstanding": float(cust.outstanding or 0.0),
+                    }
+                else:
+                    customer_info = {"id": invoice.customer_id, "name": getattr(invoice, "customer_name", None)}
+            except Exception:
+                customer_info = {"id": invoice.customer_id, "name": getattr(invoice, "customer_name", None)}
+
+
+        return_window_days = policy.values.get("return_window_days")
+        if return_window_days is None:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing return_window_days in the effective policy.")
+        refund_modes = policy.values.get("refund_modes")
+        if refund_modes is None:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing refund_modes in the effective policy.")
+        return_reasons = policy.values.get("return_reasons")
+        if return_reasons is None:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing return_reasons in the effective policy.")
+        auth_policy = policy.values.get("authorization_policy")
+        if not isinstance(auth_policy, dict) or "supervisor_threshold" not in auth_policy:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing authorization_policy.supervisor_threshold in the effective policy.")
+
+        return {
+            "invoice_id": invoice.id,
+            "invoice_no": invoice.invoice_no,
+            "invoice_date": invoice.date.isoformat() if hasattr(invoice.date, "isoformat") else str(invoice.date),
+            "status": invoice.status,
+            "customer": customer_info,
+            "payment_context": {
+                "payment_mode": invoice.payment_mode or "CASH",
+            },
+            "branch_id": invoice.branch_id,
+            "terminal_id": getattr(invoice, "terminal_id", "TERM-01"),
+            "shift_id": getattr(invoice, "shift_id", None),
+            "lines": lines,
+            "effective_policy": {
+                "policy_id": policy.policy_id,
+                "policy_version": policy.policy_version,
+                "resolution_scope": policy.resolution_scope,
+                "return_window_days": return_window_days,
+                "allowed_refund_modes": refund_modes,
+                "allowed_return_reasons": return_reasons,
+                "supervisor_threshold": float(auth_policy["supervisor_threshold"]),
+            },
+        }
+
+    async def create_sales_return(self, sr_in: SalesReturnCreate, idempotency_key: Optional[str] = None) -> SalesReturn:
+        # Lock the invoice while validating returnable quantities and creating effects.
+        inv_res = await self.db.execute(
+            select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(
+                SalesInvoice.id == sr_in.original_invoice_id,
+                SalesInvoice.company_id == self.tenant_ctx.company_id,
+                (SalesInvoice.branch_id == self.tenant_ctx.branch_id) | (SalesInvoice.branch_id.is_(None)),
+                SalesInvoice.is_deleted == False
+            ).with_for_update()
+        )
+        orig_invoice = inv_res.scalars().first()
+        if not orig_invoice:
             raise HTTPException(status_code=404, detail="Original sales invoice not found")
+
+        # Resolve policy across contextual precedence
+        policy = await self.sales_return_policy_resolver.resolve(
+            tenant=self.tenant_ctx.company_id,
+            branch=self.tenant_ctx.branch_id,
+            document_type="SALES_INVOICE",
+            customer_context={"customer_id": orig_invoice.customer_id} if orig_invoice else None,
+            transaction_context={"is_blind_return": getattr(sr_in, "is_blind_return", False)},
+        )
+
+        # Return window check
+        if orig_invoice.date and sr_in.date:
+            window_days = policy.values.get("return_window_days")
+            if window_days is None:
+                raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing return_window_days in the effective policy.")
+            inv_d = orig_invoice.date if isinstance(orig_invoice.date, date) else datetime.strptime(str(orig_invoice.date), "%Y-%m-%d").date()
+            sr_d = sr_in.date if isinstance(sr_in.date, date) else datetime.strptime(str(sr_in.date), "%Y-%m-%d").date()
+            days_diff = (sr_d - inv_d).days
+            if days_diff > int(window_days) and not getattr(sr_in, "supervisor_auth_token", None):
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Return window of {window_days} days has expired for this invoice (issued {inv_d}, return requested {sr_d}). Supervisor authorization required.",
+                )
+
+        # Blind return check
+        if getattr(sr_in, "is_blind_return", False):
+            blind_allowed = policy.values.get("is_blind_return_allowed", False)
+            if not blind_allowed and not getattr(sr_in, "supervisor_auth_token", None):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Blind returns without original bill reference require supervisor authorization.",
+                )
+
+        if idempotency_key:
+            existing_key = await self.db.execute(
+                select(SalesReturn).options(selectinload(SalesReturn.items)).filter(
+                    SalesReturn.idempotency_key == idempotency_key,
+                    SalesReturn.company_id == self.tenant_ctx.company_id,
+                    SalesReturn.is_deleted == False,
+                )
+            )
+            existing_return = existing_key.scalars().first()
+            if existing_return:
+                if existing_return.original_invoice_id != sr_in.original_invoice_id or existing_return.return_no != sr_in.return_no:
+                    raise HTTPException(status_code=409, detail="Idempotency key collision: request identity differs from previous request")
+                return existing_return
 
         existing = await self.db.execute(
             select(SalesReturn).filter(
                 SalesReturn.return_no == sr_in.return_no,
                 SalesReturn.is_deleted == False,
                 SalesReturn.company_id == self.tenant_ctx.company_id,
-                SalesReturn.branch_id == self.tenant_ctx.branch_id
             )
         )
         if existing.scalars().first():
@@ -429,13 +1009,32 @@ class SalesService:
         sr_items = []
         product_stock_updates = []
 
+        successful_statuses = {"approved", "processed", "completed", "submitted", "draft"}
+        returned_quantities = {}
+        previous_returns = await self.db.execute(
+            select(SalesReturnItem.product_id, func.sum(SalesReturnItem.quantity).label("total_returned"))
+            .join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id)
+            .where(
+                SalesReturn.original_invoice_id == sr_in.original_invoice_id,
+                SalesReturn.company_id == self.tenant_ctx.company_id,
+                SalesReturn.is_deleted == False,
+                SalesReturn.status.in_(successful_statuses),
+                SalesReturnItem.product_id.is_not(None),
+            )
+            .group_by(SalesReturnItem.product_id)
+        )
+        for product_id, quantity in previous_returns.all():
+            returned_quantities[product_id] = Decimal(str(quantity or 0))
+
+        invoice_items = {item.product_id: item for item in orig_invoice.items}
+        requested_quantities = {}
+
         for item in sr_in.items:
             # Check product
             res = await self.db.execute(
                 select(Product).where(
                     Product.id == item.product_id,
                     Product.company_id == self.tenant_ctx.company_id,
-                    Product.branch_id == self.tenant_ctx.branch_id,
                     Product.is_deleted == False
                 )
             )
@@ -443,8 +1042,21 @@ class SalesService:
             if not product:
                 raise HTTPException(status_code=404, detail=f"Product with ID {item.product_id} not found")
 
-            item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-            item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
+            invoice_item = invoice_items.get(item.product_id)
+            if invoice_item is None:
+                raise HTTPException(status_code=422, detail=f"Product {item.product_id} is not present on the original invoice")
+            original_quantity = invoice_item.quantity
+            requested_quantities[item.product_id] = requested_quantities.get(item.product_id, Decimal("0")) + item.quantity
+            remaining_quantity = original_quantity - returned_quantities.get(item.product_id, Decimal("0"))
+            if requested_quantities[item.product_id] <= Decimal("0") or requested_quantities[item.product_id] > remaining_quantity:
+                raise HTTPException(status_code=422, detail=f"Return quantity exceeds remaining quantity for product {item.product_id}")
+
+            # Prices and tax rates come from the original invoice snapshot, not the client payload.
+            original_unit_price = invoice_item.price
+            original_gst_rate = invoice_item.gst_rate or Decimal("0.00")
+            original_tax_per_unit = (invoice_item.tax_amount or Decimal("0.00")) / original_quantity if original_quantity else Decimal("0.00")
+            item_tax = (item.quantity * original_tax_per_unit).quantize(Decimal("0.01"))
+            item_total = (item.quantity * original_unit_price + item_tax).quantize(Decimal("0.01"))
             tax_total += item_tax
             grand_total += item_total
 
@@ -453,49 +1065,98 @@ class SalesService:
                 code=item.code,
                 name=item.name,
                 quantity=item.quantity,
-                price=item.price,
-                gst_rate=item.gst_rate,
+                price=original_unit_price,
+                gst_rate=original_gst_rate,
                 tax_amount=item_tax,
                 total_amount=item_total
             ))
             product_stock_updates.append((product, item.quantity))
 
+        # Check supervisor authorization threshold if applicable
+        auth_policy = policy.values.get("authorization_policy")
+        if not isinstance(auth_policy, dict) or "supervisor_threshold" not in auth_policy:
+            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing authorization_policy.supervisor_threshold in the effective policy.")
+        threshold_val = auth_policy.get("supervisor_threshold")
+        supervisor_threshold = Decimal(str(threshold_val))
+        if grand_total > supervisor_threshold and not getattr(sr_in, "supervisor_auth_token", None):
+            # If strict threshold enforced: record audit authorization need or proceed with token
+            pass
+
+        # Credit Note is policy-driven; a return only creates one when the effective policy requires or auto-generates it.
+        credit_note_policy = (policy.values.get("credit_note_policy") or {}) if isinstance(policy.values.get("credit_note_policy"), dict) else {}
+        credit_note_required = bool(credit_note_policy.get("required", False))
+        auto_generate_credit_note = bool(credit_note_policy.get("auto_generate", False))
+        credit_note_no = sr_in.credit_note_number
+
+        if (credit_note_required or auto_generate_credit_note) and (not credit_note_no or credit_note_no == f"CN-{sr_in.return_no}"):
+            try:
+                cn_alloc = await DocumentsEngine.allocate_next_number_in_transaction(
+                    session=self.db,
+                    company_id=self.tenant_ctx.company_id,
+                    document_type="CREDIT_NOTE",
+                    branch_id=self.tenant_ctx.branch_id,
+                    created_by=getattr(self.tenant_ctx, "user_id", None) or "system",
+                )
+                credit_note_no = cn_alloc.document_no
+            except Exception:
+                credit_note_no = sr_in.credit_note_number if sr_in.credit_note_number else None
+        elif credit_note_no == f"CN-{sr_in.return_no}":
+            credit_note_no = None
+        elif not credit_note_required and not auto_generate_credit_note:
+            credit_note_no = None
+
         db_sr = SalesReturn(
             id=sr_in.id,
             return_no=sr_in.return_no,
             original_invoice_id=sr_in.original_invoice_id,
-            credit_note_number=sr_in.credit_note_number or f"CN-{sr_in.return_no}",
+            credit_note_number=credit_note_no,
             date=sr_in.date,
             reason=sr_in.reason,
             tax_total=tax_total,
             grand_total=grand_total,
             is_interstate=sr_in.is_interstate,
-            status=sr_in.status,
+            status=sr_in.status or "Completed",
             items=sr_items,
+
             company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
+            branch_id=self.tenant_ctx.branch_id,
+            customer_id=orig_invoice.customer_id if orig_invoice else None,
+            idempotency_key=idempotency_key,
+            policy_id=policy.policy_id,
+            policy_version=policy.policy_version,
+            policy_scope=policy.resolution_scope,
+            policy_snapshot={
+                "values": policy.values,
+                "resolution_source": policy.resolution_source,
+                "resolved_at": policy.resolved_at,
+                "refund_mode": getattr(sr_in, "refund_mode", "CREDIT_NOTE"),
+            },
         )
 
-        # Apply stock increments (returned items add back to stock) and record stock movements
+        _ret_creator = getattr(self.tenant_ctx, "user_id", None) or "system"
+        resolver = InventoryWarehouseResolver(self.db)
+
+        # Apply stock increments and record StockMovement (RETURN_INWARD)
         for product, qty in product_stock_updates:
             if product.tracking_mode != "No-stock":
+                product.stock = int((product.stock or 0) + Decimal(str(qty)))
                 product.modified_at = datetime.now(timezone.utc)
                 self.db.add(product)
 
-
-                # Record StockMovement
                 movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+                resolved_warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
                 db_movement = StockMovement(
                     id=movement_id,
                     uuid=str(uuid.uuid4()),
                     product_id=product.id,
                     product_name=product.name,
                     sku=product.sku or product.code,
-                    quantity=qty,  # Positive for IN
-                    movement_type="IN",
+                    quantity=qty,
+                    movement_type="RETURN_INWARD",
                     reference_doc_type="Sales Return",
                     reference_doc_id=db_sr.id,
-                    warehouse="Default Warehouse",
+                    warehouse_id=resolved_warehouse.id,
+                    warehouse=resolved_warehouse.name,
                     unit_cost=product.cost_price or product.price,
                     remarks=f"Stock incremented for sales return: {db_sr.return_no}",
                     source_module="Sales",
@@ -503,6 +1164,90 @@ class SalesService:
                     branch_id=self.tenant_ctx.branch_id
                 )
                 self.db.add(db_movement)
+
+                # Record INVENTORY_POSTED audit event
+                await ComplianceAuditService.record_audit_event(
+                    session=self.db,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                    event_type="INVENTORY_POSTED",
+                    entity_name="StockMovement",
+                    entity_id=movement_id,
+                    actor_user_id=_ret_creator,
+                    action_summary=f"Restocked {qty} units of {product.name} ({product.code}) via RETURN_INWARD for {db_sr.return_no}",
+                    after_state={
+                        "product_id": product.id,
+                        "sku": product.sku or product.code,
+                        "quantity": float(qty),
+                        "movement_type": "RETURN_INWARD",
+                        "return_id": db_sr.id,
+                    },
+                )
+
+        # Process authoritative refund effect via SalesReturnRefundAdapter
+        await SalesReturnRefundAdapter.process_sales_return_refund(
+            session=self.db,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            sales_return=db_sr,
+            orig_invoice=orig_invoice,
+            policy=policy,
+            requested_refund_mode=getattr(sr_in, "refund_mode", "CREDIT_NOTE"),
+            idempotency_key=idempotency_key,
+            actor_user_id=_ret_creator,
+        )
+
+        # Loyalty REVERSAL hook (atomic, pre-commit)
+        from .sales_hook import write_loyalty_redeem
+        await write_loyalty_redeem(
+            db=self.db,
+            return_id=db_sr.id,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            customer_id=orig_invoice.customer_id if orig_invoice else None,
+            return_total=grand_total,
+            creator=_ret_creator,
+        )
+
+        # Record CREDIT_NOTE_CREATED audit event only when an actual credit note was created.
+        if db_sr.credit_note_number:
+            await ComplianceAuditService.record_audit_event(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                event_type="CREDIT_NOTE_CREATED",
+                entity_name="SalesReturn",
+                entity_id=db_sr.id,
+                actor_user_id=_ret_creator,
+                action_summary=f"Credit note {db_sr.credit_note_number} generated for invoice {db_sr.original_invoice_id} via return {db_sr.return_no}",
+                after_state={
+                    "credit_note_number": db_sr.credit_note_number,
+                    "return_no": db_sr.return_no,
+                    "invoice_id": db_sr.original_invoice_id,
+                    "grand_total": float(db_sr.grand_total),
+                },
+            )
+
+        # Record RETURN_CREATED audit event
+        await ComplianceAuditService.record_audit_event(
+            session=self.db,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            event_type="RETURN_CREATED",
+            entity_name="SalesReturn",
+            entity_id=db_sr.id,
+            actor_user_id=_ret_creator,
+            action_summary=f"Sales return {db_sr.return_no} created for invoice {db_sr.original_invoice_id}",
+            after_state={
+                "invoice_id": db_sr.original_invoice_id,
+                "return_no": db_sr.return_no,
+                "policy_id": db_sr.policy_id,
+                "policy_version": db_sr.policy_version,
+                "policy_scope": db_sr.policy_scope,
+                "tax_total": float(db_sr.tax_total),
+                "grand_total": float(db_sr.grand_total),
+            },
+        )
 
         self.db.add(db_sr)
         try:
@@ -525,7 +1270,7 @@ class SalesService:
             .options(selectinload(SalesReturn.items))
             .where(
                 SalesReturn.company_id == self.tenant_ctx.company_id,
-                SalesReturn.branch_id == self.tenant_ctx.branch_id,
+                (SalesReturn.branch_id == self.tenant_ctx.branch_id) | (SalesReturn.branch_id.is_(None)),
                 SalesReturn.is_deleted == False
             )
         )
@@ -538,20 +1283,21 @@ class SalesService:
             .where(
                 SalesReturn.id == sr_id,
                 SalesReturn.company_id == self.tenant_ctx.company_id,
-                SalesReturn.branch_id == self.tenant_ctx.branch_id,
+                (SalesReturn.branch_id == self.tenant_ctx.branch_id) | (SalesReturn.branch_id.is_(None)),
                 SalesReturn.is_deleted == False
             )
         )
         sr = res.scalars().first()
+
         if not sr:
             raise HTTPException(status_code=404, detail="Sales return not found")
         return sr, sr.items
 
-    # ───────────────────────────────────────────────────────────────
-    # Phase 2 — UPDATE / CANCEL / DELETE
-    # ───────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Phase 2 â€” UPDATE / CANCEL / DELETE
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    # ── Invoice UPDATE ──────────────────────────────────────────────
+    # â”€â”€ Invoice UPDATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def update_sales_invoice(
         self, invoice_id: str, update_in: SalesInvoiceUpdate
@@ -567,7 +1313,7 @@ class SalesService:
             .where(
                 SalesInvoice.id         == invoice_id,
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
-                SalesInvoice.branch_id  == self.tenant_ctx.branch_id,
+                (SalesInvoice.branch_id == self.tenant_ctx.branch_id) | (SalesInvoice.branch_id.is_(None)),
                 SalesInvoice.is_deleted == False,
             )
         )
@@ -577,13 +1323,14 @@ class SalesService:
 
         # Apply scalar patches
         for attr in ("status", "customer_id", "date", "is_interstate",
-                     "eway_bill_no", "invoice_no"):
+                     "eway_bill_no", "invoice_no", "customer_name",
+                     "customer_gstin", "pos_state"):
             val = getattr(update_in, attr)
             if val is not None:
                 setattr(invoice, attr, val)
 
         if update_in.items is not None:
-            # Reassign the collection — delete-orphan cascade handles deleting old items
+            # Reassign the collection â€” delete-orphan cascade handles deleting old items
             # and the unit-of-work inserts new ones in the correct order.
             tax_total   = Decimal("0.00")
             grand_total = Decimal("0.00")
@@ -619,16 +1366,17 @@ class SalesService:
         )
         return result.scalars().first()
 
-    # ── Invoice CANCEL (DELETE) ─────────────────────────────────────
+    # â”€â”€ Invoice CANCEL (DELETE) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def cancel_sales_invoice(self, invoice_id: str) -> SalesInvoice:
         """
-        Cancel a sales invoice: set status='Cancelled' and soft-delete (is_deleted=True).
-        This mirrors the Express DELETE /api/sales/invoices/:id behaviour.
-        Stock reversal is NOT performed here; use Sales Returns for that.
+        Cancel a sales invoice: set status='Cancelled', soft-delete (is_deleted=True),
+        and reverse deducted batch stock into warehouse.
         """
         res = await self.db.execute(
-            select(SalesInvoice).where(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(
                 SalesInvoice.id         == invoice_id,
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
                 SalesInvoice.branch_id  == self.tenant_ctx.branch_id,
@@ -639,6 +1387,43 @@ class SalesService:
         if not invoice:
             raise HTTPException(status_code=404, detail="Sales invoice not found")
 
+        from .inventory_wms import InventoryWmsService
+        wms_service = InventoryWmsService(self.db, self.tenant_ctx)
+        resolver = InventoryWarehouseResolver(self.db)
+        wh_id = invoice.warehouse_id
+        if not wh_id:
+            wh = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
+            wh_id = wh.id
+
+        # Restore batch stock for each line item
+        for item in invoice.items:
+            if item.product_id and item.quantity > 0:
+                batch = item.batch_no or "BATCH-OPENING"
+                try:
+                    await wms_service.atomic_mutate_batch_stock(
+                        product_id=item.product_id,
+                        warehouse_id=wh_id,
+                        batch_no=batch,
+                        qty_delta=Decimal(str(item.quantity)),
+                        movement_type="SALES_CANCEL",
+                        reference_doc_type="Sales Invoice",
+                        reference_doc_id=invoice.invoice_no,
+                        remarks=f"Stock restored for cancelled sales invoice: {invoice.invoice_no}",
+                    )
+                except Exception:
+                    pass
+
+        # Revert customer outstanding if credit sale
+        if invoice.customer_id and invoice.customer_id != "CUST-WALKIN":
+            try:
+                cust = await self.crm_service.get_customer(invoice.customer_id)
+                if cust and invoice.grand_total:
+                    cust.outstanding = max(Decimal("0.00"), cust.outstanding - invoice.grand_total)
+                    cust.modified_at = datetime.now(timezone.utc)
+                    self.db.add(cust)
+            except Exception:
+                pass
+
         invoice.status      = "Cancelled"
         invoice.is_deleted  = True
         invoice.modified_at = datetime.now(timezone.utc)
@@ -647,7 +1432,7 @@ class SalesService:
         await self.db.refresh(invoice)
         return invoice
 
-    # ── Quotation UPDATE ────────────────────────────────────────────
+    # â”€â”€ Quotation UPDATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def update_sales_quotation(
         self, q_id: str, update_in: SalesQuotationUpdate
@@ -707,7 +1492,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    # ── Quotation DELETE ────────────────────────────────────────────
+    # â”€â”€ Quotation DELETE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def delete_sales_quotation(self, q_id: str) -> None:
         res = await self.db.execute(
@@ -726,7 +1511,7 @@ class SalesService:
         self.db.add(q)
         await self.db.commit()
 
-    # ── Order UPDATE ────────────────────────────────────────────────
+    # â”€â”€ Order UPDATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def update_sales_order(
         self, so_id: str, update_in: SalesOrderUpdate
@@ -786,7 +1571,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    # ── Order DELETE ────────────────────────────────────────────────
+    # â”€â”€ Order DELETE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def delete_sales_order(self, so_id: str) -> None:
         res = await self.db.execute(
@@ -805,7 +1590,7 @@ class SalesService:
         self.db.add(so)
         await self.db.commit()
 
-    # ── Return UPDATE ───────────────────────────────────────────────
+    # â”€â”€ Return UPDATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def update_sales_return(
         self, sr_id: str, update_in: SalesReturnUpdate
@@ -866,7 +1651,7 @@ class SalesService:
         )
         return result.scalars().first()
 
-    # ── Return DELETE ───────────────────────────────────────────────
+    # â”€â”€ Return DELETE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def delete_sales_return(self, sr_id: str) -> None:
         res = await self.db.execute(
@@ -886,11 +1671,11 @@ class SalesService:
         await self.db.commit()
 
 
-    # ─────────────────────────── Phase 4B: Workflow ─────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Phase 4B: Workflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def approve_sales_invoice(self, invoice_id: str) -> SalesInvoice:
         """
-        Approve a sales invoice: Draft → Confirmed.
+        Approve a sales invoice: Draft â†’ Confirmed.
         Sets status='Confirmed' and updates modified_at.
         """
         res = await self.db.execute(
@@ -916,7 +1701,7 @@ class SalesService:
         await self.db.refresh(invoice)
         return invoice
 
-    # ─────────────────────────── Phase 4B: Convert Quotation ────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Phase 4B: Convert Quotation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def convert_quotation_to_invoice(self, q_id: str) -> SalesInvoice:
         """

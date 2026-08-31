@@ -64,7 +64,7 @@ export function MasterListScreen<T extends Record<string, any>>({
   detailDrawer
 }: MasterListScreenProps<T>) {
   const { popOutExternalWindow } = useWorkspace();
-  const isReadOnly = currentUser?.role === "Report User";
+  const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const isServerPagination = Boolean(config.serverPagination);
 
   const [items, setItems] = useState<T[]>([]);

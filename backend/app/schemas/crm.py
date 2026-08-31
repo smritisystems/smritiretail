@@ -43,7 +43,7 @@ class CustomerGroupBase(BaseModel):
     can_receive_discount: Optional[bool] = True
 
 class CustomerGroupCreate(CustomerGroupBase):
-    id: str = Field(..., max_length=50)
+    id: Optional[str] = Field(None, max_length=50)
 
 class CustomerGroupUpdate(BaseModel):
     name: Optional[str] = None
@@ -85,29 +85,34 @@ class CustomerGroupResponse(CustomerGroupBase):
 
 # Base schema for Customer
 class CustomerBase(BaseModel):
-    customer_group_id: Optional[str] = Field(None, max_length=50)
+    customer_group_id: Optional[str] = Field(None, max_length=50, alias="customerGroupId")
     code: Optional[str] = Field(None, max_length=50)
     name: str = Field(..., max_length=255)
-    mobile: Optional[str] = Field(None, max_length=20)
+    mobile: Optional[str] = Field(None, max_length=50)
     email: Optional[str] = Field(None, max_length=255)
-    gst_number: Optional[str] = Field(None, max_length=15)
+    gst_number: Optional[str] = Field(None, max_length=30, alias="gstNumber")
     outstanding: Optional[Decimal] = Decimal("0.00")
     status: Optional[str] = "Active"
-    created_date: Optional[date] = Field(default_factory=date.today)
+    created_date: Optional[date] = Field(default_factory=date.today, alias="createdDate")
     tags: List[str] = []
 
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
 class CustomerCreate(CustomerBase):
-    id: str = Field(..., max_length=50)
+    id: Optional[str] = Field(None, max_length=50)
 
 class CustomerUpdate(BaseModel):
-    customer_group_id: Optional[str] = None
+    customer_group_id: Optional[str] = Field(None, alias="customerGroupId")
+    code: Optional[str] = None
     name: Optional[str] = None
     mobile: Optional[str] = None
     email: Optional[str] = None
-    gst_number: Optional[str] = None
+    gst_number: Optional[str] = Field(None, alias="gstNumber")
     outstanding: Optional[Decimal] = None
     status: Optional[str] = None
     tags: Optional[List[str]] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 class CustomerResponse(CustomerBase):
     id: str
@@ -120,4 +125,4 @@ class CustomerResponse(CustomerBase):
     is_deleted: bool = False
     version: Optional[int] = 1
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)

@@ -28,12 +28,12 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from ..models.sales import SalesInvoice, SalesInvoiceItem
-from ..models.tax_invoice_template import (
+from ..models.tax_inv_template import (
     TaxInvoiceTemplate,
     TaxInvoiceTemplateVersion,
     InvoiceDocumentArtifact,
 )
-from .smrititaxinvoice_frozen_spec import (
+from .tax_invoice_spec import (
     SMRITITAXINVOICE_TEMPLATE_CODE,
     SMRITITAXINVOICE_VERSION,
     SMRITITAXINVOICE_STATUS,
@@ -58,13 +58,26 @@ try:
 except ImportError:
     async_playwright = None
 
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 # Logo Asset Paths
-TATTLY_LOGO_PATH = r"F:\SMRITRretailNX\TT\logo\tattly_logo_black.png"
+TATTLY_LOGO_PATH = str(WORKSPACE_ROOT / "TT" / "logo" / "tattly_logo_black.png")
 
 
 def number_to_indian_words(num: float) -> str:
-    """Converts a numeric amount into Indian currency text format."""
-    if num == 0:
+    """
+    Converts a numeric amount into Indian currency words format.
+    Correctly handles:
+    - Sub-rupee amounts (e.g. 0.50 -> "Zero Rupees and Fifty Paisa Only")
+    - Singular Rupee (e.g. 1.00 -> "One Rupee Only", 1.50 -> "One Rupee and Fifty Paisa Only")
+    - Plural Rupees (e.g. 2.00 -> "Two Rupees Only")
+    - Standard Indian numbering: Thousands, Lakhs, Crores
+    """
+    try:
+        abs_num = abs(float(num))
+    except (ValueError, TypeError):
+        return "Zero Rupees Only"
+
+    if abs_num == 0:
         return "Zero Rupees Only"
 
     single_digits = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
@@ -84,10 +97,16 @@ def number_to_indian_words(num: float) -> str:
             word += single_digits[n] + " "
         return word
 
-    str_words = ""
-    integer_part = int(num)
-    paisa_part = round((num - integer_part) * 100)
+    integer_part = int(abs_num)
+    paisa_part = round((abs_num - integer_part) * 100)
+    if paisa_part == 100:
+        integer_part += 1
+        paisa_part = 0
 
+    if integer_part == 0 and paisa_part == 0:
+        return "Zero Rupees Only"
+
+    str_words = ""
     if integer_part >= 10000000:
         str_words += get_word_for_three_digits(integer_part // 10000000) + "Crore "
         integer_part %= 10000000
@@ -101,7 +120,7 @@ def number_to_indian_words(num: float) -> str:
         str_words += get_word_for_three_digits(integer_part)
 
     trimmed_rupees = str_words.strip()
-    rupee_unit = "Rupee" if int(abs(num)) == 1 else "Rupees"
+    rupee_unit = "Rupee" if int(abs_num) == 1 else "Rupees"
 
     if trimmed_rupees:
         result = f"{trimmed_rupees} {rupee_unit}"
@@ -109,23 +128,23 @@ def number_to_indian_words(num: float) -> str:
         result = "Zero Rupees"
 
     if paisa_part > 0:
-        result += " and " + get_word_for_three_digits(paisa_part).strip() + " Paisa"
+        paisa_words = get_word_for_three_digits(paisa_part).strip()
+        result += f" and {paisa_words} Paisa"
+
     result += " Only"
-    # Normalize multiple internal spaces (e.g. 'Fifty  Thousand' -> 'Fifty Thousand')
-    import re as _re
-    return _re.sub(r' {2,}', ' ', result).strip()
+    return re.sub(r'\s{2,}', ' ', result).strip()
 
 
 def generate_barcode_base64(val: str) -> str:
-    """Generates Code128 Barcode as base64 PNG data URI."""
+    """Generates Code128 Barcode as high-contrast base64 PNG data URI for crisp camera/scanner readability."""
     try:
         code = Code128(val, writer=ImageWriter())
         fp = io.BytesIO()
         code.write(fp, options={
             'write_text': False,
-            'module_height': 7.0,
-            'module_width': 0.22,
-            'quiet_zone': 0.5
+            'module_height': 14.0,
+            'module_width': 0.35,
+            'quiet_zone': 1.0
         })
         b64 = base64.b64encode(fp.getvalue()).decode('utf-8')
         return f"data:image/png;base64,{b64}"
@@ -134,13 +153,13 @@ def generate_barcode_base64(val: str) -> str:
 
 
 def generate_qr_base64(data_str: str) -> str:
-    """Generates QR Code as base64 PNG data URI (supports standard and IRP signed payloads)."""
+    """Generates QR Code as high-density base64 PNG data URI (supports standard and IRP signed payloads)."""
     try:
         qr = qrcode.QRCode(
             version=None,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=3,
-            border=1
+            box_size=6,
+            border=2
         )
         qr.add_data(data_str)
         qr.make(fit=True)
@@ -367,24 +386,24 @@ class InvoicePdfService:
         bank_name = (
             getattr(invoice, "bank_name", None)
             or meta.get("bank_name")
-            or os.getenv("DEFAULT_BANK_NAME", "")
+            or os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA")
         )
         account_no = (
             getattr(invoice, "account_no", None)
             or meta.get("bank_account_no")
             or meta.get("account_no")
-            or os.getenv("DEFAULT_BANK_ACCOUNT_NO", "")
+            or os.getenv("DEFAULT_BANK_ACCOUNT_NO", "43976711765")
         )
         ifsc_code = (
             getattr(invoice, "ifsc_code", None)
             or meta.get("bank_ifsc")
             or meta.get("ifsc_code")
-            or os.getenv("DEFAULT_BANK_IFSC", "")
+            or os.getenv("DEFAULT_BANK_IFSC", "SBIN0030425")
         )
         bank_branch = (
             getattr(invoice, "bank_branch", None)
             or meta.get("bank_branch")
-            or os.getenv("DEFAULT_BANK_BRANCH", "")
+            or os.getenv("DEFAULT_BANK_BRANCH", "WARDHMAN NAGAR NAGPUR")
         )
 
         company_web = meta.get("company_website", "www.tattlythreads.com")
@@ -675,8 +694,8 @@ class InvoicePdfService:
                             <div>Dispatch: {dispatch_email}</div>
                             <div>Accounts: {accounts_email}</div>
                           </div>
-                          <div style="font-size: 8px; font-weight: 700; font-family: monospace; margin-top: 2px;">
-                            GSTIN: {company_gstin}
+                          <div class="company-gstin">
+                            GSTIN: <span class="gstin-val">{company_gstin}</span>
                           </div>
                         </div>
                       </div>
@@ -688,17 +707,17 @@ class InvoicePdfService:
                             <div class="invoice-title">TAX INVOICE</div>
                             {f'<span style="color: #dc2626; border: 1.5px solid #dc2626; border-radius: 3px; font-weight: 800; font-size: 7.5px; padding: 1px 4px; text-transform: uppercase; letter-spacing: 0.5px;">CANCELLED</span>' if is_cancelled else ''}
                           </div>
-                          {f'<div style="margin-top: 1px;"><img src="{barcode_uri}" style="height: 16px; width: auto;"/><div style="font-family: monospace; font-size: 6px; font-weight: 700; color: #374151;">{invoice_no}</div></div>' if barcode_uri else ''}
+                          {f'<div style="margin-top: 2px;"><img src="{barcode_uri}" style="height: 26px; width: auto; max-width: 145px; object-fit: contain;"/><div style="font-family: monospace; font-size: 7.5px; font-weight: 800; color: #111827; letter-spacing: 0.5px; margin-top: 1px;">{invoice_no}</div></div>' if barcode_uri else ''}
                         </div>
-                        <div style="text-align: center;">
-                          {f'<img src="{qr_uri}" style="width: 42px; height: 42px; border: 1px solid #d1d5db; padding: 1px; object-fit: contain;"/>' if qr_uri else ''}
-                          <div style="font-family: monospace; font-size: 5.5px; color: #6b7280; text-transform: uppercase;">{qr_label}</div>
+                        <div style="text-align: center; margin-left: 6px;">
+                          {f'<img src="{qr_uri}" style="width: 56px; height: 56px; border: 1.5px solid #0f172a; padding: 2px; border-radius: 4px; background: #ffffff; object-fit: contain;"/>' if qr_uri else ''}
+                          <div style="font-family: monospace; font-size: 6.5px; font-weight: 700; color: #1e293b; text-transform: uppercase; margin-top: 1px;">{qr_label}</div>
                         </div>
                       </div>
                       <table class="meta-table">
                         <tr><td class="meta-label">Invoice No:</td><td class="meta-val">{invoice_no}</td></tr>
                         <tr><td class="meta-label">Date:</td><td class="meta-val">{date_str}</td></tr>
-                        <tr><td class="meta-label">SIS Code:</td><td class="meta-val">{sis_code}</td></tr>
+                        <tr><td class="meta-label">Store Code:</td><td class="meta-val">{sis_code}</td></tr>
                         <tr><td class="meta-label">Place of Supply:</td><td class="meta-val">{place_of_supply_display}</td></tr>
                         <tr><td class="meta-label">Reverse Charge:</td><td class="meta-val">{reverse_charge_display}</td></tr>
                         <tr><td class="meta-label">PO / Reference:</td><td class="meta-val">{po_reference}</td></tr>
@@ -1050,13 +1069,16 @@ class InvoicePdfService:
         os.makedirs(os.path.dirname(os.path.abspath(output_pdf_path)), exist_ok=True)
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+            )
             page = await browser.new_page()
             await page.set_content(html_content, wait_until="networkidle")
 
             pdf_data = await page.pdf(
                 format="A4",
-                margin={"top": "8mm", "bottom": "10mm", "left": "8mm", "right": "8mm"},
+                margin={"top": "8mm", "bottom": "10mm", "left": "12mm", "right": "6mm"},
                 print_background=True
             )
             await browser.close()
@@ -1104,13 +1126,16 @@ class InvoicePdfService:
         )
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+            )
             page = await browser.new_page()
             await page.set_content(html_content, wait_until="networkidle")
 
             pdf_bytes = await page.pdf(
                 format="A4",
-                margin={"top": "8mm", "bottom": "10mm", "left": "8mm", "right": "8mm"},
+                margin={"top": "8mm", "bottom": "10mm", "left": "12mm", "right": "6mm"},
                 print_background=True
             )
             await browser.close()
@@ -1212,7 +1237,7 @@ class InvoicePdfService:
         inv_no = invoice.invoice_no if invoice else f"INV-{invoice_id}"
 
         # Save to disk
-        export_dir = r"F:\SMRITRretailNX\exports\tt_canonical_18_71"
+        export_dir = str(WORKSPACE_ROOT / "exports" / "tt_canonical_18_71")
         os.makedirs(export_dir, exist_ok=True)
         safe_inv = inv_no.replace("/", "_")
         storage_path = os.path.join(export_dir, f"{safe_inv}_CANONICAL_V1.pdf")

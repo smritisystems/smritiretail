@@ -4,11 +4,12 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.15.0
+ * Version      : 3.30.0
  * Created      : 2026-07-12
- * Modified     : 2026-07-12
+ * Modified     : 2026-08-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Internal
  */
 
 import { defineConfig } from 'vitest/config';
@@ -21,6 +22,6 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     include: ['src/tests/**/*.test.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', 'src/tests/about.test.ts', 'src/tests/termsAndPrintMigration.test.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'src/tests/about.test.ts'],
   },
 });

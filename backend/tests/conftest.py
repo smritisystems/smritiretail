@@ -62,17 +62,20 @@ def seed_control_plane_test_assignments():
         )
 
     try:
+        ctrl_cur.execute("ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS company_code VARCHAR(50);")
+        ctrl_cur.execute("ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);")
+
         # 0. Insert governance companies into smritisys (Control Plane)
         ctrl_cur.execute("""
             INSERT INTO companies (id, uuid, name, gst_number, company_code, is_active, is_deleted, created_at, modified_at)
             VALUES ('COMP-001', %s, 'Tattly Threads', '27AAXFT2508H1ZR', '001', true, false, NOW(), NOW())
-            ON CONFLICT (id) DO UPDATE SET name = 'Tattly Threads', gst_number = '27AAXFT2508H1ZR', is_active = true, is_deleted = false;
+            ON CONFLICT (id) DO UPDATE SET name = 'Tattly Threads', gst_number = '27AAXFT2508H1ZR', company_code = '001', is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
         ctrl_cur.execute("""
             INSERT INTO companies (id, uuid, name, company_code, is_active, is_deleted, created_at, modified_at)
             VALUES ('comp-default', %s, 'SMRITI Default Company', 'DEF', true, false, NOW(), NOW())
-            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
+            ON CONFLICT (id) DO UPDATE SET name = 'SMRITI Default Company', company_code = 'DEF', is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
         # 0a. Insert default branch MAIN for COMP-001 into smritisys.
@@ -121,8 +124,7 @@ def seed_control_plane_test_assignments():
                 SET database_name = 'smriti001', status = 'READY', updated_at = NOW();
         """, (str(uuid.uuid4()),))
 
-        # 1. Insert test users into smritisys.users (Control Plane auth table)
-        # users table has unique constraints on (username) and (email).
+        # 1. Clean and insert test users into smritisys.users (Control Plane auth table)
         users_data = [
             ("usr-super", "usr_super", "SYSADMIN", True),
             ("usr_sysadmin", "usr_sysadmin", "SYSADMIN", True),
@@ -131,67 +133,174 @@ def seed_control_plane_test_assignments():
             ("usr_store_manager_a", "usr_store_manager_a", "MANAGER", False),
         ]
         for uid, uname, urole, is_admin in users_data:
-            ctrl_cur.execute("""
-                INSERT INTO users (id, uuid, username, hashed_password, role, is_active, is_deleted, created_at, modified_at, status, country, employment_type)
-                VALUES (%s, %s, %s, 'dummy_hash', %s, true, false, NOW(), NOW(), 'ACTIVE', 'IN', 'FULL_TIME')
-                ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = true, is_deleted = false;
-            """, (uid, str(uuid.uuid4()), uname, urole))
+            ctrl_cur.execute("SELECT id FROM users WHERE username = %s LIMIT 1;", (uname,))
+            existing_user = ctrl_cur.fetchone()
+            if existing_user:
+                ctrl_cur.execute("""
+                    UPDATE users
+                    SET hashed_password = 'dummy_hash',
+                        role = %s,
+                        is_active = true,
+                        is_deleted = false,
+                        status = 'ACTIVE',
+                        country = 'IN',
+                        employment_type = 'FULL_TIME',
+                        modified_at = NOW()
+                    WHERE username = %s;
+                """, (urole, uname))
+                actual_user_id = existing_user[0]
+            else:
+                ctrl_cur.execute("""
+                    INSERT INTO users (id, uuid, username, hashed_password, role, is_active, is_deleted, created_at, modified_at, status, country, employment_type)
+                    VALUES (%s, %s, %s, 'dummy_hash', %s, true, false, NOW(), NOW(), 'ACTIVE', 'IN', 'FULL_TIME');
+                """, (uid, str(uuid.uuid4()), uname, urole))
+                actual_user_id = uid
 
-        # 2. Insert test company assignments into smritisys.user_company_assignments (Control Plane routing)
-        # user_company_assignments has a partial unique index:
         #   ix_user_company_assignments_user_id_company_id_active ON (user_id, company_id) WHERE (is_deleted = false)
         # ON CONFLICT (id) alone is insufficient — must specify the partial index for correct upsert.
         assignments = [
-            ("uca-super-001", "usr-super", "COMP-001"),
-            ("uca-super-def", "usr-super", "comp-default"),
+            ("uca-super-001", "usr_super", "COMP-001"),
+            ("uca-super-def", "usr_super", "comp-default"),
             ("uca-sysadmin-001", "usr_sysadmin", "COMP-001"),
-            ("uca-cashier-001", "usr-cashier", "COMP-001"),
-            ("uca-cashier-def", "usr-cashier", "comp-default"),
-            ("uca-manager-001", "usr-manager", "COMP-001"),
+            ("uca-cashier-001", "usr_cashier", "COMP-001"),
+            ("uca-cashier-def", "usr_cashier", "comp-default"),
+            ("uca-manager-001", "usr_manager", "COMP-001"),
             ("uca-store-mgr-a-001", "usr_store_manager_a", "COMP-001"),
         ]
-        for uca_id, uid, cid in assignments:
+        for uca_id, uname, cid in assignments:
+            ctrl_cur.execute("SELECT id FROM users WHERE username = %s LIMIT 1;", (uname,))
+            user_row = ctrl_cur.fetchone()
+            if not user_row:
+                raise RuntimeError(f"User '{uname}' missing from smritisys.users before assignment seed")
+            actual_user_id = user_row[0]
             ctrl_cur.execute("""
                 INSERT INTO user_company_assignments (id, uuid, user_id, company_id, is_default, is_active, is_deleted, created_at, modified_at)
                 VALUES (%s, %s, %s, %s, false, true, false, NOW(), NOW())
                 ON CONFLICT (user_id, company_id) WHERE (is_deleted = false)
                 DO UPDATE SET is_active = true, is_deleted = false;
-            """, (uca_id, str(uuid.uuid4()), uid, cid))
+            """, (uca_id, str(uuid.uuid4()), actual_user_id, cid))
 
-        # 3. Seed smriti_menus (Control Plane — exactly 34 immutable menus)
-        ctrl_cur.execute("DELETE FROM smriti_menus WHERE id LIKE 'menu-%';")
-        default_menus = [
-            ("menu-dashboard", "Dashboard", "/dashboard", "core"),
-            ("menu-inventory", "Inventory", "/inventory", "core"),
-            ("menu-sales", "Sales & Billing", "/sales", "core"),
-            ("menu-reports", "Reports Hub", "/reports", "core"),
+        # 3. Seed smriti_menus (Control Plane — exactly 34 canonical immutable menus)
+        canonical_menus = [
+            ("menu-dashboard", "Dashboard & Executive Hub", "/dashboard", "Dashboard & Operations", None, 10, "DASHBOARD.ACCESS"),
+            ("menu-user-profile", "My Profile Dashboard", "/user-profile", "Dashboard & Operations", None, 20, "PROFILE.ACCESS"),
+            ("menu-wiki", "SMRITI Gyan Kendra", "/wiki", "System & Knowledge Base", None, 30, "WIKI.ACCESS"),
+            ("menu-about-smriti", "About SMRITI Retail OS", "/about-smriti", "System & Knowledge Base", None, 40, "ABOUT.ACCESS"),
+            ("menu-dev-tracker", "Dev Intelligence Center", "/dev-tracker", "System & Knowledge Base", None, 50, "SYSTEM.DEV"),
+            ("menu-pos", "Billing Desk (Universal POS)", "/pos", "Sales & POS", None, 60, "POS.WORKSPACE.ACCESS"),
+            ("menu-sales", "Sales Studio & Ledger", "/sales", "Sales & POS", "menu-pos", 70, "SALES.WORKSPACE.ACCESS"),
+            ("menu-customer-master", "Customer Master Directory", "/customer-master", "Sales & POS", "menu-pos", 80, "CUSTOMER.WORKSPACE.ACCESS"),
+            ("menu-crm", "CRM & Engagement Studio", "/crm", "Sales & POS", "menu-pos", 90, "CRM.WORKSPACE.ACCESS"),
+            ("menu-loyalty", "Loyalty & Rewards Studio", "/loyalty", "Sales & POS", "menu-pos", 100, "LOYALTY.WORKSPACE.ACCESS"),
+            ("menu-profiles", "POS Terminal Profiles", "/profiles", "Sales & POS", "menu-pos", 110, "TERMINALS.MANAGE"),
+            ("menu-inventory", "Inventory Workspace", "/inventory", "Inventory & Purchase", None, 120, "INVENTORY.WORKSPACE.ACCESS"),
+            ("menu-item-master", "Item Master Catalog", "/item-master", "Inventory & Purchase", "menu-inventory", 130, "ITEM.WORKSPACE.ACCESS"),
+            ("menu-barcode", "Barcode Studio & Generator", "/barcode", "Inventory & Purchase", "menu-inventory", 140, "BARCODE.WORKSPACE.ACCESS"),
+            ("menu-stock-ledger", "Stock Movements & Ledger", "/stock-ledger", "Inventory & Purchase", "menu-inventory", 150, "STOCK.WORKSPACE.ACCESS"),
+            ("menu-purchase", "Purchase Studio & Orders", "/purchase", "Inventory & Purchase", "menu-inventory", 160, "PURCHASE.WORKSPACE.ACCESS"),
+            ("menu-supplier-mgmt", "Supplier / Person Master", "/supplier-mgmt", "Inventory & Purchase", "menu-inventory", 170, "SUPPLIER.WORKSPACE.ACCESS"),
+            ("menu-business-ledger", "Business Ledger & Statements", "/business-ledger", "Accounts", None, 180, "ACCOUNTS.WORKSPACE.ACCESS"),
+            ("menu-accounting-sync", "Tally / ERP Accounting Sync", "/accounting-sync", "Accounts", None, 190, "ACCOUNTS.SYNC.EXECUTE"),
+            ("menu-reports", "Reports Portal & Analytics", "/reports", "Reports", None, 200, "REPORT.WORKSPACE.ACCESS"),
+            ("menu-report-designer", "Visual Report Designer", "/report-designer", "Reports", "menu-reports", 210, "REPORT.DESIGN.ACCESS"),
+            ("menu-masters", "Configuration & Governance Hub", "/masters", "Configuration & Governance", None, 220, "CONFIG.GOVERNANCE.ACCESS"),
+            ("menu-ufe", "Universal Field Explorer (UFE)", "/ufe", "Configuration & Governance", "menu-masters", 230, "UFE.ACCESS"),
+            ("menu-formulas", "Formula & KPI Registry", "/formulas", "Configuration & Governance", "menu-masters", 240, "FORMULA.MANAGE"),
+            ("menu-psv", "Channel Visibility Matrix (PSV)", "/psv", "Configuration & Governance", "menu-masters", 250, "PSV.MANAGE"),
+            ("menu-document-series", "Numbering Engine & Series", "/document-series", "Configuration & Governance", "menu-masters", 260, "NUMBERING.MANAGE"),
+            ("menu-print-studio", "Print Studio & Template Designer", "/print-studio", "Configuration & Governance", "menu-masters", 270, "PRINT.MANAGE"),
+            ("menu-print-history", "Print Audit & History Logs", "/print-history", "Configuration & Governance", "menu-masters", 280, "PRINT.LOG.ACCESS"),
+            ("menu-terms-engine", "Terms & Conditions Engine", "/terms-engine", "Configuration & Governance", "menu-masters", 290, "TERMS.MANAGE"),
+            ("menu-data-exchange", "Data Exchange & Migration Hub", "/data-exchange", "Configuration & Governance", "menu-masters", 300, "DATA.IMPORT.ACCESS"),
+            ("menu-staff-management", "Staff Management & Payroll", "/staff-management", "Administration", None, 310, "STAFF.WORKSPACE.ACCESS"),
+            ("menu-approval-matrix", "Approval Matrix Governance", "/approval-matrix", "Administration", None, 320, "APPROVAL.MANAGE"),
+            ("menu-company-setup", "Company Setup & Branch Config", "/company-setup", "Administration", None, 330, "COMPANY.SETUP.ACCESS"),
+            ("menu-audit-logs", "System Audit Trail & Security Logs", "/audit-logs", "Administration", None, 340, "AUDIT.WORKSPACE.ACCESS"),
         ]
-        for mid, mtitle, mroute, mmodule in default_menus:
-            ctrl_cur.execute("""
-                INSERT INTO smriti_menus (id, uuid, company_id, title, route, module, is_active, is_deleted)
-                VALUES (%s, %s, NULL, %s, %s, %s, true, false)
-                ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
-            """, (mid, str(uuid.uuid4()), mtitle, mroute, mmodule))
 
-        for i in range(30):
-            ctrl_cur.execute("""
-                INSERT INTO smriti_menus (id, uuid, company_id, title, route, module, is_active, is_deleted)
-                VALUES (%s, %s, NULL, %s, '/route', 'core', true, false)
-                ON CONFLICT (id) DO NOTHING;
-            """, (f"menu-{i}", str(uuid.uuid4()), f"Menu {i}"))
+        # Insert parents first
+        for mid, mtitle, mroute, mmodule, mparent, mseq, mperm in canonical_menus:
+            if mparent is None:
+                ctrl_cur.execute("""
+                    INSERT INTO smriti_menus (id, uuid, company_id, title, route, module, parent_id, sequence, permission, is_active, is_deleted, created_at, modified_at)
+                    VALUES (%s, %s, NULL, %s, %s, %s, NULL, %s, %s, true, false, NOW(), NOW())
+                    ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, route = EXCLUDED.route, module = EXCLUDED.module, sequence = EXCLUDED.sequence, permission = EXCLUDED.permission, is_active = true, is_deleted = false;
+                """, (mid, str(uuid.uuid4()), mtitle, mroute, mmodule, mseq, mperm))
 
-        # 4. Seed smriti_audit_log (Control Plane)
+        # Insert children next
+        for mid, mtitle, mroute, mmodule, mparent, mseq, mperm in canonical_menus:
+            if mparent is not None:
+                ctrl_cur.execute("""
+                    INSERT INTO smriti_menus (id, uuid, company_id, title, route, module, parent_id, sequence, permission, is_active, is_deleted, created_at, modified_at)
+                    VALUES (%s, %s, NULL, %s, %s, %s, %s, %s, %s, true, false, NOW(), NOW())
+                    ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, route = EXCLUDED.route, module = EXCLUDED.module, parent_id = EXCLUDED.parent_id, sequence = EXCLUDED.sequence, permission = EXCLUDED.permission, is_active = true, is_deleted = false;
+                """, (mid, str(uuid.uuid4()), mtitle, mroute, mmodule, mparent, mseq, mperm))
+
+        # 4. Seed smriti_permissions (Control Plane — baseline action permissions)
+        baseline_perms = [
+            ("perm-seed-001", "User:002:sales_billing:VOID", "sales_billing", "VOID", "User:002", False),
+            ("perm-seed-002", "User:002:sales_billing:NEW", "sales_billing", "NEW", "User:002", True),
+            ("perm-seed-003", "User:002:stock_goods_inwards:DELETE", "stock_goods_inwards", "DELETE", "User:002", False),
+            ("perm-seed-004", "User:002:pos_cash_payouts:DELETE", "pos_cash_payouts", "DELETE", "User:002", False),
+            ("perm-seed-005", "User:002:item_master:ADD", "item_master", "ADD", "User:002", True),
+        ]
+        for pid, pcode, pres, pact, pscope, pactive in baseline_perms:
+            ctrl_cur.execute("""
+                INSERT INTO smriti_permissions (id, uuid, code, resource, action, scope, module, is_active, is_deleted, created_at, modified_at)
+                VALUES (%s, %s, %s, %s, %s, %s, 'core', %s, false, NOW(), NOW())
+                ON CONFLICT (id) DO UPDATE SET is_active = EXCLUDED.is_active, is_deleted = false;
+            """, (pid, str(uuid.uuid4()), pcode, pres, pact, pscope, pactive))
+
+        # 5. Seed system_configs (Control Plane — security & housekeeping policies)
+        import json as _json
+        pass_json = _json.dumps({
+            "max_password_length": 50,
+            "min_password_length": 8,
+            "min_uppercase": 1,
+            "min_lowercase": 1,
+            "min_numeric": 2,
+            "passwords_to_remember": 5,
+            "password_resetting_days": 60,
+            "max_invalid_attempts": 5
+        })
+        hk_json = _json.dumps({
+            "days_to_retain_activity_log": 90,
+            "country_code": "+91",
+            "remind_patch_updation_days": 14,
+            "activate_company_wise_restrictions": True,
+            "custom_reports_in_menu_screen": 5,
+            "custom_reports_refresh_interval_seconds": 60
+        })
+        ctrl_cur.execute("""
+            INSERT INTO system_configs (id, uuid, key, value, category, is_active, is_deleted, created_at, modified_at)
+            VALUES ('cfg-sec-pass', %s, 'sec_password_config', %s, 'Security', true, false, NOW(), NOW())
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()), pass_json))
+
+        ctrl_cur.execute("""
+            INSERT INTO system_configs (id, uuid, key, value, category, is_active, is_deleted, created_at, modified_at)
+            VALUES ('cfg-sec-hk', %s, 'sec_housekeeping_config', %s, 'Security', true, false, NOW(), NOW())
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()), hk_json))
+
+        # 6. Seed smriti_audit_log (Control Plane)
         ctrl_cur.execute("SELECT COUNT(*) FROM smriti_audit_log;")
         acnt = ctrl_cur.fetchone()[0]
         if acnt < 40:
             for i in range(acnt, 40):
                 ctrl_cur.execute("""
-                    INSERT INTO smriti_audit_log (id, changed_table, changed_record_id, changed_by, changed_at)
-                    VALUES (%s, 'test_table', 'rec-001', 'usr-sysadmin', NOW())
-                    ON CONFLICT (id) DO NOTHING;
-                """, (f"audit-{i}",))
-
-        ctrl_conn.commit()
+                        INSERT INTO smriti_audit_log (
+                            id, tenant_id, entity_id, changed_table, changed_record_id, field_name,
+                            old_value, new_value, change_type, change_reason, change_source,
+                            changed_by, changed_by_name, changed_at, sha256_hash
+                        )
+                        VALUES (
+                            %s, 'COMP-001', 'entity-test', 'test_table', 'rec-001', 'seed',
+                            NULL, NULL, 'INSERT', 'Fixture bootstrap', 'pytest',
+                            'usr-sysadmin', 'System Seed', NOW(), %s
+                        )
+                        ON CONFLICT (id) DO NOTHING;
+                    """, (f"audit-{i}", f"seed-{i}"))
         ctrl_conn.close()
 
     except pytest.fail.Exception:
@@ -228,6 +337,14 @@ def seed_control_plane_test_assignments():
         comp_conn = psycopg2.connect(COMPANY_001_DB_URL)
         comp_cur = comp_conn.cursor()
 
+        # Ensure policy columns exist on sales_returns in Company DB
+        comp_cur.execute("""
+            ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_id VARCHAR(100);
+            ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER DEFAULT 1;
+            ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_scope VARCHAR(50) DEFAULT 'GLOBAL';
+            ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_snapshot JSONB;
+        """)
+
         # Seed sample products for integration tests in Company DB
         comp_cur.execute("""
             INSERT INTO products (id, uuid, code, name, barcode, category, brand, company_id, branch_id, stock, reserved_stock, price, is_active, is_deleted, created_at, modified_at)
@@ -252,6 +369,21 @@ def seed_control_plane_test_assignments():
             INSERT INTO customers (id, uuid, code, name, mobile, email, customer_group_id, company_id, branch_id, outstanding, is_active, is_deleted, created_at, modified_at)
             VALUES ('cust-ril-1888', %s, 'CUST-RIL-1888', 'Reliance Retail Ltd', '9876543210', 'ril@test.com', 'cg-default', 'COMP-001', 'MAIN', 0.00, true, false, NOW(), NOW())
             ON CONFLICT (id) DO UPDATE SET company_id = 'COMP-001', branch_id = 'MAIN', customer_group_id = 'cg-default', outstanding = 0.00, is_active = true, is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        # Seed standard sales return policy in Company DB
+        comp_cur.execute("""
+            INSERT INTO policy_definitions (
+                id, uuid, company_id, branch_id, code, version, name, policy_type,
+                parameters, status, is_active, is_deleted, created_at, modified_at
+            )
+            VALUES (
+                'pol_return_std_v1', %s, 'COMP-001', 'MAIN', 'POLICY_RETURN_STANDARD', 1,
+                'Standard Sales Return Policy', 'RETURN_POLICY',
+                '{"scope": "GLOBAL", "return_window_days": 30, "return_types": ["FULL_RETURN", "PARTIAL_RETURN", "EXCHANGE", "DAMAGED_RETURN", "RESTOCKABLE_RETURN", "NON_RESTOCKABLE_RETURN"], "return_reasons": ["DEFECTIVE", "SIZE_FIT", "CUSTOMER_CHANGED_MIND", "WRONG_ITEM", "DAMAGED", "QUALITY_ISSUE"], "refund_modes": ["ORIGINAL_PAYMENT", "CASH", "STORE_CREDIT", "CREDIT_NOTE"], "credit_note_policy": {"required": true, "auto_generate": true}, "inventory_policy": {"restock_destination": "RETURN_INWARD", "auto_increment": true, "allow_non_restockable": false}, "authorization_policy": {"supervisor_threshold": 5000.0, "blind_return": true, "blind_return_requires_auth": true}, "shift_policy": {"allow_cross_shift_return": true}, "is_blind_return_allowed": false}'::jsonb,
+                'ACTIVE', true, false, NOW(), NOW()
+            )
+            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
         comp_conn.commit()

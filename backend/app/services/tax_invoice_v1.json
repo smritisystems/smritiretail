@@ -1,0 +1,14 @@
+{
+  "_smriti_meta": {
+    "project": "SMRITI Retail OS",
+    "author": "Jawahar Ramkripal Mallah",
+    "email": "support@smritibooks.com",
+    "modified": "2026-08-18"
+  },
+  "artifact": "tax_invoice_v1.css",
+  "format_code": "SMRITITAXINVOICE",
+  "format_version": "V1",
+  "sha256": "d3a9be3492a4cf6178982a912888bdc7a462c06ae03025a75c52bf0126c5ff1d",
+  "css_sha256": "d3a9be3492a4cf6178982a912888bdc7a462c06ae03025a75c52bf0126c5ff1d",
+  "version": "1.3.1"
+}

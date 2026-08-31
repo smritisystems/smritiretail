@@ -19,7 +19,7 @@
  * * Version    : 3.18.0
  * * Created    : 2026-07-11
  * * Modified   : 2026-07-14
- * * Copyright  : Â© AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
 

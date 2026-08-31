@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.1.0
+ * Version      : 4.2.0
  * Created      : 2026-08-20
- * Modified     : 2026-08-20
+ * Modified     : 2026-08-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -24,6 +24,8 @@ export interface TileData {
   group: string;
   roles?: string[];
   isQuickAction?: boolean;
+  shortcut?: string;
+  accentColor?: string;
 }
 
 export const LAUNCHPAD_CATALOG: TileData[] = [
@@ -38,6 +40,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Retail Operations",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F1",
+    accentColor: "emerald",
   },
   {
     id: "sales",
@@ -59,6 +63,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Retail Operations",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F3",
+    accentColor: "indigo",
   },
   {
     id: "purchase",
@@ -80,6 +86,19 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Retail Operations",
     roles: ["MANAGER", "SYSADMIN"],
   },
+  {
+    id: "day-close",
+    title: "Day End / Shift Close (EOD)",
+    subtitle: "Cashier shift settlement, cash drawer reconciliation & Z-Report generation (Shoper 9 MnuNo 502)",
+    icon: "lock_clock",
+    tag: "Day Close",
+    badgeType: "warning",
+    group: "Retail Operations",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "F8",
+    accentColor: "amber",
+  },
 
   // 2. Master Data & Stock
   {
@@ -92,6 +111,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F4",
+    accentColor: "purple",
   },
   {
     id: "barcode",
@@ -103,6 +124,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F5",
+    accentColor: "amber",
   },
   {
     id: "stock-ledger",
@@ -114,6 +137,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
+    shortcut: "F6",
+    accentColor: "blue",
   },
   {
     id: "supplier-mgmt",
@@ -301,6 +326,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Data & Config",
     roles: ["MANAGER", "SYSADMIN"],
   },
+  {
+    id: "store-policies",
+    title: "Store Governance Policies & Cipher",
+    subtitle: "Retail POS checkout controls, apparel hang-tag cost cipher, GRN tax & credit limit hold rules",
+    icon: "tune",
+    tag: "Governance",
+    badgeType: "primary",
+    group: "Data & Config",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+  },
 
   // 6. System & Operations
   {
@@ -323,6 +359,28 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "System & Operations",
   },
   {
+    id: "menu-manager",
+    title: "Menu Manager & Dynamic Navigation Studio",
+    subtitle: "Control Plane menu registry, 3-column live hierarchy explorer, route configuration & audit journal",
+    icon: "compass_calibration",
+    tag: "Navigation",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["SYSADMIN", "MANAGER"],
+    isQuickAction: true,
+  },
+  {
+    id: "security-management",
+    title: "Security Management (Menu Access)",
+    subtitle: "User, Group & Node menu access control, granular operations matrix & security policies",
+    icon: "admin_panel_settings",
+    tag: "Security",
+    badgeType: "warning",
+    group: "System & Operations",
+    roles: ["SYSADMIN", "MANAGER"],
+    isQuickAction: true,
+  },
+  {
     id: "audit-logs",
     title: "Security & Audit Logs",
     subtitle: "Immutable system activity audit logs, user login events & transaction traces",
@@ -331,6 +389,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     badgeType: "warning",
     group: "System & Operations",
     roles: ["MANAGER", "SYSADMIN", "AUDITOR"],
+  },
+  {
+    id: "database-manager",
+    title: "Database Manager (DB Studio)",
+    subtitle: "Multi-tenant PostgreSQL schema browser, table data explorer, live telemetry & SQL console",
+    icon: "database",
+    tag: "DB Studio",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["SYSADMIN"],
   },
   {
     id: "dev-tracker",
@@ -369,8 +437,30 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     badgeType: "info",
     group: "System & Operations",
   },
+  {
+    id: "legacy-migration",
+    title: "Shoper9 → SMRITI Migration",
+    subtitle: "Legacy vaMenu lineage registry: 265 entries classified, coverage tracking & workspace parity dashboard",
+    icon: "alt_route",
+    tag: "Migration",
+    badgeType: "warning",
+    group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "violet",
+  },
+  {
+    // Sprint 17 -- Shoper9 SR323400 MnuNo 350/351 parity
+    id: "physical-stock",
+    title: "Physical Stock Count",
+    subtitle: "Conduct physical inventory audits: create count sessions, record counted quantities, approve variances",
+    icon: "fact_check",
+    tag: "Inventory",
+    badgeType: "info",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "emerald",
+  },
 ];
-
 /**
  * Filter catalog by user role with strict deny-by-default semantics.
  * - Missing/null/empty role -> only tiles with NO role restriction (tile.roles undefined or empty)

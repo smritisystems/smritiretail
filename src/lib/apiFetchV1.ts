@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.21.1
+ * Version      : 3.22.0
  * Created      : 2026-07-12
- * Modified     : 2026-08-18
+ * Modified     : 2026-08-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -20,6 +20,35 @@
 // Guard flag: prevents concurrent silent refresh storms if multiple requests 401 simultaneously
 let _refreshingToken = false;
 let _refreshWaiters: Array<(newToken: string | null) => void> = [];
+
+const AUTH_STORAGE_KEYS = [
+  "smriti_jwt_token",
+  "smriti_session_token",
+  "smriti_refresh_token",
+  "smriti_company_id",
+  "smriti_company_code",
+  "smriti_branch_id",
+  "smriti_branch_code",
+  "smriti_company_name",
+  "smriti_branch_name",
+];
+
+export function clearAuthSession(reason?: string): void {
+  if (typeof window !== "undefined") {
+    for (const key of AUTH_STORAGE_KEYS) {
+      localStorage.removeItem(key);
+    }
+    window.dispatchEvent(new CustomEvent("smriti_auth_session_cleared", { detail: { reason } }));
+  } else {
+    for (const key of AUTH_STORAGE_KEYS) {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // no-op in non-browser contexts
+      }
+    }
+  }
+}
 
 async function _attemptSilentRefresh(): Promise<string | null> {
   // If a refresh is already in-flight, queue up and wait for it
@@ -60,12 +89,7 @@ async function _attemptSilentRefresh(): Promise<string | null> {
   }
 
   // Refresh failed — clear all auth state
-  localStorage.removeItem("smriti_jwt_token");
-  localStorage.removeItem("smriti_session_token");
-  localStorage.removeItem("smriti_refresh_token");
-  localStorage.removeItem("smriti_company_id");
-  localStorage.removeItem("smriti_company_code");
-  localStorage.removeItem("smriti_branch_id");
+  clearAuthSession("refresh_failed");
   _refreshWaiters.forEach(r => r(null));
   _refreshWaiters = [];
   _refreshingToken = false;
@@ -77,7 +101,7 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (companyCode && !headers.has("X-Company-Code")) headers.set("X-Company-Code", companyCode);
   if (companyId && !headers.has("X-Company-ID")) headers.set("X-Company-ID", companyId);
-  const branchId = localStorage.getItem("smriti_branch_id") || "BR-MAIN-001";
+  const branchId = localStorage.getItem("smriti_branch_id") || "MAIN";
   if (branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", branchId);
   if (branchId && !headers.has("X-Branch-Code")) headers.set("X-Branch-Code", branchId);
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
@@ -86,10 +110,33 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   return headers;
 }
 
-export async function apiFetchV1(endpoint: string, options: RequestInit = {}): Promise<any> {
+export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
+  body?: BodyInit | Record<string, unknown> | null;
+}
+
+export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
   const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
   const companyCode = localStorage.getItem("smriti_company_code") || "001";
   const companyId = localStorage.getItem("smriti_company_id") || "COMP-001";
+
+  const requestInit: RequestInit = {
+    ...options,
+    body: undefined,
+  };
+  if (
+    options.body !== undefined &&
+    options.body !== null &&
+    !(options.body instanceof FormData) &&
+    !(options.body instanceof URLSearchParams) &&
+    !(options.body instanceof Blob) &&
+    !(options.body instanceof ArrayBuffer) &&
+    !(ArrayBuffer.isView(options.body)) &&
+    typeof options.body !== "string"
+  ) {
+    requestInit.body = JSON.stringify(options.body);
+  } else if (options.body !== undefined && options.body !== null) {
+    requestInit.body = options.body as BodyInit;
+  }
 
   // Sanitize endpoint string — remove any embedded docker hostname prefixes
   let cleanEndpoint = endpoint
@@ -102,13 +149,16 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
     cleanEndpoint = cleanEndpoint.replace(/^\/api\/v1/, "");
   }
 
-  const url = `/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`;
+  const baseUrl = typeof window !== "undefined" && window.location?.origin 
+    ? "" 
+    : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:8000");
+  const url = `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`;
 
   let response: Response;
   try {
     response = await fetch(url, {
-      ...options,
-      headers: _buildHeaders(token, companyCode, companyId, options)
+      ...requestInit,
+      headers: _buildHeaders(token, companyCode, companyId, requestInit)
     });
   } catch (networkError: any) {
     console.error(`[apiFetchV1 Network Error] Target URL "${url}" unreachable:`, networkError);
@@ -124,18 +174,21 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
       // Retry original request with the fresh token
       try {
         const retryResponse = await fetch(url, {
-          ...options,
-          headers: _buildHeaders(newToken, companyCode, companyId, options)
+          ...requestInit,
+          headers: _buildHeaders(newToken, companyCode, companyId, requestInit)
         });
         if (retryResponse.ok) {
-          if (retryResponse.status === 204 || retryResponse.headers.get("content-length") === "0") return null;
+          if (retryResponse.status === 204 || retryResponse.headers.get("content-length") === "0") return null as unknown as T;
           const ct = retryResponse.headers.get("content-type") || "";
-          return ct.includes("text/plain") ? retryResponse.text() : retryResponse.json();
+          if (ct.includes("text/plain") || ct.includes("text/html")) return (await retryResponse.text()) as unknown as T;
+          if (ct.includes("application/pdf") || ct.includes("application/octet-stream")) return (await retryResponse.blob()) as unknown as T;
+          return (await retryResponse.json()) as unknown as T;
         }
         // Retry failed after refresh — fall through to throw
       } catch { /* fall through */ }
     }
     // Refresh unavailable or retry failed
+    clearAuthSession("token_expired");
     throw new Error("Token is invalid or has expired. Please log in again.");
   }
   // ────────────────────────────────────────────────────────────────────────────
@@ -152,15 +205,21 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
   }
 
   if (response.status === 204 || response.headers.get("content-length") === "0") {
-    return null;
+    return null as unknown as T;
   }
 
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("text/plain")) {
-    return response.text();
+    return (await response.text()) as unknown as T;
+  }
+  if (contentType.includes("text/html")) {
+    return (await response.text()) as unknown as T;
+  }
+  if (contentType.includes("application/pdf") || contentType.includes("application/octet-stream")) {
+    return (await response.blob()) as unknown as T;
   }
 
-  return response.json();
+  return (await response.json()) as unknown as T;
 }
 
 export function isLocalMockToken(): boolean {

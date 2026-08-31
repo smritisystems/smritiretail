@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 3.33.0
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-08-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -212,7 +212,7 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
                 if (field.showWhen && !field.showWhen(formData)) return null;
                 const fieldId = `field-${field.name}`;
                 const val = formData[field.name] ?? "";
-                const isFieldDisabled = typeof field.disabled === "function" ? field.disabled(formData) : Boolean(field.disabled);
+                const isFieldDisabled = typeof field.disabled === "function" ? field.disabled(formData, isEdit) : Boolean(field.disabled);
 
                 return (
                   <div

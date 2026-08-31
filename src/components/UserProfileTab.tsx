@@ -49,7 +49,7 @@ import {
 import { User, UserPreferences, AuditLogEntry } from "../types.js";
 import { useNotifications } from "../notifications/notification_store.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
-import { PasswordResetScreen } from "./PasswordResetScreen.tsx";
+import { PasswordReset } from "./PasswordReset.tsx";
 import { isValidMobile, isValidEmail } from "../utils/validators.ts";
 
 interface SessionInfo {
@@ -329,7 +329,7 @@ export const UserProfileTab: React.FC = () => {
 
   if (isChangingPassword) {
     return (
-      <PasswordResetScreen
+      <PasswordReset
         onResetSuccess={() => {
           setIsChangingPassword(false);
           addNotification({

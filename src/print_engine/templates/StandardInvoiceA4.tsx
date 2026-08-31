@@ -480,7 +480,7 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                       <table className="w-full text-left text-[10px] border-collapse">
                         <tbody>
                           <tr>
-                            <td className="py-0.5 text-slate-500 font-medium w-24">SIS Code:</td>
+                            <td className="py-0.5 text-slate-500 font-medium w-24">Store Code:</td>
                             <td className="py-0.5 font-bold font-mono text-slate-900">{sisCode}</td>
                           </tr>
                           <tr>

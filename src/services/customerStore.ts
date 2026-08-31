@@ -24,7 +24,95 @@
  */
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
-import { Customer, CustomerGroup, SalesInvoice, SalesReturn } from "../types";
+import { Customer, CustomerGroup, CustomerPriceGroup, SalesInvoice, SalesReturn } from "../types";
+
+export const initialCustomerPriceGroups: CustomerPriceGroup[] = [
+  {
+    id: "CPP",
+    code: "CPP",
+    description: "Platinum Privilege",
+    paymentTerms: "PT",
+    creditDays: 60,
+    destTaxType: "Local",
+    creditLimit: 500000,
+    itemClassificationPriceFactorApplicable: true,
+    allowCreditInvoice: true,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: false,
+    allowMiscIssue: false,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  },
+  {
+    id: "TI",
+    code: "TI",
+    description: "Tech Infotech Ltd",
+    paymentTerms: "Net 30",
+    creditDays: 30,
+    destTaxType: "Local",
+    creditLimit: 250000,
+    itemClassificationPriceFactorApplicable: false,
+    allowCreditInvoice: true,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: false,
+    allowMiscIssue: false,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  },
+  {
+    id: "VIP",
+    code: "VIP",
+    description: "Platinum Retail",
+    paymentTerms: "Immediate",
+    creditDays: 0,
+    destTaxType: "Local",
+    creditLimit: 50000,
+    itemClassificationPriceFactorApplicable: false,
+    allowCreditInvoice: true,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: false,
+    allowMiscIssue: false,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  },
+  {
+    id: "CORP",
+    code: "CORP",
+    description: "Standard Corporate",
+    paymentTerms: "Net 45",
+    creditDays: 45,
+    destTaxType: "Interstate",
+    creditLimit: 1000000,
+    itemClassificationPriceFactorApplicable: true,
+    allowCreditInvoice: true,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: true,
+    allowMiscIssue: true,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  },
+  {
+    id: "RETAIL",
+    code: "RETAIL",
+    description: "Walk-In Standard",
+    paymentTerms: "Immediate",
+    creditDays: 0,
+    destTaxType: "Local",
+    creditLimit: 0,
+    itemClassificationPriceFactorApplicable: false,
+    allowCreditInvoice: false,
+    allowCashInvoice: true,
+    taxExclusiveInvoice: false,
+    allowMiscIssue: false,
+    status: "Active",
+    createdAt: "2026-07-10",
+    modifiedAt: "2026-08-22"
+  }
+];
 
 export const initialCustomerGroups: CustomerGroup[] = [
   {
@@ -161,6 +249,18 @@ export const initialCustomerGroups: CustomerGroup[] = [
 
 export const initialCustomers: Customer[] = [
   {
+    id: "CUST-WALKIN",
+    code: "CUST-WALKIN",
+    customerGroupId: "CG-Retail",
+    name: "Walk-In / Cash Customer",
+    mobile: "9999999999",
+    email: "cash@smritiretail.com",
+    outstanding: 0,
+    status: "Active",
+    createdDate: "2026-07-10",
+    tags: ["Walk-In", "Cash", "B2C"],
+  },
+  {
     id: "CUST-001",
     customerGroupId: "CG-Retail",
     name: "Rahul Sharma",
@@ -206,7 +306,8 @@ export const initialCustomers: Customer[] = [
     tags: ["Franchise", "Premium"],
   },
   {
-    id: "CUST-005",
+    id: "cust-rrl-192b561d",
+    code: "CUST-005",
     customerGroupId: "CG-LargeRetail",
     name: "Reliance Retail",
     mobile: "9822334455",
@@ -477,29 +578,37 @@ export const initialSalesReturns: SalesReturn[] = [
 ];
 
 export function getSalesInvoices(): SalesInvoice[] {
-  const saved = localStorage.getItem("smriti_sales_invoices");
-  if (saved) {
-    return JSON.parse(saved);
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_sales_invoices");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    localStorage.setItem("smriti_sales_invoices", JSON.stringify(initialSalesInvoices));
   }
-  localStorage.setItem("smriti_sales_invoices", JSON.stringify(initialSalesInvoices));
   return initialSalesInvoices;
 }
 
 export function saveSalesInvoices(invoices: SalesInvoice[]) {
-  localStorage.setItem("smriti_sales_invoices", JSON.stringify(invoices));
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_sales_invoices", JSON.stringify(invoices));
+  }
 }
 
 export function getSalesReturns(): SalesReturn[] {
-  const saved = localStorage.getItem("smriti_sales_returns");
-  if (saved) {
-    return JSON.parse(saved);
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_sales_returns");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    localStorage.setItem("smriti_sales_returns", JSON.stringify(initialSalesReturns));
   }
-  localStorage.setItem("smriti_sales_returns", JSON.stringify(initialSalesReturns));
   return initialSalesReturns;
 }
 
 export function saveSalesReturns(returns: SalesReturn[]) {
-  localStorage.setItem("smriti_sales_returns", JSON.stringify(returns));
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_sales_returns", JSON.stringify(returns));
+  }
 }
 
 export function addSalesInvoice(inv: SalesInvoice) {
@@ -515,22 +624,26 @@ export function addSalesReturn(ret: SalesReturn) {
 }
 
 export function getCustomerGroups(): CustomerGroup[] {
-  const saved = localStorage.getItem("smriti_customer_groups");
-  if (saved) {
-    return JSON.parse(saved);
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_customer_groups");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    localStorage.setItem("smriti_customer_groups", JSON.stringify(initialCustomerGroups));
   }
-  localStorage.setItem("smriti_customer_groups", JSON.stringify(initialCustomerGroups));
   return initialCustomerGroups;
 }
 
 export function getCustomers(): Customer[] {
-  const saved = localStorage.getItem("smriti_customers");
-  let customersList: Customer[] = [];
-  if (saved) {
-    customersList = JSON.parse(saved);
-  } else {
-    localStorage.setItem("smriti_customers", JSON.stringify(initialCustomers));
-    customersList = initialCustomers;
+  let customersList: Customer[] = initialCustomers;
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_customers");
+    if (saved) {
+      customersList = JSON.parse(saved);
+    } else {
+      localStorage.setItem("smriti_customers", JSON.stringify(initialCustomers));
+      customersList = initialCustomers;
+    }
   }
 
   // Live-compute outstanding balances based on invoices and returns
@@ -556,19 +669,78 @@ export function getCustomers(): Customer[] {
 }
 
 export function saveCustomers(customers: Customer[]) {
-  localStorage.setItem("smriti_customers", JSON.stringify(customers));
-  try {
-    window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
-  } catch (e) {
-    console.error("Failed to dispatch smriti_customer_updated event:", e);
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_customers", JSON.stringify(customers));
+    try {
+      window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+    } catch (e) {
+      console.error("Failed to dispatch smriti_customer_updated event:", e);
+    }
   }
   // Persist to server asynchronously
   customers.forEach(cust => persistCustomerChange(cust));
 }
 
 export function saveCustomerGroups(groups: CustomerGroup[]) {
-  localStorage.setItem("smriti_customer_groups", JSON.stringify(groups));
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_customer_groups", JSON.stringify(groups));
+  }
 }
+
+export function getCustomerPriceGroups(): CustomerPriceGroup[] {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    const saved = localStorage.getItem("smriti_customer_price_groups");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        // Fallback
+      }
+    }
+    localStorage.setItem("smriti_customer_price_groups", JSON.stringify(initialCustomerPriceGroups));
+  }
+  return initialCustomerPriceGroups;
+}
+
+export function saveCustomerPriceGroups(groups: CustomerPriceGroup[]) {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    localStorage.setItem("smriti_customer_price_groups", JSON.stringify(groups));
+    try {
+      window.dispatchEvent(new CustomEvent("smriti_customer_price_groups_updated"));
+    } catch (e) {
+      console.error("Failed to dispatch smriti_customer_price_groups_updated event:", e);
+    }
+  }
+}
+
+
+export function addCustomerPriceGroup(group: CustomerPriceGroup): CustomerPriceGroup[] {
+  const list = getCustomerPriceGroups();
+  const existingIdx = list.findIndex(g => g.code.toUpperCase() === group.code.toUpperCase());
+  if (existingIdx >= 0) {
+    list[existingIdx] = { ...list[existingIdx], ...group, modifiedAt: new Date().toISOString() };
+  } else {
+    list.push({ ...group, createdAt: new Date().toISOString(), modifiedAt: new Date().toISOString() });
+  }
+  saveCustomerPriceGroups(list);
+  return getCustomerPriceGroups();
+}
+
+export function updateCustomerPriceGroup(code: string, updates: Partial<CustomerPriceGroup>): CustomerPriceGroup[] {
+  const list = getCustomerPriceGroups();
+  const updated = list.map(g => g.code.toUpperCase() === code.toUpperCase() ? { ...g, ...updates, modifiedAt: new Date().toISOString() } : g);
+  saveCustomerPriceGroups(updated);
+  return getCustomerPriceGroups();
+}
+
+export function deleteCustomerPriceGroup(code: string): CustomerPriceGroup[] {
+  const list = getCustomerPriceGroups();
+  const filtered = list.filter(g => g.code.toUpperCase() !== code.toUpperCase());
+  saveCustomerPriceGroups(filtered);
+  return getCustomerPriceGroups();
+}
+
 
 export function updateCustomerStatus(
   customerId: string,
@@ -600,23 +772,32 @@ export function updateCustomerTags(
   return getCustomers(); // Return refreshed with live values
 }
 
+function formatCustomerForApi(c: Customer) {
+  return {
+    id: c.id,
+    name: c.name,
+    mobile: c.mobile || undefined,
+    email: c.email || undefined,
+    gst_number: c.gstNumber || undefined,
+    customer_group_id: c.customerGroupId || undefined,
+    code: c.code || undefined,
+    outstanding: c.outstanding || 0,
+    status: c.status || "Active",
+    tags: Array.isArray(c.tags) ? c.tags : [],
+  };
+}
+
 // ==========================================
 // BACKEND SYNC AND OFFLINE CACHE ENGINES
 // ==========================================
 export async function persistCustomerChange(customer: Customer) {
   try {
-    const res = await apiFetchV1(`/customers/${customer.id}`, {
+    const payload = formatCustomerForApi(customer);
+    await apiFetchV1(`/customers/${customer.id}`, {
       method: "PUT",
-      body: JSON.stringify(customer)
+      body: JSON.stringify(payload)
     });
-    if (!res) {
-      await apiFetchV1("/customers", {
-        method: "POST",
-        body: JSON.stringify(customer)
-      });
-    }
   } catch (e) {
-    console.warn("[CRM Sync] Server offline. Saving customer change to local pending queue.");
     try {
       const pending = JSON.parse(localStorage.getItem("smriti_pending_customers") || "[]");
       if (!pending.some((c: any) => c.id === customer.id)) {
@@ -641,19 +822,13 @@ export async function syncPendingCustomers() {
   const remaining: Customer[] = [];
   for (const cust of pending) {
     try {
+      const payload = formatCustomerForApi(cust);
       await apiFetchV1(`/customers/${cust.id}`, {
         method: "PUT",
-        body: JSON.stringify(cust)
+        body: JSON.stringify(payload)
       });
     } catch (e) {
-      try {
-        await apiFetchV1("/customers", {
-          method: "POST",
-          body: JSON.stringify(cust)
-        });
-      } catch (inner) {
-        remaining.push(cust);
-      }
+      remaining.push(cust);
     }
   }
   localStorage.setItem("smriti_pending_customers", JSON.stringify(remaining));

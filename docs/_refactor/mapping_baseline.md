@@ -17,8 +17,8 @@
 ## 1. Phase 0: Current Mapping Model Audit
 
 ### 1.1 Where is source→target mapping stored in state per-paste session?
-- **Component State:** In [`src/components/HeaderMappingPreviewModal.tsx`](file:///F:/SMRITRretailNX/src/components/HeaderMappingPreviewModal.tsx), state is managed as `const [columns, setColumns] = useState<ColumnMappingResult[]>([]);`.
-- **Handoff:** When confirmed, `onConfirm(columns)` passes `ColumnMappingResult[]` to `applyConfirmedHeaderMappings()` in [`src/components/ExcelGridEntrySection.tsx`](file:///F:/SMRITRretailNX/src/components/ExcelGridEntrySection.tsx).
+- **Component State:** In [`src/components/HeaderMappingPrevi.tsx`](file:///F:/SMRITRretailNX/src/components/HeaderMappingPrevi.tsx), state is managed as `const [columns, setColumns] = useState<ColumnMappingResult[]>([]);`.
+- **Handoff:** When confirmed, `onConfirm(columns)` passes `ColumnMappingResult[]` to `applyConfirmedHeaderMappings()` in [`src/components/ExcelGridEntrySec.tsx`](file:///F:/SMRITRretailNX/src/components/ExcelGridEntrySec.tsx).
 
 ### 1.2 Is it 1:1 or 1:Many today?
 - **Data Model:** `ColumnMappingResult` has `mappedFieldKey: string | null` (1:1 primary) with optional `additionalTargets?: ConditionalTarget[]`.

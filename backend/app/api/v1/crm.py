@@ -16,12 +16,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_db, get_tenant_context, TenantContext, require_role
+from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
+
 from ...models.auth import UserRole
 from ...models.crm import Customer
 from ...schemas.crm import (
-    CustomerCreate, CustomerResponse,
-    CustomerGroupCreate, CustomerGroupResponse,
+    CustomerCreate, CustomerUpdate, CustomerResponse,
+    CustomerGroupCreate, CustomerGroupUpdate, CustomerGroupResponse,
 )
 from ...repositories.customer import CustomerRepository, CustomerGroupRepository
 from ...services.crm import CrmService
@@ -39,7 +40,7 @@ router = APIRouter()
 )
 async def create_customer(
     customer_in: CustomerCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a new customer. CASHIER, MANAGER, and SYSADMIN may create customers."""
@@ -57,7 +58,7 @@ class CustomerValidationRequest(BaseModel):
 )
 async def validate_customer_add(
     validation_request: CustomerValidationRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Validate a new customer payload before creation."""
@@ -68,10 +69,10 @@ async def validate_customer_add(
     seen_mobiles = set()
     seen_emails = set()
     for cust in existing_customers:
-        mobile = str(cust.get("mobile") or cust.get("phone") or "").strip()
+        m = str(cust.get("mobile") or "").strip().replace(" ", "").replace("-", "")
+        if m:
+            seen_mobiles.add(m)
         email = str(cust.get("email") or "").strip().lower()
-        if mobile:
-            seen_mobiles.add(mobile)
         if email:
             seen_emails.add(email)
 
@@ -127,7 +128,7 @@ async def validate_customer_add(
 async def list_customers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
@@ -139,7 +140,7 @@ async def search_customers(
     q: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
@@ -149,7 +150,7 @@ async def search_customers(
 @router.get("/customers/{customer_id}", response_model=CustomerResponse)
 async def get_customer(
     customer_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
@@ -157,6 +158,43 @@ async def get_customer(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return customer
+
+
+@router.put("/customers/{customer_id}", response_model=CustomerResponse)
+@router.patch("/customers/{customer_id}", response_model=CustomerResponse)
+async def update_customer(
+    customer_id: str,
+    customer_in: CustomerUpdate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Update or upsert an existing customer."""
+    service = CrmService(db, tenant_ctx)
+    return await service.update_customer(customer_id, customer_in)
+
+
+@router.put("/customers", response_model=CustomerResponse)
+async def upsert_customer(
+    customer_in: CustomerCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Upsert a customer record."""
+    service = CrmService(db, tenant_ctx)
+    target_id = customer_in.id or f"cust-{customer_in.name.lower().replace(' ', '-')[:20]}"
+    return await service.update_customer(target_id, customer_in)
+
+
+@router.delete("/customers/{customer_id}")
+async def delete_customer(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Soft delete a customer."""
+    service = CrmService(db, tenant_ctx)
+    await service.delete_customer(customer_id)
+    return {"status": "success", "message": f"Customer '{customer_id}' deleted."}
 
 
 # --- Customer Group Endpoints ---
@@ -169,7 +207,7 @@ async def get_customer(
 )
 async def create_customer_group(
     group_in: CustomerGroupCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a new customer group. Requires MANAGER or SYSADMIN role."""
@@ -181,7 +219,7 @@ async def create_customer_group(
 async def list_customer_groups(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerGroupRepository(db, tenant_ctx)
@@ -191,7 +229,7 @@ async def list_customer_groups(
 @router.get("/customer-groups/{group_id}", response_model=CustomerGroupResponse)
 async def get_customer_group(
     group_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerGroupRepository(db, tenant_ctx)
@@ -199,3 +237,111 @@ async def get_customer_group(
     if not group:
         raise HTTPException(status_code=404, detail="Customer group not found")
     return group
+
+# ---------------------------------------------------------------------------
+# LYL-ADJ-001: Grant Bonus Points  (Sprint 19)
+# POST /api/v1/crm/loyalty/members/{member_id}/bonus
+# ---------------------------------------------------------------------------
+
+from pydantic import BaseModel as _BaseModel
+
+class LoyaltyAdjIn(_BaseModel):
+    points: float
+    reason: str
+    reference_id: str = ""
+
+@router.post("/loyalty/members/{member_id}/bonus", status_code=201)
+async def grant_loyalty_bonus(
+    member_id: str,
+    body:      LoyaltyAdjIn,
+    tenant:    TenantContext    = Depends(get_tenant_context),
+    db:        AsyncSession     = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    LYL-ADJ-001 -- Grant BONUS points to a loyalty member.
+    MANAGER role required. Points added to current_points_balance and
+    a BONUS row written to loyalty_transactions.
+    """
+    role = (getattr(current_user, "role", "") or "").upper()
+    if role not in ("ADMIN", "SYSADMIN", "SUPERADMIN", "MANAGER"):
+        raise HTTPException(status_code=403, detail={
+            "code": "SMRITI-PERM-001",
+            "message": "Only managers or administrators can grant loyalty bonus points.",
+        })
+    if body.points <= 0:
+        raise HTTPException(status_code=422, detail={
+            "code": "SMRITI-VAL-001",
+            "message": "Points must be greater than zero.",
+        })
+
+    from ...services.sales_hook import write_loyalty_bonus
+    creator = getattr(current_user, "id", None) or "system"
+    ok = await write_loyalty_bonus(
+        db=db,
+        member_id=member_id,
+        company_id=tenant.company_id,
+        branch_id=tenant.branch_id,
+        points=body.points,
+        reason=body.reason,
+        reference_id=body.reference_id or f"BONUS-{member_id}",
+        creator=creator,
+    )
+    await db.commit()
+    if not ok:
+        raise HTTPException(status_code=404, detail={
+            "code": "SMRITI-DATA-001",
+            "message": f"Loyalty member '{member_id}' not found or inactive.",
+        })
+    return {"member_id": member_id, "bonus_points": body.points, "status": "granted"}
+
+
+# ---------------------------------------------------------------------------
+# LYL-ADJ-002: Expire Points  (Sprint 19)
+# POST /api/v1/crm/loyalty/members/{member_id}/expire
+# ---------------------------------------------------------------------------
+
+@router.post("/loyalty/members/{member_id}/expire", status_code=201)
+async def expire_loyalty_points(
+    member_id: str,
+    body:      LoyaltyAdjIn,
+    tenant:    TenantContext    = Depends(get_tenant_context),
+    db:        AsyncSession     = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    LYL-ADJ-002 -- Expire / deduct points from a loyalty member.
+    MANAGER role required. Points deducted from current_points_balance (floor 0)
+    and an EXPIRY row written to loyalty_transactions.
+    """
+    role = (getattr(current_user, "role", "") or "").upper()
+    if role not in ("ADMIN", "SYSADMIN", "SUPERADMIN", "MANAGER"):
+        raise HTTPException(status_code=403, detail={
+            "code": "SMRITI-PERM-001",
+            "message": "Only managers or administrators can expire loyalty points.",
+        })
+    if body.points <= 0:
+        raise HTTPException(status_code=422, detail={
+            "code": "SMRITI-VAL-001",
+            "message": "Points must be greater than zero.",
+        })
+
+    from ...services.sales_hook import write_loyalty_expiry
+    creator = getattr(current_user, "id", None) or "system"
+    ok = await write_loyalty_expiry(
+        db=db,
+        member_id=member_id,
+        company_id=tenant.company_id,
+        branch_id=tenant.branch_id,
+        points=body.points,
+        reason=body.reason,
+        reference_id=body.reference_id or f"EXPIRY-{member_id}",
+        creator=creator,
+    )
+    await db.commit()
+    if not ok:
+        raise HTTPException(status_code=404, detail={
+            "code": "SMRITI-DATA-001",
+            "message": f"Loyalty member '{member_id}' not found or inactive.",
+        })
+    return {"member_id": member_id, "expired_points": body.points, "status": "expired"}

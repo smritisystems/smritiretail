@@ -101,8 +101,13 @@ class AuthService:
     # ------------------------------------------------------------------
     async def login(self, req: LoginRequest) -> dict:
         """Authenticate the user and return access + refresh tokens."""
+        uname = str(req.username).strip()
+        alt_uname = uname[4:] if uname.startswith("usr_") else f"usr_{uname}"
         res = await self.db.execute(
-            select(User).where(User.username == req.username, User.is_deleted == False)
+            select(User).where(
+                (User.username == uname) | (User.username == alt_uname) | (User.email == uname),
+                User.is_deleted == False
+            )
         )
         user = res.scalars().first()
 

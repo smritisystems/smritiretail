@@ -13,11 +13,11 @@
 
 import React, { useState } from 'react';
 import { ShoppingCart, CheckCircle2, FileText, ArrowRight, ShieldCheck } from 'lucide-react';
-import { trainingSandboxStore, SimulatedPO } from '../../services/trainingSandboxStore';
+import { trainingStore, SimulatedPO } from '../../services/trainingStore';
 
 export const Day2POSimulator: React.FC<{ onCompleteStep: () => void }> = ({ onCompleteStep }) => {
-  const suppliers = trainingSandboxStore.getSimulatedSuppliers();
-  const items = trainingSandboxStore.getSimulatedItems();
+  const suppliers = trainingStore.getSimulatedSuppliers();
+  const items = trainingStore.getSimulatedItems();
 
   const [poNumber, setPoNumber] = useState('PO-2026-1001');
   const [selectedSupplier, setSelectedSupplier] = useState(suppliers[0]?.code || 'SUP-AMAR-TRADERS');
@@ -28,7 +28,7 @@ export const Day2POSimulator: React.FC<{ onCompleteStep: () => void }> = ({ onCo
 
   const handleCreatePO = (e: React.FormEvent) => {
     e.preventDefault();
-    const newPo = trainingSandboxStore.createSimulatedPO({
+    const newPo = trainingStore.createSimulatedPO({
       poNumber,
       supplierCode: selectedSupplier,
       sku: selectedSku,

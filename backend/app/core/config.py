@@ -7,13 +7,11 @@ Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-11
 Modified     : 2026-08-17
-Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 import os
-os.environ.setdefault("JWT_SECRET_KEY", "dev-test-jwt-secret-key-32-chars-long-smriti")
-os.environ.setdefault("INTERNAL_SERVICE_KEY", "dev-test-internal-service-key-32-chars")
 import json
 import socket
 import asyncio
@@ -157,9 +155,8 @@ class Settings(BaseSettings):
 
     # Multi-Database Platform Architecture v1.1 Configuration
     USE_MULTI_DB_ROUTER: bool = False
-    CONTROL_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiSys"
-    PSV_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiPSV"
-    ECOM_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/SmritiEcom"
+    # Statutory Compliance Configuration
+    STRICT_STATUTORY_MODE: bool = False
 
     model_config = {
         "env_file": ".env",
@@ -168,9 +165,14 @@ class Settings(BaseSettings):
     }
 
 def load_settings() -> Settings:
-    # 1. Base defaults loaded from env / BaseSettings
-    # We must ensure JWT_SECRET_KEY is present in env, otherwise Pydantic will raise error.
+    # Single-source production rule: JWT_SECRET_KEY and INTERNAL_SERVICE_KEY must come from the
+    # runtime environment/deployment secret source. No hardcoded production fallback is allowed.
     base_settings = Settings()
+
+    if not base_settings.JWT_SECRET_KEY:
+        raise ValueError("JWT_SECRET_KEY is required. Set it via the runtime environment or deployment secret manager.")
+    if not base_settings.INTERNAL_SERVICE_KEY:
+        raise ValueError("INTERNAL_SERVICE_KEY is required. Set it via the runtime environment or deployment secret manager.")
     
     # 2. Layer JSON configs from smriti-config.json
     root_dir = Path(__file__).resolve().parent.parent.parent.parent
@@ -213,6 +215,28 @@ def load_settings() -> Settings:
     is_local_dev = env in {"development", "local", "test"} or (env == "" and Path(__file__).resolve().parents[4].joinpath(".git").exists())
     if is_local_dev and base_settings.DATABASE_URL.startswith("postgresql+asyncpg://"):
         base_settings.DATABASE_URL = _resolve_local_dev_postgres_url(base_settings.DATABASE_URL)
+
+    strict_env = os.getenv("STRICT_STATUTORY_MODE")
+    if strict_env is not None:
+        base_settings.STRICT_STATUTORY_MODE = strict_env.strip().lower() in ("true", "1", "yes")
+    elif env in {"production", "prod"}:
+        base_settings.STRICT_STATUTORY_MODE = True
+
+    # Fail closed on insecure secrets in production
+    if env in {"production", "prod"}:
+        if not base_settings.JWT_SECRET_KEY or len(base_settings.JWT_SECRET_KEY) < 32:
+            raise ValueError(
+                "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong JWT_SECRET_KEY (min 32 chars) from the runtime secret store."
+            )
+        if not base_settings.INTERNAL_SERVICE_KEY or len(base_settings.INTERNAL_SERVICE_KEY) < 32:
+            raise ValueError(
+                "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong INTERNAL_SERVICE_KEY (min 32 chars) from the runtime secret store."
+            )
+        pg_pwd = os.getenv("POSTGRES_PASSWORD") or ""
+        if not pg_pwd or pg_pwd == "postgres" or ":postgres@" in base_settings.DATABASE_URL:
+            raise ValueError(
+                "SECURITY FAULT: Production mode requires a dedicated, non-default POSTGRES_PASSWORD. Default credentials 'postgres:postgres' forbidden in production."
+            )
 
     return base_settings
 

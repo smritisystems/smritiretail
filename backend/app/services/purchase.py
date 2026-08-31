@@ -77,14 +77,15 @@ class PurchaseService:
     # ──────────────────────────────────────────────────────────────
 
     async def _get_supplier(self, supplier_id: str) -> Supplier:
-        res = await self.db.execute(
-            select(Supplier).where(
-                Supplier.id == supplier_id,
-                Supplier.company_id == self.tenant.company_id,
-                Supplier.branch_id  == self.tenant.branch_id,
-                Supplier.is_deleted == False,
-            )
+        stmt = select(Supplier).where(
+            Supplier.id == supplier_id,
+            Supplier.is_deleted == False,
         )
+        if self.tenant.company_id:
+            stmt = stmt.where(
+                (Supplier.company_id == self.tenant.company_id) | (Supplier.company_id.is_(None))
+            )
+        res = await self.db.execute(stmt)
         supplier = res.scalars().first()
         if not supplier:
             raise HTTPException(
@@ -93,6 +94,24 @@ class PurchaseService:
                        f"Please verify the supplier ID and try again.",
             )
         return supplier
+
+    async def _get_product(self, product_id: str) -> Product:
+        stmt = select(Product).where(
+            (Product.id == product_id) | (Product.code == product_id),
+            Product.is_deleted == False,
+        )
+        if self.tenant.company_id:
+            stmt = stmt.where(
+                (Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None))
+            )
+        res = await self.db.execute(stmt)
+        product = res.scalars().first()
+        if not product:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Product '{product_id}' was not found in your inventory.",
+            )
+        return product
 
     # ──────────────────────────────────────────────────────────────
     # Supplier CRUD
@@ -282,46 +301,51 @@ class PurchaseService:
                 detail="A purchase receipt must contain at least one item.",
             )
 
-        subtotal  = Decimal("0.00")
+        from .inventory_wms import InventoryWmsService
+        from .inventory_warehouse_resolver import InventoryWarehouseResolver
+        wms_service = InventoryWmsService(self.db, self.tenant)
+        resolver = InventoryWarehouseResolver(self.db)
+        warehouse_id = req.warehouse_id
+        if not warehouse_id:
+            warehouse = await resolver.resolve(company_id=self.tenant.company_id, branch_id=self.tenant.branch_id)
+            warehouse_id = warehouse.id
+
+        subtotal = Decimal("0.00")
         tax_total = Decimal("0.00")
         item_rows = []
-        product_stock_updates: list[tuple[Product, Decimal]] = []
 
         for item in req.items:
-            if item.quantity_received <= 0:
+            if item.quantity_received <= Decimal("0.00"):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Quantity received for '{item.code}' must be greater than zero.",
+                    detail="Quantity received must be greater than zero.",
                 )
-
-            res = await self.db.execute(
-                select(Product).where(
-                    Product.id == item.product_id,
-                    Product.company_id == self.tenant.company_id,
-                    Product.branch_id  == self.tenant.branch_id,
-                    Product.is_deleted == False,
-                )
+            product = await self._get_product(item.product_id)
+            tax_amt = (
+                item.cost_price * item.quantity_received * (item.gst_rate / Decimal("100"))
+            ).quantize(Decimal("0.01"))
+            line_tot = (item.cost_price * item.quantity_received + tax_amt).quantize(
+                Decimal("0.01")
             )
-            product = res.scalars().first()
-            if not product:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Product '{item.code}' was not found in your inventory.",
-                )
-
-            tax_amt  = (item.cost_price * item.quantity_received * item.gst_rate / 100).quantize(Decimal("0.01"))
-            line_tot = (item.cost_price * item.quantity_received + tax_amt).quantize(Decimal("0.01"))
-            subtotal  += item.cost_price * item.quantity_received
+            subtotal += item.cost_price * item.quantity_received
             tax_total += tax_amt
 
+            batch_no = item.batch_no or f"BATCH-GRN-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+
             item_rows.append(PurchaseReceiptItem(
-                id=f"pri-{_uid()}",
+                id=_uid(),
+                uuid=str(uuid.uuid4()),
                 receipt_id=req.id,
                 product_id=item.product_id,
                 code=item.code,
                 name=item.name,
+                batch_no=batch_no,
+                mfg_date=item.mfg_date,
+                expiry_date=item.expiry_date,
+                mrp=item.mrp,
                 quantity_ordered=item.quantity_ordered,
                 quantity_received=item.quantity_received,
+                quantity_damaged=item.quantity_damaged or Decimal("0.00"),
                 cost_price=item.cost_price,
                 gst_rate=item.gst_rate,
                 tax_amount=tax_amt,
@@ -329,7 +353,23 @@ class PurchaseService:
                 company_id=self.tenant.company_id,
                 branch_id=self.tenant.branch_id,
             ))
-            product_stock_updates.append((product, item.quantity_received))
+
+            # Inward into WMS Batch Stock atomically
+            await wms_service.atomic_mutate_batch_stock(
+                product_id=product.id,
+                warehouse_id=warehouse_id,
+                batch_no=batch_no,
+                qty_delta=Decimal(str(item.quantity_received)),
+                movement_type="INWARD_GRN",
+                mfg_date=item.mfg_date,
+                expiry_date=item.expiry_date,
+                mrp=item.mrp,
+                purchase_rate=item.cost_price,
+                unit_cost=item.cost_price,
+                reference_doc_type="Purchase Receipt",
+                reference_doc_id=req.id,
+                remarks=f"Inward GRN receipt {req.receipt_no} from supplier {req.supplier_id}",
+            )
 
         grand_total = (subtotal + tax_total).quantize(Decimal("0.01"))
 
@@ -337,6 +377,7 @@ class PurchaseService:
             id=req.id,
             receipt_no=req.receipt_no,
             supplier_id=req.supplier_id,
+            warehouse_id=warehouse_id,
             order_id=req.order_id,
             status="RECEIVED",
             notes=req.notes,
@@ -348,33 +389,6 @@ class PurchaseService:
         )
         self.db.add(receipt)
         self.db.add_all(item_rows)
-
-        # Apply stock increments via StockMovement trigger, update supplier outstanding
-        for product, qty in product_stock_updates:
-            product.modified_at = datetime.now(timezone.utc)
-            self.db.add(product)
-
-
-            # Record StockMovement
-            movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-            db_movement = StockMovement(
-                id=movement_id,
-                uuid=str(uuid.uuid4()),
-                product_id=product.id,
-                product_name=product.name,
-                sku=product.sku or product.code,
-                quantity=qty,  # Positive for IN
-                movement_type="IN",
-                reference_doc_type="Purchase Receipt",
-                reference_doc_id=receipt.id,
-                warehouse="Default Warehouse",
-                unit_cost=product.cost_price,
-                remarks=f"Stock received for purchase receipt: {receipt.receipt_no}",
-                source_module="Purchase",
-                company_id=self.tenant.company_id,
-                branch_id=self.tenant.branch_id
-            )
-            self.db.add(db_movement)
 
         supplier = await self._get_supplier(req.supplier_id)
         supplier.outstanding = (supplier.outstanding + grand_total).quantize(Decimal("0.01"))

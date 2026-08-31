@@ -1,0 +1,316 @@
+name: Production CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Frontend Quality Checks
+  frontend-lint-and-build:
+    runs-on: ubuntu-latest
+    name: Frontend Lint & Build
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: false
+      
+      - name: Type check (TypeScript)
+        run: npx tsc --noEmit
+        continue-on-error: false
+      
+      - name: Build production bundle
+        run: npm run build
+        continue-on-error: false
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-dist
+          path: dist/
+          retention-days: 1
+
+  # Frontend Tests
+  frontend-test:
+    runs-on: ubuntu-latest
+    name: Frontend Tests
+    needs: frontend-lint-and-build
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run Vitest
+        run: npm test -- --run
+        continue-on-error: false
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        if: always()
+
+  # Backend Quality Checks
+  backend-lint-and-test:
+    runs-on: ubuntu-latest
+    name: Backend Lint & Tests
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: smriti
+          POSTGRES_PASSWORD: smriti_test_pass
+          POSTGRES_DB: smriti_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      
+      - name: Run pylint
+        run: cd backend && pylint app --fail-under=8.0 2>/dev/null || true
+        continue-on-error: true
+      
+      - name: Type check with mypy
+        run: cd backend && mypy app --ignore-missing-imports 2>/dev/null || true
+        continue-on-error: true
+      
+      - name: Run pytest
+        run: cd backend && pytest tests/ -v --cov=app --cov-report=xml
+        env:
+          DATABASE_URL: postgresql://smriti:smriti_test_pass@localhost:5432/smriti_test
+          JWT_SECRET: test_secret_key_for_ci_tests
+          ENVIRONMENT: test
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          files: ./backend/coverage.xml
+
+  # Security Scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scanning
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Dependency check (npm)
+        run: npm audit --audit-level=moderate 2>&1 || true
+      
+      - name: Dependency check (pip)
+        run: |
+          pip install safety
+          safety check --json backend/requirements.txt 2>&1 || true
+      
+      - name: SAST scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Build Docker images
+  build-images:
+    runs-on: ubuntu-latest
+    name: Build Docker Images
+    needs: [frontend-lint-and-build, frontend-test, backend-lint-and-test, security-scan]
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download frontend build
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-dist
+          path: dist/
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Log in to Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+      
+      - name: Build and push backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}-backend
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}-frontend
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deployment (only on main branch)
+  deploy-staging:
+    runs-on: ubuntu-latest
+    name: Deploy to Staging
+    needs: build-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.smritibooks.com
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to staging cluster
+        env:
+          DEPLOY_KEY: ${{ secrets.STAGING_DEPLOY_KEY }}
+          DEPLOY_HOST: staging.smritibooks.com
+          DEPLOY_USER: deploy
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
+          
+          ssh -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST \
+            "cd /opt/smriti && docker-compose pull && docker-compose up -d"
+      
+      - name: Run smoke tests
+        run: |
+          sleep 10  # Wait for services to be ready
+          curl -f https://staging.smritibooks.com/api/v1/health/status || exit 1
+          curl -f https://staging.smritibooks.com/api/v1/health/db || exit 1
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    needs: build-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://app.smritibooks.com
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Request approval
+        run: |
+          echo "Production deployment requires manual approval"
+          echo "Check GitHub Actions environment for approval UI"
+      
+      - name: Deploy to production cluster
+        env:
+          DEPLOY_KEY: ${{ secrets.PROD_DEPLOY_KEY }}
+          DEPLOY_HOST: app.smritibooks.com
+          DEPLOY_USER: deploy
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
+          
+          # Blue-green deployment: deploy to non-active cluster first
+          ssh -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST \
+            "cd /opt/smriti && ./deploy-blue-green.sh"
+      
+      - name: Health check & rollback if needed
+        run: |
+          MAX_RETRIES=30
+          RETRY=0
+          
+          while [ $RETRY -lt $MAX_RETRIES ]; do
+            if curl -f https://app.smritibooks.com/api/v1/health/status; then
+              echo "Production health check passed"
+              exit 0
+            fi
+            RETRY=$((RETRY + 1))
+            sleep 2
+          done
+          
+          echo "Health check failed, initiating rollback"
+          ssh -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST \
+            "cd /opt/smriti && ./deploy-rollback.sh"
+          exit 1
+      
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          payload: |
+            {
+              "text": "Production deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Production Deployment* - ${{ job.status }}\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}"
+                  }
+                }
+              ]
+            }

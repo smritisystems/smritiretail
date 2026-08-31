@@ -12,9 +12,9 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from .audit_log_repository import ComplianceAuditLogRepository
-from .credentials_repository import ComplianceCredentialsRepository
-from .government_service_repository import GovernmentServiceRepository
+from .audit_log_repo import ComplianceAuditLogRepository
+from .credentials_repo import ComplianceCredentialsRepository
+from .gov_service_repo import GovernmentServiceRepository
 from .outbox_repository import ComplianceOutboxRepository
 
 __all__ = [

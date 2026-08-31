@@ -352,20 +352,19 @@ async def list_psv_parties(
             "id": party.id,
             "name": party.name,
             "location": party.location,
-            "stockCount": int(party.stock_count or 0),
-            "sellThrough": float(party.sell_through or 0.0),
-            "weeksOfCover": float(party.weeks_of_cover or 0.0),
-            "capitalLocked": float(party.capital_locked or 0.0),
+            "stock_count": int(party.stock_count or 0),
+            "sell_through": party.sell_through or 0.0,
+            "weeks_of_cover": party.weeks_of_cover or 0.0,
+            "capital_locked": party.capital_locked or 0.0,
             "status": party.status or "Healthy",
-            "history": [],
-            "skuTracking": [
+            "sku_tracking": [
                 {
-                    "productId": sku.product_id,
+                    "id": sku.id,
+                    "party_id": sku.party_id,
                     "sku": sku.sku,
-                    "productName": sku.product.name if getattr(sku, "product", None) else None,
-                    "invoicedQty": int(sku.invoiced_qty or 0),
-                    "confirmedSoldQty": int(sku.confirmed_sold_qty or 0),
-                    "returnedQty": int(sku.returned_qty or 0),
+                    "invoiced_qty": int(sku.invoiced_qty or 0),
+                    "confirmed_sold_qty": int(sku.confirmed_sold_qty or 0),
+                    "returned_qty": int(sku.returned_qty or 0),
                 }
                 for sku in (party.sku_tracking or [])
             ],

@@ -22,7 +22,7 @@ from sqlalchemy.future import select
 from app.main import app
 from app.models.auth import User, RefreshTokenBlacklist, UserRole
 from app.models.tenant import Company, Branch
-from app.models.inventory import Product, StockMovement
+from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.sales import (
     SalesInvoice, SalesInvoiceItem,
     SalesQuotation, SalesQuotationItem,
@@ -32,6 +32,7 @@ from app.models.sales import (
 from app.models.crm import Customer, CustomerGroup
 from app.api.deps import get_db, get_tenant_context, TenantContext
 from app.core.security import hash_password, create_access_token
+from app.db.ctrl_seeder import ControlPlaneSeeder
 
 pytestmark = pytest.mark.asyncio
 
@@ -39,19 +40,27 @@ pytestmark = pytest.mark.asyncio
 # Fixtures
 # ---------------------------------------------------------------------------
 
+from app.tests.conftest import clear_db
+
 @pytest.fixture(autouse=True)
 async def override_db_and_tenant(db_session):
     """Wire the test DB session into the app dependency."""
-    await db_session.execute(delete(RefreshTokenBlacklist))
-    await db_session.execute(delete(User))
+    await clear_db(db_session)
+    await ControlPlaneSeeder.seed_governed_logic(db_session)
     await db_session.commit()
 
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
-    yield
-    app.dependency_overrides.pop(get_db, None)
-    app.dependency_overrides.pop(get_tenant_context, None)
+    try:
+        yield
+    finally:
+        try:
+            await clear_db(db_session)
+        except Exception:
+            pass
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_tenant_context, None)
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +76,15 @@ async def _make_tenant(db_session, suffix: str):
         id=f"br-sal-{suffix}", company_id=company.id,
         name=f"Sales Br {suffix}", code=f"BRSAL-{suffix}", is_active=True,
     )
-    db_session.add_all([company, branch])
+    db_session.add(company)
+    await db_session.flush()
+    db_session.add(branch)
+    await db_session.flush()
+    warehouse = Warehouse(
+        id=f"wh-central-{suffix}", company_id=company.id, branch_id=branch.id,
+        code=f"WH-SAL-{suffix}", name="Central Warehouse", is_active=True,
+    )
+    db_session.add(warehouse)
     await db_session.commit()
     return company, branch
 
@@ -111,6 +128,9 @@ async def _make_product(db_session, suffix: str, company_id: str, branch_id: str
         code=f"PSAL-{suffix}",
         name=f"Sales Product {suffix}",
         price=Decimal("100.00"),
+        mrp=Decimal("100.00"),
+        gst_percentage=Decimal("18.00"),
+        hsn_code="6403",
         category="General",
         barcode=f"BCSAL{suffix}",
         stock=stock,
@@ -200,7 +220,7 @@ async def test_create_sales_quotation_as_cashier(db_session):
                 "product_id": product.id,
                 "code": product.code,
                 "name": product.name,
-                "quantity": "2.00",
+                "quantity": "1.00",
                 "price": "100.00",
                 "gst_rate": "18.00",
                 "total_amount": "236.00",
@@ -213,8 +233,9 @@ async def test_create_sales_quotation_as_cashier(db_session):
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["quotation_no"] == f"QUOT-{suffix}"
-    assert Decimal(body["tax_total"]) == Decimal("36.00")
-    assert Decimal(body["grand_total"]) == Decimal("236.00")
+    # qty=1, price=100, gst=18% => tax=18, total=118
+    assert Decimal(body["tax_total"]) == Decimal("18.00")
+    assert Decimal(body["grand_total"]) == Decimal("118.00")
 
 
 async def test_create_sales_quotation_duplicate_rejected(db_session):
@@ -632,6 +653,58 @@ async def test_create_sales_return_duplicate_rejected(db_session):
     assert r2.status_code == 400
 
 
+async def test_create_sales_return_idempotency_replays_existing_result(db_session):
+    """Replaying the same return request does not create a second return."""
+    suffix = uuid.uuid4().hex[:8]
+    company, branch = await _make_tenant(db_session, suffix)
+    user = await _make_cashier(db_session, suffix, company.id, branch.id)
+    customer = await _make_customer(db_session, suffix, company.id, branch.id)
+    product = await _make_product(db_session, suffix, company.id, branch.id, stock=10)
+    invoice = await _make_invoice(db_session, suffix, company.id, branch.id, product.id, customer.id)
+    _set_tenant(company.id, branch.id)
+    headers = {**_bearer(user, company.id, branch.id), "Idempotency-Key": f"return-idem-{suffix}"}
+    payload = {
+        "id": f"ret-idem-{suffix}", "return_no": f"RET-IDEM-{suffix}",
+        "original_invoice_id": invoice.id, "reason": "Retry test", "status": "processed",
+        "items": [{"product_id": product.id, "code": product.code, "name": product.name,
+                   "quantity": "1.00", "price": "100.00", "gst_rate": "18.00", "total_amount": "118.00"}],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
+        second = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+    assert second.json()["id"] == first.json()["id"]
+
+
+async def test_create_sales_return_idempotency_collision_rejected(db_session):
+    """Reusing a key for a different return identity is rejected."""
+    suffix = uuid.uuid4().hex[:8]
+    company, branch = await _make_tenant(db_session, suffix)
+    user = await _make_cashier(db_session, suffix, company.id, branch.id)
+    customer = await _make_customer(db_session, suffix, company.id, branch.id)
+    product = await _make_product(db_session, suffix, company.id, branch.id, stock=10)
+    invoice = await _make_invoice(db_session, suffix, company.id, branch.id, product.id, customer.id)
+    _set_tenant(company.id, branch.id)
+    headers = {**_bearer(user, company.id, branch.id), "Idempotency-Key": f"return-collision-{suffix}"}
+    payload = {
+        "id": f"ret-collision-{suffix}", "return_no": f"RET-COLLISION-{suffix}",
+        "original_invoice_id": invoice.id, "reason": "Collision test", "status": "processed",
+        "items": [{"product_id": product.id, "code": product.code, "name": product.name,
+                   "quantity": "1.00", "price": "100.00", "gst_rate": "18.00", "total_amount": "118.00"}],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
+        payload["return_no"] = f"RET-COLLISION-OTHER-{suffix}"
+        second = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 409, second.text
+
+
 async def test_list_sales_returns(db_session):
     """Listing returns returns existing records for the tenant."""
     suffix = uuid.uuid4().hex[:8]
@@ -755,7 +828,7 @@ async def test_sales_return_increments_stock(db_session):
                 "product_id": product.id,
                 "code": product.code,
                 "name": product.name,
-                "quantity": "2.00",
+                "quantity": "1.00",
                 "price": "100.00",
                 "gst_rate": "18.00",
                 "total_amount": "236.00",
@@ -767,17 +840,17 @@ async def test_sales_return_increments_stock(db_session):
         resp = await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
     assert resp.status_code == 201, resp.text
 
-    # Refresh and verify stock increased by 2 (5 + 2 = 7)
+    # Refresh and verify stock increased by 1 (5 + 1 = 6)
     await db_session.refresh(product)
-    assert product.stock == 7
+    assert product.stock == 6
 
     # Verify StockMovement was recorded
     movement_stmt = select(StockMovement).where(StockMovement.reference_doc_id == f"ret-stk-{suffix}")
     movement_res = await db_session.execute(movement_stmt)
     movement = movement_res.scalars().first()
     assert movement is not None
-    assert Decimal(movement.quantity) == Decimal("2.00")
-    assert movement.movement_type == "IN"
+    assert Decimal(movement.quantity) == Decimal("1.00")
+    assert movement.movement_type == "RETURN_INWARD"
     assert movement.reference_doc_type == "Sales Return"
     assert movement.source_module == "Sales"
 

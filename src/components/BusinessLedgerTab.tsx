@@ -29,112 +29,80 @@ import { Landmark, TrendingUp, Users, ShieldAlert, FileText, Landmark as BankIco
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { DrillableLink } from "./drilldown/DrillableLink.tsx";
 import { useDrillDown } from "./drilldown/drilldown_store.tsx";
-import { getCustomers, getCustomerGroups } from "../services/customerStore.ts";
-import { resolveCustomerPolicy } from "../services/customerPolicyEngine.ts";
-import { Customer, CustomerGroup } from "../types";
-import { recordAuditAction } from "../lib/apiFetch.ts";
+import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 
 interface BusinessLedgerTabProps {
   currentUser?: { role: string; name: string } | null;
 }
 
-const generateBalanceHistory = (customer: Customer) => {
-  const months = ["Feb", "Mar", "Apr", "May", "Jun", "Jul"];
-  const out = customer.outstanding;
-  
-  // Deterministic multiplier/offset based on the customer ID character codes to make it look stable and real
-  const hash = customer.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  
-  return months.map((month, index) => {
-    let factor = 1.0;
-    let offset = 0;
-    
-    if (index === 0) { factor = 0.45; offset = (hash % 10) * 400; }
-    else if (index === 1) { factor = 0.70; offset = ((hash + 3) % 12) * 800; }
-    else if (index === 2) { factor = 0.65; offset = ((hash + 7) % 8) * -500; }
-    else if (index === 3) { factor = 1.15; offset = ((hash + 1) % 15) * 600; }
-    else if (index === 4) { factor = 0.85; offset = ((hash + 5) % 10) * -800; }
-    else if (index === 5) { factor = 1.0; offset = 0; } // matches exact current outstanding
+interface TaxInvoiceLine {
+  invoice_id: string;
+  invoice_number: string;
+  invoice_date: string;
+  status: string;
+  customer_name?: string | null;
+  customer_gstin?: string | null;
+  items_count: number;
+  total_quantity: number;
+  taxable_value: number;
+  total_tax: number;
+  grand_total: number;
+}
 
-    const calculated = Math.max(0, Math.round(out * factor + offset));
-    return {
-      month,
-      Balance: calculated
-    };
+const buildInvoiceTrend = (invoices: TaxInvoiceLine[]) => {
+  const totals = new Map<string, number>();
+  invoices.forEach((invoice) => {
+    const date = new Date(invoice.invoice_date);
+    const month = Number.isNaN(date.getTime())
+      ? "Unknown"
+      : date.toLocaleDateString("en-IN", { month: "short" });
+    totals.set(month, (totals.get(month) || 0) + Number(invoice.grand_total || 0));
   });
+  return Array.from(totals, ([month, Balance]) => ({ month, Balance }));
 };
 
 export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUser }) => {
-  const isReadOnly = currentUser?.role === "Report User";
+  const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const { activePanel } = useDrillDown();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [groups, setGroups] = useState<CustomerGroup[]>([]);
-  const [filterGroupId, setFilterGroupId] = useState<string>("All");
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [invoices, setInvoices] = useState<TaxInvoiceLine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState<string>("");
 
   useEffect(() => {
-    const refreshData = () => {
-      setCustomers(getCustomers());
-      setGroups(getCustomerGroups());
-    };
-
-    refreshData();
-
-    window.addEventListener("smriti_customer_updated", refreshData);
-    return () => {
-      window.removeEventListener("smriti_customer_updated", refreshData);
-    };
-  }, [activePanel]);
+    let mounted = true;
+    setLoading(true);
+    setLoadError(null);
+    const timeout = new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error("Tax invoice service timed out.")), 12000);
+    });
+    Promise.race([apiFetchV1("/reports/tax-invoices-master-register"), timeout])
+      .then((data) => {
+        if (mounted) setInvoices(Array.isArray(data?.lines) ? data.lines : []);
+      })
+      .catch((error) => {
+        console.error("Failed to load tax invoice ledger:", error);
+        if (mounted) setLoadError(error instanceof Error ? error.message : "Unable to load tax invoices.");
+      })
+      .finally(() => mounted && setLoading(false));
+    return () => { mounted = false; };
+  }, [activePanel, retryToken]);
 
   useEffect(() => {
-    if (activePanel && activePanel.entityType === "customer") {
-      setSelectedCustomerId(activePanel.entityId);
+    if (activePanel && activePanel.entityType === "invoice") {
+      setSelectedInvoiceNumber(activePanel.entityId);
     }
   }, [activePanel]);
-
-  useEffect(() => {
-    if (selectedCustomerId) {
-      const cust = customers.find(c => c.id === selectedCustomerId);
-      if (cust) {
-        recordAuditAction("TRANSACTION_VIEW", "business_ledgers", cust.id, `Viewed business ledger details for customer: ${cust.name}`);
-      }
-    }
-  }, [selectedCustomerId, customers]);
-
-  const getGroupName = (groupId: string) => {
-    return groups.find(g => g.id === groupId)?.name || "Unknown Group";
-  };
-
-  const getCustomerGroupObj = (groupId: string): CustomerGroup | undefined => {
-    return groups.find(g => g.id === groupId);
-  };
-
-  const filteredCustomers = filterGroupId === "All"
-    ? customers
-    : customers.filter(c => c.customerGroupId === filterGroupId);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(val);
   };
 
-  // Helper to determine status for the row based on outstanding and status
-  const getDisplayStatus = (customer: Customer) => {
-    if (customer.status === "Blocked") return "Blocked";
-    if (customer.status === "Inactive") return "Inactive";
-    return customer.outstanding > 0 ? "Due" : "Settled";
-  };
-
-  // KPIs Calculations
-  const totalOutstanding = filteredCustomers.reduce((acc, curr) => acc + curr.outstanding, 0);
-  const activePartiesCount = filteredCustomers.length;
-  const duePartiesCount = filteredCustomers.filter(c => c.outstanding > 0).length;
-  const avgOutstanding = activePartiesCount > 0 ? Math.round(totalOutstanding / activePartiesCount) : 0;
-
-  // Active Selected Customer Insights
-  const selectedCustomer = customers.find(c => c.id === selectedCustomerId) || filteredCustomers[0];
-  const selectedCustomerGroup = selectedCustomer ? getCustomerGroupObj(selectedCustomer.customerGroupId) : undefined;
-  const policy = selectedCustomer && selectedCustomerGroup ? resolveCustomerPolicy(selectedCustomer, selectedCustomerGroup) : null;
-  const chartData = selectedCustomer ? generateBalanceHistory(selectedCustomer) : [];
+  const totalOutstanding = invoices.reduce((sum, invoice) => sum + Number(invoice.grand_total || 0), 0);
+  const totalTax = invoices.reduce((sum, invoice) => sum + Number(invoice.total_tax || 0), 0);
+  const selectedInvoice = invoices.find((invoice) => invoice.invoice_id === selectedInvoiceNumber) || invoices[0];
+  const chartData = buildInvoiceTrend(invoices);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
@@ -149,32 +117,16 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
       <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Business Ledger</h1>
-          <p className="text-sm text-slate-500 mt-1">Operational view of Outstanding, Settlement, and Credit</p>
+          <p className="text-sm text-slate-500 mt-1">Live statutory sales ledger from posted tax invoices</p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setFilterGroupId("All")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${filterGroupId === "All" ? "bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"}`}
-          >
-            All Parties
-          </button>
-          {groups.map(g => (
-            <button
-              key={g.id}
-              onClick={() => setFilterGroupId(g.id)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${filterGroupId === g.id ? "bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"}`}
-            >
-              {g.name}
-            </button>
-          ))}
-        </div>
+        <div className="text-xs font-mono text-slate-500">Authoritative tax invoice register</div>
       </div>
 
       {/* Receivables KPI Summary Cards */}
       <div className="px-6 pt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Outstanding</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Invoice Value</p>
             <h3 className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">{formatCurrency(totalOutstanding)}</h3>
           </div>
           <div className="p-2 bg-rose-50 dark:bg-rose-950/30 rounded-lg text-rose-500">
@@ -184,8 +136,8 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
 
         <div className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Parties</p>
-            <h3 className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">{activePartiesCount}</h3>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tax Invoices</p>
+            <h3 className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">{invoices.length}</h3>
           </div>
           <div className="p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-blue-500">
             <Users size={20} />
@@ -194,8 +146,8 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
 
         <div className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Parties with Dues</p>
-            <h3 className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">{duePartiesCount}</h3>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">GST Collected</p>
+            <h3 className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">{formatCurrency(totalTax)}</h3>
           </div>
           <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-amber-500">
             <ShieldAlert size={20} />
@@ -204,8 +156,8 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
 
         <div className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avg Outstanding</p>
-            <h3 className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">{formatCurrency(avgOutstanding)}</h3>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Invoice Average</p>
+            <h3 className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">{formatCurrency(invoices.length ? totalOutstanding / invoices.length : 0)}</h3>
           </div>
           <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg text-emerald-500">
             <TrendingUp size={20} />
@@ -219,27 +171,27 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
           <div className="lg:col-span-7 space-y-4">
             <div className="bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30">
-                <h2 className="font-semibold text-slate-950 dark:text-white">Receivables Ledger</h2>
-                <span className="text-xs text-slate-500 font-mono">Showing {filteredCustomers.length} records</span>
+                <h2 className="font-semibold text-slate-950 dark:text-white">Tax Invoice Ledger</h2>
+                <span className="text-xs text-slate-500 font-mono">Showing {invoices.length} records</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Party Name (Click to select)</th>
-                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Group Segment</th>
-                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Outstanding</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tax Invoice</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">GST</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Grand Total</th>
                       <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                    {filteredCustomers.map(customer => {
-                      const displayStatus = getDisplayStatus(customer);
-                      const isSelected = selectedCustomerId === customer.id;
+                    {invoices.map(invoice => {
+                      const isSelected = selectedInvoiceNumber === invoice.invoice_id;
                       return (
                         <tr 
-                          key={customer.id} 
-                          onClick={() => setSelectedCustomerId(customer.id)}
+                          key={invoice.invoice_number} 
+                          onClick={() => setSelectedInvoiceNumber(invoice.invoice_id)}
                           className={`cursor-pointer transition-colors ${
                             isSelected 
                               ? "bg-blue-50/40 dark:bg-blue-950/20 border-l-4 border-blue-600" 
@@ -248,84 +200,68 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="font-medium text-slate-900 dark:text-white flex items-center gap-1.5">
-                              {customer.name}
+                              {invoice.invoice_number}
                             </div>
-                            <div className="text-xs text-slate-500 font-mono mt-0.5">{customer.mobile}</div>
+                            <div className="text-xs text-slate-500 font-mono mt-0.5">{invoice.invoice_date} · {invoice.status}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
-                              {getGroupName(customer.customerGroupId)}
-                            </span>
+                            {invoice.customer_name || "Walk-in Customer"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-right text-slate-900 dark:text-white font-mono">
-                            {formatCurrency(customer.outstanding)}
+                            {formatCurrency(invoice.total_tax)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-xs" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-end gap-2 items-center">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
-                                displayStatus === "Settled"
-                                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                  : displayStatus === "Blocked"
-                                  ? "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"
-                                  : displayStatus === "Inactive"
-                                  ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400"
-                                  : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                              }`}>
-                                {displayStatus}
-                              </span>
-                              <DrillableLink
-                                context={{
-                                  entityType: "customer",
-                                  entityId: customer.id,
-                                  title: customer.name,
-                                  metadata: { customerId: customer.id }
-                                }}
-                              >
-                                <span className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium underline flex items-center">
-                                  Profile <span className="material-symbols-outlined text-[14px] ml-0.5">chevron_right</span>
-                                </span>
-                              </DrillableLink>
-                            </div>
+                            <DrillableLink context={{ entityType: "invoice", entityId: invoice.invoice_id, title: invoice.invoice_number }}>
+                              <span className="text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium underline">Open</span>
+                            </DrillableLink>
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                {filteredCustomers.length === 0 && (
+                {loading && <div className="p-8 text-center text-slate-500">Loading live tax invoices...</div>}
+                {!loading && loadError && (
+                  <div className="p-8 text-center text-rose-600 dark:text-rose-400">
+                    <p className="text-sm font-semibold">Live tax invoice data could not be loaded.</p>
+                    <p className="mt-1 text-xs font-mono">{loadError}</p>
+                    <button type="button" onClick={() => setRetryToken((value) => value + 1)} className="mt-3 rounded border border-rose-300 px-3 py-1.5 text-xs font-semibold">Retry</button>
+                  </div>
+                )}
+                {!loading && invoices.length === 0 && (
                   <div className="p-8 text-center text-slate-500">
-                    No records found for the selected type.
+                    No tax invoices found for the active company and branch.
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Right Side: Financial Trend & Policy Analysis (Col Span 5) */}
+          {/* Right Side: Invoice trend and statutory details (Col Span 5) */}
           <div className="lg:col-span-5 space-y-4">
-            {selectedCustomer ? (
+            {selectedInvoice ? (
               <div className="bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-6">
                 {/* Header info */}
                 <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Party Insights</span>
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">{selectedCustomer.name}</h3>
+                      <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Invoice Insights</span>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">{selectedInvoice.customer_name || "Walk-in Customer"}</h3>
                       <p className="text-xs text-slate-500 mt-1 flex items-center gap-1 font-mono">
-                        <span className="material-symbols-outlined text-xs">mail</span> {selectedCustomer.email || "No email"}
+                        <span className="material-symbols-outlined text-xs">receipt_long</span> {selectedInvoice.invoice_number} · {selectedInvoice.invoice_date}
                       </p>
                     </div>
                     <span className="text-xs font-mono bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400 px-2 py-1 rounded font-bold">
-                      {selectedCustomer.id}
+                      {selectedInvoice.status}
                     </span>
                   </div>
                 </div>
 
-                {/* 6-Month Balance History Graph */}
+                {/* Actual invoice totals grouped by invoice month */}
                 <div>
                   <div className="flex justify-between items-center mb-3">
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">6-Month Balance History</h4>
-                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 font-mono">Trend View</span>
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly Invoice Totals</h4>
+                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 font-mono">Live Register</span>
                   </div>
                   <div className="h-64 bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
                     <ResponsiveContainer width="100%" height="100%">
@@ -355,53 +291,45 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                 {/* Stat Grid */}
                 <div className="grid grid-cols-2 gap-4 border-t border-b border-slate-200 dark:border-slate-800 py-4">
                   <div>
-                    <span className="text-[10px] uppercase text-slate-500 font-semibold">Peak Balance (6M)</span>
+                    <span className="text-[10px] uppercase text-slate-500 font-semibold">Peak Monthly Total</span>
                     <span className="block text-base font-bold text-slate-900 dark:text-white font-mono mt-0.5">
                       {formatCurrency(Math.max(...chartData.map(d => d.Balance), 0))}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase text-slate-500 font-semibold">Average Balance</span>
+                    <span className="text-[10px] uppercase text-slate-500 font-semibold">Average Monthly Total</span>
                     <span className="block text-base font-bold text-slate-900 dark:text-white font-mono mt-0.5">
-                      {formatCurrency(Math.round(chartData.reduce((sum, d) => sum + d.Balance, 0) / chartData.length))}
+                      {formatCurrency(chartData.length ? Math.round(chartData.reduce((sum, d) => sum + d.Balance, 0) / chartData.length) : 0)}
                     </span>
                   </div>
                 </div>
 
-                {/* Policy parameters */}
+                {/* Authoritative invoice fields */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Resolved Risk Policies</h4>
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tax Invoice Details</h4>
                   <div className="grid grid-cols-2 gap-2.5 text-xs">
                     <div className="p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded border border-slate-100 dark:border-slate-800/40">
-                      <span className="text-slate-500 block text-[10px] uppercase">Credit Limit</span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-100 font-mono">
-                        {policy?.unlimitedCredit ? "Unlimited" : formatCurrency(policy?.creditLimit || 0)}
-                      </span>
+                      <span className="text-slate-500 block text-[10px] uppercase">Customer GSTIN</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 font-mono">{selectedInvoice.customer_gstin || "Not supplied"}</span>
                     </div>
                     <div className="p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded border border-slate-100 dark:border-slate-800/40">
-                      <span className="text-slate-500 block text-[10px] uppercase">Credit Period</span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-100 font-mono">
-                        {policy?.creditDays} Days (+{policy?.graceDays} grace)
-                      </span>
+                      <span className="text-slate-500 block text-[10px] uppercase">Items / Quantity</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 font-mono">{selectedInvoice.items_count} / {selectedInvoice.total_quantity}</span>
                     </div>
                     <div className="p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded border border-slate-100 dark:border-slate-800/40">
-                      <span className="text-slate-500 block text-[10px] uppercase">Tax Inclusive</span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">
-                        {policy?.taxInclusive ? "Yes" : "No"}
-                      </span>
+                      <span className="text-slate-500 block text-[10px] uppercase">Taxable Value</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 font-mono">{formatCurrency(selectedInvoice.taxable_value)}</span>
                     </div>
                     <div className="p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded border border-slate-100 dark:border-slate-800/40">
-                      <span className="text-slate-500 block text-[10px] uppercase">Max Disc Allowed</span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-100 font-mono">
-                        {policy?.maxDiscountPercent}%
-                      </span>
+                      <span className="text-slate-500 block text-[10px] uppercase">Grand Total</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 font-mono">{formatCurrency(selectedInvoice.grand_total)}</span>
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center text-slate-500">
-                Select a party from the ledger list to view their financial insights.
+                Select a tax invoice from the ledger list to view its live financial details.
               </div>
             )}
           </div>
