@@ -1,0 +1,960 @@
+{
+  "eway_bills": {
+    "exists": true,
+    "column_count": 22,
+    "columns": [
+      {
+        "name": "eway_bill_no",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "document_type",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "document_id",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "gstin_from",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "gstin_to",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "transporter_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "vehicle_number",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "document_value",
+        "data_type": "numeric",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "status",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "id",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "uuid",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "company_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "branch_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "modified_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "updated_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_deleted",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "version",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      }
+    ],
+    "constraints": {
+      "primary_keys": [
+        "id"
+      ],
+      "unique_constraints": [
+        "uuid"
+      ]
+    }
+  },
+  "ecom_channels": {
+    "exists": true,
+    "column_count": 24,
+    "columns": [
+      {
+        "name": "channel_code",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "name",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "channel_type",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "store_url",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "api_version",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "credential_ref",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "sync_inventory",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "sync_pricing",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "auto_converge_orders",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "webhook_secret",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "settings",
+        "data_type": "jsonb",
+        "is_nullable": true,
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "name": "id",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "uuid",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "company_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "branch_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "modified_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "updated_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_deleted",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "version",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      }
+    ],
+    "constraints": {
+      "primary_keys": [
+        "id"
+      ],
+      "unique_constraints": [
+        "uuid"
+      ]
+    }
+  },
+  "ecom_sku_mappings": {
+    "exists": true,
+    "column_count": 19,
+    "columns": [
+      {
+        "name": "channel_code",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "external_sku",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "external_product_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "smriti_sku",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "item_id",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "variant_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "id",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "uuid",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "company_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "branch_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "modified_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "updated_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_deleted",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "version",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      }
+    ],
+    "constraints": {
+      "primary_keys": [
+        "id"
+      ],
+      "unique_constraints": [
+        "uuid",
+        "channel_code",
+        "external_sku"
+      ]
+    }
+  },
+  "ecom_order_imports": {
+    "exists": true,
+    "column_count": 35,
+    "columns": [
+      {
+        "name": "channel_code",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "external_order_id",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "external_order_number",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "order_status",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "idempotency_key",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "customer_email",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "customer_mobile",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "customer_name",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "currency",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "gross_amount",
+        "data_type": "numeric",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "tax_amount",
+        "data_type": "numeric",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "shipping_amount",
+        "data_type": "numeric",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "discount_amount",
+        "data_type": "numeric",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "net_amount",
+        "data_type": "numeric",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "payload",
+        "data_type": "jsonb",
+        "is_nullable": true,
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "name": "converged_invoice_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "converged_order_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "retry_count",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "max_retries",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "error_message",
+        "data_type": "text",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "last_retry_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "imported_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "id",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "uuid",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "company_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "branch_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "modified_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "updated_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_deleted",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "version",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      }
+    ],
+    "constraints": {
+      "primary_keys": [
+        "id"
+      ],
+      "unique_constraints": [
+        "uuid",
+        "channel_code",
+        "external_order_id"
+      ]
+    }
+  },
+  "ecom_stock_sync_logs": {
+    "exists": true,
+    "column_count": 20,
+    "columns": [
+      {
+        "name": "channel_code",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "external_sku",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "smriti_sku",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "quantity_synced",
+        "data_type": "numeric",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "status",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "response_payload",
+        "data_type": "jsonb",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "synced_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "id",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "uuid",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "company_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "branch_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "modified_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "updated_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_deleted",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "version",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      }
+    ],
+    "constraints": {
+      "primary_keys": [
+        "id"
+      ],
+      "unique_constraints": [
+        "uuid"
+      ]
+    }
+  },
+  "ecom_reconciliations": {
+    "exists": true,
+    "column_count": 25,
+    "columns": [
+      {
+        "name": "reconciliation_no",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "channel_code",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "period_start",
+        "data_type": "date",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "period_end",
+        "data_type": "date",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "channel_order_count",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "channel_gross_revenue",
+        "data_type": "numeric",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "smriti_order_count",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "smriti_gross_revenue",
+        "data_type": "numeric",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "variance_amount",
+        "data_type": "numeric",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "status",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "discrepancy_details",
+        "data_type": "jsonb",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "reconciled_at",
+        "data_type": "timestamp without time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "id",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "uuid",
+        "data_type": "character varying",
+        "is_nullable": false,
+        "column_default": null
+      },
+      {
+        "name": "company_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "branch_id",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "modified_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "created_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "updated_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_active",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "is_deleted",
+        "data_type": "boolean",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "deleted_by",
+        "data_type": "character varying",
+        "is_nullable": true,
+        "column_default": null
+      },
+      {
+        "name": "version",
+        "data_type": "integer",
+        "is_nullable": true,
+        "column_default": null
+      }
+    ],
+    "constraints": {
+      "primary_keys": [
+        "id"
+      ],
+      "unique_constraints": [
+        "uuid"
+      ]
+    }
+  }
+}
