@@ -67,7 +67,7 @@
 - **Status:** ASPIRATIONAL/TARGET FUTURE ARCHITECTURE (explicitly marked as R&D)
 - **Unique Purpose:** Documents the planned abstraction boundary between business logic and framework
 - **Why Distinct:** Framework-specific adapter pattern; not part of current operations
-- **Critical Facts:** Current adapter stack (Frappe/ERPNext/MariaDB/Redis), transition roadmap
+- **Critical Facts:** Current adapter stack (FastAPI/PostgreSQL), transition roadmap
 - **Consolidation Risk:** If merged with PLATFORM.md, lose specific adapter implementation details
 - **Status:** ✅ JUSTIFIED (strategic planning document)
 

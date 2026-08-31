@@ -102,7 +102,7 @@ Contributors are expected to:
 - Keep pull requests focused.
 - Report bugs responsibly.
 - Protect user privacy and security.
-- **Not introduce direct `frappe.*` calls outside `smriti_retail_os/core/platform/`.** All platform access must route through the SMRITI Core Framework. Use `from smriti_retail_os import smriti` in business code. See `ARCHITECTURE.md §15` for the canonical patterns.
+- **Not bypass the SMRITI service layer with direct database access outside `core/platform/`.** All data access must route through the SMRITI Core Framework via `apiFetchV1` (client) or the repository layer (server). See `ARCHITECTURE.md §15` for the canonical patterns.
 
 ---
 

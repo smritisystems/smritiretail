@@ -10,7 +10,7 @@
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { apiFetch, apiFetchV1 } from "./lib/apiFetch.ts";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -29,35 +29,25 @@ import {
 } from "./layout_engine/layout_store.tsx";
 import { LayoutManager } from "./layout_engine/layout_manager.tsx";
 
-// Import tabs components
+// Synchronously imported (lightweight or frequently used)
 import { DashboardTab } from "./components/DashboardTab.tsx";
 import { PosTerminalTab } from "./components/PosTerminalTab.tsx";
 import { FieldExplorerTab } from "./components/FieldExplorerTab.tsx";
 import { FormulaRegistryTab } from "./components/FormulaRegistryTab.tsx";
 import { PsvTab } from "./components/PsvTab.tsx";
 import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
-import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
 import { AdvancedBillingEngine } from "./components/AdvancedBillingEng.tsx";
-import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
-import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
-import { BarcodeStudioTab } from "./components/BarcodeStudioTab.tsx";
-import { MasterManagementTab } from "./components/MasterMgmtTab.tsx";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
-import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
-import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
 import { SupplierDashboardTab } from "./components/SupplierDashTab.tsx";
-import { ReportDesignerTab } from "./components/ReportDesignerTab.tsx";
 import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownCrumbs.tsx";
 import { DrillDownSidePanel } from "./components/drilldown/DrillDownSidePanel.tsx";
 import { GlobalSearch } from "./components/drilldown/GlobalSearch.tsx";
 import { GlobalF2BrowseModal } from "./components/drilldown/GlobalF2BrowseDlg.tsx";
-import { ApprovalMatrixTab } from "./components/ApprovalMatrixTab.tsx";
 import { QuickActionsMenu } from "./components/QuickActionsMenu.tsx";
 import { DocumentSeriesTab } from "./components/DocumentSeriesTab.tsx";
-import { StaffManagementTab } from "./components/StaffManagementTab.tsx";
 import { UserProfileTab } from "./components/UserProfileTab.tsx";
 import { NotificationProvider, useNotifications } from "./notifications/notification_store.tsx";
 import { ActiveFieldProvider } from "./context/ActiveFieldContext.tsx";
@@ -66,33 +56,15 @@ import { ContextProvider } from "./context-actions/ContextProvider.tsx";
 import { ContextRenderer } from "./context-actions/ContextRenderer.tsx";
 import { registerAllDefaultActions } from "./context-actions/providers/SMRITIModuleActions.ts";
 import { PrintProvider } from "./print_engine/print_store.tsx";
-import { PrintStudioTab } from "./print_engine/PrintStudioTab.tsx";
-import { PrintHistoryTab } from "./print_engine/PrintHistoryTab.tsx";
 import { AboutSmritiTab } from "./components/AboutSmritiTab.tsx";
 import { TaxInvoicePrintPage } from "./components/TaxInvoicePrintPag.tsx";
-import { DistTaxInvoice } from "./components/sales/DistTaxInvoice.tsx";
-import { TrainingAcademyTab } from "./components/training/TrainingAcademyTab.tsx";
 import { DevTrackerTab } from "./modules/dev_tracker/ui/DevTrackerTab.tsx";
-import { AccountingSyncTab } from "./components/AccountingSyncTab.tsx";
-import { BusinessLedgerTab } from "./components/BusinessLedgerTab.tsx";
-import { StockLedgerTab } from "./components/StockLedgerTab.tsx";
-import { AuditLogsTab } from "./components/AuditLogsTab.tsx";
-import { TermsEngineTab } from "./components/TermsEngineTab.tsx";
-import { DataExchangeTab } from "./components/DataExchangeTab.tsx";
-import { DatabaseManagerTab } from "./components/DatabaseManagerTab.tsx";
-import { LegacyMigDashTab } from "./components/LegacyMigDashTab.tsx";
-import { PhysicalStockTab } from "./components/PhysicalStockTab.tsx";
-import { StorePolicyStudio } from "./components/StorePolicyStudio.tsx";
-
-import { WmsStudioTab } from "./components/wms/WmsStudioTab.tsx";
 import { useLayoutModuleRegistration } from "./components/SmritiBaseModule.tsx";
 import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext.tsx";
 import { FloatingWindowHost } from "./components/FloatingWindowHost.tsx";
 import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
-import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
 import { PasswordReset } from "./components/PasswordReset.tsx";
-import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { CompanySelectionScreen } from "./components/CompanySelectScree.tsx";
 import { SmritiErrorBoundary } from "./components/ErrorBoundary.tsx";
@@ -100,8 +72,45 @@ import { clearAuthSession } from "./lib/apiFetchV1.ts";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
 import { SecManageDlg } from "./components/security/SecManageDlg.tsx";
-import { MenuManagerStudioTab } from "./components/MenuManagerStudioTab.tsx";
 import { X } from "lucide-react";
+
+// Lazy-loaded components (heavy feature modules)
+const SalesStudioTab = lazy(() => import("./components/SalesStudioTab.tsx").then(m => ({ default: m.SalesStudioTab })));
+const ReportDesignerTab = lazy(() => import("./components/ReportDesignerTab.tsx").then(m => ({ default: m.ReportDesignerTab })));
+const PurchaseStudioTab = lazy(() => import("./components/PurchaseStudioTab.tsx").then(m => ({ default: m.PurchaseStudioTab })));
+const ItemMasterTab = lazy(() => import("./components/ItemMasterTab.tsx").then(m => ({ default: m.ItemMasterTab })));
+const BarcodeStudioTab = lazy(() => import("./components/BarcodeStudioTab.tsx").then(m => ({ default: m.BarcodeStudioTab })));
+const MasterManagementTab = lazy(() => import("./components/MasterMgmtTab.tsx").then(m => ({ default: m.MasterManagementTab })));
+const CrmStudioTab = lazy(() => import("./components/CrmStudioTab.tsx").then(m => ({ default: m.CrmStudioTab })));
+const LoyaltyStudioTab = lazy(() => import("./components/LoyaltyStudioTab.tsx").then(m => ({ default: m.LoyaltyStudioTab })));
+const ApprovalMatrixTab = lazy(() => import("./components/ApprovalMatrixTab.tsx").then(m => ({ default: m.ApprovalMatrixTab })));
+const StaffManagementTab = lazy(() => import("./components/StaffManagementTab.tsx").then(m => ({ default: m.StaffManagementTab })));
+const PrintStudioTab = lazy(() => import("./print_engine/PrintStudioTab.tsx").then(m => ({ default: m.PrintStudioTab })));
+const PrintHistoryTab = lazy(() => import("./print_engine/PrintHistoryTab.tsx").then(m => ({ default: m.PrintHistoryTab })));
+const DistTaxInvoice = lazy(() => import("./components/sales/DistTaxInvoice.tsx").then(m => ({ default: m.DistTaxInvoice })));
+const TrainingAcademyTab = lazy(() => import("./components/training/TrainingAcademyTab.tsx").then(m => ({ default: m.TrainingAcademyTab })));
+const AccountingSyncTab = lazy(() => import("./components/AccountingSyncTab.tsx").then(m => ({ default: m.AccountingSyncTab })));
+const BusinessLedgerTab = lazy(() => import("./components/BusinessLedgerTab.tsx").then(m => ({ default: m.BusinessLedgerTab })));
+const StockLedgerTab = lazy(() => import("./components/StockLedgerTab.tsx").then(m => ({ default: m.StockLedgerTab })));
+const AuditLogsTab = lazy(() => import("./components/AuditLogsTab.tsx").then(m => ({ default: m.AuditLogsTab })));
+const TermsEngineTab = lazy(() => import("./components/TermsEngineTab.tsx").then(m => ({ default: m.TermsEngineTab })));
+const DataExchangeTab = lazy(() => import("./components/DataExchangeTab.tsx").then(m => ({ default: m.DataExchangeTab })));
+const DatabaseManagerTab = lazy(() => import("./components/DatabaseManagerTab.tsx").then(m => ({ default: m.DatabaseManagerTab })));
+const LegacyMigDashTab = lazy(() => import("./components/LegacyMigDashTab.tsx").then(m => ({ default: m.LegacyMigDashTab })));
+const PhysicalStockTab = lazy(() => import("./components/PhysicalStockTab.tsx").then(m => ({ default: m.PhysicalStockTab })));
+const StorePolicyStudio = lazy(() => import("./components/StorePolicyStudio.tsx").then(m => ({ default: m.StorePolicyStudio })));
+const WmsStudioTab = lazy(() => import("./components/wms/WmsStudioTab.tsx").then(m => ({ default: m.WmsStudioTab })));
+const SetupWizardTab = lazy(() => import("./components/SetupWizard/SetupWizardTab.tsx").then(m => ({ default: m.SetupWizardTab })));
+const PrintPreviewModal = lazy(() => import("./components/PrintPreviewModal.tsx").then(m => ({ default: m.PrintPreviewModal })));
+const MenuManagerStudioTab = lazy(() => import("./components/MenuManagerStudioTab.tsx").then(m => ({ default: m.MenuManagerStudioTab })));
+
+// Tab loading fallback component
+const TabLoadingFallback = () => (
+  <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-theme-divider border-t-[#2563EB]" />
+    <p className="mt-4 text-sm font-mono text-theme-muted">Loading module...</p>
+  </div>
+);
 
 interface AppNotification {
   id: string;
@@ -708,10 +717,12 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Wrap tab render in SmritiErrorBoundary to isolate module crashes
+  // Wrap tab render in SmritiErrorBoundary to isolate module crashes, and Suspense for lazy-loaded modules
   const renderTabSafe = (tabId: string) => (
     <SmritiErrorBoundary key={tabId} tabId={tabId} onNotification={addNotification}>
-      {renderTab(tabId)}
+      <Suspense fallback={<TabLoadingFallback />}>
+        {renderTab(tabId)}
+      </Suspense>
     </SmritiErrorBoundary>
   );
 
