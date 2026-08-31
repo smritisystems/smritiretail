@@ -114,4 +114,4 @@ This configuration behavior is an implementation detail. It does not modify the 
 Future changes affecting metadata ownership, runtime metadata, or architecture must follow the governance process documented in `docs/governance/GOVERNANCE_FREEZE_CHECKLIST.md`.
 
 ## Note
-This repository now contains a full-stack React frontend and FastAPI backend for SMRITI Retail OS v5.0. Legacy Express/Frappe proxy code has been removed from the active stack.
+This repository now contains a full-stack React frontend and FastAPI backend for SMRITI Retail OS v5.0.

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.90.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -18,7 +18,7 @@ import SupplierScorecardEngine, {
   PurchaseOrderRecord,
   SupplierScorecardEntry,
   SupplierSLAStatus,
-} from "../../../utils/supplierScorecardEngine";
+} from "../../utils/supplierScorecardEngine";
 
 interface SupplierScorecardModalProps {
   isOpen: boolean;
@@ -72,7 +72,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({ 
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Supplier Scorecard & Vendor SLA Compliance Audit</h2>
-              <p className="text-xs text-slate-400">OTD % · Fill Rate · Quality Rejection · Penalty Accrual · Composite Score</p>
+              <p className="text-xs text-slate-400">OTD % Â· Fill Rate Â· Quality Rejection Â· Penalty Accrual Â· Composite Score</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
@@ -122,7 +122,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({ 
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div>
                   <p className="text-xl font-bold text-slate-100">{selected.supplierName}</p>
-                  <p className="text-xs text-slate-400">{selected.category} · GSTIN: {SAMPLE_PROFILES.find((p) => p.supplierId === selected.supplierId)?.gstIn ?? "—"}</p>
+                  <p className="text-xs text-slate-400">{selected.category} Â· GSTIN: {SAMPLE_PROFILES.find((p) => p.supplierId === selected.supplierId)?.gstIn ?? "â€”"}</p>
                   <div className="flex items-center gap-3 mt-2">
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${st.badge}`}>{selected.slaStatus}</span>
                     <span className="text-xs text-slate-400">{selected.totalOrders} POs processed</span>
@@ -132,7 +132,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({ 
                   <div className={`text-4xl font-black font-mono ${st.text}`}>{selected.scorecard}</div>
                   <div className="text-[10px] text-slate-400">Composite Score / 100</div>
                   {selected.totalPenaltyAccrued > 0 && (
-                    <div className="text-xs text-rose-400 font-bold mt-1">Penalty: ₹{selected.totalPenaltyAccrued.toLocaleString("en-IN")}</div>
+                    <div className="text-xs text-rose-400 font-bold mt-1">Penalty: â‚¹{selected.totalPenaltyAccrued.toLocaleString("en-IN")}</div>
                   )}
                 </div>
               </div>
@@ -154,7 +154,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({ 
                 { label: "Quality Rejection", value: `${selected.qualityRejectionPct}%`, sub: `${selected.lateDeliveries} late deliveries`, color: selected.qualityRejectionPct <= 2 ? "text-emerald-400" : selected.qualityRejectionPct <= 5 ? "text-amber-400" : "text-rose-400" },
                 { label: "Avg Lead Time", value: `${selected.avgLeadTimeDays}d`, sub: `Contracted: ${selected.contractedLeadTimeDays}d`, color: selected.avgLeadTimeDays <= selected.contractedLeadTimeDays ? "text-emerald-400" : "text-rose-400" },
                 { label: "Late Deliveries", value: selected.lateDeliveries, sub: `of ${selected.totalOrders} POs`, color: selected.lateDeliveries === 0 ? "text-emerald-400" : "text-rose-400" },
-                { label: "Penalty Accrued", value: `₹${selected.totalPenaltyAccrued.toLocaleString("en-IN")}`, sub: "Current period", color: selected.totalPenaltyAccrued === 0 ? "text-emerald-400" : "text-rose-400" },
+                { label: "Penalty Accrued", value: `â‚¹${selected.totalPenaltyAccrued.toLocaleString("en-IN")}`, sub: "Current period", color: selected.totalPenaltyAccrued === 0 ? "text-emerald-400" : "text-rose-400" },
               ].map((m) => (
                 <div key={m.label} className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4">
                   <div className={`text-xl font-black font-mono ${m.color}`}>{m.value}</div>
@@ -183,7 +183,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({ 
                       <tr key={o.poNumber}>
                         <td className="py-2 px-3 text-slate-300">{o.poNumber}</td>
                         <td className="py-2 px-3 text-right text-slate-300">{o.orderedQty}</td>
-                        <td className="py-2 px-3 text-right text-emerald-400">{o.acceptedQty ?? "—"}</td>
+                        <td className="py-2 px-3 text-right text-emerald-400">{o.acceptedQty ?? "â€”"}</td>
                         <td className="py-2 px-3 text-right text-rose-400">{o.rejectedQty ?? 0}</td>
                         <td className="py-2 px-3 text-center">
                           <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${o.qualityVerdict === "ACCEPTED" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : "bg-rose-500/20 text-rose-300 border-rose-500/30"}`}>
@@ -208,3 +208,4 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({ 
 };
 
 export default SupplierScorecardModal;
+

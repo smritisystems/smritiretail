@@ -60,6 +60,7 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -67,7 +68,7 @@ export default defineConfig({
             if (id.includes("recharts") || id.includes("d3")) {
               return "vendor-charts";
             }
-            if (id.includes("lucide-react")) {
+            if (id.includes("lucide-react") || id.includes("@material-symbols")) {
               return "vendor-icons";
             }
             if (id.includes("motion")) {
@@ -78,27 +79,20 @@ export default defineConfig({
             }
             return "vendor-core";
           }
-          if (id.includes("SalesStudioTab")) {
-            return "smriti-sales-studio";
+
+          if (id.includes("/src/components/")) {
+            if (id.includes("SalesStudioTab")) return "smriti-sales-studio";
+            if (id.includes("PurchaseStudioTab")) return "smriti-purchase-studio";
+            if (id.includes("ReportDesignerTab")) return "smriti-report-designer";
+            if (id.includes("TermsEngineTab")) return "smriti-terms-engine";
+            if (id.includes("BarcodeStudioTab")) return "smriti-barcode-studio";
+            if (id.includes("PrintPreviewModal")) return "smriti-print-preview";
+            if (id.includes("DashboardTab")) return "smriti-dashboard";
           }
-          if (id.includes("PurchaseStudioTab")) {
-            return "smriti-purchase-studio";
-          }
-          if (id.includes("ReportDesignerTab")) {
-            return "smriti-report-designer";
-          }
-          if (id.includes("TermsEngineTab")) {
-            return "smriti-terms-engine";
-          }
-          if (id.includes("BarcodeStudioTab")) {
-            return "smriti-barcode-studio";
-          }
-          if (id.includes("PrintPreviewModal")) {
-            return "smriti-print-preview";
-          }
-          if (id.includes("DashboardTab")) {
-            return "smriti-dashboard";
-          }
+
+          if (id.includes("/src/lib/")) return "app-lib";
+          if (id.includes("/src/services/")) return "app-services";
+          if (id.includes("/src/contexts/")) return "app-contexts";
         }
       }
     }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.122.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -15,7 +15,7 @@
 import React, { useState, useMemo } from "react";
 import AutoPOEngine, {
   StockItem, ReorderBreach, AutoPurchaseOrder, AutoPOStatus, BreachSeverity,
-} from "../../../utils/autoPOEngine";
+} from "../../utils/autoPOEngine";
 
 interface AutoPOModalProps {
   isOpen: boolean;
@@ -36,7 +36,7 @@ const SEVERITY_STYLE: Record<BreachSeverity, string> = {
   NORMAL:   "text-sky-400 bg-sky-500/10 border-sky-500/20",
 };
 
-const fmt  = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const fmt  = (n: number) => `â‚¹${n.toLocaleString("en-IN")}`;
 
 const ITEMS: StockItem[] = [
   { sku: "MED-PARA-500",  productName: "Paracetamol 500mg",  branchCode: "BR-MUM-01", supplierId: "SUP-001", supplierName: "PharmaCo",    currentStock: 0,   reorderPoint: 50,  reorderQty: 200, supplierMOQ: 100, unitCost: 12,  leadTimeDays: 3 },
@@ -84,10 +84,10 @@ export const AutoPOModal: React.FC<AutoPOModalProps> = ({ isOpen, onClose, onNot
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-lime-500/10 border border-lime-500/20 flex items-center justify-center text-2xl">🤖</div>
+            <div className="w-10 h-10 rounded-xl bg-lime-500/10 border border-lime-500/20 flex items-center justify-center text-2xl">ðŸ¤–</div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Purchase Order Auto-Generation Engine</h2>
-              <p className="text-xs text-slate-400">Reorder Breach Detection · MOQ Enforcement · PO Consolidation</p>
+              <p className="text-xs text-slate-400">Reorder Breach Detection Â· MOQ Enforcement Â· PO Consolidation</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export const AutoPOModal: React.FC<AutoPOModalProps> = ({ isOpen, onClose, onNot
                 <p className="text-xs font-black font-mono text-lime-400 mt-1">{fmt(po.totalValue)}</p>
                 <div className="flex gap-1 mt-1.5 flex-wrap">
                   <span className={`text-[8px] font-bold px-1 py-0.5 rounded-full border ${STATUS_STYLE[po.status]}`}>{po.status}</span>
-                  <span className="text-[8px] text-slate-500">{po.totalLines} SKU · {po.totalQty} units</span>
+                  <span className="text-[8px] text-slate-500">{po.totalLines} SKU Â· {po.totalQty} units</span>
                 </div>
               </button>
             ))}
@@ -136,12 +136,12 @@ export const AutoPOModal: React.FC<AutoPOModalProps> = ({ isOpen, onClose, onNot
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {activeTab === "BREACHES" && (
               <div className="space-y-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Reorder Point Breaches — {breaches.length} item(s)</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Reorder Point Breaches â€” {breaches.length} item(s)</p>
                 {breaches.map((b) => (
                   <div key={b.sku} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${b.severity === "CRITICAL" ? "bg-rose-950/15 border-rose-500/25" : b.severity === "LOW" ? "bg-amber-950/10 border-amber-500/20" : "bg-sky-950/10 border-sky-500/20"}`}>
                     <div>
                       <p className="text-xs font-bold text-slate-200">{b.productName}</p>
-                      <p className="text-[10px] text-slate-500">{b.sku} · {b.supplierName} · lead {b.leadTimeDays}d</p>
+                      <p className="text-[10px] text-slate-500">{b.sku} Â· {b.supplierName} Â· lead {b.leadTimeDays}d</p>
                     </div>
                     <div className="flex items-center gap-4 text-right">
                       <div>
@@ -168,7 +168,7 @@ export const AutoPOModal: React.FC<AutoPOModalProps> = ({ isOpen, onClose, onNot
                 <div className="flex items-start justify-between flex-wrap gap-3">
                   <div>
                     <p className="text-lg font-bold font-mono text-slate-100">{selected.poNo}</p>
-                    <p className="text-xs text-slate-400">{selected.supplierName} · {selected.branchCode}</p>
+                    <p className="text-xs text-slate-400">{selected.supplierName} Â· {selected.branchCode}</p>
                     {selected.expectedDelivery && <p className="text-[10px] text-slate-500">Expected: {selected.expectedDelivery}</p>}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -228,3 +228,4 @@ export const AutoPOModal: React.FC<AutoPOModalProps> = ({ isOpen, onClose, onNot
 };
 
 export default AutoPOModal;
+

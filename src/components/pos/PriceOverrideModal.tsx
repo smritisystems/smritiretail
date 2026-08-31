@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.108.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -16,7 +16,7 @@ import React, { useState, useMemo } from "react";
 import PriceOverrideEngine, {
   PriceOverrideRequest, OverrideStatus, AuthorityLevel,
   DEFAULT_OVERRIDE_CONFIG,
-} from "../../../utils/priceOverrideEngine";
+} from "../../utils/priceOverrideEngine";
 
 interface PriceOverrideModalProps {
   isOpen: boolean;
@@ -46,12 +46,12 @@ function buildSampleRequests(): PriceOverrideRequest[] {
   const r1 = PriceOverrideEngine.createRequest({ ...base, sku: "FAB-DENIM-BLU", productName: "Denim Blue 1m", standardPrice: 250, requestedPrice: 246 });   // AUTO_APPROVED 1.6%
   const r2 = PriceOverrideEngine.createRequest({ ...base, sku: "FAB-SILK-RED",  productName: "Silk Red 1m",   standardPrice: 600, requestedPrice: 570 });   // PENDING 5%
   let r3   = PriceOverrideEngine.createRequest({ ...base, sku: "ACC-BELT-BRN",  productName: "Leather Belt",  standardPrice: 350, requestedPrice: 297.5 }); // MANAGER 15%
-  r3 = PriceOverrideEngine.approve(r3, "MGR-001", "MANAGER", "Customer VIP — approved");
+  r3 = PriceOverrideEngine.approve(r3, "MGR-001", "MANAGER", "Customer VIP â€” approved");
   const r4 = PriceOverrideEngine.createRequest({ ...base, sku: "FAB-LINEN-WHT", productName: "Linen White 1m", standardPrice: 180, requestedPrice: 162 }); // PENDING 10%
   return [r1, r2, r3, r4];
 }
 
-const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const fmt = (n: number) => `â‚¹${n.toLocaleString("en-IN")}`;
 
 export const PriceOverrideModal: React.FC<PriceOverrideModalProps> = ({ isOpen, onClose, onNotification }) => {
   const [requests, setRequests] = useState<PriceOverrideRequest[]>(buildSampleRequests);
@@ -78,7 +78,7 @@ export const PriceOverrideModal: React.FC<PriceOverrideModalProps> = ({ isOpen, 
 
   const handleReject = () => {
     if (!selected) return;
-    const rejected = PriceOverrideEngine.reject(selected, "MGR-001", "Price threshold exceeded — policy violation");
+    const rejected = PriceOverrideEngine.reject(selected, "MGR-001", "Price threshold exceeded â€” policy violation");
     update(rejected);
     onNotification?.("Rejected", `${selected.requestNo} rejected`, "info");
   };
@@ -100,7 +100,7 @@ export const PriceOverrideModal: React.FC<PriceOverrideModalProps> = ({ isOpen, 
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Price Override Approval Engine</h2>
-              <p className="text-xs text-slate-400">Deviation Matrix · Authority Levels · Audit Log · Auto-Approve</p>
+              <p className="text-xs text-slate-400">Deviation Matrix Â· Authority Levels Â· Audit Log Â· Auto-Approve</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -159,8 +159,8 @@ export const PriceOverrideModal: React.FC<PriceOverrideModalProps> = ({ isOpen, 
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <p className="text-lg font-bold font-mono text-slate-100">{selected.requestNo}</p>
-                  <p className="text-xs text-slate-400">{selected.productName} · {selected.sku}</p>
-                  <p className="text-[10px] text-slate-500">{selected.branchCode} · {selected.posTerminal} · Requested by: {selected.requestedBy}</p>
+                  <p className="text-xs text-slate-400">{selected.productName} Â· {selected.sku}</p>
+                  <p className="text-[10px] text-slate-500">{selected.branchCode} Â· {selected.posTerminal} Â· Requested by: {selected.requestedBy}</p>
                 </div>
                 <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${STATUS_STYLE[selected.status]}`}>
                   {selected.status.replace(/_/g, " ")}
@@ -226,7 +226,7 @@ export const PriceOverrideModal: React.FC<PriceOverrideModalProps> = ({ isOpen, 
                 <div className="grid grid-cols-2 gap-2">
                   {DEFAULT_OVERRIDE_CONFIG.deviationMatrix.map((rule, i) => (
                     <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs border ${selected.deviationPct >= rule.fromPct && selected.deviationPct < rule.toPct ? "bg-violet-950/20 border-violet-500/40" : "bg-slate-800/20 border-slate-800/40"}`}>
-                      <span className="font-mono text-slate-400">{rule.fromPct}% – {rule.toPct === Infinity ? "∞" : `${rule.toPct}%`}</span>
+                      <span className="font-mono text-slate-400">{rule.fromPct}% â€“ {rule.toPct === Infinity ? "âˆž" : `${rule.toPct}%`}</span>
                       <span className={`font-bold ${AUTHORITY_STYLE[rule.requiredAuthority]}`}>{rule.requiredAuthority}</span>
                     </div>
                   ))}
@@ -247,7 +247,7 @@ export const PriceOverrideModal: React.FC<PriceOverrideModalProps> = ({ isOpen, 
                       }`}>{e.action.replace(/_/g, " ")}</span>
                       <div>
                         <p className="text-[10px] text-slate-500 font-mono">
-                          {e.performedBy}{e.authority ? ` (${e.authority})` : ""} · {new Date(e.timestamp).toLocaleString("en-IN")}
+                          {e.performedBy}{e.authority ? ` (${e.authority})` : ""} Â· {new Date(e.timestamp).toLocaleString("en-IN")}
                         </p>
                         {e.reason && <p className="text-slate-400 mt-0.5">{e.reason}</p>}
                       </div>
@@ -268,3 +268,4 @@ export const PriceOverrideModal: React.FC<PriceOverrideModalProps> = ({ isOpen, 
 };
 
 export default PriceOverrideModal;
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.16.0
  * Created      : 2026-08-19
  * Modified     : 2026-08-19
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
@@ -51,8 +51,8 @@ export const auditLogsConfig: LedgerConfig<any> = {
       action: item.action || "INFO",
       username: item.username || item.user_id || "System",
       entity: item.entity || item.resource || "General",
-      entityId: item.entityId || item.entity_id || "—",
-      details: item.details || item.message || "—",
+      entityId: item.entityId || item.entity_id || "â€”",
+      details: item.details || item.message || "â€”",
       ipAddress: item.ipAddress || item.ip_address || "127.0.0.1",
     }));
   },
@@ -64,7 +64,7 @@ export const auditLogsConfig: LedgerConfig<any> = {
       width: "160px",
       render: (val) => (
         <span className="text-theme-muted font-mono text-[11px]">
-          {val ? formatDateTime(val) : "—"}
+          {val ? formatDateTime(val) : "â€”"}
         </span>
       ),
     },
@@ -112,7 +112,7 @@ export const auditLogsConfig: LedgerConfig<any> = {
       render: (val, row) => (
         <div className="font-mono text-[11px]">
           <span className="text-blue-400 font-bold">{val}</span>
-          {row.entityId && row.entityId !== "—" && (
+          {row.entityId && row.entityId !== "â€”" && (
             <div className="text-[10px] text-theme-muted">{row.entityId}</div>
           )}
         </div>
@@ -132,3 +132,4 @@ export const auditLogsConfig: LedgerConfig<any> = {
     },
   ],
 };
+

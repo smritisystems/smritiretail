@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 6.7.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-22
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -314,7 +314,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono">{c.loyaltyPoints?.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-right font-mono">₹{c.creditLimit?.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right font-mono">â‚¹{c.creditLimit?.toLocaleString()}</td>
                     <td className="px-3 py-2.5 text-center">
                       <button
                         type="button"
@@ -370,3 +370,4 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
 };
 
 export default SmritiCustomerBrowseModal;
+

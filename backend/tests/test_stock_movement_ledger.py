@@ -449,6 +449,36 @@ async def test_repeated_processing_does_not_create_duplicates():
         prod.stock = Decimal("100.00")
         await session.flush()
 
+        # Ensure ProductBatchStock for the opening batch exists with sufficient stock
+        from app.models.inventory import ProductBatchStock
+        q_batch = select(ProductBatchStock).where(
+            ProductBatchStock.company_id == "COMP-001",
+            ProductBatchStock.product_id == prod.id,
+            ProductBatchStock.warehouse_id == "wh-central-001",
+            ProductBatchStock.batch_no == "BATCH-OPENING",
+            ProductBatchStock.is_deleted == False,
+        )
+        res_batch = await session.execute(q_batch)
+        opening_batch = res_batch.scalars().first()
+        
+        if not opening_batch:
+            opening_batch = ProductBatchStock(
+                id=f"pbs-idemp-{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id="COMP-001",
+                branch_id="MAIN",
+                product_id=prod.id,
+                warehouse_id="wh-central-001",
+                batch_no="BATCH-OPENING",
+                quantity=Decimal("100.00"),
+                reserved_quantity=Decimal("0.00"),
+                damaged_quantity=Decimal("0.00"),
+            )
+            session.add(opening_batch)
+        else:
+            opening_batch.quantity = Decimal("100.00")
+        await session.flush()
+
         test_inv_no = f"INV-IDEMP-{uuid.uuid4().hex[:6]}"
         invoice_in = SalesInvoiceCreate(
             invoice_no=test_inv_no,
@@ -524,6 +554,36 @@ async def test_stock_movement_ledger_live_api_runtime_response():
         if not prod:
             pytest.skip("No product found")
         prod.stock = Decimal("50.00")
+        await session.flush()
+
+        # Ensure ProductBatchStock for the opening batch exists with sufficient stock
+        from app.models.inventory import ProductBatchStock
+        q_batch = select(ProductBatchStock).where(
+            ProductBatchStock.company_id == "COMP-001",
+            ProductBatchStock.product_id == prod.id,
+            ProductBatchStock.warehouse_id == "wh-central-001",
+            ProductBatchStock.batch_no == "BATCH-OPENING",
+            ProductBatchStock.is_deleted == False,
+        )
+        res_batch = await session.execute(q_batch)
+        opening_batch = res_batch.scalars().first()
+        
+        if not opening_batch:
+            opening_batch = ProductBatchStock(
+                id=f"pbs-runtime-{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id="COMP-001",
+                branch_id="MAIN",
+                product_id=prod.id,
+                warehouse_id="wh-central-001",
+                batch_no="BATCH-OPENING",
+                quantity=Decimal("50.00"),
+                reserved_quantity=Decimal("0.00"),
+                damaged_quantity=Decimal("0.00"),
+            )
+            session.add(opening_batch)
+        else:
+            opening_batch.quantity = Decimal("50.00")
         await session.flush()
 
         test_inv_no = f"INV-RUNTIME-{uuid.uuid4().hex[:6]}"

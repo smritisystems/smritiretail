@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.121.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -15,7 +15,7 @@
 import React, { useState, useMemo } from "react";
 import EmployeeAttendanceEngine, {
   EmployeeProfile, AttendanceRecord, PayoutRecord, CommissionResult,
-} from "../../../utils/employeeAttendanceEngine";
+} from "../../utils/employeeAttendanceEngine";
 
 interface EmployeeAttendanceModalProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ const STATUS_COLOR: Record<string, string> = {
   HOLIDAY:  "text-slate-400 bg-slate-700/10 border-slate-600/20",
 };
 
-const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const fmt = (n: number) => `â‚¹${n.toLocaleString("en-IN")}`;
 
 const PROFILES: EmployeeProfile[] = [
   { empId: "EMP-001", name: "Priya Sharma",  branchCode: "BR-MUM-01", designation: "Sales Associate", baseSalary: 25000, commissionType: "FLAT_PCT",  flatPct: 1.5, targetAmt: 200000, targetBonusPct: 10 },
@@ -91,10 +91,10 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-2xl">👤</div>
+            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-2xl">ðŸ‘¤</div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Employee Attendance & Commission Engine</h2>
-              <p className="text-xs text-slate-400">Attendance · Clock-In/Out · Commission Slabs · Payout</p>
+              <p className="text-xs text-slate-400">Attendance Â· Clock-In/Out Â· Commission Slabs Â· Payout</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -146,8 +146,8 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
             {/* Employee header */}
             <div>
               <p className="text-lg font-bold text-slate-100">{profile.name}</p>
-              <p className="text-xs text-slate-400">{profile.empId} · {profile.designation} · {profile.branchCode}</p>
-              <p className="text-[10px] text-slate-500">Base: {fmt(profile.baseSalary)}/mo · Commission: {profile.commissionType}{profile.flatPct ? ` @ ${profile.flatPct}%` : ""}</p>
+              <p className="text-xs text-slate-400">{profile.empId} Â· {profile.designation} Â· {profile.branchCode}</p>
+              <p className="text-[10px] text-slate-500">Base: {fmt(profile.baseSalary)}/mo Â· Commission: {profile.commissionType}{profile.flatPct ? ` @ ${profile.flatPct}%` : ""}</p>
             </div>
 
             {/* KPI */}
@@ -171,7 +171,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                   <div key={r.recordId} className="flex items-center justify-between px-3 py-2 bg-slate-800/20 border border-slate-800/50 rounded-lg text-xs">
                     <span className="text-slate-400 font-mono">{r.date}</span>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_COLOR[r.status]}`}>{r.status}</span>
-                    <span className="text-slate-500 font-mono">{r.clockInTime ?? "—"} → {r.clockOutTime ?? "—"}</span>
+                    <span className="text-slate-500 font-mono">{r.clockInTime ?? "â€”"} â†’ {r.clockOutTime ?? "â€”"}</span>
                     <span className="text-slate-400 font-mono">{r.hoursWorked != null ? `${r.hoursWorked}h` : r.leaveType ?? ""}</span>
                   </div>
                 ))}
@@ -226,7 +226,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                   { label: "Commission",         value: fmt(payout.commissionAmt) },
                   { label: "Target Bonus",       value: fmt(payout.targetBonusAmt) },
                   { label: "Gross Payout",       value: fmt(payout.grossPayout), bold: true },
-                  { label: `LOP (${payout.lop}d × base/working)`, value: `-${fmt(Math.round((payout.lop / payout.workingDays) * payout.baseSalary * 100) / 100)}`, neg: true },
+                  { label: `LOP (${payout.lop}d Ã— base/working)`, value: `-${fmt(Math.round((payout.lop / payout.workingDays) * payout.baseSalary * 100) / 100)}`, neg: true },
                   { label: "Net Payout",         value: fmt(payout.netPayout), bold: true, highlight: true },
                 ].map((m) => (
                   <div key={m.label} className={`flex items-center justify-between px-4 py-2.5 rounded-xl border ${m.highlight ? "bg-teal-950/20 border-teal-500/30" : "bg-slate-800/20 border-slate-700/60"}`}>
@@ -248,3 +248,4 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
 };
 
 export default EmployeeAttendanceModal;
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.107.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -16,7 +16,7 @@ import React, { useState, useMemo } from "react";
 import CommissionEngine, {
   RepCommissionSummary, CommissionPayout, CommissionStatus,
   DEFAULT_COMMISSION_CONFIG, SalesRepTarget, SalesEntry,
-} from "../../../utils/commissionEngine";
+} from "../../utils/commissionEngine";
 
 interface CommissionStudioModalProps {
   isOpen: boolean;
@@ -52,7 +52,7 @@ const ENTRIES: SalesEntry[] = [
   { txnId: "T005", repId: "REP-05", branchCode: BRANCH2, txnDate: "2026-08-20", grossSales: 105000, returns: 3000,  discounts: 2000,  unitsSold: 210 },
 ];
 
-function fmt(n: number) { return `₹${n.toLocaleString("en-IN")}`; }
+function fmt(n: number) { return `â‚¹${n.toLocaleString("en-IN")}`; }
 
 export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ isOpen, onClose, onNotification }) => {
   const [payouts, setPayouts] = useState<CommissionPayout[]>([]);
@@ -79,7 +79,7 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
     }
     const p = CommissionEngine.raisePayout(summary);
     setPayouts((prev) => [...prev, p]);
-    onNotification?.("Payout Raised", `${p.payoutNo} — ${fmt(p.totalCommission)}`, "success");
+    onNotification?.("Payout Raised", `${p.payoutNo} â€” ${fmt(p.totalCommission)}`, "success");
   };
 
   const transition = (payoutId: string, action: "approve" | "paid" | "dispute") => {
@@ -93,7 +93,7 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
     onNotification?.("Payout Updated", `Status changed`, "success");
   };
 
-  const medal = (i: number) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`;
+  const medal = (i: number) => i === 0 ? "ðŸ¥‡" : i === 1 ? "ðŸ¥ˆ" : i === 2 ? "ðŸ¥‰" : `#${i + 1}`;
 
   const AchBar: React.FC<{ pct: number; color: string }> = ({ pct, color }) => (
     <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
@@ -112,7 +112,7 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Staff Commission & Incentive Engine</h2>
-              <p className="text-xs text-slate-400">Tiered Commission · Target Bonus · Top Performer · Payout Ledger</p>
+              <p className="text-xs text-slate-400">Tiered Commission Â· Target Bonus Â· Top Performer Â· Payout Ledger</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -162,15 +162,15 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
                         <span className="text-2xl">{medal(i)}</span>
                         <div>
                           <p className="text-sm font-bold text-slate-100">{rep.repName}</p>
-                          <p className="text-[10px] text-slate-500">{rep.branchCode} · {rep.repId}</p>
+                          <p className="text-[10px] text-slate-500">{rep.branchCode} Â· {rep.repId}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 flex-wrap">
                         {rep.topPerformerBonus > 0 && (
-                          <span className="text-[9px] font-bold text-yellow-300 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-full">⭐ Top Performer</span>
+                          <span className="text-[9px] font-bold text-yellow-300 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-full">â­ Top Performer</span>
                         )}
                         {rep.targetBonus > 0 && (
-                          <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">🎯 Target Achieved</span>
+                          <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">ðŸŽ¯ Target Achieved</span>
                         )}
                         <div className="text-right">
                           <p className="text-lg font-black font-mono text-yellow-400">{fmt(rep.totalCommission)}</p>
@@ -213,7 +213,7 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <p className="text-lg font-bold text-slate-100">{selected.repName}</p>
-                  <p className="text-xs text-slate-400">{selected.branchCode} · {selected.repId} · {selected.period}</p>
+                  <p className="text-xs text-slate-400">{selected.branchCode} Â· {selected.repId} Â· {selected.period}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-black font-mono text-yellow-400">{fmt(selected.totalCommission)}</p>
@@ -253,7 +253,7 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
                     <div key={i} className="flex items-center gap-4 bg-slate-800/30 border border-slate-700/50 rounded-xl px-4 py-3 text-xs">
                       <div className="flex-1">
                         <span className="text-slate-400">
-                          ₹{at.tier.fromValue.toLocaleString("en-IN")} — {at.tier.toValue === Infinity ? "∞" : `₹${at.tier.toValue.toLocaleString("en-IN")}`}
+                          â‚¹{at.tier.fromValue.toLocaleString("en-IN")} â€” {at.tier.toValue === Infinity ? "âˆž" : `â‚¹${at.tier.toValue.toLocaleString("en-IN")}`}
                         </span>
                         <span className="text-yellow-400 font-bold ml-2">@ {at.tier.ratePct}%</span>
                       </div>
@@ -311,7 +311,7 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div>
                           <p className="text-xs font-bold font-mono text-slate-200">{p.payoutNo}</p>
-                          <p className="text-[10px] text-slate-400">{p.repName} · {p.branchCode} · {p.period}</p>
+                          <p className="text-[10px] text-slate-400">{p.repName} Â· {p.branchCode} Â· {p.period}</p>
                           {p.paidAt && <p className="text-[10px] text-emerald-400 mt-0.5">Paid via {p.paidVia} on {new Date(p.paidAt).toLocaleDateString("en-IN")}</p>}
                           {p.notes && <p className="text-[10px] text-rose-400 mt-0.5">{p.notes}</p>}
                         </div>
@@ -342,3 +342,4 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
 };
 
 export default CommissionStudioModal;
+

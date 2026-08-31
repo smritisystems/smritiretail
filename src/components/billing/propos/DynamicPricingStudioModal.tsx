@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.86.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -48,7 +48,7 @@ export const DynamicPricingStudioModal: React.FC<DynamicPricingStudioModalProps>
     },
     {
       id: "rule-weekend-02",
-      name: "Weekend Mega Saver (Flat ₹500 Off on ₹3000+)",
+      name: "Weekend Mega Saver (Flat â‚¹500 Off on â‚¹3000+)",
       code: "WEEKEND-500",
       type: "FLAT_DISCOUNT",
       startTime: "00:00",
@@ -166,7 +166,7 @@ export const DynamicPricingStudioModal: React.FC<DynamicPricingStudioModalProps>
           <div className="text-xs font-mono text-slate-400">
             Current Simulated State:{" "}
             <strong className="text-amber-400">
-              {simulatedHour}:30 Hrs • {evaluation.appliedRules.join(", ") || "No Active Promos"}
+              {simulatedHour}:30 Hrs â€¢ {evaluation.appliedRules.join(", ") || "No Active Promos"}
             </strong>
           </div>
         </div>
@@ -211,7 +211,7 @@ export const DynamicPricingStudioModal: React.FC<DynamicPricingStudioModalProps>
                         Time: <strong className="text-slate-300">{r.startTime} - {r.endTime}</strong>
                       </span>
                       <span>
-                        Discount: <strong className="text-emerald-400">{r.discountPct ? `${r.discountPct}%` : `₹${r.flatDiscountAmt}`}</strong>
+                        Discount: <strong className="text-emerald-400">{r.discountPct ? `${r.discountPct}%` : `â‚¹${r.flatDiscountAmt}`}</strong>
                       </span>
                     </div>
                   </div>
@@ -240,13 +240,13 @@ export const DynamicPricingStudioModal: React.FC<DynamicPricingStudioModalProps>
                     <tr key={item.sku}>
                       <td className="py-2.5 px-3 font-sans">
                         <span className="text-slate-200 block font-medium">{item.sku}</span>
-                        <span className="text-[10px] text-slate-400">{item.category} • Qty: {item.qty}</span>
+                        <span className="text-[10px] text-slate-400">{item.category} â€¢ Qty: {item.qty}</span>
                       </td>
-                      <td className="py-2.5 px-3 text-right text-slate-300">₹{item.unitPrice}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-300">â‚¹{item.unitPrice}</td>
                       <td className="py-2.5 px-3 text-right text-emerald-400">
-                        {item.discountAmt > 0 ? `-₹${item.discountAmt}` : "—"}
+                        {item.discountAmt > 0 ? `-â‚¹${item.discountAmt}` : "â€”"}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-bold text-slate-100">₹{item.lineTotal}</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-slate-100">â‚¹{item.lineTotal}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -254,11 +254,11 @@ export const DynamicPricingStudioModal: React.FC<DynamicPricingStudioModalProps>
 
               <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between text-xs font-mono">
                 <div className="flex items-center gap-4">
-                  <span>Gross: <strong className="text-slate-300">₹{evaluation.originalSubtotal}</strong></span>
-                  <span>Total Discount: <strong className="text-emerald-400">-₹{evaluation.totalDiscount}</strong></span>
+                  <span>Gross: <strong className="text-slate-300">â‚¹{evaluation.originalSubtotal}</strong></span>
+                  <span>Total Discount: <strong className="text-emerald-400">-â‚¹{evaluation.totalDiscount}</strong></span>
                 </div>
                 <div className="text-sm font-bold text-slate-100">
-                  Payable Subtotal: <span className="text-amber-400">₹{evaluation.finalSubtotal}</span>
+                  Payable Subtotal: <span className="text-amber-400">â‚¹{evaluation.finalSubtotal}</span>
                 </div>
               </div>
             </div>
@@ -291,3 +291,4 @@ export const DynamicPricingStudioModal: React.FC<DynamicPricingStudioModalProps>
 };
 
 export default DynamicPricingStudioModal;
+

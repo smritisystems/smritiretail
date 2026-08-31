@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.94.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -17,7 +17,7 @@ import EInvoiceEngine, {
   EInvoice,
   GSTParty,
   BulkPrintJob,
-} from "../../../utils/eInvoiceEngine";
+} from "../../utils/eInvoiceEngine";
 
 interface EInvoiceStudioModalProps {
   isOpen: boolean;
@@ -107,7 +107,7 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">GST e-Invoice IRN Generation & QR Code Printing Studio</h2>
-              <p className="text-xs text-slate-400">GSTN API v1.03 · SHA-256 IRN · CBIC QR Payload · Bulk Print Queue</p>
+              <p className="text-xs text-slate-400">GSTN API v1.03 Â· SHA-256 IRN Â· CBIC QR Payload Â· Bulk Print Queue</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -145,14 +145,14 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
               <div className="flex items-center justify-between px-2 pb-1">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Invoices</p>
                 <button onClick={handleBulkPrint} className="text-[9px] font-bold px-2 py-1 rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30 transition-all">
-                  🖨 Bulk Print
+                  ðŸ–¨ Bulk Print
                 </button>
               </div>
               {invoices.map((inv) => (
                 <button key={inv.invoiceId} onClick={() => setSelectedId(inv.invoiceId)}
                   className={`w-full text-left p-3 rounded-xl border transition-all ${selectedId === inv.invoiceId ? "bg-orange-950/20 border-orange-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
                   <div className="text-[10px] font-bold text-slate-200 font-mono truncate">{inv.docNo}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">{inv.docType} · ₹{inv.totals.grandTotal.toLocaleString("en-IN")}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">{inv.docType} Â· â‚¹{inv.totals.grandTotal.toLocaleString("en-IN")}</div>
                   <span className={`inline-block mt-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_STYLE[inv.status]}`}>{inv.status}</span>
                 </button>
               ))}
@@ -165,13 +165,13 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <p className="text-lg font-bold text-slate-100 font-mono">{selected.docNo}</p>
-                    <p className="text-xs text-slate-400">{selected.docType === "INV" ? "Tax Invoice" : selected.docType === "CRN" ? "Credit Note" : "Debit Note"} · {selected.docDate}</p>
+                    <p className="text-xs text-slate-400">{selected.docType === "INV" ? "Tax Invoice" : selected.docType === "CRN" ? "Credit Note" : "Debit Note"} Â· {selected.docDate}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${STATUS_STYLE[selected.status]}`}>{selected.status}</span>
                     {selected.status === "DRAFT" && (
                       <button onClick={() => handleRegister(selected)} className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 transition-all shadow-lg shadow-orange-500/20">
-                        🔐 Register IRN
+                        ðŸ” Register IRN
                       </button>
                     )}
                     {selected.status === "REGISTERED" && (
@@ -192,7 +192,7 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div><p className="text-[10px] text-slate-500 mb-0.5">ACK Number</p><p className="text-xs font-mono text-slate-300">{selected.ackNo}</p></div>
-                      <div><p className="text-[10px] text-slate-500 mb-0.5">ACK Date</p><p className="text-xs text-slate-300">{selected.ackDate ? new Date(selected.ackDate).toLocaleString("en-IN") : "—"}</p></div>
+                      <div><p className="text-[10px] text-slate-500 mb-0.5">ACK Date</p><p className="text-xs text-slate-300">{selected.ackDate ? new Date(selected.ackDate).toLocaleString("en-IN") : "â€”"}</p></div>
                     </div>
                     <div>
                       <p className="text-[10px] text-slate-500 mb-1">QR Payload (CBIC Spec)</p>
@@ -227,10 +227,10 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
                             <td className="py-2 px-3 font-sans text-slate-200">{item.description}</td>
                             <td className="py-2 px-3 text-center text-slate-400">{item.hsn}</td>
                             <td className="py-2 px-3 text-right text-slate-300">{item.qty}</td>
-                            <td className="py-2 px-3 text-right text-slate-300">₹{item.taxableValue.toLocaleString("en-IN")}</td>
+                            <td className="py-2 px-3 text-right text-slate-300">â‚¹{item.taxableValue.toLocaleString("en-IN")}</td>
                             <td className="py-2 px-3 text-right text-slate-400">{item.gstRate}%</td>
-                            <td className="py-2 px-3 text-right text-orange-400">{item.igst > 0 ? `₹${item.igst}` : `₹${item.cgst}+₹${item.sgst}`}</td>
-                            <td className="py-2 px-3 text-right font-bold text-slate-100">₹{item.lineTotal.toLocaleString("en-IN")}</td>
+                            <td className="py-2 px-3 text-right text-orange-400">{item.igst > 0 ? `â‚¹${item.igst}` : `â‚¹${item.cgst}+â‚¹${item.sgst}`}</td>
+                            <td className="py-2 px-3 text-right font-bold text-slate-100">â‚¹{item.lineTotal.toLocaleString("en-IN")}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -244,7 +244,7 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
                       ].map((t) => (
                         <div key={t.label} className="text-center">
                           <div className="text-slate-500">{t.label}</div>
-                          <div className={`font-bold ${t.label === "Grand Total" ? "text-orange-400" : "text-slate-300"}`}>₹{t.value.toLocaleString("en-IN")}</div>
+                          <div className={`font-bold ${t.label === "Grand Total" ? "text-orange-400" : "text-slate-300"}`}>â‚¹{t.value.toLocaleString("en-IN")}</div>
                         </div>
                       ))}
                     </div>
@@ -254,7 +254,7 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
             )}
           </div>
         ) : (
-          /* ── PRINT QUEUE ──────────────────────────────────────────────── */
+          /* â”€â”€ PRINT QUEUE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {!printJob ? (
               <div className="text-center py-10 text-slate-500 text-sm">No print job created yet. Use "Bulk Print" from the invoice list.</div>
@@ -264,7 +264,7 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <p className="text-sm font-bold text-slate-100 font-mono">{printJob.jobId}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{printJob.invoiceIds.length} invoice(s) · Created {new Date(printJob.createdAt).toLocaleTimeString("en-IN")}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{printJob.invoiceIds.length} invoice(s) Â· Created {new Date(printJob.createdAt).toLocaleTimeString("en-IN")}</p>
                     </div>
                     <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${printJob.status === "COMPLETED" ? "text-emerald-300 bg-emerald-500/20 border-emerald-500/30" : "text-amber-300 bg-amber-500/20 border-amber-500/30"}`}>{printJob.status}</span>
                   </div>
@@ -304,3 +304,4 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
 };
 
 export default EInvoiceStudioModal;
+
