@@ -42,10 +42,9 @@ This file currently documents the adapter rules for the existing hybrid platform
 ---
 
 ## 1. Current Platform Adapter Stack
-* **Underlying Framework:** Frappe Framework v16 & ERPNext
-* **Underlying Database:** MariaDB / PostgreSQL
-* **Underlying Cache:** Redis
-* **Client UI Runtime:** Vue / React / Tailwind
+* **Underlying Framework:** FastAPI (Python)
+* **Underlying Database:** PostgreSQL
+* **Client UI Runtime:** React 18 + Vite
 
 ---
 
@@ -53,19 +52,11 @@ This file currently documents the adapter rules for the existing hybrid platform
 
 All direct calls to the underlying framework APIs are strictly prohibited in business logic services, studios, APIs, or data models. They are allowed ONLY within the platform adapter implementation (`core/platform/`).
 
-### Forbidden direct framework imports and calls in business services:
+### Forbidden patterns in business services:
 ```python
-import frappe
-
-# VIOLATIONS:
-frappe.get_doc(...)
-frappe.new_doc(...)
-frappe.db.get_value(...)
-frappe.db.set_value(...)
-frappe.db.sql(...)
-frappe.enqueue(...)
-frappe.publish_realtime(...)
-frappe.cache().get_value()
+# VIOLATIONS — direct DB or ORM access bypassing the service layer:
+db.execute("SELECT * FROM customer")   # raw SQL outside repository layer
+SessionLocal()                          # direct session creation in business logic
 ```
 
 ### Approved PAL wrappers (SMRITI Platform Abstraction Layer):
@@ -89,15 +80,12 @@ smriti.permissions.require("Customer", "read")
 
 Client applications must communicate with server-side endpoints exclusively using the SMRITI JavaScript SDK. Direct framework-specific requests or message publishers are forbidden outside the SDK.
 
-### Forbidden direct client framework calls:
+### Forbidden direct client calls:
 ```javascript
-// VIOLATIONS:
-frappe.call({ method: "...", ... });
-frappe.show_alert(...);
-frappe.msgprint(...);
-frappe.set_route(...);
-frappe.confirm(...);
-frappe.realtime.on(...);
+// VIOLATIONS — bypass apiFetchV1:
+fetch("/api/v1/...");                    // raw fetch
+new XMLHttpRequest();                   // XHR
+axios.get("/api/v1/...");               // direct axios outside helper
 ```
 
 ### Approved SMRITI JavaScript SDK usages:
