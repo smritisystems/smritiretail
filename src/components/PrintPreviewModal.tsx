@@ -1975,6 +1975,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                           <label className="text-[10px] text-theme-muted font-mono uppercase">Company Name</label>
                           <input 
                             type="text"
+                            data-field-key="customer_name"
                             value={documentData.companyName || ""}
                             onChange={(e) => handleRootFieldChange("companyName", e.target.value)}
                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500 font-semibold"
@@ -1986,6 +1987,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                           <label className="text-[10px] text-theme-muted font-mono uppercase">Store Name</label>
                           <input 
                             type="text"
+                            data-field-key="customer_name"
                             value={documentData.storeName || ""}
                             onChange={(e) => handleRootFieldChange("storeName", e.target.value)}
                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500 font-semibold"
@@ -1999,6 +2001,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                           <label className="text-[10px] text-theme-muted font-mono uppercase">Invoice Ref</label>
                           <input 
                             type="text"
+                            data-field-key="invoice_number"
                             value={documentData.invoiceNo || ""}
                             onChange={(e) => handleRootFieldChange("invoiceNo", e.target.value)}
                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500 font-mono"
@@ -2010,6 +2013,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                           <label className="text-[10px] text-theme-muted font-mono uppercase">GRN Number</label>
                           <input 
                             type="text"
+                            data-field-key="reference_no"
                             value={documentData.grnNo || ""}
                             onChange={(e) => handleRootFieldChange("grnNo", e.target.value)}
                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500 font-mono"
@@ -2021,6 +2025,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                           <label className="text-[10px] text-theme-muted font-mono uppercase">Receipt Number</label>
                           <input 
                             type="text"
+                            data-field-key="reference_no"
                             value={documentData.receiptNo || ""}
                             onChange={(e) => handleRootFieldChange("receiptNo", e.target.value)}
                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500 font-mono"
@@ -2034,6 +2039,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                           <label className="text-[10px] text-theme-muted font-mono uppercase">Date</label>
                           <input 
                             type="text"
+                            data-field-key="invoice_date"
                             value={documentData.date || ""}
                             onChange={(e) => handleRootFieldChange("date", e.target.value)}
                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500"
@@ -2044,6 +2050,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                             <label className="text-[10px] text-theme-muted font-mono uppercase">Client / Party</label>
                             <input 
                               type="text"
+                              data-field-key="customer_name"
                               value={documentData.customerName || ""}
                               onChange={(e) => handleRootFieldChange("customerName", e.target.value)}
                               className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500"
@@ -2055,6 +2062,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                             <label className="text-[10px] text-theme-muted font-mono uppercase">Supplier</label>
                             <input 
                               type="text"
+                              data-field-key="supplier_name"
                               value={documentData.supplierName || ""}
                               onChange={(e) => handleRootFieldChange("supplierName", e.target.value)}
                               className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500"
@@ -2069,6 +2077,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                           <label className="text-[10px] text-theme-muted font-mono uppercase">Operator / Cashier</label>
                           <input 
                             type="text"
+                            data-field-key="staff_name"
                             value={documentData.cashier || ""}
                             onChange={(e) => handleRootFieldChange("cashier", e.target.value)}
                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500"
@@ -2080,6 +2089,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                           <label className="text-[10px] text-theme-muted font-mono uppercase">Received By</label>
                           <input 
                             type="text"
+                            data-field-key="staff_name"
                             value={documentData.receivedBy || ""}
                             onChange={(e) => handleRootFieldChange("receivedBy", e.target.value)}
                             className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-blue-500"
@@ -2116,6 +2126,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                                 <label className="text-[8px] text-theme-muted font-mono uppercase">Description</label>
                                 <input 
                                   type="text"
+                                  data-field-key="product_name"
                                   value={item.name || ""}
                                   onChange={(e) => handleItemFieldChange(idx, "name", e.target.value)}
                                   className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-0.5 text-xs text-theme-primary focus:outline-none"
@@ -2129,6 +2140,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                                   <input 
                                     type="number"
                                     min="1"
+                                    data-field-key="quantity"
                                     value={item.qty || 1}
                                     onChange={(e) => handleItemFieldChange(idx, "qty", e.target.value)}
                                     className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-0.5 text-xs text-theme-primary focus:outline-none"
@@ -2139,6 +2151,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                                   <input 
                                     type="number"
                                     step="0.01"
+                                    data-field-key="selling_price"
                                     value={item.rate || 0.0}
                                     onChange={(e) => handleItemFieldChange(idx, "rate", e.target.value)}
                                     className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-0.5 text-xs text-theme-primary focus:outline-none font-mono"

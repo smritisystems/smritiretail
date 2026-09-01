@@ -899,6 +899,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       <input
                         id={`cell-${rowIndex}-code`}
                         type="text"
+                        data-field-key="item_code"
                         placeholder="Enter SKU"
                         value={row.code}
                         onChange={(e) => handleCellChange(rowIndex, "code", e.target.value)}
@@ -913,6 +914,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       <input
                         id={`cell-${rowIndex}-name`}
                         type="text"
+                        data-field-key="product_name"
                         placeholder="Enter item name"
                         value={row.name}
                         onChange={(e) => handleCellChange(rowIndex, "name", e.target.value)}
@@ -927,6 +929,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       <input
                         id={`cell-${rowIndex}-barcode`}
                         type="text"
+                        data-field-key="barcode"
                         placeholder="Scan / Enter barcode"
                         value={row.barcode}
                         onChange={(e) => handleCellChange(rowIndex, "barcode", e.target.value)}
@@ -941,6 +944,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       <input
                         id={`cell-${rowIndex}-brand`}
                         type="text"
+                        data-field-key="brand"
                         placeholder="Select brand"
                         value={row.brand}
                         onChange={(e) => handleCellChange(rowIndex, "brand", e.target.value)}
@@ -985,6 +989,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       <input
                         id={`cell-${rowIndex}-size`}
                         type="text"
+                        data-field-key="size"
                         placeholder="Size"
                         value={row.size}
                         onChange={(e) => handleCellChange(rowIndex, "size", e.target.value)}
@@ -999,6 +1004,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       <input
                         id={`cell-${rowIndex}-colour`}
                         type="text"
+                        data-field-key="colour"
                         placeholder="Colour"
                         value={row.colour}
                         onChange={(e) => handleCellChange(rowIndex, "colour", e.target.value)}
@@ -1013,6 +1019,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       <input
                         id={`cell-${rowIndex}-hsnCode`}
                         type="text"
+                        data-field-key="hsn_code"
                         placeholder="Enter HSN"
                         value={row.hsnCode}
                         onChange={(e) => handleCellChange(rowIndex, "hsnCode", e.target.value)}
@@ -1044,6 +1051,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       <input
                         id={`cell-${rowIndex}-price`}
                         type="text"
+                        data-field-key="selling_price"
                         placeholder="Enter price"
                         value={row.price}
                         onChange={(e) => handleCellChange(rowIndex, "price", e.target.value)}
@@ -1076,6 +1084,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                         <input
                           id={`cell-${rowIndex}-attr_${attr.name}`}
                           type="text"
+                          data-field-key="product_name"
                           placeholder={`Enter ${attr.label}`}
                           value={row.attributes[attr.name] || ""}
                           onChange={(e) => handleCellChange(rowIndex, `attr_${attr.name}`, e.target.value)}
@@ -1092,6 +1101,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                         <input
                           id={`cell-${rowIndex}-attr_${attr.key}`}
                           type="text"
+                          data-field-key="product_name"
                           placeholder={`Enter ${attr.label}`}
                           value={row.attributes[attr.key] || ""}
                           onChange={(e) => handleCellChange(rowIndex, `attr_${attr.key}`, e.target.value)}
@@ -1317,6 +1327,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
               <label className="text-xs font-bold text-slate-700">Attribute Label Name</label>
               <input
                 type="text"
+                data-field-key="product_name"
                 placeholder="e.g. Fabric"
                 value={newAttrLabelInput}
                 onChange={(e) => setNewAttrLabelInput(e.target.value)}

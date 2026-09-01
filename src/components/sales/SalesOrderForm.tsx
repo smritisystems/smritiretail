@@ -136,6 +136,7 @@ const SalesOrderHeader: React.FC<{
             <input
               type="text"
               value={formData.docPrefix || "SO"}
+              data-field-key="reference_no"
               onChange={(e) => onFieldChange("docPrefix", e.target.value)}
               className="w-16 px-3 py-2 border border-slate-300 rounded font-mono text-sm bg-white focus:ring-2 focus:ring-blue-400"
               maxLength={3}
@@ -158,6 +159,7 @@ const SalesOrderHeader: React.FC<{
           <input
             type="date"
             value={formData.docDate || new Date().toISOString().split("T")[0]}
+            data-field-key="invoice_number"
             onChange={(e) => onFieldChange("docDate", e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
           />
@@ -170,6 +172,7 @@ const SalesOrderHeader: React.FC<{
           <input
             type="time"
             value={formData.docTime || new Date().toTimeString().slice(0, 5)}
+            data-field-key="reference_no"
             onChange={(e) => onFieldChange("docTime", e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
           />
@@ -182,6 +185,7 @@ const SalesOrderHeader: React.FC<{
           <input
             type="text"
             value={formData.referenceNo || ""}
+            data-field-key="reference_no"
             onChange={(e) => onFieldChange("referenceNo", e.target.value)}
             placeholder="PO / order ref"
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
@@ -215,6 +219,7 @@ const SalesOrderHeader: React.FC<{
             <input
               type="text"
               value={formData.customerCode || ""}
+              data-field-key="customer_code"
               onChange={(e) => onFieldChange("customerCode", e.target.value)}
               onKeyUp={(e) => handleCustomerSearch(e.currentTarget.value)}
               placeholder="Enter code or F2"
@@ -250,6 +255,7 @@ const SalesOrderHeader: React.FC<{
           <input
             type="text"
             value={formData.deliveryTerms || ""}
+            data-field-key="remarks"
             onChange={(e) => onFieldChange("deliveryTerms", e.target.value)}
             placeholder="FOB / Ex-Works / Door delivery"
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
@@ -282,6 +288,7 @@ const SalesOrderHeader: React.FC<{
           <input
             type="text"
             value={formData.paymentTerms || ""}
+            data-field-key="payment_terms"
             onChange={(e) => onFieldChange("paymentTerms", e.target.value)}
             placeholder="Cash / Credit / Net 30"
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
@@ -295,6 +302,7 @@ const SalesOrderHeader: React.FC<{
           <input
             type="text"
             value={formData.remarks || ""}
+            data-field-key="remarks"
             onChange={(e) => onFieldChange("remarks", e.target.value)}
             placeholder="Special instructions / notes"
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
@@ -350,8 +358,8 @@ const SalesOrderDetail: React.FC<{
 
   const handleItemChange = (index: number, field: string, value: any) => {
     const updated = [...items];
-    const item = updated[index];
-    item[field as keyof SalesOrderItem] = value;
+    const item = updated[index] as Record<string, any>;
+    item[field] = value;
 
     // Calculate value and total
     if (field === "rate" || field === "quantity") {
@@ -360,9 +368,10 @@ const SalesOrderDetail: React.FC<{
     }
 
     if (field === "discPercent" || field === "discAmount") {
-      item.discAmount = field === "discPercent"
+      const nextDiscAmount = field === "discPercent"
         ? (item.value * (value || 0)) / 100
         : value;
+      item.discAmount = nextDiscAmount;
       item.total = item.value - (item.discAmount || 0);
     }
 
@@ -435,6 +444,7 @@ const SalesOrderDetail: React.FC<{
                   <input
                     type="text"
                     value={item.stockNo}
+                    data-field-key="item_code"
                     onChange={(e) => handleItemChange(index, "stockNo", e.target.value)}
                     placeholder="F2"
                     className="w-full px-2 py-1 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-blue-400"
@@ -452,6 +462,7 @@ const SalesOrderDetail: React.FC<{
                   <input
                     type="number"
                     value={item.rate}
+                    data-field-key="selling_price"
                     onChange={(e) => handleItemChange(index, "rate", parseFloat(e.target.value))}
                     className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right focus:ring-1 focus:ring-blue-400"
                     step="0.01"
@@ -461,6 +472,7 @@ const SalesOrderDetail: React.FC<{
                   <input
                     type="number"
                     value={item.quantity}
+                    data-field-key="quantity"
                     onChange={(e) => handleItemChange(index, "quantity", parseFloat(e.target.value))}
                     className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right focus:ring-1 focus:ring-blue-400"
                   />
@@ -472,6 +484,7 @@ const SalesOrderDetail: React.FC<{
                   <input
                     type="text"
                     value={item.discCode || ""}
+                    data-field-key="reference_no"
                     onChange={(e) => handleItemChange(index, "discCode", e.target.value)}
                     className="w-full px-2 py-1 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-blue-400"
                   />
@@ -480,6 +493,7 @@ const SalesOrderDetail: React.FC<{
                   <input
                     type="number"
                     value={item.discPercent || 0}
+                    data-field-key="discount_percent"
                     onChange={(e) => handleItemChange(index, "discPercent", parseFloat(e.target.value))}
                     className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right focus:ring-1 focus:ring-blue-400"
                     step="0.01"
@@ -567,9 +581,11 @@ const SalesOrderFooter: React.FC<{
         <div className="space-y-2">
           <input
             type="text"
+            data-field-key="reference_no"
             placeholder="Import from..."
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white"
-          / ><div className="flex gap-2">
+          />
+          <div className="flex gap-2">
             <button className="flex-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 rounded text-sm font-medium transition">
               Clear
             </button>

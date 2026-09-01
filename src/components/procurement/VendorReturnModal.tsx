@@ -178,7 +178,7 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                       {nextAction && actionBtn(nextAction.label, nextAction.action, nextAction.color)}
                       {selected.status === "DEBIT_NOTE_RAISED" && selected.debitNote?.status !== "SETTLED" && (
                         <div className="flex items-center gap-2">
-                          <input type="number" placeholder="â‚¹ Amount" value={settlementAmt} onChange={(e) => setSettlementAmt(e.target.value)}
+                          <input type="number" placeholder="₹ Amount" value={settlementAmt} data-field-key="selling_price" onChange={(e) => setSettlementAmt(e.target.value)}
                             className="w-28 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-rose-500/60" />
                           {actionBtn("Settle", "settle", "bg-emerald-600 hover:bg-emerald-500")}
                         </div>

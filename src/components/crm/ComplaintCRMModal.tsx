@@ -246,7 +246,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
                     )}
                     {["IN_PROGRESS", "PENDING_CUSTOMER", "REOPENED"].includes(selected.status) && (
                       <div className="flex items-center gap-2 w-full">
-                        <input value={resolveNote} onChange={(e) => setResolveNote(e.target.value)} placeholder="Resolution summary..."
+                        <input value={resolveNote} data-field-key="remarks" onChange={(e) => setResolveNote(e.target.value)} placeholder="Resolution summary..."
                           className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500/60" />
                         <button onClick={handleResolve} disabled={!resolveNote} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-500 disabled:opacity-40 transition-all">Resolve</button>
                       </div>
@@ -258,7 +258,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
                             <button key={s} onClick={() => setCsatInput(s)} className={`text-2xl transition-all ${s <= csatInput ? "text-yellow-400" : "text-slate-700 hover:text-yellow-600"}`}>â˜…</button>
                           ))}
                         </div>
-                        <input value={csatComment} onChange={(e) => setCsatComment(e.target.value)} placeholder="Customer comment (optional)"
+                        <input value={csatComment} data-field-key="remarks" onChange={(e) => setCsatComment(e.target.value)} placeholder="Customer comment (optional)"
                           className="w-52 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/60" />
                         <button onClick={handleClose} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all">Close with CSAT</button>
                       </div>

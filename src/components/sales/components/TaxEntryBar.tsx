@@ -111,6 +111,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
           ref={stockInputRef}
           type="text"
           value={stockNo}
+          data-field-key="item_code"
           onChange={(e) => setStockNo(e.target.value)}
           onBlur={handleStockNoBlur}
           placeholder="Stock No/Barcode"
@@ -121,6 +122,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
         <input
           type="text"
           value={description}
+          data-field-key="product_name"
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Item Description"
           className="border-outline-variant h-8 text-body-sm rounded px-2 bg-surface-container cursor-not-allowed text-on-surface"
@@ -132,6 +134,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
           type="number"
           step="any"
           value={rate}
+          data-field-key="selling_price"
           onChange={(e) => setRate(e.target.value === "" ? "" : parseFloat(e.target.value))}
           placeholder="Rate"
           className="border-outline-variant h-8 text-body-sm font-code-md rounded px-2 text-right bg-surface-container-lowest text-on-surface focus:border-secondary"
@@ -142,6 +145,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
           type="number"
           step="any"
           value={qty}
+          data-field-key="quantity"
           onChange={(e) => setQty(e.target.value === "" ? "" : parseFloat(e.target.value))}
           placeholder="Qty"
           className="border-outline-variant h-8 text-body-sm font-code-md rounded px-2 text-right bg-surface-container-lowest text-on-surface focus:border-secondary font-bold"
@@ -151,6 +155,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
         <input
           type="text"
           value={numValue > 0 ? numValue.toFixed(2) : ""}
+          data-field-key="selling_price"
           placeholder="Value"
           readOnly
           className="bg-surface-variant border-outline-variant h-8 text-body-sm font-code-md rounded px-2 text-right cursor-not-allowed text-on-surface"
@@ -172,6 +177,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
         <input
           type="number"
           value={discQty}
+          data-field-key="quantity"
           onChange={(e) => setDiscQty(e.target.value === "" ? "" : parseFloat(e.target.value))}
           placeholder="Disc Qty"
           className="border-outline-variant h-8 text-body-sm font-code-md rounded px-2 text-right bg-surface-container-lowest text-on-surface focus:border-secondary"
@@ -182,6 +188,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
           type="number"
           step="any"
           value={discPercent}
+          data-field-key="discount_percent"
           onChange={(e) => setDiscPercent(e.target.value === "" ? "" : parseFloat(e.target.value))}
           placeholder="Disc %"
           className="border-outline-variant h-8 text-body-sm font-code-md rounded px-2 text-right bg-surface-container-lowest text-on-surface focus:border-secondary"
@@ -191,9 +198,19 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
         <input
           type="text"
           value={numDiscAmt > 0 ? numDiscAmt.toFixed(2) : ""}
+          data-field-key="discount_amount"
           onChange={(e) => setDiscAmt(e.target.value === "" ? "" : parseFloat(e.target.value))}
           placeholder="Disc Amt"
           className="border-outline-variant h-8 text-body-sm font-code-md rounded px-2 text-right bg-surface-container-highest text-on-surface"
+        />
+
+        <input
+          type="text"
+          value={numTotal > 0 ? numTotal.toFixed(2) : ""}
+          data-field-key="selling_price"
+          placeholder="Total"
+          readOnly
+          className="border-outline-variant h-8 text-body-sm font-code-md rounded px-2 text-right bg-surface-container-lowest text-emerald-700 font-bold"
         />
 
         {/* Total */}

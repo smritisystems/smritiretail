@@ -1054,6 +1054,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             <input
               type="text"
               value={searchFilter}
+              data-field-key="product_name"
               onChange={(e) => setSearchFilter(e.target.value)}
               placeholder="Filter items..."
               aria-label="Filter items globally"
@@ -1214,6 +1215,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                             <div className="relative">
                               <input
                                 type="text"
+                                data-field-key="product_name"
                                 aria-label={`Filter by ${col.label}`}
                                 placeholder="Filter..."
                                 value={filterValue}
@@ -1444,6 +1446,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="item_code"
                     readOnly={activeMode === "edit" || activeMode === "delete"}
                     title={activeMode === "edit" ? "SKU is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.code || ""}
@@ -1468,6 +1471,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="barcode"
                     readOnly={activeMode === "edit" || activeMode === "delete"}
                     title={activeMode === "edit" ? "Barcode is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.barcode || ""}
@@ -1492,6 +1496,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="product_name"
                     value={currentClassicRecord.name || ""}
                     onChange={(e) => handleCellChange(currentClassicSourceIndex, "name", e.target.value)}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-bold ${
@@ -1512,6 +1517,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="hsn_code"
                     value={currentClassicRecord.hsn_code || ""}
                     onChange={(e) => handleCellChange(currentClassicSourceIndex, "hsn_code", e.target.value)}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
@@ -1530,6 +1536,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">Image Filename (Optional)</label>
                   <input
                     type="text"
+                    data-field-key="product_name"
                     value={currentClassicRecord.imageName || ""}
                     onChange={(e) => handleCellChange(currentClassicSourceIndex, "imageName", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-mono text-xs"
@@ -1546,6 +1553,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   </label>
                   <input
                     type="number"
+                    data-field-key="buying_price"
                     value={currentClassicRecord.buyingPrice !== undefined && currentClassicRecord.buyingPrice !== null ? currentClassicRecord.buyingPrice : (currentClassicRecord.buying_price ?? "")}
                     onChange={(e) => {
                       const val = e.target.value === "" ? "" : Number(e.target.value);
@@ -1570,6 +1578,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   </label>
                   <input
                     type="number"
+                    data-field-key="cost_price"
                     value={currentClassicRecord.costPrice !== undefined && currentClassicRecord.costPrice !== null ? currentClassicRecord.costPrice : (currentClassicRecord.cost_price ?? "")}
                     onChange={(e) => {
                       const val = e.target.value === "" ? "" : Number(e.target.value);
@@ -1598,6 +1607,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   </label>
                   <input
                     type="number"
+                    data-field-key="selling_price"
                     value={currentClassicRecord.price ?? ""}
                     onChange={(e) => handleCellChange(currentClassicSourceIndex, "price", e.target.value === "" ? "" : Number(e.target.value))}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold text-[#0c9488] ${
@@ -1618,6 +1628,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   </label>
                   <input
                     type="number"
+                    data-field-key="mrp"
                     value={currentClassicRecord.mrp ?? ""}
                     onChange={(e) => {
                       const val = e.target.value === "" ? "" : Number(e.target.value);
@@ -1650,6 +1661,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="gst_percentage"
                     value={currentClassicRecord.gst_percentage ?? ""}
                     onChange={(e) => handleCellChange(currentClassicSourceIndex, "gst_percentage", e.target.value)}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-semibold ${
@@ -1673,6 +1685,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">A1 (Heels / Heel Type)</label>
                   <input
                     type="text"
+                    data-field-key="brand"
                     value={currentClassicRecord.a1 || ""}
                     onChange={(e) => handleCellChange(currentClassicSourceIndex, "a1", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
@@ -1682,6 +1695,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">A2 (Upper Material)</label>
                   <input
                     type="text"
+                    data-field-key="color"
                     value={currentClassicRecord.a2 || ""}
                     onChange={(e) => handleCellChange(currentClassicSourceIndex, "a2", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
@@ -1691,6 +1705,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">A3 (Outsole Material)</label>
                   <input
                     type="text"
+                    data-field-key="size"
                     value={currentClassicRecord.a3 || ""}
                     onChange={(e) => handleCellChange(currentClassicSourceIndex, "a3", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"

@@ -112,6 +112,30 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
 
 export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   body?: BodyInit | Record<string, unknown> | null;
+  params?: Record<string, unknown> | URLSearchParams;
+}
+
+function applyQueryParams(url: string, params?: Record<string, unknown> | URLSearchParams): string {
+  if (!params) return url;
+
+  const searchParams = new URLSearchParams();
+
+  if (params instanceof URLSearchParams) {
+    params.forEach((value, key) => searchParams.append(key, value));
+  } else {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.forEach((item) => searchParams.append(key, String(item)));
+      } else {
+        searchParams.append(key, String(value));
+      }
+    });
+  }
+
+  if (!searchParams.toString()) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}${searchParams.toString()}`;
 }
 
 export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
@@ -152,7 +176,10 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
   const baseUrl = typeof window !== "undefined" && window.location?.origin 
     ? "" 
     : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:8000");
-  const url = `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`;
+  const url = applyQueryParams(
+    `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`,
+    options.params
+  );
 
   let response: Response;
   try {

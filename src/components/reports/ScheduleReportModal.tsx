@@ -309,6 +309,7 @@ export const ScheduleReportModal: React.FC<ScheduleReportModalProps> = ({
                 <input
                   type="text"
                   value={scheduleName}
+                  data-field-key="reference_no"
                   onChange={(e) => setScheduleName(e.target.value)}
                   className="w-full px-4 py-2 text-xs rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                   placeholder="e.g. Daily EOD Sales & Tax Summary to Board"
@@ -337,6 +338,7 @@ export const ScheduleReportModal: React.FC<ScheduleReportModalProps> = ({
                     <input
                       type="text"
                       value={customCron}
+                      data-field-key="reference_no"
                       onChange={(e) => setCustomCron(e.target.value)}
                       placeholder="* * * * *"
                       className="mt-2 w-full px-3 py-1.5 font-mono text-xs rounded-lg bg-slate-900 border border-slate-700 text-slate-200"
@@ -433,6 +435,7 @@ export const ScheduleReportModal: React.FC<ScheduleReportModalProps> = ({
                         type="email"
                         placeholder="Add email address..."
                         value={emailInput}
+                        data-field-key="customer_email"
                         onChange={(e) => setEmailInput(e.target.value)}
                         onKeyDown={handleAddEmail}
                         className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-indigo-500"
@@ -475,6 +478,7 @@ export const ScheduleReportModal: React.FC<ScheduleReportModalProps> = ({
                         type="text"
                         placeholder="Add mobile number..."
                         value={phoneInput}
+                        data-field-key="customer_mobile"
                         onChange={(e) => setPhoneInput(e.target.value)}
                         onKeyDown={handleAddPhone}
                         className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-emerald-500"
@@ -498,6 +502,7 @@ export const ScheduleReportModal: React.FC<ScheduleReportModalProps> = ({
                     <input
                       type="text"
                       value={vaultFolder}
+                      data-field-key="reference_no"
                       onChange={(e) => setVaultFolder(e.target.value)}
                       className="w-full px-3 py-1.5 font-mono text-xs rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-indigo-500"
                     />
