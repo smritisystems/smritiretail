@@ -45,6 +45,7 @@ import { apiFetchV1 } from "../../lib/apiFetchV1";
 import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
 import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
 import { validateSalesTransaction } from "../../services/sales/transactionValidator";
+import { validateSalesOrderItems } from "../../utils/salesOrderValidation";
 import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel";
 import type { TransactionAttachment } from "../../domain/attachment";
 
@@ -1344,6 +1345,11 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
     if (validationErrors.some((message) => message.toLowerCase().includes("customer"))) {
       newErrors.customerCode = "Customer is required";
+    }
+
+    const itemValidationError = validateSalesOrderItems(formData.items || []);
+    if (itemValidationError) {
+      newErrors.items = itemValidationError;
     }
 
     if (validationErrors.some((message) => message.toLowerCase().includes("item") && message.toLowerCase().includes("required"))) {

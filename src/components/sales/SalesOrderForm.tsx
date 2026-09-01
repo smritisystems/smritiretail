@@ -37,6 +37,7 @@ import { formatCurrency, formatQuantity } from "../../utils/formatters";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
 import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
 import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
+import { validateSalesOrderItems } from "../../utils/salesOrderValidation";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -711,8 +712,9 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
       return;
     }
 
-    if (!formData.items || formData.items.length === 0) {
-      setError("Please add at least one item");
+    const itemValidationError = validateSalesOrderItems(formData.items || []);
+    if (itemValidationError) {
+      setError(itemValidationError);
       return;
     }
 

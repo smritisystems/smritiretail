@@ -441,6 +441,39 @@ async def test_create_sales_order_duplicate_rejected(db_session):
     assert r2.status_code == 400
 
 
+async def test_create_sales_order_rejects_missing_or_invalid_item(db_session):
+    """Invalid or blank item rows are rejected before saving."""
+    suffix = uuid.uuid4().hex[:8]
+    company, branch = await _make_tenant(db_session, suffix)
+    user = await _make_cashier(db_session, suffix, company.id, branch.id)
+    _set_tenant(company.id, branch.id)
+    headers = _bearer(user, company.id, branch.id)
+
+    payload = {
+        "id": f"so-invalid-{suffix}",
+        "order_no": f"ORD-INVALID-{suffix}",
+        "customer_name": "Invalid Item Customer",
+        "status": "confirmed",
+        "items": [
+            {
+                "product_id": "MISSING-ITEM-XYZ",
+                "code": "MISSING-ITEM-XYZ",
+                "name": "",
+                "quantity": "1.00",
+                "price": "100.00",
+                "gst_rate": "18.00",
+                "total_amount": "118.00",
+            }
+        ],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post("/api/v1/sales/orders/", json=payload, headers=headers)
+
+    assert resp.status_code == 400, resp.text
+    assert "not found in the database" in resp.text.lower() or "valid item" in resp.text.lower()
+
+
 async def test_list_sales_orders(db_session):
     """Listing orders returns existing records for the tenant."""
     suffix = uuid.uuid4().hex[:8]
