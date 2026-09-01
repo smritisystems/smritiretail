@@ -183,11 +183,14 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
                   <div className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 space-y-3">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Record Payment</p>
                     <div className="flex items-center gap-3 flex-wrap">
-                      <input type="number" placeholder="Amount" value={payAmt} onChange={(e) => setPayAmt(e.target.value)}
+                      <input type="number" placeholder="Amount" value={payAmt} data-field-key="selling_price"
+                        onChange={(e) => setPayAmt(e.target.value)}
                         className="w-32 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-orange-500/60" />
-                      <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)}
+                      <input type="date" value={payDate} data-field-key="reference_no"
+                        onChange={(e) => setPayDate(e.target.value)}
                         className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-orange-500/60" />
-                      <input type="text" placeholder="Reference" value={payRef} onChange={(e) => setPayRef(e.target.value)}
+                      <input type="text" placeholder="Reference" value={payRef} data-field-key="reference_no"
+                        onChange={(e) => setPayRef(e.target.value)}
                         className="w-36 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-orange-500/60" />
                       <button onClick={handlePay}
                         className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 transition-all">

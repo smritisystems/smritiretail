@@ -10,6 +10,7 @@
     "start": "npm run dev",
     "lint": "tsc --noEmit",
     "test": "vitest run",
+    "validate-registry": "node scripts/validate-registry-usage.mjs --all",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
   },
   "dependencies": {

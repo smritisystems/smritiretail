@@ -459,6 +459,7 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
                         type="number"
                         min="1"
                         value={distanceKm}
+                        data-field-key="distance_km"
                         onChange={(e) => setDistanceKm(Number(e.target.value))}
                         className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800/80 border border-slate-700 text-slate-200 focus:outline-none focus:border-cyan-500"
                         required
@@ -471,6 +472,7 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
                       <input
                         type="text"
                         value={vehicleNo}
+                        data-field-key="vehicle_no"
                         onChange={(e) => setVehicleNo(e.target.value)}
                         placeholder="e.g. MH12AB9999"
                         className="w-full px-3 py-2 font-mono uppercase text-xs rounded-xl bg-slate-800/80 border border-slate-700 text-slate-200 focus:outline-none focus:border-cyan-500"
@@ -486,6 +488,7 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
                     <input
                       type="text"
                       value={transporterId}
+                      data-field-key="transporter_id"
                       onChange={(e) => setTransporterId(e.target.value)}
                       placeholder="e.g. 27AAAAA0000A1Z5"
                       className="w-full px-3 py-2 font-mono uppercase text-xs rounded-xl bg-slate-800/80 border border-slate-700 text-slate-200 focus:outline-none focus:border-cyan-500"

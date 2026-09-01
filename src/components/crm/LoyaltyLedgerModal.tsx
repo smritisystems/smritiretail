@@ -189,17 +189,17 @@ export const LoyaltyLedgerModal: React.FC<LoyaltyLedgerModalProps> = ({ isOpen, 
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase tracking-wide">Invoice No</label>
-                  <input value={redeemInvoice} onChange={(e) => setRedeemInvoice(e.target.value)}
+                  <input value={redeemInvoice} data-field-key="invoice_number" onChange={(e) => setRedeemInvoice(e.target.value)}
                     className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-yellow-500/60" />
                 </div>
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase tracking-wide">Invoice Value (â‚¹)</label>
-                  <input value={redeemValue} onChange={(e) => setRedeemValue(e.target.value)} type="number"
+                  <input value={redeemValue} data-field-key="selling_price" onChange={(e) => setRedeemValue(e.target.value)} type="number"
                     className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-yellow-500/60" />
                 </div>
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase tracking-wide">Points to Redeem</label>
-                  <input value={redeemPts} onChange={(e) => setRedeemPts(e.target.value)} type="number"
+                  <input value={redeemPts} data-field-key="quantity" onChange={(e) => setRedeemPts(e.target.value)} type="number"
                     className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-yellow-500/60" />
                 </div>
               </div>

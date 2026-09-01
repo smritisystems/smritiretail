@@ -33,6 +33,48 @@ const AUTH_STORAGE_KEYS = [
   "smriti_branch_name",
 ];
 
+export function normalizeCompanyId(raw: string | null | undefined): string {
+  const value = String(raw ?? "").trim();
+  if (!value) return "COMP-001";
+  const upper = value.toUpperCase();
+  if (/^COMP-[A-Z0-9]+$/i.test(upper)) return upper;
+  if (/^[A-Z0-9]{3}$/.test(upper) && upper !== "000" && upper !== "SYS") return `COMP-${upper}`;
+  return upper;
+}
+
+export function normalizeBranchId(raw: string | null | undefined): string {
+  const value = String(raw ?? "").trim();
+  if (!value) return "MAIN";
+  const upper = value.toUpperCase();
+  if (["MAIN", "BR-MAIN", "BR-MAIN-001", "HEAD", "HO"].includes(upper)) return "MAIN";
+  if (upper.startsWith("BR-")) return upper;
+  return upper;
+}
+
+export function persistTenantContext(params: {
+  companyId?: string | null;
+  companyCode?: string | null;
+  branchId?: string | null;
+  branchCode?: string | null;
+  companyName?: string | null;
+  branchName?: string | null;
+}): void {
+  if (typeof window === "undefined") return;
+
+  const normalizedCompanyId = normalizeCompanyId(params.companyId);
+  const normalizedBranchId = normalizeBranchId(params.branchId);
+  const companyCode = params.companyCode ? String(params.companyCode).trim() : normalizedCompanyId.replace(/^COMP-/i, "") || "001";
+  const branchCode = params.branchCode ? String(params.branchCode).trim() : normalizedBranchId;
+
+  localStorage.setItem("smriti_company_id", normalizedCompanyId);
+  localStorage.setItem("smriti_company_code", companyCode);
+  localStorage.setItem("smriti_branch_id", normalizedBranchId);
+  localStorage.setItem("smriti_branch_code", branchCode);
+
+  if (params.companyName) localStorage.setItem("smriti_company_name", params.companyName);
+  if (params.branchName) localStorage.setItem("smriti_branch_name", params.branchName);
+}
+
 export function clearAuthSession(reason?: string): void {
   if (typeof window !== "undefined") {
     for (const key of AUTH_STORAGE_KEYS) {
@@ -112,6 +154,30 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
 
 export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   body?: BodyInit | Record<string, unknown> | null;
+  params?: Record<string, unknown> | URLSearchParams;
+}
+
+function applyQueryParams(url: string, params?: Record<string, unknown> | URLSearchParams): string {
+  if (!params) return url;
+
+  const searchParams = new URLSearchParams();
+
+  if (params instanceof URLSearchParams) {
+    params.forEach((value, key) => searchParams.append(key, value));
+  } else {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.forEach((item) => searchParams.append(key, String(item)));
+      } else {
+        searchParams.append(key, String(value));
+      }
+    });
+  }
+
+  if (!searchParams.toString()) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}${searchParams.toString()}`;
 }
 
 export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
@@ -152,7 +218,10 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
   const baseUrl = typeof window !== "undefined" && window.location?.origin 
     ? "" 
     : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:8000");
-  const url = `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`;
+  const url = applyQueryParams(
+    `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`,
+    options.params
+  );
 
   let response: Response;
   try {

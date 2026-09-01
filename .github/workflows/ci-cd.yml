@@ -25,6 +25,9 @@ jobs:
       
       - name: Install dependencies
         run: npm ci
+
+      - name: Registry usage validation
+        run: npm run validate-registry
       
       - name: Run ESLint
         run: npm run lint

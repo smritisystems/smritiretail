@@ -189,7 +189,8 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
           <input
             type="text"
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            data-field-key="product_name"
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search products, SKUs, barcodes, brands, or attribute tags..."
             className="w-full pl-9 pr-3 py-1.5 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs text-[#191c1e] dark:text-white outline-none focus:ring-1 focus:ring-[#000000]"
           />

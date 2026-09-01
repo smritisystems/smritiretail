@@ -59,6 +59,9 @@ from app.models.company_registry import CompanyDatabaseRegistry
 
 
 async def _make_tenant(db_session, suffix: str):
+    # Generate valid 3-character company code from suffix (e.g., "002277" -> "022")
+    valid_code = suffix[:3].upper() if len(suffix) >= 3 else (suffix + "000")[:3].upper()
+    
     company = Company(
         id=f"comp-auth-{suffix}",
         name=f"Auth Company {suffix}",
@@ -75,7 +78,7 @@ async def _make_tenant(db_session, suffix: str):
     db_reg = CompanyDatabaseRegistry(
         company_id=company.id,
         database_id=f"db-auth-{suffix}",
-        database_name=f"smriti_auth_{suffix}",
+        database_name=f"smriti{valid_code}",
         status="READY",
     )
     db_session.add_all([company, branch, db_reg])

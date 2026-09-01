@@ -123,7 +123,7 @@ export const PricingStudioModal: React.FC<PricingStudioModalProps> = ({ isOpen, 
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-slate-500 uppercase tracking-wide">Coupon</span>
-            <input value={couponCode} onChange={(e) => setCouponCode(e.target.value)}
+            <input value={couponCode} data-field-key="reference_no" onChange={(e) => setCouponCode(e.target.value)}
               className="w-32 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-lime-500/60" />
             <button onClick={() => setApplyCoupon((p) => !p)}
               className={`px-3 py-1.5 text-xs rounded-lg font-bold transition-all ${applyCoupon ? "bg-lime-500/20 text-lime-300 border border-lime-500/30" : "text-slate-500 border border-slate-700"}`}>
