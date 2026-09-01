@@ -206,7 +206,7 @@ export const SalesOrderMatrixEntry: React.FC<SalesOrderMatrixEntryProps> = ({
                     <input
                       type="text"
                       value={r.styleName}
-                      onChange={e => {
+                      onChange={(e) => {
                         const val = e.target.value;
                         setRows(prev => prev.map(item => item.id === r.id ? { ...item, styleName: val } : item));
                       }}
@@ -220,7 +220,7 @@ export const SalesOrderMatrixEntry: React.FC<SalesOrderMatrixEntryProps> = ({
                     <input
                       type="number"
                       value={r.unitPrice}
-                      onChange={e => {
+                      onChange={(e) => {
                         const val = parseFloat(e.target.value) || 0;
                         setRows(prev => prev.map(item => item.id === r.id ? { ...item, unitPrice: val } : item));
                       }}
@@ -235,7 +235,7 @@ export const SalesOrderMatrixEntry: React.FC<SalesOrderMatrixEntryProps> = ({
                         type="number"
                         min="0"
                         value={r.sizes[sz] || ""}
-                        onChange={e => handleSizeChange(r.id, sz, e.target.value)}
+                        onChange={(e) => handleSizeChange(r.id, sz, e.target.value)}
                         placeholder="0"
                         className="w-11 text-center bg-slate-950 border border-slate-700/80 rounded py-1 font-mono text-xs font-bold text-indigo-200 focus:outline-none focus:border-indigo-400 focus:bg-indigo-950/40"
                       />

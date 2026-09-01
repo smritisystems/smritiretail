@@ -569,8 +569,7 @@ const SalesOrderFooter: React.FC<{
             type="text"
             placeholder="Import from..."
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white"
-          />
-          <div className="flex gap-2">
+          / ><div className="flex gap-2">
             <button className="flex-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 rounded text-sm font-medium transition">
               Clear
             </button>

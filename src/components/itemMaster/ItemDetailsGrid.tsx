@@ -1054,7 +1054,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             <input
               type="text"
               value={searchFilter}
-              onChange={e => setSearchFilter(e.target.value)}
+              onChange={(e) => setSearchFilter(e.target.value)}
               placeholder="Filter items..."
               aria-label="Filter items globally"
               className="w-full pl-8 pr-7 py-1 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs outline-none focus:border-[#0052cc]"
@@ -1151,7 +1151,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                           type="checkbox"
                           aria-label="Select all visible items"
                           checked={isAllFilteredSelected}
-                          ref={el => {
+                          ref={(el) => {
                             if (el) el.indeterminate = isSomeFilteredSelected && !isAllFilteredSelected;
                           }}
                           onChange={handleToggleSelectAll}
@@ -1217,7 +1217,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                 aria-label={`Filter by ${col.label}`}
                                 placeholder="Filter..."
                                 value={filterValue}
-                                onChange={e => handleColumnFilterChange(col.key, e.target.value)}
+                                onChange={(e) => handleColumnFilterChange(col.key, e.target.value)}
                                 className="w-full pl-2 pr-5 py-0.5 text-[10px] font-normal normal-case bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded outline-none focus:border-[#0052cc] dark:focus:border-[#8cb4ff] text-[#191c1e] dark:text-[#eff1f3] placeholder:text-[#76777d]"
                               />
                               {filterValue && (
@@ -1493,7 +1493,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.name || ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "name", e.target.value)}
+                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "name", e.target.value)}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-bold ${
                       !currentClassicRecord.name?.toString().trim()
                         ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
@@ -1513,7 +1513,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.hsn_code || ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "hsn_code", e.target.value)}
+                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "hsn_code", e.target.value)}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
                       !currentClassicRecord.hsn_code?.toString().trim()
                         ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
@@ -1531,7 +1531,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.imageName || ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "imageName", e.target.value)}
+                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "imageName", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-mono text-xs"
                   />
                 </div>
@@ -1547,7 +1547,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="number"
                     value={currentClassicRecord.buyingPrice !== undefined && currentClassicRecord.buyingPrice !== null ? currentClassicRecord.buyingPrice : (currentClassicRecord.buying_price ?? "")}
-                    onChange={e => {
+                    onChange={(e) => {
                       const val = e.target.value === "" ? "" : Number(e.target.value);
                       handleCellChange(currentClassicSourceIndex, "buyingPrice", val);
                       handleCellChange(currentClassicSourceIndex, "buying_price", val);
@@ -1571,7 +1571,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="number"
                     value={currentClassicRecord.costPrice !== undefined && currentClassicRecord.costPrice !== null ? currentClassicRecord.costPrice : (currentClassicRecord.cost_price ?? "")}
-                    onChange={e => {
+                    onChange={(e) => {
                       const val = e.target.value === "" ? "" : Number(e.target.value);
                       handleCellChange(currentClassicSourceIndex, "costPrice", val);
                       handleCellChange(currentClassicSourceIndex, "cost_price", val);
@@ -1599,7 +1599,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="number"
                     value={currentClassicRecord.price ?? ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "price", e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "price", e.target.value === "" ? "" : Number(e.target.value))}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold text-[#0c9488] ${
                       currentClassicRecord.price === "" || currentClassicRecord.price === null || currentClassicRecord.price === undefined || Number(currentClassicRecord.price) < 0 || isNaN(Number(currentClassicRecord.price))
                         ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
@@ -1619,7 +1619,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="number"
                     value={currentClassicRecord.mrp ?? ""}
-                    onChange={e => {
+                    onChange={(e) => {
                       const val = e.target.value === "" ? "" : Number(e.target.value);
                       handleCellChange(currentClassicSourceIndex, "mrp", val);
                       const currentPrice = currentClassicRecord.price;
@@ -1651,7 +1651,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.gst_percentage ?? ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "gst_percentage", e.target.value)}
+                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "gst_percentage", e.target.value)}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-semibold ${
                       !currentClassicRecord.gst_percentage?.toString().trim()
                         ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
@@ -1674,7 +1674,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.a1 || ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "a1", e.target.value)}
+                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "a1", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
                   />
                 </div>
@@ -1683,7 +1683,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.a2 || ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "a2", e.target.value)}
+                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "a2", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
                   />
                 </div>
@@ -1692,7 +1692,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     value={currentClassicRecord.a3 || ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "a3", e.target.value)}
+                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "a3", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
                   />
                 </div>
