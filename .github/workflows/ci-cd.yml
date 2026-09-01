@@ -28,7 +28,6 @@ jobs:
 
       - name: Registry usage validation
         run: npm run validate-registry
-        continue-on-error: true
       
       - name: Run ESLint
         run: npm run lint

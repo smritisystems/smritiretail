@@ -37,6 +37,106 @@ function isFormFile(filePath) {
   return FORM_PATTERNS.some(pattern => pattern.test(path.basename(filePath)));
 }
 
+function extractInputTags(content) {
+  const tags = [];
+  const pattern = /<input\b/gi;
+
+  for (const match of content.matchAll(pattern)) {
+    const startIndex = match.index;
+    let i = match.index + match[0].length;
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+    let braceDepth = 0;
+
+    while (i < content.length) {
+      const char = content[i];
+
+      if (inSingleQuote) {
+        if (char === "'" && content[i - 1] !== "\\") inSingleQuote = false;
+        i += 1;
+        continue;
+      }
+
+      if (inDoubleQuote) {
+        if (char === '"' && content[i - 1] !== "\\") inDoubleQuote = false;
+        i += 1;
+        continue;
+      }
+
+      if (braceDepth > 0) {
+        if (char === "{") braceDepth += 1;
+        if (char === "}") braceDepth -= 1;
+        i += 1;
+        continue;
+      }
+
+      if (char === "'") {
+        inSingleQuote = true;
+        i += 1;
+        continue;
+      }
+
+      if (char === '"') {
+        inDoubleQuote = true;
+        i += 1;
+        continue;
+      }
+
+      if (char === "{") {
+        braceDepth = 1;
+        i += 1;
+        continue;
+      }
+
+      if (char === ">") {
+        tags.push(content.slice(startIndex, i + 1));
+        break;
+      }
+
+      i += 1;
+    }
+  }
+
+  return tags;
+}
+
+function isNonLookupInput(tag) {
+  const lowerTag = tag.toLowerCase();
+
+  if (
+    lowerTag.includes('type="hidden"') ||
+    lowerTag.includes("type='hidden'") ||
+    lowerTag.includes('type="file"') ||
+    lowerTag.includes("type='file'") ||
+    lowerTag.includes('type="button"') ||
+    lowerTag.includes("type='button'") ||
+    lowerTag.includes('type="radio"') ||
+    lowerTag.includes("type='radio'") ||
+    lowerTag.includes('type="checkbox"') ||
+    lowerTag.includes("type='checkbox'") ||
+    lowerTag.includes('type="range"') ||
+    lowerTag.includes("type='range'") ||
+    lowerTag.includes('type="color"') ||
+    lowerTag.includes("type='color'") ||
+    lowerTag.includes('readonly') ||
+    lowerTag.includes('disabled') ||
+    lowerTag.includes('aria-hidden')
+  ) {
+    return true;
+  }
+
+  const labelText = `${lowerTag} ${lowerTag.includes('placeholder') ? lowerTag.slice(lowerTag.indexOf('placeholder')) : ''}`;
+  if (
+    labelText.includes('filter') ||
+    labelText.includes('search') ||
+    labelText.includes('lookup')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function checkFile(filePath) {
   const content = fs.readFileSync(filePath, "utf-8");
   const issues = [];
@@ -47,17 +147,9 @@ function checkFile(filePath) {
   }
 
   // Check 1: Has form-like inputs without data-field-key
-  const inputMatches = content.match(/<input[^>]*>/g) || [];
+  const inputMatches = extractInputTags(content);
   const missingFieldKeys = inputMatches.filter(tag => {
-    // Skip hidden inputs, file inputs, buttons, and non-interactive read-only/disabled controls
-    if (
-      tag.includes('type="hidden"') ||
-      tag.includes('type="file"') ||
-      tag.includes('type="button"') ||
-      tag.includes('readOnly') ||
-      tag.includes('disabled') ||
-      tag.includes('aria-hidden')
-    ) {
+    if (isNonLookupInput(tag)) {
       return false;
     }
     return !tag.includes("data-field-key");

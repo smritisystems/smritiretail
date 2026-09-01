@@ -923,14 +923,12 @@ const PremiumSalesOrderDetail: React.FC<{
 
   const handleItemChange = (index: number, field: string, value: any) => {
     const updated = [...items];
-    const item = updated[index];
-    item[field as keyof SalesOrderItem] = value;
+    const item = updated[index] as Record<string, any>;
+    item[field] = value;
 
     if (field === "rate" || field === "quantity") {
       item.value = (item.rate || 0) * (item.quantity || 0);
-      item.discAmount = field === "discPercent"
-        ? (item.value * (item.discPercent || 0)) / 100
-        : item.discAmount || 0;
+      item.discAmount = item.discPercent ? (item.value * (item.discPercent || 0)) / 100 : item.discAmount || 0;
       item.taxAmount = ((item.value - (item.discAmount || 0)) * (item.taxPercent || 0)) / 100;
       item.total = item.value - (item.discAmount || 0) + (item.taxAmount || 0);
     }
@@ -939,6 +937,11 @@ const PremiumSalesOrderDetail: React.FC<{
       item.discAmount = (item.value * (value || 0)) / 100;
       item.taxAmount = ((item.value - item.discAmount) * (item.taxPercent || 0)) / 100;
       item.total = item.value - item.discAmount + item.taxAmount;
+    }
+
+    if (field === "discAmount") {
+      item.taxAmount = ((item.value - (item.discAmount || 0)) * (item.taxPercent || 0)) / 100;
+      item.total = item.value - (item.discAmount || 0) + (item.taxAmount || 0);
     }
 
     onItemsChange(updated);

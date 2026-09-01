@@ -62,6 +62,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                 type="text"
                 readOnly
                 value={customer.code || "Generating..."}
+                data-field-key="customer_code"
                 className="w-full p-2 bg-[#f2f4f6] dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono font-bold text-xs text-[#00355f] dark:text-[#8ebdf9] cursor-not-allowed"
               />
             </div>
@@ -73,6 +74,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <input
                 type="text"
                 value={customer.name}
+                data-field-key="customer_name"
                 onChange={(e) => onChange("name", e.target.value)}
                 placeholder="e.g. Farida Jameel"
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-bold text-xs outline-none focus:border-[#00355f]"
@@ -244,6 +246,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <input
                 type="text"
                 value={customer.profession}
+                data-field-key="customer_name"
                 onChange={(e) => onChange("profession", e.target.value)}
                 placeholder="e.g. Architect, Doctor, Teacher"
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
@@ -299,6 +302,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             <input
               type="text"
               value={customer.companyCode}
+              data-field-key="customer_code"
               onChange={(e) => onChange("companyCode", e.target.value)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs font-bold"
             />
@@ -342,6 +346,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             <input
               type="text"
               value={customer.delimiter}
+              data-field-key="reference_no"
               onChange={(e) => onChange("delimiter", e.target.value)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs text-center font-bold"
             />
@@ -355,6 +360,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               type="number"
               step="0.01"
               value={customer.buyingFactor}
+              data-field-key="cost_price"
               onChange={(e) => onChange("buyingFactor", parseFloat(e.target.value) || 1)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs"
             />
@@ -368,6 +374,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               type="number"
               step="0.01"
               value={customer.sellingFactor}
+              data-field-key="selling_price"
               onChange={(e) => onChange("sellingFactor", parseFloat(e.target.value) || 1)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs"
             />

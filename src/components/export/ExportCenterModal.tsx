@@ -592,6 +592,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
               <input
                 type="text"
                 value={customFilename}
+                data-field-key="reference_no"
                 onChange={(e) => setCustomFilename(e.target.value)}
                 disabled={progressState.isExporting}
                 placeholder={`SMRITI_${moduleTitle}_${scope}_${new Date().toISOString().split("T")[0]}`}

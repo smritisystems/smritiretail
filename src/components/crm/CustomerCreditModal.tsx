@@ -216,9 +216,11 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
                   <div className="bg-slate-800/20 border border-slate-700/60 rounded-xl p-4 space-y-3">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Post Payment (FIFO Allocation)</p>
                     <div className="flex items-center gap-3 flex-wrap">
-                      <input type="number" placeholder="Amount" value={payAmt} onChange={(e) => setPayAmt(e.target.value)}
+                      <input type="number" placeholder="Amount" value={payAmt} data-field-key="payment_terms"
+                        onChange={(e) => setPayAmt(e.target.value)}
                         className="w-32 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/60" />
-                      <input type="text" placeholder="Reference" value={payRef} onChange={(e) => setPayRef(e.target.value)}
+                      <input type="text" placeholder="Reference" value={payRef} data-field-key="reference_no"
+                        onChange={(e) => setPayRef(e.target.value)}
                         className="w-40 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/60" />
                       <button onClick={handlePayment}
                         className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-all">

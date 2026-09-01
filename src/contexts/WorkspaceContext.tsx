@@ -65,7 +65,7 @@ interface WorkspaceContextType {
   resetGlobalZoom: () => void;
   
   popOutTab: (tabId: string, title: string, icon: string) => void;
-  popOutExternalWindow: (tabId: string, title: string, icon?: string) => void;
+  popOutExternalWindow: (tabId: string, title: string, icon?: string, options?: { fullScreen?: boolean }) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
   maximizeWindow: (id: string) => void;

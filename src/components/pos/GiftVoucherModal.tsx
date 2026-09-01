@@ -151,9 +151,9 @@ export const GiftVoucherModal: React.FC<GiftVoucherModalProps> = ({ isOpen, onCl
                   <div className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 space-y-3">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Redeem</p>
                     <div className="flex items-center gap-3">
-                      <input type="number" placeholder="Amount" value={redeemAmt} onChange={(e) => setRedeemAmt(e.target.value)}
+                      <input type="number" placeholder="Amount" value={redeemAmt} data-field-key="selling_price" onChange={(e) => setRedeemAmt(e.target.value)}
                         className="w-32 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500/60" />
-                      <input type="text" placeholder="Invoice ref" value={refNo} onChange={(e) => setRefNo(e.target.value)}
+                      <input type="text" placeholder="Invoice ref" value={refNo} data-field-key="reference_no" onChange={(e) => setRefNo(e.target.value)}
                         className="w-40 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500/60" />
                       <button onClick={handleRedeem}
                         className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 transition-all">

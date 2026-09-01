@@ -321,6 +321,7 @@ export const PdtImportModal: React.FC<PdtImportModalProps> = ({
                   <input
                     type="text"
                     value={billPrefix}
+                    data-field-key="reference_no"
                     onChange={(e) => setBillPrefix(e.target.value)}
                     placeholder="e.g. PO"
                     className="bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 text-on-surface font-code-md text-xs focus:border-primary outline-none font-bold"
@@ -334,6 +335,7 @@ export const PdtImportModal: React.FC<PdtImportModalProps> = ({
                   <input
                     type="text"
                     value={billNo}
+                    data-field-key="invoice_number"
                     onChange={(e) => setBillNo(e.target.value)}
                     placeholder="e.g. 1001"
                     className="bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 text-on-surface font-code-md text-xs focus:border-primary outline-none font-bold"

@@ -108,6 +108,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                   <input
                     type="number"
                     value={item.rate}
+                    data-field-key="selling_price"
                     onChange={(e) => {
                       const newRate = parseFloat(e.target.value) || 0;
                       const newValue = newRate * item.qty;
@@ -123,6 +124,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                   <input
                     type="number"
                     value={item.qty}
+                    data-field-key="quantity"
                     onChange={(e) => {
                       const newQty = parseFloat(e.target.value) || 0;
                       const newValue = item.rate * newQty;
