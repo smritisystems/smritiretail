@@ -51,6 +51,25 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Comprehensive audit logging
   - Post-cleanup verification
 
+#### Tax Invoice Itemmaster Import (Tattly Threads TT-18 to TT-137)
+- **Data Source**: Tax_Invoices_TT_18_to_137_Article_Color_Size_Split.xlsx
+  - Total line items: 6,661 rows analyzed
+  - Unique SKU codes: 217 extracted
+  - Date range: Bills 18-137 (120 invoices, 117 completed, 3 cancelled)
+
+- **Import Results**:
+  - Already existing: 181 SKUs + 30 variants
+  - **Newly imported: 6 products** (6,661 → 6,667 products in smriti001)
+  - Smart deduplication: SKU-based + Article-Color-Size variant check
+  - All items mapped with full attributes: Article, Color, Size, HSN Code, MRP, GST
+
+- **Utility Added**: `scripts/import_tax_invoice_items.py`
+  - Reads Excel file structure
+  - Extracts unique SKU combinations
+  - Validates against existing inventory
+  - Batch insert with duplicate handling
+  - Audit logging with import statistics
+
 ### [3.122.0] - 2026-08-28
 
 #### Purchase Order Auto-Generation Engine (v1.0.0-GA)
