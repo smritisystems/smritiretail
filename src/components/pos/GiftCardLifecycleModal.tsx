@@ -142,12 +142,12 @@ export const GiftCardLifecycleModal: React.FC<GiftCardLifecycleModalProps> = ({ 
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Customer ID *</label>
-                  <input value={issueCustomer} onChange={(e) => setIssueCustomer(e.target.value)} placeholder="CUST-0001"
+                  <input value={issueCustomer} data-field-key="customer_code" onChange={(e) => setIssueCustomer(e.target.value)} placeholder="CUST-0001"
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Amount (â‚¹) *</label>
-                  <input type="number" value={issueAmount} onChange={(e) => setIssueAmount(e.target.value)} min={100}
+                  <input type="number" value={issueAmount} data-field-key="selling_price" onChange={(e) => setIssueAmount(e.target.value)} min={100}
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
                 </div>
                 <div className="flex gap-2">
@@ -172,12 +172,12 @@ export const GiftCardLifecycleModal: React.FC<GiftCardLifecycleModalProps> = ({ 
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Last 4 digits of card *</label>
-                  <input value={topUpCardNum} onChange={(e) => setTopUpCardNum(e.target.value)} placeholder="e.g. 4521"
+                  <input value={topUpCardNum} data-field-key="reference_no" onChange={(e) => setTopUpCardNum(e.target.value)} placeholder="e.g. 4521"
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Top-Up Amount (â‚¹) *</label>
-                  <input type="number" value={topUpAmount} onChange={(e) => setTopUpAmount(e.target.value)} min={100}
+                  <input type="number" value={topUpAmount} data-field-key="selling_price" onChange={(e) => setTopUpAmount(e.target.value)} min={100}
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
                 </div>
                 <button onClick={handleTopUp} className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20">
@@ -194,22 +194,22 @@ export const GiftCardLifecycleModal: React.FC<GiftCardLifecycleModalProps> = ({ 
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Last 4 digits of card *</label>
-                  <input value={redeemCardNum} onChange={(e) => setRedeemCardNum(e.target.value)} placeholder="e.g. 4521"
+                  <input value={redeemCardNum} data-field-key="reference_no" onChange={(e) => setRedeemCardNum(e.target.value)} placeholder="e.g. 4521"
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">OTP (sent to registered mobile) *</label>
-                  <input value={redeemOtp} onChange={(e) => setRedeemOtp(e.target.value)} placeholder="6-digit OTP" maxLength={6}
+                  <input value={redeemOtp} data-field-key="reference_no" onChange={(e) => setRedeemOtp(e.target.value)} placeholder="6-digit OTP" maxLength={6}
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 font-mono outline-none focus:border-amber-500 transition-colors" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Redemption Amount (â‚¹) *</label>
-                  <input type="number" value={redeemAmount} onChange={(e) => setRedeemAmount(e.target.value)} min={1}
+                  <input type="number" value={redeemAmount} data-field-key="selling_price" onChange={(e) => setRedeemAmount(e.target.value)} min={1}
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Sales Voucher Ref</label>
-                  <input value={redeemVoucher} onChange={(e) => setRedeemVoucher(e.target.value)}
+                  <input value={redeemVoucher} data-field-key="reference_no" onChange={(e) => setRedeemVoucher(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
                 </div>
                 <button onClick={handleRedeem} className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-500 transition-all shadow-lg shadow-amber-500/20">

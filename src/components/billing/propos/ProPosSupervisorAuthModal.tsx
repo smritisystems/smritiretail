@@ -203,6 +203,7 @@ export const ProPosSupervisorAuthModal: React.FC<ProPosSupervisorAuthModalProps>
             <input
               type="text"
               value={supervisorUsername}
+              data-field-key="staff_name"
               onChange={(e) => setSupervisorUsername(e.target.value)}
               className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-rose-500"
               required
@@ -217,6 +218,7 @@ export const ProPosSupervisorAuthModal: React.FC<ProPosSupervisorAuthModalProps>
               type="password"
               maxLength={6}
               value={pin}
+              data-field-key="employee_code"
               onChange={(e) => {
                 const val = e.target.value.replace(/[^0-9]/g, "");
                 setPin(val);
@@ -255,6 +257,7 @@ export const ProPosSupervisorAuthModal: React.FC<ProPosSupervisorAuthModalProps>
             <input
               type="text"
               value={reason}
+              data-field-key="remarks"
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Approved emergency petty cash refill"
               className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-rose-500"

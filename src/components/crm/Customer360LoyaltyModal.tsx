@@ -237,7 +237,8 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
                 </p>
                 <div>
                   <label className="text-[10px] text-slate-500 block mb-1">Purchase Amount (â‚¹)</label>
-                  <input type="number" value={purchaseAmount} onChange={(e) => setPurchaseAmount(e.target.value)}
+                  <input type="number" value={purchaseAmount} data-field-key="customer_mobile"
+                    onChange={(e) => setPurchaseAmount(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-900 border border-slate-700 outline-none focus:border-emerald-500 transition-colors font-mono" />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -257,7 +258,8 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
                 </p>
                 <div>
                   <label className="text-[10px] text-slate-500 block mb-1">Points to Redeem</label>
-                  <input type="number" value={redeemPoints} onChange={(e) => setRedeemPoints(e.target.value)}
+                  <input type="number" value={redeemPoints} data-field-key="customer_mobile"
+                    onChange={(e) => setRedeemPoints(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-900 border border-slate-700 outline-none focus:border-amber-500 transition-colors font-mono" />
                 </div>
                 <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded-lg px-3 py-2 font-mono">

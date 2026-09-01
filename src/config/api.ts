@@ -13,12 +13,14 @@
 
 /**
  * Resolves the target base URL for the FastAPI backend service.
- * Supports environment variable override FASTAPI_BASE_URL,
- * with Docker container network detection (@db: -> http://python-core:8000)
- * and local development fallback (http://localhost:8000).
+ * 
+ * In Docker Compose (dev/preview): Uses relative /api/v1 path which is proxied to smriti-api:8000 by Vite.
+ * Locally (dev): Uses relative /api/v1 path which is proxied to localhost:8000 by Vite.
+ * Production: Should be configured via FASTAPI_BASE_URL env var.
+ * 
+ * The browser cannot access server-side DATABASE_URL, so we use relative paths
+ * that rely on the Vite proxy configured in vite.config.ts.
  */
 export const FASTAPI_BASE_URL: string =
   process.env.FASTAPI_BASE_URL ||
-  (process.env.DATABASE_URL?.includes("@db:")
-    ? "http://python-core:8000"
-    : "http://localhost:8000");
+  "/api/v1";

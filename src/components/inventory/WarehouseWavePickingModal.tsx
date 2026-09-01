@@ -180,6 +180,7 @@ export const WarehouseWavePickingModal: React.FC<WarehouseWavePickingModalProps>
               <input
                 type="text"
                 value={rfidScanInput}
+                data-field-key="barcode"
                 onChange={(e) => setRfidScanInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && rfidScanInput.trim()) {

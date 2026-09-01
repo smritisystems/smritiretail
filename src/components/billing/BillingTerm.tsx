@@ -16,6 +16,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Product, Customer, POSProfile, Shift } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
+import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
 import { getCustomers, saveCustomers, initialCustomers } from "../../services/customerStore.ts";
 import { 
   searchBackendCustomers, 
@@ -40,6 +42,8 @@ import { ItemBrowseOverlayModal } from "./ItemBrowseOverlayD.tsx";
 import { PdtImportModal } from "./PdtImportModal.tsx";
 import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
+import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel.tsx";
+import type { TransactionAttachment } from "../../domain/attachment";
 import { 
   Download, 
   History, 
@@ -61,7 +65,8 @@ import {
   User,
   Maximize2,
   Minimize2,
-  ExternalLink
+  ExternalLink,
+  Paperclip
 } from "lucide-react";
 
 interface SmritiBillingTerminalProps {
@@ -184,6 +189,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  const [showAttachmentPanel, setShowAttachmentPanel] = useState<boolean>(false);
   const [suspendedBills, setSuspendedBills] = useState<{ id: string; header: BillingHeaderState; items: BillingLineItem[]; date: string; netAmount: number }[]>([]);
   const [lastCompletedInvoice, setLastCompletedInvoice] = useState<any>(null);
 
@@ -483,7 +489,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is inside a popup modal
-      if (showSettlementModal || showPdtImportModal || showProductSearchModal || showItemBrowseModal || showAddCustomerModal || showRecallModal || showPrintModal) {
+      if (showSettlementModal || showPdtImportModal || showProductSearchModal || showItemBrowseModal || showAddCustomerModal || showRecallModal || showPrintModal || showAttachmentPanel) {
         return;
       }
 
@@ -512,7 +518,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [items, headerState, showSettlementModal, showPdtImportModal, showProductSearchModal, showItemBrowseModal, showAddCustomerModal, showRecallModal, showPrintModal]);
+  }, [items, headerState, showSettlementModal, showPdtImportModal, showProductSearchModal, showItemBrowseModal, showAddCustomerModal, showRecallModal, showPrintModal, showAttachmentPanel]);
 
   // Derived Direct Entry Calculations
   const directRateNum = parseFloat(directEntry.rate) || 0;
@@ -524,39 +530,62 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Recompute Summary Totals
   const summaryTotals: BillingSummaryTotals = useMemo(() => {
-    let itemCount = items.length;
-    let totalQty = 0;
-    let salesValue = 0;
-    let itemDiscount = 0;
-    let totalTax = 0;
+    const transaction: SalesTransaction = {
+      docType: "billing",
+      docPrefix: headerState.docPrefix || "D1DS13",
+      docNumber: headerState.docNo || "1",
+      docDate: headerState.billDate || new Date().toISOString().split("T")[0],
+      docTime: liveTime || new Date().toTimeString().slice(0, 5),
+      customerId: headerState.customer?.id,
+      customerCode: headerState.customer?.code,
+      customerName: headerState.customer?.name,
+      referenceNo: "",
+      deliveryTerms: "",
+      paymentTerms: "",
+      orderStatus: "Open",
+      remarks: headerState.remarks,
+      items: items.map((it) => ({
+        id: it.id,
+        productId: it.productId,
+        stockNo: it.stockNo,
+        barcode: it.barcode,
+        itemDescription: it.itemDescription,
+        qty: Number(it.qty || 0),
+        rate: Number(it.rate || 0),
+        value: Number(it.value || 0),
+        discPercent: Number(it.discPercent || 0),
+        discAmt: Number(it.discAmt || 0),
+        taxPercent: Number(it.gstPercentage ?? (it.taxAmount ? 18 : 0)),
+        taxAmount: Number(it.taxAmount || 0),
+        total: Number(it.total || 0),
+      })),
+      subtotal: 0,
+      discountTotal: 0,
+      taxTotal: 0,
+      netAmount: 0,
+    };
 
-    items.forEach(it => {
-      totalQty += Number(it.qty || 0);
-      const gross = Number(it.rate || 0) * Number(it.qty || 0);
-      salesValue += gross;
-      itemDiscount += Number(it.discAmt || 0);
-      totalTax += Number(it.taxAmount || 0);
-    });
-
+    const recomputed = recomputeTransaction(transaction);
+    const itemCount = items.length;
+    const totalQty = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
     const billDiscount = 0;
     const totalAddons = transporterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0) + addonRows.filter(a => a.type === "Addon").reduce((s, a) => s + (Number(a.amount) || 0), 0);
     const totalDeductions = addonRows.filter(a => a.type === "Deduction").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-    const rawNet = salesValue - itemDiscount - billDiscount + totalTax + totalAddons - totalDeductions;
-    const netAmount = Math.max(0, Math.round(rawNet * 100) / 100);
+    const netAmount = Math.max(0, Math.round((recomputed.netAmount + totalAddons - totalDeductions) * 100) / 100);
 
     return {
       itemCount,
       totalQty,
-      salesValue,
-      itemDiscount,
+      salesValue: recomputed.subtotal,
+      itemDiscount: recomputed.discountTotal,
       billDiscount,
-      totalTax,
+      totalTax: recomputed.taxTotal,
       totalAddons,
       totalDeductions,
       roundOff: 0,
       netAmount
     };
-  }, [items, transporterRows, addonRows]);
+  }, [items, transporterRows, addonRows, headerState, liveTime]);
 
   const applyProductAutoPopulate = (p: AutoPopulateProductResult | Product) => {
     const rateVal = String((p as any).sellingPrice || (p as any).mrp || (p as any).price || 0);
@@ -670,29 +699,42 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     const rate = directRateNum > 0 ? directRateNum : Number((matched as any)?.sellingPrice || (matched as any)?.mrp || 0);
     const qty = directQtyNum > 0 ? directQtyNum : 1;
-    const value = rate * qty;
-    const discAmt = directDiscAmt;
-    const total = value - discAmt;
-
-    const newLine: BillingLineItem = {
-      id: "item-" + Date.now() + "-" + Math.random(),
-      sNo: items.length + 1,
+    const lineItem: SalesLineItem = {
+      id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      productId: (matched as any)?.id,
       stockNo: directEntry.stockNo || (matched as any)?.stockNo || (matched as any)?.code || "SKU-GEN",
       barcode: directEntry.barcode || (matched as any)?.barcode || directEntry.stockNo,
       itemDescription: directEntry.itemDescription || (matched as any)?.name || "Item " + (items.length + 1),
-      rate,
       qty,
-      value,
+      rate,
+      value: rate * qty,
+      discPercent: directDiscPctNum,
+      discAmt: directDiscAmt,
+      taxPercent: (matched as any)?.gstPercentage || 18,
+      taxAmount: 0,
+      total: 0,
+    };
+
+    const computedLine = calculateLineTotal(lineItem);
+    const newLine: BillingLineItem = {
+      id: computedLine.id,
+      sNo: items.length + 1,
+      stockNo: computedLine.stockNo || "SKU-GEN",
+      barcode: computedLine.barcode || "",
+      itemDescription: computedLine.itemDescription,
+      rate: computedLine.rate,
+      qty: computedLine.qty,
+      value: computedLine.value,
       discCode: directEntry.discCode,
       discQty: parseFloat(directEntry.discQty) || 0,
-      discPercent: directDiscPctNum,
-      discAmt,
-      total,
+      discPercent: Number(computedLine.discPercent ?? 0),
+      discAmt: Number(computedLine.discAmt ?? 0),
+      total: computedLine.total,
       salesStaff: directEntry.staff,
       productId: (matched as any)?.id,
       hsnCode: (matched as any)?.hsnCode,
-      gstPercentage: (matched as any)?.gstPercentage || 18,
-      taxAmount: (total * ((matched as any)?.gstPercentage || 18)) / 100,
+      gstPercentage: Number(computedLine.taxPercent ?? 18),
+      taxAmount: Number(computedLine.taxAmount ?? 0),
       brand: (matched as any)?.brand,
       size: (matched as any)?.size
     };
@@ -1067,6 +1109,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 title="Settings / Item Master (F3)"
               >
                 <Settings size={17} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAttachmentPanel(!showAttachmentPanel)}
+                className={`p-2 transition-colors rounded active:opacity-80 cursor-pointer ${
+                  showAttachmentPanel 
+                    ? "bg-surface-container-high text-primary" 
+                    : "text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim"
+                }`}
+                title="Attachments (Add contracts, POs, approvals)"
+              >
+                <Paperclip size={17} />
               </button>
               <button
                 type="button"
@@ -1873,6 +1927,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         </section>
 
       </main>
+
+      {/* Attachments Panel (Collapsible) */}
+      {showAttachmentPanel && (
+        <div className="bg-surface-container-lowest border-t border-outline-variant px-margin-page py-3">
+          <TransactionAttachmentPanel
+            documentType="billing"
+            documentId={`${headerState.docPrefix}-${headerState.docNo}` || "new-bill"}
+            onAttachmentAdded={(att: TransactionAttachment) => {
+              onNotification?.("Success", `✓ ${att.fileName} attached`, "success");
+            }}
+            readOnly={false}
+            maxFiles={5}
+            allowedExtensions="PDF, Word, Excel, CSV, Images (JPG, PNG, GIF), ZIP"
+          />
+        </div>
+      )}
 
       {/* Persistent Bottom Shortcut Footer */}
       <footer className="bg-surface-container-highest border-t border-outline-variant mt-auto w-full flex justify-between items-center px-margin-page py-2 shrink-0 z-30 font-label-caps text-label-caps">

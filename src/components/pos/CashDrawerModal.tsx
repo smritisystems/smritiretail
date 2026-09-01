@@ -276,6 +276,7 @@ export const CashDrawerModal: React.FC<CashDrawerModalProps> = ({ isOpen, onClos
                     <span className="text-xs font-mono font-bold text-slate-300 w-16">â‚¹{d.value}</span>
                     <input
                       type="number" min={0} value={d.count}
+                      data-field-key="quantity"
                       onChange={(e) => updateCount(d.value, parseInt(e.target.value) || 0)}
                       className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs font-mono text-slate-200 text-center focus:outline-none focus:border-green-500/60"
                     />
