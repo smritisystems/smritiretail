@@ -16,6 +16,8 @@ import React, { useState, useMemo } from "react";
 import VendorReturnEngine, {
   ReturnToVendorOrder, RTVStatus, ReturnReason,
 } from "../../utils/vendorReturnEngine";
+import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel";
+import type { TransactionAttachment } from "../../domain/attachment";
 
 interface VendorReturnModalProps {
   isOpen: boolean;
@@ -74,8 +76,9 @@ function buildSampleRTVs(): ReturnToVendorOrder[] {
 export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, onClose, onNotification }) => {
   const [orders, setOrders] = useState<ReturnToVendorOrder[]>(buildSampleRTVs);
   const [selectedId, setSelectedId] = useState(orders[0]?.rtvId ?? "");
-  const [activeTab, setActiveTab] = useState<"RTV" | "DEBIT" | "LEDGER">("RTV");
+  const [activeTab, setActiveTab] = useState<"RTV" | "DEBIT" | "LEDGER" | "ATTACHMENTS">("RTV");
   const [settlementAmt, setSettlementAmt] = useState("");
+  const [showAttachmentPanel, setShowAttachmentPanel] = useState(false);
 
   const selected = orders.find((o) => o.rtvId === selectedId);
   const update   = (r: ReturnToVendorOrder) => setOrders((prev) => prev.map((o) => o.rtvId === r.rtvId ? r : o));
@@ -132,10 +135,10 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {(["RTV", "DEBIT", "LEDGER"] as const).map((tab) => (
+            {(["RTV", "DEBIT", "LEDGER", "ATTACHMENTS"] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === tab ? "bg-rose-500/20 text-rose-300 border border-rose-500/30" : "text-slate-400 hover:text-slate-200"}`}>
-                {tab === "DEBIT" ? "Debit Note" : tab === "LEDGER" ? "Vendor Ledger" : "RTV Workflow"}
+                {tab === "DEBIT" ? "Debit Note" : tab === "LEDGER" ? "Vendor Ledger" : tab === "ATTACHMENTS" ? "Attachments" : "RTV Workflow"}
               </button>
             ))}
             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-2">
@@ -341,6 +344,25 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                         </div>
                       </div>
                     ))}
+                </div>
+              )}
+
+              {activeTab === "ATTACHMENTS" && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-lg font-bold text-slate-100 mb-4">Attachments for {selected.rtvNo}</p>
+                    <p className="text-xs text-slate-400 mb-4">Upload documentation for this vendor return: RTV authorization, goods dispatch photos, damage evidence, warranty claims, or approval documents.</p>
+                  </div>
+                  <TransactionAttachmentPanel
+                    documentType="vendor_return"
+                    documentId={selected.rtvNo}
+                    onAttachmentAdded={(att: TransactionAttachment) => {
+                      onNotification?.("Attachment Added", `✓ ${att.fileName} attached to ${selected.rtvNo}`, "success");
+                    }}
+                    readOnly={false}
+                    maxFiles={10}
+                    allowedExtensions="PDF, Word, Excel, CSV, Images (JPG, PNG, GIF, WebP), ZIP"
+                  />
                 </div>
               )}
             </div>

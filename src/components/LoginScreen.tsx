@@ -27,6 +27,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Shield, User, Lock, ArrowRight, AlertTriangle } from "lucide-react";
 import { APP_VERSION_LABEL } from "../config/version.ts";
+import { persistTenantContext, normalizeBranchId, normalizeCompanyId } from "../lib/apiFetchV1";
 
 interface LoginScreenProps {
   onLoginSuccess: (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => void;
@@ -74,11 +75,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           localStorage.setItem("smriti_refresh_token", data.refresh_token);
         }
         const user = data.user ?? {};
-        const compId = data.company_id ?? user.company_id ?? "COMP-001";
-        const brId = data.branch_id ?? user.branch_id ?? "BR-MAIN-001";
-        localStorage.setItem("smriti_company_id", compId);
-        localStorage.setItem("smriti_company_code", compId.replace(/^COMP-/, "") || "001");
-        localStorage.setItem("smriti_branch_id", brId);
+        const compId = normalizeCompanyId(data.company_id ?? user.company_id ?? "COMP-001");
+        const brId = normalizeBranchId(data.branch_id ?? user.branch_id ?? "BR-MAIN-001");
+        persistTenantContext({
+          companyId: compId,
+          companyCode: data.company_code ?? user.company_code,
+          branchId: brId,
+          branchCode: data.branch_code ?? user.branch_code,
+          companyName: data.company_name ?? user.company_name,
+          branchName: data.branch_name ?? user.branch_name,
+        });
         onLoginSuccess({
           role: user.role ?? "",
           name: user.display_name || user.full_name || user.username || username,

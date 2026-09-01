@@ -14,6 +14,8 @@
 import React, { useState } from 'react';
 import { X, FileText, Save, AlertTriangle } from 'lucide-react';
 import { apiFetchV1 } from '../lib/apiFetchV1';
+import { TransactionAttachmentPanel } from './common/TransactionAttachmentPanel';
+import type { TransactionAttachment } from '../domain/attachment';
 
 interface CreateDebitNoteModalProps {
   isOpen: boolean;
@@ -34,6 +36,7 @@ export const CreateDebitNoteModal: React.FC<CreateDebitNoteModalProps> = ({
   const [reason, setReason] = useState('Shortage in GRN Delivery');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAttachmentPanel, setShowAttachmentPanel] = useState(false);
 
   if (!isOpen) return null;
 
@@ -175,6 +178,35 @@ export const CreateDebitNoteModal: React.FC<CreateDebitNoteModalProps> = ({
             <p>
               Issuing a Debit Note preserves transaction history and creates a formal adjustment claim against the supplier's payables ledger.
             </p>
+          </div>
+
+          {/* Attachments Section */}
+          <div className="border-t border-theme-divider pt-3">
+            <button
+              type="button"
+              onClick={() => setShowAttachmentPanel(!showAttachmentPanel)}
+              className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors ${
+                showAttachmentPanel
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-theme-surface-3 text-theme-muted hover:bg-theme-surface-hover'
+              }`}
+            >
+              {showAttachmentPanel ? '✕ Hide Attachments' : '+ Add Attachments'}
+            </button>
+            {showAttachmentPanel && (
+              <div className="mt-3 bg-theme-surface-3 border border-theme-divider rounded-lg p-3">
+                <TransactionAttachmentPanel
+                  documentType="debit_note"
+                  documentId={`DN-${Date.now().toString().slice(-6)}`}
+                  onAttachmentAdded={(att: TransactionAttachment) => {
+                    console.log('Debit note attachment added:', att.fileName);
+                  }}
+                  readOnly={false}
+                  maxFiles={3}
+                  allowedExtensions="PDF, Word, Excel, CSV, Images (for invoice proofs)"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3 pt-3 border-t border-theme-divider">
