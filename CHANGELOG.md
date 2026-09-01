@@ -28,6 +28,29 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.122.1] - 2026-09-01
+
+#### Architecture Compliance: Control Plane Cleanup
+- **Database Cleanup**: Removed 1,730 operational rows from `smritisys` (control plane)
+  - Products: 1,341 rows removed
+  - Sales Orders: 66 rows removed
+  - Purchase Orders: 148 rows removed
+  - Sales Quotations: 86 rows removed
+  - Product Batch Stocks: 89 rows removed
+  - All dependent records cleaned (line items, reservations, etc.)
+
+- **Impact**: Restored architectural compliance per ARCHITECTURE_DECISIONS.md v3.25.0
+  - `smritisys` now contains CONTROL PLANE ONLY (metadata, users, companies, policies)
+  - `smriti001` contains ALL OPERATIONAL DATA (products, orders, transactions, stock)
+  - Multi-tenant isolation fully enforced
+  - No data loss: all deleted data backed up to `backend/backups/control_plane_cleanup/`
+
+- **Utility Added**: `scripts/cleanup_control_plane.py`
+  - Automatic backup before deletion
+  - Foreign key constraint handling for cascade deletes
+  - Comprehensive audit logging
+  - Post-cleanup verification
+
 ### [3.122.0] - 2026-08-28
 
 #### Purchase Order Auto-Generation Engine (v1.0.0-GA)
