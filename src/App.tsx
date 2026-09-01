@@ -137,12 +137,259 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
   const standaloneSalesOrder = new URLSearchParams(window.location.search).get("standalone_sales_order") === "1";
   const [standaloneScanValue, setStandaloneScanValue] = useState("");
   const [standaloneScannerStatus, setStandaloneScannerStatus] = useState("Ready");
-  const [standaloneRows, setStandaloneRows] = useState([
-    { no: 1, stockNo: "108509937", description: "102MENSH/STWLLLIGHTPE", rate: "489.30", qty: "2.00", value: "978.60", total: "978.60", staff: "SM" },
-    { no: 2, stockNo: "108051780", description: "CAMP SHIRTS HS", rate: "700.00", qty: "1.00", value: "700.00", total: "700.00", staff: "SM" },
-    { no: 3, stockNo: "108509939", description: "102MENSH/STWLLLIGHTPE", rate: "489.30", qty: "2.00", value: "978.60", total: "978.60", staff: "SM" },
-  ]);
+  const [standaloneRows, setStandaloneRows] = useState<Array<{
+    no: number;
+    stockNo: string;
+    description: string;
+    rate: string;
+    qty: string;
+    value: string;
+    total: string;
+    staff: string;
+  }>>([]);
+  const [standaloneCustomerName, setStandaloneCustomerName] = useState("Walk-in Customer");
+  const [standaloneCustomerQuery, setStandaloneCustomerQuery] = useState("Walk-in Customer");
+  const [standaloneCustomerOptions, setStandaloneCustomerOptions] = useState<Array<{ id: string; name: string; code?: string; phone?: string }>>([]);
   const [standaloneSaving, setStandaloneSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importHeaders, setImportHeaders] = useState<string[]>([]);
+  const [importPreviewRows, setImportPreviewRows] = useState<Array<Record<string, string>>>([]);
+  const [importFieldMap, setImportFieldMap] = useState<Record<"barcode" | "qty" | "mrp" | "discAmt" | "discPct", string>>({
+    barcode: "",
+    qty: "",
+    mrp: "",
+    discAmt: "",
+    discPct: "",
+  });
+
+  const filteredStandaloneCustomers = standaloneCustomerOptions.filter((customer) => {
+    const query = (standaloneCustomerQuery || "").trim().toLowerCase();
+    if (!query) return true;
+    return (
+      customer.name.toLowerCase().includes(query) ||
+      (customer.code || "").toLowerCase().includes(query) ||
+      (customer.phone || "").toLowerCase().includes(query)
+    );
+  });
+
+  const normalizeImportHeader = (value: string) => (value || "").toLowerCase().replace(/[^a-z0-9%]+/g, " ").trim();
+
+  const detectImportFieldMap = (headers: string[]) => {
+    const aliases: Record<string, string[]> = {
+      barcode: ["barcode", "bar code", "code", "item code", "sku", "product code", "stock no", "stockno"],
+      qty: ["qty", "quantity", "qnty", "qty sold", "sales qty"],
+      mrp: ["mrp", "rate", "selling price", "sale price", "price", "unit price"],
+      discAmt: ["disc amt", "discount amount", "discount amt", "disc amount", "amount discount", "discount"],
+      discPct: ["disc %", "disc pct", "discount %", "discount pct", "discount percent", "discpercent"],
+    };
+
+    const nextMap: Record<"barcode" | "qty" | "mrp" | "discAmt" | "discPct", string> = {
+      barcode: "",
+      qty: "",
+      mrp: "",
+      discAmt: "",
+      discPct: "",
+    };
+
+    Object.entries(aliases).forEach(([field, values]) => {
+      const matchedHeader = headers.find((header) => {
+        const normalized = normalizeImportHeader(header);
+        return values.some((alias) => {
+          const aliasNormalized = normalizeImportHeader(alias);
+          return normalized === aliasNormalized || normalized.includes(aliasNormalized) || aliasNormalized.includes(normalized);
+        });
+      });
+      if (matchedHeader) nextMap[field as keyof typeof nextMap] = matchedHeader;
+    });
+
+    return nextMap;
+  };
+
+  const parseImportLine = (line: string, delimiter: string) => {
+    const values: string[] = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let index = 0; index < line.length; index += 1) {
+      const ch = line[index];
+      if (ch === '"') {
+        if (inQuotes && line[index + 1] === '"') {
+          current += '"';
+          index += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === delimiter && !inQuotes) {
+        values.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+
+    values.push(current.trim());
+    return values.map((value) => value.replace(/^"|"$/g, "").replace(/""/g, '"').trim());
+  };
+
+  const parseImportedText = (text: string) => {
+    const rows = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (!rows.length) return { headers: [], data: [] as Array<Record<string, string>> };
+
+    const delimiterCandidates = ["\t", ";", ","];
+    const delimiter = delimiterCandidates
+      .map((candidate) => ({ candidate, count: rows[0].split(candidate).length - 1 }))
+      .sort((a, b) => b.count - a.count)[0]?.candidate || ",";
+
+    const parsedRows = rows.map((line) => parseImportLine(line, delimiter));
+    const headerCandidates = parsedRows[0].map((header, index) => header || `Column ${index + 1}`);
+    const headerRowIndex = parsedRows.some((row) => row.some((cell) => /barcode|qty|quantity|mrp|discount|disc/i.test(cell))) ? 0 : -1;
+
+    const finalHeaders = headerRowIndex === 0 ? headerCandidates : Array.from({ length: Math.max(...parsedRows.map((row) => row.length)) }, (_, index) => `Column ${index + 1}`);
+    const dataRows = headerRowIndex === 0 ? parsedRows.slice(1) : parsedRows;
+    const normalizedData = dataRows.slice(0, 8).map((row) => {
+      const item: Record<string, string> = {};
+      finalHeaders.forEach((header, index) => {
+        item[header] = row[index] ?? "";
+      });
+      return item;
+    });
+
+    return { headers: finalHeaders, data: normalizedData };
+  };
+
+  const addImportedLineToSalesOrder = async (row: Record<string, string>) => {
+    const barcode = row[importFieldMap.barcode] || "";
+    const quantity = Number(row[importFieldMap.qty] || "1");
+    const mrp = Number(row[importFieldMap.mrp] || "0");
+    const discAmt = Number(row[importFieldMap.discAmt] || "0");
+    const discPct = Number(row[importFieldMap.discPct] || "0");
+
+    if (!barcode) return;
+
+    try {
+      const data = await apiFetchV1("/products/search", {
+        params: { q: barcode, limit: 10 },
+      });
+      const productList = Array.isArray(data) ? data : data?.data || [];
+      const product = productList.find((item: any) =>
+        String(item.barcode || "").toLowerCase() === String(barcode).toLowerCase() ||
+        String(item.code || "").toLowerCase() === String(barcode).toLowerCase() ||
+        String(item.sku || "").toLowerCase() === String(barcode).toLowerCase()
+      ) || productList[0];
+
+      if (!product) {
+        setStandaloneScannerStatus(`Import skipped: ${barcode} not found`);
+        return;
+      }
+
+      const rateValue = Number(mrp > 0 ? mrp : product.price ?? product.selling_price ?? product.rate ?? 0);
+      const qtyValue = Number(quantity > 0 ? quantity : 1);
+      const discountedRate = Math.max(0, rateValue - (discAmt / Math.max(qtyValue, 1)) - (rateValue * (discPct / 100)));
+      const lineTotal = Number((discountedRate * qtyValue).toFixed(2));
+      const nextRow = {
+        no: standaloneRows.length + 1,
+        stockNo: String(product.code || product.sku || product.barcode || barcode),
+        description: String(product.name || product.description || "Product"),
+        rate: rateValue.toFixed(2),
+        qty: qtyValue.toFixed(2),
+        value: Number((rateValue * qtyValue).toFixed(2)).toFixed(2),
+        total: lineTotal.toFixed(2),
+        staff: "SM",
+      };
+
+      setStandaloneRows((prevRows) => {
+        const existingIndex = prevRows.findIndex((rowItem) => rowItem.stockNo === nextRow.stockNo);
+        if (existingIndex >= 0) {
+          const existing = prevRows[existingIndex];
+          const currentQty = Number(existing.qty || 0);
+          const nextQty = currentQty + qtyValue;
+          const nextTotal = Number((nextQty * Number(existing.rate || 0)).toFixed(2));
+          const copy = [...prevRows];
+          copy[existingIndex] = {
+            ...existing,
+            qty: nextQty.toFixed(2),
+            value: nextTotal.toFixed(2),
+            total: nextTotal.toFixed(2),
+          };
+          return copy;
+        }
+
+        return [...prevRows, nextRow];
+      });
+    } catch (error: any) {
+      console.error("Import row lookup failed:", error);
+      setStandaloneScannerStatus(error?.message || "Import failed");
+    }
+  };
+
+  useEffect(() => {
+    const loadStandaloneCustomers = async () => {
+      try {
+        const data = await apiFetchV1("/crm/customers", {
+          params: { skip: 0, limit: 50 },
+        });
+        const customerList = Array.isArray(data) ? data : data?.data || [];
+        const mapped = customerList.map((customer: any) => ({
+          id: String(customer.id || customer.customer_id || customer.code || customer.mobile || Math.random().toString(36).slice(2)),
+          name: String(customer.name || customer.customer_name || "Walk-in Customer"),
+          code: String(customer.code || customer.customer_code || ""),
+          phone: String(customer.mobile || customer.phone || ""),
+        }));
+        setStandaloneCustomerOptions(mapped);
+        if (mapped.length > 0 && standaloneCustomerName === "Walk-in Customer") {
+          setStandaloneCustomerName(mapped[0].name);
+          setStandaloneCustomerQuery(mapped[0].name);
+        }
+      } catch (error) {
+        console.warn("Unable to load standalone customers:", error);
+        setStandaloneCustomerOptions([]);
+      }
+    };
+
+    void loadStandaloneCustomers();
+  }, []);
+
+  useEffect(() => {
+    const loadStandaloneCatalog = async () => {
+      try {
+        const data = await apiFetchV1("/products/search", {
+          params: { q: "", limit: 5 },
+        });
+        const productList = Array.isArray(data) ? data : data?.data || [];
+        if (!productList.length) {
+          setStandaloneScannerStatus("No live inventory loaded");
+          return;
+        }
+
+        const preview = productList.slice(0, 3).map((product: any, index: number) => {
+          const rate = Number(product.price ?? product.selling_price ?? product.rate ?? 0);
+          return {
+            no: index + 1,
+            stockNo: String(product.code || product.sku || product.barcode || `SKU-${index + 1}`),
+            description: String(product.name || product.description || "Product"),
+            rate: rate.toFixed(2),
+            qty: "1.00",
+            value: rate.toFixed(2),
+            total: rate.toFixed(2),
+            staff: "SM",
+          };
+        });
+
+        setStandaloneRows(preview);
+        setStandaloneScannerStatus("Live inventory loaded");
+      } catch (error: any) {
+        console.error("Failed to load live inventory for standalone sales order:", error);
+        setStandaloneScannerStatus(error?.message || "Live inventory unavailable");
+      }
+    };
+
+    void loadStandaloneCatalog();
+  }, []);
 
   const handleStandaloneScanBarcode = async () => {
     const clean = standaloneScanValue.trim();
@@ -214,6 +461,52 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
     }
   };
 
+  const handleStandaloneImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const { headers, data } = parseImportedText(text);
+
+    if (!headers.length || !data.length) {
+      setStandaloneScannerStatus("No usable data in file");
+      event.target.value = "";
+      return;
+    }
+
+    const mapped = detectImportFieldMap(headers);
+    setImportHeaders(headers);
+    setImportPreviewRows(data);
+    setImportFieldMap((prev) => ({
+      ...prev,
+      ...mapped,
+    }));
+    setImportDialogOpen(true);
+    event.target.value = "";
+  };
+
+  const handleApplyImportedRows = async () => {
+    if (!importPreviewRows.length) {
+      setStandaloneScannerStatus("No rows to import");
+      return;
+    }
+
+    const selectedKeys = Object.values(importFieldMap).filter(Boolean);
+    if (selectedKeys.length === 0 || !importFieldMap.barcode || !importFieldMap.qty || !importFieldMap.mrp) {
+      setStandaloneScannerStatus("Map Barcode, Qty and MRP before import");
+      return;
+    }
+
+    setImportDialogOpen(false);
+    setStandaloneScannerStatus("Importing rows...");
+
+    for (const row of importPreviewRows) {
+      await addImportedLineToSalesOrder(row);
+    }
+
+    setStandaloneScannerStatus("Imported from file");
+  };
+
   const handleStandaloneSaveOrder = async () => {
     if (standaloneRows.length === 0) {
       setStandaloneScannerStatus("No item lines to save");
@@ -223,7 +516,7 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
     const payload = {
       id: `so-${Date.now()}`,
       order_no: `SO-${Date.now()}`,
-      customer_name: "Walk-in Customer",
+      customer_name: standaloneCustomerName || "Walk-in Customer",
       date: new Date().toISOString().slice(0, 10),
       status: "pending",
       items: standaloneRows.map((row) => ({
@@ -252,13 +545,26 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
     }
   };
 
+  const handleStandaloneRoute = (routeId: string) => {
+    const params = new URLSearchParams(window.location.search);
+    params.delete("standalone_sales_order");
+    params.set("standalone_tab", routeId);
+    const nextUrl = `${window.location.pathname}?${params.toString()}`;
+    window.location.href = nextUrl;
+  };
+
+  const handleStandaloneLogout = () => {
+    clearAuthSession("standalone_logout");
+    window.location.href = window.location.origin;
+  };
+
   if (standaloneSalesOrder) {
     const leftNav = [
-      { icon: ReceiptText, label: "Orders", active: true },
-      { icon: Boxes, label: "Products" },
-      { icon: BarChart3, label: "Analytics" },
-      { icon: Users, label: "Staff" },
-      { icon: Settings2, label: "Setup" },
+      { icon: ReceiptText, label: "Orders", routeId: "sales", active: true },
+      { icon: Boxes, label: "Products", routeId: "inventory" },
+      { icon: BarChart3, label: "Analytics", routeId: "report-designer" },
+      { icon: Users, label: "Staff", routeId: "staff-management" },
+      { icon: Settings2, label: "Setup", routeId: "company-setup" },
     ];
 
     return (
@@ -280,17 +586,26 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
             </div>
           </div>
 
-          <button className="mx-2 mb-4 flex items-center justify-center gap-1.5 rounded-lg bg-[#003ec7] px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#0038b6]">
+          <button
+            type="button"
+            onClick={() => {
+              setStandaloneRows([]);
+              setStandaloneScannerStatus("Ready");
+              setStandaloneScanValue("");
+            }}
+            className="mx-2 mb-4 flex items-center justify-center gap-1.5 rounded-lg bg-[#003ec7] px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#0038b6]"
+          >
             <Plus className="h-4 w-4" />
             New Sale
           </button>
 
           <nav className="flex-1 space-y-0.5">
-            {leftNav.map(({ icon: Icon, label, active }) => (
-              <a
+            {leftNav.map(({ icon: Icon, label, active, routeId }) => (
+              <button
                 key={label}
-                href="#"
-                className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-semibold transition ${
+                type="button"
+                onClick={() => handleStandaloneRoute(routeId)}
+                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] font-semibold transition ${
                   active
                     ? "bg-[#dde1ff] text-[#001452]"
                     : "text-[#434656] hover:bg-[#d5e3fc]"
@@ -298,19 +613,27 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
               >
                 <Icon className="h-[18px] w-[18px]" />
                 {label}
-              </a>
+              </button>
             ))}
           </nav>
 
           <div className="mt-auto space-y-0.5 border-t border-[#c3c5d9]/60 pt-2">
-            <a href="#" className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-semibold text-[#434656] transition hover:bg-[#d5e3fc]">
+            <button
+              type="button"
+              onClick={() => handleStandaloneRoute("about-smriti")}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] font-semibold text-[#434656] transition hover:bg-[#d5e3fc]"
+            >
               <CircleHelp className="h-[18px] w-[18px]" />
               Help
-            </a>
-            <a href="#" className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-semibold text-[#434656] transition hover:bg-[#d5e3fc]">
+            </button>
+            <button
+              type="button"
+              onClick={handleStandaloneLogout}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] font-semibold text-[#434656] transition hover:bg-[#d5e3fc]"
+            >
               <LogOut className="h-[18px] w-[18px]" />
               Logout
-            </a>
+            </button>
           </div>
         </aside>
 
@@ -319,10 +642,20 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
             <div className="flex items-center gap-4">
               <h1 className="text-[16px] font-bold tracking-tight text-[#003ec7]">SMRITI Retail OS</h1>
               <nav className="hidden items-center gap-4 md:flex">
-                {['Dashboard', 'Inventory', 'Customers', 'Reports'].map((item) => (
-                  <a key={item} href="#" className="border-b-2 border-transparent text-[12px] text-[#434656] transition hover:border-[#c3c5d9] hover:text-[#003ec7]">
-                    {item}
-                  </a>
+                {[
+                  { label: 'Dashboard', routeId: 'dashboard' },
+                  { label: 'Inventory', routeId: 'inventory' },
+                  { label: 'Customers', routeId: 'customer-master' },
+                  { label: 'Reports', routeId: 'report-designer' },
+                ].map(({ label, routeId }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => handleStandaloneRoute(routeId)}
+                    className="border-b-2 border-transparent text-[12px] text-[#434656] transition hover:border-[#c3c5d9] hover:text-[#003ec7]"
+                  >
+                    {label}
+                  </button>
                 ))}
               </nav>
             </div>
@@ -346,7 +679,11 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                 </button>
               </div>
 
-              <button className="rounded-lg border border-[#c3c5d9] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#0d1c2e] transition hover:bg-[#eff4ff]">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded-lg border border-[#c3c5d9] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#0d1c2e] transition hover:bg-[#eff4ff]"
+              >
                 Print
               </button>
               <button
@@ -380,10 +717,24 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                     <input className="w-48 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]" type="text" value="10/27/2023 14:32" readOnly />
                   </div>
                 </div>
-                <button className="flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImportDialogOpen(true);
+                    if (fileInputRef.current) fileInputRef.current.click();
+                  }}
+                  className="flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff]"
+                >
                   <FileUp className="h-4 w-4" />
                   Import
                 </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.txt,text/csv,text/plain"
+                  onChange={handleStandaloneImportFile}
+                  className="hidden"
+                />
               </div>
 
               <div className="flex w-full items-center gap-4 rounded-lg border border-[#d5e3fc] bg-[#f4f8ff] px-3 py-2">
@@ -423,7 +774,34 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                   <label className="w-20 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Customer</label>
                   <div className="relative flex-1">
                     <UserRoundSearch className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737688]" />
-                    <input className="w-full rounded-lg border border-[#c3c5d9] bg-[#eff4ff] py-1.5 pl-7 pr-2 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]" type="text" value="100 ACME APPARELS LTD" readOnly />
+                    <input
+                      className="w-full rounded-lg border border-[#c3c5d9] bg-[#eff4ff] py-1.5 pl-7 pr-2 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]"
+                      type="text"
+                      value={standaloneCustomerName}
+                      onChange={(e) => {
+                        setStandaloneCustomerName(e.target.value);
+                        setStandaloneCustomerQuery(e.target.value);
+                      }}
+                      placeholder="Select or type customer"
+                    />
+                    {filteredStandaloneCustomers.length > 0 && (
+                      <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-lg border border-[#c3c5d9] bg-white shadow-lg">
+                        {filteredStandaloneCustomers.slice(0, 5).map((customer) => (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            onClick={() => {
+                              setStandaloneCustomerName(customer.name);
+                              setStandaloneCustomerQuery(customer.name);
+                            }}
+                            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[12px] transition hover:bg-[#eff4ff]"
+                          >
+                            <span className="font-medium text-[#0d1c2e]">{customer.name}</span>
+                            {customer.code && <span className="text-[#434656]">{customer.code}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex w-1/3 items-center gap-2">
@@ -465,7 +843,14 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                         <td className="px-3 py-1.5">{row.staff}</td>
                       </tr>
                     ))}
-                    {[4, 5, 6].map((emptyRow) => (
+                    {standaloneRows.length === 0 && (
+                      <tr>
+                        <td colSpan={12} className="px-3 py-8 text-center text-[12px] text-[#434656]">
+                          No live items loaded. Scan a barcode to add products.
+                        </td>
+                      </tr>
+                    )}
+                    {standaloneRows.length > 0 && [standaloneRows.length + 1, standaloneRows.length + 2, standaloneRows.length + 3].map((emptyRow) => (
                       <tr key={emptyRow} className="h-8">
                         <td className="px-3 py-1.5 text-center text-[#434656]">{emptyRow}</td>
                         <td colSpan={11}></td>
@@ -562,11 +947,97 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                 ))}
                 <div className="-my-2 flex flex-col justify-center border-l-2 border-[#003ec7]/20 bg-[#dde1ff] px-2 py-2">
                   <div className="mb-0.5 text-[11px] font-black uppercase text-[#003ec7]">Net Amount</div>
-                  <div className="font-mono text-[20px] font-black text-[#003ec7]">2657.20</div>
+                  <div className="font-mono text-[20px] font-black text-[#003ec7]">
+                    {standaloneRows.reduce((sum, row) => sum + Number(row.total || row.value || 0), 0).toFixed(2)}
+                  </div>
                 </div>
               </div>
             </div>
           </main>
+
+          {importDialogOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0d1c2e]/40 p-4 backdrop-blur-[1px]">
+              <div className="w-full max-w-4xl rounded-2xl border border-[#c3c5d9] bg-white p-5 shadow-2xl">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-[18px] font-bold text-[#0d1c2e]">Import product file</h3>
+                    <p className="text-[12px] text-[#434656]">CSV/TXT import with column mapping for Barcode, Qty, MRP, Disc Amt, and Disc %.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setImportDialogOpen(false)}
+                    className="rounded-lg border border-[#c3c5d9] px-2 py-1 text-[12px] font-semibold text-[#434656]"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                  {[
+                    { key: "barcode", label: "Barcode" },
+                    { key: "qty", label: "Qty" },
+                    { key: "mrp", label: "MRP" },
+                    { key: "discAmt", label: "Disc Amt" },
+                    { key: "discPct", label: "Disc %" },
+                  ].map(({ key, label }) => (
+                    <label key={key} className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">
+                      {label}
+                      <select
+                        value={importFieldMap[key as "barcode" | "qty" | "mrp" | "discAmt" | "discPct"]}
+                        onChange={(e) => setImportFieldMap((prev) => ({ ...prev, [key]: e.target.value }))}
+                        className="rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[12px] text-[#0d1c2e] outline-none"
+                      >
+                        <option value="">Select column</option>
+                        {importHeaders.map((header) => (
+                          <option key={header} value={header}>{header}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="mt-4 overflow-hidden rounded-xl border border-[#c3c5d9]">
+                  <div className="max-h-64 overflow-auto">
+                    <table className="min-w-full border-collapse text-left text-[12px]">
+                      <thead className="bg-[#e6eeff] text-[#434656]">
+                        <tr>
+                          {importHeaders.map((header) => (
+                            <th key={header} className="border-b border-[#c3c5d9] px-2 py-2 font-semibold uppercase tracking-[0.05em]">{header}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importPreviewRows.slice(0, 5).map((row, idx) => (
+                          <tr key={`${idx}-${Object.values(row).join('-')}`} className="border-b border-[#c3c5d9] last:border-b-0">
+                            {importHeaders.map((header) => (
+                              <td key={`${idx}-${header}`} className="px-2 py-2 text-[#0d1c2e]">{row[header] || ""}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setImportDialogOpen(false)}
+                    className="rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#0d1c2e]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleApplyImportedRows()}
+                    className="rounded-lg bg-[#003ec7] px-3 py-1.5 text-[12px] font-semibold text-white"
+                  >
+                    Import items
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
