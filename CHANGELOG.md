@@ -30,6 +30,29 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### [3.122.1] - 2026-09-01
 
+#### Real EAN/Barcode Integration from TT.CSV
+- **Barcode Data Source**: `TT/tt.csv` (Tattly Threads inventory master)
+  - 427 line items with real EAN codes
+  - 426 unique product variants (Article-Color-Size combinations)
+  - Format: 13-digit EAN codes (8904551XXXXXX)
+
+- **Integration Results**:
+  - **Before**: 450 real EAN codes + 6 generated (-barcode format)
+  - **After**: 672 products with 100% real EAN/Barcodes
+  - Removed: 6 duplicate GUNMETAL variants (GUNMETAL vs GUNMTL spelling inconsistency)
+  - Status: ✅ All active products now have authentic barcodes
+
+- **Duplicate Resolution**:
+  - Issue: Database had both GUNMETAL (full spelling) and GUNMTL (abbreviated)
+  - TT.CSV official spelling: GUNMTL (abbreviated, with real EAN barcodes)
+  - Solution: Deleted 6 GUNMETAL variants (preserved GUNMTL with real barcodes)
+  - Soft deletion with audit trail (is_deleted=TRUE, deleted_by='SYSTEM', deleted_at recorded)
+
+- **Utilities Added**:
+  - `scripts/analyze_barcode_csv.py`: Validates TT.CSV structure (427 items → 426 unique products)
+  - `scripts/import_with_real_barcodes.py`: Real barcode import logic (skips duplicates, validates coverage)
+  - `scripts/cleanup_duplicate_gunmetal.py`: Removes duplicate color variants
+
 #### Architecture Compliance: Control Plane Cleanup
 - **Database Cleanup**: Removed 1,730 operational rows from `smritisys` (control plane)
   - Products: 1,341 rows removed
