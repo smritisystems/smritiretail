@@ -569,78 +569,10 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
 
     return (
       <div className="fixed inset-0 z-[10000] flex h-screen w-screen overflow-hidden bg-[#f8f9ff] text-[#0d1c2e] font-sans select-none">
-        <aside className="fixed left-0 top-0 z-20 flex h-full w-56 flex-col border-r border-[#c3c5d9] bg-[#e6eeff] px-2 py-2 text-[#003ec7]">
-          <div className="mt-2 mb-4 px-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0052ff]">
-                <img
-                  alt="Store Logo"
-                  className="h-5 w-5 rounded-full object-cover"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuC08PufJg8YVZni7PYPeZ7qTfxpWQxR4yOg1ObdBEp3eTPZsq3lWQwL7qgQTGL4sSFBh9b5Zeq647V7gGSJt_YZDe5nzj_1DG38lv89KFnXThDtlkDkm097HNBmmlj4qtzcfSJOQVgYatbuqfSRPMnOEnmGSsvjmLgdYpgFq-kByN3AthoWvHiMxRfoE0RvXM8RuI1d2Mhiw0HycZxf2w5hYlf-HNsa-rR4ijYL5jC1hos7_yDrq-bK"
-                />
-              </div>
-              <div>
-                <h2 className="truncate text-[14px] font-black text-[#0d1c2e]">Main Branch</h2>
-                <p className="truncate text-[11px] text-[#434656]">Enterprise ID: 8821</p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setStandaloneRows([]);
-              setStandaloneScannerStatus("Ready");
-              setStandaloneScanValue("");
-            }}
-            className="mx-2 mb-4 flex items-center justify-center gap-1.5 rounded-lg bg-[#003ec7] px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#0038b6]"
-          >
-            <Plus className="h-4 w-4" />
-            New Sale
-          </button>
-
-          <nav className="flex-1 space-y-0.5">
-            {leftNav.map(({ icon: Icon, label, active, routeId }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => handleStandaloneRoute(routeId)}
-                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] font-semibold transition ${
-                  active
-                    ? "bg-[#dde1ff] text-[#001452]"
-                    : "text-[#434656] hover:bg-[#d5e3fc]"
-                }`}
-              >
-                <Icon className="h-[18px] w-[18px]" />
-                {label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="mt-auto space-y-0.5 border-t border-[#c3c5d9]/60 pt-2">
-            <button
-              type="button"
-              onClick={() => handleStandaloneRoute("about-smriti")}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] font-semibold text-[#434656] transition hover:bg-[#d5e3fc]"
-            >
-              <CircleHelp className="h-[18px] w-[18px]" />
-              Help
-            </button>
-            <button
-              type="button"
-              onClick={handleStandaloneLogout}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] font-semibold text-[#434656] transition hover:bg-[#d5e3fc]"
-            >
-              <LogOut className="h-[18px] w-[18px]" />
-              Logout
-            </button>
-          </div>
-        </aside>
-
-        <div className="ml-56 flex h-full flex-1 flex-col bg-[#f8f9ff]">
+        <div className="flex h-full flex-1 flex-col bg-[#f8f9ff]">
           <header className="flex h-12 w-full shrink-0 items-center justify-between border-b border-[#c3c5d9] bg-white px-4 text-[#003ec7]">
             <div className="flex items-center gap-4">
-              <h1 className="text-[16px] font-bold tracking-tight text-[#003ec7]">SMRITI Retail OS</h1>
+              <h1 className="text-[16px] font-bold tracking-tight text-[#003ec7]">SM₹ITI Retail OS</h1>
               <nav className="hidden items-center gap-4 md:flex">
                 {[
                   { label: 'Dashboard', routeId: 'dashboard' },
@@ -710,31 +642,53 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
                     <label className="w-20 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Doc Prefix</label>
-                    <input className="w-32 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]" type="text" value="R8" readOnly />
+                    <input className="w-32 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]" type="text" value="₹8" readOnly />
                   </div>
                   <div className="flex items-center gap-2">
                     <label className="w-12 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Date</label>
                     <input className="w-48 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]" type="text" value="10/27/2023 14:32" readOnly />
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImportDialogOpen(true);
-                    if (fileInputRef.current) fileInputRef.current.click();
-                  }}
-                  className="flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff]"
-                >
-                  <FileUp className="h-4 w-4" />
-                  Import
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.txt,text/csv,text/plain"
-                  onChange={handleStandaloneImportFile}
-                  className="hidden"
-                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStandaloneRows([]);
+                      setStandaloneScannerStatus("Ready");
+                      setStandaloneScanValue("");
+                    }}
+                    className="flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    New Sale
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportDialogOpen(true);
+                      if (fileInputRef.current) fileInputRef.current.click();
+                    }}
+                    className="flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff]"
+                  >
+                    <FileUp className="h-4 w-4" />
+                    Import
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStandaloneLogout}
+                    className="flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#434656] transition hover:bg-[#eff4ff]"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.txt,text/csv,text/plain"
+                    onChange={handleStandaloneImportFile}
+                    className="hidden"
+                  />
+                </div>
               </div>
 
               <div className="flex w-full items-center gap-4 rounded-lg border border-[#d5e3fc] bg-[#f4f8ff] px-3 py-2">
