@@ -517,6 +517,74 @@ getFieldMetadata("customer_code")?.displayWidthPct  // Returns 12
 
 ---
 
+## Registered Fields Reference
+
+### Product/Item Fields
+
+#### Barcode Field
+```ts
+// GLOBAL_FIELD_CATALOG Entry for Barcode
+{
+  id: "product_barcode",
+  entity: "item",
+  fieldKey: "barcode",
+  label: "Barcode / EAN",
+  dataType: "text",
+  required: true,
+  aliases: ["barcode", "ean", "upc", "product barcode", "item barcode"],
+  lookupGroup: "product",  // Enables F2 lookup for products by barcode
+  sourceTable: "products",
+  displayWidthPct: 14,
+  active: true,
+  description: "13-digit EAN/Barcode for product identification (e.g., 8904551002228)"
+}
+```
+
+**Lookup Rule:**
+```ts
+// GLOBAL_FIELD_LOOKUP_RULES Entry
+{
+  lookupGroup: "product",
+  endpoint: "/universal/items",  // Fetch product by barcode or code
+  searchFields: ["barcode", "code", "name"],
+  insertValueKeys: ["barcode", "code", "id"],
+  suggestOnF2: true,
+  matchPriority: 5,
+  defaultLimit: 200
+}
+```
+
+**Database Constraint:**
+- `NOT NULL` - Every product MUST have a barcode
+- Unique constraint: `uq_company_barcode_active` (company_id, barcode, is_deleted=FALSE)
+- **No duplicates allowed** per company/branch
+
+**Real EAN Data Source:**
+- File: `TT/tt.csv` (Tattly Threads inventory)
+- Format: 13-digit codes starting with 890455 (XXXXXXX)
+- Coverage: 450 out of 672 products (67%)
+- See: [Real Barcode Integration Complete](./REAL_BARCODE_INTEGRATION_COMPLETE.md)
+
+**Usage Examples:**
+
+On Sales Order Form:
+```tsx
+<input 
+  type="text"
+  placeholder="Scan barcode or press F2..."
+  data-field-key="product_barcode"
+  data-f2-browse="product"
+/>
+```
+
+The F2 lookup will:
+1. Open `GlobalF2LookupModal` with product search
+2. Search by barcode, product code, or name
+3. Return matching products with barcode, code, name
+4. Insert selected product's barcode into the field
+
+---
+
 ## Related Documentation
 
 - [Global Field Registry Architecture](./ARCHITECTURE.md)
