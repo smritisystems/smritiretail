@@ -98,10 +98,11 @@ cur.execute("""
 existing_variants = {(row[0], row[1], row[2]) for row in cur.fetchall()}
 print(f"   Existing variants: {len(existing_variants)}")
 
-# Filter unique_products
+# Filter unique_products - ONLY IMPORT IF BARCODE CAN BE GENERATED
 new_products = {}
 skipped_sku = 0
 skipped_variant = 0
+skipped_no_barcode = 0
 
 for k, v in unique_products.items():
     if k in existing_skus:
@@ -117,11 +118,18 @@ for k, v in unique_products.items():
         skipped_variant += 1
         continue
     
+    # BARCODE VALIDATION: Only import if we can generate a valid barcode
+    # Barcode = SKU + "-barcode" (never NULL)
+    if not v['sku'] or v['sku'].strip() == '':
+        skipped_no_barcode += 1
+        continue
+    
     new_products[k] = v
 
 print(f"   Skipped (SKU exists): {skipped_sku}")
 print(f"   Skipped (variant exists): {skipped_variant}")
-print(f"   After filtering: {len(new_products)} truly new products")
+print(f"   Skipped (no barcode possible): {skipped_no_barcode}")
+print(f"   After filtering: {len(new_products)} truly new products (with valid barcodes)")
 
 # Prepare insert data
 insert_data = []
