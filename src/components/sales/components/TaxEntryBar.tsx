@@ -112,6 +112,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
           type="text"
           value={stockNo}
           data-field-key="item_code"
+          data-f2-browse="product"
           onChange={(e) => setStockNo(e.target.value)}
           onBlur={handleStockNoBlur}
           placeholder="Stock No/Barcode"

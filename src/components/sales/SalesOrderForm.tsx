@@ -477,6 +477,7 @@ const SalesOrderDetail: React.FC<{
                     type="text"
                     value={item.stockNo}
                     data-field-key="item_code"
+                    data-f2-browse="product"
                     onChange={(e) => handleItemChange(index, "stockNo", e.target.value)}
                     placeholder="F2"
                     className="w-full px-2 py-1 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-blue-400"

@@ -1097,6 +1097,8 @@ const PremiumSalesOrderDetail: React.FC<{
                           setShowStockModal(true);
                         }}
                         placeholder="F2 or click"
+                        data-field-key="stock_no"
+                        data-f2-browse="product"
                         className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs font-mono bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       />
                     </td>
