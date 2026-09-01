@@ -25,7 +25,7 @@ import {
   ShieldCheck,
   RefreshCw
 } from "lucide-react";
-import { apiFetchV1 } from "../lib/apiFetchV1";
+import { apiFetchV1, persistTenantContext, normalizeBranchId, normalizeCompanyId } from "../lib/apiFetchV1";
 import { APP_VERSION } from "../config/version.ts";
 
 export interface CompanyItem {
@@ -144,20 +144,24 @@ export const CompanySelectionScreen: React.FC<CompanySelectionScreenProps> = ({
       if (res && res.access_token) {
         // Store updated company-scoped JWT token and context ONLY upon verified server confirmation
         localStorage.setItem("smriti_jwt_token", res.access_token);
-        localStorage.setItem("smriti_company_id", company.id);
-        const derivedCode = company.id.replace(/^COMP-/, "") || "001";
-        localStorage.setItem("smriti_company_code", derivedCode);
-        localStorage.setItem("smriti_company_name", company.name);
-        localStorage.setItem("smriti_branch_id", targetBranchId);
-        localStorage.setItem("smriti_branch_name", targetBranchName);
-        localStorage.setItem("smriti_branch_code", targetBranchId);
+        const normalizedCompanyId = normalizeCompanyId(company.id);
+        const normalizedBranchId = normalizeBranchId(targetBranchId);
+        const derivedCode = String(company.id || "").replace(/^COMP-/i, "") || "001";
+        persistTenantContext({
+          companyId: normalizedCompanyId,
+          companyCode: derivedCode,
+          branchId: normalizedBranchId,
+          branchCode: normalizedBranchId,
+          companyName: company.name,
+          branchName: targetBranchName,
+        });
 
         // Notify parent App component
         onCompanySelected({
-          companyId: company.id,
+          companyId: normalizedCompanyId,
           companyName: company.name,
           companyCode: derivedCode,
-          branchId: targetBranchId,
+          branchId: normalizedBranchId,
           branchName: targetBranchName,
           token: res.access_token,
         });

@@ -42,6 +42,11 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatQuantity } from "../../utils/formatters";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
+import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
+import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
+import { validateSalesTransaction } from "../../services/sales/transactionValidator";
+import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel";
+import type { TransactionAttachment } from "../../domain/attachment";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -112,6 +117,56 @@ interface SalesOrderFormProps {
   onCancel?: () => void;
   compact?: boolean;
 }
+
+const toSharedSalesLineItem = (item: SalesOrderItem): SalesLineItem => ({
+  id: item.id || `line-${Math.random().toString(36).slice(2, 9)}`,
+  productId: item.id,
+  stockNo: item.stockNo,
+  barcode: item.stockNo,
+  itemDescription: item.description || item.stockNo || "Item",
+  qty: Number(item.quantity || 0),
+  rate: Number(item.rate || 0),
+  value: Number(item.value || 0),
+  discPercent: Number(item.discPercent || 0),
+  discAmt: Number(item.discAmount || 0),
+  taxPercent: Number(item.taxPercent || 0),
+  taxAmount: Number(item.taxAmount || 0),
+  total: Number(item.total || 0),
+});
+
+const getSalesOrderSummary = (items: SalesOrderItem[], formData: Partial<SalesOrderFormData>) => {
+  const transaction: SalesTransaction = {
+    docType: "sales_order",
+    docPrefix: formData.docPrefix || "SO",
+    docNumber: formData.docNumber || "",
+    docDate: formData.docDate || new Date().toISOString().split("T")[0],
+    docTime: formData.docTime || new Date().toTimeString().slice(0, 5),
+    customerId: formData.customerId,
+    customerCode: formData.customerCode,
+    customerName: formData.customerName,
+    referenceNo: formData.referenceNo,
+    deliveryTerms: formData.deliveryTerms,
+    paymentTerms: formData.paymentTerms,
+    orderStatus: formData.orderStatus,
+    remarks: formData.remarks,
+    items: items.map(toSharedSalesLineItem),
+    subtotal: 0,
+    discountTotal: 0,
+    taxTotal: 0,
+    netAmount: 0,
+  };
+
+  const recomputed = recomputeTransaction(transaction);
+
+  return {
+    totalSalesValue: recomputed.subtotal,
+    totalDiscount: recomputed.discountTotal,
+    totalTax: recomputed.taxTotal,
+    netAmount: recomputed.netAmount,
+    totalItems: items.length,
+    totalQuantity: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+  };
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CUSTOMER LOOKUP MODAL
@@ -926,23 +981,26 @@ const PremiumSalesOrderDetail: React.FC<{
     const item = updated[index] as Record<string, any>;
     item[field] = value;
 
-    if (field === "rate" || field === "quantity") {
-      item.value = (item.rate || 0) * (item.quantity || 0);
-      item.discAmount = item.discPercent ? (item.value * (item.discPercent || 0)) / 100 : item.discAmount || 0;
-      item.taxAmount = ((item.value - (item.discAmount || 0)) * (item.taxPercent || 0)) / 100;
-      item.total = item.value - (item.discAmount || 0) + (item.taxAmount || 0);
-    }
+    const sharedLine = calculateLineTotal({
+      id: item.id || `line-${index}`,
+      productId: item.id,
+      stockNo: item.stockNo,
+      barcode: item.stockNo,
+      itemDescription: item.description || item.stockNo || "Item",
+      qty: Number(item.quantity || 0),
+      rate: Number(item.rate || 0),
+      value: Number(item.value || 0),
+      discPercent: Number(item.discPercent || 0),
+      discAmt: Number(item.discAmount || 0),
+      taxPercent: Number(item.taxPercent || 0),
+      taxAmount: Number(item.taxAmount || 0),
+      total: Number(item.total || 0),
+    });
 
-    if (field === "discPercent") {
-      item.discAmount = (item.value * (value || 0)) / 100;
-      item.taxAmount = ((item.value - item.discAmount) * (item.taxPercent || 0)) / 100;
-      item.total = item.value - item.discAmount + item.taxAmount;
-    }
-
-    if (field === "discAmount") {
-      item.taxAmount = ((item.value - (item.discAmount || 0)) * (item.taxPercent || 0)) / 100;
-      item.total = item.value - (item.discAmount || 0) + (item.taxAmount || 0);
-    }
+    item.value = sharedLine.value;
+    item.discAmount = sharedLine.discAmt;
+    item.taxAmount = sharedLine.taxAmount;
+    item.total = sharedLine.total;
 
     onItemsChange(updated);
   };
@@ -1121,14 +1179,16 @@ const PremiumSalesOrderDetail: React.FC<{
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const PremiumSalesOrderFooter: React.FC<{
-  items: SalesOrderItem[];
-}> = ({ items }) => {
-  const totalSalesValue = items.reduce((sum, item) => sum + (item.value || 0), 0);
-  const totalDiscount = items.reduce((sum, item) => sum + (item.discAmount || 0), 0);
-  const totalTax = items.reduce((sum, item) => sum + (item.taxAmount || 0), 0);
-  const netAmount = totalSalesValue - totalDiscount + totalTax;
-  const totalItems = items.length;
-  const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  summary: {
+    totalItems: number;
+    totalQuantity: number;
+    totalSalesValue: number;
+    totalDiscount: number;
+    totalTax: number;
+    netAmount: number;
+  };
+}> = ({ summary }) => {
+  const { totalItems, totalQuantity, totalSalesValue, totalDiscount, totalTax, netAmount } = summary;
 
   return (
     <motion.div
@@ -1222,10 +1282,14 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   }, [errors]);
 
   const handleItemsChange = useCallback((items: SalesOrderItem[]) => {
-    setFormData((prev) => ({
-      ...prev,
-      items,
-    }));
+    setFormData((prev) => {
+      const summary = getSalesOrderSummary(items, { ...prev, items });
+      return {
+        ...prev,
+        items,
+        ...summary,
+      };
+    });
   }, []);
 
   const handleImport = useCallback((importedData: Partial<SalesOrderFormData>) => {
@@ -1254,9 +1318,38 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   }, []);
 
   const validateForm = () => {
+    const txn: SalesTransaction = {
+      docType: "sales_order",
+      docPrefix: formData.docPrefix || "SO",
+      docNumber: formData.docNumber || "",
+      docDate: formData.docDate || new Date().toISOString().split("T")[0],
+      docTime: formData.docTime || new Date().toTimeString().slice(0, 5),
+      customerId: formData.customerId,
+      customerCode: formData.customerCode,
+      customerName: formData.customerName,
+      referenceNo: formData.referenceNo,
+      deliveryTerms: formData.deliveryTerms,
+      paymentTerms: formData.paymentTerms,
+      orderStatus: formData.orderStatus,
+      remarks: formData.remarks,
+      items: (formData.items || []).map(toSharedSalesLineItem),
+      subtotal: 0,
+      discountTotal: 0,
+      taxTotal: 0,
+      netAmount: 0,
+    };
+
+    const validationErrors = validateSalesTransaction(txn);
     const newErrors: Record<string, string> = {};
-    if (!formData.customerCode) newErrors.customerCode = "Customer is required";
-    if (!formData.items || formData.items.length === 0) newErrors.items = "At least one item is required";
+
+    if (validationErrors.some((message) => message.toLowerCase().includes("customer"))) {
+      newErrors.customerCode = "Customer is required";
+    }
+
+    if (validationErrors.some((message) => message.toLowerCase().includes("item") && message.toLowerCase().includes("required"))) {
+      newErrors.items = "At least one item is required";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -1356,7 +1449,22 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
         {/* STICKY FOOTER */}
         <div className="sticky bottom-0 z-20 bg-white border-t border-slate-200 flex-shrink-0">
-          <PremiumSalesOrderFooter items={formData.items || []} />
+          <PremiumSalesOrderFooter summary={getSalesOrderSummary(formData.items || [], formData)} />
+        </div>
+
+        {/* Transaction Attachments */}
+        <div className="px-4 py-4 bg-white border-t border-slate-200">
+          <TransactionAttachmentPanel
+            documentType="sales_order"
+            documentId={formData.docNumber || "new"}
+            onAttachmentAdded={(att: TransactionAttachment) => {
+              // Optionally update formData with attachment reference
+              if (formData.docNumber) {
+                console.log("Attachment added:", att.fileName);
+              }
+            }}
+            readOnly={false}
+          />
         </div>
 
         {/* Action Buttons */}

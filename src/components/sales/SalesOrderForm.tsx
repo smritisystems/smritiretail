@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatQuantity } from "../../utils/formatters";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
+import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
+import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -89,6 +91,29 @@ interface SalesOrderFormProps {
   onCancel?: () => void;
   compact?: boolean;
 }
+
+const getSalesOrderSummary = (items: SalesOrderItem[], formData: Partial<SalesOrderFormData>) => {
+  const totalSalesValue = items.reduce((sum, item) => sum + Number(item.value || item.rate * item.quantity || 0), 0);
+  const totalDiscount = items.reduce((sum, item) => {
+    if (typeof item.discAmount === "number" && item.discAmount > 0) return sum + item.discAmount;
+    const percentage = Number(item.discPercent || 0);
+    return sum + ((Number(item.value || item.rate * item.quantity || 0) * percentage) / 100);
+  }, 0);
+  const totalTax = items.reduce((sum, item) => {
+    const lineValue = Number(item.value || item.rate * item.quantity || 0);
+    const totalLine = lineValue - (typeof item.discAmount === "number" ? item.discAmount : ((lineValue * Number(item.discPercent || 0)) / 100));
+    return sum + Math.max(0, totalLine * 0.05);
+  }, 0);
+
+  return {
+    totalSalesValue,
+    totalDiscount,
+    totalTax,
+    netAmount: totalSalesValue - totalDiscount + totalTax,
+    totalItems: items.length,
+    totalQuantity: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+  };
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SALES ORDER HEADER COMPONENT
@@ -361,19 +386,25 @@ const SalesOrderDetail: React.FC<{
     const item = updated[index] as Record<string, any>;
     item[field] = value;
 
-    // Calculate value and total
-    if (field === "rate" || field === "quantity") {
-      item.value = (item.rate || 0) * (item.quantity || 0);
-      item.total = item.value - (item.discAmount || 0);
-    }
+    const sharedLine = calculateLineTotal({
+      id: item.id || `line-${index}`,
+      productId: item.id,
+      stockNo: item.stockNo,
+      barcode: item.stockNo,
+      itemDescription: item.description || item.stockNo || "Item",
+      qty: Number(item.quantity || 0),
+      rate: Number(item.rate || 0),
+      value: Number(item.value || 0),
+      discPercent: Number(item.discPercent || 0),
+      discAmt: Number(item.discAmount || 0),
+      taxPercent: 18,
+      taxAmount: 0,
+      total: Number(item.total || 0),
+    });
 
-    if (field === "discPercent" || field === "discAmount") {
-      const nextDiscAmount = field === "discPercent"
-        ? (item.value * (value || 0)) / 100
-        : value;
-      item.discAmount = nextDiscAmount;
-      item.total = item.value - (item.discAmount || 0);
-    }
+    item.value = sharedLine.value;
+    item.discAmount = sharedLine.discAmt;
+    item.total = sharedLine.total;
 
     onItemsChange(updated);
   };
@@ -558,15 +589,9 @@ const SalesOrderDetail: React.FC<{
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const SalesOrderFooter: React.FC<{
-  items: SalesOrderItem[];
-}> = ({ items }) => {
-  // Calculate totals
-  const totalSalesValue = items.reduce((sum, item) => sum + (item.value || 0), 0);
-  const totalDiscount = items.reduce((sum, item) => sum + (item.discAmount || 0), 0);
-  const totalTax = totalSalesValue * 0.05; // Assuming 5% tax for display
-  const netAmount = totalSalesValue - totalDiscount + totalTax;
-  const totalItems = items.length;
-  const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  summary: ReturnType<typeof getSalesOrderSummary>;
+}> = ({ summary }) => {
+  const { totalSalesValue, totalDiscount, totalTax, netAmount, totalItems, totalQuantity } = summary;
 
   return (
     <motion.div
@@ -670,10 +695,14 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
   }, []);
 
   const handleItemsChange = useCallback((items: SalesOrderItem[]) => {
-    setFormData((prev) => ({
-      ...prev,
-      items,
-    }));
+    setFormData((prev) => {
+      const summary = getSalesOrderSummary(items, { ...prev, items });
+      return {
+        ...prev,
+        items,
+        ...summary,
+      };
+    });
   }, []);
 
   const handleSubmit = async () => {
@@ -732,7 +761,7 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
       {/* Form Sections */}
       <SalesOrderHeader formData={formData} onFieldChange={handleFieldChange} />
       <SalesOrderDetail items={formData.items || []} onItemsChange={handleItemsChange} />
-      <SalesOrderFooter items={formData.items || []} />
+      <SalesOrderFooter summary={getSalesOrderSummary(formData.items || [], formData)} />
 
       {/* Action Buttons */}
       <motion.div

@@ -33,6 +33,48 @@ const AUTH_STORAGE_KEYS = [
   "smriti_branch_name",
 ];
 
+export function normalizeCompanyId(raw: string | null | undefined): string {
+  const value = String(raw ?? "").trim();
+  if (!value) return "COMP-001";
+  const upper = value.toUpperCase();
+  if (/^COMP-[A-Z0-9]+$/i.test(upper)) return upper;
+  if (/^[A-Z0-9]{3}$/.test(upper) && upper !== "000" && upper !== "SYS") return `COMP-${upper}`;
+  return upper;
+}
+
+export function normalizeBranchId(raw: string | null | undefined): string {
+  const value = String(raw ?? "").trim();
+  if (!value) return "MAIN";
+  const upper = value.toUpperCase();
+  if (["MAIN", "BR-MAIN", "BR-MAIN-001", "HEAD", "HO"].includes(upper)) return "MAIN";
+  if (upper.startsWith("BR-")) return upper;
+  return upper;
+}
+
+export function persistTenantContext(params: {
+  companyId?: string | null;
+  companyCode?: string | null;
+  branchId?: string | null;
+  branchCode?: string | null;
+  companyName?: string | null;
+  branchName?: string | null;
+}): void {
+  if (typeof window === "undefined") return;
+
+  const normalizedCompanyId = normalizeCompanyId(params.companyId);
+  const normalizedBranchId = normalizeBranchId(params.branchId);
+  const companyCode = params.companyCode ? String(params.companyCode).trim() : normalizedCompanyId.replace(/^COMP-/i, "") || "001";
+  const branchCode = params.branchCode ? String(params.branchCode).trim() : normalizedBranchId;
+
+  localStorage.setItem("smriti_company_id", normalizedCompanyId);
+  localStorage.setItem("smriti_company_code", companyCode);
+  localStorage.setItem("smriti_branch_id", normalizedBranchId);
+  localStorage.setItem("smriti_branch_code", branchCode);
+
+  if (params.companyName) localStorage.setItem("smriti_company_name", params.companyName);
+  if (params.branchName) localStorage.setItem("smriti_branch_name", params.branchName);
+}
+
 export function clearAuthSession(reason?: string): void {
   if (typeof window !== "undefined") {
     for (const key of AUTH_STORAGE_KEYS) {

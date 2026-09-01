@@ -68,11 +68,12 @@ import { PasswordReset } from "./components/PasswordReset.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { CompanySelectionScreen } from "./components/CompanySelectScree.tsx";
 import { SmritiErrorBoundary } from "./components/ErrorBoundary.tsx";
-import { clearAuthSession } from "./lib/apiFetchV1.ts";
+import { clearAuthSession, normalizeBranchId, normalizeCompanyId, persistTenantContext } from "./lib/apiFetchV1.ts";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
 import { SecManageDlg } from "./components/security/SecManageDlg.tsx";
 import { SalesOrderFormPremium } from "./components/sales/SalesOrderFormPremium.tsx";
+import { VendorReturnModal } from "./components/procurement/VendorReturnModal.tsx";
 import { X } from "lucide-react";
 
 // Lazy-loaded components (heavy feature modules)
@@ -273,6 +274,7 @@ const AppContent: React.FC = () => {
     return Boolean(localStorage.getItem("smriti_company_id") && localStorage.getItem("smriti_jwt_token"));
   });
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const standaloneVendorReturn = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("standalone_vendor_return") === "1";
 
   const checkAuth = async () => {
     const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
@@ -286,18 +288,28 @@ const AppContent: React.FC = () => {
       // Migrated: GET /api/auth/me (Express session) → GET /api/v1/auth/me (FastAPI JWT)
       const data = await apiFetchV1("/auth/me");
       if (data) {
+        const normalizedCompanyId = normalizeCompanyId(data.company_id ?? localStorage.getItem("smriti_company_id"));
+        const normalizedBranchId = normalizeBranchId(data.branch_id ?? localStorage.getItem("smriti_branch_id"));
+
+        if (data.company_id) {
+          persistTenantContext({
+            companyId: data.company_id,
+            companyCode: data.company_code ?? localStorage.getItem("smriti_company_code"),
+            branchId: data.branch_id ?? localStorage.getItem("smriti_branch_id"),
+            branchCode: data.branch_code ?? localStorage.getItem("smriti_branch_code"),
+            companyName: data.company_name ?? localStorage.getItem("smriti_company_name"),
+            branchName: data.branch_name ?? localStorage.getItem("smriti_branch_name"),
+          });
+        }
+
         setCurrentUser({
           role: data.role ?? "",
           name: data.display_name || data.full_name || data.username || "",
-          companyId: data.company_id ?? undefined,
-          branchId: data.branch_id ?? undefined,
+          companyId: normalizedCompanyId,
+          branchId: normalizedBranchId,
           passwordResetRequired: data.password_reset_required ?? false,
         });
-        if (data.company_id && localStorage.getItem("smriti_company_id")) {
-          setCompanyContextResolved(true);
-        } else {
-          setCompanyContextResolved(false);
-        }
+        setCompanyContextResolved(Boolean(normalizedCompanyId && normalizedBranchId && localStorage.getItem("smriti_company_id") && localStorage.getItem("smriti_branch_id")));
       } else {
         setCurrentUser(null);
         setCompanyContextResolved(false);
@@ -867,6 +879,23 @@ const AppContent: React.FC = () => {
       </Suspense>
     </SmritiErrorBoundary>
   );
+
+  if (standaloneVendorReturn) {
+    return (
+      <VendorReturnModal
+        isOpen={true}
+        onClose={() => {
+          const params = new URLSearchParams(window.location.search);
+          params.delete("standalone_vendor_return");
+          const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+          window.location.href = nextUrl;
+        }}
+        onNotification={(title, message, type) => {
+          addNotification(title, message, type);
+        }}
+      />
+    );
+  }
 
   if (checkingAuth) {
     return (

@@ -14,6 +14,8 @@
 import React, { useState } from 'react';
 import { X, RotateCcw, Save, ShieldCheck } from 'lucide-react';
 import { apiFetchV1 } from '../lib/apiFetchV1';
+import { TransactionAttachmentPanel } from './common/TransactionAttachmentPanel';
+import type { TransactionAttachment } from '../domain/attachment';
 
 interface ProcessSalesReturnModalProps {
   isOpen: boolean;
@@ -32,6 +34,7 @@ export const ProcessSalesReturnModal: React.FC<ProcessSalesReturnModalProps> = (
   const [returnQuantities, setReturnQuantities] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAttachmentPanel, setShowAttachmentPanel] = useState(false);
 
   if (!isOpen || !invoice) return null;
 
@@ -211,6 +214,35 @@ export const ProcessSalesReturnModal: React.FC<ProcessSalesReturnModalProps> = (
             <p>
               Original invoice #{invoice.invoice_number || invoice.invoiceNo || invoice.id} remains intact. Issuing a Credit Note reinstates stock into inventory and creates a formal return audit record.
             </p>
+          </div>
+
+          {/* Attachments Section */}
+          <div className="border-t border-theme-divider pt-3">
+            <button
+              type="button"
+              onClick={() => setShowAttachmentPanel(!showAttachmentPanel)}
+              className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors ${
+                showAttachmentPanel
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-theme-surface-3 text-theme-muted hover:bg-theme-surface-hover'
+              }`}
+            >
+              {showAttachmentPanel ? '✕ Hide Attachments' : '+ Add Attachments'}
+            </button>
+            {showAttachmentPanel && (
+              <div className="mt-3 bg-theme-surface-3 border border-theme-divider rounded-lg p-3">
+                <TransactionAttachmentPanel
+                  documentType="sales_return"
+                  documentId={`RET-${Date.now().toString().slice(-6)}`}
+                  onAttachmentAdded={(att: TransactionAttachment) => {
+                    console.log('Return attachment added:', att.fileName);
+                  }}
+                  readOnly={false}
+                  maxFiles={3}
+                  allowedExtensions="PDF, Word, Excel, CSV, Images"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3 pt-3 border-t border-theme-divider">
