@@ -14,7 +14,9 @@ Classification: Canonical Item Resolver & Shadow Engine (Gate 8)
 
 import os
 import logging
-from typing import Optional, Dict, Any
+import time
+import uuid
+from typing import Optional, Dict, Any, List, Tuple
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -22,13 +24,30 @@ from sqlalchemy import text
 logger = logging.getLogger("smriti.resolver")
 
 
+from app.core.cohort import CohortEvaluator
+from app.services.canonical_telemetry_sink import CanonicalTelemetrySink
+
+_telemetry_records: List[Dict[str, Any]] = []
+
+
 class CanonicalItemResolver:
     """
     Unified Operational Item & Barcode Resolver for POS, Sales, Purchase, and Inventory.
     Supports:
-      1. Canonical Primary with Graceful Legacy Fallback
-      2. Shadow Read Mode with Non-Blocking Divergence Telemetry
+      1. Configuration-Driven Dynamic Rollout Cohort Evaluation
+      2. Canonical Primary with Structured Legacy Fallback & Reason Tracking
+      3. Shadow Read Mode with Non-Blocking Divergence Telemetry
+      4. Durable Telemetry Persistence & Alerting via CanonicalTelemetrySink
     """
+
+    @classmethod
+    def get_telemetry_records(cls) -> List[Dict[str, Any]]:
+        return CanonicalTelemetrySink.get_events()
+
+    @classmethod
+    def clear_telemetry(cls) -> None:
+        _telemetry_records.clear()
+        CanonicalTelemetrySink.clear_durable_log()
 
     @classmethod
     async def resolve(
@@ -36,12 +55,17 @@ class CanonicalItemResolver:
         session: AsyncSession,
         company_id: str,
         query_str: str,
-        canonical_primary: bool = True,
+        branch_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        user_role: Optional[str] = None,
+        request_id: Optional[str] = None,
+        canonical_primary: Optional[bool] = None,
         shadow_compare: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
         Resolves query_str across Barcode, Variant SKU, and Parent Item Code.
         Strictly enforces tenant context (company_id).
+        Dynamically evaluates cohort configuration to determine primary read authority.
         """
         if not company_id or not str(company_id).strip():
             raise ValueError("Multi-tenant security violation: company_id is mandatory")
@@ -50,37 +74,99 @@ class CanonicalItemResolver:
         if not q:
             return None
 
-        if canonical_primary:
-            # Phase 2: Canonical Primary with Legacy Fallback
-            canonical_res = None
-            try:
-                canonical_res = await cls._resolve_canonical(session, company_id, q)
-            except Exception as e:
-                logger.warning(f"Canonical resolution exception for '{q}': {e}. Triggering legacy fallback.")
+        # Dynamically evaluate cohort assignment or use explicit override if provided
+        if canonical_primary is not None:
+            is_canonical_cohort = canonical_primary
+        else:
+            is_canonical_cohort = CohortEvaluator.is_canonical_read_enabled(
+                company_id=company_id,
+                branch_id=branch_id,
+                user_id=user_id,
+                user_role=user_role
+            )
 
-            if canonical_res:
+        t_start = time.perf_counter()
+        fallback_triggered = False
+        fallback_reason = "NONE"
+        canonical_hit = False
+        divergence_detected = False
+        divergence_details: Dict[str, Any] = {}
+        resolution_source = "CANONICAL_PRIMARY" if is_canonical_cohort else "LEGACY_AUTHORITATIVE"
+        result: Optional[Dict[str, Any]] = None
+
+        if is_canonical_cohort:
+            # Stage 1: Canonical Primary with Structured Legacy Fallback
+            try:
+                result = await cls._resolve_canonical(session, company_id, q)
+                if result:
+                    canonical_hit = True
+                else:
+                    fallback_triggered = True
+                    fallback_reason = "NOT_IN_CANONICAL_UNMIGRATED"
+            except TimeoutError as te:
+                fallback_triggered = True
+                fallback_reason = "CANONICAL_TIMEOUT"
+                logger.warning(f"Canonical timeout for '{q}': {te}. Triggering fallback.")
+            except Exception as e:
+                fallback_triggered = True
+                fallback_reason = "CANONICAL_EXCEPTION"
+                logger.warning(f"Canonical exception for '{q}': {e}. Triggering fallback.")
+
+            if canonical_hit:
                 if shadow_compare:
-                    # Run shadow legacy check for telemetry verification
                     try:
                         legacy_res = await cls._resolve_legacy(session, company_id, q)
-                        cls._audit_shadow_divergence(q, legacy_res, canonical_res)
+                        div_log = cls._audit_shadow_divergence(q, legacy_res, result)
+                        if div_log:
+                            divergence_detected = True
+                            divergence_details = div_log
                     except Exception as e:
                         logger.warning(f"Shadow legacy comparison error for '{q}': {e}")
-                return canonical_res
-            
-            # Canonical not found or failed -> Fallback to legacy
-            logger.info(f"Canonical item not found for '{q}'. Executing legacy fallback.")
-            return await cls._resolve_legacy(session, company_id, q)
+            else:
+                # Execute Legacy Fallback
+                resolution_source = "LEGACY_FALLBACK"
+                logger.info(f"Fallback triggered for '{q}'. Reason: {fallback_reason}")
+                result = await cls._resolve_legacy(session, company_id, q)
         else:
-            # Phase 1: Legacy Primary with Canonical Shadow
-            legacy_res = await cls._resolve_legacy(session, company_id, q)
+            # Legacy Authoritative Mode (with optional shadow)
+            result = await cls._resolve_legacy(session, company_id, q)
             if shadow_compare:
                 try:
                     canonical_res = await cls._resolve_canonical(session, company_id, q)
-                    cls._audit_shadow_divergence(q, legacy_res, canonical_res)
+                    div_log = cls._audit_shadow_divergence(q, result, canonical_res)
+                    if div_log:
+                        divergence_detected = True
+                        divergence_details = div_log
                 except Exception as e:
                     logger.warning(f"Shadow canonical comparison error for '{q}': {e}")
-            return legacy_res
+
+        elapsed_ms = (time.perf_counter() - t_start) * 1000.0
+
+        # Record Structured Observability Telemetry
+        telemetry_event = {
+            "timestamp": time.time(),
+            "request_id": request_id or f"req_{uuid.uuid4().hex[:8]}",
+            "company_id": company_id,
+            "branch_id": branch_id,
+            "user_id": user_id,
+            "user_role": user_role,
+            "cohort_enabled": is_canonical_cohort,
+            "query_value": q,
+            "matched_tier": result.get("matched_by") if result else "NOT_FOUND",
+            "canonical_hit": canonical_hit,
+            "fallback_triggered": fallback_triggered,
+            "fallback_reason": fallback_reason,
+            "divergence_detected": divergence_detected,
+            "divergence_details": divergence_details,
+            "resolution_source": resolution_source,
+            "latency_ms": elapsed_ms,
+            "resolved_sku": result.get("variant_sku") if result else None,
+            "status": "SUCCESS" if result else "NOT_FOUND"
+        }
+        _telemetry_records.append(telemetry_event)
+        CanonicalTelemetrySink.record_event(telemetry_event)
+
+        return result
 
     @classmethod
     async def _resolve_canonical(
@@ -132,7 +218,7 @@ class CanonicalItemResolver:
         if row:
             return dict(row._mapping)
 
-        # Tier 2: Variant SKU Lookup
+        # Tier 2: Variant SKU Lookup (Optimized index match)
         res_sku = await session.execute(
             text("""
                 SELECT 
@@ -159,7 +245,7 @@ class CanonicalItemResolver:
                 LEFT JOIN item_barcodes ib ON ib.variant_id = v.id AND ib.is_primary = true
                 LEFT JOIN price_book_entries pbe ON pbe.variant_id = v.id AND pbe.is_deleted = false
                 WHERE v.company_id = :cid
-                  AND (v.variant_sku ILIKE :q)
+                  AND (v.variant_sku = :q OR v.variant_sku = UPPER(:q) OR v.variant_sku ILIKE :q)
                   AND v.is_deleted = false
                 LIMIT 1
             """),
@@ -169,7 +255,7 @@ class CanonicalItemResolver:
         if row:
             return dict(row._mapping)
 
-        # Tier 3: Parent Item Code Lookup
+        # Tier 3: Parent Item Code Lookup (Optimized index match)
         res_itm = await session.execute(
             text("""
                 SELECT 
@@ -193,7 +279,7 @@ class CanonicalItemResolver:
                     0.00 as cost_price
                 FROM items i
                 WHERE i.company_id = :cid
-                  AND (i.item_code ILIKE :q)
+                  AND (i.item_code = :q OR i.item_code = UPPER(:q) OR i.item_code ILIKE :q)
                   AND i.is_deleted = false
                 LIMIT 1
             """),
@@ -273,3 +359,5 @@ class CanonicalItemResolver:
 
         if divergences:
             logger.warning(f"[SHADOW_DIVERGENCE] Query '{query}': {', '.join(divergences)}")
+            return {"query": query, "divergences": divergences}
+        return None
