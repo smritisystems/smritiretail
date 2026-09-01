@@ -25,6 +25,7 @@ from sqlalchemy import or_
 from fastapi import HTTPException
 
 from ..models.inventory import Product
+from ..models.item_master import Item, ItemVariant
 from ..models.sales import (
     SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem,
     SalesOrder, SalesOrderItem, SalesOrderInvoiceAllocation
@@ -774,11 +775,13 @@ class ReportsService:
         )
 
     async def attribute_size_sales(self, from_date=None, to_date=None):
-        """RPT-MRC-001 -- Shoper9 SR236300 Attribute+Size wise Sales."""
+        """RPT-MRC-001 -- Shoper9 SR236300 Attribute+Size wise Sales (Canonical Item/Variant First)."""
         from ..schemas.reports import AttributeSizeSalesLine, AttributeSizeSalesReport
         stmt = (
-            select(SalesInvoiceItem, Product)
+            select(SalesInvoiceItem, ItemVariant, Item, Product)
             .join(SalesInvoice, SalesInvoice.id == SalesInvoiceItem.invoice_id)
+            .outerjoin(ItemVariant, ItemVariant.id == SalesInvoiceItem.variant_id)
+            .outerjoin(Item, Item.id == ItemVariant.item_id)
             .outerjoin(Product, Product.id == SalesInvoiceItem.product_id)
             .where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
         )
@@ -789,14 +792,14 @@ class ReportsService:
         rows = res.all()
         
         agg: Dict[tuple, dict] = {}
-        for item, prod in rows:
-            cat = (prod.category if prod else None) or "General"
-            product_code = (prod.code if prod else None) or getattr(item, "code", None) or "N/A"
-            product_name = (prod.name if prod else None) or getattr(item, "name", None) or "Uncatalogued Item"
-            style_code = (prod.style_code if prod else None) or product_code
-            brand = (prod.brand if prod else None) or "Standard"
-            color = (prod.color if prod else None) or "N/A"
-            size = (prod.size if prod else None) or "Standard"
+        for item, variant, item_obj, prod in rows:
+            cat = (item_obj.category if item_obj else (prod.category if prod else None)) or "General"
+            product_code = (item_obj.item_code if item_obj else (prod.code if prod else None)) or getattr(item, "code", None) or "N/A"
+            product_name = (item_obj.item_name if item_obj else (prod.name if prod else None)) or getattr(item, "name", None) or "Uncatalogued Item"
+            style_code = (variant.variant_sku if variant else (prod.style_code if prod else None)) or product_code
+            brand = (item_obj.brand if item_obj else (prod.brand if prod else None)) or "Standard"
+            color = (getattr(variant, "color", None) if variant else (prod.color if prod else None)) or "N/A"
+            size = (getattr(variant, "size", None) if variant else (prod.size if prod else None)) or "Standard"
             
             key = (product_code, style_code, brand, color, size)
             qty = Decimal(str(getattr(item, "quantity", 0) or 0))
