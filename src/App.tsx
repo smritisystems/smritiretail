@@ -74,7 +74,25 @@ import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
 import { SecManageDlg } from "./components/security/SecManageDlg.tsx";
 import { SalesOrderFormPremium } from "./components/sales/SalesOrderFormPremium.tsx";
 import { VendorReturnModal } from "./components/procurement/VendorReturnModal.tsx";
-import { X } from "lucide-react";
+import {
+  X,
+  Search,
+  History,
+  Settings,
+  Printer,
+  Save,
+  Plus,
+  ReceiptText,
+  Boxes,
+  BarChart3,
+  Users,
+  Settings2,
+  CircleHelp,
+  LogOut,
+  FileUp,
+  UserRoundSearch,
+  CheckCircle2,
+} from "lucide-react";
 
 // Lazy-loaded components (heavy feature modules)
 const SalesStudioTab = lazy(() => import("./components/SalesStudioTab.tsx").then(m => ({ default: m.SalesStudioTab })));
@@ -117,64 +135,438 @@ const TabLoadingFallback = () => (
 const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string; label: string; icon: string; }>; renderTabSafe: (id: string) => React.ReactNode; }> = ({ registeredWorkspaces, renderTabSafe }) => {
   const standaloneTab = new URLSearchParams(window.location.search).get("standalone_tab");
   const standaloneSalesOrder = new URLSearchParams(window.location.search).get("standalone_sales_order") === "1";
+  const [standaloneScanValue, setStandaloneScanValue] = useState("");
+  const [standaloneScannerStatus, setStandaloneScannerStatus] = useState("Ready");
+  const [standaloneRows, setStandaloneRows] = useState([
+    { no: 1, stockNo: "108509937", description: "102MENSH/STWLLLIGHTPE", rate: "489.30", qty: "2.00", value: "978.60", total: "978.60", staff: "SM" },
+    { no: 2, stockNo: "108051780", description: "CAMP SHIRTS HS", rate: "700.00", qty: "1.00", value: "700.00", total: "700.00", staff: "SM" },
+    { no: 3, stockNo: "108509939", description: "102MENSH/STWLLLIGHTPE", rate: "489.30", qty: "2.00", value: "978.60", total: "978.60", staff: "SM" },
+  ]);
+  const [standaloneSaving, setStandaloneSaving] = useState(false);
+
+  const handleStandaloneScanBarcode = async () => {
+    const clean = standaloneScanValue.trim();
+    if (!clean) {
+      setStandaloneScannerStatus("No barcode entered");
+      return;
+    }
+
+    try {
+      const data = await apiFetchV1("/products/search", {
+        params: { q: clean, limit: 10 },
+      });
+      const productList = Array.isArray(data) ? data : data?.data || [];
+      const product = productList.find((item: any) =>
+        String(item.barcode || "").toLowerCase() === clean.toLowerCase() ||
+        String(item.code || "").toLowerCase() === clean.toLowerCase() ||
+        String(item.sku || "").toLowerCase() === clean.toLowerCase()
+      ) || productList[0];
+
+      if (!product) {
+        setStandaloneScannerStatus(`No product for ${clean}`);
+        setStandaloneScanValue("");
+        return;
+      }
+
+      const rate = Number(product.price ?? product.selling_price ?? product.rate ?? 0);
+      const qty = 1;
+      const value = Number((rate * qty).toFixed(2));
+      const stockNo = String(product.code || product.sku || product.barcode || clean);
+      const description = String(product.name || product.description || "Product");
+
+      setStandaloneRows((prevRows) => {
+        const existingIndex = prevRows.findIndex((row) => row.stockNo === stockNo);
+        if (existingIndex >= 0) {
+          const existing = prevRows[existingIndex];
+          const currentQty = Number(existing.qty || 0);
+          const nextQty = currentQty + qty;
+          const nextValue = Number((nextQty * Number(existing.rate || 0)).toFixed(2));
+          const copy = [...prevRows];
+          copy[existingIndex] = {
+            ...existing,
+            qty: nextQty.toFixed(2),
+            value: nextValue.toFixed(2),
+            total: nextValue.toFixed(2),
+          };
+          return copy;
+        }
+
+        const nextNo = prevRows.length + 1;
+        const newItem = {
+          no: nextNo,
+          stockNo,
+          description,
+          rate: rate.toFixed(2),
+          qty: qty.toFixed(2),
+          value: value.toFixed(2),
+          total: value.toFixed(2),
+          staff: "SM",
+        };
+        return [...prevRows, newItem];
+      });
+
+      setStandaloneScannerStatus(`Scanned ${stockNo}`);
+      setStandaloneScanValue("");
+    } catch (error: any) {
+      console.error("Standalone barcode lookup failed:", error);
+      setStandaloneScannerStatus(error?.message || "Lookup failed");
+      setStandaloneScanValue("");
+    }
+  };
+
+  const handleStandaloneSaveOrder = async () => {
+    if (standaloneRows.length === 0) {
+      setStandaloneScannerStatus("No item lines to save");
+      return;
+    }
+
+    const payload = {
+      id: `so-${Date.now()}`,
+      order_no: `SO-${Date.now()}`,
+      customer_name: "Walk-in Customer",
+      date: new Date().toISOString().slice(0, 10),
+      status: "pending",
+      items: standaloneRows.map((row) => ({
+        product_id: String(row.stockNo || ""),
+        code: String(row.stockNo || ""),
+        name: String(row.description || "Item"),
+        quantity: String(Number(row.qty || 0)),
+        price: String(Number(row.rate || 0)),
+        gst_rate: "18.00",
+        total_amount: String(Number(row.total || row.value || 0)),
+      })),
+    };
+
+    try {
+      setStandaloneSaving(true);
+      await apiFetchV1("/sales/orders", {
+        method: "POST",
+        body: payload,
+      });
+      setStandaloneScannerStatus("Saved to database");
+    } catch (error: any) {
+      console.error("Standalone sales order save failed:", error);
+      setStandaloneScannerStatus(error?.message || "Save failed");
+    } finally {
+      setStandaloneSaving(false);
+    }
+  };
 
   if (standaloneSalesOrder) {
-    return (
-      <div className="fixed inset-0 z-[10000] flex flex-col overflow-hidden bg-[#eceff3] text-slate-800 font-sans select-none border border-slate-300 shadow-2xl">
-        {/* Optimized Header - 2 lines, compact spacing */}
-        <div className="px-1.5 bg-[#dfe5ee] border-b border-slate-300 flex flex-col shrink-0 shadow-inner">
-          {/* Line 1: Action buttons + Title + Window controls */}
-          <div className="h-[24px] flex items-center justify-between gap-1 overflow-hidden">
-            <div className="flex items-center gap-0.5 shrink-0 min-w-0">
-              <button type="button" className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap">View</button>
-              <button type="button" className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap">Edit</button>
-              <button type="button" className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap">Print</button>
-              <button type="button" className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap">Exit</button>
-            </div>
-            <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-slate-700 text-center whitespace-nowrap flex-shrink-0 px-1">SALES ORDER</span>
-            <div className="flex items-center gap-0.5 shrink-0 min-w-0">
-              <button
-                onClick={() => {
-                  const params = new URLSearchParams(window.location.search);
-                  const hasFullscreen = params.get("fullscreen") === "1";
-                  if (hasFullscreen) {
-                    params.delete("fullscreen");
-                  } else {
-                    params.set("fullscreen", "1");
-                  }
-                  const nextUrl = `${window.location.pathname}?${params.toString()}`;
-                  window.location.href = nextUrl;
-                }}
-                className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-slate-100 active:bg-slate-200 transition-colors whitespace-nowrap"
-                title="Toggle Full Screen"
-              >
-                ⛶
-              </button>
-              <button
-                onClick={() => window.close()}
-                className="px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300 bg-white rounded-sm hover:bg-rose-100 hover:text-rose-600 active:bg-rose-200 transition-colors whitespace-nowrap"
-                title="Close Window"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-          {/* Line 2: Document info (minimal, appears on tab/desktop) */}
-          <div className="h-[20px] px-1 flex items-center gap-2 bg-slate-100/50 border-t border-slate-200 text-[9px] text-slate-600 leading-none overflow-hidden">
-            <span className="font-mono whitespace-nowrap">Doc No: SO-000001</span>
-            <span className="font-mono whitespace-nowrap">|</span>
-            <span className="font-mono whitespace-nowrap">Date: --/--/----</span>
-            <span className="flex-1 min-w-0"></span>
-            <span className="text-slate-500 whitespace-nowrap">Ready for entry</span>
-          </div>
-        </div>
+    const leftNav = [
+      { icon: ReceiptText, label: "Orders", active: true },
+      { icon: Boxes, label: "Products" },
+      { icon: BarChart3, label: "Analytics" },
+      { icon: Users, label: "Staff" },
+      { icon: Settings2, label: "Setup" },
+    ];
 
-        <div className="flex-1 overflow-auto bg-slate-50">
-          <SalesOrderFormPremium
-            compact
-            onSubmit={async () => {}}
-            onCancel={() => window.close()}
-          />
+    return (
+      <div className="fixed inset-0 z-[10000] flex h-screen w-screen overflow-hidden bg-[#f8f9ff] text-[#0d1c2e] font-sans select-none">
+        <aside className="fixed left-0 top-0 z-20 flex h-full w-56 flex-col border-r border-[#c3c5d9] bg-[#e6eeff] px-2 py-2 text-[#003ec7]">
+          <div className="mt-2 mb-4 px-2">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0052ff]">
+                <img
+                  alt="Store Logo"
+                  className="h-5 w-5 rounded-full object-cover"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuC08PufJg8YVZni7PYPeZ7qTfxpWQxR4yOg1ObdBEp3eTPZsq3lWQwL7qgQTGL4sSFBh9b5Zeq647V7gGSJt_YZDe5nzj_1DG38lv89KFnXThDtlkDkm097HNBmmlj4qtzcfSJOQVgYatbuqfSRPMnOEnmGSsvjmLgdYpgFq-kByN3AthoWvHiMxRfoE0RvXM8RuI1d2Mhiw0HycZxf2w5hYlf-HNsa-rR4ijYL5jC1hos7_yDrq-bK"
+                />
+              </div>
+              <div>
+                <h2 className="truncate text-[14px] font-black text-[#0d1c2e]">Main Branch</h2>
+                <p className="truncate text-[11px] text-[#434656]">Enterprise ID: 8821</p>
+              </div>
+            </div>
+          </div>
+
+          <button className="mx-2 mb-4 flex items-center justify-center gap-1.5 rounded-lg bg-[#003ec7] px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#0038b6]">
+            <Plus className="h-4 w-4" />
+            New Sale
+          </button>
+
+          <nav className="flex-1 space-y-0.5">
+            {leftNav.map(({ icon: Icon, label, active }) => (
+              <a
+                key={label}
+                href="#"
+                className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-semibold transition ${
+                  active
+                    ? "bg-[#dde1ff] text-[#001452]"
+                    : "text-[#434656] hover:bg-[#d5e3fc]"
+                }`}
+              >
+                <Icon className="h-[18px] w-[18px]" />
+                {label}
+              </a>
+            ))}
+          </nav>
+
+          <div className="mt-auto space-y-0.5 border-t border-[#c3c5d9]/60 pt-2">
+            <a href="#" className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-semibold text-[#434656] transition hover:bg-[#d5e3fc]">
+              <CircleHelp className="h-[18px] w-[18px]" />
+              Help
+            </a>
+            <a href="#" className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-semibold text-[#434656] transition hover:bg-[#d5e3fc]">
+              <LogOut className="h-[18px] w-[18px]" />
+              Logout
+            </a>
+          </div>
+        </aside>
+
+        <div className="ml-56 flex h-full flex-1 flex-col bg-[#f8f9ff]">
+          <header className="flex h-12 w-full shrink-0 items-center justify-between border-b border-[#c3c5d9] bg-white px-4 text-[#003ec7]">
+            <div className="flex items-center gap-4">
+              <h1 className="text-[16px] font-bold tracking-tight text-[#003ec7]">SMRITI Retail OS</h1>
+              <nav className="hidden items-center gap-4 md:flex">
+                {['Dashboard', 'Inventory', 'Customers', 'Reports'].map((item) => (
+                  <a key={item} href="#" className="border-b-2 border-transparent text-[12px] text-[#434656] transition hover:border-[#c3c5d9] hover:text-[#003ec7]">
+                    {item}
+                  </a>
+                ))}
+              </nav>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="relative hidden lg:block">
+                <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737688]" />
+                <input
+                  type="text"
+                  placeholder="Search items..."
+                  className="w-56 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] py-1 pl-7 pr-2 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]"
+                />
+              </div>
+
+              <div className="mr-1 flex items-center gap-1 border-r border-[#c3c5d9] pr-3">
+                <button className="flex h-7 w-7 items-center justify-center rounded hover:bg-[#d5e3fc]">
+                  <History className="h-[18px] w-[18px] text-[#434656]" />
+                </button>
+                <button className="flex h-7 w-7 items-center justify-center rounded hover:bg-[#d5e3fc]">
+                  <Settings className="h-[18px] w-[18px] text-[#434656]" />
+                </button>
+              </div>
+
+              <button className="rounded-lg border border-[#c3c5d9] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#0d1c2e] transition hover:bg-[#eff4ff]">
+                Print
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleStandaloneSaveOrder()}
+                disabled={standaloneSaving || standaloneRows.length === 0}
+                className="rounded-lg bg-[#003ec7] px-3 py-1 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#0038b6] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {standaloneSaving ? "Saving..." : "Save"}
+              </button>
+              <div className="ml-1 flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-[#c3c5d9] bg-[#eff4ff]">
+                <img
+                  alt="User profile"
+                  className="h-full w-full object-cover"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDw7iKSsa2xjaRxfnIAq48U_FGEaD_STHEXy6nS31QBwugUVfrqR5mWwm93xABCH8WY8chvsxBSSYsrmmAVpzAW4N2yBTBUP_HXA7rXJFCi09PJXok6TrBjS41nRPaY4RnnTarS5rl4xcjeADJPAU25oVZYc8NJaE7326dOV7BCZNXkQN8l4oAlIq58Sb40o-e9eynWDAJDoWgUewUdut1Cg13DvFlrenniM5suR7s2O54d4OW70XIB"
+                />
+              </div>
+            </div>
+          </header>
+
+          <main className="flex flex-1 flex-col gap-4 overflow-auto bg-[#f8f9ff] p-4">
+            <div className="flex shrink-0 flex-col gap-4 rounded-xl border border-[#c3c5d9] bg-white p-4 shadow-sm">
+              <div className="flex w-full items-center justify-between">
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <label className="w-20 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Doc Prefix</label>
+                    <input className="w-32 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]" type="text" value="R8" readOnly />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="w-12 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Date</label>
+                    <input className="w-48 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]" type="text" value="10/27/2023 14:32" readOnly />
+                  </div>
+                </div>
+                <button className="flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff]">
+                  <FileUp className="h-4 w-4" />
+                  Import
+                </button>
+              </div>
+
+              <div className="flex w-full items-center gap-4 rounded-lg border border-[#d5e3fc] bg-[#f4f8ff] px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#003ec7] text-white">
+                    <Search className="h-4 w-4" />
+                  </div>
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Barcode Scanner</label>
+                </div>
+                <input
+                  type="text"
+                  value={standaloneScanValue}
+                  onChange={(e) => setStandaloneScanValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleStandaloneScanBarcode();
+                    }
+                  }}
+                  placeholder="Scan or type barcode / stock no..."
+                  className="flex-1 rounded-lg border border-[#c3c5d9] bg-white px-2 py-1.5 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleStandaloneScanBarcode()}
+                  className="rounded-lg bg-[#006c4a] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#005137]"
+                >
+                  Scan
+                </button>
+                <span className="min-w-[110px] text-right text-[10px] font-semibold uppercase tracking-[0.05em] text-[#434656]">
+                  {standaloneScannerStatus}
+                </span>
+              </div>
+
+              <div className="flex w-full items-center gap-6">
+                <div className="flex flex-1 items-center gap-2">
+                  <label className="w-20 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Customer</label>
+                  <div className="relative flex-1">
+                    <UserRoundSearch className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737688]" />
+                    <input className="w-full rounded-lg border border-[#c3c5d9] bg-[#eff4ff] py-1.5 pl-7 pr-2 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]" type="text" value="100 ACME APPARELS LTD" readOnly />
+                  </div>
+                </div>
+                <div className="flex w-1/3 items-center gap-2">
+                  <label className="w-24 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Sales Staff</label>
+                  <select className="w-full rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[13px] text-[#0d1c2e] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]">
+                    <option>SM</option>
+                    <option>JD</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex min-h-[200px] flex-1 flex-col overflow-hidden rounded-xl border border-[#c3c5d9] bg-white shadow-sm">
+              <div className="flex-1 overflow-auto bg-white">
+                <table className="min-w-[800px] w-full border-collapse text-left">
+                  <thead className="sticky top-0 z-10 border-b border-[#c3c5d9] bg-[#e6eeff] text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">
+                    <tr>
+                      {['S No.', 'Stock No', 'Item Description', 'Rate', 'Qty', 'Value', 'Disc Code', 'Disc Qty', 'Disc %', 'Disc Amt', 'Total', 'SalesStaff'].map((header) => (
+                        <th key={header} className={`px-3 py-2 ${header === 'S No.' ? 'w-10 text-center' : header === 'Stock No' ? 'w-40' : header === 'Item Description' ? '' : header.includes('Rate') || header.includes('Qty') || header.includes('Value') || header.includes('Disc') || header.includes('Total') ? 'text-right' : ''}`}>
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#c3c5d9]/30 text-[13px] text-[#0d1c2e]">
+                    {standaloneRows.map((row) => (
+                      <tr key={row.no} className="transition hover:bg-[#eff4ff]">
+                        <td className="px-3 py-1.5 text-center text-[#434656]">{row.no}</td>
+                        <td className="px-3 py-1.5">{row.stockNo}</td>
+                        <td className="px-3 py-1.5">{row.description}</td>
+                        <td className="px-3 py-1.5 text-right">{row.rate}</td>
+                        <td className="px-3 py-1.5 text-right">{row.qty}</td>
+                        <td className="px-3 py-1.5 text-right">{row.value}</td>
+                        <td className="px-3 py-1.5"></td>
+                        <td className="px-3 py-1.5 text-right"></td>
+                        <td className="px-3 py-1.5 text-right"></td>
+                        <td className="px-3 py-1.5 text-right"></td>
+                        <td className="px-3 py-1.5 text-right font-medium">{row.total}</td>
+                        <td className="px-3 py-1.5">{row.staff}</td>
+                      </tr>
+                    ))}
+                    {[4, 5, 6].map((emptyRow) => (
+                      <tr key={emptyRow} className="h-8">
+                        <td className="px-3 py-1.5 text-center text-[#434656]">{emptyRow}</td>
+                        <td colSpan={11}></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-col overflow-hidden rounded-xl border border-[#c3c5d9] bg-white shadow-sm">
+              <div className="flex gap-6 p-4">
+                <div className="grid flex-1 grid-cols-2 gap-x-8 gap-y-4">
+                  <div className="flex items-center gap-2">
+                    <label className="w-28 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Import from</label>
+                    <select className="flex-1 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1 text-[13px] outline-none shadow-sm">
+                      <option></option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="w-16 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Path</label>
+                    <input className="flex-1 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1 text-[13px] outline-none shadow-sm" type="text" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="w-28 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Field Template</label>
+                    <select className="flex-1 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1 text-[13px] outline-none shadow-sm">
+                      <option></option>
+                    </select>
+                  </div>
+                  <div></div>
+
+                  <fieldset className="relative col-span-2 mt-2 flex items-center gap-6 rounded-lg border border-[#c3c5d9] p-3 pt-4">
+                    <legend className="-top-2 left-2 bg-white px-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Transaction</legend>
+                    <div className="flex w-1/3 items-center gap-2">
+                      <label className="w-12 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Type</label>
+                      <select className="flex-1 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1 text-[13px] outline-none shadow-sm">
+                        <option></option>
+                      </select>
+                    </div>
+                    <div className="flex flex-1 items-center gap-2">
+                      <label className="w-20 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Bill Prefix</label>
+                      <input className="w-24 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1 text-[13px] outline-none shadow-sm" type="text" />
+                      <label className="ml-4 w-16 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Bill No.</label>
+                      <input className="flex-1 rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1 text-[13px] outline-none shadow-sm" type="text" />
+                    </div>
+                  </fieldset>
+                </div>
+
+                <div className="flex w-64 flex-col justify-end gap-2 border-l border-[#c3c5d9] pl-6">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setStandaloneRows([])}
+                      className="flex-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#0d1c2e] transition hover:bg-[#eff4ff]"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleStandaloneSaveOrder()}
+                      disabled={standaloneSaving || standaloneRows.length === 0}
+                      className="flex-1 rounded-lg bg-[#003ec7] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#0038b6] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {standaloneSaving ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleStandaloneSaveOrder()}
+                    disabled={standaloneSaving || standaloneRows.length === 0}
+                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#006c4a] px-3 py-2 text-[12px] font-bold text-white transition hover:bg-[#005137] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <CheckCircle2 className="h-[18px] w-[18px]" />
+                    {standaloneSaving ? "Saving..." : "Confirm Order"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-9 gap-1 divide-x divide-[#c3c5d9] rounded-b-xl border-t border-[#c3c5d9] bg-[#e6eeff] p-2 text-center">
+                {[
+                  { label: 'Total No. of Items', value: '3' },
+                  { label: 'Total Qty.', value: '5.00' },
+                  { label: 'Sales Value', value: '2555.00' },
+                  { label: 'Item Level Discount', value: '0.00' },
+                  { label: 'Bill Discount', value: '0.00' },
+                  { label: 'Total Tax', value: '102.20' },
+                  { label: 'Total Addons', value: '0.00' },
+                  { label: 'Total Deductions', value: '0.00' },
+                ].map((item) => (
+                  <div key={item.label} className="flex flex-col justify-center px-2">
+                    <div className="mb-0.5 text-[10px] font-bold uppercase text-[#434656]">{item.label}</div>
+                    <div className="font-mono text-[18px] font-bold text-[#0d1c2e]">{item.value}</div>
+                  </div>
+                ))}
+                <div className="-my-2 flex flex-col justify-center border-l-2 border-[#003ec7]/20 bg-[#dde1ff] px-2 py-2">
+                  <div className="mb-0.5 text-[11px] font-black uppercase text-[#003ec7]">Net Amount</div>
+                  <div className="font-mono text-[20px] font-black text-[#003ec7]">2657.20</div>
+                </div>
+              </div>
+            </div>
+          </main>
         </div>
       </div>
     );

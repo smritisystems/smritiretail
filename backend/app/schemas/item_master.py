@@ -153,12 +153,12 @@ class ItemResolutionResponse(BaseModel):
     variant_sku: Optional[str] = None
     barcode: Optional[str] = None
     serial_number: Optional[str] = None
-    tax_rate: float
-    mrp: float
-    selling_price: float
-    cost_price: float
-    primary_uom: str
-    category: str
+    tax_rate: Optional[float] = 0.00
+    mrp: Optional[float] = 0.00
+    selling_price: Optional[float] = 0.00
+    cost_price: Optional[float] = 0.00
+    primary_uom: Optional[str] = None
+    category: Optional[str] = None
     brand: Optional[str] = None
 
 
