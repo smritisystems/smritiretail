@@ -516,20 +516,50 @@ class SalesService:
         if existing.scalars().first():
             raise HTTPException(status_code=400, detail="Sales order with this order number already exists")
 
+        if not so_in.items:
+            raise HTTPException(status_code=400, detail="Sales order must contain at least one item.")
+
         tax_total = Decimal("0.00")
         grand_total = Decimal("0.00")
         so_items = []
 
-        for item in so_in.items:
+        for index, item in enumerate(so_in.items, start=1):
+            item_product_id = (item.product_id or item.code or "").strip()
+            item_code = (item.code or "").strip()
+            item_name = (item.name or "").strip()
+
+            if not item_product_id:
+                raise HTTPException(status_code=400, detail=f"Item {index}: product ID is required.")
+
+            product_stmt = select(Product).filter(
+                (Product.id == item_product_id) | (Product.code == item_product_id) | (Product.code == item_code),
+                Product.is_deleted == False,
+                Product.company_id == self.tenant_ctx.company_id,
+            )
+            product_res = await self.db.execute(product_stmt)
+            product = product_res.scalars().first()
+
+            if not product:
+                raise HTTPException(status_code=400, detail=f"Item {index}: '{item_product_id}' was not found in the database. Please select a valid item before saving.")
+
+            if not item_name:
+                raise HTTPException(status_code=400, detail=f"Item {index}: '{item_code or item_product_id}' was not found in the database. Please select a valid item before saving.")
+
+            if Decimal(str(item.quantity)) <= 0:
+                raise HTTPException(status_code=400, detail=f"Item {index}: quantity must be greater than zero.")
+
+            if Decimal(str(item.price)) < 0:
+                raise HTTPException(status_code=400, detail=f"Item {index}: price cannot be negative.")
+
             item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
             item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
             tax_total += item_tax
             grand_total += item_total
 
             so_items.append(SalesOrderItem(
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
+                product_id=product.id,
+                code=product.code,
+                name=product.name,
                 quantity=item.quantity,
                 price=item.price,
                 hsn_code=item.hsn_code,
