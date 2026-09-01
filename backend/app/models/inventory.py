@@ -102,6 +102,7 @@ class StockMovement(BaseEntity):
     __tablename__ = "stock_movements"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     product_name = Column(String(255), nullable=False)
     sku = Column(String(50), nullable=False)
     quantity = Column(Numeric(10, 2), nullable=False)
@@ -170,6 +171,7 @@ class ProductBatchStock(BaseEntity):
     __tablename__ = "product_batch_stocks"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True)
     batch_no = Column(String(100), nullable=False, index=True)
     mfg_date = Column(Date, nullable=True)

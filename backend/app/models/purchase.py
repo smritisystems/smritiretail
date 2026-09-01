@@ -81,6 +81,7 @@ class PurchaseOrderItem(BaseEntity):
 
     order_id   = Column(String(50),   ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False)
     product_id = Column(String(50),   ForeignKey("products.id",        ondelete="RESTRICT"), nullable=False)
+    variant_id = Column(String(50),   nullable=True, index=True)
     code       = Column(String(50),   nullable=False)
     name       = Column(String(255),  nullable=False)
     quantity   = Column(Numeric(10, 2), nullable=False)
@@ -122,6 +123,7 @@ class PurchaseReceiptItem(BaseEntity):
 
     receipt_id         = Column(String(50),   ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
     product_id         = Column(String(50),   ForeignKey("products.id",          ondelete="RESTRICT"), nullable=False)
+    variant_id         = Column(String(50),   nullable=True, index=True)
     code               = Column(String(50),   nullable=False)
     name               = Column(String(255),  nullable=False)
     batch_no           = Column(String(100),  nullable=True)
