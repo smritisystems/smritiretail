@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.8.0
+ * Version      : 6.10.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-25
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -16,6 +16,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Product, Customer, POSProfile, Shift } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
 import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
 import { getCustomers, saveCustomers, initialCustomers } from "../../services/customerStore.ts";
@@ -282,6 +284,85 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const directStockNoRef = useRef<HTMLInputElement>(null);
   const customerInputRef = useRef<HTMLInputElement>(null);
 
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration ───────────
+  // F2 when focus is on the customer field → entity=customer (Tier 1 data-f2-entity).
+  // F2 on the direct-entry stockNo field → entity=variant (Tier 1 data-f2-entity).
+  // Resolution priority:
+  //   Tier 1: data-f2-entity attribute on the focused element (customerSearch, directStockNo)
+  //   Tier 2: fieldOverrides map below (belt-and-suspenders for the stockNo field)
+  //   Tier 3: defaultEntity = "customer" (fallback for untagged fields)
+  // The click-triggered ProductSearchBrowserModal (setShowProductSearchModal) is NOT
+  // affected — it is a non-F2 consumer and is preserved.
+  useF2Screen({
+    screenId: "BillingTerm",
+    defaultEntity: "customer",
+    fieldOverrides: new Map([
+      ["customerSearch",  "customer" as const],
+      ["directStockNo",   "variant"  as const],
+    ]),
+    adapter: (result: LookupResult) => {
+      // ── Customer lookup ────────────────────────────────────────────────────
+      if (result.entity === "customer") {
+        const custObj: Customer = {
+          id: result.id ?? "",
+          name: result.displayValue || "",
+          mobile: (result.record?.mobile as string) || (result.record?.phone as string) || "",
+          gstNumber: (result.record?.gst_number as string) || "",
+          customerGroupId: (result.record?.customer_group_id as string) || "CG-Retail",
+          status: (result.record?.status as string) || "Active",
+          outstanding: (result.record?.outstanding_balance as number) ?? 0,
+          createdDate: (result.record?.created_at as string) || new Date().toISOString().split("T")[0],
+        };
+        setHeaderState(prev => ({ ...prev, customer: custObj }));
+        setCustomerSearchInput(result.displayValue || "");
+        return;
+      }
+
+      // ── Variant / Item / Barcode lookup (direct entry row) ─────────────────
+      if (result.entity === "variant" || result.entity === "item" || result.entity === "item_barcode") {
+        const stockVal  = (result.record?.stock_no as string)
+                       || (result.record?.style_code as string)
+                       || result.returnValue
+                       || "";
+        const barcodeVal = (result.record?.barcode as string)
+                        || (result.record?.default_barcode as string)
+                        || stockVal;
+        const descVal   = result.displayValue
+                       || (result.record?.name as string)
+                       || "";
+        const rateVal   = String(
+                          (result.record?.selling_price as number)
+                       || (result.record?.mrp as number)
+                       || (result.record?.price as number)
+                       || 0
+                        );
+        setDirectEntry(prev => ({
+          ...prev,
+          stockNo:         stockVal,
+          barcode:         barcodeVal,
+          itemDescription: descVal,
+          rate:            rateVal,
+        }));
+        // Keep focus in the direct-entry row after selection (focus restoration
+        // is handled by F2Dispatcher.closeLookup → originElementRef, which points
+        // back to the directStockNoRef input automatically).
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[BillingTerm][F2] variant adapter applied:", { stockVal, rateVal });
+        }
+        return;
+      }
+
+      // ── Unresolved entity — development-only warning ───────────────────────
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[BillingTerm][F2] FieldAdapter received unhandled entity:",
+          result.entity,
+          "— no state update performed."
+        );
+      }
+    }
+  });
+
   // Live Products State for item browse, modals, and search
   const [liveProducts, setLiveProducts] = useState<Product[]>(products);
 
@@ -366,14 +447,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     directStockNoRef.current?.focus();
   }, []);
 
-  // Global Keyboard Shortcuts Listener
+  // Global Keyboard Shortcuts Listener #1
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
-        e.preventDefault();
-        customerInputRef.current?.focus();
-        setShowCustomerDropdown(true);
-      } else if (e.key === "F11" || e.key === "F1") {
+      // F2 handled by F2DispatcherProvider (F2 Universal Lookup Architecture v2).
+      // This screen registers via useF2Screen() above. No screen-level F2 handler.
+      if (e.key === "F11" || e.key === "F1") {
         e.preventDefault();
         if (activeItemSearchField === "barcode") {
           directBarcodeRef.current?.focus();
@@ -485,40 +564,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }, 150);
   };
 
-  // Keyboard Shortcuts Listener
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is inside a popup modal
-      if (showSettlementModal || showPdtImportModal || showProductSearchModal || showItemBrowseModal || showAddCustomerModal || showRecallModal || showPrintModal || showAttachmentPanel) {
-        return;
-      }
-
-      if (e.key === "F2") {
-        e.preventDefault();
-        if (document.activeElement === customerInputRef.current) {
-          setShowCustomerDropdown(true);
-        } else {
-          setShowProductSearchModal(true);
-        }
-      } else if (e.key === "F11") {
-        e.preventDefault();
-        directStockNoRef.current?.focus();
-      } else if (e.key === "F7" || e.key === "F8") {
-        e.preventDefault();
-        if (items.length > 0) {
-          setShowSettlementModal(true);
-        } else {
-          alert("Please add at least one item before opening settlement.");
-        }
-      } else if (e.key === "F12") {
-        e.preventDefault();
-        handleSuspendInvoice();
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [items, headerState, showSettlementModal, showPdtImportModal, showProductSearchModal, showItemBrowseModal, showAddCustomerModal, showRecallModal, showPrintModal, showAttachmentPanel]);
+  // NOTE: Legacy Keyboard Shortcuts Listener #2 has been removed as part of
+  // F2 Universal Lookup Architecture v2 Phase B Batch 1 (2026-09-02).
+  // Its unique hotkeys (F7/F8 settlement) are already covered by Listener #1
+  // above. F2 routing is now exclusively handled by F2DispatcherProvider.
 
   // Derived Direct Entry Calculations
   const directRateNum = parseFloat(directEntry.rate) || 0;
@@ -1255,7 +1304,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     type="text"
                     name="customerSearch"
                     aria-label="Search customer (F2)"
-                    data-f2-browse="customer"
+                    data-f2-entity="customer"
                     data-context-type="customer"
                     data-lookup="customer"
                     value={customerSearchInput}
@@ -1481,11 +1530,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
             {/* Inputs aligned with table columns */}
             <div className="flex-1 flex gap-2 items-center">
-              {/* Stock / Barcode Search */}
+              {/* Stock / Barcode Search — data-f2-entity="variant" enables F2 → UniversalBrowseEngine (variant) */}
               <div className="w-[100px] relative">
                 <input
                   ref={directStockNoRef}
                   type="text"
+                  id="directStockNo"
+                  name="directStockNo"
+                  aria-label="Stock No (F2 to browse)"
+                  data-f2-entity="variant"
                   value={directEntry.stockNo}
                   onChange={e => handleItemSearchChange(e.target.value, "stockNo")}
                   onFocus={() => {

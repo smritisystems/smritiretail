@@ -1,12 +1,12 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.17.0
+ * Version      : 6.18.1
  * Created      : 2026-08-21
- * Modified     : 2026-08-25
+ * Modified     : 2026-09-02
  * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -36,6 +36,8 @@ import { SmritiProPosReprintDlg } from "./ProPosReprintDlg.tsx";
 import { SmritiProPosCashMovementsModal } from "./ProPosCashMovesDlg.tsx";
 import { SmritiProPosShiftCloseModal } from "./ProPosShiftCloseDl.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { useF2Screen } from "../../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../../context/F2DispatcherContext.tsx";
 import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../../utils/gstEngine.ts";
 import { searchBackendProducts, AutoPopulateProductResult } from "../../../services/autoPopulateService.ts";
 import { SmritiItemTypeaheadDropdown } from "../../common/ItemTypeaheadDrop.tsx";
@@ -99,6 +101,46 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
     loyaltyTier: "Gold",
     creditLimit: 50000,
     currentBalance: 0
+  });
+
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase B Batch 1) ──
+  // Migration status: DONE (verified 2026-09-02).
+  // All three legacy screen-level F2 useEffect handlers that existed before
+  // Phase A were removed in a prior session. No e.key === "F2" handler exists
+  // anywhere in this component.
+  //
+  // F2 resolution for this screen:
+  //   Tier 1 — data-f2-entity="customer" on posCustomerCode + posCustomerName inputs
+  //   Tier 3 — defaultEntity: "customer" (fallback for focus outside tagged fields)
+  //
+  // FieldAdapter: maps LookupResult → ProPosCustomer and calls setCustomer().
+  // SmritiCustomerBrowseModal (onClick button) is preserved as a non-F2 consumer.
+  useF2Screen({
+    screenId: "ProPosBillingTerm",
+    defaultEntity: "customer",
+    adapter: (result: LookupResult) => {
+      if (result.entity !== "customer") {
+        // Development-only guard: only customer lookups are expected from this screen.
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[ProPosBillingTerm][F2] FieldAdapter received unexpected entity:",
+            result.entity
+          );
+        }
+        return;
+      }
+      setCustomer(prev => ({
+        ...prev,
+        id: result.id ?? prev.id,
+        code: result.returnValue || prev.code,
+        name: result.displayValue || prev.name,
+        phone: (result.record?.phone as string) ?? prev.phone,
+        loyaltyPoints: (result.record?.loyalty_points as number) ?? prev.loyaltyPoints,
+        loyaltyTier: ((result.record?.loyalty_tier as string) as ProPosCustomer["loyaltyTier"]) ?? prev.loyaltyTier,
+        creditLimit: (result.record?.credit_limit as number) ?? prev.creditLimit,
+        currentBalance: (result.record?.current_balance as number) ?? prev.currentBalance,
+      }));
+    }
   });
 
   const storeStateCode = "27"; // Maharashtra store default
@@ -756,9 +798,8 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
       } else if (e.altKey && (e.key === "i" || e.key === "I")) {
         e.preventDefault();
         setShowPdtImportModal(true);
-      } else if (e.key === "F2") {
-        e.preventDefault();
-        setShowCustomerBrowseModal(true);
+      // F2 handled by F2DispatcherProvider (F2 Universal Lookup Architecture v2).
+      // This screen registers via useF2Screen() above. No screen-level F2 handler.
       } else if (e.key === "F7") {
         e.preventDefault();
         if (cartItems.length > 0) {
@@ -1033,15 +1074,9 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
               type="text"
               name="posCustomerCode"
               aria-label="Customer Code"
-              data-f2-browse="customer"
+              data-f2-entity="customer"
               value={customer.code}
               onChange={e => setCustomer(prev => ({ ...prev, code: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === "F2") {
-                  e.preventDefault();
-                  setShowCustomerBrowseModal(true);
-                }
-              }}
               placeholder="Code..."
               className="w-20 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-mono font-bold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
             />
@@ -1049,15 +1084,9 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
               type="text"
               name="posCustomerName"
               aria-label="Customer Name"
-              data-f2-browse="customer"
+              data-f2-entity="customer"
               value={customer.name}
               onChange={e => setCustomer(prev => ({ ...prev, name: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === "F2") {
-                  e.preventDefault();
-                  setShowCustomerBrowseModal(true);
-                }
-              }}
               placeholder="Customer Name..."
               className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2.5 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
             />
