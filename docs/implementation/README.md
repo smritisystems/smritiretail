@@ -156,6 +156,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 2B-2 Pre-Flight: Transitional Index Pruning & Column Nullability Hardening Audit](./inventory/Inventory_Gate11E_Phase2B2_Preflight_v1.0.0.md) | `/scripts/execute_gate11e_phase2b2_preflight.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2B2_Preflight_v1.0.0.md) |
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 2B-2 Evidence Audit: Index Obsolescence & Invariant Verification](./inventory/Inventory_Gate11E_Phase2B2_Evidence_Audit_v1.0.0.md) | `/scripts/execute_gate11e_phase2b2_evidence_audit.py`, `/scripts/reconcile_products_indexes.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2B2_Evidence_Audit_v1.0.0.md) |
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 2B-2 Execution: Transitional Index Pruning & Nullability Hardening](./inventory/Inventory_Gate11E_Phase2B2_Execution_v1.0.0.md) | `/scripts/execute_gate11e_phase2b2_execution.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2B2_Execution_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 3 Pre-Flight: Transitional Column Retirement & Table Decoupling Audit](./inventory/Inventory_Gate11E_Phase3_Preflight_v1.0.0.md) | `/scripts/execute_gate11e_phase3_preflight_audit.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3_Preflight_v1.0.0.md) |
+
 
 
 
