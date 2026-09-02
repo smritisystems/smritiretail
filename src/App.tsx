@@ -45,7 +45,6 @@ import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownCrumbs.tsx";
 import { DrillDownSidePanel } from "./components/drilldown/DrillDownSidePanel.tsx";
 import { GlobalSearch } from "./components/drilldown/GlobalSearch.tsx";
-import { GlobalF2BrowseModal } from "./components/drilldown/GlobalF2BrowseDlg.tsx";
 import { QuickActionsMenu } from "./components/QuickActionsMenu.tsx";
 import { DocumentSeriesTab } from "./components/DocumentSeriesTab.tsx";
 import { UserProfileTab } from "./components/UserProfileTab.tsx";
@@ -393,7 +392,14 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
     void loadStandaloneCatalog();
   }, []);
 
+  const isAuditBillingMode = true;
+
   const handleStandaloneScanBarcode = async () => {
+    if (isAuditBillingMode) {
+      setStandaloneScannerStatus("Audit view only");
+      return;
+    }
+
     const clean = standaloneScanValue.trim();
     if (!clean) {
       setStandaloneScannerStatus("No barcode entered");
@@ -464,6 +470,12 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
   };
 
   const handleStandaloneImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAuditBillingMode) {
+      event.target.value = "";
+      setStandaloneScannerStatus("Audit view only");
+      return;
+    }
+
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -510,6 +522,11 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
   };
 
   const handleStandaloneSaveOrder = async () => {
+    if (isAuditBillingMode) {
+      setStandaloneScannerStatus("Audit view only");
+      return;
+    }
+
     if (standaloneRows.length === 0) {
       setStandaloneScannerStatus("No item lines to save");
       return;
@@ -623,10 +640,10 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
               <button
                 type="button"
                 onClick={() => void handleStandaloneSaveOrder()}
-                disabled={standaloneSaving || standaloneRows.length === 0}
+                disabled={isAuditBillingMode || standaloneSaving || standaloneRows.length === 0}
                 className="rounded-lg bg-[#003ec7] px-3 py-1 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#0038b6] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {standaloneSaving ? "Saving..." : "Save"}
+                {isAuditBillingMode ? "Audit View" : standaloneSaving ? "Saving..." : "Save"}
               </button>
               <div className="ml-1 flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-[#c3c5d9] bg-[#eff4ff]">
                 <img
@@ -655,11 +672,13 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                   <button
                     type="button"
                     onClick={() => {
+                      if (isAuditBillingMode) return;
                       setStandaloneRows([]);
                       setStandaloneScannerStatus("Ready");
                       setStandaloneScanValue("");
                     }}
-                    className="flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff]"
+                    disabled={isAuditBillingMode}
+                    className={`flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff] ${isAuditBillingMode ? "cursor-not-allowed opacity-50" : ""}`}
                   >
                     <Plus className="h-4 w-4" />
                     New Sale
@@ -667,10 +686,12 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                   <button
                     type="button"
                     onClick={() => {
+                      if (isAuditBillingMode) return;
                       setImportDialogOpen(true);
                       if (fileInputRef.current) fileInputRef.current.click();
                     }}
-                    className="flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff]"
+                    disabled={isAuditBillingMode}
+                    className={`flex items-center gap-1 rounded-lg border border-[#c3c5d9] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#003ec7] transition hover:bg-[#eff4ff] ${isAuditBillingMode ? "cursor-not-allowed opacity-50" : ""}`}
                   >
                     <FileUp className="h-4 w-4" />
                     Import
@@ -710,15 +731,18 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                       void handleStandaloneScanBarcode();
                     }
                   }}
-                  placeholder="Scan or type barcode / stock no..."
-                  className="flex-1 rounded-lg border border-[#c3c5d9] bg-white px-2 py-1.5 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]"
+                  placeholder={isAuditBillingMode ? "Audit billing is read-only" : "Scan or type barcode / stock no..."}
+                  readOnly={isAuditBillingMode}
+                  disabled={isAuditBillingMode}
+                  className={`flex-1 rounded-lg border border-[#c3c5d9] bg-white px-2 py-1.5 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7] ${isAuditBillingMode ? "cursor-not-allowed bg-[#eef2f7] text-[#434656]" : ""}`}
                 />
                 <button
                   type="button"
                   onClick={() => void handleStandaloneScanBarcode()}
-                  className="rounded-lg bg-[#006c4a] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#005137]"
+                  disabled={isAuditBillingMode}
+                  className={`rounded-lg bg-[#006c4a] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#005137] ${isAuditBillingMode ? "cursor-not-allowed opacity-50" : ""}`}
                 >
-                  Scan
+                  {isAuditBillingMode ? "View Only" : "Scan"}
                 </button>
                 <span className="min-w-[110px] text-right text-[10px] font-semibold uppercase tracking-[0.05em] text-[#434656]">
                   {standaloneScannerStatus}
@@ -731,14 +755,17 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                   <div className="relative flex-1">
                     <UserRoundSearch className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737688]" />
                     <input
-                      className="w-full rounded-lg border border-[#c3c5d9] bg-[#eff4ff] py-1.5 pl-7 pr-2 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]"
+                      className={`w-full rounded-lg border border-[#c3c5d9] bg-[#eff4ff] py-1.5 pl-7 pr-2 text-[13px] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7] ${isAuditBillingMode ? "cursor-not-allowed bg-[#eef2f7] text-[#434656]" : ""}`}
                       type="text"
                       value={standaloneCustomerName}
                       onChange={(e) => {
+                        if (isAuditBillingMode) return;
                         setStandaloneCustomerName(e.target.value);
                         setStandaloneCustomerQuery(e.target.value);
                       }}
-                      placeholder="Select or type customer"
+                      placeholder={isAuditBillingMode ? "Audit billing details" : "Select or type customer"}
+                      readOnly={isAuditBillingMode}
+                      disabled={isAuditBillingMode}
                     />
                     {filteredStandaloneCustomers.length > 0 && (
                       <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-lg border border-[#c3c5d9] bg-white shadow-lg">
@@ -762,7 +789,7 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                 </div>
                 <div className="flex w-1/3 items-center gap-2">
                   <label className="w-24 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Sales Staff</label>
-                  <select className="w-full rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[13px] text-[#0d1c2e] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7]">
+                  <select disabled={isAuditBillingMode} className={`w-full rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[13px] text-[#0d1c2e] outline-none transition focus:border-[#003ec7] focus:ring-1 focus:ring-[#003ec7] ${isAuditBillingMode ? "cursor-not-allowed bg-[#eef2f7] text-[#434656]" : ""}`}>
                     <option>SM</option>
                     <option>JD</option>
                   </select>
@@ -1899,9 +1926,6 @@ const App: React.FC = () => {
                       <GlobalSearch />
                       {/* UniversalBrowseEngine v2 — canonical F2 lookup dialog */}
                       <UniversalBrowseEngine />
-                      {/* GlobalF2BrowseModal retained for backward compat during Phase B screen migration.
-                          It will be removed after all screens migrate to useF2Screen() + FieldAdapter. */}
-                      <GlobalF2BrowseModal />
                       <ContextualInspectorHUD />
                       <DrillDownSidePanel />
                       <ShortcutPalette />
