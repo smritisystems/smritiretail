@@ -1,0 +1,582 @@
+{
+  "gate": "Gate 11E - Phase 1 Preflight",
+  "generated_at": "2026-09-02T00:34:51Z",
+  "governance_status": "PREFLIGHT_PASS_PENDING_PHASE2_AUTHORIZATION",
+  "foreign_keys": [
+    {
+      "table_name": "product_batch_stocks",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "product_batch_stocks_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Canonical variant_id populated for 100% of physical goods",
+      "verification_query": "SELECT count(*) FROM product_batch_stocks WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE product_batch_stocks ADD CONSTRAINT product_batch_stocks_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "product_cost_valuations",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "product_cost_valuations_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Table either empty or populated with variant_id",
+      "verification_query": "SELECT count(*) FROM product_cost_valuations WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE product_cost_valuations ADD CONSTRAINT product_cost_valuations_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "product_identities",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "product_identities_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Table either empty or populated with variant_id",
+      "verification_query": "SELECT count(*) FROM product_identities WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE product_identities ADD CONSTRAINT product_identities_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "psv_sku_tracking",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "psv_sku_tracking_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Table either empty or populated with variant_id",
+      "verification_query": "SELECT count(*) FROM psv_sku_tracking WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE psv_sku_tracking ADD CONSTRAINT psv_sku_tracking_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "purchase_order_items",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "purchase_order_items_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Canonical variant_id populated for 100% of physical goods",
+      "verification_query": "SELECT count(*) FROM purchase_order_items WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE purchase_order_items ADD CONSTRAINT purchase_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "purchase_receipt_items",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "purchase_receipt_items_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Canonical variant_id populated for 100% of physical goods",
+      "verification_query": "SELECT count(*) FROM purchase_receipt_items WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE purchase_receipt_items ADD CONSTRAINT purchase_receipt_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "purchase_reorder_configs",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "purchase_reorder_configs_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Table either empty or populated with variant_id",
+      "verification_query": "SELECT count(*) FROM purchase_reorder_configs WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE purchase_reorder_configs ADD CONSTRAINT purchase_reorder_configs_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "sales_invoice_items",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "sales_invoice_items_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Canonical variant_id populated for 100% of physical goods",
+      "verification_query": "SELECT count(*) FROM sales_invoice_items WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE sales_invoice_items ADD CONSTRAINT sales_invoice_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "sales_invoice_lines",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "sales_invoice_lines_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Table either empty or populated with variant_id",
+      "verification_query": "SELECT count(*) FROM sales_invoice_lines WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE sales_invoice_lines ADD CONSTRAINT sales_invoice_lines_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "sales_order_items",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "sales_order_items_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Canonical variant_id populated for 100% of physical goods",
+      "verification_query": "SELECT count(*) FROM sales_order_items WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE sales_order_items ADD CONSTRAINT sales_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "sales_quotation_items",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "sales_quotation_items_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Canonical variant_id populated for 100% of physical goods",
+      "verification_query": "SELECT count(*) FROM sales_quotation_items WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE sales_quotation_items ADD CONSTRAINT sales_quotation_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "sales_return_items",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "sales_return_items_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Canonical variant_id populated for 100% of physical goods",
+      "verification_query": "SELECT count(*) FROM sales_return_items WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE sales_return_items ADD CONSTRAINT sales_return_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "stock_audit_items",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "stock_audit_items_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Table either empty or populated with variant_id",
+      "verification_query": "SELECT count(*) FROM stock_audit_items WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE stock_audit_items ADD CONSTRAINT stock_audit_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "stock_count_lines",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "stock_count_lines_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Table either empty or populated with variant_id",
+      "verification_query": "SELECT count(*) FROM stock_count_lines WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE stock_count_lines ADD CONSTRAINT stock_count_lines_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "stock_movements",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "stock_movements_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Canonical variant_id populated for 100% of physical goods",
+      "verification_query": "SELECT count(*) FROM stock_movements WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE stock_movements ADD CONSTRAINT stock_movements_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    },
+    {
+      "table_name": "stock_transfer_items",
+      "column_name": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "id",
+      "constraint_name": "stock_transfer_items_product_id_fkey",
+      "classification": "SAFE_TO_REMOVE",
+      "proposed_action": "DROP_CONSTRAINT_PHASE2",
+      "precondition": "Table either empty or populated with variant_id",
+      "verification_query": "SELECT count(*) FROM stock_transfer_items WHERE product_id IS NOT NULL AND variant_id IS NULL AND is_fee_line = false",
+      "rollback_action": "ALTER TABLE stock_transfer_items ADD CONSTRAINT stock_transfer_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id)",
+      "risk_classification": "LOW (Dual-key active)"
+    }
+  ],
+  "indexes": [
+    {
+      "table_name": "dispatch_items",
+      "column_name": "product_id",
+      "index_name": "ix_dispatch_items_product_id",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX ix_dispatch_items_product_id ON dispatch_items(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "packing_slip_items",
+      "column_name": "product_id",
+      "index_name": "ix_packing_slip_items_product_id",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX ix_packing_slip_items_product_id ON packing_slip_items(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "product_batch_stocks",
+      "column_name": "product_id",
+      "index_name": "uq_company_wh_prod_batch_active",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX uq_company_wh_prod_batch_active ON product_batch_stocks(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "product_cost_valuations",
+      "column_name": "product_id",
+      "index_name": "ix_product_cost_valuations_product_id",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX ix_product_cost_valuations_product_id ON product_cost_valuations(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "product_identities",
+      "column_name": "product_id",
+      "index_name": "uq_product_identity_business_key",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX uq_product_identity_business_key ON product_identities(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "attributes",
+      "index_name": "idx_products_attributes",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX idx_products_attributes ON products(attributes)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "barcode",
+      "index_name": "idx_products_barcode",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX idx_products_barcode ON products(barcode)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "variant_id",
+      "index_name": "idx_products_variant_id",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX idx_products_variant_id ON products(variant_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "category",
+      "index_name": "ix_products_category",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX ix_products_category ON products(category)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "code",
+      "index_name": "products_code_key",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX products_code_key ON products(code)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "id",
+      "index_name": "products_pkey",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX products_pkey ON products(id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "sku",
+      "index_name": "products_sku_key",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX products_sku_key ON products(sku)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "uuid",
+      "index_name": "products_uuid_key",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX products_uuid_key ON products(uuid)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "barcode",
+      "index_name": "uq_company_barcode_active",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX uq_company_barcode_active ON products(barcode)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "company_id",
+      "index_name": "uq_company_barcode_active",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX uq_company_barcode_active ON products(company_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "products",
+      "column_name": "company_id",
+      "index_name": "uq_variant_identity_active",
+      "classification": "COMPATIBILITY_RETAINED",
+      "proposed_action": "RETAIN_UNTIL_TABLE_RETIREMENT",
+      "rollback_action": "CREATE INDEX uq_variant_identity_active ON products(company_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "purchase_reorder_configs",
+      "column_name": "product_id",
+      "index_name": "purchase_reorder_configs_product_id_key",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX purchase_reorder_configs_product_id_key ON purchase_reorder_configs(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "sales_invoice_lines",
+      "column_name": "product_id",
+      "index_name": "ix_sales_invoice_lines_product_id",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX ix_sales_invoice_lines_product_id ON sales_invoice_lines(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "sales_invoice_lines",
+      "column_name": "product_id",
+      "index_name": "ix_sil_product",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX ix_sil_product ON sales_invoice_lines(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "sales_order_items",
+      "column_name": "product_id",
+      "index_name": "idx_sales_order_items_product_id",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX idx_sales_order_items_product_id ON sales_order_items(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "stock_audit_items",
+      "column_name": "product_id",
+      "index_name": "uq_audit_item_product_batch_active",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX uq_audit_item_product_batch_active ON stock_audit_items(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "stock_count_lines",
+      "column_name": "product_id",
+      "index_name": "ix_stock_count_lines_product_id",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX ix_stock_count_lines_product_id ON stock_count_lines(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "stock_count_lines",
+      "column_name": "product_id",
+      "index_name": "ix_stock_count_lines_take_product",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX ix_stock_count_lines_take_product ON stock_count_lines(product_id)",
+      "risk_classification": "LOW"
+    },
+    {
+      "table_name": "transaction_cost_snapshots",
+      "column_name": "product_id",
+      "index_name": "ix_transaction_cost_snapshots_product_id",
+      "classification": "SAFE_TO_DROP",
+      "proposed_action": "DROP_INDEX_PHASE2",
+      "rollback_action": "CREATE INDEX ix_transaction_cost_snapshots_product_id ON transaction_cost_snapshots(product_id)",
+      "risk_classification": "LOW"
+    }
+  ],
+  "table_population_audit": [
+    {
+      "table_name": "dispatch_items",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "packing_slip_items",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "product_batch_stocks",
+      "total_rows": 16,
+      "variant_id_populated": 0,
+      "product_id_populated": 16,
+      "legacy_only_unmapped_rows": 16,
+      "status": "NEEDS_BACKFILL"
+    },
+    {
+      "table_name": "product_cost_valuations",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "product_identities",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "purchase_order_items",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "purchase_receipt_items",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "purchase_reorder_configs",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "sales_invoice_items",
+      "total_rows": 6666,
+      "variant_id_populated": 1346,
+      "product_id_populated": 1346,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "sales_invoice_lines",
+      "total_rows": 3,
+      "variant_id_populated": 0,
+      "product_id_populated": 3,
+      "legacy_only_unmapped_rows": 3,
+      "status": "NEEDS_BACKFILL"
+    },
+    {
+      "table_name": "sales_order_items",
+      "total_rows": 18037,
+      "variant_id_populated": 18036,
+      "product_id_populated": 18037,
+      "legacy_only_unmapped_rows": 1,
+      "status": "NEEDS_BACKFILL"
+    },
+    {
+      "table_name": "sales_quotation_items",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "sales_return_items",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "stock_audit_items",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "stock_count_lines",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "stock_movements",
+      "total_rows": 1,
+      "variant_id_populated": 1,
+      "product_id_populated": 1,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    },
+    {
+      "table_name": "stock_transfer_items",
+      "total_rows": 0,
+      "variant_id_populated": 0,
+      "product_id_populated": 0,
+      "legacy_only_unmapped_rows": 0,
+      "status": "READY_FOR_11E"
+    }
+  ],
+  "ledger_integrity": {
+    "total_mappings": 681,
+    "duplicate_mappings": 0,
+    "quarantined_mappings": 218,
+    "integrity_status": "PASS"
+  },
+  "lineage_verification": {
+    "mechanism": "variant_id -> item_variants -> legacy_id_mappings -> legacy_id",
+    "physical_column_required": false,
+    "lineage_status": "PASS"
+  }
+}
