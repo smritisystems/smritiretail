@@ -210,32 +210,33 @@ async def get_sales_invoice_reprint_contract(
 )
 async def get_sales_invoice_pdf_stream(
     invoice_id: str,
-    format: Optional[str] = None,
+    format: Optional[str] = "binary",
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Stream rendered Tax Invoice PDF document from single Canonical TaxInvoiceRenderer."""
     from ...services.invoice_pdf_service import InvoicePdfService
-    if format == "binary":
-        pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
+    if format == "html":
+        html_content = await InvoicePdfService.generate_invoice_html(
             session=db,
             invoice_id=invoice_id,
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id
         )
-        safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}.pdf"'}
-        )
-    html_content = await InvoicePdfService.generate_invoice_html(
+        return Response(content=html_content, media_type="text/html")
+
+    pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
         session=db,
         invoice_id=invoice_id,
         company_id=tenant_ctx.company_id,
         branch_id=tenant_ctx.branch_id
     )
-    return Response(content=html_content, media_type="text/html")
+    safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}.pdf"'}
+    )
 
 
 @router.get(
