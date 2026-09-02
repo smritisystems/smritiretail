@@ -33,24 +33,19 @@ def _is_postgres_server(host: str, port: int, user: str = "postgres", password: 
         return False
 
     try:
-        import asyncpg
-    except ImportError:
-        return False
-
-    conn_str = f"postgresql://{user}:{password}@{host}:{port}/{database}"
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        conn = loop.run_until_complete(asyncpg.connect(conn_str, timeout=timeout))
-        loop.run_until_complete(conn.close())
+        import psycopg2
+        conn = psycopg2.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            dbname=database,
+            connect_timeout=int(max(1, timeout))
+        )
+        conn.close()
         return True
     except Exception:
         return False
-    finally:
-        try:
-            loop.close()
-        except Exception:
-            pass
 
 
 def _replace_url_port(conn_str: str, port_int: int) -> str:

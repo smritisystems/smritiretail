@@ -11,10 +11,10 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 from datetime import datetime, date
 from decimal import Decimal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Base schema for CustomerGroup
 class CustomerGroupBase(BaseModel):
@@ -97,6 +97,20 @@ class CustomerBase(BaseModel):
     tags: List[str] = []
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "name" not in data and "customer_name" in data:
+                data["name"] = data["customer_name"]
+            elif "name" not in data and "customerName" in data:
+                data["name"] = data["customerName"]
+            if "gst_number" not in data and "gstin" in data:
+                data["gst_number"] = data["gstin"]
+            elif "gst_number" not in data and "gstNumber" in data:
+                data["gst_number"] = data["gstNumber"]
+        return data
 
 class CustomerCreate(CustomerBase):
     id: Optional[str] = Field(None, max_length=50)
