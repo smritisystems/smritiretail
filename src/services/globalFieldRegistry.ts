@@ -1,5 +1,40 @@
 export type GlobalFieldEntity = "item" | "customer" | "supplier" | "staff" | "invoice" | "warehouse" | "general";
-export type LookupGroup = "product" | "customer" | "supplier" | "staff" | "hsn" | "invoice" | "warehouse" | "general";
+/**
+ * LookupGroup — aligned with the canonical F2 LOOKUP_REGISTRY entity domain (22 entities).
+ * "product" is a deprecated legacy alias; canonical mapping is "variant" (/api/v1/variants).
+ * "product" MUST NOT be used for new field definitions; use "variant" instead.
+ */
+export type LookupGroup =
+  // Canonical product-domain entities (Gate 11E)
+  | "variant"        // /api/v1/variants  — canonical physical SKU (replaces deprecated "product")
+  | "item"           // /api/v1/items     — parent catalog/style
+  | "item_barcode"   // /api/v1/item-barcodes
+  // Master data
+  | "customer"
+  | "supplier"
+  | "staff"
+  | "hsn"
+  | "uom"
+  | "brand"
+  | "color"
+  | "size"
+  | "article"
+  | "department"
+  | "section"
+  | "fabric"
+  | "fit"
+  | "category"
+  | "season"
+  | "scheme"
+  | "terms"
+  | "store"
+  | "classification"
+  | "invoice"
+  | "warehouse"
+  // Non-resolvable
+  | "general"
+  // Deprecated legacy alias — do NOT use for new field definitions
+  | "product";
 export type FieldDataType = "text" | "number" | "currency" | "date" | "select";
 
 export interface GlobalFieldDef {
@@ -19,6 +54,11 @@ export interface GlobalFieldDef {
 
 export interface GlobalFieldLookupRule {
   lookupGroup: LookupGroup;
+  /**
+   * FastAPI endpoint path relative to /api/v1.
+   * MANDATORY: Must reference canonical Gate-11E endpoints only.
+   * /api/v1/products MUST NOT appear here; use /variants, /items, or /item-barcodes.
+   */
   endpoint: string;
   searchFields: string[];
   insertValueKeys: string[];

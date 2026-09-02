@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.0.0
+ * Version      : 7.0.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -48,13 +48,20 @@ export interface ActiveFieldContextState {
   fieldValue: string;
   element: HTMLElement | null;
   isInputFocused: boolean;
+  /** @deprecated F2Dispatcher (F2DispatcherContext) now owns modal state. Retained for backward compatibility. */
   isF2ModalOpen: boolean;
   activeProductPreview: Product | null;
   activeCustomerPreview: Customer | null;
+  /** @deprecated Use F2Dispatcher.openLookup() instead. */
   openF2Modal: (category?: ActiveFieldCategory, label?: string) => void;
+  /** @deprecated Use F2Dispatcher.closeLookup() instead. */
   closeF2Modal: () => void;
   setManualCategory: (category: ActiveFieldCategory, label?: string) => void;
-  insertValueIntoActiveField: (value: string | Record<string, any>) => void;
+  /**
+   * @deprecated Prototype-setter injection replaced by FieldAdapter pattern (F2 v2).
+   * This is now a no-op. Screens must use useF2Screen() + FieldAdapter.
+   */
+  insertValueIntoActiveField: (value: string | Record<string, unknown>) => void;
   setActiveProductPreview: (prod: Product | null) => void;
   setActiveCustomerPreview: (cust: Customer | null) => void;
 }
@@ -353,37 +360,19 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
     };
 
-    // Global Keydown Listener for F2
-    const handleGlobalF2 = (e: KeyboardEvent) => {
-      const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-      if (!token) return;
-
-      if (e.key === "F2") {
-        const active = document.activeElement as HTMLElement;
-        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
-          lastFocusedInputRef.current = active as HTMLInputElement;
-          const { category: inferredCategory, label: inferredLabel } = inferFieldCategory(active);
-          setCategory(inferredCategory);
-          setFieldLabel(inferredLabel);
-          setFieldName((active as HTMLInputElement).name || active.id || "active_input");
-          setFieldValue((active as HTMLInputElement).value || "");
-        }
-
-        e.preventDefault();
-        setIsF2ModalOpen(prev => !prev);
-      }
-    };
+    // NOTE: The F2 keydown listener has been removed from ActiveFieldContext.
+    // F2Dispatcher (src/context/F2DispatcherContext.tsx) is now the sole
+    // authoritative F2 keyboard listener. This context retains focus tracking
+    // only (focusin / focusout / input) for contextual metadata and HUD display.
 
     document.addEventListener("focusin", handleFocusIn);
     document.addEventListener("focusout", handleFocusOut);
     document.addEventListener("input", handleInput);
-    window.addEventListener("keydown", handleGlobalF2);
 
     return () => {
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", handleFocusOut);
       document.removeEventListener("input", handleInput);
-      window.removeEventListener("keydown", handleGlobalF2);
     };
   }, []);
 
@@ -392,39 +381,21 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (label) setFieldLabel(label);
   }, []);
 
-  const insertValueIntoActiveField = useCallback((value: string | Record<string, any>) => {
-    const target = lastFocusedInputRef.current || activeElement as HTMLInputElement;
-    if (!target) return;
-
-    const stringVal = typeof value === "string" 
-      ? value 
-      : (value.code || value.barcode || value.sku || value.name || value.id || "");
-    
-    // Use prototype setter to properly update React's internal value tracker on controlled components
-    try {
-      const isInput = target instanceof HTMLInputElement;
-      const isTextArea = target instanceof HTMLTextAreaElement;
-      const proto = isInput 
-        ? window.HTMLInputElement.prototype 
-        : isTextArea 
-        ? window.HTMLTextAreaElement.prototype 
-        : Object.getPrototypeOf(target);
-      
-      const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
-      if (descriptor && descriptor.set) {
-        descriptor.set.call(target, stringVal);
-      } else {
-        target.value = stringVal;
-      }
-    } catch {
-      target.value = stringVal;
+  /**
+   * @deprecated Prototype-setter value injection has been replaced by the
+   * FieldAdapter pattern in F2 Universal Lookup Architecture v2.
+   * This function is now a no-op. Screens should migrate to useF2Screen() + FieldAdapter.
+   * It is retained here only to prevent compile errors in legacy call sites
+   * during the Phase B screen migration period.
+   */
+  const insertValueIntoActiveField = useCallback((_value: string | Record<string, unknown>) => {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(
+        "[ActiveFieldContext] insertValueIntoActiveField is deprecated and is now a no-op. " +
+        "Migrate to useF2Screen() + FieldAdapter (F2 Universal Lookup Architecture v2)."
+      );
     }
-    
-    // Dispatch input & change events for React synthetic event listeners
-    target.dispatchEvent(new Event("input", { bubbles: true }));
-    target.dispatchEvent(new Event("change", { bubbles: true }));
-    target.focus();
-  }, [activeElement]);
+  }, []);
 
   return (
     <ActiveFieldContext.Provider

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 3.18.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-17
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -51,6 +51,8 @@ import { DocumentSeriesTab } from "./components/DocumentSeriesTab.tsx";
 import { UserProfileTab } from "./components/UserProfileTab.tsx";
 import { NotificationProvider, useNotifications } from "./notifications/notification_store.tsx";
 import { ActiveFieldProvider } from "./context/ActiveFieldContext.tsx";
+import { F2DispatcherProvider } from "./context/F2DispatcherContext.tsx";
+import { UniversalBrowseEngine } from "./components/drilldown/UniversalBrowseEngine.tsx";
 import { ContextualInspectorHUD } from "./components/drilldown/CtxInspectorHUD.tsx";
 import { ContextProvider } from "./context-actions/ContextProvider.tsx";
 import { ContextRenderer } from "./context-actions/ContextRenderer.tsx";
@@ -1881,22 +1883,33 @@ const App: React.FC = () => {
     <PrintProvider>
       <NotificationProvider>
         <DrillDownProvider>
+          {/* ActiveFieldProvider must be inside F2DispatcherProvider so that
+              inferFieldCategory (tier-4 heuristic fallback) remains accessible
+              to the dispatcher without circular dependency. */}
           <ActiveFieldProvider>
-            <LayoutEngineProvider>
-              <WorkspaceProvider>
-                <ShortcutProvider>
-                  <ContextProvider>
-                    <AppContent />
-                    <ContextRenderer />
-                    <GlobalSearch />
-                    <GlobalF2BrowseModal />
-                    <ContextualInspectorHUD />
-                    <DrillDownSidePanel />
-                    <ShortcutPalette />
-                  </ContextProvider>
-                </ShortcutProvider>
-              </WorkspaceProvider>
-            </LayoutEngineProvider>
+            {/* F2DispatcherProvider — single authoritative F2 keyboard listener.
+                Must wrap all screens so useF2Screen() registrations reach the dispatcher. */}
+            <F2DispatcherProvider>
+              <LayoutEngineProvider>
+                <WorkspaceProvider>
+                  <ShortcutProvider>
+                    <ContextProvider>
+                      <AppContent />
+                      <ContextRenderer />
+                      <GlobalSearch />
+                      {/* UniversalBrowseEngine v2 — canonical F2 lookup dialog */}
+                      <UniversalBrowseEngine />
+                      {/* GlobalF2BrowseModal retained for backward compat during Phase B screen migration.
+                          It will be removed after all screens migrate to useF2Screen() + FieldAdapter. */}
+                      <GlobalF2BrowseModal />
+                      <ContextualInspectorHUD />
+                      <DrillDownSidePanel />
+                      <ShortcutPalette />
+                    </ContextProvider>
+                  </ShortcutProvider>
+                </WorkspaceProvider>
+              </LayoutEngineProvider>
+            </F2DispatcherProvider>
           </ActiveFieldProvider>
         </DrillDownProvider>
       </NotificationProvider>
