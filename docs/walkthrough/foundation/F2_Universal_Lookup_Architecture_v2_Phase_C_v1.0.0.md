@@ -1,10 +1,10 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 1.0.0
+  Version      : 1.0.1
   Created      : 2026-09-02
   Modified     : 2026-09-02
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -30,6 +30,8 @@ Complete the F2 Universal Lookup Architecture v2 migration by:
 2. **Batch 2A** — Atomically decommissioning all legacy F2 infrastructure (`GlobalF2BrowseDlg`, deprecated `ActiveFieldContext` stubs) once zero production callers remain.
 
 After Phase C, the F2 Universal Lookup Architecture v2 migration is **complete** for all actively migrated screens. `GlobalF2BrowseDlg.tsx` is permanently removed from the codebase and the bundle.
+
+> **Documentation note (v1.0.1):** Four accuracy corrections applied following reviewer audit: Phase B screen count neutralised; working-tree state description corrected; section-count phrasing made evidence-based; GlobalSearch limitation reclassified. `SalesOrderTab.tsx` was inadvertently included in commit `958beb2a` (docs commit) due to pre-existing staging — the change itself is a valid sales order audit-view enhancement unrelated to Phase C.
 
 ---
 
@@ -156,7 +158,7 @@ Command: npx vitest run src/tests/f2UniversalArchV2.test.ts src/tests/sofpF2RowI
 ## 10. Known Limitations
 
 - `ItemDetailsGrid.tsx` L369 domain-specific F2 code-entry modal is not part of Universal Lookup Architecture v2 by design.
-- `GlobalSearch.tsx` Ctrl+K row selection no longer injects selected value into the previously focused input (was already a no-op since Phase A — no regression introduced).
+- **`GlobalSearch.tsx` Ctrl+K field injection — pre-existing degraded behaviour, not introduced by Phase C.** The `insertValueIntoActiveField` call in `GlobalSearch` was already a no-op stub since Phase A (the function body was an unconditional `console.warn` + return). Removing the call in Batch 2A did not introduce any new degradation; the field-injection path had been non-functional since the Phase A migration. This is classified as a pre-existing degraded behaviour identified and disclosed during legacy cleanup.
 
 ---
 
