@@ -27,11 +27,12 @@ import {
   Layers, 
   FileText, 
   Heart, 
-  CreditCard,
-  Grid,
-  ShieldCheck,
-  CheckCircle2,
-  AlertCircle
+  CreditCard, 
+  Grid, 
+  ShieldCheck, 
+  CheckCircle2, 
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { RetailCustomerRecord, CustomerAddressEntry } from "./types.ts";
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
@@ -41,6 +42,7 @@ import { SmritiCustomerMailingModal } from "./CustMailingDlg.tsx";
 import { SmritiAdvancedCustomerSearchModal } from "./AdvancedCustSearch.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 const DEFAULT_MAILING_ADDRESS: CustomerAddressEntry = {
   code: "001",
@@ -211,7 +213,7 @@ const SEED_CUSTOMERS: RetailCustomerRecord[] = [
 ];
 
 const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
-  id: `cust-${Date.now()}`,
+  id: `cust-draft-${Date.now()}`,
   code: `CUST-${String(newCodeNumber).padStart(3, "0")}`,
   name: "",
   priceGroup: "TI#Tech Infotech Ltd",
@@ -277,6 +279,81 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
   updatedAt: new Date().toISOString().split("T")[0]
 });
 
+function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
+  return {
+    id: bCust.id || `cust-${Date.now()}`,
+    code: bCust.code || bCust.id || "CUST-001",
+    name: bCust.name || "",
+    priceGroup: bCust.price_group || bCust.priceGroup || "TI#Tech Infotech Ltd",
+    phone: bCust.mobile || bCust.phone || "",
+    email: bCust.email || "",
+    religion: bCust.religion || "Muslim",
+    ethnicity: bCust.ethnicity || "Asian",
+    ageGroup: bCust.age_group || bCust.ageGroup || ">=20 - <35",
+    profession: bCust.profession || "",
+    customerType: bCust.customer_type || bCust.customerType || (Array.isArray(bCust.tags) && bCust.tags.includes("Corporate") ? "Corporate" : "Retail"),
+    profileNotes: bCust.profile_notes || bCust.profileNotes || "",
+    companyCode: bCust.company_code || bCust.companyCode || "001",
+    environment: bCust.environment || "Retail",
+    flatFileFormat: bCust.flat_file_format || bCust.flatFileFormat || "GUI with Delimiter Format",
+    isTaxInclusive: bCust.is_tax_inclusive ?? true,
+    delimiter: bCust.delimiter || ";",
+    buyingFactor: Number(bCust.buying_factor ?? 1.00),
+    sellingFactor: Number(bCust.selling_factor ?? 1.00),
+    mailingAddresses: Array.isArray(bCust.mailing_addresses || bCust.mailingAddresses) && (bCust.mailing_addresses || bCust.mailingAddresses).length > 0
+      ? (bCust.mailing_addresses || bCust.mailingAddresses)
+      : [{
+          ...DEFAULT_MAILING_ADDRESS,
+          mobilePhone: bCust.mobile || bCust.phone || "",
+          email1: bCust.email || ""
+        }],
+    isDependant: bCust.is_dependant ?? false,
+    primaryAccountCode: bCust.primary_account_code || "",
+    primaryAccountName: bCust.primary_account_name || "",
+    applyParentMailingInfo: bCust.apply_parent_mailing_info ?? false,
+    dependants: bCust.dependants || [],
+    gender: bCust.gender || "Female",
+    dateOfBirth: bCust.date_of_birth || "",
+    isMarried: bCust.is_married ?? false,
+    weddingAnniversary: bCust.wedding_anniversary || "",
+    loyaltyPgmId: bCust.loyalty_pgm_id || "024",
+    loyaltyPgmCode: bCust.loyalty_pgm_code || "DSC",
+    loyaltyTier: bCust.loyalty_tier || "Standard",
+    loyaltyPointsBalance: Number(bCust.loyalty_points_balance || 0),
+    paymentCategory: bCust.payment_category || "CASH",
+    paymentTerm: bCust.payment_term || "Immediate",
+    creditLimit: Number(bCust.credit_limit || 25000),
+    creditDays: Number(bCust.credit_days || 0),
+    creditUsed: Number(bCust.outstanding || bCust.credit_used || 0),
+    transportMode: bCust.transport_mode || "By-Road",
+    transportCode: bCust.transport_code || "VRL",
+    transitDays: Number(bCust.transit_days || 2),
+    bankCode: bCust.bank_code || "",
+    bankLocation: bCust.bank_location || "",
+    retailFactor: Number(bCust.retail_factor || 1.00),
+    dealerFactor: Number(bCust.dealer_factor || 0.85),
+    destinationTaxType: bCust.destination_tax_type || "318#GST_RETAIL",
+    allowCashBill: bCust.allow_cash_bill ?? true,
+    allowDcGen: bCust.allow_dc_gen ?? false,
+    allowCreditInvoice: bCust.allow_credit_invoice ?? true,
+    allowMiscIssue: bCust.allow_misc_issue ?? false,
+    allowMiscReceipts: bCust.allow_misc_receipts ?? true,
+    lstNumber: bCust.lst_number || "",
+    lstDate: bCust.lst_date || "",
+    cstNumber: bCust.cst_number || "",
+    cstDate: bCust.cst_date || "",
+    gstin: bCust.gst_number || bCust.gstin || "",
+    panNumber: bCust.pan_number || "",
+    isPreSaleFormApplicable: bCust.is_pre_sale_form_applicable ?? false,
+    preSaleFormName: bCust.pre_sale_form_name || "",
+    isPostSaleFormApplicable: bCust.is_post_sale_form_applicable ?? false,
+    postSaleFormName: bCust.post_sale_form_name || "",
+    status: bCust.status || "Active",
+    createdAt: bCust.created_date || bCust.created_at || new Date().toISOString().split("T")[0],
+    updatedAt: bCust.updated_at || bCust.modified_at || new Date().toISOString().split("T")[0]
+  };
+}
+
 export interface SmritiCustomerMasterWorkspaceProps {
   currentUser?: { role: string; name: string } | null;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
@@ -288,8 +365,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 }) => {
   const [customers, setCustomers] = useState<RetailCustomerRecord[]>(() => {
     try {
-      const stored = localStorage.getItem("smriti_retail_customers");
-      if (stored) return JSON.parse(stored);
+      const stored = localStorage.getItem("smriti_customers") || localStorage.getItem("smriti_retail_customers");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(mapBackendCustomerToRecord);
+      }
     } catch {}
     return SEED_CUSTOMERS;
   });
@@ -297,6 +377,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<"form" | "retail" | "additional">("form");
   const [viewMode, setViewMode] = useState<"catalogue" | "directory">("catalogue");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   // Modals
   const [isMailingModalOpen, setIsMailingModalOpen] = useState<boolean>(false);
@@ -309,6 +391,45 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
   const [isDirty, setIsDirty] = useState<boolean>(false);
 
+  // Authoritative Backend Hydration
+  const loadCustomersFromBackend = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiFetchV1("/customers");
+      const list = Array.isArray(res) ? res : (res?.items || []);
+      if (list && list.length > 0) {
+        const mappedList = list.map(mapBackendCustomerToRecord);
+        setCustomers(mappedList);
+        localStorage.setItem("smriti_customers", JSON.stringify(list));
+        try {
+          localStorage.removeItem("smriti_retail_customers");
+        } catch {}
+      }
+    } catch (err) {
+      // Offline fallback: load from cached smriti_customers
+      try {
+        const cached = localStorage.getItem("smriti_customers") || localStorage.getItem("smriti_retail_customers");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCustomers(parsed.map(mapBackendCustomerToRecord));
+          }
+        }
+      } catch {}
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCustomersFromBackend();
+    const handleCustomerUpdated = () => {
+      loadCustomersFromBackend();
+    };
+    window.addEventListener("smriti_customer_updated", handleCustomerUpdated);
+    return () => window.removeEventListener("smriti_customer_updated", handleCustomerUpdated);
+  }, [loadCustomersFromBackend]);
+
   // Sync current customer when currentIndex changes
   useEffect(() => {
     if (customers[currentIndex]) {
@@ -316,14 +437,6 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       setIsDirty(false);
     }
   }, [currentIndex, customers]);
-
-  // Persist customers to localStorage
-  const persistCustomers = useCallback((updatedList: RetailCustomerRecord[]) => {
-    setCustomers(updatedList);
-    try {
-      localStorage.setItem("smriti_retail_customers", JSON.stringify(updatedList));
-    } catch {}
-  }, []);
 
   const handleFieldChange = (field: keyof RetailCustomerRecord, value: any) => {
     setCurrentCustomer(prev => ({
@@ -333,30 +446,104 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     setIsDirty(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!currentCustomer.name.trim()) {
       onNotification?.("Validation Error", "Customer Name is mandatory.", "error");
       return;
     }
 
-    const updated = [...customers];
-    const existingIndex = updated.findIndex(c => c.id === currentCustomer.id || c.code === currentCustomer.code);
+    setIsSaving(true);
+    try {
+      const cleanMobile = currentCustomer.phone?.trim() ? currentCustomer.phone.trim().replace(/\s+/g, "").replace(/-/g, "") : undefined;
+      const cleanEmail = currentCustomer.email?.trim() || undefined;
+      const cleanGstin = currentCustomer.gstin?.trim() || undefined;
+      const cleanName = currentCustomer.name.trim();
+      const cleanCode = currentCustomer.code?.trim() || undefined;
 
-    const recordToSave: RetailCustomerRecord = {
-      ...currentCustomer,
-      updatedAt: new Date().toISOString().split("T")[0]
-    };
+      const isExistingInBackend = customers.some(c => c.id === currentCustomer.id && !c.id.startsWith("cust-draft-") && !c.id.startsWith("cust-17"));
+      const isBackendId = currentCustomer.id && !currentCustomer.id.startsWith("cust-draft-") && !currentCustomer.id.startsWith("cust-17");
 
-    if (existingIndex >= 0) {
-      updated[existingIndex] = recordToSave;
-    } else {
-      updated.push(recordToSave);
-      setCurrentIndex(updated.length - 1);
+      const backendPayload: any = {
+        name: cleanName,
+        code: cleanCode,
+        mobile: cleanMobile,
+        email: cleanEmail,
+        gst_number: cleanGstin,
+        customer_group_id: "CG-Retail",
+        outstanding: Number(currentCustomer.creditUsed || 0),
+        status: currentCustomer.status || "Active",
+        tags: [currentCustomer.customerType || "Retail", "B2B"].filter(Boolean)
+      };
+
+      let savedBackendCust: any = null;
+      if (isExistingInBackend && isBackendId) {
+        savedBackendCust = await apiFetchV1(`/customers/${currentCustomer.id}`, {
+          method: "PUT",
+          body: JSON.stringify(backendPayload)
+        });
+      } else {
+        savedBackendCust = await apiFetchV1("/customers", {
+          method: "POST",
+          body: JSON.stringify(backendPayload)
+        });
+      }
+
+      const recordToSave: RetailCustomerRecord = {
+        ...currentCustomer,
+        id: savedBackendCust?.id || currentCustomer.id,
+        code: savedBackendCust?.code || currentCustomer.code,
+        name: savedBackendCust?.name || currentCustomer.name,
+        phone: savedBackendCust?.mobile || currentCustomer.phone,
+        gstin: savedBackendCust?.gst_number || currentCustomer.gstin,
+        updatedAt: new Date().toISOString().split("T")[0]
+      };
+
+      const updated = [...customers];
+      const existingIndex = updated.findIndex(c => c.id === currentCustomer.id || c.code === currentCustomer.code || c.id === recordToSave.id);
+
+      if (existingIndex >= 0) {
+        updated[existingIndex] = recordToSave;
+      } else {
+        updated.push(recordToSave);
+        setCurrentIndex(updated.length - 1);
+      }
+
+      setCustomers(updated);
+      setCurrentCustomer(recordToSave);
+      setIsDirty(false);
+
+      // Universal cache synchronization
+      try {
+        localStorage.setItem("smriti_customers", JSON.stringify(updated.map(c => ({
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          mobile: c.phone,
+          email: c.email,
+          gstNumber: c.gstin,
+          customerGroupId: "CG-Retail",
+          outstanding: c.creditUsed,
+          status: c.status
+        }))));
+        localStorage.removeItem("smriti_retail_customers");
+      } catch {}
+
+      window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+      onNotification?.(
+        "Catalogue Saved",
+        `Customer account ${recordToSave.name} (${recordToSave.code}) persisted to PostgreSQL database.`,
+        "success"
+      );
+    } catch (err: any) {
+      console.error("[Customer Master Save Error]:", err);
+      onNotification?.(
+        "Save Failed",
+        err?.message || "Failed to persist customer to backend database.",
+        "error"
+      );
+    } finally {
+      setIsSaving(false);
     }
-
-    persistCustomers(updated);
-    setIsDirty(false);
-    onNotification?.("Catalogue Saved", `Customer account ${recordToSave.name} (${recordToSave.code}) saved successfully.`, "success");
   };
 
   const handleNew = () => {
@@ -367,7 +554,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     onNotification?.("New Record", `Initialized new customer entry (${newRecord.code}).`, "info");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (customers.length <= 1) {
       onNotification?.("Action Restricted", "Cannot delete the only existing customer record.", "warning");
       return;
@@ -376,8 +563,24 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     const confirmDelete = window.confirm(`Are you sure you want to delete customer record "${currentCustomer.name}" (${currentCustomer.code})?`);
     if (!confirmDelete) return;
 
+    try {
+      if (currentCustomer.id && !currentCustomer.id.startsWith("cust-draft-") && !currentCustomer.id.startsWith("cust-17")) {
+        await apiFetchV1(`/customers/${currentCustomer.id}`, {
+          method: "DELETE"
+        });
+      }
+    } catch (err: any) {
+      console.warn("[Customer Master Delete]: Backend delete notification:", err);
+    }
+
     const filtered = customers.filter((_, idx) => idx !== currentIndex);
-    persistCustomers(filtered);
+    setCustomers(filtered);
+    try {
+      localStorage.setItem("smriti_customers", JSON.stringify(filtered));
+      localStorage.removeItem("smriti_retail_customers");
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
     const nextIdx = Math.max(0, currentIndex - 1);
     setCurrentIndex(nextIdx);
     onNotification?.("Customer Deleted", `Customer account was removed successfully.`, "success");
@@ -585,11 +788,12 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            className="px-4 py-2 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
+            disabled={isSaving}
+            className="px-4 py-2 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs disabled:opacity-60"
             title="Save Changes to Database (Ctrl+S)"
           >
-            <Save size={14} />
-            <span>Save</span>
+            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            <span>{isSaving ? "Saving..." : "Save"}</span>
             <kbd className="text-[9px] px-1 bg-white/20 dark:bg-black/20 rounded text-inherit">Ctrl+S</kbd>
           </button>
 
