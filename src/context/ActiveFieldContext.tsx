@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 7.0.0
+ * Version      : 7.1.0
  * Created      : 2026-08-21
  * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -48,20 +48,9 @@ export interface ActiveFieldContextState {
   fieldValue: string;
   element: HTMLElement | null;
   isInputFocused: boolean;
-  /** @deprecated F2Dispatcher (F2DispatcherContext) now owns modal state. Retained for backward compatibility. */
-  isF2ModalOpen: boolean;
   activeProductPreview: Product | null;
   activeCustomerPreview: Customer | null;
-  /** @deprecated Use F2Dispatcher.openLookup() instead. */
-  openF2Modal: (category?: ActiveFieldCategory, label?: string) => void;
-  /** @deprecated Use F2Dispatcher.closeLookup() instead. */
-  closeF2Modal: () => void;
   setManualCategory: (category: ActiveFieldCategory, label?: string) => void;
-  /**
-   * @deprecated Prototype-setter injection replaced by FieldAdapter pattern (F2 v2).
-   * This is now a no-op. Screens must use useF2Screen() + FieldAdapter.
-   */
-  insertValueIntoActiveField: (value: string | Record<string, unknown>) => void;
   setActiveProductPreview: (prod: Product | null) => void;
   setActiveCustomerPreview: (cust: Customer | null) => void;
 }
@@ -287,24 +276,10 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [fieldValue, setFieldValue] = useState<string>("");
   const [activeElement, setActiveElement] = useState<HTMLElement | null>(null);
   const [isInputFocused, setIsInputFocused] = useState<boolean>(false);
-  const [isF2ModalOpen, setIsF2ModalOpen] = useState<boolean>(false);
   const [activeProductPreview, setActiveProductPreview] = useState<Product | null>(null);
   const [activeCustomerPreview, setActiveCustomerPreview] = useState<Customer | null>(null);
 
   const lastFocusedInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
-
-  const openF2Modal = useCallback((cat?: ActiveFieldCategory, label?: string) => {
-    if (cat) setCategory(cat);
-    if (label) setFieldLabel(label);
-    setIsF2ModalOpen(true);
-  }, []);
-
-  const closeF2Modal = useCallback(() => {
-    setIsF2ModalOpen(false);
-    setTimeout(() => {
-      lastFocusedInputRef.current?.focus();
-    }, 50);
-  }, []);
 
   // Global DOM Focus and Input Tracking
   useEffect(() => {
@@ -381,21 +356,6 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (label) setFieldLabel(label);
   }, []);
 
-  /**
-   * @deprecated Prototype-setter value injection has been replaced by the
-   * FieldAdapter pattern in F2 Universal Lookup Architecture v2.
-   * This function is now a no-op. Screens should migrate to useF2Screen() + FieldAdapter.
-   * It is retained here only to prevent compile errors in legacy call sites
-   * during the Phase B screen migration period.
-   */
-  const insertValueIntoActiveField = useCallback((_value: string | Record<string, unknown>) => {
-    if (process.env.NODE_ENV === "development") {
-      console.warn(
-        "[ActiveFieldContext] insertValueIntoActiveField is deprecated and is now a no-op. " +
-        "Migrate to useF2Screen() + FieldAdapter (F2 Universal Lookup Architecture v2)."
-      );
-    }
-  }, []);
 
   return (
     <ActiveFieldContext.Provider
@@ -406,13 +366,9 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
         fieldValue,
         element: activeElement,
         isInputFocused,
-        isF2ModalOpen,
         activeProductPreview,
         activeCustomerPreview,
-        openF2Modal,
-        closeF2Modal,
         setManualCategory,
-        insertValueIntoActiveField,
         setActiveProductPreview,
         setActiveCustomerPreview
       }}
