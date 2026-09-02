@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.17.0
+  * Version    : 3.18.0
   * Created    : 2026-07-11
-  * Modified   : 2026-07-14
+  * Modified   : 2026-09-02
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-02 | v1.0.0 | **F2 Universal Lookup Architecture v2 — Phase A Infrastructure** | [Walkthrough](./foundation/F2_Universal_Lookup_Architecture_v2_Phase_A_v1.0.0.md) | — | Completed |
 | 2026-08-28 | v1.0.0 | Purchase Order Auto-Generation Engine | [Walkthrough](./procurement/Auto_PO_Engine_v1.0.0.md) | [Plan](../implementation/procurement/Auto_PO_Engine_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Employee Attendance & Commission Engine | [Walkthrough](./hr/Employee_Attendance_Engine_v1.0.0.md) | [Plan](../implementation/hr/Employee_Attendance_Engine_v1.0.0.md) | Completed |
 | 2026-08-28 | v1.0.0 | Sales Return & Exchange Engine | [Walkthrough](./pos/Sales_Return_Engine_v1.0.0.md) | [Plan](../implementation/pos/Sales_Return_Engine_v1.0.0.md) | Completed |
