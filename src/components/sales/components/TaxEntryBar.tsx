@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.10.0
+ * Version      : 4.10.1
  * Created      : 2026-08-24
- * Modified     : 2026-08-24
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -109,10 +109,11 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
         {/* Stock No */}
         <input
           ref={stockInputRef}
+          id="dist-entry-stockno"
           type="text"
           value={stockNo}
           data-field-key="item_code"
-          data-f2-browse="product"
+          data-f2-entity="variant"
           onChange={(e) => setStockNo(e.target.value)}
           onBlur={handleStockNoBlur}
           placeholder="Stock No/Barcode"

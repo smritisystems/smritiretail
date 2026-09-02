@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.10.0
+ * Version      : 4.10.1
  * Created      : 2026-08-24
- * Modified     : 2026-08-24
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -119,13 +119,19 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input
+                id="dist-customer-search"
+                name="customerSearch"
+                aria-label="Customer Search — F2 to browse, Enter to open search modal"
+                data-f2-entity="customer"
                 className="w-full border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 pl-9 pr-2 bg-surface-container-lowest text-on-surface"
                 placeholder="Search customer (F2)"
                 type="text"
                 value={docState.customerCode || ""}
                 onChange={(e) => onChange({ customerCode: e.target.value })}
                 onKeyDown={(e) => {
-                  if (e.key === "F2" || e.key === "Enter") {
+                  // F2 is handled by F2DispatcherProvider via data-f2-entity="customer".
+                  // Only Enter opens the manual search modal (non-F2 path preserved).
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     onCustomerSearchOpen();
                   }
