@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-02 | v1.0.0 | **Sales Invoice Server-Side Playwright PDF Pipeline Fix** — Provisioned Playwright Chromium headless engine and system runtime libraries in Docker container, unblocked binary PDF streaming (/pdf, /download, /reprint), harmonized artifact models, and forensic verified target invoice | [Walkthrough](./sales/Sales_Invoice_Playwright_PDF_Pipeline_v1.0.0.md) | — | Completed |
 | 2026-09-02 | v1.0.0 | **Customer Master Form Harmonization & B2B Billing Workflow** — Form select normalization, dynamic catalogue header, PostgreSQL multi-tenant database persistence, and 7-stage B2B credit billing end-to-end verification | [Walkthrough](./crm/Customer_Master_Form_Harmonization_And_B2B_Workflow_v1.0.0.md) | — | Completed |
 | 2026-09-02 | v1.0.0 | **F2 Universal Lookup Architecture v2 — Phase A Infrastructure** | [Walkthrough](./foundation/F2_Universal_Lookup_Architecture_v2_Phase_A_v1.0.0.md) | — | Completed |
 | 2026-09-02 | v1.0.0 | **F2 Universal Lookup Architecture v2 — Phase C: Screen Migration (TagLabelPrintingTa, CustMasterWs) + Legacy Decommission (GlobalF2BrowseDlg, ActiveFieldContext stubs)** — 59/59 tests pass, TSC 0 errors, 3526 modules built, 0 executable legacy symbol references | [Walkthrough](./foundation/F2_Universal_Lookup_Architecture_v2_Phase_C_v1.0.0.md) | — | Completed |

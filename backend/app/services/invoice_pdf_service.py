@@ -1130,15 +1130,19 @@ class InvoicePdfService:
                 headless=True,
                 args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
             )
-            page = await browser.new_page()
-            await page.set_content(html_content, wait_until="networkidle")
-
-            pdf_bytes = await page.pdf(
-                format="A4",
-                margin={"top": "8mm", "bottom": "10mm", "left": "12mm", "right": "6mm"},
-                print_background=True
-            )
-            await browser.close()
+            try:
+                page = await browser.new_page()
+                try:
+                    await page.set_content(html_content, wait_until="domcontentloaded")
+                    pdf_bytes = await page.pdf(
+                        format="A4",
+                        margin={"top": "8mm", "bottom": "10mm", "left": "12mm", "right": "6mm"},
+                        print_background=True
+                    )
+                finally:
+                    await page.close()
+            finally:
+                await browser.close()
 
         return pdf_bytes
 
@@ -1266,8 +1270,6 @@ class InvoicePdfService:
                 template_code="TAX_INVOICE_TATTLY_THREADS",
                 template_version="V1",
                 template_status="FROZEN",
-                artifact_subtype="CANONICAL",
-                source_type=getattr(invoice, "source_type", "HISTORICAL_IMPORT") or "HISTORICAL_IMPORT",
                 storage_path=storage_path,
                 sha256_hash=sha256_hex,
                 file_size=file_size,
