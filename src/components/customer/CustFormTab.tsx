@@ -103,6 +103,16 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                     const grp = priceGroups.find(p => p.code === code || `${p.code}#${p.description}` === code);
                     const val = grp ? `${grp.code}#${grp.description}` : code;
                     onChange("priceGroup", val);
+                    if (code === "CORP") {
+                      onChange("customerType", "Corporate");
+                      onChange("environment", "Corporate");
+                    } else if (code === "VIP") {
+                      onChange("customerType", "VIP");
+                      onChange("environment", "Retail");
+                    } else if (code === "CPP" || code === "RETAIL") {
+                      onChange("customerType", "Retail");
+                      onChange("environment", "Retail");
+                    }
                     if (grp) {
                       onChange("paymentTerm", grp.paymentTerms);
                       onChange("creditDays", grp.creditDays);
@@ -145,6 +155,16 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               selectedGroupCode={customer.priceGroup?.split("#")[0] || "CPP"}
               onSelectGroup={(grp) => {
                 onChange("priceGroup", `${grp.code}#${grp.description}`);
+                if (grp.code === "CORP") {
+                  onChange("customerType", "Corporate");
+                  onChange("environment", "Corporate");
+                } else if (grp.code === "VIP") {
+                  onChange("customerType", "VIP");
+                  onChange("environment", "Retail");
+                } else if (grp.code === "CPP" || gr.code === "RETAIL") {
+                  onChange("customerType", "Retail");
+                  onChange("environment", "Retail");
+                }
                 onChange("paymentTerm", grp.paymentTerms);
                 onChange("creditDays", grp.creditDays);
                 onChange("creditLimit", grp.creditLimit);
@@ -264,7 +284,22 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                   const val = e.target.value;
                   onChange("customerType", val);
                   if (val === "Corporate" || val === "Wholesale" || val === "Distribution") {
-                    onChange("environment", val);
+                    onChange("environment", "Corporate");
+                    if (val === "Corporate") {
+                      const corpGrp = priceGroups.find(p => p.code === "CORP");
+                      if (corpGrp) {
+                        onChange("priceGroup", `${corpGrp.code}#${corpGrp.description}`);
+                        onChange("paymentTerm", corpGrp.paymentTerms);
+                        onChange("creditDays", corpGrp.creditDays);
+                        onChange("creditLimit", corpGrp.creditLimit);
+                        onChange("destinationTaxType", corpGrp.destTaxType);
+                        onChange("allowCreditInvoice", corpGrp.allowCreditInvoice);
+                        onChange("allowCashBill", corpGrp.allowCashInvoice);
+                        onChange("allowMiscIssue", corpGrp.allowMiscIssue);
+                      }
+                    }
+                  } else {
+                    onChange("environment", "Retail");
                   }
                 }}
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold"

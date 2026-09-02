@@ -174,6 +174,7 @@ app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",     
 app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory",          tags=["Inventory"])
 app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/products",           tags=["Inventory"])
 app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory/products", tags=["Inventory"])
+app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/variants",           tags=["Variants"])
 app.include_router(inventory_reports.router, prefix=settings.API_V1_STR,                          tags=["Inventory Reports"])
 app.include_router(crm.router,          prefix=settings.API_V1_STR,           tags=["CRM"])
 app.include_router(crm.router,          prefix=settings.API_V1_STR + "/crm",  tags=["CRM"])
