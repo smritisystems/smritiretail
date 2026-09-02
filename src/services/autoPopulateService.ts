@@ -80,6 +80,16 @@ export interface AutoPopulateHsnResult {
 const searchCache = new Map<string, { timestamp: number; data: any }>();
 const CACHE_TTL_MS = 15000;
 
+export function clearCustomerSearchCache(): void {
+  searchCache.clear();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("smriti_customer_updated", () => {
+    clearCustomerSearchCache();
+  });
+}
+
 /**
  * Searches customers from backend in real-time as user types in any customer-related field.
  */

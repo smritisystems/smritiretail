@@ -20,7 +20,7 @@ import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
 import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
-import { getCustomers, saveCustomers, initialCustomers } from "../../services/customerStore.ts";
+import { getCustomers, saveCustomers } from "../../services/customerStore.ts";
 import { 
   searchBackendCustomers, 
   searchBackendProducts, 
@@ -156,10 +156,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   ]);
 
   // Customers State & Auto-Populate Search
+  // getCustomers() returns backend-seeded cache (populated by refreshCustomerCache on login).
+  // Empty array on cold start is correct — Billing search uses backend typeahead, not this list.
   const [customers, setCustomers] = useState<Customer[]>(() => {
     if (initialCustomersProp && initialCustomersProp.length > 0) return initialCustomersProp;
-    const local = getCustomers();
-    return (local && local.length > 0) ? local : initialCustomers;
+    return getCustomers(); // returns [] if cache not yet warm; backend typeahead still works
   });
   const [customerSearchInput, setCustomerSearchInput] = useState<string>("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
@@ -1038,7 +1039,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   };
 
   // Add Quick Customer
-  const handleCreateCustomer = () => {
+  const handleCreateCustomer = async () => {
     if (!newCustName.trim()) return;
     const newCust: Customer = {
       id: "CUST-" + Date.now().toString().slice(-4),
@@ -1050,6 +1051,25 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       outstanding: 0,
       createdDate: new Date().toISOString().split("T")[0]
     };
+    try {
+      const res = await apiFetchV1("/customers", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newCust.name,
+          mobile: newCust.mobile,
+          gst_number: newCust.gstNumber,
+          customer_group_id: newCust.customerGroupId,
+          status: newCust.status
+        })
+      });
+      if (res && res.id) {
+        newCust.id = res.id;
+        newCust.code = res.code || res.id;
+      }
+      window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+    } catch (e) {
+      console.warn("[Quick Customer] Backend persistence fallback to local:", e);
+    }
     setCustomers(prev => [newCust, ...prev]);
     handleSelectCustomer(newCust);
     setShowAddCustomerModal(false);

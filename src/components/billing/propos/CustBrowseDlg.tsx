@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -14,7 +14,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { ProPosCustomer } from "./types.ts";
-import { getCustomers, initialCustomers, saveCustomers, persistCustomerChange } from "../../../services/customerStore.ts";
+import { getCustomers, saveCustomers, persistCustomerChange } from "../../../services/customerStore.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { X, Search, UserPlus, Check } from "lucide-react";
 

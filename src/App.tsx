@@ -1189,8 +1189,10 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
+    // Boot-time hydration: populate localStorage["smriti_customers"] from PostgreSQL.
+    // This ensures all getCustomers() callers see live DB data, not stale seed data.
     import("./services/customerStore.js").then((m) => {
-      m.syncCustomersWithBackend();
+      m.refreshCustomerCache();
     });
   }, [currentUser]);
 
