@@ -70,7 +70,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
   // Load customer directory
   const loadCustomers = useCallback(async () => {
     try {
-      const res = await apiFetchV1("/customers");
+      const res = await apiFetchV1("/crm/customers");
       const list = Array.isArray(res) ? res : res?.items || [];
       setCustomersList(list);
     } catch {

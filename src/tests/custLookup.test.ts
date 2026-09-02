@@ -45,6 +45,42 @@ Object.defineProperty(globalThis, "localStorage", {
   writable: true
 });
 
+const listeners: Record<string, Function[]> = {};
+const mockWindow = {
+  addEventListener: vi.fn((event: string, cb: Function) => {
+    listeners[event] = listeners[event] || [];
+    listeners[event].push(cb);
+  }),
+  removeEventListener: vi.fn((event: string, cb: Function) => {
+    if (listeners[event]) {
+      listeners[event] = listeners[event].filter(fn => fn !== cb);
+    }
+  }),
+  dispatchEvent: vi.fn((event: any) => {
+    const list = listeners[event.type || event] || [];
+    list.forEach(fn => fn(event));
+    return true;
+  })
+};
+
+Object.defineProperty(globalThis, "window", {
+  value: mockWindow,
+  writable: true
+});
+
+class MockCustomEvent {
+  type: string;
+  detail: any;
+  constructor(type: string, opts?: any) {
+    this.type = type;
+    this.detail = opts?.detail;
+  }
+}
+Object.defineProperty(globalThis, "CustomEvent", {
+  value: MockCustomEvent,
+  writable: true
+});
+
 describe("SMRITI — Customer Lookup, Selection & Invoice Header Attachment Tests", () => {
   beforeEach(() => {
     mockLocalStorage.clear();

@@ -395,7 +395,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const loadCustomersFromBackend = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiFetchV1("/customers");
+      const res = await apiFetchV1("/crm/customers");
       const list = Array.isArray(res) ? res : (res?.items || []);
       if (list && list.length > 0) {
         const mappedList = list.map(mapBackendCustomerToRecord);
@@ -477,12 +477,12 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
       let savedBackendCust: any = null;
       if (isExistingInBackend && isBackendId) {
-        savedBackendCust = await apiFetchV1(`/customers/${currentCustomer.id}`, {
+        savedBackendCust = await apiFetchV1(`/crm/customers/${currentCustomer.id}`, {
           method: "PUT",
           body: JSON.stringify(backendPayload)
         });
       } else {
-        savedBackendCust = await apiFetchV1("/customers", {
+        savedBackendCust = await apiFetchV1("/crm/customers", {
           method: "POST",
           body: JSON.stringify(backendPayload)
         });
@@ -565,7 +565,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
     try {
       if (currentCustomer.id && !currentCustomer.id.startsWith("cust-draft-") && !currentCustomer.id.startsWith("cust-17")) {
-        await apiFetchV1(`/customers/${currentCustomer.id}`, {
+        await apiFetchV1(`/crm/customers/${currentCustomer.id}`, {
           method: "DELETE"
         });
       }

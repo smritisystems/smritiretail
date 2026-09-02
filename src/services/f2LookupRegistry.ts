@@ -160,7 +160,7 @@ export const LOOKUP_REGISTRY: Partial<Record<LookupEntity, LookupRegistryEntry>>
   customer: {
     contractVersion: "2.0.0",
     entity: "customer",
-    endpoint: "/customers",
+    endpoint: "/crm/customers",
     searchFields: ["code", "name", "phone", "mobile", "gstin", "membership_no"],
     defaultReturnField: "code",
     defaultDisplayField: "name",

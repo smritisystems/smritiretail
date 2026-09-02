@@ -1052,7 +1052,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       createdDate: new Date().toISOString().split("T")[0]
     };
     try {
-      const res = await apiFetchV1("/customers", {
+      const res = await apiFetchV1("/crm/customers", {
         method: "POST",
         body: JSON.stringify({
           name: newCust.name,

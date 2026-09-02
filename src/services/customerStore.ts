@@ -713,7 +713,7 @@ function formatCustomerForApi(c: Customer) {
 export async function persistCustomerChange(customer: Customer) {
   try {
     const payload = formatCustomerForApi(customer);
-    await apiFetchV1(`/customers/${customer.id}`, {
+    await apiFetchV1(`/crm/customers/${customer.id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     });
@@ -743,7 +743,7 @@ export async function syncPendingCustomers() {
   for (const cust of pending) {
     try {
       const payload = formatCustomerForApi(cust);
-      await apiFetchV1(`/customers/${cust.id}`, {
+      await apiFetchV1(`/crm/customers/${cust.id}`, {
         method: "PUT",
         body: JSON.stringify(payload)
       });
@@ -770,7 +770,7 @@ export async function refreshCustomerCache(): Promise<void> {
 
   // 2. Hydrate customer list from backend
   try {
-    const serverCustomers = await apiFetchV1("/customers");
+    const serverCustomers = await apiFetchV1("/crm/customers");
     if (Array.isArray(serverCustomers)) {
       localStorage.setItem("smriti_customers", JSON.stringify(serverCustomers));
       localStorage.removeItem("smriti_retail_customers");
@@ -784,7 +784,7 @@ export async function refreshCustomerCache(): Promise<void> {
 
   // 3. Hydrate customer groups from backend
   try {
-    const serverGroups = await apiFetchV1("/customer-groups");
+    const serverGroups = await apiFetchV1("/crm/customer-groups");
     if (Array.isArray(serverGroups) && serverGroups.length > 0) {
       localStorage.setItem("smriti_customer_groups", JSON.stringify(serverGroups));
     }
