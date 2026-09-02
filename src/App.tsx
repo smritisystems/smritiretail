@@ -1176,7 +1176,7 @@ const AppContent: React.FC = () => {
 
   const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
     setCurrentUser(user);
-    setCompanyContextResolved(false);
+    setCompanyContextResolved(Boolean(user.companyId && user.branchId));
   };
 
   const handleLogout = () => {
