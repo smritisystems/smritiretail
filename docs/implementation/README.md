@@ -159,6 +159,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 3 Pre-Flight: Transitional Column Retirement & Table Decoupling Audit](./inventory/Inventory_Gate11E_Phase3_Preflight_v1.0.0.md) | `/scripts/execute_gate11e_phase3_preflight_audit.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3_Preflight_v1.0.0.md) |
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 3A: Final Dead-Column Dependency Verification](./inventory/Inventory_Gate11E_Phase3A_Dead_Column_Verification_v1.0.0.md) | `/scripts/execute_gate11e_phase3a_verification.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3A_Dead_Column_Verification_v1.0.0.md) |
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 3A Execution: Dead-Column Retirement](./inventory/Inventory_Gate11E_Phase3A_Execution_v1.0.0.md) | `/scripts/execute_gate11e_phase3a_execution.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3A_Execution_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 3B Pre-Flight: Finite Legacy Dependency & Deprecation Audit](./inventory/Inventory_Gate11E_Phase3B_Preflight_v1.0.0.md) | `/scripts/execute_gate11e_phase3b_preflight_audit.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3B_Preflight_v1.0.0.md) |
+
 
 
 
