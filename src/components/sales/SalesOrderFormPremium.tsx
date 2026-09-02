@@ -9,9 +9,9 @@
  * Description  : Enterprise-grade Sales Order Form with premium UI/UX
  *                Professional design, smooth interactions, and working lookups
  * 
- * Version      : 3.30.0
+ * Version      : 3.31.0
  * Created      : 2026-08-31
- * Modified     : 2026-08-31
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -48,6 +48,8 @@ import { validateSalesTransaction } from "../../services/sales/transactionValida
 import { validateSalesOrderItems } from "../../utils/salesOrderValidation";
 import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel";
 import type { TransactionAttachment } from "../../domain/attachment";
+import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -1092,6 +1094,7 @@ const PremiumSalesOrderDetail: React.FC<{
                   >
                     <td className="px-2.5 py-2">
                       <input
+                        id="sofp-lineitem-stockno"
                         type="text"
                         value={item.stockNo}
                         onChange={(e) => handleItemChange(index, "stockNo", e.target.value)}
@@ -1106,7 +1109,7 @@ const PremiumSalesOrderDetail: React.FC<{
                         }}
                         placeholder="F2 or click"
                         data-field-key="stock_no"
-                        data-f2-browse="product"
+                        data-f2-entity="variant"
                         className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs font-mono bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       />
                     </td>
@@ -1353,6 +1356,51 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       };
     });
   }, []);
+
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase B Batch 2) ──
+  // Two variant lookup inputs in this screen:
+  //   sofp-lineitem-stockno   → active line-item in PremiumSalesOrderDetail
+  //   sofp-quickentry-stockno → quick-entry bar (setQuickEntry lives here in the parent)
+  // useF2Screen is placed in the parent so both setQuickEntry and handleItemsChange are in scope.
+  // document.activeElement?.id is read at the time the adapter fires to route to the correct field.
+  useF2Screen({
+    screenId: "SalesOrderFormPremium",
+    defaultEntity: "variant",
+    adapter: (result: LookupResult) => {
+      if (result.entity !== "variant" && result.entity !== "item" && result.entity !== "item_barcode") {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[SalesOrderFormPremium][F2] FieldAdapter: unhandled entity:", result.entity);
+        }
+        return;
+      }
+      const stockVal = (result.record?.stock_no as string) || result.returnValue || "";
+      const nameVal  = result.displayValue || (result.record?.name as string) || "";
+      const rateVal  = (result.record?.selling_price as number)
+                    || (result.record?.mrp as number)
+                    || (result.record?.price as number) || 0;
+      // Route by the originating element id stored in originElementRef by F2Dispatcher.
+      // document.activeElement is already restored to the origin element at this point.
+      const originId = (document.activeElement as HTMLElement | null)?.id ?? "";
+      if (originId === "sofp-quickentry-stockno") {
+        setQuickEntry((prev) => ({ ...prev, stockNo: stockVal, description: nameVal, rate: String(rateVal) }));
+      } else {
+        // Line-item row: update via handleItemsChange (shallow clone of current items).
+        setFormData((prev) => {
+          const updated = [...(prev.items ?? [])];
+          const idx = updated.findIndex((_, i) =>
+            document.getElementById("sofp-lineitem-stockno") !== null ? i === (prev.items?.length ?? 1) - 1 : i === 0
+          );
+          const safeIdx = idx >= 0 ? idx : 0;
+          if (updated[safeIdx]) {
+            (updated[safeIdx] as unknown as Record<string, unknown>)["stockNo"]     = stockVal;
+            (updated[safeIdx] as unknown as Record<string, unknown>)["description"] = nameVal;
+            (updated[safeIdx] as unknown as Record<string, unknown>)["rate"]        = rateVal;
+          }
+          return { ...prev, items: updated };
+        });
+      }
+    }
+  });
 
   const handleImport = useCallback((importedData: Partial<SalesOrderFormData>) => {
     setFormData((prev) => ({
@@ -1628,10 +1676,11 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                 </div>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-7">
                   <input
+                    id="sofp-quickentry-stockno"
                     type="text"
                     value={quickEntry.stockNo}
                     data-field-key="stock_no"
-                    data-f2-browse="product"
+                    data-f2-entity="variant"
                     onChange={(e) => setQuickEntry((prev) => ({ ...prev, stockNo: e.target.value }))}
                     onBlur={() => void handleQuickEntryLookup(quickEntry.stockNo)}
                     onKeyDown={(e) => {

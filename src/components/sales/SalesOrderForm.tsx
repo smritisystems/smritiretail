@@ -9,9 +9,9 @@
  * Description  : Complete Sales Order Form with Header, Detail, and Footer sections
  *                based on distributor-style sales order processing
  * 
- * Version      : 3.30.0
+ * Version      : 3.31.0
  * Created      : 2026-08-31
- * Modified     : 2026-08-31
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -38,6 +38,8 @@ import { apiFetchV1 } from "../../lib/apiFetchV1";
 import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
 import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
 import { validateSalesOrderItems } from "../../utils/salesOrderValidation";
+import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -367,6 +369,30 @@ const SalesOrderDetail: React.FC<{
   const [directEntryMode, setDirectEntryMode] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
 
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase B Batch 2) ──
+  // F2 on the stockNo cell resolves to entity=variant via Tier-1 data-f2-entity attribute.
+  // FieldAdapter updates the currently selected row (selectedItemIndex).
+  useF2Screen({
+    screenId: "SalesOrderForm",
+    defaultEntity: "variant",
+    adapter: (result: LookupResult) => {
+      if (result.entity !== "variant" && result.entity !== "item" && result.entity !== "item_barcode") {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[SalesOrderForm][F2] FieldAdapter: unhandled entity:", result.entity);
+        }
+        return;
+      }
+      const idx = selectedItemIndex ?? 0;
+      handleItemChange(idx, "stockNo",     (result.record?.stock_no as string) || result.returnValue || "");
+      handleItemChange(idx, "description", result.displayValue || (result.record?.name as string) || "");
+      handleItemChange(idx, "rate",
+        (result.record?.selling_price as number)
+        || (result.record?.mrp as number)
+        || (result.record?.price as number) || 0
+      );
+    }
+  });
+
   const handleAddItem = () => {
     const newItem: SalesOrderItem = {
       id: `item-${Date.now()}`,
@@ -474,10 +500,12 @@ const SalesOrderDetail: React.FC<{
               >
                 <td className="px-4 py-3">
                   <input
+                    id="sof-lineitem-stockno"
                     type="text"
                     value={item.stockNo}
                     data-field-key="item_code"
-                    data-f2-browse="product"
+                    data-f2-entity="variant"
+                    onFocus={() => setSelectedItemIndex(index)}
                     onChange={(e) => handleItemChange(index, "stockNo", e.target.value)}
                     placeholder="F2"
                     className="w-full px-2 py-1 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-blue-400"
