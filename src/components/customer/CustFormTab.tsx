@@ -96,12 +96,13 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               </div>
               <div className="flex gap-1.5">
                 <select
-                  value={customer.priceGroup}
+                  value={customer.priceGroup?.split("#")[0] || customer.priceGroup}
+                  data-field-key="customer_price_group"
                   onChange={e => {
-                    const val = e.target.value;
+                    const code = e.target.value;
+                    const grp = priceGroups.find(p => p.code === code || `${p.code}#${p.description}` === code);
+                    const val = grp ? `${grp.code}#${grp.description}` : code;
                     onChange("priceGroup", val);
-                    const code = val.split("#")[0];
-                    const grp = priceGroups.find(p => p.code === code);
                     if (grp) {
                       onChange("paymentTerm", grp.paymentTerms);
                       onChange("creditDays", grp.creditDays);
@@ -114,17 +115,16 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                   }}
                   className="flex-1 p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold outline-none focus:border-[#00355f]"
                 >
-                  {priceGroups.map(pg => {
-                    const val = `${pg.code}#${pg.description}`;
-                    return (
-                      <option key={pg.code} value={val}>
-                        {pg.code} - {pg.description} ({pg.paymentTerms}, {pg.creditDays} Days)
-                      </option>
-                    );
-                  })}
+                  {priceGroups.map(pg => (
+                    <option key={pg.code} value={pg.code}>
+                      {pg.code} - {pg.description} ({pg.paymentTerms}, {pg.creditDays} Days)
+                    </option>
+                  ))}
                   {/* Fallback legacy option */}
-                  {!priceGroups.some(pg => `${pg.code}#${pg.description}` === customer.priceGroup) && customer.priceGroup && (
-                    <option value={customer.priceGroup}>{customer.priceGroup}</option>
+                  {!priceGroups.some(pg => pg.code === (customer.priceGroup?.split("#")[0] || customer.priceGroup)) && customer.priceGroup && (
+                    <option value={customer.priceGroup?.split("#")[0] || customer.priceGroup}>
+                      {customer.priceGroup}
+                    </option>
                   )}
                 </select>
                 <button
@@ -259,12 +259,19 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               </label>
               <select
                 value={customer.customerType}
-                onChange={e => onChange("customerType", e.target.value)}
+                data-field-key="customer_type"
+                onChange={e => {
+                  const val = e.target.value;
+                  onChange("customerType", val);
+                  if (val === "Corporate" || val === "Wholesale" || val === "Distribution") {
+                    onChange("environment", val);
+                  }
+                }}
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold"
               >
                 <option value="Retail">Retail Shopper</option>
-                <option value="VIP">VIP Privilege Account</option>
                 <option value="Corporate">Corporate / B2B</option>
+                <option value="VIP">VIP Privilege Account</option>
                 <option value="Wholesale">Wholesale Trader</option>
                 <option value="Walk-In">Walk-In Occasional</option>
               </select>
@@ -314,12 +321,15 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             </label>
             <select
               value={customer.environment}
+              data-field-key="customer_environment"
               onChange={e => onChange("environment", e.target.value)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold"
             >
               <option value="Retail">Retail</option>
+              <option value="Corporate">Corporate</option>
               <option value="Distribution">Distribution</option>
               <option value="Warehouse">Warehouse</option>
+              <option value="Wholesale">Wholesale</option>
             </select>
           </div>
 

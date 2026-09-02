@@ -273,11 +273,11 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     throw new Error(typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg);
   }
 
-  if (response.status === 204 || response.headers.get("content-length") === "0") {
+  if (response.status === 204 || response.headers?.get?.("content-length") === "0") {
     return null as unknown as T;
   }
 
-  const contentType = response.headers.get("content-type") || "";
+  const contentType = response.headers?.get?.("content-type") || "";
   if (contentType.includes("text/plain")) {
     return (await response.text()) as unknown as T;
   }
