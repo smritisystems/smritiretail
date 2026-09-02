@@ -55,9 +55,14 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 }
 
 // ==========================================
-// DYNAMIC GST 2.0 PRICE-TIER TAX ENGINE
+// DYNAMIC GST 2.0 PRICE-TIER TAX ENGINE (LEGACY)
 // ==========================================
 
+/**
+ * @deprecated Legacy tax tier calculation. Statutory GST calculations (CGST/SGST/IGST, 
+ *             taxable value, and GSTIN state resolution) are canonically handled by 
+ *             `src/utils/gstEngine.ts` (`calculateGST`).
+ */
 export function calculateItemGstRate(category: string, price: number, defaultRate?: number): number {
   const cat = (category || "").trim().toLowerCase();
   if (cat === "apparel" || cat === "footwear" || cat === "clothing") {

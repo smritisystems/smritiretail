@@ -538,7 +538,7 @@ export const GLOBAL_FIELD_LOOKUP_RULES: GlobalFieldLookupRule[] = [
   },
   {
     lookupGroup: "customer",
-    endpoint: "/customers",
+    endpoint: "/crm/customers",
     searchFields: ["customer_name", "customer_mobile", "customer_code", "customer_gstin"],
     insertValueKeys: ["customer_name", "customer_mobile", "customer_code", "id"],
     suggestOnF2: true,

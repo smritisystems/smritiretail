@@ -2191,7 +2191,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         };
 
                         try {
-                          const data = await apiFetchV1("/customers/validate-add", {
+                          const data = await apiFetchV1("/crm/customers/validate-add", {
                             method: "POST",
                             body: JSON.stringify({
                               customer: payload,
