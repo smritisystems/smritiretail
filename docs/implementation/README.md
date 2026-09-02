@@ -152,6 +152,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-09-02 | v1.0.0 | [Gate 11D.1: Legacy Dependency Closure & Gate 11E Prerequisite Audit](./inventory/Inventory_Gate11D1_Legacy_Dependency_Closure_v1.0.0.md) | `/scripts/execute_gate11d1_dependency_closure_audit.py`, `/docs/walkthrough/inventory/Inventory_Gate11D1_Legacy_Dependency_Closure_v1.0.0.md` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11D1_Legacy_Dependency_Closure_v1.0.0.md) |
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 1: Preflight & Change-Safety Checkpoint](./inventory/Inventory_Gate11E_Phase1_Preflight_v1.0.0.md) | `/backend/app/db/gate11e_phase1_migration_manifest.json`, `/scripts/execute_gate11e_phase1_preflight.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase1_Preflight_v1.0.0.md) |
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 2A: Canonical Backfill & Semantic Resolution](./inventory/Inventory_Gate11E_Phase2A_Canonical_Backfill_v1.0.0.md) | `/scripts/audit_phase2a_row_mappings.py`, `/scripts/execute_gate11e_phase2a_backfill.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2A_Canonical_Backfill_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 2B-1: Legacy Foreign Key Removal](./inventory/Inventory_Gate11E_Phase2B1_FK_Removal_v1.0.0.md) | `/scripts/execute_gate11e_phase2b1_fk_removal.py`, `/scripts/check_remaining_fks.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2B1_FK_Removal_v1.0.0.md) |
+
 
 
 
