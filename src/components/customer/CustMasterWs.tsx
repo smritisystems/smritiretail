@@ -454,8 +454,9 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
     setIsSaving(true);
     try {
-      const cleanMobile = currentCustomer.phone?.trim() ? currentCustomer.phone.trim().replace(/\s+/g, "").replace(/-/g, "") : undefined;
-      const cleanEmail = currentCustomer.email?.trim() || undefined;
+      const primaryMobile = currentCustomer.phone?.trim() || currentCustomer.mailingAddresses?.[0]?.mobilePhone?.trim();
+      const cleanMobile = primaryMobile ? primaryMobile.replace(/\s+/g, "").replace(/-/g, "") : undefined;
+      const cleanEmail = currentCustomer.email?.trim() || currentCustomer.mailingAddresses?.[0]?.email1?.trim() || undefined;
       const cleanGstin = currentCustomer.gstin?.trim() || undefined;
       const cleanName = currentCustomer.name.trim();
       const cleanCode = currentCustomer.code?.trim() || undefined;
@@ -463,13 +464,15 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       const isExistingInBackend = customers.some(c => c.id === currentCustomer.id && !c.id.startsWith("cust-draft-") && !c.id.startsWith("cust-17"));
       const isBackendId = currentCustomer.id && !currentCustomer.id.startsWith("cust-draft-") && !currentCustomer.id.startsWith("cust-17");
 
+      const grpId = currentCustomer.customerType === "Corporate" || currentCustomer.customerType === "Wholesale" ? "CG-Corporate" : (currentCustomer.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail");
+
       const backendPayload: any = {
         name: cleanName,
         code: cleanCode,
         mobile: cleanMobile,
         email: cleanEmail,
         gst_number: cleanGstin,
-        customer_group_id: "CG-Retail",
+        customer_group_id: grpId,
         outstanding: Number(currentCustomer.creditUsed || 0),
         status: currentCustomer.status || "Active",
         tags: [currentCustomer.customerType || "Retail", "B2B"].filter(Boolean)
@@ -701,10 +704,10 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-bold text-[#191c1e] dark:text-white uppercase tracking-wider">
-                Customer Catalogue (Retail)
+                Customer Catalogue ({currentCustomer.customerType || currentCustomer.environment || "Retail"})
               </h1>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d0e1fb] dark:bg-[#0f4c81] text-[#00355f] dark:text-[#8ebdf9]">
-                Environment: {currentCustomer.environment}
+                Environment: {currentCustomer.environment || "Retail"}
               </span>
               {isDirty && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] animate-pulse">
@@ -752,6 +755,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           <button
             type="button"
             onClick={handleNew}
+            data-testid="new-customer-btn"
             className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
             title="Create New Customer Record (Alt+N)"
           >
@@ -764,6 +768,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           <button
             type="button"
             onClick={() => setIsSearchModalOpen(true)}
+            data-testid="search-customer-btn"
             className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
             title="Advanced Customer Search (F2 / Alt+S)"
           >
@@ -789,6 +794,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
+            data-testid="save-customer-btn"
             className="px-4 py-2 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs disabled:opacity-60"
             title="Save Changes to Database (Ctrl+S)"
           >
