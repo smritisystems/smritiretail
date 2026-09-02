@@ -4,16 +4,18 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.8.0
+ * Version      : 6.9.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  * Source Module: SMRITI Enterprise Barcode Label Studio & Printer Engine
  */
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useF2Screen, useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import { Product } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import {
@@ -232,15 +234,47 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     checkQzStatus();
   }, []);
 
-  // Keyboard Shortcuts Listener
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase C Batch 1) ──
+  // F2 pressed when stockNoFrom or stockNoTo has focus → entity=variant (Tier 1 data-f2-entity).
+  // The FieldAdapter uses dispatcher.originElementRef.current.id to deterministically
+  // route the selected variant code into the correct criterion field.
+  // PurchBrowseDlg button triggers (lines with setIsF2BrowseModalOpen) are preserved as
+  // domain-specific openers; they are NOT replaced by Universal Lookup.
+  const dispatcher = useF2Dispatcher();
+
+  const tagF2Adapter = useCallback((result: LookupResult) => {
+    if (result.entity !== "variant" && result.entity !== "item" && result.entity !== "item_barcode") {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[TagLabelPrintingTab][F2] FieldAdapter: unhandled entity:", result.entity);
+      }
+      return;
+    }
+    const stockVal = (result.record?.stock_no as string)
+      || (result.record?.code as string)
+      || result.returnValue
+      || "";
+    // Deterministic routing: read the id of the element focused when F2 was pressed.
+    // dispatcher.originElementRef.current is captured at F2-keydown time, before the
+    // modal opens — it is never document.activeElement at selection time.
+    const originId = dispatcher.originElementRef.current?.id ?? "";
+    if (originId === "tag-stock-no-to") {
+      setItemCriteria(prev => ({ ...prev, stockNoTo: stockVal }));
+    } else {
+      // Defaults to stockNoFrom for any other origin (including tag-stock-no-from)
+      setItemCriteria(prev => ({ ...prev, stockNoFrom: stockVal }));
+    }
+  }, [dispatcher.originElementRef]);
+
+  useF2Screen({
+    screenId: "TagLabelPrintingTab",
+    defaultEntity: "variant",
+    adapter: tagF2Adapter,
+  });
+
+  // Keyboard Shortcuts Listener — F2 removed: now handled exclusively by F2DispatcherProvider.
+  // F2 is a platform protocol; this screen registers via useF2Screen() above.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F2 -> Product Browse
-      if (e.key === "F2") {
-        e.preventDefault();
-        setF2BrowseTarget("stockNoFrom");
-        setIsF2BrowseModalOpen(true);
-      }
       // F11 -> Edit Quantities Modal
       if (e.key === "F11") {
         e.preventDefault();
@@ -1470,6 +1504,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                       </span>
                     </div>
                     <input
+                      id="tag-stock-no-from"
+                      data-f2-entity="variant"
                       type="text"
                       value={itemCriteria.stockNoFrom}
                       onChange={e => setItemCriteria({ ...itemCriteria, stockNoFrom: e.target.value })}
@@ -1489,6 +1525,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                       </span>
                     </div>
                     <input
+                      id="tag-stock-no-to"
+                      data-f2-entity="variant"
                       type="text"
                       value={itemCriteria.stockNoTo}
                       onChange={e => setItemCriteria({ ...itemCriteria, stockNoTo: e.target.value })}

@@ -4,15 +4,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.5.0
+ * Version      : 5.6.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useF2Screen, useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import { 
   Users, 
   Plus, 
@@ -404,7 +406,47 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     { key: "status", label: "Status", datatype: "text", width: 10 },
   ], []);
 
-  // Keyboard Shortcuts Listener
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase C Batch 1) ──
+  // F2 pressed anywhere on this screen → entity=customer (Tier 3 screen default).
+  // SmritiAdvancedCustomerSearchModal continues to be opened by Alt+S and UI buttons —
+  // it is a domain-specific modal and is NOT replaced by Universal Lookup.
+  // Adapter resolves by canonical id/code identity (same as SmritiAdvancedCustomerSearchModal
+  // onSelectCustomer handler at JSX line ~757) — never by positional array index.
+  const dispatcher = useF2Dispatcher();
+
+  const custF2Adapter = useCallback((result: LookupResult) => {
+    if (result.entity !== "customer") {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[CustMasterWs][F2] FieldAdapter: unhandled entity:", result.entity);
+      }
+      return;
+    }
+    // Canonical identity resolution: match on id first, then code.
+    // result.id is the Postgres UUID; result.record.code is the human-readable customer code.
+    const lookupId   = result.id || (result.record?.id as string) || "";
+    const lookupCode = (result.record?.code as string) || result.returnValue || "";
+    const idx = customers.findIndex(
+      c => (lookupId && c.id === lookupId) || (lookupCode && c.code === lookupCode)
+    );
+    if (idx >= 0) {
+      setCurrentIndex(idx);
+      onNotification?.(
+        "Customer Loaded",
+        `Loaded catalogue record for ${customers[idx].name} (${customers[idx].code}).`,
+        "info"
+      );
+    }
+  }, [customers, onNotification]);
+
+  useF2Screen({
+    screenId: "CustMasterWs",
+    defaultEntity: "customer",
+    adapter: custF2Adapter,
+  });
+
+  // Keyboard Shortcuts Listener — F2 removed: now handled exclusively by F2DispatcherProvider.
+  // F2 is a platform protocol; this screen registers via useF2Screen() above.
+  // Alt+S continues to open SmritiAdvancedCustomerSearchModal (domain-specific, not Universal Lookup).
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -417,7 +459,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       if (e.ctrlKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         handleSave();
-      } else if (e.key === "F2" || (e.altKey && e.key.toLowerCase() === "s")) {
+      } else if (e.altKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         setIsSearchModalOpen(true);
       } else if (e.altKey && e.key.toLowerCase() === "n") {
