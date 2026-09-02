@@ -172,8 +172,38 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
         />
       )}
 
-      {/* View/Edit View */}
+      {/* View / Audit View */}
       {viewMode === "view" && selectedOrder && (
+        <SalesOrderFormPremium
+          initialData={{
+            docNumber: selectedOrder.order_number,
+            customerName: selectedOrder.customer_name,
+            customerCode: selectedOrder.customer_code,
+            docDate: selectedOrder.date,
+            orderStatus: selectedOrder.status,
+            deliveryTerms: selectedOrder.delivery_terms || "Door Delivery",
+            paymentTerms: selectedOrder.payment_terms || "Net 30",
+            remarks: selectedOrder.remarks || "",
+            items: selectedOrder.items?.map((item: any) => ({
+              id: item.id || `${selectedOrder.order_number}-${item.product_id}`,
+              stockNo: item.stock_no || item.code || item.product_id,
+              description: item.description || item.name || "Item",
+              rate: Number(item.rate ?? item.price ?? 0),
+              quantity: Number(item.quantity ?? 1),
+              value: Number(item.value ?? item.total_amount ?? 0),
+              discPercent: Number(item.disc_percent ?? 0),
+              discAmount: Number(item.disc_amount ?? 0),
+              taxPercent: Number(item.tax_percent ?? 18),
+              taxAmount: Number(item.tax_amount ?? 0),
+              total: Number(item.total ?? item.total_amount ?? 0),
+            })) || [],
+          }}
+          onCancel={() => setViewMode("list")}
+          readOnly={true}
+        />
+      )}
+
+      {false && viewMode === "view" && selectedOrder && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-6">
