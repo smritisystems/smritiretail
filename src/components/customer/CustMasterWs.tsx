@@ -60,7 +60,7 @@ const DEFAULT_MAILING_ADDRESS: CustomerAddressEntry = {
   country: "India",
   officePhone: "080-26654321",
   homePhone: "",
-  mobilePhone: "9876543210",
+  mobilePhone: "",
   faxNumber: "",
   email1: "customer@domain.com",
   email2: "",
@@ -279,22 +279,54 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
   updatedAt: new Date().toISOString().split("T")[0]
 });
 
-function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
+export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
+  // Classification derivation from canonical backend fields
+  const grpId = bCust.customer_group_id || bCust.customerGroupId || "";
+  const tagList = Array.isArray(bCust.tags) ? bCust.tags : [];
+  const isCorp = grpId === "CG-Corporate" || tagList.includes("Corporate") || tagList.includes("B2B");
+  const isVIP = grpId === "CG-LargeRetail" || tagList.includes("VIP");
+  const isWholesale = grpId === "CG-Wholesale" || tagList.includes("Wholesale");
+  const isDist = grpId === "CG-Distribution" || tagList.includes("Distribution");
+
+  // Determine customerType: respect explicit backend value if provided, else derive
+  const derivedCustomerType = bCust.customer_type || bCust.customerType || (
+    isCorp ? "Corporate" :
+    isVIP ? "VIP" :
+    isWholesale ? "Wholesale" :
+    isDist ? "Distribution" :
+    "Retail"
+  );
+
+  // Determine environment: respect explicit backend value if provided, else derive from type
+  const derivedEnvironment = bCust.environment || (
+    derivedCustomerType === "Corporate" || derivedCustomerType === "Wholesale" || derivedCustomerType === "Distribution"
+      ? "Corporate"
+      : "Retail"
+  );
+
+  // Determine priceGroup: respect explicit backend value if provided, else derive
+  const derivedPriceGroup = bCust.price_group || bCust.priceGroup || (
+    isCorp ? "CORP#Standard Corporate" :
+    isVIP ? "VIP#Platinum Retail" :
+    isWholesale ? "TI#Tech Infotech Ltd" :
+    "TI#Tech Infotech Ltd"
+  );
+
   return {
     id: bCust.id || `cust-${Date.now()}`,
     code: bCust.code || bCust.id || "CUST-001",
     name: bCust.name || "",
-    priceGroup: bCust.price_group || bCust.priceGroup || "TI#Tech Infotech Ltd",
+    priceGroup: derivedPriceGroup,
     phone: bCust.mobile || bCust.phone || "",
     email: bCust.email || "",
     religion: bCust.religion || "Muslim",
     ethnicity: bCust.ethnicity || "Asian",
     ageGroup: bCust.age_group || bCust.ageGroup || ">=20 - <35",
     profession: bCust.profession || "",
-    customerType: bCust.customer_type || bCust.customerType || (Array.isArray(bCust.tags) && bCust.tags.includes("Corporate") ? "Corporate" : "Retail"),
+    customerType: derivedCustomerType,
     profileNotes: bCust.profile_notes || bCust.profileNotes || "",
     companyCode: bCust.company_code || bCust.companyCode || "001",
-    environment: bCust.environment || "Retail",
+    environment: derivedEnvironment,
     flatFileFormat: bCust.flat_file_format || bCust.flatFileFormat || "GUI with Delimiter Format",
     isTaxInclusive: bCust.is_tax_inclusive ?? true,
     delimiter: bCust.delimiter || ";",
@@ -517,6 +549,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
       // Universal cache synchronization
       try {
+        const grpIdToSave = recordToSave.customerType === "Corporate" || recordToSave.customerType === "Wholesale" ? "CG-Corporate" : (recordToSave.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail");
         localStorage.setItem("smriti_customers", JSON.stringify(updated.map(c => ({
           id: c.id,
           code: c.code,
@@ -524,9 +557,16 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           mobile: c.phone,
           email: c.email,
           gstNumber: c.gstin,
-          customerGroupId: "CG-Retail",
+          customer_group_id: c.customerType === "Corporate" || c.customerType === "Wholesale" ? "CG-Corporate" : (c.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail"),
+          customerGroupId: c.customerType === "Corporate" || c.customerType === "Wholesale" ? "CG-Corporate" : (c.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail"),
           outstanding: c.creditUsed,
-          status: c.status
+          status: c.status,
+          tags: [c.customerType || "Retail", "B2B"],
+          customer_type: c.customerType,
+          customerType: c.customerType,
+          environment: c.environment,
+          price_group: c.priceGroup,
+          priceGroup: c.priceGroup
         }))));
         localStorage.removeItem("smriti_retail_customers");
       } catch {}
@@ -539,9 +579,13 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       );
     } catch (err: any) {
       console.error("[Customer Master Save Error]:", err);
+      let errMsg = err?.message || "Failed to persist customer to backend database.";
+      if (typeof errMsg === "string" && errMsg.toLowerCase().includes("mobile number already exists")) {
+        errMsg = "A customer with this mobile number is already registered in the system. Please provide a distinct mobile number or update the existing customer profile.";
+      }
       onNotification?.(
         "Save Failed",
-        err?.message || "Failed to persist customer to backend database.",
+        errMsg,
         "error"
       );
     } finally {

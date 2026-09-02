@@ -45,6 +45,13 @@ router = APIRouter()
 
 
 @router.post(
+    "",
+    response_model=ProductResponse,
+    status_code=201,
+    dependencies=[Depends(require_permission("item_master", "ADD"))],
+    include_in_schema=False,
+)
+@router.post(
     "/",
     response_model=ProductResponse,
     status_code=201,
@@ -60,10 +67,11 @@ async def create_product(
     return await service.create_product(product_in)
 
 
+@router.get("", response_model=PaginatedResponse[ProductResponse], include_in_schema=False)
 @router.get("/", response_model=PaginatedResponse[ProductResponse])
 async def list_products(
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
+    page_size: int = Query(25, ge=1, le=500),
     q: str | None = Query(None),
     category: str | None = Query(None),
     sort: str = Query("name"),
