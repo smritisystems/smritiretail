@@ -333,3 +333,4 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 
 
+| 2026-09-02 | customer | P0 Fix: Customer Master B2B Re-hydration + API Routing Blockers v3.30.0 — Fixed mapBackendCustomerToRecord() to derive environment deterministically from customer_group_id and tags, cleared dummy mobile, added HREP error translation, fixed 307 ERR_NAME_NOT_RESOLVED on /products, fixed 404 on /variants. All 617 Vitest tests green, headless UAT 8/8 pass. | [Customer_B2B_Rehydration_Fix_v3.30.0.md](./customer/Customer_B2B_Rehydration_Fix_v3.30.0.md) | [Plan](../implementation/customer/Customer_B2B_Rehydration_Fix_Plan_v3.30.0.md) | Done |

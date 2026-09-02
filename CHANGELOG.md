@@ -28,6 +28,34 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.30.0] - 2026-09-02
+
+#### P0 Fix: Customer Master B2B Re-hydration + API Routing Blockers
+
+**Commit:** `6aac3be8`
+
+**Bug Fixes**
+- **CustMasterWs.tsx** (v5.6.0 → v5.7.0): `mapBackendCustomerToRecord()` — replaced `environment: bCust.environment || "Retail"` fallback with deterministic derivation from `customer_group_id` and `tags`. Eliminates B2B → Retail regression on every PostgreSQL round-trip re-hydration.
+- **CustMasterWs.tsx**: Cleared hardcoded `DEFAULT_MAILING_ADDRESS.mobilePhone: "9876543210"` to empty string. Prevents 400 Bad Request duplicate mobile errors on new customer records.
+- **CustMasterWs.tsx**: Added HREP-compliant human-readable error translation for duplicate mobile number backend rejections.
+- **CustMasterWs.tsx**: Synchronised `customer_group_id`, `tags`, `customerType`, `environment`, `price_group`, and `priceGroup` in localStorage cache on every save, preventing stale Retail classification after page reload.
+- **CustFormTab.tsx** (v3.0.0 → v3.1.0): Bidirectional Price Group ↔ Customer Type cascade. Selecting CORP price group auto-sets Corporate type + environment. Selecting Corporate customer type auto-applies CORP price group fields.
+- **inventory.py**: Added `@router.get("")` and `@router.post("")` empty-path decorators alongside `"/"` variants. Raised `page_size` max limit from 100 to 500. Eliminates 307 temporary redirect to internal Docker hostname (`smriti-api:8000`) causing `net::ERR_NAME_NOT_RESOLVED`.
+- **main.py**: Mounted `inventory.router` at `/api/v1/variants` prefix. Resolves 404 Not Found on `GET /api/v1/variants?page_size=200` used by Gate-11E F2 universal browse.
+
+**Tests**
+- Added `src/tests/customerRehydration.test.ts` — 5-scenario unit suite (TEST A–E) covering Corporate, Wholesale, Retail, VIP, and empty-payload re-hydration.
+- Full Vitest suite: 617/617 tests green, 0 failures.
+- Production build: 3526 modules, 0 errors.
+- Docker rebuild: all 4 containers healthy.
+- Headless Playwright UAT: 8/8 steps pass (exit code 0).
+
+**Documentation**
+- Created `docs/walkthrough/customer/Customer_B2B_Rehydration_Fix_v3.30.0.md`
+- Created `docs/implementation/customer/Customer_B2B_Rehydration_Fix_Plan_v3.30.0.md`
+
+---
+
 ### [3.123.0] - 2026-09-02
 
 #### F2 Universal Lookup Architecture v2 — Phase C Complete
