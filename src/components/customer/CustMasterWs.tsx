@@ -46,23 +46,23 @@ import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 const DEFAULT_MAILING_ADDRESS: CustomerAddressEntry = {
   code: "001",
-  contactPerson: "Primary Contact",
-  address1: "Plot No. 42, 5th Main Road",
-  address2: "4th Block, Near Central Park",
-  address3: "Jayanagar",
+  contactPerson: "",
+  address1: "",
+  address2: "",
+  address3: "",
   address4: "",
   address5: "",
-  locality: "Jayanagar",
+  locality: "",
   city: "Bangalore",
-  postalCode: "560027",
+  postalCode: "",
   state: "Karnataka",
   zone: "South",
   country: "India",
-  officePhone: "080-26654321",
+  officePhone: "",
   homePhone: "",
   mobilePhone: "",
   faxNumber: "",
-  email1: "customer@domain.com",
+  email1: "",
   email2: "",
   email3: "",
   isDefault: true
@@ -219,6 +219,8 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
   priceGroup: "TI#Tech Infotech Ltd",
   phone: "",
   email: "",
+  customerGroupId: "CG-Retail",
+  customer_group_id: "CG-Retail",
   religion: "Muslim",
   ethnicity: "Asian",
   ageGroup: ">=20 - <35",
@@ -317,6 +319,8 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     code: bCust.code || bCust.id || "CUST-001",
     name: bCust.name || "",
     priceGroup: derivedPriceGroup,
+    customerGroupId: grpId || (isCorp ? "CG-Corporate" : (isVIP ? "CG-LargeRetail" : "CG-Retail")),
+    customer_group_id: grpId || (isCorp ? "CG-Corporate" : (isVIP ? "CG-LargeRetail" : "CG-Retail")),
     phone: bCust.mobile || bCust.phone || "",
     email: bCust.email || "",
     religion: bCust.religion || "Muslim",
@@ -496,7 +500,9 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       const isExistingInBackend = customers.some(c => c.id === currentCustomer.id && !c.id.startsWith("cust-draft-") && !c.id.startsWith("cust-17"));
       const isBackendId = currentCustomer.id && !currentCustomer.id.startsWith("cust-draft-") && !currentCustomer.id.startsWith("cust-17");
 
-      const grpId = currentCustomer.customerType === "Corporate" || currentCustomer.customerType === "Wholesale" ? "CG-Corporate" : (currentCustomer.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail");
+      const resolvedCustomerGroupId = currentCustomer.customerGroupId || currentCustomer.customer_group_id || (
+        currentCustomer.customerType === "Corporate" || currentCustomer.customerType === "Wholesale" ? "CG-Corporate" : (currentCustomer.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail")
+      );
 
       const backendPayload: any = {
         name: cleanName,
@@ -504,7 +510,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         mobile: cleanMobile,
         email: cleanEmail,
         gst_number: cleanGstin,
-        customer_group_id: grpId,
+        customer_group_id: resolvedCustomerGroupId,
         outstanding: Number(currentCustomer.creditUsed || 0),
         status: currentCustomer.status || "Active",
         tags: [currentCustomer.customerType || "Retail", "B2B"].filter(Boolean)
@@ -530,6 +536,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         name: savedBackendCust?.name || currentCustomer.name,
         phone: savedBackendCust?.mobile || currentCustomer.phone,
         gstin: savedBackendCust?.gst_number || currentCustomer.gstin,
+        customerGroupId: savedBackendCust?.customer_group_id || resolvedCustomerGroupId,
+        customer_group_id: savedBackendCust?.customer_group_id || resolvedCustomerGroupId,
         updatedAt: new Date().toISOString().split("T")[0]
       };
 
@@ -549,25 +557,29 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
       // Universal cache synchronization
       try {
-        const grpIdToSave = recordToSave.customerType === "Corporate" || recordToSave.customerType === "Wholesale" ? "CG-Corporate" : (recordToSave.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail");
-        localStorage.setItem("smriti_customers", JSON.stringify(updated.map(c => ({
-          id: c.id,
-          code: c.code,
-          name: c.name,
-          mobile: c.phone,
-          email: c.email,
-          gstNumber: c.gstin,
-          customer_group_id: c.customerType === "Corporate" || c.customerType === "Wholesale" ? "CG-Corporate" : (c.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail"),
-          customerGroupId: c.customerType === "Corporate" || c.customerType === "Wholesale" ? "CG-Corporate" : (c.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail"),
-          outstanding: c.creditUsed,
-          status: c.status,
-          tags: [c.customerType || "Retail", "B2B"],
-          customer_type: c.customerType,
-          customerType: c.customerType,
-          environment: c.environment,
-          price_group: c.priceGroup,
-          priceGroup: c.priceGroup
-        }))));
+        localStorage.setItem("smriti_customers", JSON.stringify(updated.map(c => {
+          const grpIdToSave = c.customerGroupId || c.customer_group_id || (
+            c.customerType === "Corporate" || c.customerType === "Wholesale" ? "CG-Corporate" : (c.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail")
+          );
+          return {
+            id: c.id,
+            code: c.code,
+            name: c.name,
+            mobile: c.phone,
+            email: c.email,
+            gstNumber: c.gstin,
+            customer_group_id: grpIdToSave,
+            customerGroupId: grpIdToSave,
+            outstanding: c.creditUsed,
+            status: c.status,
+            tags: [c.customerType || "Retail", "B2B"],
+            customer_type: c.customerType,
+            customerType: c.customerType,
+            environment: c.environment,
+            price_group: c.priceGroup,
+            priceGroup: c.priceGroup
+          };
+        })));
         localStorage.removeItem("smriti_retail_customers");
       } catch {}
 

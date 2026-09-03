@@ -74,8 +74,9 @@ export function inferFieldCategory(element: HTMLElement | null): { category: Act
     return { category: "general", label: "Global Search" };
   }
 
-  // 1. Check explicit data-f2-browse, data-context-type, or data-field-type attribute
+  // 1. Check explicit data-field-key, data-f2-browse, data-context-type, or data-field-type attribute
   const explicitType = (
+    element.getAttribute("data-field-key") ||
     element.getAttribute("data-f2-browse") ||
     element.getAttribute("data-context-type") || 
     element.getAttribute("data-field-type") || 
@@ -83,6 +84,18 @@ export function inferFieldCategory(element: HTMLElement | null): { category: Act
   )?.toLowerCase();
 
   if (explicitType) {
+    if (explicitType.includes("customer") || explicitType.includes("cust") || explicitType.includes("client") || explicitType.includes("mobile") || explicitType.includes("gstin") || explicitType === "phone") {
+      return { category: "customer", label: "Customer Field" };
+    }
+    if (explicitType.includes("product") || explicitType.includes("item") || explicitType.includes("sku") || explicitType.includes("barcode") || explicitType.includes("scan")) {
+      return { category: "product", label: "Scan / Product Lookup" };
+    }
+    if (explicitType.includes("supplier") || explicitType.includes("vendor") || explicitType.includes("party") || explicitType.includes("creditor")) {
+      return { category: "supplier", label: "Supplier / Party Lookup" };
+    }
+    if (explicitType.includes("invoice") || explicitType.includes("voucher") || explicitType === "bill_no" || explicitType === "order_no" || explicitType === "po_no") {
+      return { category: "invoice", label: "Invoice / Document Field" };
+    }
     if (["article", "style", "model"].includes(explicitType)) return { category: "article", label: "Article / Style Lookup" };
     if (["color", "shade", "colour"].includes(explicitType)) return { category: "color", label: "Color / Shade Lookup" };
     if (["size", "waist", "dimension"].includes(explicitType)) return { category: "size", label: "Size Lookup" };
@@ -94,25 +107,22 @@ export function inferFieldCategory(element: HTMLElement | null): { category: Act
     if (["category", "subcat", "subcategory"].includes(explicitType)) return { category: "category", label: "Category Lookup" };
     if (["season"].includes(explicitType)) return { category: "season", label: "Season Lookup" };
     if (["uom", "unit"].includes(explicitType)) return { category: "uom", label: "UOM (Unit of Measure) Lookup" };
-    if (["supplier", "vendor", "seller", "party", "creditor"].includes(explicitType)) return { category: "supplier", label: "Supplier / Party Lookup" };
-    if (["customer", "cust", "mobile", "phone", "client", "buyer", "debtor"].includes(explicitType)) return { category: "customer", label: "Customer Lookup" };
     if (["store", "branch", "warehouse", "godown"].includes(explicitType)) return { category: "store", label: "Chain Store / Branch Lookup" };
     if (["classification", "hierarchy"].includes(explicitType)) return { category: "classification", label: "Item Classification Lookup" };
     if (["hsn", "sac", "tax", "gst"].includes(explicitType)) return { category: "hsn", label: "HSN / GST Lookup" };
     if (["staff", "salesman", "salesstaff", "cashier", "employee"].includes(explicitType)) return { category: "staff", label: "Sales Staff Lookup" };
     if (["scheme", "disc_code", "discount_code", "promo"].includes(explicitType)) return { category: "scheme", label: "Scheme / Discount Code Lookup" };
     if (["terms", "condition"].includes(explicitType)) return { category: "terms", label: "Terms & Conditions Lookup" };
-    if (["product", "scan", "barcode", "item", "sku", "stockno"].includes(explicitType)) return { category: "product", label: "Scan / Product Lookup" };
   }
 
-  // 2. Analyze element properties (name, id, placeholder, aria-label, className)
+  // 2. Analyze element semantic properties ONLY (name, id, placeholder, aria-label)
+  // NEVER include className (Tailwind CSS utility classes like "border", "order-first" cause semantic collisions)
   const inputEl = element as HTMLInputElement;
   const rawIdentifiers = [
     inputEl.name,
     inputEl.id,
     inputEl.placeholder,
-    inputEl.getAttribute("aria-label"),
-    inputEl.className
+    inputEl.getAttribute("aria-label")
   ].filter(Boolean).join(" ").toLowerCase();
 
   // Article / Style Code
@@ -241,13 +251,11 @@ export function inferFieldCategory(element: HTMLElement | null): { category: Act
     return { category: "hsn", label: "HSN Code Field" };
   }
 
-  // Document / Invoice
+  // Document / Invoice (use word-boundary matching for generic tokens to prevent substring collisions)
   if (
     rawIdentifiers.includes("invoice") || 
-    rawIdentifiers.includes("bill") || 
-    rawIdentifiers.includes("order") || 
-    rawIdentifiers.includes("po") || 
-    rawIdentifiers.includes("voucher")
+    rawIdentifiers.includes("voucher") || 
+    /\b(bill|order|po)\b/i.test(rawIdentifiers)
   ) {
     return { category: "invoice", label: "Invoice / Document Field" };
   }

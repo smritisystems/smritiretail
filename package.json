@@ -11,6 +11,8 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "validate-registry": "node scripts/validate-registry-usage.mjs --all",
+    "architecture:preflight": "python scripts/architecture_preflight.py",
+    "architecture:check": "python scripts/architecture_duplication_gate.py",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
   },
   "dependencies": {

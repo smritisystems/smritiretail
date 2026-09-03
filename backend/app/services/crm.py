@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from ..models.crm import Customer, CustomerGroup
@@ -128,6 +129,12 @@ class CrmService:
             import uuid
             cust_dict["code"] = f"CUST-{uuid.uuid4().hex[:8].upper()}"
 
+        # Clean virtual policy fields before database column instantiation
+        cust_dict.pop("credit_limit", None)
+        cust_dict.pop("credit_days", None)
+        cust_dict.pop("unlimited_credit", None)
+        cust_dict.pop("credit_hold", None)
+
         db_customer = Customer(
             **cust_dict,
             company_id=self.tenant_ctx.company_id,
@@ -147,11 +154,12 @@ class CrmService:
                 status_code=400,
                 detail="Customer could not be created due to database integrity constraints."
             )
-        await self.db.refresh(db_customer)
-        return db_customer
+        # Eagerly load customer with group relationship before returning for response serialization
+        refreshed = await self.get_customer(db_customer.id)
+        return refreshed or db_customer
 
     async def update_customer(self, customer_id: str, customer_in: CustomerUpdate | CustomerCreate | dict) -> Customer:
-        stmt = select(Customer).filter(
+        stmt = select(Customer).options(selectinload(Customer.group)).filter(
             Customer.id == customer_id,
             Customer.is_deleted == False,
         )
@@ -175,8 +183,8 @@ class CrmService:
 
         customer.modified_at = datetime.utcnow()
         await self.db.commit()
-        await self.db.refresh(customer)
-        return customer
+        refreshed = await self.get_customer(customer.id)
+        return refreshed or customer
 
     async def delete_customer(self, customer_id: str) -> bool:
         stmt = select(Customer).filter(
@@ -196,9 +204,13 @@ class CrmService:
         return True
 
     async def get_customer(self, customer_id: str) -> Optional[Customer]:
-        stmt = select(Customer).filter(
-            Customer.id == customer_id,
-            Customer.is_deleted == False,
+        stmt = (
+            select(Customer)
+            .options(selectinload(Customer.group))
+            .filter(
+                Customer.id == customer_id,
+                Customer.is_deleted == False,
+            )
         )
         if self.tenant_ctx.company_id:
             stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))

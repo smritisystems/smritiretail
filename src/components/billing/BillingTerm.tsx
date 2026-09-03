@@ -953,7 +953,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     changeDue: number,
     denominations?: any
   ) => {
-    const invNo = `${headerState.docPrefix}-${headerState.docNo}`;
+    const isCreditTx = headerState.transaction === "Credit" || payments.some(p => (p.mode || "").toUpperCase() === "CREDIT");
+    // If docPrefix and docNo are the static default "D1DS13-1", omit invoice_no so backend allocates canonical sequence
+    const invNo = (headerState.docPrefix === "D1DS13" && headerState.docNo === "1")
+      ? undefined
+      : `${headerState.docPrefix}-${headerState.docNo}`;
+
     const invoicePayload = {
       invoice_no: invNo,
       date: new Date().toISOString().split("T")[0],
@@ -961,16 +966,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       customer_name: headerState.customer?.name || "Counter Cash Sale",
       customer_gstin: headerState.customer?.gstNumber || null,
       status: "Completed",
-      payment_mode: payments[0]?.mode.toUpperCase() || "CASH",
-      paid_amount: totalTendered,
-      balance_amount: changeDue > 0 ? 0 : Math.max(0, summaryTotals.netAmount - totalTendered),
+      payment_mode: isCreditTx ? "CREDIT" : (payments[0]?.mode.toUpperCase() || "CASH"),
+      paid_amount: isCreditTx ? 0 : totalTendered,
+      balance_amount: isCreditTx ? summaryTotals.netAmount : (changeDue > 0 ? 0 : Math.max(0, summaryTotals.netAmount - totalTendered)),
       discount_amount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
       net_amount: summaryTotals.netAmount,
       taxable_value: summaryTotals.salesValue,
       tax_total: summaryTotals.totalTax,
       grand_total: summaryTotals.netAmount,
       salesperson_name: headerState.salesStaff,
-      remarks: headerState.remarks || "B2B Distributor Invoice",
+      remarks: headerState.remarks || (isCreditTx ? "B2B Corporate Credit Invoice" : "B2B Distributor Invoice"),
       items: items.map((it, idx) => ({
         product_id: it.productId || it.stockNo,
         code: it.stockNo,
@@ -982,8 +987,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         line_no: idx + 1
       })),
       rule_snapshots: {
-        payments,
-        denominations,
+        transaction_type: isCreditTx ? "Credit" : "Cash",
+        credit_terms: isCreditTx ? {
+          credit_days: (headerState.customer as any)?.creditDays ?? (headerState.customer as any)?.credit_days ?? null,
+          credit_limit: (headerState.customer as any)?.creditLimit ?? (headerState.customer as any)?.credit_limit ?? null,
+          previous_outstanding: (headerState.customer as any)?.outstanding || 0,
+          projected_outstanding: ((headerState.customer as any)?.outstanding || 0) + summaryTotals.netAmount
+        } : undefined,
+        payments: isCreditTx ? [{ mode: "On Account", amount: summaryTotals.netAmount }] : payments,
+        denominations: isCreditTx ? undefined : denominations,
         transporterRows,
         addonRows
       }
@@ -996,7 +1008,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       });
 
       const completedInvoice = {
-        invoiceNumber: saved.invoice_no || invNo,
+        invoiceNumber: saved.invoice_no || invNo || "INV-CONFIRMED",
         date: saved.date || headerState.billDate,
         customerName: headerState.customer?.name || "Counter Cash Sale",
         customerGstin: headerState.customer?.gstNumber || "",
@@ -1013,9 +1025,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         discount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
         tax: summaryTotals.totalTax,
         total: summaryTotals.netAmount,
-        totalTendered,
-        changeDue,
-        paymentMode: payments.map(p => p.mode).join(", ")
+        totalTendered: isCreditTx ? 0 : totalTendered,
+        changeDue: isCreditTx ? 0 : changeDue,
+        paymentMode: isCreditTx ? "CREDIT" : payments.map(p => p.mode).join(", ")
       };
 
       setLastCompletedInvoice(completedInvoice);
@@ -2034,6 +2046,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         billDate={headerState.billDate}
         customer={headerState.customer}
         netAmount={summaryTotals.netAmount}
+        transaction={headerState.transaction}
         onCompleteSettlement={handleCompleteSettlement}
         onSuspendBill={handleSuspendInvoice}
         onClose={() => setShowSettlementModal(false)}

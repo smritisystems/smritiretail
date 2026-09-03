@@ -30,6 +30,7 @@ from ..models.sales import (
 )
 from ..models.inventory import Product, StockMovement
 from ..models.tenant import Company
+from ..models.crm import Customer, CustomerGroup
 from ..core.gst_engine import (
     calculate_line_item_tax,
     validate_gstin,
@@ -75,24 +76,64 @@ class SalesService:
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate, idempotency_key: Optional[str] = None) -> SalesInvoice:
-        # Auto-generate ID and invoice_no if missing; use idempotency_key as primary invoice_id if supplied
-        invoice_id = idempotency_key or invoice_in.id or f"inv-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-        invoice_no = invoice_in.invoice_no or f"INV-{invoice_id.upper()}"
-
-        # Idempotency / Double-Submit protection: return existing invoice if already created
-        existing = await self.db.execute(
-            select(SalesInvoice)
-            .options(selectinload(SalesInvoice.items))
-            .filter(
-                (SalesInvoice.id == invoice_id) | (SalesInvoice.invoice_no == invoice_no),
-                SalesInvoice.is_deleted == False,
-                SalesInvoice.company_id == self.tenant_ctx.company_id,
-                SalesInvoice.branch_id == self.tenant_ctx.branch_id
+        # 1. Authoritative Idempotency Check (Phase 6)
+        # Check strictly by idempotency_key / primary request ID
+        if idempotency_key:
+            existing_idemp = await self.db.execute(
+                select(SalesInvoice)
+                .options(selectinload(SalesInvoice.items))
+                .filter(
+                    SalesInvoice.id == idempotency_key,
+                    SalesInvoice.is_deleted == False,
+                    SalesInvoice.company_id == self.tenant_ctx.company_id,
+                    SalesInvoice.branch_id == self.tenant_ctx.branch_id
+                )
             )
-        )
-        existing_inv = existing.scalars().first()
-        if existing_inv:
-            return existing_inv
+            existing_inv = existing_idemp.scalars().first()
+            if existing_inv:
+                return existing_inv
+
+        invoice_id = idempotency_key or invoice_in.id or f"inv-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+
+        # 2. Canonical Document Number Allocation (Phase 5 & Phase 6)
+        # If invoice_no is missing, empty, AUTO, or static default D1DS13-1, allocate next canonical sequence
+        raw_inv_no = (invoice_in.invoice_no or "").strip()
+        if not raw_inv_no or raw_inv_no.upper() == "AUTO" or raw_inv_no == "D1DS13-1":
+            from .documents_engine import DocumentsEngine
+            while True:
+                seq_alloc = await DocumentsEngine.allocate_next_number_in_transaction(
+                    session=self.db,
+                    company_id=self.tenant_ctx.company_id,
+                    document_type="SALES_INVOICE",
+                    branch_id=self.tenant_ctx.branch_id,
+                    company_code=self.tenant_ctx.company_id,
+                    created_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM"
+                )
+                candidate_no = seq_alloc.document_no
+                dup_check = await self.db.execute(
+                    select(SalesInvoice.id).filter(
+                        SalesInvoice.invoice_no == candidate_no,
+                        SalesInvoice.is_deleted == False,
+                        SalesInvoice.company_id == self.tenant_ctx.company_id
+                    )
+                )
+                if not dup_check.scalars().first():
+                    invoice_no = candidate_no
+                    break
+        else:
+            invoice_no = raw_inv_no
+            # 3. Document Uniqueness Check (Separate from Idempotency - Phase 6)
+            dup_stmt = select(SalesInvoice).filter(
+                SalesInvoice.invoice_no == invoice_no,
+                SalesInvoice.is_deleted == False,
+                SalesInvoice.company_id == self.tenant_ctx.company_id
+            )
+            dup_res = await self.db.execute(dup_stmt)
+            if dup_res.scalars().first():
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Duplicate document number: Invoice '{invoice_no}' already exists under active company context."
+                )
 
         # Resolve company store state code
         company_state_code = "27"  # Default Maharashtra
@@ -252,20 +293,58 @@ class SalesService:
             )
             invoice_items.append(db_item)
 
-        # 2. Check customer credit limit & policy for completed sales
+        # 2. Concurrency-Safe Customer Row Lock & Authoritative Credit Check (Blockers 2 & 3)
+        is_credit_mode = (invoice_in.payment_mode or "").strip().upper() == "CREDIT"
+        if is_credit_mode:
+            final_paid_amount = Decimal("0.00")
+            final_balance_amount = calculated_grand_total
+        else:
+            final_paid_amount = getattr(invoice_in, "paid_amount", None) or Decimal("0.00")
+            final_balance_amount = getattr(invoice_in, "balance_amount", None) or Decimal("0.00")
+
+        cust_db_record = None
+        previous_outstanding = Decimal("0.00")
+        credit_days_configured = 30
+        credit_limit_configured = Decimal("0.00")
+
+        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN":
+            # For Credit transactions or settled invoices, lock customer row FOR UPDATE
+            # to guarantee concurrency safety and atomic headroom check across billing terminals
+            cust_stmt = (
+                select(Customer)
+                .where(Customer.id == resolved_customer_id, Customer.is_deleted == False)
+            )
+            if is_credit_mode or is_settled_status:
+                cust_stmt = cust_stmt.with_for_update()
+
+            cust_db_record = (await self.db.execute(cust_stmt)).scalars().first()
+            if not cust_db_record and is_credit_mode:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Customer '{resolved_customer_id}' not found for credit billing."
+                )
+
+            if cust_db_record:
+                previous_outstanding = Decimal(str(cust_db_record.outstanding or "0.00"))
+                if cust_db_record.customer_group_id:
+                    cg_stmt = select(CustomerGroup).where(
+                        CustomerGroup.id == cust_db_record.customer_group_id,
+                        CustomerGroup.is_deleted == False
+                    )
+                    cg_rec = (await self.db.execute(cg_stmt)).scalars().first()
+                    if cg_rec:
+                        credit_days_configured = cg_rec.credit_days or 30
+                        credit_limit_configured = Decimal(str(cg_rec.credit_limit or "0.00"))
+
         if resolved_customer_id and resolved_customer_id != "CUST-WALKIN" and is_settled_status:
-            try:
-                await self.crm_service.check_credit_limit(resolved_customer_id, float(calculated_grand_total))
-            except HTTPException:
-                raise
-            except Exception:
-                pass
+            # Credit control must strictly FAIL CLOSED — do NOT swallow unexpected errors
+            await self.crm_service.check_credit_limit(resolved_customer_id, float(calculated_grand_total))
 
         # 3. Save Sales Invoice & items
         db_customer_id = resolved_customer_id if (resolved_customer_id and resolved_customer_id != "CUST-WALKIN") else None
         
         # Coerce date to python datetime.date for PostgreSQL Date column
-        from datetime import date as py_date
+        from datetime import date as py_date, timedelta
         inv_date = invoice_in.date
         if isinstance(inv_date, str):
             try:
@@ -276,6 +355,21 @@ class SalesService:
             inv_date = inv_date.date()
         elif not inv_date:
             inv_date = py_date.today()
+
+        # Calculate due date from configured credit_days
+        due_date = inv_date + timedelta(days=credit_days_configured)
+
+        snapshots = dict(getattr(invoice_in, "rule_snapshots", None) or {})
+        if is_credit_mode:
+            snapshots["transaction_type"] = "Credit"
+            snapshots["credit_terms"] = {
+                "transaction_type": "Credit",
+                "credit_days": credit_days_configured,
+                "due_date": due_date.isoformat(),
+                "previous_outstanding": float(previous_outstanding),
+                "projected_outstanding": float(previous_outstanding + calculated_grand_total),
+                "credit_limit": float(credit_limit_configured)
+            }
 
         # Resolve branch_id safely against tenant database
         from ..models.tenant import Branch
@@ -305,7 +399,7 @@ class SalesService:
             tax_total=calculated_tax_total,
             grand_total=calculated_grand_total,
             is_interstate=is_interstate,
-            payment_mode=invoice_in.payment_mode or "CASH",
+            payment_mode="CREDIT" if is_credit_mode else (invoice_in.payment_mode or "CASH"),
             billing_address=invoice_in.billing_address,
             shipping_address=invoice_in.shipping_address,
             rounding_amount=invoice_in.rounding_amount or Decimal("0.00"),
@@ -319,14 +413,21 @@ class SalesService:
             salesperson_name=getattr(invoice_in, "salesperson_name", None),
             terminal_id=getattr(invoice_in, "terminal_id", None),
             counter_id=getattr(invoice_in, "counter_id", None),
-            paid_amount=getattr(invoice_in, "paid_amount", None) or Decimal("0.00"),
-            balance_amount=getattr(invoice_in, "balance_amount", None) or Decimal("0.00"),
+            paid_amount=final_paid_amount,
+            balance_amount=final_balance_amount,
             discount_amount=getattr(invoice_in, "discount_amount", None) or Decimal("0.00"),
             net_amount=getattr(invoice_in, "net_amount", None) or Decimal("0.00"),
-            rule_snapshots=getattr(invoice_in, "rule_snapshots", None) or {},
+            rule_snapshots=snapshots,
             import_validation_notes=getattr(invoice_in, "remarks", None),
         )
         self.db.add(db_invoice)
+
+        # Synchronously and atomically increment customer outstanding for settled credit sales (Phase 3)
+        if is_credit_mode and is_settled_status and cust_db_record:
+            cust_db_record.outstanding = previous_outstanding + calculated_grand_total
+            cust_db_record.modified_at = datetime.now(timezone.utc)
+            self.db.add(cust_db_record)
+
         try:
             await self.db.flush()
         except Exception as ef:
