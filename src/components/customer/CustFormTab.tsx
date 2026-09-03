@@ -15,7 +15,7 @@
 import React, { useState, useEffect } from "react";
 import { User, MapPin, Store, FileText, Tag, Layers, CheckSquare, Sliders } from "lucide-react";
 import { RetailCustomerRecord, CustomerPriceGroup } from "./types.ts";
-import { getCustomerPriceGroups } from "../../services/customerStore.ts";
+import { getCustomerPriceGroups, getCustomerGroups, CustomerGroup } from "../../services/customerStore.ts";
 import { SmritiCustomerPriceGroupModal } from "./CustPriceGroupDlg.tsx";
 
 interface SmritiCustomerFormTabProps {
@@ -31,14 +31,20 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
 }) => {
   const primaryAddress = customer.mailingAddresses[0];
   const [priceGroups, setPriceGroups] = useState<CustomerPriceGroup[]>(() => getCustomerPriceGroups());
+  const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>(() => getCustomerGroups());
   const [showPriceGroupModal, setShowPriceGroupModal] = useState<boolean>(false);
 
   useEffect(() => {
     const handleUpdate = () => {
       setPriceGroups(getCustomerPriceGroups());
+      setCustomerGroups(getCustomerGroups());
     };
     window.addEventListener("smriti_customer_price_groups_updated", handleUpdate);
-    return () => window.removeEventListener("smriti_customer_price_groups_updated", handleUpdate);
+    window.addEventListener("smriti_customer_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("smriti_customer_price_groups_updated", handleUpdate);
+      window.removeEventListener("smriti_customer_updated", handleUpdate);
+    };
   }, []);
 
   return (
@@ -79,6 +85,67 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                 placeholder="e.g. Farida Jameel"
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-bold text-xs outline-none focus:border-[#00355f]"
               />
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block">
+                  Customer Group*
+                </label>
+                <span className="text-[10px] text-[#515f74] dark:text-[#bec6e0] font-medium">
+                  AR / Credit Terms Policy
+                </span>
+              </div>
+              <select
+                value={customer.customerGroupId || (customer.customerType === "Corporate" || customer.customerType === "Wholesale" ? "CG-Corporate" : (customer.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail"))}
+                data-field-key="customer_group_id"
+                onChange={e => {
+                  const grpId = e.target.value;
+                  onChange("customerGroupId", grpId);
+                  onChange("customer_group_id", grpId);
+
+                  const selectedGrp = customerGroups.find(g => g.id === grpId);
+                  if (grpId === "CG-Corporate") {
+                    onChange("customerType", "Corporate");
+                    onChange("environment", "Corporate");
+                    const corpPriceGrp = priceGroups.find(p => p.code === "CORP");
+                    if (corpPriceGrp && (!customer.priceGroup || customer.priceGroup.startsWith("CPP") || customer.priceGroup.startsWith("RETAIL"))) {
+                      onChange("priceGroup", `${corpPriceGrp.code}#${corpPriceGrp.description}`);
+                    }
+                  } else if (grpId === "CG-LargeRetail") {
+                    onChange("customerType", "VIP");
+                    onChange("environment", "Retail");
+                  } else if (grpId === "CG-Retail") {
+                    if (customer.customerType === "Corporate") {
+                      onChange("customerType", "Retail");
+                      onChange("environment", "Retail");
+                    }
+                  }
+
+                  if (selectedGrp) {
+                    const days = selectedGrp.credit_days ?? selectedGrp.creditDays;
+                    if (days !== undefined && days !== null) {
+                      onChange("creditDays", days);
+                    }
+                    const limit = selectedGrp.credit_limit ?? selectedGrp.creditLimit;
+                    if (limit !== undefined && limit !== null) {
+                      onChange("creditLimit", Number(limit));
+                    }
+                  }
+                }}
+                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold outline-none focus:border-[#00355f]"
+              >
+                {customerGroups.map(cg => (
+                  <option key={cg.id} value={cg.id}>
+                    {cg.name} ({cg.id})
+                  </option>
+                ))}
+                {!customerGroups.some(cg => cg.id === (customer.customerGroupId || (customer.customerType === "Corporate" ? "CG-Corporate" : "CG-Retail"))) && (
+                  <option value={customer.customerGroupId || "CG-Corporate"}>
+                    {customer.customerGroupId === "CG-Corporate" ? "Corporate Clients (CG-Corporate)" : (customer.customerGroupId || "Corporate Clients (CG-Corporate)")}
+                  </option>
+                )}
+              </select>
             </div>
 
             <div>
@@ -161,7 +228,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                 } else if (grp.code === "VIP") {
                   onChange("customerType", "VIP");
                   onChange("environment", "Retail");
-                } else if (grp.code === "CPP" || gr.code === "RETAIL") {
+                } else if (grp.code === "CPP" || grp.code === "RETAIL") {
                   onChange("customerType", "Retail");
                   onChange("environment", "Retail");
                 }
@@ -266,7 +333,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <input
                 type="text"
                 value={customer.profession}
-                data-field-key="customer_name"
+                data-field-key="customer_profession"
                 onChange={(e) => onChange("profession", e.target.value)}
                 placeholder="e.g. Architect, Doctor, Teacher"
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
@@ -286,6 +353,8 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                   if (val === "Corporate" || val === "Wholesale" || val === "Distribution") {
                     onChange("environment", "Corporate");
                     if (val === "Corporate") {
+                      onChange("customerGroupId", "CG-Corporate");
+                      onChange("customer_group_id", "CG-Corporate");
                       const corpGrp = priceGroups.find(p => p.code === "CORP");
                       if (corpGrp) {
                         onChange("priceGroup", `${corpGrp.code}#${corpGrp.description}`);
@@ -298,8 +367,14 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                         onChange("allowMiscIssue", corpGrp.allowMiscIssue);
                       }
                     }
+                  } else if (val === "VIP") {
+                    onChange("environment", "Retail");
+                    onChange("customerGroupId", "CG-LargeRetail");
+                    onChange("customer_group_id", "CG-LargeRetail");
                   } else {
                     onChange("environment", "Retail");
+                    onChange("customerGroupId", "CG-Retail");
+                    onChange("customer_group_id", "CG-Retail");
                   }
                 }}
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold"

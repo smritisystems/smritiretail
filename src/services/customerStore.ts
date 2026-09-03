@@ -25,6 +25,7 @@
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { Customer, CustomerGroup, CustomerPriceGroup, SalesInvoice, SalesReturn } from "../types";
+export type { CustomerGroup };
 
 export const initialCustomerPriceGroups: CustomerPriceGroup[] = [
   {

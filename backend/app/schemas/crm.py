@@ -15,6 +15,8 @@ from typing import Any, List, Optional
 from datetime import datetime, date
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlalchemy import inspect
+from sqlalchemy.orm.base import NO_VALUE
 
 # Base schema for CustomerGroup
 class CustomerGroupBase(BaseModel):
@@ -95,6 +97,10 @@ class CustomerBase(BaseModel):
     status: Optional[str] = "Active"
     created_date: Optional[date] = Field(default_factory=date.today, alias="createdDate")
     tags: List[str] = []
+    credit_limit: Optional[Decimal] = Field(None, alias="creditLimit")
+    credit_days: Optional[int] = Field(None, alias="creditDays")
+    unlimited_credit: Optional[bool] = Field(None, alias="unlimitedCredit")
+    credit_hold: Optional[bool] = Field(None, alias="creditHold")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -128,6 +134,72 @@ class CustomerUpdate(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
+def get_loaded_customer_group(customer: Any) -> Optional[Any]:
+    """
+    Safely retrieve CustomerGroup only if already loaded in-memory.
+    Never calls hasattr(customer, 'group') or getattr(customer, 'group')
+    as a mechanism for discovering/loading the relationship, preventing MissingGreenlet.
+    """
+    if isinstance(customer, dict):
+        return customer.get("group")
+
+    # Check SQLAlchemy instance state without triggering attribute loaders
+    insp = inspect(customer, raiseerr=False)
+    if insp is not None and hasattr(insp, "attrs") and "group" in insp.attrs:
+        loaded = insp.attrs.group.loaded_value
+        if loaded is not NO_VALUE and loaded is not None:
+            return loaded
+        return None
+
+    # Check instance __dict__ directly to avoid instrumented descriptor triggers
+    if hasattr(customer, "__dict__"):
+        val = customer.__dict__.get("group")
+        if val is not NO_VALUE and val is not None:
+            return val
+
+    return None
+
+
+def map_customer_to_response_dict(customer: Any) -> dict:
+    """
+    Safely build a dictionary DTO for CustomerResponse validation without
+    triggering async lazy loading.
+    Authoritative credit policy fields are copied from the eagerly-loaded
+    CustomerGroup without attempting dynamic lazy loading.
+    """
+    if isinstance(customer, dict):
+        return customer
+
+    grp = get_loaded_customer_group(customer)
+
+    return {
+        "id": customer.id,
+        "uuid": str(customer.uuid) if getattr(customer, "uuid", None) else None,
+        "customer_group_id": customer.customer_group_id,
+        "code": customer.code,
+        "name": customer.name,
+        "mobile": customer.mobile,
+        "email": customer.email,
+        "gst_number": customer.gst_number,
+        "outstanding": customer.outstanding if customer.outstanding is not None else Decimal("0.00"),
+        "status": customer.status if customer.status is not None else "Active",
+        "created_date": customer.created_date,
+        "tags": list(customer.tags or []),
+        "company_id": customer.company_id,
+        "branch_id": customer.branch_id,
+        "created_at": customer.created_at,
+        "modified_at": customer.modified_at,
+        "is_active": customer.is_active if customer.is_active is not None else True,
+        "is_deleted": customer.is_deleted if customer.is_deleted is not None else False,
+        "version": customer.version if customer.version is not None else 1,
+        # Sourced authoritatively from eagerly-loaded CustomerGroup
+        "credit_limit": grp.credit_limit if grp else None,
+        "credit_days": grp.credit_days if grp else None,
+        "unlimited_credit": grp.unlimited_credit if grp else None,
+        "credit_hold": grp.credit_hold if grp else None,
+    }
+
+
 class CustomerResponse(CustomerBase):
     id: str
     uuid: Optional[str] = None
@@ -140,3 +212,17 @@ class CustomerResponse(CustomerBase):
     version: Optional[int] = 1
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    @classmethod
+    def from_orm_customer(cls, customer: Any) -> "Optional[CustomerResponse]":
+        """Explicit DTO constructor from Customer ORM model or mapping."""
+        if customer is None:
+            return None
+        return cls.model_validate(map_customer_to_response_dict(customer))
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_customer_payload(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return data
+        return map_customer_to_response_dict(data)

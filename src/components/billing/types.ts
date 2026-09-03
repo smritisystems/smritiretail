@@ -39,10 +39,9 @@ export interface BillingLineItem {
   size?: string;
   attributes?: Record<string, any>;
 }
-
 export type BillType = "Product" | "Service";
 export type TransactionType = "Credit" | "Cash";
-export type PaymentMode = "Cash" | "Credit Card" | "Debit Card" | "Cheque" | "UPI" | "Credit Note" | "Split";
+export type PaymentMode = "Cash" | "Credit Card" | "Debit Card" | "Cheque" | "UPI" | "Credit Note" | "Split" | "Credit" | "On Account";
 
 export interface BillingHeaderState {
   billType: BillType;

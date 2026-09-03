@@ -45,7 +45,8 @@ async def create_customer(
 ):
     """Create a new customer. CASHIER, MANAGER, and SYSADMIN may create customers."""
     service = CrmService(db, tenant_ctx)
-    return await service.create_customer(customer_in)
+    customer = await service.create_customer(customer_in)
+    return CustomerResponse.from_orm_customer(customer)
 
 
 class CustomerValidationRequest(BaseModel):
@@ -132,7 +133,8 @@ async def list_customers(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
-    return await repo.get_all(skip=skip, limit=limit)
+    customers = await repo.get_all(skip=skip, limit=limit)
+    return [CustomerResponse.from_orm_customer(c) for c in customers]
 
 
 @router.get("/customers/search", response_model=List[CustomerResponse])
@@ -144,7 +146,8 @@ async def search_customers(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
-    return await repo.search(q=q, skip=skip, limit=limit)
+    customers = await repo.search(q=q, skip=skip, limit=limit)
+    return [CustomerResponse.from_orm_customer(c) for c in customers]
 
 
 @router.get("/customers/{customer_id}", response_model=CustomerResponse)
@@ -157,7 +160,7 @@ async def get_customer(
     customer = await repo.get(customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-    return customer
+    return CustomerResponse.from_orm_customer(customer)
 
 
 @router.put("/customers/{customer_id}", response_model=CustomerResponse)
@@ -170,7 +173,8 @@ async def update_customer(
 ):
     """Update or upsert an existing customer."""
     service = CrmService(db, tenant_ctx)
-    return await service.update_customer(customer_id, customer_in)
+    customer = await service.update_customer(customer_id, customer_in)
+    return CustomerResponse.from_orm_customer(customer)
 
 
 @router.put("/customers", response_model=CustomerResponse)
@@ -182,7 +186,8 @@ async def upsert_customer(
     """Upsert a customer record."""
     service = CrmService(db, tenant_ctx)
     target_id = customer_in.id or f"cust-{customer_in.name.lower().replace(' ', '-')[:20]}"
-    return await service.update_customer(target_id, customer_in)
+    customer = await service.update_customer(target_id, customer_in)
+    return CustomerResponse.from_orm_customer(customer)
 
 
 @router.delete("/customers/{customer_id}")

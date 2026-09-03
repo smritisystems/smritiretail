@@ -65,7 +65,7 @@ class Customer(BaseEntity):
     tags = Column(ARRAY(String), server_default="{}")
 
     # Relationships
-    group = relationship("CustomerGroup", back_populates="customers")
+    group = relationship("CustomerGroup", back_populates="customers", lazy="selectin")
 
 
 class CrmLead(BaseEntity):

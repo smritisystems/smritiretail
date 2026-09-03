@@ -49,6 +49,8 @@ export interface RetailCustomerRecord {
   code: string;
   name: string;
   priceGroup: string;
+  customerGroupId?: string;
+  customer_group_id?: string;
   phone: string;
   email: string;
   
