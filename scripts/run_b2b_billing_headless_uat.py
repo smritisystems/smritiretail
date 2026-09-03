@@ -473,6 +473,7 @@ async def run_uat():
             rehy_type = await page.locator("select[data-field-key='customer_type']").first.input_value()
             rehy_pg = await page.locator("select[data-field-key='customer_price_group']").first.input_value()
             rehy_env = await page.locator("span:has-text('Environment:')").first.inner_text()
+            rehy_cg = await page.locator("select[data-field-key='customer_group_id']").first.input_value()
 
             if "CORPORATE" not in rehy_header.upper():
                 await capture_failure(current_step, f"Re-hydration regression: Header reverted. Actual: '{rehy_header}'")
@@ -482,6 +483,10 @@ async def run_uat():
                 await capture_failure(current_step, f"Re-hydration regression: Customer Type reverted to '{rehy_type}'")
                 raise AssertionError(f"Re-hydration regression: Customer Type reverted: {rehy_type}")
 
+            if rehy_cg != "CG-Corporate":
+                await capture_failure(current_step, f"Re-hydration regression: Customer Group reverted to '{rehy_cg}' (Expected 'CG-Corporate')")
+                raise AssertionError(f"Re-hydration regression: Customer Group reverted: {rehy_cg}")
+
             if "CORP" not in rehy_pg:
                 await capture_failure(current_step, f"Re-hydration regression: Price Group reverted to '{rehy_pg}'")
                 raise AssertionError(f"Re-hydration regression: Price Group reverted: {rehy_pg}")
@@ -490,9 +495,51 @@ async def run_uat():
                 await capture_failure(current_step, f"Re-hydration regression: Environment badge reverted to '{rehy_env}'")
                 raise AssertionError(f"Re-hydration regression: Environment badge reverted: {rehy_env}")
 
+            # Query authoritative credit policy for CG-Corporate directly from DB fixture
+            conn = psycopg2.connect(DB_DSN)
+            cur = conn.cursor()
+            cur.execute("SELECT credit_limit, credit_days FROM customer_groups WHERE id = 'CG-Corporate';")
+            cg_policy_row = cur.fetchone()
+            conn.close()
+            auth_credit_limit = float(cg_policy_row[0]) if cg_policy_row and cg_policy_row[0] is not None else 500000.0
+            auth_credit_days = int(cg_policy_row[1]) if cg_policy_row and cg_policy_row[1] is not None else 60
+
+            # Switch to Tab 3 Additional Details to verify GSTIN and Credit Policy rehydration
+            tab3_btn = page.locator("button:has-text('3. The \"Additional Details\" Tab')").first
+            if await tab3_btn.count() > 0:
+                await tab3_btn.click()
+                await page.wait_for_timeout(600)
+
+                # 1. Assert GSTIN matches entered UAT_GSTIN and is NOT the placeholder
+                rehy_gstin_input = page.locator("input[placeholder='29AABCT1332L1ZV']").first
+                rehy_gstin_val = await rehy_gstin_input.input_value()
+                if rehy_gstin_val != UAT_GSTIN:
+                    await capture_failure(current_step, f"Re-hydration regression: GSTIN '{rehy_gstin_val}' != '{UAT_GSTIN}'")
+                    raise AssertionError(f"Re-hydration regression: GSTIN mismatch: {rehy_gstin_val}")
+
+                # 2. Assert Credit Limit matches authoritative CustomerGroup policy
+                rehy_limit_input = page.locator("input[type='number']").first
+                rehy_limit_val = float(await rehy_limit_input.input_value() or 0.0)
+                if abs(rehy_limit_val - auth_credit_limit) > 0.01:
+                    await capture_failure(current_step, f"Re-hydration regression: Credit Limit ₹{rehy_limit_val} != ₹{auth_credit_limit}")
+                    raise AssertionError(f"Re-hydration regression: Credit Limit mismatch: {rehy_limit_val}")
+
+                # 3. Assert Credit Days matches authoritative CustomerGroup policy
+                rehy_days_input = page.locator("input[type='number']").nth(1)
+                rehy_days_val = int(await rehy_days_input.input_value() or 0)
+                if rehy_days_val != auth_credit_days:
+                    await capture_failure(current_step, f"Re-hydration regression: Credit Days {rehy_days_val} != {auth_credit_days}")
+                    raise AssertionError(f"Re-hydration regression: Credit Days mismatch: {rehy_days_val}")
+
+                # Switch back to Tab 1 Form
+                tab1_btn = page.locator("button:has-text('1. The \"Form\" Tab')").first
+                if await tab1_btn.count() > 0:
+                    await tab1_btn.click()
+                    await page.wait_for_timeout(600)
+
             await page.screenshot(path=os.path.join(SCREENSHOT_DIR, "04_customer_rehydrated_corporate.png"))
             passed_steps.append(current_step)
-            print(f"✓ {current_step} PASSED. Corporate classification strictly survived re-hydration.")
+            print(f"✓ {current_step} PASSED. Corporate classification, GSTIN ({UAT_GSTIN}), and Credit Policy (₹{auth_credit_limit:,.2f}, {auth_credit_days} days) strictly survived re-hydration.")
 
             # ------------------------------------------------------------------
             # STEP F: BILLING WORKSPACE & CUSTOMER AUTO-POPULATION

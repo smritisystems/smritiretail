@@ -283,7 +283,7 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
 
 export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
   // Classification derivation from canonical backend fields
-  const grpId = bCust.customer_group_id || bCust.customerGroupId || "";
+  const grpId = bCust.customerGroupId ?? bCust.customer_group_id ?? "";
   const tagList = Array.isArray(bCust.tags) ? bCust.tags : [];
   const isCorp = grpId === "CG-Corporate" || tagList.includes("Corporate") || tagList.includes("B2B");
   const isVIP = grpId === "CG-LargeRetail" || tagList.includes("VIP");
@@ -314,13 +314,28 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     "TI#Tech Infotech Ltd"
   );
 
+  // Normalize fields using API DTO aliases (camelCase) and raw model fields (snake_case)
+  const rawGstin = bCust.gstNumber ?? bCust.gst_number ?? bCust.gstin;
+  const rawLimit = bCust.creditLimit ?? bCust.credit_limit;
+  const rawDays = bCust.creditDays ?? bCust.credit_days;
+  const rawTerm = bCust.paymentTerm ?? bCust.payment_term;
+
+  const normalizedGstin = rawGstin !== undefined && rawGstin !== null ? String(rawGstin).trim() : "";
+  const normalizedLimit = rawLimit !== undefined && rawLimit !== null ? Number(rawLimit) : 0;
+  const normalizedDays = rawDays !== undefined && rawDays !== null ? Number(rawDays) : 0;
+  const normalizedTerm = rawTerm !== undefined && rawTerm !== null && String(rawTerm).trim() !== ""
+    ? String(rawTerm).trim()
+    : (rawDays !== undefined && rawDays !== null && Number(rawDays) > 0 ? `Net ${rawDays}` : "Policy Not Configured");
+
+  const resolvedGroupId = grpId || (isCorp ? "CG-Corporate" : (isVIP ? "CG-LargeRetail" : "CG-Retail"));
+
   return {
     id: bCust.id || `cust-${Date.now()}`,
     code: bCust.code || bCust.id || "CUST-001",
     name: bCust.name || "",
     priceGroup: derivedPriceGroup,
-    customerGroupId: grpId || (isCorp ? "CG-Corporate" : (isVIP ? "CG-LargeRetail" : "CG-Retail")),
-    customer_group_id: grpId || (isCorp ? "CG-Corporate" : (isVIP ? "CG-LargeRetail" : "CG-Retail")),
+    customerGroupId: resolvedGroupId,
+    customer_group_id: resolvedGroupId,
     phone: bCust.mobile || bCust.phone || "",
     email: bCust.email || "",
     religion: bCust.religion || "Muslim",
@@ -356,11 +371,11 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     loyaltyPgmCode: bCust.loyalty_pgm_code || "DSC",
     loyaltyTier: bCust.loyalty_tier || "Standard",
     loyaltyPointsBalance: Number(bCust.loyalty_points_balance || 0),
-    paymentCategory: bCust.payment_category || "CASH",
-    paymentTerm: bCust.payment_term || "Immediate",
-    creditLimit: Number(bCust.credit_limit || 25000),
-    creditDays: Number(bCust.credit_days || 0),
-    creditUsed: Number(bCust.outstanding || bCust.credit_used || 0),
+    paymentCategory: bCust.payment_category || bCust.paymentCategory || "CASH",
+    paymentTerm: normalizedTerm,
+    creditLimit: normalizedLimit,
+    creditDays: normalizedDays,
+    creditUsed: Number(bCust.outstanding ?? bCust.credit_used ?? bCust.creditUsed ?? 0),
     transportMode: bCust.transport_mode || "By-Road",
     transportCode: bCust.transport_code || "VRL",
     transitDays: Number(bCust.transit_days || 2),
@@ -378,7 +393,7 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     lstDate: bCust.lst_date || "",
     cstNumber: bCust.cst_number || "",
     cstDate: bCust.cst_date || "",
-    gstin: bCust.gst_number || bCust.gstin || "",
+    gstin: normalizedGstin,
     panNumber: bCust.pan_number || "",
     isPreSaleFormApplicable: bCust.is_pre_sale_form_applicable ?? false,
     preSaleFormName: bCust.pre_sale_form_name || "",
@@ -529,15 +544,26 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         });
       }
 
+      const rawSavedGstin = savedBackendCust?.gstNumber ?? savedBackendCust?.gst_number ?? savedBackendCust?.gstin ?? currentCustomer.gstin;
+      const rawSavedLimit = savedBackendCust?.creditLimit ?? savedBackendCust?.credit_limit ?? currentCustomer.creditLimit;
+      const rawSavedDays = savedBackendCust?.creditDays ?? savedBackendCust?.credit_days ?? currentCustomer.creditDays;
+      const rawSavedTerm = savedBackendCust?.paymentTerm ?? savedBackendCust?.payment_term ?? currentCustomer.paymentTerm;
+      const rawSavedGroupId = savedBackendCust?.customerGroupId ?? savedBackendCust?.customer_group_id ?? resolvedCustomerGroupId;
+
       const recordToSave: RetailCustomerRecord = {
         ...currentCustomer,
         id: savedBackendCust?.id || currentCustomer.id,
         code: savedBackendCust?.code || currentCustomer.code,
         name: savedBackendCust?.name || currentCustomer.name,
         phone: savedBackendCust?.mobile || currentCustomer.phone,
-        gstin: savedBackendCust?.gst_number || currentCustomer.gstin,
-        customerGroupId: savedBackendCust?.customer_group_id || resolvedCustomerGroupId,
-        customer_group_id: savedBackendCust?.customer_group_id || resolvedCustomerGroupId,
+        gstin: rawSavedGstin !== undefined && rawSavedGstin !== null ? String(rawSavedGstin).trim() : "",
+        customerGroupId: rawSavedGroupId,
+        customer_group_id: rawSavedGroupId,
+        creditLimit: rawSavedLimit !== undefined && rawSavedLimit !== null ? Number(rawSavedLimit) : 0,
+        creditDays: rawSavedDays !== undefined && rawSavedDays !== null ? Number(rawSavedDays) : 0,
+        paymentTerm: rawSavedTerm !== undefined && rawSavedTerm !== null && String(rawSavedTerm).trim() !== ""
+          ? String(rawSavedTerm).trim()
+          : (rawSavedDays && Number(rawSavedDays) > 0 ? `Net ${rawSavedDays}` : "Policy Not Configured"),
         updatedAt: new Date().toISOString().split("T")[0]
       };
 
@@ -555,7 +581,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       setCurrentCustomer(recordToSave);
       setIsDirty(false);
 
-      // Universal cache synchronization
+      // Universal cache synchronization with normalized representation
       try {
         localStorage.setItem("smriti_customers", JSON.stringify(updated.map(c => {
           const grpIdToSave = c.customerGroupId || c.customer_group_id || (
@@ -568,8 +594,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             mobile: c.phone,
             email: c.email,
             gstNumber: c.gstin,
-            customer_group_id: grpIdToSave,
             customerGroupId: grpIdToSave,
+            customer_group_id: grpIdToSave,
+            creditLimit: c.creditLimit,
+            creditDays: c.creditDays,
+            paymentTerm: c.paymentTerm,
             outstanding: c.creditUsed,
             status: c.status,
             tags: [c.customerType || "Retail", "B2B"],
