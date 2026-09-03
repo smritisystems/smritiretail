@@ -105,4 +105,96 @@ describe("Customer Master B2B Environment & Classification Re-hydration", () => 
     expect(record.environment).toBe("Retail");
     expect(record.name).toBe("Unclassified Customer");
   });
+
+  // TEST F — Literal FastAPI-style camelCase response object rehydration
+  it("TEST F: should correctly normalize literal FastAPI-style camelCase response DTO", () => {
+    const fastapiCust = {
+      id: "cust-ea839db6",
+      code: "CUST-066",
+      name: "Apex Logistics India Ltd - Human UAT",
+      mobile: "9820012346",
+      email: null,
+      gstNumber: "27AABCA1234F1Z5",
+      outstanding: "0.00",
+      status: "Active",
+      createdDate: "2026-09-03",
+      tags: ["Corporate", "B2B"],
+      creditLimit: "500000.00",
+      creditDays: 60,
+      paymentTerm: "Net 60",
+      unlimitedCredit: false,
+      creditHold: false,
+      customer_group_id: "CG-Corporate"
+    };
+
+    const record = mapBackendCustomerToRecord(fastapiCust);
+
+    expect(record.gstin).toBe("27AABCA1234F1Z5");
+    expect(record.creditLimit).toBe(500000);
+    expect(record.creditDays).toBe(60);
+    expect(record.paymentTerm).toBe("Net 60");
+    expect(record.customerGroupId).toBe("CG-Corporate");
+    expect(record.customer_group_id).toBe("CG-Corporate");
+    expect(record.customerType).toBe("Corporate");
+    expect(record.environment).toBe("Corporate");
+  });
+
+  // TEST G — Backward compatibility for snake_case backend payloads
+  it("TEST G: should retain backward compatibility for snake_case payload attributes", () => {
+    const legacyCust = {
+      id: "cust-leg-001",
+      code: "CUST-LEG-01",
+      name: "Legacy Payload Enterprise",
+      gst_number: "29AABCT1332L1ZV",
+      credit_limit: 250000,
+      credit_days: 45,
+      payment_term: "Net 45",
+      customer_group_id: "CG-Corporate",
+      tags: ["Corporate"]
+    };
+
+    const record = mapBackendCustomerToRecord(legacyCust);
+
+    expect(record.gstin).toBe("29AABCT1332L1ZV");
+    expect(record.creditLimit).toBe(250000);
+    expect(record.creditDays).toBe(45);
+    expect(record.paymentTerm).toBe("Net 45");
+    expect(record.customerGroupId).toBe("CG-Corporate");
+  });
+
+  // TEST H — Zero-credit and zero-day preservation without converting to fallback
+  it("TEST H: should strictly preserve creditLimit=0 and creditDays=0 without falling back", () => {
+    const zeroCreditCust = {
+      id: "cust-zero-001",
+      name: "Strict Cash Only Shopper",
+      creditLimit: 0,
+      creditDays: 0,
+      paymentTerm: "Immediate",
+      customer_group_id: "CG-Retail"
+    };
+
+    const record = mapBackendCustomerToRecord(zeroCreditCust);
+
+    expect(record.creditLimit).toBe(0);
+    expect(record.creditDays).toBe(0);
+    expect(record.paymentTerm).toBe("Immediate");
+    expect(record.customerGroupId).toBe("CG-Retail");
+  });
+
+  // TEST I — Unconfigured policy state when credit policy attributes are genuinely missing
+  it("TEST I: should display 'Policy Not Configured' when authoritative credit policy is absent", () => {
+    const unconfiguredCust = {
+      id: "cust-unconf-001",
+      name: "Unconfigured Policy Shopper",
+      customer_group_id: "CG-Retail"
+    };
+
+    const record = mapBackendCustomerToRecord(unconfiguredCust);
+
+    expect(record.creditLimit).toBe(0);
+    expect(record.creditDays).toBe(0);
+    expect(record.paymentTerm).toBe("Policy Not Configured");
+    expect(record.gstin).toBe("");
+  });
 });
+
