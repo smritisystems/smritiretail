@@ -163,7 +163,10 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
     .slice(0, 5);
 
   // Capital Locked in partners
-  const totalCapitalLocked = fastApiStockValuation ? Math.round(parseFloat(fastApiStockValuation.total_value)) : psvParties.reduce((sum, p) => sum + p.capitalLocked, 0);
+  const totalCapitalLocked = psvParties.reduce(
+    (sum, party) => sum + Number(party.capitalLocked || 0),
+    0
+  );
 
   // Payment Breakdown Estimate
   const upiSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.upi_sales)) : 0;
@@ -509,7 +512,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                             <span className="text-[8px] text-slate-500 font-mono">Per billing session</span>
                           </div>
                           <div className="border border-slate-200 bg-slate-50 p-3 rounded">
-                            <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Channel Capital</span>
+                            <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Channel Capital (PSV)</span>
                             <div className="text-sm font-bold text-slate-950 mt-1">{formatCurrency(totalCapitalLocked)}</div>
                             <span className="text-[8px] text-amber-700 font-mono">Locked in partner supply</span>
                           </div>

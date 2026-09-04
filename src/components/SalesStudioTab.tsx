@@ -711,6 +711,28 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   };
 
+  const handleSalesOrderLineAction = async (line: SalesItemLine, action: "close" | "cancel") => {
+    if (!selectedOrder || line.id == null) {
+      onNotification("Action unavailable", "This order line has no server identity.", "error");
+      return;
+    }
+    const reason = window.prompt(`Reason to ${action} ${line.code}:`);
+    if (!reason || reason.trim().length < 3) return;
+    try {
+      await apiFetchV1(`/sales/orders/${selectedOrder.id}/lines/${line.id}/${action}`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      const refreshed = await apiFetchV1(`/sales/orders/${selectedOrder.id}`);
+      const normalized = normalizeSalesOrders([refreshed])[0];
+      if (normalized) setSelectedOrder(normalized);
+      await fetchSalesOrders();
+      onNotification("Sales Order updated", `${line.code} marked ${action === "cancel" ? "cancelled" : "closed"}.`, "success");
+    } catch (error: any) {
+      onNotification("Update failed", error?.message || `Could not ${action} the order line.`, "error");
+    }
+  };
+
   // Group products for Matrix Mode
   // articleNames are distinct names (e.g. Classic Cotton T-Shirt, Retro Leather Sneakers)
   const baseArticles = Array.from(new Set(products.map(p => p.name)));
@@ -880,22 +902,20 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       await apiFetchV1("/sales/orders", {
         method: "POST",
         body: JSON.stringify({
-          doc_prefix: formData.docPrefix || "SO",
-          doc_number: formData.docNumber || undefined,
-          doc_date: formData.docDate || new Date().toISOString().slice(0, 10),
-          doc_time: formData.docTime || new Date().toTimeString().slice(0, 5),
+          id: `so-${Date.now().toString(36)}`,
+          order_no: `${formData.docPrefix || "SO"}-${formData.docNumber || Date.now().toString().slice(-6)}`,
+          date: formData.docDate || new Date().toISOString().slice(0, 10),
           customer_id: formData.customerId || formData.customerCode || "",
-          customer_code: formData.customerCode || formData.customerId || "",
           customer_name: formData.customerName || "Walk-in Customer",
-          sales_staff: formData.salesStaff || "",
           items: (formData.items || []).map((item) => ({
-            stock_no: item.stockNo || "",
-            description: item.description || "",
-            rate: Number(item.rate || 0),
+            product_id: item.id || item.stockNo || "",
+            code: item.stockNo || "",
+            name: item.description || item.stockNo || "Item",
+            price: Number(item.rate || 0),
             quantity: Number(item.quantity || 0),
-            disc_percent: Number(item.discPercent || 0),
-            disc_amount: Number(item.discAmount || 0),
-            sales_staff: item.salesStaff || formData.salesStaff || "",
+            hsn_code: item.hsn || undefined,
+            gst_rate: Number(item.gstRate ?? item.taxPercent ?? 0),
+            total_amount: Number(item.total || item.value || 0),
           })),
         })
       });
@@ -3565,6 +3585,15 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div className="text-right">
                         <div className="font-semibold text-theme-body font-mono">{formatCurrency(line.totalAmount)}</div>
                         <div className="text-[9px] text-theme-muted mt-0.5 font-mono">{formatCurrency(line.price)} + {line.taxRate || line.gstRate || 0}% GST</div>
+                        <div className="mt-1 flex items-center justify-end gap-1.5">
+                          <span className="text-[9px] uppercase font-mono text-theme-muted">{line.lineStatus || line.line_status || "OPEN"}</span>
+                          {(!line.lineStatus || line.lineStatus === "OPEN" || line.lineStatus === "PARTIALLY_BILLED") && (
+                            <>
+                              <button type="button" onClick={() => handleSalesOrderLineAction(line, "close")} className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-700 text-emerald-400 hover:bg-emerald-950/40">Close</button>
+                              <button type="button" onClick={() => handleSalesOrderLineAction(line, "cancel")} className="text-[9px] px-1.5 py-0.5 rounded border border-rose-700 text-rose-400 hover:bg-rose-950/40">Cancel</button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

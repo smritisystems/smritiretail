@@ -16,12 +16,12 @@ from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, require_role, require_permission
+from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, get_current_user, require_role, require_permission
 from ...models.auth import UserRole
 from ...schemas.sales import (
     SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
     SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
-    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse,
+    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse, SalesOrderLineActionRequest,
     SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
     SalesReturnContextResponse,
 )
@@ -337,6 +337,23 @@ async def delete_sales_quotation(
     """Soft-delete a sales quotation."""
     await SalesService(db, tenant_ctx).delete_sales_quotation(quotation_id)
     return Response(status_code=204)
+
+@router.post("/orders/{order_id}/lines/{line_id}/{action}", response_model=SalesOrderItemResponse)
+async def close_or_cancel_sales_order_line(
+    order_id: str,
+    line_id: int,
+    action: str,
+    request: SalesOrderLineActionRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Close or cancel an unbilled Sales Order line without changing its invoice history."""
+    user_name = getattr(current_user, "username", None) or getattr(current_user, "name", None) or "system"
+    line = await SalesService(db, tenant_ctx).close_or_cancel_sales_order_line(
+        order_id, line_id, action, request, user_name
+    )
+    return SalesOrderItemResponse.model_validate(line)
 
 
 # ─────────────────────────── Sales Order ───────────────────────────

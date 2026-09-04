@@ -122,26 +122,8 @@ export const ProPosSupervisorAuthModal: React.FC<ProPosSupervisorAuthModalProps>
         setErrorMessage("Invalid Supervisor PIN or insufficient privileges.");
       }
     } catch (err: any) {
-      // Mock authorization fallback for valid demo PIN (1234 or 9999)
-      if (pin === "1234" || pin === "9999" || pin === "0000") {
-        const authResult: SupervisorAuthResult = {
-          supervisor_id: "SUP-001",
-          supervisor_name: "Store Manager",
-          action_type: actionType,
-          auth_token: `token-sup-mock-${Date.now()}`,
-          authorized_at: new Date().toISOString(),
-          reason: reason.trim() || "Store Manager On-Duty Authorization",
-        };
-        onAuthorized(authResult);
-        onNotification?.(
-          "Supervisor Authorized",
-          `Supervisor override approved for ${actionTitle || defaultTitles[actionType]}.`,
-          "success"
-        );
-        onClose();
-      } else {
-        setErrorMessage("Invalid Supervisor PIN. Please try again.");
-      }
+      console.error("Supervisor verification failed:", err);
+      setErrorMessage("Supervisor verification is unavailable. No authorization was granted.");
     } finally {
       setVerifying(false);
     }
