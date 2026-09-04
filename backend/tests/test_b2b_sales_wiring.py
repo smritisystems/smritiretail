@@ -73,6 +73,19 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
     suffix = uuid.uuid4().hex[:6]
 
     async with TestSessionLocal() as session:
+        # Pre-cleanup any leftover registrations/customers from prior tests
+        for stmt in [
+            "DELETE FROM sales_invoice_items WHERE invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%'))",
+            "DELETE FROM sales_invoices WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
+            "DELETE FROM customer_delivery_locations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
+            "DELETE FROM customer_billing_locations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
+            "DELETE FROM customer_gst_registrations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
+            "DELETE FROM customer_gst_registrations WHERE gstin IN ('27AAACR7015K1Z0', '07AAACR7015K1Z2', '06AAACR7015K1Z1', '27AAACT9999P1Z8', '29AAACE1111Q1Z9')",
+            "DELETE FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%'",
+        ]:
+            await session.execute(text(stmt))
+        await session.commit()
+
         # 1. Companies
         comp1 = await session.get(Company, "COMP-001")
         if not comp1:
@@ -336,7 +349,7 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
 
         await session.commit()
 
-        return {
+        seed_data = {
             "suffix": suffix,
             "warehouse_id": wh.id,
             "product_id": prod.id,
@@ -355,6 +368,21 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
             "loc_tata": loc_tata,
             "loc_foreign": loc_foreign,
         }
+
+    yield seed_data
+
+    async with TestSessionLocal() as session:
+        for stmt in [
+            "DELETE FROM sales_invoice_items WHERE invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%'))",
+            "DELETE FROM sales_invoices WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
+            "DELETE FROM customer_delivery_locations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
+            "DELETE FROM customer_billing_locations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
+            "DELETE FROM customer_gst_registrations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
+            "DELETE FROM customer_gst_registrations WHERE gstin IN ('27AAACR7015K1Z0', '07AAACR7015K1Z2', '06AAACR7015K1Z1', '27AAACT9999P1Z8', '29AAACE1111Q1Z9')",
+            "DELETE FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%'",
+        ]:
+            await session.execute(text(stmt))
+        await session.commit()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

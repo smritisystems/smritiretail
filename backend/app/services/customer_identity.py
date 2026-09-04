@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import re
 from typing import Any, Dict, Optional, Union
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -246,10 +247,12 @@ class CustomerIdentityService:
 
         # 5. Check Secondary Signals: Mobile (Possible Duplicate)
         if raw_mobile and str(raw_mobile).strip():
-            clean_mobile = str(raw_mobile).strip().replace(" ", "").replace("-", "")
-            if clean_mobile:
+            clean_mobile = str(raw_mobile).strip()
+            digits = re.sub(r"\D", "", clean_mobile)
+            if digits:
+                last10 = digits[-10:] if len(digits) >= 10 else digits
                 stmt_mob = select(Customer).filter(
-                    Customer.mobile == clean_mobile,
+                    Customer.mobile.like(f"%{last10}"),
                     Customer.is_deleted == False,
                 )
                 if self.tenant_ctx.company_id:
@@ -419,6 +422,7 @@ class CustomerIdentityService:
         customer_id: str,
         store_code: str,
         address_line1: Optional[str] = None,
+        gstin: Optional[str] = None,
         exclude_loc_id: Optional[str] = None,
     ) -> CustomerDuplicateCheckResponse:
         """
@@ -490,27 +494,28 @@ class CustomerIdentityService:
         )
         if exclude_loc_id:
             stmt = stmt.filter(CustomerBillingLocation.id != exclude_loc_id)
+
         res = await self.db.execute(stmt)
         if res.scalars().first():
             return CustomerDuplicateCheckResponse(
                 decision=DuplicateDecision.HARD_DUPLICATE,
-                matched_identity=MatchedIdentityType.BILLING_STORE_CODE,
-                reason=f"Billing store code '{clean_code}' is already active for this customer account.",
+                matched_identity=MatchedIdentityType.STORE_CODE,
+                reason=f"Billing store code '{clean_code}' is already an active billing location for this customer.",
                 allow_override=False,
             )
 
         return CustomerDuplicateCheckResponse(
             decision=DuplicateDecision.ALLOW,
-            reason="Billing store code is valid and unique.",
+            reason="Billing store code is valid.",
             allow_override=False,
         )
 
     async def check_duplicate_external_identity(
         self,
-        customer_id: str,
-        source_system: str,
-        external_type: str,
-        external_code: str,
+        customer_id: Optional[str] = None,
+        source_system: str = "",
+        external_type: str = "CUSTOMER",
+        external_code: str = "",
         exclude_id: Optional[str] = None,
     ) -> CustomerDuplicateCheckResponse:
         """
@@ -543,7 +548,7 @@ class CustomerIdentityService:
         row = res.first()
         if row:
             rec, cust = row
-            if cust.id != customer_id:
+            if not customer_id or cust.id != customer_id:
                 return CustomerDuplicateCheckResponse(
                     decision=DuplicateDecision.HARD_DUPLICATE,
                     matched_identity=MatchedIdentityType.EXTERNAL_ID,

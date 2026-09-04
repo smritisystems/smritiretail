@@ -11,7 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Dict
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
@@ -462,6 +462,7 @@ class CustomerExternalIdentityBase(BaseModel):
     source_system: str = Field(..., max_length=50, alias="sourceSystem")
     external_type: str = Field("CUSTOMER", max_length=50, alias="externalType")
     external_code: str = Field(..., max_length=100, alias="externalCode")
+    metadata_json: Optional[Dict[str, Any]] = Field(default_factory=dict, alias="metadataJson")
     status: Optional[str] = Field("ACTIVE")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
@@ -476,6 +477,7 @@ class CustomerExternalIdentityUpdate(BaseModel):
     source_system: Optional[str] = Field(None, alias="sourceSystem")
     external_type: Optional[str] = Field(None, alias="externalType")
     external_code: Optional[str] = Field(None, alias="externalCode")
+    metadata_json: Optional[Dict[str, Any]] = Field(None, alias="metadataJson")
     status: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
@@ -546,7 +548,7 @@ class CustomerDuplicateCheckResponse(BaseModel):
     decision: DuplicateDecision
     matched_identity: Optional[MatchedIdentityType] = None
     existing_customer: Optional[ExistingCustomerSummary] = None
-    reason: str
+    reason: str = "Unique and valid."
     allow_override: bool = False
 
 

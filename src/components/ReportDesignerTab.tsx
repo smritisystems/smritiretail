@@ -139,7 +139,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
           const valData = await apiFetchV1("/reports/stock-valuation");
           setStockValuationData(valData);
-        } else if (selectedReport.id === "RPT-PUR-002") {
+        } else if (selectedReport.id === "RPT-PUR-001" || selectedReport.id === "RPT-PUR-002") {
           const data = await apiFetchV1(`/reports/purchase-summary${params}`);
           setPurchaseReportData(data);
 
@@ -175,7 +175,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           const data = await apiFetchV1(`/reports/attribute-size-sales${params}`);
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-TAX-006") {
-          const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}`);
+          const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}&include_archived=true`);
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-MRC-005") {
           const data = await apiFetchV1(`/reports/article-color-size-matrix${params}`);
@@ -490,7 +490,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     const upperFormat = format.toUpperCase();
 
     // 1. Direct High-Fidelity Native Backend Excel/CSV Routes for Master Registers
-    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-TAX-001") {
+    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-TAX-006") {
       const link = document.createElement("a");
       link.href = "/api/v1/reports/export/tax-invoices-excel";
       link.download = "SMRITI_Statutory_Tax_Invoices_Master.xlsx";
@@ -1562,7 +1562,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             )}
 
             {/* Purchase Studio Outstanding Drilldown */}
-            {selectedReport.id === "RPT-PUR-002" && (
+            {(selectedReport.id === "RPT-PUR-001" || selectedReport.id === "RPT-PUR-002") && (
               <>
                 {drillLevel === 0 && (
                   <div className="overflow-x-auto text-xs">

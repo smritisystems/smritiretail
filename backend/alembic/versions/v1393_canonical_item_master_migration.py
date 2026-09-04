@@ -56,6 +56,8 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS ix_legacy_mappings_canonical ON legacy_id_mappings (canonical_table, canonical_id);")
 
     # 2. Scope item uniqueness constraints by company_id per Rule 16 & make optional attributes nullable
+    # Older installations may have the canonical items table without this optional column.
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS primary_uom VARCHAR(20);")
     op.execute("ALTER TABLE IF EXISTS items ALTER COLUMN primary_uom DROP NOT NULL;")
     op.execute("ALTER TABLE IF EXISTS items ALTER COLUMN category DROP NOT NULL;")
     op.execute("ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(15);")

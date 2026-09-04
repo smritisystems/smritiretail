@@ -44,6 +44,7 @@ class ProductBase(BaseModel):
     attributes: Optional[Dict[str, Any]] = Field(default_factory=dict)
     primary_image_url: Optional[str] = Field(None, max_length=512)
     gallery_images: Optional[List[str]] = Field(default_factory=list)
+    historical_invoice_qty: Decimal = Decimal("0")
 
     @field_validator("code", "name", "barcode", "hsn_code", mode="before")
     @classmethod
@@ -216,6 +217,8 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: str
+    item_id: Optional[str] = None
+    item_variant_id: Optional[str] = None
     uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None

@@ -183,6 +183,10 @@ class InventoryService:
         )
         self.db.add(canonical_variant)
 
+        # Keep the legacy product directly linked to its canonical ItemMaster records.
+        db_product.item_id = canonical_item.id
+        db_product.item_variant_id = canonical_variant.id
+
         # Authoritative Pricing Domain: Insert PriceBookEntry (Blocker 1)
         res_pb = await self.db.execute(
             select(PriceBook).filter(

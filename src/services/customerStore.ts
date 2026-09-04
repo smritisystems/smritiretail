@@ -259,7 +259,9 @@ export const initialCustomerGroups: CustomerGroup[] = [
  */
 export const initialCustomers: Customer[] = [];
 
-export const initialSalesInvoices: SalesInvoice[] = [
+export const initialSalesInvoices: SalesInvoice[] = [];
+/* Legacy demo invoice fixtures removed from the live data path.
+export const legacyDemoSalesInvoices: SalesInvoice[] = [
   {
     id: "SINV-001",
     invoiceNo: "SINV-2026-0001",
@@ -422,8 +424,11 @@ export const initialSalesInvoices: SalesInvoice[] = [
     ]
   }
 ];
+*/
 
-export const initialSalesReturns: SalesReturn[] = [
+export const initialSalesReturns: SalesReturn[] = [];
+/* Legacy demo return fixtures removed from the live data path.
+export const legacyDemoSalesReturns: SalesReturn[] = [
   {
     id: "SRET-001",
     returnNo: "SRET-2026-0001",
@@ -491,6 +496,7 @@ export const initialSalesReturns: SalesReturn[] = [
     ]
   }
 ];
+*/
 
 export function getSalesInvoices(): SalesInvoice[] {
   if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
@@ -498,9 +504,8 @@ export function getSalesInvoices(): SalesInvoice[] {
     if (saved) {
       return JSON.parse(saved);
     }
-    localStorage.setItem("smriti_sales_invoices", JSON.stringify(initialSalesInvoices));
   }
-  return initialSalesInvoices;
+  return [];
 }
 
 export function saveSalesInvoices(invoices: SalesInvoice[]) {
@@ -515,9 +520,8 @@ export function getSalesReturns(): SalesReturn[] {
     if (saved) {
       return JSON.parse(saved);
     }
-    localStorage.setItem("smriti_sales_returns", JSON.stringify(initialSalesReturns));
   }
-  return initialSalesReturns;
+  return [];
 }
 
 export function saveSalesReturns(returns: SalesReturn[]) {

@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, AliasChoices
 
 class SalesInvoiceItemBase(BaseModel):
     product_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("product_id", "productId"))
+    item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     batch_no: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("batch_no", "batchNo"))
@@ -140,6 +141,7 @@ class SalesInvoiceResponse(SalesInvoiceBase):
 
 class SalesQuotationItemBase(BaseModel):
     product_id: str = Field(..., max_length=50)
+    item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")
@@ -201,6 +203,7 @@ class SalesQuotationResponse(SalesQuotationBase):
 
 class SalesOrderItemBase(BaseModel):
     product_id: str = Field(..., max_length=50, validation_alias=AliasChoices("product_id", "productId"))
+    item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")
@@ -339,6 +342,7 @@ class SalesOrderResponse(SalesOrderBase):
 
 class SalesReturnItemBase(BaseModel):
     product_id: str = Field(..., max_length=50)
+    item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")

@@ -7,7 +7,7 @@
  * Version      : 3.95.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -106,7 +106,7 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Employee Shift Management & Commission Calculation Studio</h2>
-              <p className="text-xs text-slate-400">Shift Roster Â· Clock-In/Out Â· Overtime Â· Tier-Based Commissions Â· Incentive Payouts</p>
+              <p className="text-xs text-slate-400">Shift Roster · Clock-In/Out · Overtime · Tier-Based Commissions · Incentive Payouts</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -153,7 +153,7 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
                 <div className="flex items-start justify-between flex-wrap gap-3">
                   <div>
                     <p className="text-base font-bold text-slate-100">{selectedEmp.name}</p>
-                    <p className="text-xs text-slate-400">{selectedEmp.role} Â· {selectedEmp.branchCode}</p>
+                    <p className="text-xs text-slate-400">{selectedEmp.role} · {selectedEmp.branchCode}</p>
                   </div>
                   <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${STATUS_STYLE[selectedShift.status]}`}>{selectedShift.status}</span>
                 </div>
@@ -175,7 +175,7 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
 
                 {/* Pay Summary */}
                 <div className="bg-violet-950/20 border border-violet-500/30 rounded-xl p-5 space-y-3">
-                  <p className="text-xs font-bold text-violet-300 uppercase tracking-wide">Pay Summary â€” {selectedEmp.commissionTier} Tier</p>
+                  <p className="text-xs font-bold text-violet-300 uppercase tracking-wide">Pay Summary — {selectedEmp.commissionTier} Tier</p>
                   <div className="grid grid-cols-3 gap-3">
                     {[
                       { label: "Base Pay", value: selectedCommission.basePay, color: "text-slate-300" },
@@ -183,7 +183,7 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
                       { label: "Total Pay", value: selectedCommission.totalPay, color: "text-emerald-400" },
                     ].map((m) => (
                       <div key={m.label} className="bg-slate-900/60 rounded-xl p-3 text-center border border-slate-800/60">
-                        <div className={`text-lg font-black font-mono ${m.color}`}>â‚¹{m.value.toLocaleString("en-IN")}</div>
+                        <div className={`text-lg font-black font-mono ${m.color}`}>₹{m.value.toLocaleString("en-IN")}</div>
                         <div className="text-[10px] text-slate-500 mt-0.5">{m.label}</div>
                       </div>
                     ))}
@@ -191,7 +191,7 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
                   {selectedCommission.incentiveBonus > 0 && (
                     <p className="text-xs text-violet-400 flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-sm">emoji_events</span>
-                      Incentive bonus â‚¹{selectedCommission.incentiveBonus.toLocaleString("en-IN")} applied â€” sales exceeded â‚¹{COMMISSION_TIERS[selectedCommission.tier].threshold.toLocaleString("en-IN")} threshold
+                      Incentive bonus ₹{selectedCommission.incentiveBonus.toLocaleString("en-IN")} applied — sales exceeded ₹{COMMISSION_TIERS[selectedCommission.tier].threshold.toLocaleString("en-IN")} threshold
                     </p>
                   )}
                 </div>
@@ -208,14 +208,14 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
                         {selectedCommission.breakdown.map((b) => (
                           <tr key={b.invoiceNo}>
                             <td className="py-2 px-3 text-slate-300">{b.invoiceNo}</td>
-                            <td className="py-2 px-3 text-right text-slate-300">â‚¹{b.saleValue.toLocaleString("en-IN")}</td>
-                            <td className="py-2 px-3 text-right text-violet-400 font-bold">â‚¹{b.commissionAmt.toLocaleString("en-IN")}</td>
+                            <td className="py-2 px-3 text-right text-slate-300">₹{b.saleValue.toLocaleString("en-IN")}</td>
+                            <td className="py-2 px-3 text-right text-violet-400 font-bold">₹{b.commissionAmt.toLocaleString("en-IN")}</td>
                           </tr>
                         ))}
                         <tr className="border-t border-slate-800 bg-slate-950/40">
                           <td className="py-2 px-3 font-bold text-slate-200 font-sans">Total</td>
-                          <td className="py-2 px-3 text-right font-bold text-slate-200">â‚¹{selectedCommission.totalSales.toLocaleString("en-IN")}</td>
-                          <td className="py-2 px-3 text-right font-bold text-violet-300">â‚¹{selectedCommission.totalCommission.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-3 text-right font-bold text-slate-200">₹{selectedCommission.totalSales.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-3 text-right font-bold text-violet-300">₹{selectedCommission.totalCommission.toLocaleString("en-IN")}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -228,7 +228,7 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
 
         {activeTab === "COMMISSION" && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Team Commission Summary â€” 2026-08-28</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Team Commission Summary — 2026-08-28</p>
             {commissions.map((c) => {
               const emp = SAMPLE_EMPLOYEES.find((e) => e.employeeId === c.employeeId)!;
               const ts = TIER_STYLES[c.tier];
@@ -242,16 +242,16 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
                       <div className="flex items-center gap-2 mt-0.5"><span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${ts.badge}`}>{c.tier}</span><span className="text-[10px] text-slate-400">{emp.role}</span></div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xl font-black font-mono text-emerald-400">â‚¹{c.totalPay.toLocaleString("en-IN")}</div>
+                      <div className="text-xl font-black font-mono text-emerald-400">₹{c.totalPay.toLocaleString("en-IN")}</div>
                       <div className="text-[10px] text-slate-500">Total Payout</div>
                     </div>
                   </div>
                   <div className="grid grid-cols-4 gap-2 text-xs mb-3">
                     {[
-                      { l: "Sales", v: `â‚¹${c.totalSales.toLocaleString("en-IN")}`, c: "text-slate-300" },
-                      { l: "Base Commission", v: `â‚¹${c.baseCommission.toLocaleString("en-IN")}`, c: "text-violet-400" },
-                      { l: "Incentive Bonus", v: `â‚¹${c.incentiveBonus.toLocaleString("en-IN")}`, c: c.incentiveBonus > 0 ? "text-yellow-400" : "text-slate-600" },
-                      { l: "Base Pay", v: `â‚¹${c.basePay.toLocaleString("en-IN")}`, c: "text-slate-400" },
+                      { l: "Sales", v: `₹${c.totalSales.toLocaleString("en-IN")}`, c: "text-slate-300" },
+                      { l: "Base Commission", v: `₹${c.baseCommission.toLocaleString("en-IN")}`, c: "text-violet-400" },
+                      { l: "Incentive Bonus", v: `₹${c.incentiveBonus.toLocaleString("en-IN")}`, c: c.incentiveBonus > 0 ? "text-yellow-400" : "text-slate-600" },
+                      { l: "Base Pay", v: `₹${c.basePay.toLocaleString("en-IN")}`, c: "text-slate-400" },
                     ].map((m) => (
                       <div key={m.l} className="bg-slate-900/60 rounded-xl p-2 text-center border border-slate-800/40">
                         <div className={`font-bold font-mono text-sm ${m.c}`}>{m.v}</div>
@@ -263,7 +263,7 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
                   <div>
                     <div className="flex justify-between text-[10px] text-slate-500 mb-1">
                       <span>Incentive Threshold Progress</span>
-                      <span className={c.totalSales >= threshold ? "text-yellow-400 font-bold" : ""}>{progressPct}% of â‚¹{threshold.toLocaleString("en-IN")}</span>
+                      <span className={c.totalSales >= threshold ? "text-yellow-400 font-bold" : ""}>{progressPct}% of ₹{threshold.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                       <div className={`h-full rounded-full transition-all duration-700 ${ts.bar}`} style={{ width: `${progressPct}%` }} />
@@ -291,7 +291,7 @@ export const ShiftCommissionStudioModal: React.FC<ShiftCommissionStudioModalProp
                       {[
                         { label: "Base Rate", value: `${(def.rate * 100).toFixed(1)}%` },
                         { label: "Incentive Rate", value: `+${(def.incentiveRate * 100).toFixed(1)}%` },
-                        { label: "Incentive Threshold", value: `â‚¹${def.threshold.toLocaleString("en-IN")}` },
+                        { label: "Incentive Threshold", value: `₹${def.threshold.toLocaleString("en-IN")}` },
                         { label: "On Sales Above", value: `Threshold` },
                       ].map((m) => (
                         <div key={m.label} className="bg-slate-900/60 rounded-xl p-3 border border-slate-800/40">

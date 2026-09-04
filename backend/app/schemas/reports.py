@@ -118,6 +118,8 @@ class BillWiseSalesReport(BaseModel):
 class ItemWiseSalesLine(BaseModel):
     product_id:   str
     product_code: str
+    sku_code:     str
+    barcode:      Optional[str] = None
     product_name: str
     hsn_code:     Optional[str] = None
     qty_sold:     Decimal
@@ -210,6 +212,8 @@ class BillWiseItemsLine(BaseModel):
     customer_name:  Optional[str] = None
     line_no:        int = 1
     product_code:   str
+    sku_code:       str
+    barcode:        Optional[str] = None
     product_name:   str
     hsn_code:       Optional[str] = None
     quantity:       Decimal

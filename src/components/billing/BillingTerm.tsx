@@ -93,6 +93,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   onNotification,
   isStandaloneTab = false
 }) => {
+  const invoiceCustomerScope = { series: "TT2026-2027", from: 18, to: 137 };
+
   // Main Line Items Table State
   const [items, setItems] = useState<BillingLineItem[]>([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1);
@@ -553,7 +555,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   const fetchCustomers = async () => {
     try {
-      const res = await apiFetchV1("/crm/customers?page_size=100");
+      const params = new URLSearchParams({
+        limit: "100",
+        invoice_series: invoiceCustomerScope.series,
+        invoice_from: String(invoiceCustomerScope.from),
+        invoice_to: String(invoiceCustomerScope.to),
+      });
+      const res = await apiFetchV1(`/crm/customers?${params.toString()}`);
       const list = Array.isArray(res) ? res : (res?.items || []);
       if (list.length > 0) {
         setCustomers(list);
@@ -746,7 +754,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     customerDebounceRef.current = setTimeout(async () => {
       try {
-        const results = await searchBackendCustomers(val);
+        const results = await searchBackendCustomers(val, invoiceCustomerScope);
         const options: TypeaheadOption[] = results.map(r => ({
           id: r.id,
           title: r.name,
