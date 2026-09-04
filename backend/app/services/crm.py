@@ -196,7 +196,7 @@ class CrmService:
             if v is not None and hasattr(customer, k):
                 setattr(customer, k, v)
 
-        customer.modified_at = datetime.utcnow()
+        customer.modified_at = datetime.now(timezone.utc)
         await self.db.commit()
         refreshed = await self.get_customer(customer.id)
         return refreshed or customer
@@ -214,7 +214,7 @@ class CrmService:
             raise HTTPException(status_code=404, detail="Customer not found")
         
         customer.is_deleted = True
-        customer.modified_at = datetime.utcnow()
+        customer.modified_at = datetime.now(timezone.utc)
         await self.db.commit()
         return True
 
@@ -294,18 +294,19 @@ class CrmService:
         logger.info(f"AUDIT [{event_type}] table={table_name} id={record_id} details={details}")
         try:
             from ..models.security import SmritiAuditLog
-            audit_entry = SmritiAuditLog(
-                id=f"aud-{uuid.uuid4().hex[:8]}",
-                tenant_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
-                changed_table=table_name,
-                changed_record_id=record_id,
-                change_type=event_type,
-                change_reason=reason or json.dumps(details),
-                change_source="CRM_API",
-                changed_at=datetime.now(timezone.utc),
-            )
-            self.db.add(audit_entry)
-            await self.db.flush()
+            async with self.db.begin_nested():
+                audit_entry = SmritiAuditLog(
+                    id=f"aud-{uuid.uuid4().hex[:8]}",
+                    tenant_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
+                    changed_table=table_name,
+                    changed_record_id=record_id,
+                    change_type=event_type,
+                    change_reason=reason or json.dumps(details),
+                    change_source="CRM_API",
+                    changed_at=datetime.now(timezone.utc),
+                )
+                self.db.add(audit_entry)
+                await self.db.flush()
         except Exception as e:
             logger.debug(f"Could not persist SmritiAuditLog record: {e}")
 
@@ -925,19 +926,23 @@ class CrmService:
             id=loc_id,
             customer_id=customer_id,
             billing_store_code=billing_store_code,
-            name=loc_in.name.strip() if loc_in.name else None,
+            location_name=loc_in.location_name.strip() if loc_in.location_name else "Billing Location",
             gst_registration_id=loc_in.gst_registration_id,
+            gstin=loc_in.gstin,
             address_line1=loc_in.address_line1.strip(),
             address_line2=loc_in.address_line2.strip() if loc_in.address_line2 else None,
             city=loc_in.city.strip(),
             state=loc_in.state.strip(),
             state_code=loc_in.state_code.strip() if loc_in.state_code else None,
             pincode=loc_in.pincode.strip(),
+            country=loc_in.country or "India",
             contact_person=loc_in.contact_person,
-            contact_email=loc_in.contact_email,
-            contact_phone=loc_in.contact_phone,
+            email=loc_in.email,
+            phone=loc_in.phone,
             is_default=bool(loc_in.is_default),
             status=loc_in.status or "ACTIVE",
+            source=loc_in.source or "MANUAL",
+            remarks=loc_in.remarks,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
             is_deleted=False,
@@ -957,7 +962,7 @@ class CrmService:
             "CustomerBillingLocationCreated",
             "customer_billing_locations",
             db_loc.id,
-            {"billing_store_code": billing_store_code, "name": loc_in.name}
+            {"billing_store_code": billing_store_code, "location_name": loc_in.location_name}
         )
         return refreshed or db_loc
 
@@ -981,9 +986,9 @@ class CrmService:
             await self.billing_repo.clear_default_flags(customer_id, exclude_id=location_id)
             loc.is_default = True
 
-        for field in ("name", "gst_registration_id", "address_line1", "address_line2",
-                      "city", "state", "state_code", "pincode", "contact_person",
-                      "contact_email", "contact_phone", "status"):
+        for field in ("location_name", "gst_registration_id", "gstin", "address_line1", "address_line2",
+                      "city", "state", "state_code", "pincode", "country", "contact_person",
+                      "email", "phone", "status", "remarks"):
             val = getattr(loc_in, field, None)
             if val is not None:
                 setattr(loc, field, val)

@@ -64,38 +64,55 @@ def upgrade() -> None:
         postgresql_where=sa.text("code IS NOT NULL AND status = 'Active' AND is_deleted = false"),
     )
 
+    op.create_index(
+        "uq_cgr_company_gstin_active",
+        "customer_gst_registrations",
+        ["company_id", "gstin"],
+        unique=True,
+        postgresql_where=sa.text("status = 'ACTIVE' AND is_deleted = false AND company_id IS NOT NULL"),
+    )
+
     # 3. Create customer_billing_locations table
     op.create_table(
         "customer_billing_locations",
-        sa.Column("id", sa.String(length=36), primary_key=True, nullable=False),
-        sa.Column("company_id", sa.String(length=36), sa.ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True),
-        sa.Column("branch_id", sa.String(length=36), sa.ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True),
-        sa.Column("created_by", sa.String(length=36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("updated_by", sa.String(length=36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("deleted_by", sa.String(length=36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("modified_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("id", sa.String(50), primary_key=True, nullable=False),
+        sa.Column("uuid", sa.String(36), unique=True, nullable=False),
+        sa.Column("company_id", sa.String(50), sa.ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True),
+        sa.Column("branch_id", sa.String(50), sa.ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True),
+        sa.Column("created_by", sa.String(100), nullable=True),
+        sa.Column("updated_by", sa.String(100), nullable=True),
+        sa.Column("deleted_by", sa.String(100), nullable=True),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("is_deleted", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("is_deleted", sa.Boolean(), server_default=sa.text("false"), nullable=False),
-        sa.Column("version", sa.Integer(), server_default=sa.text("1"), nullable=False),
-        sa.Column("customer_id", sa.String(length=36), sa.ForeignKey("customers.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("billing_store_code", sa.String(length=50), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=True),
-        sa.Column("gst_registration_id", sa.String(length=36), sa.ForeignKey("customer_gst_registrations.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("address_line1", sa.String(length=255), nullable=False),
-        sa.Column("address_line2", sa.String(length=255), nullable=True),
-        sa.Column("city", sa.String(length=100), nullable=False),
-        sa.Column("state", sa.String(length=100), nullable=False),
-        sa.Column("state_code", sa.String(length=2), nullable=True),
-        sa.Column("pincode", sa.String(length=20), nullable=False),
-        sa.Column("contact_person", sa.String(length=100), nullable=True),
-        sa.Column("contact_email", sa.String(length=100), nullable=True),
-        sa.Column("contact_phone", sa.String(length=30), nullable=True),
-        sa.Column("is_default", sa.Boolean(), server_default=sa.text("false"), nullable=False),
-        sa.Column("status", sa.String(length=20), server_default=sa.text("'ACTIVE'"), nullable=False),
+        sa.Column("version", sa.Integer(), nullable=False, server_default=sa.text("1")),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("modified_at", sa.DateTime(timezone=True), nullable=True, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("customer_id", sa.String(50), sa.ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column("billing_store_code", sa.String(50), nullable=False),
+        sa.Column("location_name", sa.String(255), nullable=False),
+        sa.Column("address_line1", sa.Text(), nullable=False),
+        sa.Column("address_line2", sa.Text(), nullable=True),
+        sa.Column("city", sa.String(100), nullable=False),
+        sa.Column("state", sa.String(100), nullable=False),
+        sa.Column("state_code", sa.String(2), nullable=False),
+        sa.Column("pincode", sa.String(10), nullable=False),
+        sa.Column("country", sa.String(100), nullable=False, server_default=sa.text("'India'")),
+        sa.Column("gst_registration_id", sa.String(50), sa.ForeignKey("customer_gst_registrations.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("gstin", sa.String(15), nullable=True),
+        sa.Column("contact_person", sa.String(150), nullable=True),
+        sa.Column("phone", sa.String(20), nullable=True),
+        sa.Column("email", sa.String(255), nullable=True),
+        sa.Column("is_default", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'ACTIVE'")),
+        sa.Column("source", sa.String(30), nullable=True, server_default=sa.text("'MANUAL'")),
+        sa.Column("remarks", sa.Text(), nullable=True),
+        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     )
     op.create_index("idx_cbl_customer_id", "customer_billing_locations", ["customer_id"])
+    op.create_index("idx_cbl_company_id", "customer_billing_locations", ["company_id"])
     op.create_index("idx_cbl_billing_store_code", "customer_billing_locations", ["billing_store_code"])
+    op.create_index("idx_cbl_gst_registration_id", "customer_billing_locations", ["gst_registration_id"])
     op.create_index(
         "uq_cbl_customer_store_code_active",
         "customer_billing_locations",
@@ -114,25 +131,28 @@ def upgrade() -> None:
     # 4. Create customer_external_identities table
     op.create_table(
         "customer_external_identities",
-        sa.Column("id", sa.String(length=36), primary_key=True, nullable=False),
-        sa.Column("company_id", sa.String(length=36), sa.ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True),
-        sa.Column("branch_id", sa.String(length=36), sa.ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True),
-        sa.Column("created_by", sa.String(length=36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("updated_by", sa.String(length=36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("deleted_by", sa.String(length=36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("modified_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("id", sa.String(50), primary_key=True, nullable=False),
+        sa.Column("uuid", sa.String(36), unique=True, nullable=False),
+        sa.Column("company_id", sa.String(50), sa.ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True),
+        sa.Column("branch_id", sa.String(50), sa.ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True),
+        sa.Column("created_by", sa.String(100), nullable=True),
+        sa.Column("updated_by", sa.String(100), nullable=True),
+        sa.Column("deleted_by", sa.String(100), nullable=True),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("is_deleted", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("is_deleted", sa.Boolean(), server_default=sa.text("false"), nullable=False),
-        sa.Column("version", sa.Integer(), server_default=sa.text("1"), nullable=False),
-        sa.Column("customer_id", sa.String(length=36), sa.ForeignKey("customers.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("source_system", sa.String(length=50), nullable=False),
-        sa.Column("external_type", sa.String(length=50), server_default=sa.text("'CUSTOMER'"), nullable=False),
-        sa.Column("external_code", sa.String(length=100), nullable=False),
+        sa.Column("version", sa.Integer(), nullable=False, server_default=sa.text("1")),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("modified_at", sa.DateTime(timezone=True), nullable=True, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("customer_id", sa.String(50), sa.ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column("source_system", sa.String(50), nullable=False),
+        sa.Column("external_type", sa.String(50), nullable=False, server_default=sa.text("'CUSTOMER'")),
+        sa.Column("external_code", sa.String(100), nullable=False),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'ACTIVE'")),
         sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column("status", sa.String(length=20), server_default=sa.text("'ACTIVE'"), nullable=False),
     )
     op.create_index("idx_cust_ext_ident_customer_id", "customer_external_identities", ["customer_id"])
+    op.create_index("idx_cust_ext_ident_company_id", "customer_external_identities", ["company_id"])
     op.create_index(
         "uq_cust_ext_ident_composite",
         "customer_external_identities",
@@ -144,27 +164,34 @@ def upgrade() -> None:
     # 5. Add billing snapshot columns to sales_invoices
     op.add_column(
         "sales_invoices",
-        sa.Column("billing_location_id", sa.String(length=36), sa.ForeignKey("customer_billing_locations.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("billing_location_id", sa.String(50), sa.ForeignKey("customer_billing_locations.id", ondelete="SET NULL"), nullable=True),
     )
     op.add_column(
         "sales_invoices",
-        sa.Column("billing_store_code", sa.String(length=50), nullable=True),
+        sa.Column("billing_store_code", sa.String(50), nullable=True),
     )
     op.create_index("idx_sales_invoices_billing_loc", "sales_invoices", ["billing_location_id"])
+    op.create_index("ix_sales_invoices_billing_store_code", "sales_invoices", ["billing_store_code"])
 
 
 def downgrade() -> None:
+    op.drop_index("ix_sales_invoices_billing_store_code", table_name="sales_invoices")
     op.drop_index("idx_sales_invoices_billing_loc", table_name="sales_invoices")
     op.drop_column("sales_invoices", "billing_store_code")
     op.drop_column("sales_invoices", "billing_location_id")
 
     op.drop_index("uq_cust_ext_ident_composite", table_name="customer_external_identities")
+    op.drop_index("idx_cust_ext_ident_company_id", table_name="customer_external_identities")
     op.drop_index("idx_cust_ext_ident_customer_id", table_name="customer_external_identities")
     op.drop_table("customer_external_identities")
 
+    op.drop_index("uq_cgr_company_gstin_active", table_name="customer_gst_registrations")
+
     op.drop_index("uq_cbl_customer_default", table_name="customer_billing_locations")
     op.drop_index("uq_cbl_customer_store_code_active", table_name="customer_billing_locations")
+    op.drop_index("idx_cbl_gst_registration_id", table_name="customer_billing_locations")
     op.drop_index("idx_cbl_billing_store_code", table_name="customer_billing_locations")
+    op.drop_index("idx_cbl_company_id", table_name="customer_billing_locations")
     op.drop_index("idx_cbl_customer_id", table_name="customer_billing_locations")
     op.drop_table("customer_billing_locations")
 

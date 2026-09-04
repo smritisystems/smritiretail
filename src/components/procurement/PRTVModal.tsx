@@ -7,7 +7,7 @@
  * Version      : 3.115.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -39,7 +39,7 @@ const REASON_LABELS: Record<ReturnReason, string> = {
   OTHER:             "Other",
 };
 
-const fmt = (n: number) => `â‚¹${n.toLocaleString("en-IN")}`;
+const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
 function buildSampleOrders(): PRTVOrder[] {
   const o1 = PRTVEngine.createReturn({
@@ -77,13 +77,13 @@ export const PRTVModal: React.FC<PRTVModalProps> = ({ isOpen, onClose, onNotific
 
   const handleApprove = () => {
     if (!selected) return;
-    try { update(PRTVEngine.approve(selected, "PURCHASE-MGR-001")); onNotification?.("Approved", `${selected.prtvNo} â€” Debit Note generated`, "success"); }
+    try { update(PRTVEngine.approve(selected, "PURCHASE-MGR-001")); onNotification?.("Approved", `${selected.prtvNo} — Debit Note generated`, "success"); }
     catch (e: any) { onNotification?.("Error", e.message, "error"); }
   };
 
   const handleAcknowledge = () => {
     if (!selected) return;
-    try { update(PRTVEngine.acknowledge(selected, "VENDOR-PORTAL")); onNotification?.("Acknowledged", `${selected.prtvNo} â€” Vendor confirmed receipt`, "success"); }
+    try { update(PRTVEngine.acknowledge(selected, "VENDOR-PORTAL")); onNotification?.("Acknowledged", `${selected.prtvNo} — Vendor confirmed receipt`, "success"); }
     catch (e: any) { onNotification?.("Error", e.message, "error"); }
   };
 
@@ -91,13 +91,13 @@ export const PRTVModal: React.FC<PRTVModalProps> = ({ isOpen, onClose, onNotific
     if (!selected) return;
     try {
       update(PRTVEngine.settle(selected, "ACCOUNTS-001", `PAYABLE-${Date.now()}`, selected.netReturnAmt));
-      onNotification?.("Settled", `${selected.prtvNo} â€” ${fmt(selected.netReturnAmt)} settled`, "success");
+      onNotification?.("Settled", `${selected.prtvNo} — ${fmt(selected.netReturnAmt)} settled`, "success");
     } catch (e: any) { onNotification?.("Error", e.message, "error"); }
   };
 
   const handleReject = () => {
     if (!selected) return;
-    try { update(PRTVEngine.reject(selected, "MGR-001", "Vendor dispute â€” quality contested")); onNotification?.("Rejected", selected.prtvNo, "error"); }
+    try { update(PRTVEngine.reject(selected, "MGR-001", "Vendor dispute — quality contested")); onNotification?.("Rejected", selected.prtvNo, "error"); }
     catch (e: any) { onNotification?.("Error", e.message, "error"); }
   };
 
@@ -111,7 +111,7 @@ export const PRTVModal: React.FC<PRTVModalProps> = ({ isOpen, onClose, onNotific
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Purchase Return to Vendor (PRTV) Engine</h2>
-              <p className="text-xs text-slate-400">Vendor Return Order Â· Debit Note Â· Dispatch Â· Settlement</p>
+              <p className="text-xs text-slate-400">Vendor Return Order · Debit Note · Dispatch · Settlement</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export const PRTVModal: React.FC<PRTVModalProps> = ({ isOpen, onClose, onNotific
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <p className="text-lg font-bold font-mono text-slate-100">{selected.prtvNo}</p>
-                  <p className="text-xs text-slate-400">{selected.vendorName} Â· {selected.branchCode}{selected.poRef ? ` Â· PO: ${selected.poRef}` : ""}</p>
+                  <p className="text-xs text-slate-400">{selected.vendorName} · {selected.branchCode}{selected.poRef ? ` · PO: ${selected.poRef}` : ""}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-xs font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[selected.status]}`}>{selected.status}</span>
@@ -202,7 +202,7 @@ export const PRTVModal: React.FC<PRTVModalProps> = ({ isOpen, onClose, onNotific
                 selected.debitNote ? (
                   <div className="bg-slate-800/20 border border-sky-500/20 rounded-xl p-5 space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-slate-200">Debit Note â€” {selected.debitNote.debitNoteNo}</p>
+                      <p className="text-sm font-bold text-slate-200">Debit Note — {selected.debitNote.debitNoteNo}</p>
                       <p className="text-[10px] text-slate-500">{new Date(selected.debitNote.generatedAt).toLocaleDateString("en-IN")}</p>
                     </div>
                     {[
@@ -219,13 +219,13 @@ export const PRTVModal: React.FC<PRTVModalProps> = ({ isOpen, onClose, onNotific
                     {selected.dispatch && (
                       <div className="mt-2 text-xs text-slate-400">
                         <span className="text-slate-500">Courier: </span>{selected.dispatch.courier}
-                        <span className="mx-2 text-slate-600">Â·</span>
+                        <span className="mx-2 text-slate-600">·</span>
                         <span className="text-slate-500">Tracking: </span>{selected.dispatch.trackingNo}
                       </div>
                     )}
                     {selected.settlement && (
                       <div className="p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-xs mt-2">
-                        <p className="text-emerald-400 font-bold">Settled â€” {fmt(selected.settlement.settledAmt)} against {selected.settlement.payableRef}</p>
+                        <p className="text-emerald-400 font-bold">Settled — {fmt(selected.settlement.settledAmt)} against {selected.settlement.payableRef}</p>
                       </div>
                     )}
                   </div>

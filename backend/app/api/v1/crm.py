@@ -151,11 +151,14 @@ async def validate_customer_add(
 async def list_customers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
+    invoice_series: Optional[str] = Query(None, max_length=50),
+    invoice_from: Optional[int] = Query(None, ge=0),
+    invoice_to: Optional[int] = Query(None, ge=0),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
-    customers = await repo.get_all(skip=skip, limit=limit)
+    customers = await repo.get_all(skip=skip, limit=limit, invoice_series=invoice_series, invoice_from=invoice_from, invoice_to=invoice_to)
     return [CustomerResponse.from_orm_customer(c) for c in customers]
 
 
@@ -164,11 +167,14 @@ async def search_customers(
     q: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    invoice_series: Optional[str] = Query(None, max_length=50),
+    invoice_from: Optional[int] = Query(None, ge=0),
+    invoice_to: Optional[int] = Query(None, ge=0),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
-    customers = await repo.search(q=q, skip=skip, limit=limit)
+    customers = await repo.search(q=q, skip=skip, limit=limit, invoice_series=invoice_series, invoice_from=invoice_from, invoice_to=invoice_to)
     return [CustomerResponse.from_orm_customer(c) for c in customers]
 
 

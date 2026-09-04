@@ -39,6 +39,9 @@ from app.schemas.crm import (
     CustomerDeliveryLocationCreate,
     CustomerDeliveryLocationUpdate,
     CustomerDeliveryLocationResponse,
+    CustomerDuplicateCheckResponse,
+    DuplicateDecision,
+    MatchedIdentityType,
 )
 from app.services.crm import CrmService
 from app.repositories.customer import (
@@ -156,6 +159,14 @@ def create_mock_service(mem_db: InMemoryCrmDB, company_id="COMP-001", branch_id=
     mock_session.flush = AsyncMock()
     mock_session.commit = AsyncMock()
     mock_session.rollback = AsyncMock()
+
+    class MockNestedTx:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+    mock_session.begin_nested = MagicMock(side_effect=lambda: MockNestedTx())
 
     async def mock_refresh(obj):
         if isinstance(obj, CustomerDeliveryLocation) and obj.gst_registration_id:
@@ -287,6 +298,34 @@ def create_mock_service(mem_db: InMemoryCrmDB, company_id="COMP-001", branch_id=
     service.delivery_repo.get_by_customer_and_store_code = mock_deliv_get_by_code
     service.delivery_repo.search = mock_deliv_search
 
+    # Mock identity_service for in-memory DB tests
+    async def mock_check_dup_gst(customer_id: str, gstin: str):
+        for r in mem_db.gst_registrations.values():
+            if r.gstin == gstin and not r.is_deleted:
+                if r.customer_id == customer_id or not tenant_ctx.company_id or r.company_id == tenant_ctx.company_id:
+                    return CustomerDuplicateCheckResponse(
+                        decision=DuplicateDecision.HARD_DUPLICATE,
+                        matched_identity=MatchedIdentityType.GSTIN,
+                        reason=f"GSTIN '{gstin}' is already registered for this customer.",
+                        allow_override=False,
+                    )
+        return CustomerDuplicateCheckResponse(decision=DuplicateDecision.ALLOW, reason="Allowed", allow_override=False)
+
+    async def mock_check_dup_deliv(customer_id: str, store_code: str, address_line1=None, gstin=None, exclude_loc_id=None):
+        clean_code = store_code.strip().upper()
+        for l in mem_db.delivery_locations.values():
+            if l.customer_id == customer_id and l.store_code.strip().upper() == clean_code and not l.is_deleted:
+                return CustomerDuplicateCheckResponse(
+                    decision=DuplicateDecision.HARD_DUPLICATE,
+                    matched_identity=MatchedIdentityType.STORE_CODE,
+                    reason=f"Store code '{clean_code}' already exists for this customer.",
+                    allow_override=False,
+                )
+        return CustomerDuplicateCheckResponse(decision=DuplicateDecision.ALLOW, reason="Allowed", allow_override=False)
+
+    service.identity_service.check_duplicate_gst_registration = mock_check_dup_gst
+    service.identity_service.check_duplicate_delivery_location = mock_check_dup_deliv
+
     return service
 
 
@@ -374,8 +413,8 @@ async def test_06_duplicate_gstin_rejected(mem_db):
 
     with pytest.raises(HTTPException) as exc:
         await service.create_gst_registration("cust-001", payload)
-    assert exc.value.status_code == 400
-    assert "already registered" in exc.value.detail
+    assert exc.value.status_code in (400, 409)
+    assert "already registered" in str(exc.value.detail)
 
 
 @pytest.mark.asyncio
@@ -621,8 +660,8 @@ async def test_18_duplicate_store_code_for_same_customer_rejected(mem_db):
 
     with pytest.raises(HTTPException) as exc:
         await service.create_delivery_location("cust-001", payload)
-    assert exc.value.status_code == 400
-    assert "already exists for this customer" in exc.value.detail
+    assert exc.value.status_code in (400, 409)
+    assert "already exists for this customer" in str(exc.value.detail)
 
 
 @pytest.mark.asyncio

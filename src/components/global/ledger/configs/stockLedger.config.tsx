@@ -7,7 +7,7 @@
  * Version      : 3.48.0
  * Created      : 2026-08-19
  * Modified     : 2026-08-27
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
@@ -160,13 +160,13 @@ export const stockLedgerConfig: LedgerConfig<any> = {
 
       return {
         id: item.id,
-        barcode: item.barcode || "â€”",
-        sku: item.sku || item.product_code || "â€”",
-        style_code: item.style_code || "â€”",
-        product_name: item.product_name || "â€”",
-        brand: item.brand || "â€”",
-        color: item.color || "â€”",
-        size: item.size || "â€”",
+        barcode: item.barcode || "—",
+        sku: item.sku || item.product_code || "—",
+        style_code: item.style_code || "—",
+        product_name: item.product_name || "—",
+        brand: item.brand || "—",
+        color: item.color || "—",
+        size: item.size || "—",
         movement_type: item.movement_type || "OUTWARD_SALE",
         quantity: qty,
         opening_qty: enriched.opening_qty,
@@ -182,11 +182,11 @@ export const stockLedgerConfig: LedgerConfig<any> = {
         out_value: enriched.out_val,
         closing_value: enriched.closing_val,
         reference_doc_type: item.reference_doc_type || "Sales Invoice",
-        reference_doc_id: item.reference_doc_id || "â€”",
-        reference_doc_no: item.reference_doc_no || item.reference_doc_id || "â€”",
+        reference_doc_id: item.reference_doc_id || "—",
+        reference_doc_no: item.reference_doc_no || item.reference_doc_id || "—",
         warehouse: item.warehouse || "Main Outlet Retail WH",
         created_at: item.created_at,
-        date: item.created_at ? item.created_at.split("T")[0] : "â€”",
+        date: item.created_at ? item.created_at.split("T")[0] : "—",
       };
     });
   },
@@ -198,7 +198,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       width: "105px",
       render: (val) => (
         <span className="font-mono text-[11px] text-theme-muted">
-          {val ? String(val).split("T")[0] : "â€”"}
+          {val ? String(val).split("T")[0] : "—"}
         </span>
       ),
     },
@@ -302,7 +302,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono font-bold text-emerald-400 text-[11px]">
-          {val > 0 ? `+${val}` : "â€”"}
+          {val > 0 ? `+${val}` : "—"}
         </span>
       ),
     },
@@ -313,7 +313,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono font-bold text-rose-400 text-[11px]">
-          {val > 0 ? `-${val}` : "â€”"}
+          {val > 0 ? `-${val}` : "—"}
         </span>
       ),
     },
@@ -335,7 +335,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono text-theme-muted text-[11px]">
-          {val > 0 ? formatCurrency(val) : "â€”"}
+          {val > 0 ? formatCurrency(val) : "—"}
         </span>
       ),
     },
@@ -346,7 +346,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono text-sky-400 text-[11px] font-medium">
-          {val > 0 ? formatCurrency(val) : "â€”"}
+          {val > 0 ? formatCurrency(val) : "—"}
         </span>
       ),
     },
@@ -357,7 +357,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono text-theme-muted text-[11px]">
-          {val > 0 ? formatCurrency(val) : "â€”"}
+          {val > 0 ? formatCurrency(val) : "—"}
         </span>
       ),
     },
@@ -368,7 +368,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono text-theme-primary text-[11px] font-medium">
-          {val > 0 ? formatCurrency(val) : "â€”"}
+          {val > 0 ? formatCurrency(val) : "—"}
         </span>
       ),
     },

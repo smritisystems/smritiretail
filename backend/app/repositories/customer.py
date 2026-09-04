@@ -14,6 +14,7 @@ License      : Proprietary Commercial Software
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import and_, cast, Integer, func
 from sqlalchemy.orm import selectinload
 from ..models.crm import Customer, CustomerGroup
 from .base import BaseRepository
@@ -26,37 +27,72 @@ class CustomerRepository(BaseRepository[Customer]):
     async def get(self, id: str) -> Optional[Customer]:
         stmt = (
             select(Customer)
-            .options(selectinload(Customer.group))
+            .options(
+                selectinload(Customer.group),
+                selectinload(Customer.billing_locations),
+                selectinload(Customer.external_identities),
+            )
             .filter(Customer.id == id, Customer.is_deleted == False)
         )
         stmt = self._apply_tenant_filter(stmt)
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
-    async def get_all(self, skip: int = 0, limit: int = 100) -> List[Customer]:
+    def _apply_invoice_scope(self, stmt, invoice_series: Optional[str], invoice_from: Optional[int], invoice_to: Optional[int]):
+        if not invoice_series:
+            return stmt
+        from ..models.sales import SalesInvoice
+        invoice_number = func.split_part(SalesInvoice.invoice_no, "/", 2)
+        scope = [
+            SalesInvoice.invoice_no.like(f"{invoice_series}/%"),
+            invoice_number.op("~")("^[0-9]+$"),
+        ]
+        if invoice_from is not None:
+            scope.append(cast(invoice_number, Integer) >= invoice_from)
+        if invoice_to is not None:
+            scope.append(cast(invoice_number, Integer) <= invoice_to)
+        return stmt.join(SalesInvoice, SalesInvoice.customer_id == Customer.id).filter(and_(*scope)).distinct()
+
+    async def get_all(
+        self, skip: int = 0, limit: int = 100,
+        invoice_series: Optional[str] = None, invoice_from: Optional[int] = None,
+        invoice_to: Optional[int] = None,
+    ) -> List[Customer]:
         stmt = (
             select(Customer)
-            .options(selectinload(Customer.group))
+            .options(
+                selectinload(Customer.group),
+                selectinload(Customer.billing_locations),
+                selectinload(Customer.external_identities),
+            )
             .filter(Customer.is_deleted == False)
         )
         stmt = self._apply_tenant_filter(stmt)
+        stmt = self._apply_invoice_scope(stmt, invoice_series, invoice_from, invoice_to)
         stmt = stmt.order_by(Customer.created_at.asc(), Customer.id.asc())
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def search(
-        self, q: Optional[str] = None, skip: int = 0, limit: int = 50
+        self, q: Optional[str] = None, skip: int = 0, limit: int = 50,
+        invoice_series: Optional[str] = None, invoice_from: Optional[int] = None,
+        invoice_to: Optional[int] = None,
     ) -> List[Customer]:
         """
         Search customers by name or mobile under tenant context, eagerly loading group for credit policy.
         """
         stmt = (
             select(Customer)
-            .options(selectinload(Customer.group))
+            .options(
+                selectinload(Customer.group),
+                selectinload(Customer.billing_locations),
+                selectinload(Customer.external_identities),
+            )
             .filter(Customer.is_deleted == False)
         )
         stmt = self._apply_tenant_filter(stmt)
+        stmt = self._apply_invoice_scope(stmt, invoice_series, invoice_from, invoice_to)
         if q:
             clean_q = q.strip()
             stmt = stmt.filter(

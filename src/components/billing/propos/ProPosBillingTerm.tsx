@@ -7,7 +7,7 @@
  * Version      : 6.18.1
  * Created      : 2026-08-21
  * Modified     : 2026-09-02
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -632,7 +632,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
 
       setCartItems(prev => [...prev, newItem]);
       setSelectedRowIndex(cartItems.length);
-      onNotification?.("Item Accepted", `${desc} (${stockCode}) accepted (${effDiscQ.toFixed(2)} Disc Qty, â‚¹${discAmt.toFixed(2)} Disc Amt).`, "success");
+      onNotification?.("Item Accepted", `${desc} (${stockCode}) accepted (${effDiscQ.toFixed(2)} Disc Qty, ₹${discAmt.toFixed(2)} Disc Amt).`, "success");
     }
 
     setDirectStockNo("");
@@ -1288,19 +1288,19 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   <span className="font-bold flex items-center gap-1">
                     <Barcode size={13} /> {selectedProductMeta.barcode}
                   </span>
-                  <span>â€¢</span>
+                  <span>?</span>
                   <span><strong>Stock/SKU:</strong> {selectedProductMeta.stockNo || selectedProductMeta.sku}</span>
-                  <span>â€¢</span>
+                  <span>?</span>
                   <span><strong>Stock:</strong> <span className="font-bold font-mono">{selectedProductMeta.stockQty} {selectedProductMeta.uom}</span></span>
-                  <span>â€¢</span>
-                  <span><strong>MRP:</strong> â‚¹{selectedProductMeta.mrp.toFixed(2)}</span>
-                  <span>â€¢</span>
-                  <span><strong>Cost:</strong> â‚¹{selectedProductMeta.costPrice.toFixed(2)}</span>
-                  <span>â€¢</span>
+                  <span>?</span>
+                  <span><strong>MRP:</strong> ₹{selectedProductMeta.mrp.toFixed(2)}</span>
+                  <span>?</span>
+                  <span><strong>Cost:</strong> ₹{selectedProductMeta.costPrice.toFixed(2)}</span>
+                  <span>?</span>
                   <span><strong>Size/Color:</strong> {selectedProductMeta.size}/{selectedProductMeta.color}</span>
-                  <span>â€¢</span>
+                  <span>?</span>
                   <span><strong>Brand:</strong> {selectedProductMeta.brand}</span>
-                  <span>â€¢</span>
+                  <span>?</span>
                   <span><strong>HSN:</strong> {selectedProductMeta.hsnCode} ({selectedProductMeta.gstPercentage}%)</span>
                 </div>
                 <button 
@@ -1309,7 +1309,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs px-1"
                   title="Dismiss inspector"
                 >
-                  âœ•
+                  ?
                 </button>
               </div>
             )}
@@ -1476,7 +1476,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   value={directDiscAmtInput}
                   onChange={e => handleDiscAmtChange(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
-                  placeholder="â‚¹ Amt"
+                  placeholder="₹ Amt"
                   className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#00288e] rounded text-xs font-mono font-bold text-right text-[#ba1a1a] outline-none focus:ring-1 focus:ring-[#00288e]"
                 />
               </div>
@@ -1528,7 +1528,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Sales
                 </span>
                 <span className="font-bold text-[#191c1d] dark:text-white">
-                  â‚¹{grossSalesValue.toFixed(2)}
+                  ₹{grossSalesValue.toFixed(2)}
                 </span>
               </div>
 
@@ -1537,7 +1537,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Discounts
                 </span>
                 <span className="font-bold text-[#ba1a1a]">
-                  -â‚¹{itemDiscountsTotal.toFixed(2)}
+                  -₹{itemDiscountsTotal.toFixed(2)}
                 </span>
               </div>
 
@@ -1546,7 +1546,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Sales Tax
                 </span>
                 <span className="font-bold text-[#191c1d] dark:text-white">
-                  â‚¹{totalTaxAmount.toFixed(2)}
+                  ₹{totalTaxAmount.toFixed(2)}
                 </span>
               </div>
 
@@ -1555,7 +1555,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Addon-Gen
                 </span>
                 <span className="font-bold text-[#191c1d] dark:text-white">
-                  â‚¹0.00
+                  ₹0.00
                 </span>
               </div>
 
@@ -1564,13 +1564,13 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Dedns-Gen
                 </span>
                 <span className="font-bold text-[#ba1a1a]">
-                  -â‚¹0.00
+                  -₹0.00
                 </span>
               </div>
 
               <div className="flex justify-between items-center pt-1 text-sm font-bold text-[#00288e] dark:text-[#a8b8ff]">
                 <span>Net Payable</span>
-                <span className="text-base font-bold">â‚¹{netPayableAmount.toFixed(2)}</span>
+                <span className="text-base font-bold">₹{netPayableAmount.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -1598,27 +1598,27 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
 
           <div className="flex flex-col p-1.5 bg-white dark:bg-[#2d3133] col-span-2 text-right px-4 justify-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Sales Value</span>
-            <span className="text-lg font-mono font-bold text-[#191c1d] dark:text-white">â‚¹{grossSalesValue.toFixed(2)}</span>
+            <span className="text-lg font-mono font-bold text-[#191c1d] dark:text-white">₹{grossSalesValue.toFixed(2)}</span>
           </div>
 
           <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#ba1a1a]">Item Disc</span>
-            <span className="text-sm font-mono font-bold text-[#ba1a1a]">-â‚¹{itemDiscountsTotal.toFixed(2)}</span>
+            <span className="text-sm font-mono font-bold text-[#ba1a1a]">-₹{itemDiscountsTotal.toFixed(2)}</span>
           </div>
 
           <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Total Tax</span>
-            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">â‚¹{totalTaxAmount.toFixed(2)}</span>
+            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">₹{totalTaxAmount.toFixed(2)}</span>
           </div>
 
           <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Addons</span>
-            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">â‚¹0.00</span>
+            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">₹0.00</span>
           </div>
 
           <div className="flex flex-col p-1.5 bg-[#00288e] text-white col-span-2 text-right px-5 justify-center border-l-4 border-[#1e40af] shadow-inner">
             <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Net Amount</span>
-            <span className="text-2xl font-mono font-bold tracking-tight">â‚¹{netPayableAmount.toFixed(2)}</span>
+            <span className="text-2xl font-mono font-bold tracking-tight">₹{netPayableAmount.toFixed(2)}</span>
           </div>
 
         </div>
@@ -1742,7 +1742,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
           currentCustomer={customer}
           onSelectCustomer={(c) => setCustomer(c)}
           onApplyLoyaltyPoints={(pts, amt) => {
-            onNotification?.("Loyalty Redeemed", `${pts} points (â‚¹${amt}) applied to transaction.`, "success");
+            onNotification?.("Loyalty Redeemed", `${pts} points (₹${amt}) applied to transaction.`, "success");
           }}
           onClose={() => setShowLoyaltyModal(false)}
         />
@@ -1751,7 +1751,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
       {showReturnModal && (
         <SmritiProPosSalesReturnModal
           onProcessReturn={(ret) => {
-            onNotification?.("Return Processed", `Credit Note for â‚¹${ret.totalRefund.toFixed(2)} generated.`, "success");
+            onNotification?.("Return Processed", `Credit Note for ₹${ret.totalRefund.toFixed(2)} generated.`, "success");
           }}
           onClose={() => setShowReturnModal(false)}
         />
@@ -1780,7 +1780,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
           onSuccess={(mov) => {
             onNotification?.(
               "Movement Recorded",
-              `${mov.type === "CASH_DROP" ? "Cash Drop" : "Till Expense"} of â‚¹${mov.amount.toFixed(2)} posted.`,
+              `${mov.type === "CASH_DROP" ? "Cash Drop" : "Till Expense"} of ₹${mov.amount.toFixed(2)} posted.`,
               "success"
             );
           }}

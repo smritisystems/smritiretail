@@ -212,17 +212,6 @@ async def purchase_summary(
 ):
     return await ReportsService(db, tenant).purchase_summary(from_date, to_date)
 
-@router.get("/studios")
-async def list_studios(
-    current_user=Depends(get_current_user),
-):
-    return {
-        "studios": SMRITI_STUDIOS,
-        "total_studios": len(SMRITI_STUDIOS),
-        "total_reports": sum(len(s["reports"]) for s in SMRITI_STUDIOS.values()),
-        "policyEnforcement": "SMRITI Rule 10 Non-Repudiation Schema Active",
-    }
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Sprint 8a P1 Endpoints — Tax & Compliance (Shoper9 parity: SR202300/202400/202200/210200/202000)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -334,13 +323,15 @@ async def tax_invoices_master_register(
     bill_from: Optional[int] = Query(default=None, description="Starting Bill Number"),
     bill_to:   Optional[int] = Query(default=None, description="Ending Bill Number"),
     status:    Optional[str] = Query(default=None, description="Status filter (COMPLETED/CANCELLED)"),
+    include_archived: bool = Query(default=True, description="Include archived invoice history"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """RPT-TAX-006 — Statutory GST Tax Invoices Master Register."""
     return await ReportsService(db, tenant).tax_invoices_master_register(
-        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status_filter=status
+        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status_filter=status,
+        include_archived=include_archived,
     )
 
 
@@ -379,13 +370,15 @@ async def export_tax_invoices_excel(
     bill_from: Optional[int] = Query(default=None, description="Starting Bill Number"),
     bill_to:   Optional[int] = Query(default=None, description="Ending Bill Number"),
     status:    Optional[str] = Query(default=None, description="Status filter"),
+    include_archived: bool = Query(default=True, description="Include archived invoice history"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Direct Excel export of Statutory GST Tax Invoices Master Workbook."""
     excel_bytes = await ReportsService(db, tenant).export_tax_invoices_master_excel(
-        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status=status
+        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status=status,
+        include_archived=include_archived,
     )
     filename = f"Tax_Invoices_Master_Report_{date.today().strftime('%Y%m%d')}.xlsx"
     return Response(
