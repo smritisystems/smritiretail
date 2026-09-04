@@ -4,16 +4,16 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.17.0
 Created      : 2026-07-11
-Modified     : 2026-08-25
+Modified     : 2026-09-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
 from datetime import datetime, date
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, DateTime, Text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, DateTime, Text, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
@@ -58,6 +58,9 @@ class Customer(BaseEntity):
     name = Column(String(255), nullable=False)
     mobile = Column(String(20), index=True)
     email = Column(String(255))
+    # Legacy primary GSTIN (backward-compat). Authoritative multi-state GSTINs
+    # are in CustomerGSTRegistration. Kept in sync with the primary registration
+    # row by the service layer.
     gst_number = Column(String(15))
     outstanding = Column(Numeric(15, 2), default=0.00)
     status = Column(String(20), default="Active")
@@ -66,6 +69,138 @@ class Customer(BaseEntity):
 
     # Relationships
     group = relationship("CustomerGroup", back_populates="customers", lazy="selectin")
+    gst_registrations = relationship(
+        "CustomerGSTRegistration",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+        order_by="CustomerGSTRegistration.is_primary.desc()",
+    )
+    delivery_locations = relationship(
+        "CustomerDeliveryLocation",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+        order_by="CustomerDeliveryLocation.store_code",
+    )
+
+
+
+class CustomerGSTRegistration(BaseEntity):
+    """
+    Multi-state GST Registration for a Corporate Customer.
+
+    Each row represents ONE valid GSTIN for the customer in a specific state.
+    A single corporate entity (e.g., Reliance Retail Limited) may hold registrations
+    across 25+ states; each state registration is a distinct row here.
+
+    Uniqueness: (customer_id, gstin) — one GSTIN per customer, enforced at DB level.
+    The is_primary flag nominates the fallback billing GSTIN for contexts that
+    do not specify a delivery location (e.g., advance receipt, CASH invoice).
+
+    Immutability: Once a GSTIN row is referenced by a SalesInvoice (via
+    billed_party_gstin_id or delivery_gstin_snapshot), it MUST NOT be hard-deleted.
+    Use status='CANCELLED' / 'SURRENDERED' for deactivation.
+    """
+    __tablename__ = "customer_gst_registrations"
+    __table_args__ = (
+        UniqueConstraint("customer_id", "gstin", name="uq_cust_gst_reg_customer_gstin"),
+    )
+
+    customer_id = Column(
+        String(50), ForeignKey("customers.id", ondelete="RESTRICT"),
+        nullable=False, index=True
+    )
+    gstin = Column(String(15), nullable=False, index=True)
+    state_name = Column(String(100), nullable=False)          # e.g. 'Maharashtra'
+    state_code = Column(String(2), nullable=False)            # e.g. '27'
+    # REGULAR, COMPOSITION, SEZ_WITH_TAX, SEZ_WITHOUT_TAX, UIN, EMBASSY
+    registration_type = Column(String(30), nullable=False, default="REGULAR")
+    is_primary = Column(Boolean, nullable=False, default=False)  # Primary billing GSTIN
+    status = Column(String(20), nullable=False, default="ACTIVE")  # ACTIVE, CANCELLED, SURRENDERED
+    remarks = Column(Text, nullable=True)
+    metadata_json = Column(JSONB, nullable=True)              # spare extensible fields
+
+    # Relationships
+    customer = relationship("Customer", back_populates="gst_registrations")
+    delivery_locations = relationship(
+        "CustomerDeliveryLocation",
+        back_populates="gst_registration",
+        foreign_keys="CustomerDeliveryLocation.gst_registration_id",
+    )
+
+
+class CustomerDeliveryLocation(BaseEntity):
+    """
+    Physical Delivery Location / Store of a Corporate Customer.
+
+    Replaces the legacy 'CustomerAddress' phantom entity that was referenced
+    in dispatch_import.py but never implemented. This is the canonical entity
+    for Customer Delivery Locations with Store Codes.
+
+    Key Constraints:
+    - store_code is String (NOT Integer) — RIL codes include alphanumeric values
+      such as 'T97D', 'TFW4', 'TYAC' in addition to numeric codes like '1888'.
+    - Uniqueness: (customer_id, store_code) per active location.
+    - gst_registration_id FK is nullable (SET NULL) to allow location records
+      to survive GST registration soft-deletes.
+    - Hard deletes are PROHIBITED once the location is referenced by a SalesInvoice.
+      Use status='INACTIVE' for deactivation.
+
+    Immutability: SalesInvoice snapshots (delivery_store_code, delivery_location_snapshot,
+    delivery_gstin) are written at invoice creation time and are never updated.
+    The FK delivery_location_id on SalesInvoice uses SET NULL so invoice history
+    remains intact even if this record is soft-deleted.
+    """
+    __tablename__ = "customer_delivery_locations"
+    __table_args__ = (
+        # Partial unique index: one active location per (customer, store_code).
+        # Inactive locations are excluded so a store code can be reactivated.
+        Index(
+            "uq_cdl_customer_store_code_active",
+            "customer_id", "store_code",
+            unique=True,
+            postgresql_where="status = 'ACTIVE'",
+        ),
+    )
+
+    customer_id = Column(
+        String(50), ForeignKey("customers.id", ondelete="RESTRICT"),
+        nullable=False, index=True
+    )
+    # Store Code: STRING (alphanumeric). Examples: '1888', 'T97D', 'TFW4', 'TYAC'
+    store_code = Column(String(50), nullable=False, index=True)
+    location_name = Column(String(255), nullable=False)       # Store / Site name
+    address_line1 = Column(Text, nullable=True)
+    address_line2 = Column(Text, nullable=True)
+    city = Column(String(100), nullable=True)
+    state = Column(String(100), nullable=True)
+    state_code = Column(String(2), nullable=True)             # '27', '06', etc.
+    pincode = Column(String(10), nullable=True)
+    country = Column(String(100), nullable=False, default="India")
+    # FK to this location's GST registration (if any)
+    gst_registration_id = Column(
+        String(50),
+        ForeignKey("customer_gst_registrations.id", ondelete="SET NULL"),
+        nullable=True, index=True
+    )
+    # Denormalized GSTIN for quick access without JOIN (kept in sync with gst_registration)
+    gstin = Column(String(15), nullable=True)
+    contact_person = Column(String(150), nullable=True)
+    phone = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+    # ACTIVE / INACTIVE — soft-delete only once referenced by invoice
+    status = Column(String(20), nullable=False, default="ACTIVE")
+    # Source / origin tag: MANUAL, DISPATCH_IMPORT, EXCEL_IMPORT, API
+    source = Column(String(30), nullable=True, default="MANUAL")
+    remarks = Column(Text, nullable=True)
+    metadata_json = Column(JSONB, nullable=True)
+
+    # Relationships
+    customer = relationship("Customer", back_populates="delivery_locations")
+    gst_registration = relationship(
+        "CustomerGSTRegistration",
+        back_populates="delivery_locations",
+        foreign_keys=[gst_registration_id],
+    )
 
 
 class CrmLead(BaseEntity):
