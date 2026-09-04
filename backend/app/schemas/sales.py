@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.0
+Version      : 3.19.0
 Created      : 2026-07-11
-Modified     : 2026-08-24
+Modified     : 2026-09-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -78,6 +78,25 @@ class SalesInvoiceBase(BaseModel):
     net_amount:       Optional[Decimal] = Field(Decimal("0.00"),       validation_alias=AliasChoices("net_amount",       "netAmount"))
     rule_snapshots:   Optional[dict]    = Field(default_factory=dict, validation_alias=AliasChoices("rule_snapshots", "ruleSnapshots", "metadata"))
     remarks:          Optional[str]     = Field(None,                  validation_alias=AliasChoices("remarks", "notes", "importValidationNotes"))
+    # ── Legacy store/site snapshot (retained for historical invoice immutability) ──
+    sis_code:         Optional[str]     = Field(None, max_length=50,  validation_alias=AliasChoices("sis_code", "sisCode"))
+    site_name:        Optional[str]     = Field(None,                  validation_alias=AliasChoices("site_name", "siteName"))
+    # ── Corporate B2B fields (Phase 1 additions — all nullable, backward-safe) ──
+    # FK to the CustomerDeliveryLocation that was active at invoice creation time.
+    # SET NULL on location soft-delete; snapshot fields below preserve immutability.
+    delivery_location_id:     Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("delivery_location_id",     "deliveryLocationId"))
+    # Snapshot of the store code at invoice creation time (immutable after save)
+    delivery_store_code:      Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("delivery_store_code",      "deliveryStoreCode"))
+    # Ship-to GSTIN — separate from customer_gstin (billed-party GSTIN)
+    delivery_gstin:           Optional[str]  = Field(None, max_length=15,  validation_alias=AliasChoices("delivery_gstin",           "deliveryGstin"))
+    # FK to the CustomerGSTRegistration used as the billed-party GSTIN on this invoice
+    billed_party_gstin_id:    Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("billed_party_gstin_id",    "billedPartyGstinId"))
+    # Full JSONB snapshot of the delivery location at invoice creation time
+    delivery_location_snapshot: Optional[dict] = Field(None,              validation_alias=AliasChoices("delivery_location_snapshot", "deliveryLocationSnapshot"))
+    # Transaction-level Place of Supply state code (e.g. '27', '06') — stored explicitly
+    # so it remains correct even when customer GSTIN differs from delivery GSTIN.
+    place_of_supply_code:     Optional[str]  = Field(None, max_length=2,   validation_alias=AliasChoices("place_of_supply_code",     "placeOfSupplyCode"))
+    po_reference:             Optional[str]  = Field(None, max_length=100, validation_alias=AliasChoices("po_reference",            "poReference", "po_number", "poNumber"))
 
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50)

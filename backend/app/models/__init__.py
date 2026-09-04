@@ -6,13 +6,13 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.21.0
 Created      : 2026-07-11
-Modified     : 2026-08-15
+Modified     : 2026-09-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 # SMRITI database models init
-from .crm import CustomerGroup, Customer
+from .crm import CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation
 from .inventory import Product, StockMovement
 from .sales import SalesInvoice, SalesInvoiceItem
 from .tenant import Company, Branch

@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.22.0
+Version      : 3.23.0
 Created      : 2026-07-11
-Modified     : 2026-08-16
+Modified     : 2026-09-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -17,6 +17,126 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import inspect
 from sqlalchemy.orm.base import NO_VALUE
+
+# ───────────────────────────── CustomerGSTRegistration ──────────────────────
+
+class CustomerGSTRegistrationBase(BaseModel):
+    """Represents one GST registration of a corporate customer in a specific state."""
+    gstin: str = Field(..., max_length=15, alias="gstin")
+    state_name: str = Field(..., max_length=100, alias="stateName")
+    state_code: str = Field(..., max_length=2, alias="stateCode")
+    registration_type: Optional[str] = Field(
+        "REGULAR", alias="registrationType"
+    )  # REGULAR, COMPOSITION, SEZ_WITH_TAX, SEZ_WITHOUT_TAX, UIN, EMBASSY
+    is_primary: Optional[bool] = Field(False, alias="isPrimary")
+    status: Optional[str] = Field("ACTIVE", alias="status")  # ACTIVE, CANCELLED, SURRENDERED
+    remarks: Optional[str] = Field(None, alias="remarks")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerGSTRegistrationCreate(CustomerGSTRegistrationBase):
+    """Request body for adding a GST registration to a customer."""
+    id: Optional[str] = Field(None, max_length=50)
+    customer_id: Optional[str] = Field(None, max_length=50, alias="customerId")
+
+
+class CustomerGSTRegistrationUpdate(BaseModel):
+    """Partial update for a GST registration."""
+    state_name: Optional[str] = None
+    state_code: Optional[str] = None
+    registration_type: Optional[str] = None
+    is_primary: Optional[bool] = None
+    status: Optional[str] = None
+    remarks: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerGSTRegistrationResponse(CustomerGSTRegistrationBase):
+    id: str
+    customer_id: str
+    uuid: Optional[str] = None
+    company_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
+    is_active: bool = True
+    is_deleted: bool = False
+    version: Optional[int] = 1
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+# ───────────────────────────── CustomerDeliveryLocation ─────────────────────
+
+class CustomerDeliveryLocationBase(BaseModel):
+    """
+    One physical delivery location / store of a corporate customer.
+    store_code MUST be String — includes alphanumeric values (e.g. 'T97D', 'TFW4').
+    """
+    store_code: str = Field(..., max_length=50, alias="storeCode")
+    location_name: str = Field(..., max_length=255, alias="locationName")
+    address_line1: Optional[str] = Field(None, alias="addressLine1")
+    address_line2: Optional[str] = Field(None, alias="addressLine2")
+    city: Optional[str] = Field(None, max_length=100)
+    state: Optional[str] = Field(None, max_length=100)
+    state_code: Optional[str] = Field(None, max_length=2, alias="stateCode")
+    pincode: Optional[str] = Field(None, max_length=10)
+    country: Optional[str] = Field("India", max_length=100)
+    gst_registration_id: Optional[str] = Field(None, max_length=50, alias="gstRegistrationId")
+    gstin: Optional[str] = Field(None, max_length=15)
+    contact_person: Optional[str] = Field(None, max_length=150, alias="contactPerson")
+    phone: Optional[str] = Field(None, max_length=20)
+    email: Optional[str] = Field(None, max_length=255)
+    status: Optional[str] = Field("ACTIVE")  # ACTIVE, INACTIVE
+    source: Optional[str] = Field("MANUAL")  # MANUAL, DISPATCH_IMPORT, EXCEL_IMPORT, API
+    remarks: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerDeliveryLocationCreate(CustomerDeliveryLocationBase):
+    """Request body for adding a delivery location to a customer."""
+    id: Optional[str] = Field(None, max_length=50)
+    customer_id: Optional[str] = Field(None, max_length=50, alias="customerId")
+
+
+class CustomerDeliveryLocationUpdate(BaseModel):
+    """Partial update for a delivery location."""
+    location_name: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    state_code: Optional[str] = None
+    pincode: Optional[str] = None
+    country: Optional[str] = None
+    gst_registration_id: Optional[str] = None
+    gstin: Optional[str] = None
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    status: Optional[str] = None
+    remarks: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerDeliveryLocationResponse(CustomerDeliveryLocationBase):
+    id: str
+    customer_id: str
+    uuid: Optional[str] = None
+    company_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
+    is_active: bool = True
+    is_deleted: bool = False
+    version: Optional[int] = 1
+    # Optionally embed resolved GST registration
+    gst_registration: Optional[CustomerGSTRegistrationResponse] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
 
 # Base schema for CustomerGroup
 class CustomerGroupBase(BaseModel):
@@ -210,6 +330,9 @@ class CustomerResponse(CustomerBase):
     is_active: bool = True
     is_deleted: bool = False
     version: Optional[int] = 1
+    # Corporate B2B extensions — empty list for retail/non-corporate customers
+    gst_registrations: List[CustomerGSTRegistrationResponse] = []
+    delivery_locations: List[CustomerDeliveryLocationResponse] = []
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
