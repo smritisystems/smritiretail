@@ -436,6 +436,15 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-theme-selection text-theme-primary border border-theme-primary/30">
                 {reportCategory}
               </span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
+                isLoading
+                  ? "text-amber-300 border-amber-500/30 bg-amber-950/30"
+                  : data.length > 0
+                    ? "text-emerald-300 border-emerald-500/30 bg-emerald-950/30"
+                    : "text-slate-300 border-slate-600 bg-slate-800"
+              }`}>
+                {isLoading ? "LOADING" : data.length > 0 ? "LIVE DATA" : "NO LIVE DATA"}
+              </span>
               <span className="text-xs font-mono text-theme-muted">#{reportId}</span>
             </div>
             <h3 className="text-lg font-bold text-theme-body mt-1 flex items-center gap-2">
@@ -913,7 +922,14 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {filteredData.length === 0 ? (
+                {data.length === 0 ? (
+                  <tr>
+                    <td colSpan={activeColumns.length} className="p-8 text-center font-sans">
+                      <div className="text-sm font-semibold text-theme-body">No live data returned</div>
+                      <div className="mt-1 text-xs text-theme-muted">This report has no records for the selected period.</div>
+                    </td>
+                  </tr>
+                ) : filteredData.length === 0 ? (
                   <tr>
                     <td colSpan={activeColumns.length} className="p-8 text-center text-slate-500 font-mono text-xs">
                       No matching records found for the selected range and filters.

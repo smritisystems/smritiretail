@@ -53,6 +53,14 @@ async def test_sales_order_full_suite():
         target_order = orders[0]
         order_id = target_order.id
         po_num = target_order.po_number
+        original_metrics = {
+            "billed_qty": target_order.billed_qty,
+            "billed_value": target_order.billed_value,
+            "pending_qty": target_order.pending_qty,
+            "pending_value": target_order.pending_value,
+            "fulfillment_status": target_order.fulfillment_status,
+            "status": target_order.status,
+        }
 
     headers = _get_auth_headers()
     transport = ASGITransport(app=app)
@@ -101,6 +109,12 @@ async def test_sales_order_full_suite():
                     await db.execute(text("DELETE FROM sales_order_invoice_allocations WHERE invoice_id = :iid"), {"iid": inv_id})
                     await db.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": inv_id})
                     await db.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": inv_id})
+                    await db.execute(
+                        text("""UPDATE sales_orders SET billed_qty=:billed_qty, billed_value=:billed_value,
+                            pending_qty=:pending_qty, pending_value=:pending_value,
+                            fulfillment_status=:fulfillment_status, status=:status WHERE id=:order_id"""),
+                        {**original_metrics, "order_id": order_id},
+                    )
                     await db.commit()
 
         print("\n[SUCCESS] All Sales Order endpoints verified: Single GET, Preview HTML, Fulfillment Variance, 1-Click Invoice Conversion.")

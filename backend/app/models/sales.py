@@ -14,6 +14,7 @@ Classification: Internal
 
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, text
+from sqlalchemy import DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import Base, BaseEntity
@@ -236,6 +237,13 @@ class SalesOrderItem(Base):
     line_total   = Column(Numeric(15, 2))
     delivery_date = Column(Date)
     site_code    = Column(String(50))
+    billed_quantity = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    pending_quantity = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    overbilled_quantity = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    line_status = Column(String(30), nullable=False, default="OPEN")  # OPEN | PARTIALLY_BILLED | BILLED | CLOSED | CANCELLED
+    closure_reason = Column(Text, nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    closed_by = Column(String(100), nullable=True)
 
     # Relationships
     order = relationship("SalesOrder", back_populates="items")

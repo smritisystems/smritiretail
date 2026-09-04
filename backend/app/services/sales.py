@@ -45,6 +45,7 @@ from ..schemas.sales import (
     SalesQuotationUpdate,
     SalesOrderCreate,
     SalesOrderUpdate,
+    SalesOrderLineActionRequest,
     SalesReturnCreate,
     SalesReturnUpdate,
 )
@@ -555,6 +556,15 @@ class SalesService:
         due_date = inv_date + timedelta(days=credit_days_configured)
 
         snapshots = dict(getattr(invoice_in, "rule_snapshots", None) or {})
+        psv_party_id = getattr(invoice_in, "psv_party_id", None)
+        psv_store_id = getattr(invoice_in, "psv_store_id", None)
+        if psv_party_id:
+            snapshots["psv_mapping"] = {
+                "psv_party_id": psv_party_id,
+                "psv_store_id": psv_store_id,
+                "delivery_store_code": snapshot_del_store_code,
+                "billing_store_code": snapshot_billing_store_code,
+            }
         if is_credit_mode:
             snapshots["transaction_type"] = "Credit"
             snapshots["credit_terms"] = {
@@ -667,9 +677,23 @@ class SalesService:
                 payload={
                     "action": "SALES_INVOICE_CREATED",
                     "invoice_no": db_invoice.invoice_no,
+                    "source_document_id": db_invoice.id,
                     "grand_total": str(db_invoice.grand_total),
                     "customer_id": db_invoice.customer_id,
-                    "company_code": self.tenant_ctx.company_id
+                    "company_code": self.tenant_ctx.company_id,
+                    "source_database": "smriti001",
+                    "psv_party_id": psv_party_id,
+                    "psv_store_id": psv_store_id,
+                    "destination_id": snapshot_del_store_code or snapshot_billing_store_code,
+                    "items": [
+                        {
+                            "line_no": index,
+                            "sku": item.code,
+                            "quantity": str(item.quantity),
+                            "movement_type": "GST_BILLED",
+                        }
+                        for index, item in enumerate(invoice_in.items, start=1)
+                    ],
                 },
                 causation_id=db_invoice.invoice_no
             )
@@ -737,7 +761,8 @@ class SalesService:
         q_items = []
 
         for item in q_in.items:
-            item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+            gst_rate = item.gst_rate
+            item_tax = (item.quantity * item.price * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
             item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
             tax_total += item_tax
             grand_total += item_total
@@ -862,19 +887,22 @@ class SalesService:
             if Decimal(str(item.price)) < 0:
                 raise HTTPException(status_code=400, detail=f"Item {index}: price cannot be negative.")
 
-            item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+            gst_rate = item.gst_rate if item.gst_rate != Decimal("18.00") or not product.gst_percentage else Decimal(str(product.gst_percentage))
+            item_tax = (item.quantity * item.price * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
             item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
             tax_total += item_tax
             grand_total += item_total
 
             so_items.append(SalesOrderItem(
                 product_id=product.id,
+                item_id=product.item_id,
+                variant_id=item.variant_id or product.item_variant_id,
                 code=product.code,
                 name=product.name,
                 quantity=item.quantity,
                 price=item.price,
-                hsn_code=item.hsn_code,
-                gst_rate=item.gst_rate,
+                hsn_code=item.hsn_code or product.hsn_code,
+                gst_rate=gst_rate,
                 tax_amount=item_tax,
                 total_amount=item_total
             ))
@@ -1053,6 +1081,8 @@ class SalesService:
             inv_items.append(SalesInvoiceItem(
                 invoice_id=invoice_id,
                 product_id=item.product_id,
+                item_id=item.item_id,
+                variant_id=item.variant_id,
                 code=item.code,
                 name=item.name,
                 quantity=qty,
@@ -1677,8 +1707,17 @@ class SalesService:
             grand_total = Decimal("0.00")
             new_items   = []
             for item in update_in.items:
+                product_res = await self.db.execute(select(Product).where(
+                    (Product.id == item.product_id) | (Product.code == item.product_id),
+                    Product.company_id == self.tenant_ctx.company_id,
+                    Product.is_deleted == False,
+                ))
+                product = product_res.scalars().first()
+                if not product:
+                    raise HTTPException(status_code=400, detail=f"Item '{item.product_id}' was not found in the database.")
+                gst_rate = item.gst_rate if item.gst_rate != Decimal("18.00") or not product.gst_percentage else Decimal(str(product.gst_percentage))
                 item_tax   = (item.quantity * item.price
-                               * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+                               * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
                 item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
                 tax_total   += item_tax
                 grand_total += item_total
@@ -1890,9 +1929,10 @@ class SalesService:
                 grand_total += item_total
                 self.db.add(SalesOrderItem(
                     order_id=so.id,
-                    product_id=item.product_id, code=item.code, name=item.name,
+                    product_id=product.id, item_id=product.item_id, variant_id=item.variant_id or product.item_variant_id,
+                    code=product.code, name=product.name,
                     quantity=item.quantity, price=item.price,
-                    hsn_code=item.hsn_code, gst_rate=item.gst_rate,
+                    hsn_code=item.hsn_code or product.hsn_code, gst_rate=gst_rate,
                     tax_amount=item_tax, total_amount=item_total,
                 ))
             so.tax_total   = tax_total
@@ -1930,6 +1970,41 @@ class SalesService:
         so.modified_at = datetime.now(timezone.utc)
         self.db.add(so)
         await self.db.commit()
+
+    async def close_or_cancel_sales_order_line(
+        self,
+        order_id: str,
+        line_id: int,
+        action: str,
+        request: SalesOrderLineActionRequest,
+        user_name: str,
+    ) -> SalesOrderItem:
+        if action not in {"close", "cancel"}:
+            raise HTTPException(status_code=400, detail="Sales Order line action must be close or cancel.")
+        result = await self.db.execute(
+            select(SalesOrderItem)
+            .join(SalesOrder, SalesOrder.id == SalesOrderItem.order_id)
+            .where(
+                SalesOrderItem.id == line_id,
+                SalesOrderItem.order_id == order_id,
+                SalesOrder.company_id == self.tenant_ctx.company_id,
+                SalesOrder.branch_id == self.tenant_ctx.branch_id,
+                SalesOrder.is_deleted == False,
+            )
+        )
+        line = result.scalars().first()
+        if not line:
+            raise HTTPException(status_code=404, detail="Sales Order line not found")
+        if line.line_status in {"BILLED", "CANCELLED", "CLOSED"}:
+            raise HTTPException(status_code=400, detail=f"Cannot change line with status '{line.line_status}'.")
+        line.line_status = "CANCELLED" if action == "cancel" else "CLOSED"
+        line.closure_reason = request.reason.strip()
+        line.closed_at = datetime.now(timezone.utc)
+        line.closed_by = user_name
+        self.db.add(line)
+        await self.db.commit()
+        await self.db.refresh(line)
+        return line
 
     # ?? Return UPDATE ???????????????????????????????????????????????
 

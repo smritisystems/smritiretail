@@ -188,6 +188,7 @@ export interface Bill {
 }
 
 export interface SalesItemLine {
+  id?: number | string;
   productId: string;
   product_id?: string;
   code: string;
@@ -231,6 +232,16 @@ export interface SalesItemLine {
   delivery_date?: string;
   siteCode?: string;
   site_code?: string;
+  billedQuantity?: number;
+  billed_quantity?: number;
+  pendingQuantity?: number;
+  pending_quantity?: number;
+  overbilledQuantity?: number;
+  overbilled_quantity?: number;
+  lineStatus?: string;
+  line_status?: string;
+  closureReason?: string;
+  closure_reason?: string;
 }
 
 export interface Quotation {
