@@ -332,3 +332,30 @@ async def test_response_serialization_without_preloaded_group_no_missing_greenle
     assert resp3.credit_hold is False
 
 
+@pytest.mark.asyncio
+async def test_customer_get_all_deterministic_ordering():
+    """
+    Test 5 — Backend Ordering Contract:
+    Verify CustomerRepository.get_all() returns customers deterministically ordered
+    by created_at ASC, id ASC for stable presentation.
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    tenant_ctx = _get_tenant_context()
+
+    async with session_factory() as session:
+        repo = CustomerRepository(session, tenant_ctx)
+        customers = await repo.get_all(skip=0, limit=50)
+
+        assert len(customers) > 0
+
+        # Verify created_at is non-decreasing throughout the list
+        for i in range(len(customers) - 1):
+            curr_c = customers[i]
+            next_c = customers[i + 1]
+            if curr_c.created_at and next_c.created_at:
+                assert curr_c.created_at <= next_c.created_at
+                if curr_c.created_at == next_c.created_at:
+                    assert curr_c.id <= next_c.id
+
+
+

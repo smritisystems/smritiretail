@@ -405,10 +405,10 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
         />
       </div>
 
-      {/* 3. Details of Shoper (Environment & File Integration) */}
+      {/* 3. Details of Shopper (Environment & File Integration) */}
       <div className="bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] p-5 rounded-2xl shadow-xs space-y-4">
         <h3 className="text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] uppercase tracking-wider flex items-center gap-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-2.5">
-          <Store size={15} /> Details of Shoper
+          <Store size={15} /> Details of Shopper
         </h3>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -469,6 +469,18 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               data-field-key="reference_no"
               onChange={(e) => onChange("delimiter", e.target.value)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs text-center font-bold"
+            />
+          </div>
+
+          <div>
+            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+              Store Code
+            </label>
+            <input
+              type="text"
+              value={customer.storeCode ?? ""}
+              onChange={(e) => onChange("storeCode", e.target.value)}
+              className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs"
             />
           </div>
 

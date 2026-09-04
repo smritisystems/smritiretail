@@ -55,6 +55,15 @@ class SalesInvoice(BaseEntity):
     billing_address         = Column(Text)
     shipping_address        = Column(Text)
     site_name               = Column(String(255))
+    # Corporate B2B Customer / Delivery Location / Multi-State GST / Billing Location (Phase 1 & Phase 2F)
+    delivery_location_id       = Column(String(50), ForeignKey("customer_delivery_locations.id", ondelete="SET NULL"), nullable=True, index=True)
+    delivery_store_code        = Column(String(50), nullable=True, index=True)
+    delivery_gstin             = Column(String(15), nullable=True)
+    billed_party_gstin_id      = Column(String(50), ForeignKey("customer_gst_registrations.id", ondelete="SET NULL"), nullable=True, index=True)
+    billing_location_id        = Column(String(50), ForeignKey("customer_billing_locations.id", ondelete="SET NULL"), nullable=True, index=True)
+    billing_store_code         = Column(String(50), nullable=True, index=True)
+    delivery_location_snapshot  = Column(JSONB, nullable=True)
+    place_of_supply_code       = Column(String(2), nullable=True)
     taxable_value           = Column(Numeric(15, 2))
     rounding_amount         = Column(Numeric(10, 4), default=0.0000)
     amount_in_words         = Column(Text)
@@ -86,6 +95,9 @@ class SalesInvoice(BaseEntity):
 
     # Relationships
     items = relationship("SalesInvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+    delivery_location = relationship("CustomerDeliveryLocation", foreign_keys=[delivery_location_id])
+    billed_party_gstin = relationship("CustomerGSTRegistration", foreign_keys=[billed_party_gstin_id])
+    billing_location = relationship("CustomerBillingLocation", foreign_keys=[billing_location_id])
 
 
 

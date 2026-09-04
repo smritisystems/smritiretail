@@ -12,9 +12,15 @@
  * Classification: Internal
  */
 
+export type CustomerAddressType = "mailing" | "billing" | "shipping";
+
 export interface CustomerAddressEntry {
   code: string;
   contactPerson: string;
+  addressType?: CustomerAddressType;
+  storeCode?: string;
+  billingStoreCode?: string;
+  shippingStoreCode?: string;
   address1: string;
   address2: string;
   address3: string;
@@ -68,6 +74,9 @@ export interface RetailCustomerRecord {
   companyCode: string;
   environment: "Retail" | "Distribution" | "Warehouse" | string;
   flatFileFormat: "GUI with Delimiter Format" | "Fixed Length Format" | "XML Format" | "JSON Format" | string;
+  storeCode?: string;
+  billingStoreCode?: string;
+  shippingStoreCode?: string;
   isTaxInclusive: boolean;
   delimiter: string;
   buyingFactor: number;

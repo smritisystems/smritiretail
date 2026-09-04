@@ -37,7 +37,10 @@ import {
   BillingSummaryTotals,
   TransporterRow,
   AddonDeductionRow,
-  SettlementPaymentRow
+  SettlementPaymentRow,
+  CustomerGSTRegistrationDTO,
+  CustomerDeliveryLocationDTO,
+  CustomerBillingLocationDTO
 } from "./types.ts";
 import { ProductSearchBrowserModal } from "./ProductSearchBrows.tsx";
 import { ItemBrowseOverlayModal } from "./ItemBrowseOverlayD.tsx";
@@ -103,8 +106,150 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     billDate: new Date().toLocaleDateString("en-GB"),
     customer: null,
     salesStaff: currentUser?.name || "EMP001 - John Doe",
-    remarks: ""
+    remarks: "",
+    billedPartyGstinId: null,
+    billedGstin: null,
+    deliveryLocationId: null,
+    deliveryStoreCode: null,
+    deliveryGstin: null,
+    deliveryLocationSnapshot: null,
+    placeOfSupplyCode: null,
+    poReference: ""
   });
+
+  // Corporate B2B Multi-State GST, Billing & Delivery Location State
+  const [customerGstRegistrations, setCustomerGstRegistrations] = useState<CustomerGSTRegistrationDTO[]>([]);
+  const [customerDeliveryLocations, setCustomerDeliveryLocations] = useState<CustomerDeliveryLocationDTO[]>([]);
+  const [customerBillingLocations, setCustomerBillingLocations] = useState<CustomerBillingLocationDTO[]>([]);
+  const [isLoadingB2BData, setIsLoadingB2BData] = useState<boolean>(false);
+  const activeCustomerFetchIdRef = useRef<string | null>(null);
+
+  const fetchCustomerB2BData = async (customerId: string) => {
+    activeCustomerFetchIdRef.current = customerId;
+    setIsLoadingB2BData(true);
+    try {
+      const [regsRes, locsRes, blocRes] = await Promise.all([
+        apiFetchV1(`/crm/customers/${customerId}/gst-registrations`).catch(() => []),
+        apiFetchV1(`/crm/customers/${customerId}/delivery-locations`).catch(() => []),
+        apiFetchV1(`/crm/customers/${customerId}/billing-locations`).catch(() => []),
+      ]);
+      if (activeCustomerFetchIdRef.current !== customerId) return;
+
+      const regs: CustomerGSTRegistrationDTO[] = Array.isArray(regsRes) ? regsRes : (regsRes?.items || []);
+      const locs: CustomerDeliveryLocationDTO[] = Array.isArray(locsRes) ? locsRes : (locsRes?.items || []);
+      const blocs: CustomerBillingLocationDTO[] = Array.isArray(blocRes) ? blocRes : (blocRes?.items || []);
+      setCustomerGstRegistrations(regs);
+      setCustomerDeliveryLocations(locs);
+      setCustomerBillingLocations(blocs);
+
+      // 1. Primary GST auto-selection:
+      const primaryReg = regs.find(r => r.is_primary) || (regs.length === 1 ? regs[0] : null);
+
+      // 2. Default Billing Location auto-selection:
+      const defaultBloc = blocs.find(b => b.is_default) || (blocs.length === 1 ? blocs[0] : null);
+
+      // 3. Default Shipping / Delivery Location auto-selection:
+      const defaultDelLoc = locs.find(l => l.is_default) || (locs.length === 1 ? locs[0] : null);
+
+      const delSnapshot = defaultDelLoc ? {
+        id: defaultDelLoc.id,
+        store_code: defaultDelLoc.store_code,
+        location_name: defaultDelLoc.location_name,
+        address_line1: defaultDelLoc.address_line1,
+        address_line2: defaultDelLoc.address_line2,
+        city: defaultDelLoc.city,
+        state_code: defaultDelLoc.state_code,
+        state_name: defaultDelLoc.state_name,
+        pin_code: defaultDelLoc.pin_code,
+        delivery_gstin: defaultDelLoc.delivery_gstin,
+        contact_person: defaultDelLoc.contact_person,
+        contact_phone: defaultDelLoc.contact_phone
+      } : null;
+
+      setHeaderState(prev => ({
+        ...prev,
+        billedPartyGstinId: primaryReg?.id || null,
+        billedGstin: primaryReg?.gstin || null,
+        placeOfSupplyCode: defaultDelLoc?.state_code || primaryReg?.state_code || prev.placeOfSupplyCode,
+        billingLocationId: defaultBloc?.id || null,
+        billingStoreCode: defaultBloc?.billing_store_code || null,
+        billingAddress: defaultBloc ? [defaultBloc.address_line1, defaultBloc.city, defaultBloc.state].filter(Boolean).join(", ") : null,
+        deliveryLocationId: defaultDelLoc?.id || null,
+        deliveryStoreCode: defaultDelLoc?.store_code || null,
+        deliveryGstin: defaultDelLoc?.delivery_gstin || null,
+        deliveryLocationSnapshot: delSnapshot,
+        shippingAddress: defaultDelLoc ? [defaultDelLoc.address_line1, defaultDelLoc.city, defaultDelLoc.state_name].filter(Boolean).join(", ") : null,
+      }));
+    } catch {
+      // Offline fallback
+    } finally {
+      if (activeCustomerFetchIdRef.current === customerId) {
+        setIsLoadingB2BData(false);
+      }
+    }
+  };
+
+  const handleBilledGstinChange = (regId: string) => {
+    if (!regId) {
+      setHeaderState(prev => ({
+        ...prev,
+        billedPartyGstinId: null,
+        billedGstin: null
+      }));
+      return;
+    }
+    const reg = customerGstRegistrations.find(r => r.id === regId);
+    if (!reg) return;
+    setHeaderState(prev => ({
+      ...prev,
+      billedPartyGstinId: reg.id,
+      billedGstin: reg.gstin,
+      placeOfSupplyCode: prev.deliveryLocationId ? prev.placeOfSupplyCode : reg.state_code
+    }));
+  };
+
+  const handleDeliveryLocationChange = (locId: string) => {
+    if (!locId) {
+      setHeaderState(prev => {
+        const billedReg = customerGstRegistrations.find(r => r.id === prev.billedPartyGstinId);
+        return {
+          ...prev,
+          deliveryLocationId: null,
+          deliveryStoreCode: null,
+          deliveryGstin: null,
+          deliveryLocationSnapshot: null,
+          placeOfSupplyCode: billedReg?.state_code || null
+        };
+      });
+      return;
+    }
+    const loc = customerDeliveryLocations.find(l => l.id === locId);
+    if (!loc) return;
+    const snapshot = {
+      id: loc.id,
+      store_code: loc.store_code,
+      location_name: loc.location_name,
+      site_type: loc.site_type,
+      address_line1: loc.address_line1,
+      address_line2: loc.address_line2,
+      city: loc.city,
+      district: loc.district,
+      state_code: loc.state_code,
+      state_name: loc.state_name,
+      pin_code: loc.pin_code,
+      delivery_gstin: loc.delivery_gstin,
+      contact_person: loc.contact_person,
+      contact_phone: loc.contact_phone
+    };
+    setHeaderState(prev => ({
+      ...prev,
+      deliveryLocationId: loc.id,
+      deliveryStoreCode: loc.store_code,
+      deliveryGstin: loc.delivery_gstin || null,
+      deliveryLocationSnapshot: snapshot,
+      placeOfSupplyCode: loc.state_code
+    }));
+  };
 
   // Direct Entry Row (F11) State
   const [directEntry, setDirectEntry] = useState<{
@@ -243,8 +388,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       ...prev,
       docNo: String((parseInt(prev.docNo) || 1) + 1),
       customer: null,
-      remarks: ""
+      remarks: "",
+      billedPartyGstinId: null,
+      billedGstin: null,
+      deliveryLocationId: null,
+      deliveryStoreCode: null,
+      deliveryGstin: null,
+      deliveryLocationSnapshot: null,
+      placeOfSupplyCode: null,
+      poReference: ""
     }));
+    setCustomerGstRegistrations([]);
+    setCustomerDeliveryLocations([]);
     setDirectEntry({
       barcode: "",
       stockNo: "",
@@ -314,8 +469,25 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           outstanding: (result.record?.outstanding_balance as number) ?? 0,
           createdDate: (result.record?.created_at as string) || new Date().toISOString().split("T")[0],
         };
-        setHeaderState(prev => ({ ...prev, customer: custObj }));
+        setHeaderState(prev => ({
+          ...prev,
+          customer: custObj,
+          billedPartyGstinId: null,
+          billedGstin: null,
+          deliveryLocationId: null,
+          deliveryStoreCode: null,
+          deliveryGstin: null,
+          deliveryLocationSnapshot: null,
+          placeOfSupplyCode: null,
+          poReference: ""
+        }));
         setCustomerSearchInput(result.displayValue || "");
+        if (custObj.id) {
+          fetchCustomerB2BData(custObj.id);
+        } else {
+          setCustomerGstRegistrations([]);
+          setCustomerDeliveryLocations([]);
+        }
         return;
       }
 
@@ -490,9 +662,24 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }, [items, headerState, lastCompletedInvoice, activeItemSearchField]);
 
   const handleSelectCustomer = (c: Customer | null) => {
-    setHeaderState(prev => ({ ...prev, customer: c }));
+    setHeaderState(prev => ({
+      ...prev,
+      customer: c,
+      billedPartyGstinId: null,
+      billedGstin: null,
+      deliveryLocationId: null,
+      deliveryStoreCode: null,
+      deliveryGstin: null,
+      deliveryLocationSnapshot: null,
+      placeOfSupplyCode: null,
+      poReference: ""
+    }));
     if (c) {
       setCustomerSearchInput(c.name);
+      fetchCustomerB2BData(c.id);
+    } else {
+      setCustomerGstRegistrations([]);
+      setCustomerDeliveryLocations([]);
     }
     setShowCustomerDropdown(false);
   };
@@ -512,11 +699,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setHeaderState(prev => ({
       ...prev,
       customer: custObj,
-      transaction: (r as any).allowCreditInvoice !== false ? prev.transaction : "Cash"
+      transaction: (r as any).allowCreditInvoice !== false ? prev.transaction : "Cash",
+      billedPartyGstinId: null,
+      billedGstin: null,
+      deliveryLocationId: null,
+      deliveryStoreCode: null,
+      deliveryGstin: null,
+      deliveryLocationSnapshot: null,
+      placeOfSupplyCode: null,
+      poReference: ""
     }));
 
     setCustomerSearchInput(r.name);
     setShowCustomerDropdown(false);
+    if (custObj.id) {
+      fetchCustomerB2BData(custObj.id);
+    }
     onNotification?.("Customer Auto-Populated", `Auto-populated ${r.name} from backend.`, "success");
   };
 
@@ -525,8 +723,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setShowCustomerDropdown(true);
 
     if (!val.trim()) {
-      setHeaderState(prev => ({ ...prev, customer: null }));
+      setHeaderState(prev => ({
+        ...prev,
+        customer: null,
+        billedPartyGstinId: null,
+        billedGstin: null,
+        deliveryLocationId: null,
+        deliveryStoreCode: null,
+        deliveryGstin: null,
+        deliveryLocationSnapshot: null,
+        placeOfSupplyCode: null,
+        poReference: ""
+      }));
       setCustomerSuggestions([]);
+      setCustomerGstRegistrations([]);
+      setCustomerDeliveryLocations([]);
       return;
     }
 
@@ -837,7 +1048,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       date: new Date().toISOString().split("T")[0],
       customer_id: headerState.customer?.id || null,
       customer_name: headerState.customer?.name || "Counter Cash Sale",
-      customer_gstin: headerState.customer?.gstNumber || null,
+      customer_gstin: headerState.billedGstin || headerState.customer?.gstNumber || null,
+      billed_party_gstin_id: headerState.billedPartyGstinId || null,
+      delivery_location_id: headerState.deliveryLocationId || null,
+      delivery_store_code: headerState.deliveryStoreCode || null,
+      delivery_gstin: headerState.deliveryGstin || null,
+      delivery_location_snapshot: headerState.deliveryLocationSnapshot || null,
+      place_of_supply_code: headerState.placeOfSupplyCode || null,
+      po_reference: headerState.poReference || null,
       status: "Suspended",
       payment_mode: "CREDIT",
       items: items.map((it, idx) => ({
@@ -964,7 +1182,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       date: new Date().toISOString().split("T")[0],
       customer_id: headerState.customer?.id || null,
       customer_name: headerState.customer?.name || "Counter Cash Sale",
-      customer_gstin: headerState.customer?.gstNumber || null,
+      customer_gstin: headerState.billedGstin || headerState.customer?.gstNumber || null,
+      billed_party_gstin_id: headerState.billedPartyGstinId || null,
+      billing_location_id: headerState.billingLocationId || null,
+      billing_store_code: headerState.billingStoreCode || null,
+      billing_address: headerState.billingAddress || null,
+      delivery_location_id: headerState.deliveryLocationId || null,
+      delivery_store_code: headerState.deliveryStoreCode || null,
+      delivery_gstin: headerState.deliveryGstin || null,
+      delivery_location_snapshot: headerState.deliveryLocationSnapshot || null,
+      shipping_address: headerState.shippingAddress || null,
+      place_of_supply_code: headerState.placeOfSupplyCode || null,
+      po_reference: headerState.poReference || null,
       status: "Completed",
       payment_mode: isCreditTx ? "CREDIT" : (payments[0]?.mode.toUpperCase() || "CASH"),
       paid_amount: isCreditTx ? 0 : totalTendered,
@@ -1011,7 +1240,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         invoiceNumber: saved.invoice_no || invNo || "INV-CONFIRMED",
         date: saved.date || headerState.billDate,
         customerName: headerState.customer?.name || "Counter Cash Sale",
-        customerGstin: headerState.customer?.gstNumber || "",
+        customerGstin: headerState.billedGstin || headerState.customer?.gstNumber || "",
         items: items.map(it => ({
           sku: it.stockNo,
           description: it.itemDescription,
@@ -1040,8 +1269,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         ...prev,
         docNo: String((parseInt(prev.docNo) || 1) + 1),
         customer: null,
-        remarks: ""
+        remarks: "",
+        billedPartyGstinId: null,
+        billedGstin: null,
+        billingLocationId: null,
+        billingStoreCode: null,
+        billingAddress: null,
+        shippingAddress: null,
+        deliveryLocationId: null,
+        deliveryStoreCode: null,
+        deliveryGstin: null,
+        deliveryLocationSnapshot: null,
+        placeOfSupplyCode: null,
+        poReference: ""
       }));
+      setCustomerGstRegistrations([]);
+      setCustomerDeliveryLocations([]);
+      setCustomerBillingLocations([]);
       setCustomerSearchInput("");
       onNotification?.("Settlement Complete", `Invoice ${completedInvoice.invoiceNumber} saved to PostgreSQL database.`, "success");
       onRefreshData?.();
@@ -1422,6 +1666,116 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
           </div>
+
+          {/* Row 3: Corporate B2B Multi-State GST & Delivery Location Strip */}
+          {headerState.customer && (
+            <div className="flex flex-wrap items-end gap-gutter pt-2 border-t border-outline-variant/60" data-testid="b2b-corporate-strip">
+              
+              {/* Billed GST Registration */}
+              <div className="flex flex-col gap-unit flex-1 min-w-[240px]">
+                <div className="flex items-center justify-between">
+                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
+                    <span>Billed GST Registration</span>
+                    {customerGstRegistrations.length > 1 && (
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
+                        {customerGstRegistrations.length} GSTINs (Select)
+                      </span>
+                    )}
+                  </label>
+                  {isLoadingB2BData && (
+                    <span className="text-[10px] text-secondary animate-pulse">Loading B2B data...</span>
+                  )}
+                </div>
+                <select
+                  aria-label="Billed GST Registration"
+                  data-testid="billed-gst-registration"
+                  value={headerState.billedPartyGstinId || ""}
+                  onChange={e => handleBilledGstinChange(e.target.value)}
+                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                >
+                  <option value="">
+                    {customerGstRegistrations.length === 0
+                      ? (headerState.customer.gstNumber ? `Default (${headerState.customer.gstNumber})` : "Unregistered / Counter Cash")
+                      : "-- Select Billed GSTIN --"}
+                  </option>
+                  {customerGstRegistrations.map(reg => (
+                    <option key={reg.id} value={reg.id}>
+                      {reg.gstin} — {reg.state_name} ({reg.state_code}){reg.trade_name ? ` • ${reg.trade_name}` : ""}{reg.is_primary ? " [Primary]" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Delivery Location / Store */}
+              <div className="flex flex-col gap-unit flex-1 min-w-[280px]">
+                <div className="flex items-center justify-between">
+                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
+                    <span>Delivery Location / Store</span>
+                    {customerDeliveryLocations.length > 0 && (
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
+                        {customerDeliveryLocations.length} Stores
+                      </span>
+                    )}
+                  </label>
+                </div>
+                <select
+                  aria-label="Delivery Location"
+                  data-testid="delivery-location-select"
+                  value={headerState.deliveryLocationId || ""}
+                  onChange={e => handleDeliveryLocationChange(e.target.value)}
+                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                >
+                  <option value="">
+                    {customerDeliveryLocations.length === 0 ? "No Registered Delivery Locations" : "-- Select Delivery Location / Store --"}
+                  </option>
+                  {customerDeliveryLocations.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      [{loc.store_code}] {loc.location_name} — {loc.city}, {loc.state_name} ({loc.delivery_gstin || "No GSTIN"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Store Code Badge */}
+              <div className="flex flex-col gap-unit w-28">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Store Code</label>
+                <div 
+                  data-testid="delivery-store-code-display"
+                  className="h-9 px-2.5 flex items-center bg-surface-container-low border border-outline-variant rounded text-body-md font-mono font-bold text-primary"
+                >
+                  {headerState.deliveryStoreCode || "—"}
+                </div>
+              </div>
+
+              {/* Place of Supply (POS) */}
+              <div className="flex flex-col gap-unit w-24">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">POS State</label>
+                <div 
+                  data-testid="pos-code-display"
+                  title={headerState.placeOfSupplyCode || "Default POS"}
+                  className="h-9 px-2.5 flex items-center bg-surface-container-low border border-outline-variant rounded text-body-md font-mono font-bold text-secondary"
+                >
+                  {headerState.placeOfSupplyCode || "—"}
+                </div>
+              </div>
+
+              {/* PO Reference */}
+              <div className="flex flex-col gap-unit w-36">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">PO Reference</label>
+                <input
+                  type="text"
+                  name="poReference"
+                  aria-label="PO Reference"
+                  data-testid="po-reference-input"
+                  placeholder="PO / Order Ref"
+                  value={headerState.poReference || ""}
+                  onChange={e => setHeaderState(prev => ({ ...prev, poReference: e.target.value }))}
+                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 px-2.5 border bg-surface-container-lowest font-medium"
+                />
+              </div>
+
+            </div>
+          )}
 
         </section>
 
