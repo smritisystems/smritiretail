@@ -147,7 +147,7 @@ export const initialCustomerGroups: CustomerGroup[] = [
     name: "Corporate Clients",
     creditLimit: 500000,
     unlimitedCredit: false,
-    creditDays: 30,
+    creditDays: 60,
     graceDays: 7,
     creditHold: false,
     autoBlockSales: true,

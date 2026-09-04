@@ -4,15 +4,15 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.6.0
+ * Version      : 5.7.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-02
+ * Modified     : 2026-09-04
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useF2Screen, useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import { 
@@ -34,7 +34,7 @@ import {
   AlertCircle,
   Loader2
 } from "lucide-react";
-import { RetailCustomerRecord, CustomerAddressEntry } from "./types.ts";
+import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType } from "./types.ts";
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
 import { SmritiCustomerRetailDetailsTab } from "./CustRetailDetTab.tsx";
 import { SmritiCustomerAdditionalDetailsTab } from "./CustAddlDetTab.tsx";
@@ -46,7 +46,11 @@ import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 const DEFAULT_MAILING_ADDRESS: CustomerAddressEntry = {
   code: "001",
+  addressType: "mailing",
   contactPerson: "",
+  storeCode: "",
+  billingStoreCode: "",
+  shippingStoreCode: "",
   address1: "",
   address2: "",
   address3: "",
@@ -68,6 +72,57 @@ const DEFAULT_MAILING_ADDRESS: CustomerAddressEntry = {
   isDefault: true
 };
 
+const createDefaultMailingAddress = (overrides: Partial<CustomerAddressEntry> = {}): CustomerAddressEntry => ({
+  ...DEFAULT_MAILING_ADDRESS,
+  ...overrides
+});
+
+const createDefaultAddressSet = (): CustomerAddressEntry[] => [
+  createDefaultMailingAddress({ code: "001", addressType: "mailing" }),
+  createDefaultMailingAddress({ code: "002", addressType: "billing" }),
+  createDefaultMailingAddress({ code: "003", addressType: "shipping" })
+];
+
+const normalizeMailingAddresses = (addresses: unknown, fallback: Partial<CustomerAddressEntry> = {}): CustomerAddressEntry[] => {
+  const source = Array.isArray(addresses) && addresses.length > 0 ? addresses : [createDefaultMailingAddress(fallback)];
+  const normalized = source.map((address, index) => ({
+    ...DEFAULT_MAILING_ADDRESS,
+    ...(address as Partial<CustomerAddressEntry>),
+    code: (address as Partial<CustomerAddressEntry>).code || String(index + 1).padStart(3, "0"),
+    addressType: ((address as Partial<CustomerAddressEntry>).addressType ?? (address as any).address_type ?? "mailing") as CustomerAddressType,
+    storeCode: (address as Partial<CustomerAddressEntry>).storeCode ?? (address as any).store_code ?? "",
+    billingStoreCode: (address as Partial<CustomerAddressEntry>).billingStoreCode ?? (address as any).billing_store_code ?? "",
+    shippingStoreCode: (address as Partial<CustomerAddressEntry>).shippingStoreCode ?? (address as any).shipping_store_code ?? "",
+    isDefault: Boolean((address as Partial<CustomerAddressEntry>).isDefault ?? (address as any).is_default)
+  }));
+  const complete: CustomerAddressEntry[] = [...normalized];
+  if (!complete.some(address => address.addressType === "billing")) {
+    complete.push(createDefaultMailingAddress({ code: String(complete.length + 1).padStart(3, "0"), addressType: "billing" }));
+  }
+  if (!complete.some(address => address.addressType === "shipping")) {
+    complete.push(createDefaultMailingAddress({ code: String(complete.length + 1).padStart(3, "0"), addressType: "shipping" }));
+  }
+
+  const defaultIndexes = new Map<CustomerAddressType, number>();
+  complete.forEach((address, index) => {
+    const addressType = address.addressType || "mailing";
+    if (address.isDefault && !defaultIndexes.has(addressType)) defaultIndexes.set(addressType, index);
+  });
+  if (!defaultIndexes.has("mailing")) defaultIndexes.set("mailing", 0);
+  if (!defaultIndexes.has("billing")) {
+    const billingIndex = complete.findIndex(address => address.addressType === "billing");
+    if (billingIndex >= 0) defaultIndexes.set("billing", billingIndex);
+  }
+  if (!defaultIndexes.has("shipping")) {
+    const shippingIndex = complete.findIndex(address => address.addressType === "shipping");
+    if (shippingIndex >= 0) defaultIndexes.set("shipping", shippingIndex);
+  }
+  return complete.map((address, index) => ({
+    ...address,
+    isDefault: index === defaultIndexes.get(address.addressType || "mailing")
+  }));
+};
+
 const SEED_CUSTOMERS: RetailCustomerRecord[] = [
   {
     id: "cust-1",
@@ -85,11 +140,14 @@ const SEED_CUSTOMERS: RetailCustomerRecord[] = [
     companyCode: "009",
     environment: "Retail",
     flatFileFormat: "GUI with Delimiter Format",
+    storeCode: "",
+    billingStoreCode: "",
+    shippingStoreCode: "",
     isTaxInclusive: true,
     delimiter: ";",
     buyingFactor: 1.00,
     sellingFactor: 1.00,
-    mailingAddresses: [DEFAULT_MAILING_ADDRESS],
+    mailingAddresses: createDefaultAddressSet(),
     isDependant: false,
     primaryAccountCode: "",
     primaryAccountName: "",
@@ -153,18 +211,20 @@ const SEED_CUSTOMERS: RetailCustomerRecord[] = [
     companyCode: "001",
     environment: "Retail",
     flatFileFormat: "GUI with Delimiter Format",
+    storeCode: "",
+    billingStoreCode: "",
+    shippingStoreCode: "",
     isTaxInclusive: true,
     delimiter: ";",
     buyingFactor: 1.00,
     sellingFactor: 1.00,
-    mailingAddresses: [{
-      ...DEFAULT_MAILING_ADDRESS,
-      code: "001",
+    mailingAddresses: createDefaultAddressSet().map((address, index) => index === 0 ? {
+      ...address,
       contactPerson: "Rajesh Ramachandran",
       locality: "Indiranagar",
       city: "Bangalore",
       postalCode: "560038"
-    }],
+    } : address),
     isDependant: false,
     primaryAccountCode: "",
     primaryAccountName: "",
@@ -230,11 +290,14 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
   companyCode: "001",
   environment: "Retail",
   flatFileFormat: "GUI with Delimiter Format",
+  storeCode: "",
+  billingStoreCode: "",
+  shippingStoreCode: "",
   isTaxInclusive: true,
   delimiter: ";",
   buyingFactor: 1.00,
   sellingFactor: 1.00,
-  mailingAddresses: [DEFAULT_MAILING_ADDRESS],
+  mailingAddresses: createDefaultAddressSet(),
   isDependant: false,
   primaryAccountCode: "",
   primaryAccountName: "",
@@ -249,8 +312,8 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
   loyaltyTier: "Standard",
   loyaltyPointsBalance: 0,
   paymentCategory: "CASH",
-  paymentTerm: "Immediate",
-  creditLimit: 25000,
+  paymentTerm: "Policy Not Configured",
+  creditLimit: 0,
   creditDays: 0,
   creditUsed: 0,
   transportMode: "By-Road",
@@ -347,17 +410,19 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     companyCode: bCust.company_code || bCust.companyCode || "001",
     environment: derivedEnvironment,
     flatFileFormat: bCust.flat_file_format || bCust.flatFileFormat || "GUI with Delimiter Format",
+    storeCode: bCust.store_code ?? bCust.storeCode ?? "",
+    billingStoreCode: bCust.billing_store_code ?? bCust.billingStoreCode ?? "",
+    shippingStoreCode: bCust.shipping_store_code ?? bCust.shippingStoreCode ?? "",
     isTaxInclusive: bCust.is_tax_inclusive ?? true,
     delimiter: bCust.delimiter || ";",
     buyingFactor: Number(bCust.buying_factor ?? 1.00),
     sellingFactor: Number(bCust.selling_factor ?? 1.00),
     mailingAddresses: Array.isArray(bCust.mailing_addresses || bCust.mailingAddresses) && (bCust.mailing_addresses || bCust.mailingAddresses).length > 0
-      ? (bCust.mailing_addresses || bCust.mailingAddresses)
-      : [{
-          ...DEFAULT_MAILING_ADDRESS,
+      ? normalizeMailingAddresses(bCust.mailing_addresses || bCust.mailingAddresses)
+      : normalizeMailingAddresses(null, {
           mobilePhone: bCust.mobile || bCust.phone || "",
           email1: bCust.email || ""
-        }],
+        }),
     isDependant: bCust.is_dependant ?? false,
     primaryAccountCode: bCust.primary_account_code || "",
     primaryAccountName: bCust.primary_account_name || "",
@@ -440,9 +505,31 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     return customers[0] || createEmptyCustomer(1);
   });
 
+  // Stable active customer identity model (ID first, code second) — never relies on array index
+  const [activeCustomerId, setActiveCustomerId] = useState<string>(() => {
+    return customers[0]?.id || "cust-draft-1";
+  });
+
   const [isDirty, setIsDirty] = useState<boolean>(false);
 
-  // Authoritative Backend Hydration
+  // Synchronous refs to prevent stale closure race conditions in async backend responses
+  const activeCustomerIdRef = useRef<string>(activeCustomerId);
+  const currentCustomerRef = useRef<RetailCustomerRecord>(currentCustomer);
+  const isDirtyRef = useRef<boolean>(isDirty);
+
+  useEffect(() => {
+    activeCustomerIdRef.current = activeCustomerId;
+  }, [activeCustomerId]);
+
+  useEffect(() => {
+    currentCustomerRef.current = currentCustomer;
+  }, [currentCustomer]);
+
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  // Authoritative Backend Hydration with Identity-Based Reconciliation
   const loadCustomersFromBackend = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -455,6 +542,34 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         try {
           localStorage.removeItem("smriti_retail_customers");
         } catch {}
+
+        // Identity-based reconciliation
+        const currentActiveId = activeCustomerIdRef.current;
+        const currentCust = currentCustomerRef.current;
+
+        // Unsaved draft protection: Never let an async background refresh overwrite a newly initialized draft
+        if (currentActiveId?.startsWith("cust-draft-") || currentCust?.id?.startsWith("cust-draft-")) {
+          return;
+        }
+
+        // Reconcile by stable ID first, then code — NEVER by array index
+        const matchIndex = mappedList.findIndex(
+          (c: RetailCustomerRecord) => (currentActiveId && c.id === currentActiveId) ||
+               (currentCust?.id && c.id === currentCust.id) ||
+               (currentCust?.code && c.code === currentCust.code)
+        );
+
+        if (matchIndex >= 0) {
+          const matched = mappedList[matchIndex];
+          setCurrentIndex(matchIndex);
+          setActiveCustomerId(matched.id);
+          activeCustomerIdRef.current = matched.id;
+          // If the user has pending edits in the active editor, preserve local form changes
+          if (!isDirtyRef.current) {
+            setCurrentCustomer(JSON.parse(JSON.stringify(matched)));
+            currentCustomerRef.current = matched;
+          }
+        }
       }
     } catch (err) {
       // Offline fallback: load from cached smriti_customers
@@ -463,7 +578,30 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setCustomers(parsed.map(mapBackendCustomerToRecord));
+            const mapped: RetailCustomerRecord[] = parsed.map(mapBackendCustomerToRecord);
+            setCustomers(mapped);
+
+            const currentActiveId = activeCustomerIdRef.current;
+            const currentCust = currentCustomerRef.current;
+            if (currentActiveId?.startsWith("cust-draft-") || currentCust?.id?.startsWith("cust-draft-")) {
+              return;
+            }
+
+            const matchIndex = mapped.findIndex(
+              (c: RetailCustomerRecord) => (currentActiveId && c.id === currentActiveId) ||
+                   (currentCust?.id && c.id === currentCust.id) ||
+                   (currentCust?.code && c.code === currentCust.code)
+            );
+            if (matchIndex >= 0) {
+              const matched = mapped[matchIndex];
+              setCurrentIndex(matchIndex);
+              setActiveCustomerId(matched.id);
+              activeCustomerIdRef.current = matched.id;
+              if (!isDirtyRef.current) {
+                setCurrentCustomer(JSON.parse(JSON.stringify(matched)));
+                currentCustomerRef.current = matched;
+              }
+            }
           }
         }
       } catch {}
@@ -481,20 +619,17 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     return () => window.removeEventListener("smriti_customer_updated", handleCustomerUpdated);
   }, [loadCustomersFromBackend]);
 
-  // Sync current customer when currentIndex changes
-  useEffect(() => {
-    if (customers[currentIndex]) {
-      setCurrentCustomer(JSON.parse(JSON.stringify(customers[currentIndex])));
-      setIsDirty(false);
-    }
-  }, [currentIndex, customers]);
-
   const handleFieldChange = (field: keyof RetailCustomerRecord, value: any) => {
-    setCurrentCustomer(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setCurrentCustomer(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      currentCustomerRef.current = updated;
+      return updated;
+    });
     setIsDirty(true);
+    isDirtyRef.current = true;
   };
 
   const handleSave = async () => {
@@ -567,19 +702,30 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         updatedAt: new Date().toISOString().split("T")[0]
       };
 
-      const updated = [...customers];
-      const existingIndex = updated.findIndex(c => c.id === currentCustomer.id || c.code === currentCustomer.code || c.id === recordToSave.id);
+      const savedId = recordToSave.id;
+      const savedCode = recordToSave.code;
 
+      const updated = [...customers];
+      const existingIndex = updated.findIndex(c => c.id === currentCustomer.id || c.code === currentCustomer.code || c.id === savedId || c.code === savedCode);
+
+      let savedIndex: number;
       if (existingIndex >= 0) {
         updated[existingIndex] = recordToSave;
+        savedIndex = existingIndex;
       } else {
         updated.push(recordToSave);
-        setCurrentIndex(updated.length - 1);
+        savedIndex = updated.length - 1;
       }
 
+      // Explicitly anchor active identity to authoritative saved backend ID before background refresh
+      setActiveCustomerId(savedId);
+      activeCustomerIdRef.current = savedId;
+      setCurrentIndex(savedIndex);
       setCustomers(updated);
       setCurrentCustomer(recordToSave);
+      currentCustomerRef.current = recordToSave;
       setIsDirty(false);
+      isDirtyRef.current = false;
 
       // Universal cache synchronization with normalized representation
       try {
@@ -606,7 +752,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             customerType: c.customerType,
             environment: c.environment,
             price_group: c.priceGroup,
-            priceGroup: c.priceGroup
+            priceGroup: c.priceGroup,
+            store_code: c.storeCode || null,
+            billing_store_code: c.billingStoreCode || null,
+            shipping_store_code: c.shippingStoreCode || null,
+            mailing_addresses: normalizeMailingAddresses(c.mailingAddresses)
           };
         })));
         localStorage.removeItem("smriti_retail_customers");
@@ -636,8 +786,12 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
   const handleNew = () => {
     const newRecord = createEmptyCustomer(customers.length + 1);
+    setActiveCustomerId(newRecord.id);
+    activeCustomerIdRef.current = newRecord.id;
     setCurrentCustomer(newRecord);
+    currentCustomerRef.current = newRecord;
     setIsDirty(true);
+    isDirtyRef.current = true;
     setActiveTab("form");
     onNotification?.("New Record", `Initialized new customer entry (${newRecord.code}).`, "info");
   };
@@ -671,15 +825,47 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
     const nextIdx = Math.max(0, currentIndex - 1);
     setCurrentIndex(nextIdx);
+    if (filtered[nextIdx]) {
+      setActiveCustomerId(filtered[nextIdx].id);
+      activeCustomerIdRef.current = filtered[nextIdx].id;
+      setCurrentCustomer(JSON.parse(JSON.stringify(filtered[nextIdx])));
+      currentCustomerRef.current = filtered[nextIdx];
+      setIsDirty(false);
+      isDirtyRef.current = false;
+    }
     onNotification?.("Customer Deleted", `Customer account was removed successfully.`, "success");
   };
 
   const handlePrev = () => {
-    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
+    if (currentIndex > 0) {
+      const newIdx = currentIndex - 1;
+      const target = customers[newIdx];
+      if (target) {
+        setCurrentIndex(newIdx);
+        setActiveCustomerId(target.id);
+        activeCustomerIdRef.current = target.id;
+        setCurrentCustomer(JSON.parse(JSON.stringify(target)));
+        currentCustomerRef.current = target;
+        setIsDirty(false);
+        isDirtyRef.current = false;
+      }
+    }
   };
 
   const handleNext = () => {
-    if (currentIndex < customers.length - 1) setCurrentIndex(currentIndex + 1);
+    if (currentIndex < customers.length - 1) {
+      const newIdx = currentIndex + 1;
+      const target = customers[newIdx];
+      if (target) {
+        setCurrentIndex(newIdx);
+        setActiveCustomerId(target.id);
+        activeCustomerIdRef.current = target.id;
+        setCurrentCustomer(JSON.parse(JSON.stringify(target)));
+        currentCustomerRef.current = target;
+        setIsDirty(false);
+        isDirtyRef.current = false;
+      }
+    }
   };
 
   const customerExportColumns = useMemo<ExportColumnDefinition[]>(() => [
@@ -720,10 +906,17 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       c => (lookupId && c.id === lookupId) || (lookupCode && c.code === lookupCode)
     );
     if (idx >= 0) {
+      const target = customers[idx];
       setCurrentIndex(idx);
+      setActiveCustomerId(target.id);
+      activeCustomerIdRef.current = target.id;
+      setCurrentCustomer(JSON.parse(JSON.stringify(target)));
+      currentCustomerRef.current = target;
+      setIsDirty(false);
+      isDirtyRef.current = false;
       onNotification?.(
         "Customer Loaded",
-        `Loaded catalogue record for ${customers[idx].name} (${customers[idx].code}).`,
+        `Loaded catalogue record for ${target.name} (${target.code}).`,
         "info"
       );
     }
@@ -968,6 +1161,12 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                       key={c.id || c.code}
                       onClick={() => {
                         setCurrentIndex(idx);
+                        setActiveCustomerId(c.id);
+                        activeCustomerIdRef.current = c.id;
+                        setCurrentCustomer(JSON.parse(JSON.stringify(c)));
+                        currentCustomerRef.current = c;
+                        setIsDirty(false);
+                        isDirtyRef.current = false;
                         setViewMode("catalogue");
                       }}
                       className="hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133] cursor-pointer transition"
@@ -1092,8 +1291,17 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         customers={customers}
         onSelectCustomer={selected => {
           const idx = customers.findIndex(c => c.id === selected.id || c.code === selected.code);
-          if (idx >= 0) setCurrentIndex(idx);
-          onNotification?.("Customer Loaded", `Loaded catalogue record for ${selected.name} (${selected.code}).`, "info");
+          if (idx >= 0) {
+            const target = customers[idx];
+            setCurrentIndex(idx);
+            setActiveCustomerId(target.id);
+            activeCustomerIdRef.current = target.id;
+            setCurrentCustomer(JSON.parse(JSON.stringify(target)));
+            currentCustomerRef.current = target;
+            setIsDirty(false);
+            isDirtyRef.current = false;
+            onNotification?.("Customer Loaded", `Loaded catalogue record for ${target.name} (${target.code}).`, "info");
+          }
         }}
       />
 

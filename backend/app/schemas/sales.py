@@ -91,6 +91,10 @@ class SalesInvoiceBase(BaseModel):
     delivery_gstin:           Optional[str]  = Field(None, max_length=15,  validation_alias=AliasChoices("delivery_gstin",           "deliveryGstin"))
     # FK to the CustomerGSTRegistration used as the billed-party GSTIN on this invoice
     billed_party_gstin_id:    Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("billed_party_gstin_id",    "billedPartyGstinId"))
+    # FK to the CustomerBillingLocation used on this invoice
+    billing_location_id:      Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("billing_location_id",     "billingLocationId"))
+    # Snapshot of the billing store code at invoice creation time
+    billing_store_code:       Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("billing_store_code",      "billingStoreCode"))
     # Full JSONB snapshot of the delivery location at invoice creation time
     delivery_location_snapshot: Optional[dict] = Field(None,              validation_alias=AliasChoices("delivery_location_snapshot", "deliveryLocationSnapshot"))
     # Transaction-level Place of Supply state code (e.g. '27', '06') — stored explicitly

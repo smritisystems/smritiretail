@@ -30,7 +30,7 @@ from ..models.sales import (
 )
 from ..models.inventory import Product, StockMovement
 from ..models.tenant import Company
-from ..models.crm import Customer, CustomerGroup
+from ..models.crm import Customer, CustomerGroup, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
 from ..core.gst_engine import (
     calculate_line_item_tax,
     validate_gstin,
@@ -145,45 +145,252 @@ class SalesService:
             if extracted_comp_state:
                 company_state_code = extracted_comp_state
 
-        # Resolve customer details & Place of Supply (POS)
+        # Determine settlement and credit modes early
+        is_credit_mode = (invoice_in.payment_mode or "").strip().upper() == "CREDIT"
+        is_settled_status = (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]
+
+        # Resolve customer details & tenant validation
         resolved_customer_id = invoice_in.customer_id or "CUST-WALKIN"
         customer_gstin = invoice_in.customer_gstin
         customer_name = invoice_in.customer_name
         pos_state_name = invoice_in.pos_state
         pos_state_code = None
 
-        if resolved_customer_id:
-            try:
-                cust_res = await self.crm_service.get_customer(resolved_customer_id)
-                if cust_res:
-                    if not customer_gstin:
-                        customer_gstin = getattr(cust_res, "gst_number", None)
-                    if not customer_name:
-                        customer_name = getattr(cust_res, "name", None)
-            except Exception:
-                if resolved_customer_id == "CUST-WALKIN" and not customer_name:
-                    customer_name = "Walk-In / Cash Customer"
+        cust_db_record = None
+        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN":
+            # Tenant verification
+            cust_stmt = select(Customer).where(
+                Customer.id == resolved_customer_id,
+                Customer.is_deleted == False
+            )
+            if is_credit_mode or is_settled_status:
+                cust_stmt = cust_stmt.with_for_update()
 
-        if not customer_name and resolved_customer_id == "CUST-WALKIN":
-            customer_name = "Walk-In / Cash Customer"
+            cust_db_record = (await self.db.execute(cust_stmt)).scalars().first()
+            if not cust_db_record:
+                # Check if customer exists in another tenant for proper 403 vs 404
+                cross_check_stmt = select(Customer.company_id).filter(
+                    Customer.id == resolved_customer_id,
+                    Customer.is_deleted == False,
+                )
+                cross_res = await self.db.execute(cross_check_stmt)
+                found_company_id = cross_res.scalars().first()
+                if found_company_id and found_company_id != self.tenant_ctx.company_id:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Cross-company customer access is prohibited."
+                    )
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Customer '{resolved_customer_id}' not found."
+                )
 
-        is_registered_b2b = False
-        if customer_gstin:
+            if cust_db_record.company_id != self.tenant_ctx.company_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cross-company customer access is prohibited."
+                )
+
+            if not customer_name:
+                customer_name = getattr(cust_db_record, "name", None)
+            if not customer_gstin:
+                customer_gstin = getattr(cust_db_record, "gst_number", None)
+        else:
+            if not customer_name:
+                customer_name = "Walk-In / Cash Customer"
+
+        # Reject Corporate B2B fields on walk-in customer
+        if resolved_customer_id == "CUST-WALKIN":
+            if invoice_in.billed_party_gstin_id or invoice_in.delivery_location_id or getattr(invoice_in, "billing_location_id", None):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Billed GST registration, billing location, and delivery location cannot be specified for walk-in customer."
+                )
+
+        # 1.5 Validate Billing Location if supplied
+        billing_loc_record = None
+        snapshot_billing_store_code = getattr(invoice_in, "billing_store_code", None)
+        snapshot_billing_address = invoice_in.billing_address
+        if getattr(invoice_in, "billing_location_id", None):
+            b_stmt = select(CustomerBillingLocation).filter(
+                CustomerBillingLocation.id == invoice_in.billing_location_id,
+                CustomerBillingLocation.is_deleted == False,
+            )
+            billing_loc_record = (await self.db.execute(b_stmt)).scalars().first()
+            if not billing_loc_record:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Billing location '{invoice_in.billing_location_id}' not found."
+                )
+            if billing_loc_record.company_id != self.tenant_ctx.company_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cross-company billing location access is prohibited."
+                )
+            if billing_loc_record.customer_id != resolved_customer_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Billing location does not belong to the selected customer."
+                )
+            if billing_loc_record.status != "ACTIVE":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Selected billing location is inactive."
+                )
+            if not snapshot_billing_store_code:
+                snapshot_billing_store_code = billing_loc_record.billing_store_code
+            if not snapshot_billing_address:
+                parts = [billing_loc_record.address_line1, billing_loc_record.address_line2, billing_loc_record.city, f"{billing_loc_record.state} - {billing_loc_record.pincode}"]
+                snapshot_billing_address = ", ".join(p for p in parts if p)
+
+        # 2. Validate Billed Party GST Registration if supplied
+        billed_reg_record = None
+        if invoice_in.billed_party_gstin_id:
+            reg_stmt = select(CustomerGSTRegistration).filter(
+                CustomerGSTRegistration.id == invoice_in.billed_party_gstin_id,
+                CustomerGSTRegistration.is_deleted == False,
+            )
+            billed_reg_record = (await self.db.execute(reg_stmt)).scalars().first()
+            if not billed_reg_record:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Billed GST registration '{invoice_in.billed_party_gstin_id}' not found."
+                )
+            if billed_reg_record.company_id != self.tenant_ctx.company_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cross-company GST registration access is prohibited."
+                )
+            if billed_reg_record.customer_id != resolved_customer_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Billed GST registration does not belong to the selected customer."
+                )
+            if not billed_reg_record.is_active:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Selected Billed GST registration is inactive."
+                )
+            # Authoritative customer GSTIN snapshot
+            customer_gstin = billed_reg_record.gstin
+
+        # 3. Validate Delivery Location if supplied
+        delivery_loc_record = None
+        if invoice_in.delivery_location_id:
+            loc_stmt = select(CustomerDeliveryLocation).filter(
+                CustomerDeliveryLocation.id == invoice_in.delivery_location_id,
+                CustomerDeliveryLocation.is_deleted == False,
+            )
+            delivery_loc_record = (await self.db.execute(loc_stmt)).scalars().first()
+            if not delivery_loc_record:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Delivery location '{invoice_in.delivery_location_id}' not found."
+                )
+            if delivery_loc_record.company_id != self.tenant_ctx.company_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cross-company delivery location access is prohibited."
+                )
+            if delivery_loc_record.customer_id != resolved_customer_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Delivery location does not belong to the selected customer."
+                )
+            if not delivery_loc_record.is_active:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Selected delivery location is inactive."
+                )
+            # Validate linked delivery GST registration if present
+            if delivery_loc_record.gst_registration_id:
+                linked_reg_stmt = select(CustomerGSTRegistration).filter(
+                    CustomerGSTRegistration.id == delivery_loc_record.gst_registration_id,
+                    CustomerGSTRegistration.is_deleted == False,
+                )
+                linked_reg = (await self.db.execute(linked_reg_stmt)).scalars().first()
+                if linked_reg:
+                    if linked_reg.company_id != self.tenant_ctx.company_id:
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Delivery location linked GST registration belongs to a different company."
+                        )
+                    if linked_reg.customer_id != resolved_customer_id:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Delivery location linked GST registration does not belong to the selected customer."
+                        )
+            # Delivery GSTIN and state consistency check
+            eff_del_gstin = invoice_in.delivery_gstin or delivery_loc_record.gstin
+            if eff_del_gstin:
+                val_ok, del_st_code, _ = validate_gstin(eff_del_gstin)
+                if not val_ok:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Delivery GSTIN '{eff_del_gstin}' is invalid."
+                    )
+                if del_st_code != delivery_loc_record.state_code:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Delivery GSTIN state '{del_st_code}' does not match delivery location state '{delivery_loc_record.state_code}'."
+                    )
+
+        # 4. Snapshots preparation
+        if delivery_loc_record:
+            snapshot_del_store_code = delivery_loc_record.store_code
+            snapshot_del_gstin = invoice_in.delivery_gstin or delivery_loc_record.gstin
+            snapshot_del_loc = {
+                "id": delivery_loc_record.id,
+                "store_code": delivery_loc_record.store_code,
+                "location_name": delivery_loc_record.location_name,
+                "address_line1": delivery_loc_record.address_line1,
+                "address_line2": delivery_loc_record.address_line2,
+                "city": delivery_loc_record.city,
+                "state_code": delivery_loc_record.state_code,
+                "state_name": delivery_loc_record.state,
+                "pincode": delivery_loc_record.pincode,
+                "delivery_gstin": snapshot_del_gstin,
+                "contact_person": delivery_loc_record.contact_person,
+                "phone": delivery_loc_record.phone,
+                "metadata_json": delivery_loc_record.metadata_json,
+            }
+        else:
+            snapshot_del_store_code = invoice_in.delivery_store_code
+            snapshot_del_gstin = invoice_in.delivery_gstin
+            snapshot_del_loc = invoice_in.delivery_location_snapshot
+
+        # 5. Place of Supply (POS) Derivation
+        # Rule E: place_of_supply_code MUST be transaction-derived from authoritative delivery/tax context
+        pos_state_code = None
+        pos_state_name = invoice_in.pos_state
+        is_registered_b2b = bool(customer_gstin or billed_reg_record)
+
+        if delivery_loc_record:
+            pos_state_code = delivery_loc_record.state_code
+            pos_state_name = delivery_loc_record.state or GST_STATE_CODES.get(pos_state_code, "Delivery State")
+        elif invoice_in.place_of_supply_code:
+            pos_state_code = invoice_in.place_of_supply_code
+            pos_state_name = pos_state_name or GST_STATE_CODES.get(pos_state_code, "Transaction POS")
+        elif billed_reg_record:
+            pos_state_code = billed_reg_record.state_code
+            pos_state_name = billed_reg_record.state_name or GST_STATE_CODES.get(pos_state_code, "Billed State")
+        elif customer_gstin:
             is_valid_gstin, st_code, st_name = validate_gstin(customer_gstin)
             if is_valid_gstin and st_code:
-                is_registered_b2b = True
                 pos_state_code = st_code
                 pos_state_name = pos_state_name or st_name
 
         if not pos_state_code:
-            # Fallback to store state if unregistered walk-in
             pos_state_code = company_state_code
             pos_state_name = pos_state_name or GST_STATE_CODES.get(company_state_code, "Home State")
 
-        # Determine inter-state jurisdiction
-        is_interstate = (company_state_code != pos_state_code)
-        if invoice_in.is_interstate is not None:
+        # Determine inter-state jurisdiction based on transaction POS
+        if delivery_loc_record or invoice_in.place_of_supply_code or billed_reg_record:
+            is_interstate = (company_state_code != pos_state_code)
+        elif invoice_in.is_interstate is not None:
             is_interstate = invoice_in.is_interstate
+        else:
+            is_interstate = (company_state_code != pos_state_code)
 
         from .inventory_wms import InventoryWmsService
         from .inventory_warehouse_resolver import InventoryWarehouseResolver
@@ -294,7 +501,6 @@ class SalesService:
             invoice_items.append(db_item)
 
         # 2. Concurrency-Safe Customer Row Lock & Authoritative Credit Check (Blockers 2 & 3)
-        is_credit_mode = (invoice_in.payment_mode or "").strip().upper() == "CREDIT"
         if is_credit_mode:
             final_paid_amount = Decimal("0.00")
             final_balance_amount = calculated_grand_total
@@ -302,22 +508,11 @@ class SalesService:
             final_paid_amount = getattr(invoice_in, "paid_amount", None) or Decimal("0.00")
             final_balance_amount = getattr(invoice_in, "balance_amount", None) or Decimal("0.00")
 
-        cust_db_record = None
         previous_outstanding = Decimal("0.00")
         credit_days_configured = 30
         credit_limit_configured = Decimal("0.00")
 
         if resolved_customer_id and resolved_customer_id != "CUST-WALKIN":
-            # For Credit transactions or settled invoices, lock customer row FOR UPDATE
-            # to guarantee concurrency safety and atomic headroom check across billing terminals
-            cust_stmt = (
-                select(Customer)
-                .where(Customer.id == resolved_customer_id, Customer.is_deleted == False)
-            )
-            if is_credit_mode or is_settled_status:
-                cust_stmt = cust_stmt.with_for_update()
-
-            cust_db_record = (await self.db.execute(cust_stmt)).scalars().first()
             if not cust_db_record and is_credit_mode:
                 raise HTTPException(
                     status_code=404,
@@ -400,8 +595,11 @@ class SalesService:
             grand_total=calculated_grand_total,
             is_interstate=is_interstate,
             payment_mode="CREDIT" if is_credit_mode else (invoice_in.payment_mode or "CASH"),
-            billing_address=invoice_in.billing_address,
-            shipping_address=invoice_in.shipping_address,
+            billing_address=snapshot_billing_address,
+            shipping_address=invoice_in.shipping_address or (
+                ", ".join(p for p in [delivery_loc_record.address_line1, delivery_loc_record.address_line2, delivery_loc_record.city, f"{delivery_loc_record.state} - {delivery_loc_record.pincode}"] if p)
+                if delivery_loc_record else None
+            ),
             rounding_amount=invoice_in.rounding_amount or Decimal("0.00"),
             eway_bill_no=invoice_in.eway_bill_no,
             status=invoice_in.status,
@@ -419,6 +617,18 @@ class SalesService:
             net_amount=getattr(invoice_in, "net_amount", None) or Decimal("0.00"),
             rule_snapshots=snapshots,
             import_validation_notes=getattr(invoice_in, "remarks", None),
+            # Phase 2C Corporate B2B Fields & Immutable Snapshots
+            billed_party_gstin_id=invoice_in.billed_party_gstin_id,
+            billing_location_id=getattr(invoice_in, "billing_location_id", None),
+            billing_store_code=snapshot_billing_store_code,
+            delivery_location_id=invoice_in.delivery_location_id,
+            delivery_store_code=snapshot_del_store_code,
+            delivery_gstin=snapshot_del_gstin,
+            delivery_location_snapshot=snapshot_del_loc,
+            place_of_supply_code=pos_state_code,
+            po_reference=getattr(invoice_in, "po_reference", None),
+            # Legacy compatibility: sis_code mirrors delivery_store_code
+            sis_code=snapshot_del_store_code or getattr(invoice_in, "sis_code", None),
         )
         self.db.add(db_invoice)
 

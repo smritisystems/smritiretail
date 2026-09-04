@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from datetime import datetime, date
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, DateTime, Text, UniqueConstraint, Index
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, DateTime, Text, UniqueConstraint, Index, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
@@ -53,6 +53,15 @@ class CustomerGroup(BaseEntity):
 class Customer(BaseEntity):
     __tablename__ = "customers"
 
+    __table_args__ = (
+        Index(
+            "uq_customers_company_code_active",
+            "company_id", "code",
+            unique=True,
+            postgresql_where=text("code IS NOT NULL AND status = 'Active' AND is_deleted = false"),
+        ),
+    )
+
     customer_group_id = Column(String(50), ForeignKey("customer_groups.id", ondelete="RESTRICT"), index=True)
     code = Column(String(50), nullable=True, index=True)
     name = Column(String(255), nullable=False)
@@ -81,6 +90,17 @@ class Customer(BaseEntity):
         cascade="all, delete-orphan",
         order_by="CustomerDeliveryLocation.store_code",
     )
+    billing_locations = relationship(
+        "CustomerBillingLocation",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+        order_by="CustomerBillingLocation.billing_store_code",
+    )
+    external_identities = relationship(
+        "CustomerExternalIdentity",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+    )
 
 
 
@@ -103,6 +123,12 @@ class CustomerGSTRegistration(BaseEntity):
     __tablename__ = "customer_gst_registrations"
     __table_args__ = (
         UniqueConstraint("customer_id", "gstin", name="uq_cust_gst_reg_customer_gstin"),
+        Index(
+            "uq_cust_gst_reg_primary_per_customer",
+            "customer_id",
+            unique=True,
+            postgresql_where=text("is_primary = true AND is_deleted = false"),
+        ),
     )
 
     customer_id = Column(
@@ -153,12 +179,18 @@ class CustomerDeliveryLocation(BaseEntity):
     __tablename__ = "customer_delivery_locations"
     __table_args__ = (
         # Partial unique index: one active location per (customer, store_code).
-        # Inactive locations are excluded so a store code can be reactivated.
+        # Inactive or soft-deleted locations are excluded so a store code can be reactivated.
         Index(
             "uq_cdl_customer_store_code_active",
             "customer_id", "store_code",
             unique=True,
-            postgresql_where="status = 'ACTIVE'",
+            postgresql_where=text("status = 'ACTIVE' AND is_deleted = false"),
+        ),
+        Index(
+            "uq_cdl_customer_default",
+            "customer_id",
+            unique=True,
+            postgresql_where=text("is_default = true AND status = 'ACTIVE' AND is_deleted = false"),
         ),
     )
 
@@ -187,6 +219,7 @@ class CustomerDeliveryLocation(BaseEntity):
     contact_person = Column(String(150), nullable=True)
     phone = Column(String(20), nullable=True)
     email = Column(String(255), nullable=True)
+    is_default = Column(Boolean, nullable=False, default=False)
     # ACTIVE / INACTIVE — soft-delete only once referenced by invoice
     status = Column(String(20), nullable=False, default="ACTIVE")
     # Source / origin tag: MANUAL, DISPATCH_IMPORT, EXCEL_IMPORT, API
@@ -201,6 +234,104 @@ class CustomerDeliveryLocation(BaseEntity):
         back_populates="delivery_locations",
         foreign_keys=[gst_registration_id],
     )
+
+
+class CustomerBillingLocation(BaseEntity):
+    """
+    Commercial / Billing Location of a Corporate Customer.
+
+    Represents a specific commercial billing office, regional accounts branch,
+    or corporate accounting center to which invoices and financial statements
+    are routed. Each billing location carries a Billing Store Code (e.g. 'REL-HO-MUM')
+    and holds the customer's canonical billing address.
+
+    Uniqueness: (customer_id, billing_store_code) per active location.
+    The is_default flag designates the fallback billing location for new transactions.
+    """
+    __tablename__ = "customer_billing_locations"
+    __table_args__ = (
+        Index(
+            "uq_cbl_customer_store_code_active",
+            "customer_id", "billing_store_code",
+            unique=True,
+            postgresql_where=text("status = 'ACTIVE' AND is_deleted = false"),
+        ),
+        Index(
+            "uq_cbl_customer_default",
+            "customer_id",
+            unique=True,
+            postgresql_where=text("is_default = true AND status = 'ACTIVE' AND is_deleted = false"),
+        ),
+    )
+
+    customer_id = Column(
+        String(50), ForeignKey("customers.id", ondelete="RESTRICT"),
+        nullable=False, index=True
+    )
+    billing_store_code = Column(String(50), nullable=False, index=True)
+    location_name = Column(String(255), nullable=False)       # e.g. "Reliance Corporate Accounts - Mumbai"
+    address_line1 = Column(Text, nullable=False)
+    address_line2 = Column(Text, nullable=True)
+    city = Column(String(100), nullable=False)
+    state = Column(String(100), nullable=False)
+    state_code = Column(String(2), nullable=False)             # '27', '06', etc.
+    pincode = Column(String(10), nullable=False)
+    country = Column(String(100), nullable=False, default="India")
+    gst_registration_id = Column(
+        String(50),
+        ForeignKey("customer_gst_registrations.id", ondelete="SET NULL"),
+        nullable=True, index=True
+    )
+    gstin = Column(String(15), nullable=True)
+    contact_person = Column(String(150), nullable=True)
+    phone = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+    is_default = Column(Boolean, nullable=False, default=False)
+    status = Column(String(20), nullable=False, default="ACTIVE")
+    source = Column(String(30), nullable=True, default="MANUAL")
+    remarks = Column(Text, nullable=True)
+    metadata_json = Column(JSONB, nullable=True)
+
+    # Relationships
+    customer = relationship("Customer", back_populates="billing_locations")
+    gst_registration = relationship(
+        "CustomerGSTRegistration",
+        foreign_keys=[gst_registration_id],
+    )
+
+
+class CustomerExternalIdentity(BaseEntity):
+    """
+    External ERP and software identity mapping for Customer.
+
+    Allows a customer to be associated with external codes from external systems
+    (e.g., SAP Customer Code '10004567', Oracle 'CUST-77881', Reliance EDI 'REL-001').
+
+    Composite Uniqueness: (company_id, source_system, external_type, external_code)
+    ensuring uniqueness per external system source within the tenant company.
+    """
+    __tablename__ = "customer_external_identities"
+    __table_args__ = (
+        Index(
+            "uq_cust_ext_ident_composite",
+            "company_id", "source_system", "external_type", "external_code",
+            unique=True,
+            postgresql_where=text("status = 'ACTIVE' AND is_deleted = false"),
+        ),
+    )
+
+    customer_id = Column(
+        String(50), ForeignKey("customers.id", ondelete="RESTRICT"),
+        nullable=False, index=True
+    )
+    source_system = Column(String(50), nullable=False)       # SAP, ORACLE, TALLY, RELIANCE_EDI
+    external_type = Column(String(50), nullable=False, default="CUSTOMER")  # CUSTOMER, ACCOUNT, VENDOR_REF
+    external_code = Column(String(100), nullable=False)      # e.g. "10004567"
+    status = Column(String(20), nullable=False, default="ACTIVE")
+    metadata_json = Column(JSONB, nullable=True)
+
+    # Relationships
+    customer = relationship("Customer", back_populates="external_identities")
 
 
 class CrmLead(BaseEntity):
