@@ -106,6 +106,20 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
   const [includeStockWarnings, setIncludeStockWarnings] = useState(true);
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.id = "quick-reports-print-style";
+    style.textContent = `
+      @media print {
+        body * { visibility: hidden !important; }
+        #quick-report-print-sheet, #quick-report-print-sheet * { visibility: visible !important; }
+        #quick-report-print-sheet { position: absolute; inset: 0; margin: 0; box-shadow: none !important; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, []);
+
   const [fastApiDailySales, setFastApiDailySales] = useState<any>(null);
   const [fastApiStockValuation, setFastApiStockValuation] = useState<any>(null);
 
@@ -137,10 +151,10 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
     .reduce((sum, log) => {
       const match = log.after.match(/Total Sales: (\d+) INR/);
       return match ? parseInt(match[1]) : sum;
-    }, Math.round(9895 * scaleFactor));
+    }, 0);
 
-  const dailyRevenue = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.total_sales)) : (totalLiveSales + Math.round(125000 * scaleFactor));
-  const avgOrderValue = totalInvoices > 0 ? Math.round(dailyRevenue / totalInvoices) : Math.round(4850 * scaleFactor);
+  const dailyRevenue = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.total_sales)) : totalLiveSales;
+  const avgOrderValue = totalInvoices > 0 ? Math.round(dailyRevenue / totalInvoices) : 0;
 
   // Low stock products (stock < 15)
   const lowStockItems = products
@@ -152,9 +166,10 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
   const totalCapitalLocked = fastApiStockValuation ? Math.round(parseFloat(fastApiStockValuation.total_value)) : psvParties.reduce((sum, p) => sum + p.capitalLocked, 0);
 
   // Payment Breakdown Estimate
-  const upiSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.upi_sales)) : Math.round(dailyRevenue * 0.45);
-  const cardSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.card_sales)) : Math.round(dailyRevenue * 0.35);
-  const cashSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.cash_sales)) : Math.round(dailyRevenue * 0.20);
+  const upiSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.upi_sales)) : 0;
+  const cardSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.card_sales)) : 0;
+  const cashSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.cash_sales)) : 0;
+  const paymentShare = (amount: number) => dailyRevenue > 0 ? `${Math.round((amount / dailyRevenue) * 100)}%` : "0%";
 
   // Format INR Currencies
   const formatCurrency = (val: number) => {
@@ -178,13 +193,33 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
     }, 150);
   };
 
+  const escapeCsv = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+
   const handleExport = (format: string) => {
     setIsExporting(format);
     recordAuditAction("EXPORT", "reports", selectedReport || "RPT-GEN", `Exported report ${selectedReport} (Format: ${format.toUpperCase()})`);
-    setTimeout(() => {
-      setIsExporting(null);
-      alert(`Successfully generated and downloaded ${selectedReport}_report.${format === "csv" ? "csv" : "xlsx"}.`);
-    }, 1200);
+    const rows: string[][] = [];
+    if (selectedReport === "day-summary") {
+      rows.push(["Metric", "Value"], ["Report Date", startDate], ["Total Invoices", String(totalInvoices)], ["Revenue", String(dailyRevenue)], ["UPI", String(upiSales)], ["Card", String(cardSales)], ["Cash", String(cashSales)]);
+    } else if (selectedReport === "inventory-status") {
+      rows.push(["Code", "Name", "Category", "Stock", "Price"]);
+      products.forEach(product => rows.push([product.code, product.name, product.category, String(product.stock), String(product.price)]));
+    } else if (selectedReport === "compliance-audit") {
+      rows.push(["Timestamp", "User", "Action", "Details", "Before", "After"]);
+      auditLogs.forEach(log => rows.push([log.timestamp, log.user, log.action, log.details, log.before, log.after]));
+    } else {
+      rows.push(["Timestamp", "User", "Action", "Details"]);
+      auditLogs.filter(log => log.action === "Invoice Created").forEach(log => rows.push([log.timestamp, log.user, log.action, log.details || log.after]));
+    }
+    const csv = rows.map(row => row.map(escapeCsv).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedReport}_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setIsExporting(null);
   };
 
   // Get Report Metadata based on selection
@@ -422,7 +457,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
             <div className="flex-1 overflow-y-auto bg-slate-900/50 p-6 flex justify-center custom-scrollbar">
               {layoutMode === "a4" ? (
                 /* A4 PAGE CONTAINER */
-                <div id="virtual-a4-sheet" className="bg-white text-slate-900 w-[210mm] min-h-[297mm] p-10 shadow-2xl rounded-sm border border-slate-300 font-sans relative flex flex-col justify-between text-xs leading-normal">
+                <div id="quick-report-print-sheet" className="bg-white text-slate-900 w-[210mm] min-h-[297mm] p-10 shadow-2xl rounded-sm border border-slate-300 font-sans relative flex flex-col justify-between text-xs leading-normal">
                   <div>
                     {/* Header Stamp/Logo */}
                     <div className="flex justify-between items-start border-b-2 border-slate-800 pb-5 mb-5">
@@ -465,7 +500,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                           </div>
                           <div className="border border-slate-200 bg-slate-50 p-3 rounded">
                             <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Completed Invoices</span>
-                            <div className="text-sm font-bold text-slate-950 mt-1">{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} bills</div>
+                            <div className="text-sm font-bold text-slate-950 mt-1">{totalInvoices} bills</div>
                             <span className="text-[8px] text-slate-500 font-mono">Checkout desks active</span>
                           </div>
                           <div className="border border-slate-200 bg-slate-50 p-3 rounded">
@@ -498,7 +533,8 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                                   UPI (PhonePe, GPay, Paytm)
                                 </td>
-                                <td className="py-1.5 text-center font-mono">45%</td>
+                                <td className="py-1.5 text-center font-mono">{paymentShare(upiSales)}</td>
+                                                                <td className="py-1.5 text-center font-mono">{paymentShare(upiSales)}</td>
                                 <td className="py-1.5 text-right font-mono font-semibold">{formatCurrency(upiSales)}</td>
                                 <td className="py-1.5 text-right text-emerald-700 font-mono font-bold">Auto-Matched Bank Feed</td>
                               </tr>
@@ -507,7 +543,8 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   <span className="w-2 h-2 rounded-full bg-blue-600"></span>
                                   Card Swipe / POS Terminal
                                 </td>
-                                <td className="py-1.5 text-center font-mono">35%</td>
+                                <td className="py-1.5 text-center font-mono">{paymentShare(cardSales)}</td>
+                                                                <td className="py-1.5 text-center font-mono">{paymentShare(cardSales)}</td>
                                 <td className="py-1.5 text-right font-mono font-semibold">{formatCurrency(cardSales)}</td>
                                 <td className="py-1.5 text-right text-emerald-700 font-mono font-bold">Terminal Settlement Logged</td>
                               </tr>
@@ -516,7 +553,8 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   <span className="w-2 h-2 rounded-full bg-amber-600"></span>
                                   Hard Cash Register
                                 </td>
-                                <td className="py-1.5 text-center font-mono">20%</td>
+                                <td className="py-1.5 text-center font-mono">{paymentShare(cashSales)}</td>
+                                                                <td className="py-1.5 text-center font-mono">{paymentShare(cashSales)}</td>
                                 <td className="py-1.5 text-right font-mono font-semibold">{formatCurrency(cashSales)}</td>
                                 <td className="py-1.5 text-right text-blue-700 font-mono font-bold">Physical Audit Count Pending</td>
                               </tr>
@@ -563,22 +601,9 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   );
                                 })
                               ) : (
-                                // Realistic Fallback Items if no audit logs exist
-                                [
-                                  { time: "11:24 AM", inv: "INV-2026-104", cashier: "Amit Sharma", branch: "Andheri West, Mumbai", amt: 14200 },
-                                  { time: "01:15 PM", inv: "INV-2026-105", cashier: "Riya Patel", branch: "Andheri West, Mumbai", amt: 29500 },
-                                  { time: "03:40 PM", inv: "INV-2026-106", cashier: "Amit Sharma", branch: "Andheri West, Mumbai", amt: 54000 },
-                                  { time: "05:10 PM", inv: "INV-2026-107", cashier: "Riya Patel", branch: "Andheri West, Mumbai", amt: 39000 },
-                                  { time: "07:35 PM", inv: "INV-2026-108", cashier: "Karan Johar", branch: "Andheri West, Mumbai", amt: 82000 }
-                                ].map((row, index) => (
-                                  <tr key={index}>
-                                    <td className="py-1.5 text-slate-600">{row.time}</td>
-                                    <td className="py-1.5 font-bold text-blue-800">{row.inv}</td>
-                                    <td className="py-1.5 text-slate-800 font-sans">{row.cashier}</td>
-                                    <td className="py-1.5 text-slate-600 font-sans">{row.branch}</td>
-                                    <td className="py-1.5 text-right font-bold text-slate-950">{formatCurrency(row.amt * scaleFactor)}</td>
-                                  </tr>
-                                ))
+                                <tr>
+                                  <td colSpan={5} className="py-4 text-center text-slate-500 font-sans">No invoice records for the selected period.</td>
+                                </tr>
                               )}
                               <tr className="border-t border-slate-200 font-bold bg-slate-50 font-sans">
                                 <td colSpan={4} className="py-2 text-slate-900 uppercase font-bold text-right pr-4">Aggregated Total</td>
@@ -774,7 +799,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                 </div>
               ) : (
                 /* THERMAL SLIP CONTAINER (80mm) */
-                <div id="virtual-thermal-slip" className="bg-white text-slate-900 w-[80mm] p-4 shadow-2xl rounded-sm border border-slate-300 font-mono text-[10px] flex flex-col justify-between relative">
+                <div id="quick-report-print-sheet" className="bg-white text-slate-900 w-[80mm] p-4 shadow-2xl rounded-sm border border-slate-300 font-mono text-[10px] flex flex-col justify-between relative">
                   <div>
                     {/* Thermal Header */}
                     <div className="text-center border-b border-dashed border-slate-400 pb-3 mb-3">
@@ -803,7 +828,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                           </div>
                           <div className="flex justify-between">
                             <span>TOTAL INVOICES:</span>
-                            <span>{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} Bills</span>
+                            <span>{totalInvoices} Bills</span>
                           </div>
                           <div className="flex justify-between">
                             <span>AVG ORDER VALUE:</span>
@@ -820,15 +845,19 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                           <div className="font-bold text-[9px] mb-1">PAYMENT MODES:</div>
                           <div className="flex justify-between pl-1">
                             <span>- UPI:</span>
-                            <span>{formatCurrency(upiSales)} (45%)</span>
+                            <span>{formatCurrency(upiSales)} ({paymentShare(upiSales)})</span>
+                                                      <span>{formatCurrency(upiSales)} ({paymentShare(upiSales)})</span>
                           </div>
                           <div className="flex justify-between pl-1">
                             <span>- CARD swipe:</span>
-                            <span>{formatCurrency(cardSales)} (35%)</span>
+                            <span>{formatCurrency(cardSales)} ({paymentShare(cardSales)})</span>
+                                                      <span>{formatCurrency(cardSales)} ({paymentShare(cardSales)})</span>
                           </div>
                           <div className="flex justify-between pl-1">
                             <span>- Hard CASH:</span>
-                            <span>{formatCurrency(cashSales)} (20%)</span>
+                            <span>{formatCurrency(cashSales)} ({paymentShare(cashSales)})</span>
+                                                      <span>{formatCurrency(cashSales)} ({paymentShare(cashSales)})</span>
+                                              <div className="text-sm font-bold text-slate-950 mt-1">{totalInvoices} bills</div>
                           </div>
                         </div>
                       </div>
@@ -839,16 +868,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                       <div className="space-y-2">
                         <div className="font-bold text-[9px] mb-1">INVOICES COMPILATION:</div>
                         <div className="divide-y divide-dashed divide-slate-300">
-                          {(auditLogs.filter(log => log.action === "Invoice Created").length > 0 
-                            ? auditLogs.filter(log => log.action === "Invoice Created").slice(0, 5)
-                            : [
-                              { time: "11:24 AM", inv: "INV-104", amt: 14200 },
-                              { time: "01:15 PM", inv: "INV-105", amt: 29500 },
-                              { time: "03:40 PM", inv: "INV-106", amt: 54000 },
-                              { time: "05:10 PM", inv: "INV-107", amt: 39000 },
-                              { time: "07:35 PM", inv: "INV-108", amt: 82000 }
-                            ]
-                          ).map((item: any, i) => {
+                          {auditLogs.filter(log => log.action === "Invoice Created").slice(0, 5).map((item: any, i) => {
                             const timeStr = item.time || new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                             const invStr = item.inv || `INV-2026-${i+101}`;
                             const amtValue = item.amt || (item.after.match(/Total Sales: (\d+) INR/) ? parseInt(item.after.match(/Total Sales: (\d+) INR/)[1]) : 12450);
@@ -859,6 +879,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                               </div>
                             );
                           })}
+                          {auditLogs.filter(log => log.action === "Invoice Created").length === 0 && <div className="py-3 text-center text-slate-500">NO INVOICE RECORDS</div>}
                         </div>
                         <div className="border-t border-dashed border-slate-400 pt-1.5 flex justify-between font-bold text-[10px]">
                           <span>TOTAL REVENUE</span>
@@ -1021,7 +1042,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                   </div>
                   <div style={{ border: '1px solid #ccc', padding: '12px', background: '#fafafa' }}>
                     <div style={{ fontSize: '9px', textTransform: 'uppercase', color: '#666', fontWeight: 'bold' }}>Invoices Compiled</div>
-                    <div style={{ fontSize: '16px', fontWeight: 'bold', marginTop: '4px' }}>{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} bills</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', marginTop: '4px' }}>{totalInvoices} bills</div>
                     <div style={{ fontSize: '8px', color: '#666', marginTop: '2px' }}>Checkout desk active</div>
                   </div>
                   <div style={{ border: '1px solid #ccc', padding: '12px', background: '#fafafa' }}>
@@ -1049,19 +1070,19 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                   <tbody>
                     <tr style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '6px 0' }}>UPI Digital Wallet</td>
-                      <td style={{ padding: '6px 0', textAlign: 'center' }}>45%</td>
+                      <td style={{ padding: '6px 0', textAlign: 'center' }}>{paymentShare(upiSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(upiSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', color: 'green' }}>Matched Bank Feed</td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '6px 0' }}>Card Terminal Settlement</td>
-                      <td style={{ padding: '6px 0', textAlign: 'center' }}>35%</td>
+                      <td style={{ padding: '6px 0', textAlign: 'center' }}>{paymentShare(cardSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(cardSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', color: 'green' }}>Auto-Settled POS</td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '6px 0' }}>Hard Currency Drawer</td>
-                      <td style={{ padding: '6px 0', textAlign: 'center' }}>20%</td>
+                      <td style={{ padding: '6px 0', textAlign: 'center' }}>{paymentShare(cashSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(cashSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', color: 'blue' }}>Physical Audit Pending</td>
                     </tr>
@@ -1104,20 +1125,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                         );
                       })
                     ) : (
-                      [
-                        { time: "11:24 AM", inv: "INV-2026-104", cashier: "Amit Sharma", amt: 14200 },
-                        { time: "01:15 PM", inv: "INV-2026-105", cashier: "Riya Patel", amt: 29500 },
-                        { time: "03:40 PM", inv: "INV-2026-106", cashier: "Amit Sharma", amt: 54000 },
-                        { time: "05:10 PM", inv: "INV-2026-107", cashier: "Riya Patel", amt: 39000 },
-                        { time: "07:35 PM", inv: "INV-2026-108", cashier: "Karan Johar", amt: 82000 }
-                      ].map((row, index) => (
-                        <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                          <td style={{ padding: '6px 0' }}>{row.time}</td>
-                          <td style={{ padding: '6px 0', fontWeight: 'bold' }}>{row.inv}</td>
-                          <td style={{ padding: '6px 0' }}>{row.cashier}</td>
-                          <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(row.amt * scaleFactor)}</td>
-                        </tr>
-                      ))
+                      <tr><td colSpan={4} style={{ padding: '12px 0', textAlign: 'center', color: '#666' }}>No invoice records for the selected period.</td></tr>
                     ))}
                     <tr style={{ borderTop: '2px solid black', fontWeight: 'bold', background: '#f5f5f5' }}>
                       <td colSpan={3} style={{ padding: '8px 0', textAlign: 'right', paddingRight: '15px' }}>AGGREGATED TOTAL SALES REVENUE</td>
@@ -1284,7 +1292,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}>
                   <span>TOTAL BILLS:</span>
-                  <span>{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} Invoices</span>
+                  <span>{totalInvoices} Invoices</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}>
                   <span>AVG ORDER VAL:</span>
@@ -1317,16 +1325,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
               <div style={{ fontSize: '8px' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>COMPILING INVOICES:</div>
                 <div style={{ borderBottom: '1px dashed #ccc', paddingBottom: '3px', marginBottom: '3px' }}>
-                  {(auditLogs.filter(log => log.action === "Invoice Created").length > 0 
-                    ? auditLogs.filter(log => log.action === "Invoice Created").slice(0, 10)
-                    : [
-                      { time: "11:24 AM", inv: "INV-104", amt: 14200 },
-                      { time: "01:15 PM", inv: "INV-105", amt: 29500 },
-                      { time: "03:40 PM", inv: "INV-106", amt: 54000 },
-                      { time: "05:10 PM", inv: "INV-107", amt: 39000 },
-                      { time: "07:35 PM", inv: "INV-108", amt: 82000 }
-                    ]
-                  ).map((item: any, i) => {
+                  {auditLogs.filter(log => log.action === "Invoice Created").slice(0, 10).map((item: any, i) => {
                     const timeStr = item.time || new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                     const invStr = item.inv || `INV-2026-${i+101}`;
                     const amtValue = item.amt || (item.after.match(/Total Sales: (\d+) INR/) ? parseInt(item.after.match(/Total Sales: (\d+) INR/)[1]) : 12450);
@@ -1337,6 +1336,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                       </div>
                     );
                   })}
+                  {auditLogs.filter(log => log.action === "Invoice Created").length === 0 && <div style={{ padding: '8px 0', textAlign: 'center', color: '#666' }}>NO INVOICE RECORDS</div>}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '10px', paddingTop: '4px' }}>
                   <span>TOTAL SHIFT SALES</span>
