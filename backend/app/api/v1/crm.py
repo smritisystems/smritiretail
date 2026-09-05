@@ -420,7 +420,7 @@ async def list_customer_delivery_locations(
     "/customers/{customer_id}/delivery-locations",
     response_model=CustomerDeliveryLocationResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.CASHIER))],
 )
 async def create_customer_delivery_location(
     customer_id: str,
@@ -453,7 +453,7 @@ async def get_customer_delivery_location(
 @router.put(
     "/customers/{customer_id}/delivery-locations/{location_id}",
     response_model=CustomerDeliveryLocationResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.CASHIER))],
 )
 async def update_customer_delivery_location(
     customer_id: str,
@@ -555,7 +555,7 @@ async def get_customer_billing_location(
 @router.put(
     "/customers/{customer_id}/billing-locations/{location_id}",
     response_model=CustomerBillingLocationResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.CASHIER))],
 )
 async def update_customer_billing_location(
     customer_id: str,

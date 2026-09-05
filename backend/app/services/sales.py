@@ -1692,6 +1692,12 @@ class SalesService:
         if not invoice:
             raise HTTPException(status_code=404, detail="Sales invoice not found")
 
+        if str(invoice.status or "").upper() not in {"DRAFT", "HOLD"}:
+            raise HTTPException(
+                status_code=409,
+                detail="Posted tax invoices are immutable. Use the approved cancellation, amendment, credit-note, or debit-note workflow.",
+            )
+
         # Apply scalar patches
         for attr in ("status", "customer_id", "date", "is_interstate",
                      "eway_bill_no", "invoice_no", "customer_name",

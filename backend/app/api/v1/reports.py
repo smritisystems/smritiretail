@@ -48,6 +48,7 @@ from ...schemas.reports import (
     OrderFulfillmentStatusReport,
     InvoiceAllocationReportModel,
     SalesOrderDetailReport,
+    InvoiceReconciliationReport,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
 from ...services.reports import ReportsService
@@ -117,6 +118,7 @@ SMRITI_STUDIOS = {
             {"id": "RPT-TAX-004", "code": "RPT-TAX-004", "title": "Cancelled Bills",          "description": "All voided/cancelled invoices with cancellation reason and operator.",                         "category": "Audit",          "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False, "sh9_exe": "SR210200"},
             {"id": "RPT-TAX-005", "code": "RPT-TAX-005", "title": "Bill-wise Items Detail",   "description": "Each invoice line expanded: product, barcode, HSN, qty, rate, discount, net.",                "category": "Sales Detail",   "format": "Grid",   "owner": "System", "drillDownEnabled": False, "sh9_exe": "SR202000"},
             {"id": "RPT-TAX-006", "code": "RPT-TAX-006", "title": "Statutory GST Tax Invoices Master Register", "description": "Complete statutory audit ledger of all tax invoices with buyer & seller GSTINs, Place of Supply, RCM, E-Way Bill, full billing/shipping addresses, round-off, and amount in words.", "category": "Tax & Compliance", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-TAX-007", "code": "RPT-TAX-007", "title": "Historical Invoice GST Reconciliation", "description": "Read-only review of bills 18–137 for GST, store, PO, and historical snapshot gaps. Never changes posted invoice stock or values.", "category": "Tax & Compliance", "format": "Grid", "owner": "Admin", "drillDownEnabled": False},
         ],
     },
     # ── P2 Sprint 8a: MIS & Analytics ── SR203700/SR203900/SR215600/SR216000/SR238400
@@ -332,6 +334,21 @@ async def tax_invoices_master_register(
     return await ReportsService(db, tenant).tax_invoices_master_register(
         from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status_filter=status,
         include_archived=include_archived,
+    )
+
+
+@router.get("/invoice-reconciliation", response_model=InvoiceReconciliationReport)
+async def invoice_reconciliation(
+    bill_from: int = Query(18, ge=0, description="Starting TT2026-2027 bill number"),
+    bill_to: int = Query(137, ge=0, description="Ending TT2026-2027 bill number"),
+    include_archived: bool = Query(True, description="Include cancelled/archived invoice history"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Read-only historical GST/location reconciliation; posted invoices are never mutated."""
+    return await ReportsService(db, tenant).invoice_reconciliation(
+        bill_from=bill_from, bill_to=bill_to, include_archived=include_archived
     )
 
 

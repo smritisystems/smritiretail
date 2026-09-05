@@ -33,7 +33,7 @@ from ..models.sales import (
 from ..models.purchase import Supplier, PurchaseOrder, PurchaseReceipt
 from ..models.supplier_payment import SupplierPayment
 from ..models.report_schedule import ReportSchedule
-from ..models.crm import Customer
+from ..models.crm import Customer, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
 from ..models.tenant import Company
 from ..models.loyalty import LoyaltyMember, LoyaltyPointsLedger
 from ..models.promotions import PromotionCampaign, PromotionRedemption
@@ -55,6 +55,7 @@ from ..schemas.reports import (
     InvoiceAllocationReportLine, InvoiceAllocationReportModel,
     SalesOrderDetailLine, SalesOrderDetailReport,
 )
+from ..core.invoice_reconciliation import classify_invoice_reconciliation
 
 class ReportsService:
     def __init__(self, db: AsyncSession, tenant: TenantContext):
@@ -1225,6 +1226,83 @@ class ReportsService:
             total_taxable=sum(l.taxable_value for l in lines),
             total_tax=sum(l.tax_amount for l in lines),
             total_grand=sum(l.grand_total for l in lines),
+            lines=lines,
+        )
+
+    async def invoice_reconciliation(self, bill_from: int = 18, bill_to: int = 137, include_archived: bool = True):
+        """Classify historical invoice/master-data drift without changing posted records."""
+        from ..schemas.reports import InvoiceReconciliationLine, InvoiceReconciliationReport
+        import re
+
+        if bill_from < 0 or bill_to < bill_from:
+            raise HTTPException(status_code=400, detail="Invalid invoice bill range")
+
+        prefix = "TT2026-2027/"
+        stmt = select(SalesInvoice).where(SalesInvoice.invoice_no.like(f"{prefix}%"))
+        if not include_archived:
+            stmt = stmt.where(SalesInvoice.is_deleted == False)
+        stmt = self._tenant_filter(stmt, SalesInvoice)
+        invoices = (await self.db.execute(stmt.order_by(SalesInvoice.invoice_no))).scalars().all()
+        selected = []
+        for invoice in invoices:
+            match = re.fullmatch(r"TT2026-2027/(\d+)", invoice.invoice_no or "")
+            if match and bill_from <= int(match.group(1)) <= bill_to:
+                selected.append((invoice, int(match.group(1))))
+
+        registration_ids = {invoice.billed_party_gstin_id for invoice, _ in selected if invoice.billed_party_gstin_id}
+        billing_ids = {invoice.billing_location_id for invoice, _ in selected if invoice.billing_location_id}
+        delivery_ids = {invoice.delivery_location_id for invoice, _ in selected if invoice.delivery_location_id}
+        registrations = {}
+        billing_locations = {}
+        delivery_locations = {}
+        if registration_ids:
+            result = await self.db.execute(self._tenant_filter(select(CustomerGSTRegistration).where(CustomerGSTRegistration.id.in_(registration_ids)), CustomerGSTRegistration))
+            registrations = {row.id: row for row in result.scalars().all()}
+        if billing_ids:
+            result = await self.db.execute(self._tenant_filter(select(CustomerBillingLocation).where(CustomerBillingLocation.id.in_(billing_ids)), CustomerBillingLocation))
+            billing_locations = {row.id: row for row in result.scalars().all()}
+        if delivery_ids:
+            result = await self.db.execute(self._tenant_filter(select(CustomerDeliveryLocation).where(CustomerDeliveryLocation.id.in_(delivery_ids)), CustomerDeliveryLocation))
+            delivery_locations = {row.id: row for row in result.scalars().all()}
+
+        lines = []
+        for invoice, bill_no in selected:
+            result = classify_invoice_reconciliation(
+                invoice={
+                    "customer_gstin": invoice.customer_gstin,
+                    "delivery_gstin": invoice.delivery_gstin,
+                    "place_of_supply_code": invoice.place_of_supply_code,
+                    "pos_state": invoice.pos_state,
+                    "billing_store_code": invoice.billing_store_code,
+                    "delivery_store_code": invoice.delivery_store_code,
+                    "delivery_location_snapshot": invoice.delivery_location_snapshot,
+                },
+                registration=vars(registrations[invoice.billed_party_gstin_id]) if invoice.billed_party_gstin_id in registrations else None,
+                billing_location=vars(billing_locations[invoice.billing_location_id]) if invoice.billing_location_id in billing_locations else None,
+                delivery_location=vars(delivery_locations[invoice.delivery_location_id]) if invoice.delivery_location_id in delivery_locations else None,
+            )
+            lines.append(InvoiceReconciliationLine(
+                invoice_id=invoice.id,
+                bill_no=bill_no,
+                invoice_number=invoice.invoice_no,
+                invoice_date=str(invoice.date or ""),
+                invoice_status=str(invoice.status or "").upper(),
+                customer_id=invoice.customer_id,
+                customer_name=invoice.customer_name,
+                **result,
+            ))
+
+        counts = {classification: sum(line.classification == classification for line in lines) for classification in ("NO_ACTION", "MASTER_DATA_DRIFT", "HISTORICAL_DATA_GAP")}
+        return InvoiceReconciliationReport(
+            invoice_prefix=prefix,
+            bill_from=bill_from,
+            bill_to=bill_to,
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            total_invoices=len(lines),
+            no_action_count=counts["NO_ACTION"],
+            master_data_drift_count=counts["MASTER_DATA_DRIFT"],
+            historical_data_gap_count=counts["HISTORICAL_DATA_GAP"],
+            mutation_performed=False,
             lines=lines,
         )
 

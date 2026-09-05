@@ -72,6 +72,11 @@ import { SmritiErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { clearAuthSession, normalizeBranchId, normalizeCompanyId, persistTenantContext } from "./lib/apiFetchV1.ts";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { FioriLaunchpad } from "./components/launchpad/FioriLaunchpad.tsx";
+import {
+  normalizeUniversalImport,
+  UNIVERSAL_IMPORT_TEMPLATES,
+  type UniversalImportInputRow,
+} from "./services/universalImportEngine.ts";
 import { SecManageDlg } from "./components/security/SecManageDlg.tsx";
 import { SalesOrderFormPremium } from "./components/sales/SalesOrderFormPremium.tsx";
 import { VendorReturnModal } from "./components/procurement/VendorReturnModal.tsx";
@@ -156,10 +161,53 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
   const [importPreviewRows, setImportPreviewRows] = useState<Array<Record<string, string>>>([]);
-  const [importFieldMap, setImportFieldMap] = useState<Record<"barcode" | "qty" | "mrp" | "discAmt" | "discPct", string>>({
+  const [importResolution, setImportResolution] = useState<{
+    counts: { total: number; matched: number; ambiguous: number; not_found: number };
+    rows: Array<{
+      row_number: number;
+      status: string;
+      match?: {
+        item_id?: string;
+        variant_id?: string;
+        item_name?: string;
+        item_code?: string;
+        variant_sku?: string;
+        selling_price?: number;
+        mrp?: number;
+        barcode?: string;
+      };
+      candidates?: Array<{
+        item_name?: string;
+        item_code?: string;
+        variant_sku?: string;
+        selling_price?: number;
+        mrp?: number;
+        barcode?: string;
+      }>;
+    }>;
+  } | null>(null);
+  const [importTemplateId, setImportTemplateId] = useState("BARCODE_QTY");
+  const [importTarget, setImportTarget] = useState<"SALES_ORDER" | "ITEM_MASTER" | "PRICE_BOOK" | "PURCHASE_INWARD" | "STOCK_ADJUSTMENT" | "SALES_RETURN" | "LABEL_PRINT">("SALES_ORDER");
+  const [importCommitFields, setImportCommitFields] = useState({
+    priceBookId: "",
+    supplierId: "",
+    warehouseId: "",
+    reason: "",
+    originalInvoiceId: "",
+    returnNo: "",
+  });
+  const [importFieldMap, setImportFieldMap] = useState<Record<"barcode" | "sku" | "styleArticle" | "name" | "size" | "color" | "brand" | "qty" | "mrp" | "sellingPrice" | "costPrice" | "discAmt" | "discPct", string>>({
     barcode: "",
+    sku: "",
+    styleArticle: "",
+    name: "",
+    size: "",
+    color: "",
+    brand: "",
     qty: "",
     mrp: "",
+    sellingPrice: "",
+    costPrice: "",
     discAmt: "",
     discPct: "",
   });
@@ -179,16 +227,32 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
   const detectImportFieldMap = (headers: string[]) => {
     const aliases: Record<string, string[]> = {
       barcode: ["barcode", "bar code", "code", "item code", "sku", "product code", "stock no", "stockno"],
+      sku: ["sku", "sku code", "variant sku", "stock no", "stockno"],
+      styleArticle: ["style", "style no", "style code", "article", "article no", "style article"],
+      name: ["name", "item name", "product name", "description", "item description"],
+      size: ["size", "size name", "waist"],
+      color: ["color", "colour", "shade", "colorway"],
+      brand: ["brand", "brand name", "manufacturer", "make"],
       qty: ["qty", "quantity", "qnty", "qty sold", "sales qty"],
       mrp: ["mrp", "rate", "selling price", "sale price", "price", "unit price"],
+      sellingPrice: ["selling price", "sale price", "unit selling price", "sell price"],
+      costPrice: ["cost price", "buying price", "purchase price", "cost"],
       discAmt: ["disc amt", "discount amount", "discount amt", "disc amount", "amount discount", "discount"],
       discPct: ["disc %", "disc pct", "discount %", "discount pct", "discount percent", "discpercent"],
     };
 
-    const nextMap: Record<"barcode" | "qty" | "mrp" | "discAmt" | "discPct", string> = {
+    const nextMap: Record<"barcode" | "sku" | "styleArticle" | "name" | "size" | "color" | "brand" | "qty" | "mrp" | "sellingPrice" | "costPrice" | "discAmt" | "discPct", string> = {
       barcode: "",
+      sku: "",
+      styleArticle: "",
+      name: "",
+      size: "",
+      color: "",
+      brand: "",
       qty: "",
       mrp: "",
+      sellingPrice: "",
+      costPrice: "",
       discAmt: "",
       discPct: "",
     };
@@ -248,7 +312,7 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
 
     const parsedRows = rows.map((line) => parseImportLine(line, delimiter));
     const headerCandidates = parsedRows[0].map((header, index) => header || `Column ${index + 1}`);
-    const headerRowIndex = parsedRows.some((row) => row.some((cell) => /barcode|qty|quantity|mrp|discount|disc/i.test(cell))) ? 0 : -1;
+    const headerRowIndex = parsedRows.some((row) => row.some((cell) => /barcode|sku|style|article|size|color|colour|brand|qty|quantity|mrp|price|discount|disc/i.test(cell))) ? 0 : -1;
 
     const finalHeaders = headerRowIndex === 0 ? headerCandidates : Array.from({ length: Math.max(...parsedRows.map((row) => row.length)) }, (_, index) => `Column ${index + 1}`);
     const dataRows = headerRowIndex === 0 ? parsedRows.slice(1) : parsedRows;
@@ -263,7 +327,7 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
     return { headers: finalHeaders, data: normalizedData };
   };
 
-  const addImportedLineToSalesOrder = async (row: Record<string, string>) => {
+  const addImportedLineToSalesOrder = async (row: Record<string, string>, resolvedProduct?: any) => {
     const barcode = row[importFieldMap.barcode] || "";
     const quantity = Number(row[importFieldMap.qty] || "1");
     const mrp = Number(row[importFieldMap.mrp] || "0");
@@ -273,15 +337,18 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
     if (!barcode) return;
 
     try {
-      const data = await apiFetchV1("/products/search", {
-        params: { q: barcode, limit: 10 },
-      });
-      const productList = Array.isArray(data) ? data : data?.data || [];
-      const product = productList.find((item: any) =>
-        String(item.barcode || "").toLowerCase() === String(barcode).toLowerCase() ||
-        String(item.code || "").toLowerCase() === String(barcode).toLowerCase() ||
-        String(item.sku || "").toLowerCase() === String(barcode).toLowerCase()
-      ) || productList[0];
+      let product = resolvedProduct;
+      if (!product) {
+        const data = await apiFetchV1("/products/search", {
+          params: { q: barcode, limit: 10 },
+        });
+        const productList = Array.isArray(data) ? data : data?.data || [];
+        product = productList.find((item: any) =>
+          String(item.barcode || "").toLowerCase() === String(barcode).toLowerCase() ||
+          String(item.code || "").toLowerCase() === String(barcode).toLowerCase() ||
+          String(item.sku || "").toLowerCase() === String(barcode).toLowerCase()
+        ) || productList[0];
+      }
 
       if (!product) {
         setStandaloneScannerStatus(`Import skipped: ${barcode} not found`);
@@ -295,7 +362,7 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
       const nextRow = {
         no: standaloneRows.length + 1,
         stockNo: String(product.code || product.sku || product.barcode || barcode),
-        description: String(product.name || product.description || "Product"),
+        description: String(product.name || product.item_name || product.description || "Product"),
         rate: rateValue.toFixed(2),
         qty: qtyValue.toFixed(2),
         value: Number((rateValue * qtyValue).toFixed(2)).toFixed(2),
@@ -491,6 +558,7 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
     const mapped = detectImportFieldMap(headers);
     setImportHeaders(headers);
     setImportPreviewRows(data);
+    setImportResolution(null);
     setImportFieldMap((prev) => ({
       ...prev,
       ...mapped,
@@ -505,17 +573,119 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
       return;
     }
 
-    const selectedKeys = Object.values(importFieldMap).filter(Boolean);
-    if (selectedKeys.length === 0 || !importFieldMap.barcode || !importFieldMap.qty || !importFieldMap.mrp) {
-      setStandaloneScannerStatus("Map Barcode, Qty and MRP before import");
+    const inputRows: UniversalImportInputRow[] = importPreviewRows.map((row, index) => ({
+      rowNumber: index + 2,
+      barcode: importFieldMap.barcode ? row[importFieldMap.barcode] : undefined,
+      sku: importFieldMap.sku ? row[importFieldMap.sku] : undefined,
+      styleArticle: importFieldMap.styleArticle ? row[importFieldMap.styleArticle] : undefined,
+      name: importFieldMap.name ? row[importFieldMap.name] : undefined,
+      size: importFieldMap.size ? row[importFieldMap.size] : undefined,
+      color: importFieldMap.color ? row[importFieldMap.color] : undefined,
+      brand: importFieldMap.brand ? row[importFieldMap.brand] : undefined,
+      quantity: importFieldMap.qty ? row[importFieldMap.qty] : undefined,
+      mrp: importFieldMap.mrp ? row[importFieldMap.mrp] : undefined,
+      sellingPrice: importFieldMap.sellingPrice ? row[importFieldMap.sellingPrice] : undefined,
+      costPrice: importFieldMap.costPrice ? row[importFieldMap.costPrice] : undefined,
+    }));
+    const normalized = normalizeUniversalImport(inputRows, importTarget);
+    if (normalized.issues.length > 0) {
+      setStandaloneScannerStatus(`${normalized.issues.length} row(s) need correction`);
       return;
+    }
+
+    const hasCompleteResolution = Boolean(
+      importResolution &&
+      importResolution.rows.length === inputRows.length &&
+      importResolution.rows.every((row) => row.status === "MATCHED"),
+    );
+
+    if (!hasCompleteResolution) {
+      try {
+        const preview = await apiFetchV1("/import/preview", {
+          method: "POST",
+          body: {
+            target: importTarget,
+            rows: inputRows,
+          },
+        });
+        setImportResolution(preview);
+        const unresolved = importTarget === "ITEM_MASTER"
+          ? Number(preview?.counts?.ambiguous || 0)
+          : Number(preview?.counts?.not_found || 0) + Number(preview?.counts?.ambiguous || 0);
+        if (unresolved > 0) {
+          setStandaloneScannerStatus(`${unresolved} row(s) need product matching`);
+          return;
+        }
+      } catch (error: any) {
+        console.error("Universal import preview failed:", error);
+        setImportResolution(null);
+        setStandaloneScannerStatus(error?.message || "Import preview failed");
+        return;
+      }
+    }
+
+    if (importTarget !== "SALES_ORDER") {
+      try {
+        const commitRows = inputRows.map((row, index) => {
+          const selected = importResolution?.rows.find((item) => item.row_number === index + 2)?.match;
+          return {
+            ...row,
+            selected_item_id: selected?.item_id,
+            selected_variant_id: selected?.variant_id,
+          };
+        });
+        const commitResponse = await apiFetchV1("/import/commit", {
+          method: "POST",
+          body: {
+            target: importTarget,
+            rows: commitRows,
+            idempotency_key: `ui-${importTarget}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+            price_book_id: importCommitFields.priceBookId || undefined,
+            supplier_id: importCommitFields.supplierId || undefined,
+            warehouse_id: importCommitFields.warehouseId || undefined,
+            reason: importCommitFields.reason || undefined,
+            original_invoice_id: importCommitFields.originalInvoiceId || undefined,
+            return_no: importCommitFields.returnNo || undefined,
+          },
+        });
+        setImportDialogOpen(false);
+        setStandaloneScannerStatus(`Committed ${commitResponse?.results?.length || normalized.rows.length} row(s)`);
+        return;
+      } catch (error: any) {
+        console.error("Universal import commit failed:", error);
+        setStandaloneScannerStatus(error?.message || "Import commit failed");
+        return;
+      }
     }
 
     setImportDialogOpen(false);
     setStandaloneScannerStatus("Importing rows...");
 
-    for (const row of importPreviewRows) {
-      await addImportedLineToSalesOrder(row);
+    for (const row of normalized.rows) {
+      const compositeIdentifier = [
+        row.identity.styleArticle,
+        row.identity.size,
+        row.identity.color,
+        row.identity.brand,
+      ].filter(Boolean).join(" ");
+      const previewRow = importResolution?.rows.find((item) => item.row_number === row.rowNumber);
+      const resolvedProduct = previewRow?.match
+        ? {
+            ...previewRow.match,
+            code: previewRow.match.item_code,
+            sku: previewRow.match.variant_sku || previewRow.match.item_code,
+            name: previewRow.match.item_name,
+            price: previewRow.match.selling_price,
+            mrp: previewRow.match.mrp,
+            barcode: row.identifierType === "BARCODE" ? row.identifier : undefined,
+          }
+        : undefined;
+      await addImportedLineToSalesOrder({
+        barcode: row.identifierType === "BARCODE" ? row.identifier : compositeIdentifier,
+        qty: String(row.quantity),
+        mrp: row.mrp === undefined ? "" : String(row.mrp),
+        sellingPrice: row.sellingPrice === undefined ? "" : String(row.sellingPrice),
+      }, resolvedProduct);
     }
 
     setStandaloneScannerStatus("Imported from file");
@@ -944,7 +1114,7 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h3 className="text-[18px] font-bold text-[#0d1c2e]">Import product file</h3>
-                    <p className="text-[12px] text-[#434656]">CSV/TXT import with column mapping for Barcode, Qty, MRP, Disc Amt, and Disc %.</p>
+                    <p className="text-[12px] text-[#434656]">Import by barcode, SKU, or Style/Article + Size + Color. Optional quantity and prices are supported.</p>
                   </div>
                   <button
                     type="button"
@@ -955,19 +1125,113 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                {importResolution && (
+                  <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+                    {[
+                      { label: "Matched", value: importResolution.counts.matched, className: "text-[#006c4a]" },
+                      { label: "Not found", value: importResolution.counts.not_found, className: "text-[#b42318]" },
+                      { label: "Needs selection", value: importResolution.counts.ambiguous, className: "text-[#9a6700]" },
+                      { label: "Total rows", value: importResolution.counts.total, className: "text-[#003ec7]" },
+                    ].map((summary) => (
+                      <div key={summary.label} className="rounded-lg border border-[#c3c5d9] bg-[#f8f9ff] px-3 py-2">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[#434656]">{summary.label}</div>
+                        <div className={`font-mono text-[18px] font-bold ${summary.className}`}>{summary.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mb-3 flex items-center gap-3 rounded-lg border border-[#d5e3fc] bg-[#f4f8ff] p-3">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Create / Update</label>
+                  <select
+                    value={importTarget}
+                    onChange={(event) => {
+                      setImportResolution(null);
+                      setImportTarget(event.target.value as typeof importTarget);
+                    }}
+                    className="rounded-lg border border-[#c3c5d9] bg-white px-2 py-1.5 text-[12px] text-[#0d1c2e] outline-none"
+                  >
+                    <option value="SALES_ORDER">Sales Order</option>
+                    <option value="ITEM_MASTER">Item Master</option>
+                    <option value="PRICE_BOOK">Price Book</option>
+                    <option value="PURCHASE_INWARD">Purchase Inward</option>
+                    <option value="STOCK_ADJUSTMENT">Stock Adjustment</option>
+                    <option value="SALES_RETURN">Sales Return</option>
+                    <option value="LABEL_PRINT">Label Printing</option>
+                  </select>
+                  <span className="text-[11px] text-[#434656]">The same file can be used for different activities.</span>
+                </div>
+
+                {importTarget !== "SALES_ORDER" && (
+                  <div className="mb-3 grid grid-cols-1 gap-3 rounded-lg border border-[#c3c5d9] bg-[#fffdf5] p-3 md:grid-cols-3">
+                    {(importTarget === "PRICE_BOOK" ? [{ key: "priceBookId", label: "Price Book ID" }] : []).map(({ key, label }) => (
+                      <label key={key} className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">
+                        {label}
+                        <input value={importCommitFields[key as "priceBookId"]} onChange={(event) => setImportCommitFields((prev) => ({ ...prev, [key]: event.target.value }))} className="rounded-lg border border-[#c3c5d9] bg-white px-2 py-1.5 text-[12px] outline-none" />
+                      </label>
+                    ))}
+                    {importTarget === "PURCHASE_INWARD" && [
+                      { key: "supplierId", label: "Supplier ID" },
+                      { key: "warehouseId", label: "Warehouse ID" },
+                    ].map(({ key, label }) => (
+                      <label key={key} className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">
+                        {label}
+                        <input value={importCommitFields[key as "supplierId" | "warehouseId"]} onChange={(event) => setImportCommitFields((prev) => ({ ...prev, [key]: event.target.value }))} className="rounded-lg border border-[#c3c5d9] bg-white px-2 py-1.5 text-[12px] outline-none" />
+                      </label>
+                    ))}
+                    {(importTarget === "STOCK_ADJUSTMENT" || importTarget === "SALES_RETURN") && (
+                      <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">
+                        Reason
+                        <input value={importCommitFields.reason} onChange={(event) => setImportCommitFields((prev) => ({ ...prev, reason: event.target.value }))} className="rounded-lg border border-[#c3c5d9] bg-white px-2 py-1.5 text-[12px] outline-none" />
+                      </label>
+                    )}
+                    {importTarget === "SALES_RETURN" && [
+                      { key: "originalInvoiceId", label: "Original Invoice ID" },
+                      { key: "returnNo", label: "Return No" },
+                    ].map(({ key, label }) => (
+                      <label key={key} className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">
+                        {label}
+                        <input value={importCommitFields[key as "originalInvoiceId" | "returnNo"]} onChange={(event) => setImportCommitFields((prev) => ({ ...prev, [key]: event.target.value }))} className="rounded-lg border border-[#c3c5d9] bg-white px-2 py-1.5 text-[12px] outline-none" />
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mb-3 flex items-center gap-3 rounded-lg border border-[#d5e3fc] bg-[#f4f8ff] p-3">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">Template</label>
+                  <select
+                    value={importTemplateId}
+                    onChange={(event) => setImportTemplateId(event.target.value)}
+                    className="flex-1 rounded-lg border border-[#c3c5d9] bg-white px-2 py-1.5 text-[12px] text-[#0d1c2e] outline-none"
+                  >
+                    {UNIVERSAL_IMPORT_TEMPLATES.map((template) => (
+                      <option key={template.id} value={template.id}>{template.label} - {template.description}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                   {[
                     { key: "barcode", label: "Barcode" },
+                    { key: "sku", label: "SKU / Item Code" },
+                    { key: "styleArticle", label: "Style / Article" },
+                    { key: "name", label: "Product Name" },
+                    { key: "size", label: "Size" },
+                    { key: "color", label: "Color" },
+                    { key: "brand", label: "Brand" },
                     { key: "qty", label: "Qty" },
                     { key: "mrp", label: "MRP" },
-                    { key: "discAmt", label: "Disc Amt" },
-                    { key: "discPct", label: "Disc %" },
+                    { key: "sellingPrice", label: "Selling Price" },
+                    { key: "costPrice", label: "Cost Price" },
                   ].map(({ key, label }) => (
                     <label key={key} className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#434656]">
                       {label}
                       <select
-                        value={importFieldMap[key as "barcode" | "qty" | "mrp" | "discAmt" | "discPct"]}
-                        onChange={(e) => setImportFieldMap((prev) => ({ ...prev, [key]: e.target.value }))}
+                        value={importFieldMap[key as keyof typeof importFieldMap]}
+                        onChange={(e) => {
+                          setImportResolution(null);
+                          setImportFieldMap((prev) => ({ ...prev, [key]: e.target.value }));
+                        }}
                         className="rounded-lg border border-[#c3c5d9] bg-[#eff4ff] px-2 py-1.5 text-[12px] text-[#0d1c2e] outline-none"
                       >
                         <option value="">Select column</option>
@@ -987,16 +1251,51 @@ const StandaloneWindowView: React.FC<{ registeredWorkspaces: Array<{ id: string;
                           {importHeaders.map((header) => (
                             <th key={header} className="border-b border-[#c3c5d9] px-2 py-2 font-semibold uppercase tracking-[0.05em]">{header}</th>
                           ))}
+                          <th className="border-b border-[#c3c5d9] px-2 py-2 font-semibold uppercase tracking-[0.05em]">Resolution</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {importPreviewRows.slice(0, 5).map((row, idx) => (
+                        {importPreviewRows.slice(0, 8).map((row, idx) => {
+                          const resolution = importResolution?.rows.find((item) => item.row_number === idx + 2);
+                          const status = resolution?.status || "PENDING";
+                          return (
                           <tr key={`${idx}-${Object.values(row).join('-')}`} className="border-b border-[#c3c5d9] last:border-b-0">
                             {importHeaders.map((header) => (
                               <td key={`${idx}-${header}`} className="px-2 py-2 text-[#0d1c2e]">{row[header] || ""}</td>
                             ))}
+                            <td className={`px-2 py-2 text-[10px] font-bold ${status === "MATCHED" ? "text-[#006c4a]" : status === "AMBIGUOUS" ? "text-[#9a6700]" : status === "NOT_FOUND" ? "text-[#b42318]" : "text-[#434656]"}`}>
+                              {status === "MATCHED" ? resolution?.match?.item_name || "MATCHED" : status}
+                              {status === "AMBIGUOUS" && resolution?.candidates && (
+                                <div className="mt-1 flex flex-col gap-1">
+                                  {resolution.candidates.map((candidate, candidateIndex) => (
+                                    <button
+                                      key={`${candidate.item_code || candidate.variant_sku || candidateIndex}`}
+                                      type="button"
+                                      onClick={() => {
+                                        if (!importResolution) return;
+                                        setImportResolution({
+                                          ...importResolution,
+                                          rows: importResolution.rows.map((item) => item.row_number === resolution.row_number
+                                            ? { ...item, status: "MATCHED", match: candidate }
+                                            : item),
+                                          counts: {
+                                            ...importResolution.counts,
+                                            ambiguous: Math.max(0, importResolution.counts.ambiguous - 1),
+                                            matched: importResolution.counts.matched + 1,
+                                          },
+                                        });
+                                      }}
+                                      className="rounded border border-[#d8b24c] bg-[#fff8df] px-1.5 py-1 text-left text-[10px] font-semibold text-[#6b4f00] hover:bg-[#ffefb0]"
+                                    >
+                                      {candidate.item_name || candidate.item_code || candidate.variant_sku || "Select match"}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

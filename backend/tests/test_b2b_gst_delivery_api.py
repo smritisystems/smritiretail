@@ -1008,10 +1008,9 @@ def test_34_unauthorized_access_rejected():
     assert resp.status_code in (401, 403)
 
 
-def test_35_insufficient_role_rejected(mem_db):
-    """35. CASHIER role cannot create GST registration or delivery location."""
+def test_35_cashier_location_access_policy(mem_db):
+    """35. CASHIER remains restricted from GST setup but may reach location setup."""
     client = TestClient(app)
-    app.dependency_overrides.clear()
 
     cashier_user = User(
         id="usr-cashier",
@@ -1043,7 +1042,8 @@ def test_35_insufficient_role_rejected(mem_db):
     )
     assert resp_gst.status_code == 403
 
-    # CASHIER POST to create delivery location -> 403 Forbidden
+    # CASHIER POST to create delivery location is authorized; this mock has no
+    # matching customer, so the service returns its normal not-found response.
     resp_loc = client.post(
         "/api/v1/crm/customers/cust-001/delivery-locations",
         json={
@@ -1051,7 +1051,7 @@ def test_35_insufficient_role_rejected(mem_db):
             "locationName": "Reliance Trends Gurgaon",
         }
     )
-    assert resp_loc.status_code == 403
+    assert resp_loc.status_code == 404
 
 
 def test_36_no_cross_company_data_leakage(mem_db):

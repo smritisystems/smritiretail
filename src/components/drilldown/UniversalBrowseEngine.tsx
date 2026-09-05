@@ -186,7 +186,7 @@ export const UniversalBrowseEngine: React.FC = () => {
       setSelectedRowIndex(0);
       setPage(1);
       setAnyColumnFilter(initialSearchValue || "");
-      setBottomSearchVal(initialSearchValue || "");
+      setBottomSearchVal("");
       setColumnFilters({});
     }
   }, [isOpen, resolvedEntity, initialSearchValue]);
@@ -207,13 +207,25 @@ export const UniversalBrowseEngine: React.FC = () => {
       setLoading(true);
       try {
         if (activeTab === "customer") {
-          // Customer store (may include offline cache)
-          const custs = getCustomers();
-          if (custs && custs.length > 0) {
-            setEntityData(prev => ({ ...prev, customer: custs as unknown as Record<string, unknown>[] }));
-            setLoading(false);
-            return;
+          // Customer Master is live data; use the local cache only offline.
+          try {
+            const response = await apiFetchV1<unknown>("/crm/customers?limit=100");
+            const liveCustomers = Array.isArray(response)
+              ? response
+              : ((response as Record<string, unknown>)?.items as Record<string, unknown>[] ?? []);
+            if (liveCustomers.length > 0) {
+              setEntityData(prev => ({ ...prev, customer: liveCustomers }));
+              setLoading(false);
+              return;
+            }
+          } catch {
+            // Fall through to the offline cache.
           }
+
+          const cachedCustomers = getCustomers();
+          setEntityData(prev => ({ ...prev, customer: cachedCustomers as unknown as Record<string, unknown>[] }));
+          setLoading(false);
+          return;
         }
 
         // Canonical API fetch
@@ -513,7 +525,7 @@ export const UniversalBrowseEngine: React.FC = () => {
                 <input
                   type="text"
                   value={anyColumnFilter}
-                  onChange={e => { setAnyColumnFilter(e.target.value); setPage(1); }}
+                  onChange={e => { setAnyColumnFilter(e.target.value); setBottomSearchVal(""); setPage(1); }}
                   placeholder="Filter across any column..."
                   className="w-full h-7 px-2 bg-[#f8f9fa] dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded text-xs outline-none focus:border-[#00288e]"
                 />
@@ -762,7 +774,7 @@ export const UniversalBrowseEngine: React.FC = () => {
                   ))}
                 </select>
                 <input type="text" value={bottomSearchVal}
-                  onChange={e => { setBottomSearchVal(e.target.value); setPage(1); }}
+                  onChange={e => { setBottomSearchVal(e.target.value); setAnyColumnFilter(""); setPage(1); }}
                   placeholder="Locate value in column..."
                   className="flex-1 h-7 px-2 text-xs border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#131b2e] outline-none focus:border-[#00288e]"
                 />

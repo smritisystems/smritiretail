@@ -90,6 +90,7 @@ export interface CustomerBillingLocationDTO {
   state: string;
   state_code?: string | null;
   pincode: string;
+  gstin?: string | null;
   contact_person?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;

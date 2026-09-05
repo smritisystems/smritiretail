@@ -29,6 +29,8 @@ class CustomerRepository(BaseRepository[Customer]):
             select(Customer)
             .options(
                 selectinload(Customer.group),
+                selectinload(Customer.gst_registrations),
+                selectinload(Customer.delivery_locations),
                 selectinload(Customer.billing_locations),
                 selectinload(Customer.external_identities),
             )
@@ -62,6 +64,8 @@ class CustomerRepository(BaseRepository[Customer]):
             select(Customer)
             .options(
                 selectinload(Customer.group),
+                selectinload(Customer.gst_registrations),
+                selectinload(Customer.delivery_locations),
                 selectinload(Customer.billing_locations),
                 selectinload(Customer.external_identities),
             )
@@ -86,6 +90,8 @@ class CustomerRepository(BaseRepository[Customer]):
             select(Customer)
             .options(
                 selectinload(Customer.group),
+                selectinload(Customer.gst_registrations),
+                selectinload(Customer.delivery_locations),
                 selectinload(Customer.billing_locations),
                 selectinload(Customer.external_identities),
             )

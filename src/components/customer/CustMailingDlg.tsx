@@ -14,13 +14,15 @@
 
 import React, { useState, useEffect } from "react";
 import { X, Plus, Trash2, Check, MapPin, Phone, Mail, Home } from "lucide-react";
-import { CustomerAddressEntry, CustomerAddressType } from "./types.ts";
+import { CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption } from "./types.ts";
 
 interface SmritiCustomerMailingModalProps {
   isOpen: boolean;
   onClose: () => void;
   customerName: string;
   addresses: CustomerAddressEntry[];
+  gstRegistrations?: CustomerGSTRegistrationOption[];
+  isLoadingGstRegistrations?: boolean;
   onSaveAddresses: (addresses: CustomerAddressEntry[]) => void;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }
@@ -30,6 +32,8 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   onClose,
   customerName,
   addresses,
+  gstRegistrations = [],
+  isLoadingGstRegistrations = false,
   onSaveAddresses,
   onNotification
 }) => {
@@ -96,6 +100,23 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
     });
   };
 
+  const handleGstRegistrationChange = (registrationId: string) => {
+    const registration = gstRegistrations.find(item => item.id === registrationId);
+    setAddressList(prev => {
+      const next = [...prev];
+      if (next[selectedAddressIndex]) {
+        next[selectedAddressIndex] = {
+          ...next[selectedAddressIndex],
+          gstRegistrationId: registration?.id || "",
+          gstin: registration?.gstin || "",
+          stateCode: registration?.stateCode || "",
+          state: registration?.stateName || next[selectedAddressIndex].state
+        };
+      }
+      return next;
+    });
+  };
+
   const handleAddNewAddress = () => {
     const newCode = String(addressList.length + 1).padStart(3, "0");
     const newEntry: CustomerAddressEntry = {
@@ -139,6 +160,15 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   };
 
   const handleSaveAndClose = () => {
+    const missingStoreCode = addressList.find(address =>
+      (address.addressType === "billing" && !address.billingStoreCode?.trim()) ||
+      (address.addressType === "shipping" && !address.shippingStoreCode?.trim())
+    );
+    if (missingStoreCode) {
+      const label = missingStoreCode.addressType === "billing" ? "Billing Store Code" : "Shipping Store Code";
+      onNotification?.("Store Code Required", `${label} is required before saving this address.`, "error");
+      return;
+    }
     onSaveAddresses(addressList);
     onNotification?.("Mailing List Updated", `Saved ${addressList.length} address profiles.`, "success");
     onClose();
@@ -268,6 +298,28 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                     onChange={e => handleFieldChange(currentAddress.addressType === "billing" ? "billingStoreCode" : currentAddress.addressType === "shipping" ? "shippingStoreCode" : "storeCode", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono text-xs"
                   />
+                </div>
+
+                <div>
+                  <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                    GST Registration
+                  </label>
+                  <select
+                    value={currentAddress.gstRegistrationId || ""}
+                    onChange={e => handleGstRegistrationChange(e.target.value)}
+                    className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-bold text-xs"
+                    disabled={isLoadingGstRegistrations}
+                  >
+                    <option value="">{isLoadingGstRegistrations ? "Loading registrations..." : "No GST registration"}</option>
+                    {gstRegistrations.map(registration => (
+                      <option key={registration.id} value={registration.id}>
+                        {registration.gstin} · {registration.stateName} ({registration.stateCode})
+                      </option>
+                    ))}
+                  </select>
+                  {currentAddress.gstin && !currentAddress.gstRegistrationId && (
+                    <span className="mt-1 block text-[9px] font-medium text-[#8a4b08]">Existing GSTIN: {currentAddress.gstin}</span>
+                  )}
                 </div>
 
                 <div>

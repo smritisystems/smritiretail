@@ -27,11 +27,11 @@ except ImportError:
     pd = None
     openpyxl = None
 
-from sqlalchemy import select, func, text, and_
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant import Company
-from app.models.crm import Customer
+from app.models.crm import Customer, CustomerDeliveryLocation
 from app.models.inventory import Product
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 
@@ -314,7 +314,7 @@ class TattlyDispatchImportService:
         file_path: str = DISPATCH_EXCEL_PATH
     ) -> Dict[str, Any]:
         """
-        Idempotently imports Product SKUs (Article-Color-Size) and CustomerAddress site records
+        Idempotently imports Product SKUs (Article-Color-Size) and customer delivery locations
         into smriti_company_tattly_threads.
         Does NOT create or finalize tax invoices.
         """
@@ -335,33 +335,32 @@ class TattlyDispatchImportService:
             db_session.add(customer)
             await db_session.flush()
 
-        # 2. Process Customer Sites (SIS Codes)
-        sites_stmt = select(CustomerAddress).where(CustomerAddress.customer_id == customer.id)
+        # 2. Process Customer Delivery Locations (SIS Codes)
+        sites_stmt = select(CustomerDeliveryLocation).where(CustomerDeliveryLocation.customer_id == customer.id)
         existing_sites = list((await db_session.execute(sites_stmt)).scalars().all())
-        site_map = {s.site_code: s for s in existing_sites if s.site_code}
+        site_map = {s.store_code: s for s in existing_sites if s.store_code}
 
         new_sites_created = 0
         dispatch_sis_codes = audit_res["unique_sis_codes"]
         for sis in dispatch_sis_codes:
-            if sis not in site_map:
-                new_site = CustomerAddress(
+            sis_code = str(sis).strip().upper()
+            if sis_code not in site_map:
+                new_site = CustomerDeliveryLocation(
                     id=f"site-{uuid.uuid4().hex[:12]}",
                     customer_id=customer.id,
-                    branch_id=None,
-                    site_code=sis,
-                    site_name=f"Reliance Retail Site ({sis})",
-                    format_type="RELIANCE_RETAIL_SITE",
-                    street=f"Reliance Retail Store, SIS Code {sis}",
+                    store_code=sis_code,
+                    location_name=f"Reliance Retail Site ({sis_code})",
+                    address_line1=f"Reliance Retail Store, SIS Code {sis_code}",
                     city="Mumbai",
                     state="Maharashtra",
+                    state_code="27",
                     pincode="400001",
                     country="India",
-                    gstin_status="NOT_PROVIDED_IN_SOURCE",
-                    tax_profile_id=None,
+                    source="DISPATCH_IMPORT",
                     is_active=True
                 )
                 db_session.add(new_site)
-                site_map[sis] = new_site
+                site_map[sis_code] = new_site
                 new_sites_created += 1
 
         if new_sites_created > 0:
@@ -445,30 +444,25 @@ class TattlyDispatchImportService:
         cust_res = await db_session.execute(cust_stmt)
         customer = cust_res.scalar_one_or_none()
 
-        sites_stmt = select(CustomerAddress).where(CustomerAddress.customer_id == customer.id if customer else text("1=1"))
+        sites_stmt = select(CustomerDeliveryLocation).where(CustomerDeliveryLocation.customer_id == customer.id if customer else text("1=1"))
         sites = list((await db_session.execute(sites_stmt)).scalars().all())
-        site_map = {s.site_code: s for s in sites if s.site_code}
-
-        tax_stmt = select(CustomerTaxProfile)
-        tax_profiles = {t.id: t for t in (await db_session.execute(tax_stmt)).scalars().all()}
+        site_map = {s.store_code: s for s in sites if s.store_code}
 
         seller_state_code = "27"
 
         grouped_records: Dict[str, List[Dict[str, Any]]] = {}
 
         for idx, row in df.iterrows():
-            sis_code = str(row['SIS Code']).strip()
+            sis_code = str(row['SIS Code']).strip().upper()
             art = str(row['ARTICLE']).strip()
             col = str(row['COLOR']).strip().upper()
             mrp = float(row['MRP'])
             rate = round(mrp / 1.18, 2)
 
             site_obj = site_map.get(sis_code)
-            tp_obj = tax_profiles.get(site_obj.tax_profile_id) if (site_obj and site_obj.tax_profile_id) else None
-
-            buyer_gstin = tp_obj.gstin if tp_obj else "NO_GSTIN"
-            buyer_state = tp_obj.state_name if (tp_obj and tp_obj.state_name) else (site_obj.state if site_obj else "Maharashtra")
-            buyer_state_code = tp_obj.state_code if tp_obj else "27"
+            buyer_gstin = site_obj.gstin if site_obj and site_obj.gstin else "NO_GSTIN"
+            buyer_state = site_obj.state if site_obj and site_obj.state else "Maharashtra"
+            buyer_state_code = site_obj.state_code if site_obj and site_obj.state_code else "27"
 
             if group_by == "SIS":
                 group_key = f"SIS-{sis_code}"
@@ -494,7 +488,7 @@ class TattlyDispatchImportService:
                         "buyer_gstin": buyer_gstin,
                         "buyer_state": buyer_state,
                         "buyer_state_code": buyer_state_code,
-                        "site_name": site_obj.site_name if site_obj else f"Site ({sis_code})"
+                        "site_name": site_obj.location_name if site_obj else f"Site ({sis_code})"
                     })
 
         previews = []
@@ -617,19 +611,15 @@ class TattlyDispatchImportService:
         # Auto-resolve PO / Order Reference number from verified mapping if not explicitly supplied
         resolved_po = po_so_number if (po_so_number and po_so_number != "Not Provided") else get_po_number_for_sis(target_sis)
 
-        site_stmt = select(CustomerAddress).where(
-            and_(CustomerAddress.customer_id == customer.id, CustomerAddress.site_code == target_sis)
+        site_stmt = select(CustomerDeliveryLocation).where(
+            CustomerDeliveryLocation.customer_id == customer.id,
+            CustomerDeliveryLocation.store_code == target_sis.upper(),
         )
         site_obj = (await db_session.execute(site_stmt)).scalar_one_or_none()
 
-        tp_obj = None
-        if site_obj and site_obj.tax_profile_id:
-            tp_stmt = select(CustomerTaxProfile).where(CustomerTaxProfile.id == site_obj.tax_profile_id)
-            tp_obj = (await db_session.execute(tp_stmt)).scalar_one_or_none()
-
-        buyer_gstin = tp_obj.gstin if tp_obj else "NO_GSTIN"
-        buyer_state = tp_obj.state_name if (tp_obj and tp_obj.state_name) else (site_obj.state if site_obj else "Maharashtra")
-        buyer_state_code = tp_obj.state_code if tp_obj else "27"
+        buyer_gstin = site_obj.gstin if site_obj and site_obj.gstin else "NO_GSTIN"
+        buyer_state = site_obj.state if site_obj and site_obj.state else "Maharashtra"
+        buyer_state_code = site_obj.state_code if site_obj and site_obj.state_code else "27"
 
         line_items_data = []
         for idx, row in df.iterrows():
@@ -680,8 +670,21 @@ class TattlyDispatchImportService:
             company_id=seller.id if seller else None,
             branch_id=None,
             customer_id=customer.id,
-            billing_site_id=site_obj.id if site_obj else None,
-            shipping_site_id=site_obj.id if site_obj else None,
+            delivery_location_id=site_obj.id if site_obj else None,
+            delivery_store_code=site_obj.store_code if site_obj else target_sis,
+            delivery_gstin=site_obj.gstin if site_obj else None,
+            delivery_location_snapshot={
+                "id": site_obj.id,
+                "store_code": site_obj.store_code,
+                "location_name": site_obj.location_name,
+                "address_line1": site_obj.address_line1,
+                "city": site_obj.city,
+                "state_code": site_obj.state_code,
+                "state_name": site_obj.state,
+                "pincode": site_obj.pincode,
+                "delivery_gstin": site_obj.gstin,
+            } if site_obj else None,
+            place_of_supply_code=buyer_state_code,
             invoice_no=invoice_no,
             invoice_date=parsed_date,
             status="Paid",

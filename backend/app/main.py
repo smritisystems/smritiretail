@@ -104,6 +104,7 @@ from .api.v1 import (
     training,
     ui_control_plane,
     universal_master,
+    universal_import,
     users,
     wms,
     workflow,
@@ -200,6 +201,7 @@ app.include_router(attributes.router,       prefix=settings.API_V1_STR + "/attri
 app.include_router(barcode.router,          prefix=settings.API_V1_STR + "/barcode",       tags=["Barcode Studio"])
 app.include_router(product_identity.router, prefix=settings.API_V1_STR + "/product-identity", tags=["Product Identity Engine"])
 app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])
+app.include_router(universal_import.router, prefix=settings.API_V1_STR + "/import",        tags=["Universal Import"])
 app.include_router(ai.router,               prefix=settings.API_V1_STR + "/ai",            tags=["AI Assistant"])
 app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs",          tags=["Documentation"])
 app.include_router(system.router,           prefix=settings.API_V1_STR,                     tags=["System"])

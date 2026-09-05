@@ -24,15 +24,16 @@ CONTROL_PLANE_DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT
 def generate_company_database_name(company_code: str) -> str:
     """
     Official Server-Side SMRITI Company Business Database Name Generator.
-    Alphanumeric 3-Character Standard Rules:
+    Configurable alphanumeric company-code rules:
       1. Prefix MUST be exactly 'smriti'.
       2. No separator (underscore, hyphen, space).
-    3. Company code MUST be exactly 3 alphanumeric characters [A-Z0-9].
+    3. Company code MUST be 3-12 alphanumeric characters [A-Z0-9].
     4. Lowercase input is automatically normalized to uppercase (e.g. 'abc' -> 'ABC').
     5. '000' is permanently reserved (forbidden).
     6. 'SYS' is permanently reserved for SMRITI Control Plane (forbidden).
     Examples:
     '001' -> 'smriti001'
+    '0001' -> 'smriti0001'
     'ABC' -> 'smritiABC'
     'MUM' -> 'smritiMUM'
     """
@@ -41,8 +42,8 @@ def generate_company_database_name(company_code: str) -> str:
 
     code = str(company_code).strip().upper()
 
-    if len(code) != 3 or not code.isalnum():
-        raise ValueError(f"Company code '{company_code}' must be exactly 3 alphanumeric characters [A-Z0-9].")
+    if not 3 <= len(code) <= 12 or not code.isalnum():
+        raise ValueError(f"Company code '{company_code}' must be 3-12 alphanumeric characters [A-Z0-9].")
 
     if code == "000":
         raise ValueError("Company code '000' is permanently reserved and cannot be assigned.")
@@ -54,13 +55,13 @@ def generate_company_database_name(company_code: str) -> str:
 
 def validate_company_database_name(database_name: str) -> bool:
     """
-    Validates if a database name adheres to the official naming standard: smriti<3-character-alphanumeric-code>.
+    Validates if a database name adheres to the official naming standard: smriti<3-12-character-alphanumeric-code>.
     """
     if not database_name:
         return False
     if database_name == "smritisys":
         return True  # Control Plane DB
-    pattern = r"^smriti(?!(?:000|SYS)$)[A-Z0-9]{3}$"
+    pattern = r"^smriti(?!(?:000|SYS)$)[A-Z0-9]{3,12}$"
     return bool(re.match(pattern, database_name))
 
 class CompanyDatabaseResolver:

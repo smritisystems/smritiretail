@@ -368,6 +368,39 @@ class TaxInvoiceMasterRegisterReport(BaseModel):
     lines:              List[TaxInvoiceMasterRegisterLine]
 
 
+class InvoiceReconciliationLine(BaseModel):
+    invoice_id: str
+    bill_no: Optional[int] = None
+    invoice_number: str
+    invoice_date: str
+    invoice_status: str
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    classification: str
+    issues: List[str]
+    recommended_action: str
+    historical_gstin: Optional[str] = None
+    historical_pos_code: Optional[str] = None
+    historical_billing_store_code: Optional[str] = None
+    historical_delivery_store_code: Optional[str] = None
+    current_gstin: Optional[str] = None
+    current_billing_store_code: Optional[str] = None
+    current_delivery_store_code: Optional[str] = None
+
+
+class InvoiceReconciliationReport(BaseModel):
+    invoice_prefix: str
+    bill_from: int
+    bill_to: int
+    generated_at: str
+    total_invoices: int
+    no_action_count: int
+    master_data_drift_count: int
+    historical_data_gap_count: int
+    mutation_performed: bool = False
+    lines: List[InvoiceReconciliationLine]
+
+
 class ArticleColorSizeMatrixRow(BaseModel):
     """RPT-MRC-005 Row -- Cross-tabulated variant curve row."""
     article:        str
