@@ -37,6 +37,8 @@ export function LedgerScreen<T extends Record<string, any>>({
 }: LedgerScreenProps<T>) {
   const { popOutExternalWindow } = useWorkspace();
   const [items, setItems] = useState<T[]>([]);
+  const [serverTotalCount, setServerTotalCount] = useState<number | null>(null);
+  const [serverTotals, setServerTotals] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(() => {
     if (config.entityName === "Stock Movement" && typeof sessionStorage !== "undefined") {
@@ -110,13 +112,14 @@ export function LedgerScreen<T extends Record<string, any>>({
 
   // Fetch Ledger data with server-side query execution
   const fetchData = useCallback(
-    async (overrideParams?: { startDate?: string; endDate?: string; search?: string; movementType?: string }) => {
+    async (overrideParams?: { startDate?: string; endDate?: string; search?: string; movementType?: string; page?: number; preservePage?: boolean }) => {
       setLoading(true);
       try {
         const start = overrideParams?.startDate !== undefined ? overrideParams.startDate : dateRange.startDate;
         const end = overrideParams?.endDate !== undefined ? overrideParams.endDate : dateRange.endDate;
         const term = overrideParams?.search !== undefined ? overrideParams.search : searchQuery;
         const mvType = overrideParams?.movementType !== undefined ? overrideParams.movementType : activeFilters["movement_type"];
+        const requestedPage = overrideParams?.page ?? (overrideParams?.preservePage ? page : 1);
 
         const params = new URLSearchParams();
         if (start) {
@@ -133,6 +136,8 @@ export function LedgerScreen<T extends Record<string, any>>({
         if (mvType && mvType !== "ALL") {
           params.append("movement_type", mvType);
         }
+        params.append("skip", String((requestedPage - 1) * pageSize));
+        params.append("limit", String(pageSize));
 
         const queryString = params.toString();
         const endpoint = queryString
@@ -149,7 +154,11 @@ export function LedgerScreen<T extends Record<string, any>>({
           list = data.items || data.logs || data.records || [];
         }
         setItems(Array.isArray(list) ? list : []);
-        setPage(1);
+        setServerTotalCount(data && typeof data === "object" && !Array.isArray(data) ? Number(data.total ?? 0) : null);
+        setServerTotals(data && typeof data === "object" && !Array.isArray(data) && data.totals
+          ? Object.fromEntries(Object.entries(data.totals).map(([key, value]) => [key, Number(value) || 0]))
+          : null);
+        setPage(requestedPage);
       } catch (err: any) {
         console.error(`Failed to load ${config.title}:`, err);
         if (onNotification) {
@@ -159,7 +168,7 @@ export function LedgerScreen<T extends Record<string, any>>({
         setLoading(false);
       }
     },
-    [config, onNotification, dateRange.startDate, dateRange.endDate, searchQuery, activeFilters]
+    [config, onNotification, dateRange.startDate, dateRange.endDate, searchQuery, activeFilters, page]
   );
 
   useEffect(() => {
@@ -456,7 +465,7 @@ export function LedgerScreen<T extends Record<string, any>>({
     return config.columns.filter((col) => visibleColumnKeys.includes(col.key));
   }, [config.columns, visibleColumnKeys]);
 
-  const totalPages = Math.ceil(filteredAndSortedItems.length / pageSize) || 1;
+  const totalPages = Math.ceil((serverTotalCount ?? filteredAndSortedItems.length) / pageSize) || 1;
   const paginatedItems = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredAndSortedItems.slice(start, start + pageSize);
@@ -478,7 +487,19 @@ export function LedgerScreen<T extends Record<string, any>>({
   }, []);
 
   const pageSubTotals = useMemo(() => calculateTotals(paginatedItems), [paginatedItems, calculateTotals]);
-  const grandTotals = useMemo(() => calculateTotals(filteredAndSortedItems), [filteredAndSortedItems, calculateTotals]);
+  const grandTotals = useMemo(
+    () => serverTotals && Object.keys(columnFilters).length === 0
+      ? {
+          ...serverTotals,
+          in_qty: serverTotals.total_in_qty || 0,
+          out_qty: serverTotals.total_out_qty || 0,
+          total_value: serverTotals.total_movement_value || 0,
+          in_value: serverTotals.total_in_value || 0,
+          out_value: serverTotals.total_out_value || 0,
+        }
+      : calculateTotals(filteredAndSortedItems),
+    [serverTotals, columnFilters, filteredAndSortedItems, calculateTotals]
+  );
 
   // Executive KPI Summary Metrics
   const kpiMetrics = useMemo(() => {
@@ -487,6 +508,18 @@ export function LedgerScreen<T extends Record<string, any>>({
     let totalInVal = 0;
     let totalOutVal = 0;
     let totalMovementVal = 0;
+
+    if (serverTotals && Object.keys(columnFilters).length === 0) {
+      return {
+        totalInQty: serverTotals.total_in_qty || 0,
+        totalOutQty: serverTotals.total_out_qty || 0,
+        totalInVal: serverTotals.total_in_value || 0,
+        totalOutVal: serverTotals.total_out_value || 0,
+        totalMovementVal: serverTotals.total_movement_value || 0,
+        totalMovedQty: serverTotals.total_moved_qty || 0,
+        netQty: serverTotals.net_qty || 0,
+      };
+    }
 
     filteredAndSortedItems.forEach((item: any) => {
       const inQ = parseFloat(item.in_qty) || 0;
@@ -508,9 +541,10 @@ export function LedgerScreen<T extends Record<string, any>>({
       totalInVal,
       totalOutVal,
       totalMovementVal,
+      totalMovedQty: totalInQty + totalOutQty,
       netQty: totalInQty - totalOutQty,
     };
-  }, [filteredAndSortedItems]);
+  }, [filteredAndSortedItems, serverTotals, columnFilters]);
 
   const ledgerExportColumns = useMemo<ExportColumnDefinition[]>(() => {
     return visibleColumns.map((c) => {
@@ -783,6 +817,24 @@ export function LedgerScreen<T extends Record<string, any>>({
         <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
           <div className="flex items-center justify-between text-theme-muted text-[11px]">
             <span className="flex items-center gap-1">
+              <Layers size={13} className="text-blue-400" />
+              <span>Total Moved Stock</span>
+            </span>
+            <span className="text-[10px] text-blue-300 font-bold">
+              In {kpiMetrics.totalInQty} / Out {kpiMetrics.totalOutQty}
+            </span>
+          </div>
+          <div className="text-base md:text-lg font-bold text-blue-400 mt-1">
+            {kpiMetrics.totalMovedQty} Units
+          </div>
+          <div className="text-[10px] text-theme-muted mt-1">
+            Inward + outward movements
+          </div>
+        </div>
+
+        <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+          <div className="flex items-center justify-between text-theme-muted text-[11px]">
+            <span className="flex items-center gap-1">
               <DollarSign size={13} className="text-amber-400" />
               <span>Movement Valuation</span>
             </span>
@@ -795,6 +847,13 @@ export function LedgerScreen<T extends Record<string, any>>({
           </div>
         </div>
       </div>
+
+      {filteredAndSortedItems.length > 0 && kpiMetrics.totalInQty === 0 && kpiMetrics.totalOutQty > 0 && (
+        <div className="border border-amber-500/30 bg-amber-500/10 rounded-xl px-4 py-3 text-xs text-amber-200">
+          <strong>Outward-only view:</strong> this result contains outgoing movements but no inward or opening-stock movement.
+          Closing balances can appear negative until opening stock is recorded or the date range includes the inward movement.
+        </div>
+      )}
 
       {/* Filter Toolbar */}
       <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3.5 shadow-xs space-y-3">
@@ -1039,7 +1098,7 @@ export function LedgerScreen<T extends Record<string, any>>({
         <div className="flex items-center justify-between text-[11px] text-theme-muted font-mono pt-2 border-t border-theme-divider/40">
           <div className="flex items-center gap-2">
             <span>
-              Showing <strong className="text-theme-primary">{filteredAndSortedItems.length}</strong> matching entries (Total: {items.length})
+              Showing <strong className="text-theme-primary">{serverTotalCount ?? filteredAndSortedItems.length}</strong> matching entries (Loaded: {items.length})
             </span>
             {sortField && (
               <span className="text-indigo-400">
@@ -1433,14 +1492,17 @@ export function LedgerScreen<T extends Record<string, any>>({
         <div className="bg-theme-surface-3/30 border-t border-theme-divider p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-theme-muted">
           <div>
             Showing <strong className="text-theme-primary">{paginatedItems.length}</strong> of{" "}
-            <strong className="text-theme-primary">{filteredAndSortedItems.length}</strong> records
+            <strong className="text-theme-primary">{serverTotalCount ?? filteredAndSortedItems.length}</strong> records
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => {
+                const nextPage = Math.max(1, page - 1);
+                fetchData({ page: nextPage, preservePage: true });
+              }}
               className="p-1.5 rounded-lg border border-theme-divider hover:bg-theme-surface-hover text-theme-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               <ChevronLeft size={14} />
@@ -1453,7 +1515,10 @@ export function LedgerScreen<T extends Record<string, any>>({
             <button
               type="button"
               disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => {
+                const nextPage = Math.min(totalPages, page + 1);
+                fetchData({ page: nextPage, preservePage: true });
+              }}
               className="p-1.5 rounded-lg border border-theme-divider hover:bg-theme-surface-hover text-theme-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               <ChevronRight size={14} />

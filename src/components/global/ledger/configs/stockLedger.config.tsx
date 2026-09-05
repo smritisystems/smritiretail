@@ -167,24 +167,38 @@ export const stockLedgerConfig: LedgerConfig<any> = {
         brand: item.brand || "—",
         color: item.color || "—",
         size: item.size || "—",
-        movement_type: item.movement_type || "OUTWARD_SALE",
+        movement_type: item.movement_type || "—",
         quantity: qty,
-        opening_qty: enriched.opening_qty,
-        in_qty: enriched.in_qty,
-        out_qty: enriched.out_qty,
-        closing_qty: enriched.closing_qty,
+        opening_qty: item.opening_qty !== undefined && item.opening_qty !== null
+          ? parseFloat(item.opening_qty)
+          : enriched.opening_qty,
+        in_qty: item.in_qty !== undefined && item.in_qty !== null
+          ? parseFloat(item.in_qty)
+          : enriched.in_qty,
+        out_qty: item.out_qty !== undefined && item.out_qty !== null
+          ? parseFloat(item.out_qty)
+          : enriched.out_qty,
+        closing_qty: item.closing_qty !== undefined && item.closing_qty !== null
+          ? parseFloat(item.closing_qty)
+          : enriched.closing_qty,
         mrp: mrp,
         selling_price: selling,
         buying_price: buying,
         cost_price: cost,
         total_value: totVal,
-        in_value: enriched.in_val,
-        out_value: enriched.out_val,
-        closing_value: enriched.closing_val,
-        reference_doc_type: item.reference_doc_type || "Sales Invoice",
+        in_value: item.in_value !== undefined && item.in_value !== null
+          ? parseFloat(item.in_value)
+          : enriched.in_val,
+        out_value: item.out_value !== undefined && item.out_value !== null
+          ? parseFloat(item.out_value)
+          : enriched.out_val,
+        closing_value: item.closing_value !== undefined && item.closing_value !== null
+          ? parseFloat(item.closing_value)
+          : enriched.closing_val,
+        reference_doc_type: item.reference_doc_type || "—",
         reference_doc_id: item.reference_doc_id || "—",
         reference_doc_no: item.reference_doc_no || item.reference_doc_id || "—",
-        warehouse: item.warehouse || "Main Outlet Retail WH",
+        warehouse: item.warehouse || "—",
         created_at: item.created_at,
         date: item.created_at ? item.created_at.split("T")[0] : "—",
       };
