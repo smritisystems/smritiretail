@@ -300,3 +300,21 @@ class StockMovementResponse(BaseModel):
     closing_value: Optional[Decimal] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StockLedgerTotals(BaseModel):
+    total_in_qty: Decimal = Decimal("0.00")
+    total_out_qty: Decimal = Decimal("0.00")
+    total_in_value: Decimal = Decimal("0.00")
+    total_out_value: Decimal = Decimal("0.00")
+    total_movement_value: Decimal = Decimal("0.00")
+    total_moved_qty: Decimal = Decimal("0.00")
+    net_qty: Decimal = Decimal("0.00")
+
+
+class StockLedgerPageResponse(BaseModel):
+    items: List[StockMovementResponse]
+    total: int
+    skip: int
+    limit: int
+    totals: StockLedgerTotals
