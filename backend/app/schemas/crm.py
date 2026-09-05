@@ -736,6 +736,14 @@ def map_customer_to_response_dict(customer: Any) -> dict:
             CustomerBillingLocationResponse.model_validate(bl)
             for bl in getattr(customer, "billing_locations", []) or []
         ] if hasattr(customer, "billing_locations") else [],
+        "gst_registrations": [
+            CustomerGSTRegistrationResponse.model_validate(reg)
+            for reg in getattr(customer, "gst_registrations", []) or []
+        ] if hasattr(customer, "gst_registrations") else [],
+        "delivery_locations": [
+            CustomerDeliveryLocationResponse.model_validate(loc)
+            for loc in getattr(customer, "delivery_locations", []) or []
+        ] if hasattr(customer, "delivery_locations") else [],
         "external_identities": [
             CustomerExternalIdentityResponse.model_validate(ei)
             for ei in getattr(customer, "external_identities", []) or []

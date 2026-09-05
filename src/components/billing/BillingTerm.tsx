@@ -137,9 +137,48 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       ]);
       if (activeCustomerFetchIdRef.current !== customerId) return;
 
-      const regs: CustomerGSTRegistrationDTO[] = Array.isArray(regsRes) ? regsRes : (regsRes?.items || []);
-      const locs: CustomerDeliveryLocationDTO[] = Array.isArray(locsRes) ? locsRes : (locsRes?.items || []);
-      const blocs: CustomerBillingLocationDTO[] = Array.isArray(blocRes) ? blocRes : (blocRes?.items || []);
+      const regs: CustomerGSTRegistrationDTO[] = (Array.isArray(regsRes) ? regsRes : (regsRes?.items || [])).map((raw: any) => ({
+        ...raw,
+        customer_id: raw.customer_id ?? raw.customerId,
+        state_code: raw.state_code ?? raw.stateCode,
+        state_name: raw.state_name ?? raw.stateName,
+        registration_type: raw.registration_type ?? raw.registrationType,
+        is_primary: raw.is_primary ?? raw.isPrimary,
+        is_active: raw.is_active ?? raw.isActive,
+      }));
+      const locs: CustomerDeliveryLocationDTO[] = (Array.isArray(locsRes) ? locsRes : (locsRes?.items || [])).map((raw: any) => ({
+        ...raw,
+        customer_id: raw.customer_id ?? raw.customerId,
+        store_code: raw.store_code ?? raw.storeCode,
+        location_name: raw.location_name ?? raw.locationName,
+        address_line1: raw.address_line1 ?? raw.addressLine1,
+        address_line2: raw.address_line2 ?? raw.addressLine2,
+        state_code: raw.state_code ?? raw.stateCode,
+        state_name: raw.state_name ?? raw.stateName ?? raw.state,
+        pin_code: raw.pin_code ?? raw.pincode,
+        gst_registration_id: raw.gst_registration_id ?? raw.gstRegistrationId,
+        delivery_gstin: raw.delivery_gstin ?? raw.gstin,
+        contact_person: raw.contact_person ?? raw.contactPerson,
+        contact_phone: raw.contact_phone ?? raw.phone,
+        contact_email: raw.contact_email ?? raw.email,
+        is_default: raw.is_default ?? raw.isDefault,
+        is_active: raw.is_active ?? raw.isActive,
+      }));
+      const blocs: CustomerBillingLocationDTO[] = (Array.isArray(blocRes) ? blocRes : (blocRes?.items || [])).map((raw: any) => ({
+        ...raw,
+        customer_id: raw.customer_id ?? raw.customerId,
+        billing_store_code: raw.billing_store_code ?? raw.billingStoreCode,
+        name: raw.name ?? raw.location_name ?? raw.locationName,
+        address_line1: raw.address_line1 ?? raw.addressLine1,
+        address_line2: raw.address_line2 ?? raw.addressLine2,
+        state_code: raw.state_code ?? raw.stateCode,
+        pincode: raw.pincode ?? raw.pinCode,
+        gst_registration_id: raw.gst_registration_id ?? raw.gstRegistrationId,
+        contact_person: raw.contact_person ?? raw.contactPerson,
+        contact_phone: raw.contact_phone ?? raw.phone,
+        contact_email: raw.contact_email ?? raw.email,
+        is_default: raw.is_default ?? raw.isDefault,
+      }));
       setCustomerGstRegistrations(regs);
       setCustomerDeliveryLocations(locs);
       setCustomerBillingLocations(blocs);
@@ -250,6 +289,27 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       deliveryGstin: loc.delivery_gstin || null,
       deliveryLocationSnapshot: snapshot,
       placeOfSupplyCode: loc.state_code
+    }));
+  };
+
+  const handleBillingLocationChange = (locId: string) => {
+    if (!locId) {
+      setHeaderState(prev => ({
+        ...prev,
+        billingLocationId: null,
+        billingStoreCode: null,
+        billingAddress: null
+      }));
+      return;
+    }
+    const loc = customerBillingLocations.find(l => l.id === locId);
+    if (!loc) return;
+    setHeaderState(prev => ({
+      ...prev,
+      billingLocationId: loc.id,
+      billingStoreCode: loc.billing_store_code,
+      billingAddress: [loc.address_line1, loc.address_line2, loc.city, `${loc.state} - ${loc.pincode}`]
+        .filter(Boolean).join(", ")
     }));
   };
 
@@ -465,10 +525,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           id: result.id ?? "",
           name: result.displayValue || "",
           mobile: (result.record?.mobile as string) || (result.record?.phone as string) || "",
-          gstNumber: (result.record?.gst_number as string) || "",
-          customerGroupId: (result.record?.customer_group_id as string) || "CG-Retail",
+          gstNumber: (result.record?.gst_number as string) || (result.record?.gstNumber as string) || "",
+          customerGroupId: (result.record?.customer_group_id as string) || (result.record?.customerGroupId as string) || "CG-Retail",
+          creditLimit: Number(result.record?.credit_limit ?? result.record?.creditLimit ?? 0) || undefined,
+          creditDays: Number(result.record?.credit_days ?? result.record?.creditDays ?? 0) || undefined,
           status: (result.record?.status as string) || "Active",
-          outstanding: (result.record?.outstanding_balance as number) ?? 0,
+          outstanding: Number(result.record?.outstanding_balance ?? result.record?.outstanding ?? 0),
           createdDate: (result.record?.created_at as string) || new Date().toISOString().split("T")[0],
         };
         setHeaderState(prev => ({
@@ -1709,6 +1771,36 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   {customerGstRegistrations.map(reg => (
                     <option key={reg.id} value={reg.id}>
                       {reg.gstin} — {reg.state_name} ({reg.state_code}){reg.trade_name ? ` • ${reg.trade_name}` : ""}{reg.is_primary ? " [Primary]" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Billing Location / Store */}
+              <div className="flex flex-col gap-unit flex-1 min-w-[280px]">
+                <div className="flex items-center justify-between">
+                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
+                    <span>Billing Location / Store</span>
+                    {customerBillingLocations.length > 0 && (
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
+                        {customerBillingLocations.length} Billing Sites
+                      </span>
+                    )}
+                  </label>
+                </div>
+                <select
+                  aria-label="Billing Location"
+                  data-testid="billing-location-select"
+                  value={headerState.billingLocationId || ""}
+                  onChange={e => handleBillingLocationChange(e.target.value)}
+                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                >
+                  <option value="">
+                    {customerBillingLocations.length === 0 ? "No Registered Billing Locations" : "-- Select Billing Location / Store --"}
+                  </option>
+                  {customerBillingLocations.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      [{loc.billing_store_code}] {loc.name || "Billing Location"} — {loc.city}, {loc.state} ({loc.gstin || "No GSTIN"})
                     </option>
                   ))}
                 </select>

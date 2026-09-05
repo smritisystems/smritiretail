@@ -52,6 +52,7 @@ class StockAccountingBoundaryService:
         company_id: str,
         req: StockMovementRecordRequest,
         user_id: Optional[str] = None,
+        commit: bool = True,
     ) -> StockMovement:
         """
         Atomically records an authoritative immutable stock movement and updates materialized on-hand stock.
@@ -110,7 +111,10 @@ class StockAccountingBoundaryService:
         current_stock = int(product.stock or 0)
         product.stock = current_stock + delta
 
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
         return movement
 
     @classmethod

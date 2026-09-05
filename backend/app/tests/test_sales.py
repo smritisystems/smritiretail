@@ -918,6 +918,8 @@ async def test_update_sales_invoice_status(db_session):
     customer = await _make_customer(db_session, s, comp.id, br.id)
     mgr = await _make_manager(db_session, s, comp.id, br.id)
     invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    invoice.status = "Draft"
+    await db_session.commit()
     _set_tenant(comp.id, br.id)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         res = await c.put(
@@ -940,6 +942,8 @@ async def test_update_sales_invoice_replaces_items(db_session):
     customer = await _make_customer(db_session, s, comp.id, br.id)
     mgr = await _make_manager(db_session, s, comp.id, br.id)
     invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    invoice.status = "Draft"
+    await db_session.commit()
     _set_tenant(comp.id, br.id)
     new_items = [{"product_id": product.id, "code": product.code, "name": product.name,
                   "quantity": "3", "price": "200.00", "gst_rate": "0.00",
@@ -954,6 +958,33 @@ async def test_update_sales_invoice_replaces_items(db_session):
     data = res.json()
     assert len(data["items"]) == 1
     assert Decimal(data["grand_total"]) == Decimal("600.00")
+
+
+async def test_posted_sales_invoice_is_immutable(db_session):
+    import uuid
+    from httpx import AsyncClient, ASGITransport
+    from app.main import app
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    invoice.status = "Completed"
+    original_invoice_no = invoice.invoice_no
+    await db_session.commit()
+    _set_tenant(comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        res = await c.put(
+            f"/api/v1/sales/{invoice.id}",
+            json={"customer_gstin": "09AABCR1718E1ZN", "delivery_store_code": "GK01-SHIP", "po_reference": "PO-NEW"},
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert res.status_code == 409, res.text
+    await db_session.refresh(invoice)
+    assert invoice.invoice_no == original_invoice_no
+    assert invoice.customer_gstin is None
+    assert invoice.delivery_store_code is None
 
 
 async def test_cancel_sales_invoice(db_session):

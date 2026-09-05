@@ -22,8 +22,8 @@ CONTROL_PLANE_DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT
 
 class CompanyCodeAllocator:
     """
-    Concurrency-Safe Alphanumeric 3-Character Company Code Allocator.
-    Allocates and validates 3-character alphanumeric company codes [A-Z0-9].
+    Concurrency-Safe configurable alphanumeric company code allocator.
+    Allocates and validates 3-12 character company codes [A-Z0-9].
     '000' and 'SYS' are permanently reserved.
     """
 
@@ -69,7 +69,7 @@ class CompanyCodeAllocator:
     @staticmethod
     def validate_code_uniqueness(company_code: str, db_cursor=None) -> bool:
         """
-        Validates if a 3-character alphanumeric company code is available and unique.
+        Validates if a 3-12 character alphanumeric company code is available and unique.
         """
         if not company_code:
             return False
@@ -77,7 +77,7 @@ class CompanyCodeAllocator:
         code = str(company_code).strip().upper()
         if code.isdigit() and len(code) <= 3:
             code = code.zfill(3)
-        if len(code) != 3 or not code.isalnum():
+        if not 3 <= len(code) <= 12 or not code.isalnum():
             return False
             
         if code in {"000", "SYS"}:

@@ -88,31 +88,9 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
         }
       } catch (err: any) {
         console.error("Failed to load shift Z-Report:", err);
-        // Fallback default structure for graceful UI rendering
         if (isMounted) {
-          setZReportData({
-            shift_id: shiftId,
-            shift_code: `SHIFT-${shiftId.slice(-6).toUpperCase()}`,
-            cashier_id: "cashier-current",
-            register_id: registerId,
-            branch_id: "MAIN",
-            company_id: "CMP01",
-            start_time: new Date().toISOString(),
-            status: "OPEN",
-            opening_float: 5000,
-            cash_sales: 15400,
-            card_sales: 12000,
-            upi_sales: 8500,
-            other_sales: 0,
-            total_sales: 35900,
-            tax_total: 1795,
-            discount_total: 500,
-            total_bills: 24,
-            cash_drops_total: 5000,
-            till_expenses_total: 450,
-            cash_in_total: 0,
-            net_expected_cash: 5000 + 15400 - 5000 - 450,
-          });
+          setZReportData(null);
+          onNotification?.("Day Close unavailable", "The live shift Z-Report could not be loaded. No sample totals are shown.", "error");
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -130,6 +108,10 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
   const cashVariance = countedCash - expectedCash;
 
   const handleCloseShift = async () => {
+    if (!zReportData || zReportData.status !== "OPEN") {
+      onNotification?.("Day Close unavailable", "There is no live open shift available to close.", "error");
+      return;
+    }
     if (countedCash === 0 && expectedCash > 0) {
       const confirmZero = window.confirm(
         "Physical cash counted is ₹0.00 while expected cash is ₹" +

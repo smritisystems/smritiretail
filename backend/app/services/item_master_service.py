@@ -69,7 +69,8 @@ class UniversalItemMasterService:
         brand: Optional[str] = None,
         is_batch_tracked: bool = False,
         variants_data: Optional[List[Dict[str, Any]]] = None,
-        branch_id: str = "BR-001"
+        branch_id: str = "BR-001",
+        commit: bool = True,
     ) -> Item:
         """
         Creates or updates a canonical Universal Item with variants and barcodes.
@@ -190,7 +191,10 @@ class UniversalItemMasterService:
                 )
                 session.add(bc_obj)
 
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
         return await cls.get_item_by_code(session, clean_code)
 
     @classmethod

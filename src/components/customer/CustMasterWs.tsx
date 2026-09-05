@@ -34,7 +34,7 @@ import {
   AlertCircle,
   Loader2
 } from "lucide-react";
-import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType } from "./types.ts";
+import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption } from "./types.ts";
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
 import { SmritiCustomerRetailDetailsTab } from "./CustRetailDetTab.tsx";
 import { SmritiCustomerAdditionalDetailsTab } from "./CustAddlDetTab.tsx";
@@ -121,6 +121,178 @@ const normalizeMailingAddresses = (addresses: unknown, fallback: Partial<Custome
     ...address,
     isDefault: index === defaultIndexes.get(address.addressType || "mailing")
   }));
+};
+
+const INDIAN_STATE_CODES: Record<string, string> = {
+  andhra: "37", arunachal: "12", assam: "18", bihar: "10", chhattisgarh: "22",
+  goa: "30", gujarat: "24", haryana: "06", himachal: "02", jharkhand: "20",
+  karnataka: "29", kerala: "32", madhya: "23", maharashtra: "27", manipur: "14",
+  meghalaya: "17", mizoram: "15", nagaland: "13", odisha: "21", punjab: "03",
+  rajasthan: "08", sikkim: "11", tamil: "33", telangana: "36", tripura: "16",
+  uttar: "09", uttarakhand: "05", bengal: "19", delhi: "07", chandigarh: "04",
+  puducherry: "34", puducheri: "34", ladakh: "38", lakshadweep: "31",
+  "jammu": "01", "dadra": "26", "daman": "25", "andaman": "35"
+};
+
+const resolveStateCode = (address: CustomerAddressEntry): string => {
+  if (address.stateCode?.trim()) return address.stateCode.trim().padStart(2, "0");
+  const state = address.state.trim().toLowerCase();
+  const match = Object.entries(INDIAN_STATE_CODES).find(([name]) => state.includes(name));
+  return match?.[1] || "";
+};
+
+export const mergeCanonicalLocationsIntoAddresses = (
+  addresses: unknown,
+  deliveryLocations: any[] = [],
+  billingLocations: any[] = [],
+  fallback: Partial<CustomerAddressEntry> = {}
+): CustomerAddressEntry[] => {
+  const merged = normalizeMailingAddresses(addresses, fallback);
+  const appendLocation = (location: any, addressType: CustomerAddressType, codeField: "shippingStoreCode" | "billingStoreCode") => {
+    const locationCode = location.store_code ?? location.storeCode ?? location.billing_store_code ?? location.billingStoreCode;
+    if (!locationCode) return;
+    const existingIndex = merged.findIndex(address =>
+      address.id === location.id ||
+      address[codeField] === locationCode ||
+      (addressType === "shipping" && address.storeCode === locationCode)
+    );
+    const mapped: CustomerAddressEntry = {
+      ...DEFAULT_MAILING_ADDRESS,
+      id: location.id,
+      code: location.id || String(merged.length + 1).padStart(3, "0"),
+      addressType,
+      locationName: location.location_name ?? location.locationName ?? "",
+      contactPerson: location.contact_person ?? location.contactPerson ?? "",
+      stateCode: location.state_code ?? location.stateCode ?? "",
+      gstin: location.gstin ?? location.delivery_gstin ?? location.deliveryGstin ?? "",
+      gstRegistrationId: location.gst_registration_id ?? location.gstRegistrationId ?? "",
+      [codeField]: String(locationCode),
+      address1: location.address_line1 ?? location.addressLine1 ?? "",
+      address2: location.address_line2 ?? location.addressLine2 ?? "",
+      city: location.city ?? "",
+      postalCode: location.pincode ?? location.pin_code ?? location.pinCode ?? "",
+      state: location.state ?? location.state_name ?? location.stateName ?? "",
+      country: location.country ?? "India",
+      mobilePhone: location.phone ?? location.contact_phone ?? location.contactPhone ?? "",
+      email1: location.email ?? location.contact_email ?? location.contactEmail ?? "",
+      isDefault: Boolean(location.is_default ?? location.isDefault)
+    };
+    if (existingIndex >= 0) {
+      merged[existingIndex] = { ...merged[existingIndex], ...mapped };
+    } else {
+      merged.push(mapped);
+    }
+  };
+
+  deliveryLocations.forEach(location => appendLocation(location, "shipping", "shippingStoreCode"));
+  billingLocations.forEach(location => appendLocation(location, "billing", "billingStoreCode"));
+  return normalizeMailingAddresses(merged, fallback);
+};
+
+export const getLocationIdsToDeactivate = (
+  existingLocations: Array<{ id: string }>,
+  knownAddressIds: Set<string>,
+  submittedLocationIds: Set<string>
+): string[] => existingLocations
+  .filter(location => knownAddressIds.has(location.id) && !submittedLocationIds.has(location.id))
+  .map(location => location.id);
+
+const syncCanonicalCustomerLocations = async (
+  customerId: string,
+  addresses: CustomerAddressEntry[]
+): Promise<CustomerAddressEntry[]> => {
+  const [existingDelivery, existingBilling] = await Promise.all([
+    apiFetchV1<any[]>(`/crm/customers/${customerId}/delivery-locations`),
+    apiFetchV1<any[]>(`/crm/customers/${customerId}/billing-locations`)
+  ]);
+  const savedAddresses = addresses.map(address => ({ ...address }));
+  const knownAddressIds = new Set(
+    savedAddresses.map(address => address.id).filter((id): id is string => Boolean(id))
+  );
+  const submittedLocationIds = new Set<string>();
+  const addressLine = (address: CustomerAddressEntry) =>
+    [address.address1, address.address2, address.address3, address.address4, address.address5, address.locality]
+      .map(value => value.trim()).filter(Boolean).join(", ");
+  const locationName = (address: CustomerAddressEntry, code: string) =>
+    address.locationName?.trim() || address.contactPerson?.trim() || `${address.city || "Customer"} (${code})`;
+
+  for (const address of savedAddresses) {
+    const isBilling = address.addressType === "billing";
+    const code = (isBilling ? address.billingStoreCode : (address.shippingStoreCode || address.storeCode))?.trim().toUpperCase();
+    if (!code) continue;
+
+    const stateCode = resolveStateCode(address);
+    if (!address.city.trim() || !address.state.trim() || !address.postalCode.trim() || !stateCode || !addressLine(address)) {
+      throw new Error(`${isBilling ? "Billing" : "Delivery"} location ${code} needs a complete address, state, state code, and PIN code.`);
+    }
+
+    if (isBilling) {
+      const existing = (existingBilling || []).find(location =>
+        location.id === address.id || String(location.billing_store_code ?? location.billingStoreCode).toUpperCase() === code
+      );
+      const payload = {
+        billingStoreCode: code,
+        locationName: locationName(address, code),
+        addressLine1: addressLine(address),
+        city: address.city.trim(),
+        state: address.state.trim(),
+        stateCode,
+        pincode: address.postalCode.trim(),
+        country: address.country || "India",
+        gstRegistrationId: address.gstRegistrationId || undefined,
+        gstin: address.gstin?.trim().toUpperCase() || undefined,
+        contactPerson: address.contactPerson || undefined,
+        phone: address.mobilePhone || address.officePhone || undefined,
+        email: address.email1 || undefined,
+        isDefault: address.isDefault
+      };
+      const saved = existing
+        ? await apiFetchV1<any>(`/crm/customers/${customerId}/billing-locations/${existing.id}`, { method: "PUT", body: payload })
+        : await apiFetchV1<any>(`/crm/customers/${customerId}/billing-locations`, { method: "POST", body: payload });
+      address.id = saved?.id || existing?.id;
+      if (address.id) submittedLocationIds.add(address.id);
+    } else {
+      const existing = (existingDelivery || []).find(location =>
+        location.id === address.id || String(location.store_code ?? location.storeCode).toUpperCase() === code
+      );
+      const payload = {
+        storeCode: code,
+        locationName: locationName(address, code),
+        addressLine1: addressLine(address),
+        addressLine2: address.address2 || undefined,
+        city: address.city.trim(),
+        state: address.state.trim(),
+        stateCode,
+        pincode: address.postalCode.trim(),
+        country: address.country || "India",
+        gstRegistrationId: address.gstRegistrationId || undefined,
+        gstin: address.gstin?.trim().toUpperCase() || undefined,
+        contactPerson: address.contactPerson || undefined,
+        phone: address.mobilePhone || address.officePhone || undefined,
+        email: address.email1 || undefined,
+        isDefault: address.isDefault
+      };
+      const saved = existing
+        ? await apiFetchV1<any>(`/crm/customers/${customerId}/delivery-locations/${existing.id}`, { method: "PUT", body: payload })
+        : await apiFetchV1<any>(`/crm/customers/${customerId}/delivery-locations`, { method: "POST", body: payload });
+      address.id = saved?.id || existing?.id;
+      if (address.id) submittedLocationIds.add(address.id);
+    }
+  }
+
+  const deliveryIdsToDeactivate = getLocationIdsToDeactivate(existingDelivery || [], knownAddressIds, submittedLocationIds);
+  const billingIdsToDeactivate = getLocationIdsToDeactivate(existingBilling || [], knownAddressIds, submittedLocationIds);
+
+  await Promise.all([
+    ...deliveryIdsToDeactivate.map(locationId =>
+      apiFetchV1(`/crm/customers/${customerId}/delivery-locations/${locationId}`, { method: "DELETE" })
+    ),
+    ...billingIdsToDeactivate.map(locationId =>
+      apiFetchV1(`/crm/customers/${customerId}/billing-locations/${locationId}`, { method: "DELETE" })
+    )
+  ]);
+
+  return savedAddresses;
 };
 
 const SEED_CUSTOMERS: RetailCustomerRecord[] = [
@@ -417,12 +589,15 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     delimiter: bCust.delimiter || ";",
     buyingFactor: Number(bCust.buying_factor ?? 1.00),
     sellingFactor: Number(bCust.selling_factor ?? 1.00),
-    mailingAddresses: Array.isArray(bCust.mailing_addresses || bCust.mailingAddresses) && (bCust.mailing_addresses || bCust.mailingAddresses).length > 0
-      ? normalizeMailingAddresses(bCust.mailing_addresses || bCust.mailingAddresses)
-      : normalizeMailingAddresses(null, {
+    mailingAddresses: mergeCanonicalLocationsIntoAddresses(
+      bCust.mailing_addresses || bCust.mailingAddresses,
+      bCust.delivery_locations || bCust.deliveryLocations || [],
+      bCust.billing_locations || bCust.billingLocations || [],
+      {
           mobilePhone: bCust.mobile || bCust.phone || "",
           email1: bCust.email || ""
-        }),
+      }
+    ),
     isDependant: bCust.is_dependant ?? false,
     primaryAccountCode: bCust.primary_account_code || "",
     primaryAccountName: bCust.primary_account_name || "",
@@ -499,6 +674,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   // Modals
   const [isMailingModalOpen, setIsMailingModalOpen] = useState<boolean>(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
+  const [customerGstRegistrations, setCustomerGstRegistrations] = useState<CustomerGSTRegistrationOption[]>([]);
+  const [isLoadingGstRegistrations, setIsLoadingGstRegistrations] = useState<boolean>(false);
 
   // Active customer in editor
   const [currentCustomer, setCurrentCustomer] = useState<RetailCustomerRecord>(() => {
@@ -632,6 +809,35 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     isDirtyRef.current = true;
   };
 
+  const handleOpenMailingModal = async () => {
+    setIsMailingModalOpen(true);
+    const customerId = currentCustomer.id;
+    if (!customerId || customerId.startsWith("cust-draft-")) {
+      setCustomerGstRegistrations([]);
+      return;
+    }
+
+    setIsLoadingGstRegistrations(true);
+    try {
+      const response = await apiFetchV1<any>(`/crm/customers/${customerId}/gst-registrations`);
+      const registrations = Array.isArray(response) ? response : (response?.items || []);
+      setCustomerGstRegistrations(registrations.map((registration: any) => ({
+        id: String(registration.id),
+        gstin: String(registration.gstin || "").trim().toUpperCase(),
+        stateName: registration.stateName ?? registration.state_name ?? "",
+        stateCode: String(registration.stateCode ?? registration.state_code ?? "").padStart(2, "0"),
+        registrationType: registration.registrationType ?? registration.registration_type ?? "REGULAR",
+        isPrimary: Boolean(registration.isPrimary ?? registration.is_primary),
+        isActive: registration.isActive ?? registration.is_active ?? registration.status === "ACTIVE"
+      })).filter((registration: CustomerGSTRegistrationOption) => registration.isActive && registration.gstin));
+    } catch (error) {
+      setCustomerGstRegistrations([]);
+      onNotification?.("GST Registrations Unavailable", "The address form is still available, but customer GST registrations could not be loaded.", "warning");
+    } finally {
+      setIsLoadingGstRegistrations(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!currentCustomer.name.trim()) {
       onNotification?.("Validation Error", "Customer Name is mandatory.", "error");
@@ -701,6 +907,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           : (rawSavedDays && Number(rawSavedDays) > 0 ? `Net ${rawSavedDays}` : "Policy Not Configured"),
         updatedAt: new Date().toISOString().split("T")[0]
       };
+
+      recordToSave.mailingAddresses = await syncCanonicalCustomerLocations(
+        savedBackendCust?.id || currentCustomer.id,
+        currentCustomer.mailingAddresses
+      );
 
       const savedId = recordToSave.id;
       const savedCode = recordToSave.code;
@@ -1245,7 +1456,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                 <SmritiCustomerFormTab
                   customer={currentCustomer}
                   onChange={handleFieldChange}
-                  onOpenMailingModal={() => setIsMailingModalOpen(true)}
+                  onOpenMailingModal={handleOpenMailingModal}
                 />
               )}
 
@@ -1275,6 +1486,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         onClose={() => setIsMailingModalOpen(false)}
         customerName={currentCustomer.name}
         addresses={currentCustomer.mailingAddresses}
+        gstRegistrations={customerGstRegistrations}
+        isLoadingGstRegistrations={isLoadingGstRegistrations}
         onSaveAddresses={newAddrs => {
           handleFieldChange("mailingAddresses", newAddrs);
           if (newAddrs[0]) {

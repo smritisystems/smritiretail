@@ -178,6 +178,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         } else if (selectedReport.id === "RPT-TAX-006") {
           const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}&include_archived=true`);
           setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-TAX-007") {
+          const data = await apiFetchV1("/reports/invoice-reconciliation?bill_from=18&bill_to=137&include_archived=true");
+          setGenericReportData(data);
         } else if (selectedReport.id === "RPT-MRC-005") {
           const data = await apiFetchV1(`/reports/article-color-size-matrix${params}`);
           setGenericReportData(data);

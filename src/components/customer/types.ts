@@ -14,10 +14,25 @@
 
 export type CustomerAddressType = "mailing" | "billing" | "shipping";
 
+export interface CustomerGSTRegistrationOption {
+  id: string;
+  gstin: string;
+  stateName: string;
+  stateCode: string;
+  registrationType: string;
+  isPrimary: boolean;
+  isActive: boolean;
+}
+
 export interface CustomerAddressEntry {
+  id?: string;
   code: string;
   contactPerson: string;
   addressType?: CustomerAddressType;
+  locationName?: string;
+  stateCode?: string;
+  gstin?: string;
+  gstRegistrationId?: string;
   storeCode?: string;
   billingStoreCode?: string;
   shippingStoreCode?: string;
