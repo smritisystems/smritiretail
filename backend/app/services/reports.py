@@ -17,7 +17,7 @@ Founders
 """
 
 from decimal import Decimal, ROUND_HALF_UP
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -25,6 +25,7 @@ from sqlalchemy import or_
 from fastapi import HTTPException
 
 from ..models.inventory import Product
+from ..models.item_master import Item, ItemVariant
 from ..models.sales import (
     SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem,
     SalesOrder, SalesOrderItem, SalesOrderInvoiceAllocation
@@ -33,6 +34,7 @@ from ..models.purchase import Supplier, PurchaseOrder, PurchaseReceipt
 from ..models.supplier_payment import SupplierPayment
 from ..models.report_schedule import ReportSchedule
 from ..models.crm import Customer
+from ..models.tenant import Company
 from ..models.loyalty import LoyaltyMember, LoyaltyPointsLedger
 from ..models.promotions import PromotionCampaign, PromotionRedemption
 from ..models.commission import CommissionParticipant, CommissionLedger
@@ -96,7 +98,7 @@ class ReportsService:
     async def daily_sales(self, report_date: Optional[date] = None) -> DailySalesSummary:
         stmt = select(SalesInvoice).where(
             SalesInvoice.is_deleted == False,
-            or_(SalesInvoice.status.is_(None), SalesInvoice.status != "CANCELLED"),
+            self._completed_invoice_filter(),
         )
         if report_date:
             stmt = stmt.where(SalesInvoice.date == report_date)
@@ -105,7 +107,10 @@ class ReportsService:
             stmt = stmt.where(SalesInvoice.company_id == self.tenant.company_id)
 
         if self.tenant and self.tenant.branch_id:
-            stmt = stmt.where(SalesInvoice.branch_id == self.tenant.branch_id)
+            branch_ids = [self.tenant.branch_id]
+            if self.tenant.branch_id in {"MAIN", "BR-001", "BR-MAIN-001"}:
+                branch_ids = ["MAIN", "BR-001", "BR-MAIN-001"]
+            stmt = stmt.where(SalesInvoice.branch_id.in_(branch_ids))
 
         res = await self.db.execute(stmt)
         invoices = res.scalars().all()
@@ -238,6 +243,7 @@ class ReportsService:
                     PurchaseOrder.supplier_id == sup.id,
                     PurchaseOrder.company_id == self.tenant.company_id,
                     PurchaseOrder.is_deleted == False,
+                    *self._datetime_conditions(PurchaseOrder, from_date, to_date),
                 )
             )
             pos = po_res.scalars().all()
@@ -247,6 +253,7 @@ class ReportsService:
                     PurchaseReceipt.supplier_id == sup.id,
                     PurchaseReceipt.company_id == self.tenant.company_id,
                     PurchaseReceipt.is_deleted == False,
+                    *self._datetime_conditions(PurchaseReceipt, from_date, to_date),
                 )
             )
             grns = grn_res.scalars().all()
@@ -321,6 +328,8 @@ class ReportsService:
             id=f"SCH-{uuid.uuid4().hex[:12].upper()}",
             company_id=self.tenant.company_id,
             branch_id=self.tenant.branch_id,
+            schedule_name=payload.report_name,
+            report_code=payload.report_id,
             report_id=payload.report_id,
             report_name=payload.report_name,
             frequency=payload.frequency,
@@ -363,11 +372,31 @@ class ReportsService:
             stmt = stmt.where(model.date <= to_date)
         return stmt
 
+    @staticmethod
+    def _datetime_conditions(model, from_date, to_date):
+        conditions = []
+        if from_date:
+            conditions.append(model.created_at >= datetime.combine(from_date, datetime.min.time()))
+        if to_date:
+            conditions.append(model.created_at < datetime.combine(to_date + timedelta(days=1), datetime.min.time()))
+        return conditions
+
+    @staticmethod
+    def _completed_invoice_filter():
+        from sqlalchemy import func
+        return or_(
+            SalesInvoice.status.is_(None),
+            func.upper(SalesInvoice.status).notin_(('DRAFT', 'HOLD', 'CANCELLED')),
+        )
+
     def _tenant_filter(self, stmt, model):
         if self.tenant and self.tenant.company_id:
             stmt = stmt.where(model.company_id == self.tenant.company_id)
         if self.tenant and self.tenant.branch_id:
-            stmt = stmt.where(model.branch_id == self.tenant.branch_id)
+            branch_ids = [self.tenant.branch_id]
+            if self.tenant.branch_id in {"MAIN", "BR-001", "BR-MAIN-001"}:
+                branch_ids = ["MAIN", "BR-001", "BR-MAIN-001"]
+            stmt = stmt.where(model.branch_id.in_(branch_ids))
         return stmt
 
     async def bill_wise_sales(self, from_date=None, to_date=None):
@@ -377,7 +406,7 @@ class ReportsService:
         stmt = (
             select(SalesInvoice)
             .options(selectinload(SalesInvoice.items))
-            .where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+            .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
@@ -422,16 +451,17 @@ class ReportsService:
         """RPT-TAX-003 -- Shoper9 SR202200 Item-wise Sales."""
         from ..schemas.reports import ItemWiseSalesLine, ItemWiseSalesReport
         stmt = (
-            select(SalesInvoice, SalesInvoiceItem)
+            select(SalesInvoice, SalesInvoiceItem, Product)
             .join(SalesInvoiceItem, SalesInvoiceItem.invoice_id == SalesInvoice.id)
-            .where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+            .outerjoin(Product, Product.id == SalesInvoiceItem.product_id)
+            .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
         rows = (await self.db.execute(stmt)).all()
         
         agg: Dict[str, dict] = {}
-        for inv, item in rows:
+        for inv, item, product in rows:
             pid = getattr(item, "product_id", None) or getattr(item, "code", None) or "UNKNOWN"
             qty = Decimal(str(getattr(item, "quantity", 0) or 0))
             net = Decimal(str(getattr(item, "total_amount", None) or getattr(item, "amount", 0) or 0))
@@ -442,6 +472,7 @@ class ReportsService:
             if pid not in agg:
                 agg[pid] = {
                     "code": getattr(item, "code", "") or getattr(item, "product_code", ""),
+                    "barcode": getattr(product, "barcode", None),
                     "name": getattr(item, "name", "") or getattr(item, "product_name", pid),
                     "hsn": getattr(item, "hsn_code", None),
                     "qty": Decimal("0.0000"),
@@ -461,6 +492,8 @@ class ReportsService:
             ItemWiseSalesLine(
                 product_id=pid,
                 product_code=d["code"],
+                sku_code=d["code"],
+                barcode=d["barcode"],
                 product_name=d["name"],
                 hsn_code=d["hsn"],
                 qty_sold=d["qty"],
@@ -489,7 +522,7 @@ class ReportsService:
         stmt = (
             select(SalesInvoice)
             .options(selectinload(SalesInvoice.items))
-            .where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+            .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
@@ -585,7 +618,7 @@ class ReportsService:
     async def salesperson_discount(self, from_date=None, to_date=None):
         """RPT-MIS-005 -- Shoper9 SR238400 Salesperson-wise Discount."""
         from ..schemas.reports import SalespersonDiscountLine, SalespersonDiscountReport
-        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
         invoices = (await self.db.execute(stmt)).scalars().all()
@@ -610,9 +643,10 @@ class ReportsService:
         """RPT-TAX-005 -- Shoper9 SR202000 Bill-wise Items Detail."""
         from ..schemas.reports import BillWiseItemsLine, BillWiseItemsReport
         stmt = (
-            select(SalesInvoice, SalesInvoiceItem)
+            select(SalesInvoice, SalesInvoiceItem, Product)
             .join(SalesInvoiceItem, SalesInvoiceItem.invoice_id == SalesInvoice.id)
-            .where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+            .outerjoin(Product, Product.id == SalesInvoiceItem.product_id)
+            .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
@@ -626,7 +660,7 @@ class ReportsService:
         total_qty = Decimal("0.0000")
         total_amt = Decimal("0.00")
         
-        for inv, item in rows:
+        for inv, item, product in rows:
             unique_invs.add(inv.id)
             qty = Decimal(str(getattr(item, "quantity", 0) or 0))
             price = Decimal(str(getattr(item, "price", 0) or 0))
@@ -645,6 +679,8 @@ class ReportsService:
                     customer_name=getattr(inv, "customer_name", None),
                     line_no=int(getattr(item, "line_no", None) or len(lines) + 1),
                     product_code=getattr(item, "code", "") or getattr(item, "product_code", ""),
+                    sku_code=getattr(item, "code", "") or getattr(item, "product_code", ""),
+                    barcode=getattr(product, "barcode", None),
                     product_name=getattr(item, "name", "") or getattr(item, "product_name", ""),
                     hsn_code=getattr(item, "hsn_code", None),
                     quantity=qty,
@@ -670,7 +706,7 @@ class ReportsService:
     async def discount_summary(self, from_date=None, to_date=None):
         """RPT-OPS-001 -- Shoper9 SR202100 Discount Given Summary."""
         from ..schemas.reports import DiscountSummaryLine, DiscountSummaryReport
-        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
         invoices = (await self.db.execute(stmt.order_by(SalesInvoice.date.desc()))).scalars().all()
@@ -774,13 +810,15 @@ class ReportsService:
         )
 
     async def attribute_size_sales(self, from_date=None, to_date=None):
-        """RPT-MRC-001 -- Shoper9 SR236300 Attribute+Size wise Sales."""
+        """RPT-MRC-001 -- Shoper9 SR236300 Attribute+Size wise Sales (Canonical Item/Variant First)."""
         from ..schemas.reports import AttributeSizeSalesLine, AttributeSizeSalesReport
         stmt = (
-            select(SalesInvoiceItem, Product)
+            select(SalesInvoiceItem, ItemVariant, Item, Product)
             .join(SalesInvoice, SalesInvoice.id == SalesInvoiceItem.invoice_id)
+            .outerjoin(ItemVariant, ItemVariant.id == SalesInvoiceItem.variant_id)
+            .outerjoin(Item, Item.id == ItemVariant.item_id)
             .outerjoin(Product, Product.id == SalesInvoiceItem.product_id)
-            .where(SalesInvoice.is_deleted == False, SalesInvoice.status != "CANCELLED")
+            .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
@@ -789,14 +827,14 @@ class ReportsService:
         rows = res.all()
         
         agg: Dict[tuple, dict] = {}
-        for item, prod in rows:
-            cat = (prod.category if prod else None) or "General"
-            product_code = (prod.code if prod else None) or getattr(item, "code", None) or "N/A"
-            product_name = (prod.name if prod else None) or getattr(item, "name", None) or "Uncatalogued Item"
-            style_code = (prod.style_code if prod else None) or product_code
-            brand = (prod.brand if prod else None) or "Standard"
-            color = (prod.color if prod else None) or "N/A"
-            size = (prod.size if prod else None) or "Standard"
+        for item, variant, item_obj, prod in rows:
+            cat = (item_obj.category if item_obj else (prod.category if prod else None)) or "General"
+            product_code = (item_obj.item_code if item_obj else (prod.code if prod else None)) or getattr(item, "code", None) or "N/A"
+            product_name = (item_obj.item_name if item_obj else (prod.name if prod else None)) or getattr(item, "name", None) or "Uncatalogued Item"
+            style_code = (variant.variant_sku if variant else (prod.style_code if prod else None)) or product_code
+            brand = (item_obj.brand if item_obj else (prod.brand if prod else None)) or "Standard"
+            color = (getattr(variant, "color", None) if variant else (prod.color if prod else None)) or "N/A"
+            size = (getattr(variant, "size", None) if variant else (prod.size if prod else None)) or "Standard"
             
             key = (product_code, style_code, brand, color, size)
             qty = Decimal(str(getattr(item, "quantity", 0) or 0))
@@ -887,23 +925,26 @@ class ReportsService:
         from .invoice_pdf_service import number_to_indian_words
         return number_to_indian_words(num)
 
-    async def tax_invoices_master_register(self, from_date=None, to_date=None, bill_from: Optional[int] = None, bill_to: Optional[int] = None, status_filter: Optional[str] = None):
+    async def tax_invoices_master_register(self, from_date=None, to_date=None, bill_from: Optional[int] = None, bill_to: Optional[int] = None, status_filter: Optional[str] = None, include_archived: bool = True):
         """RPT-TAX-006 -- Statutory GST Tax Invoices Master Register."""
         from ..schemas.reports import TaxInvoiceMasterRegisterLine, TaxInvoiceMasterRegisterReport
         from sqlalchemy.orm import selectinload
         import re
 
-        stmt = (
-            select(SalesInvoice)
-            .options(selectinload(SalesInvoice.items))
-            .where(SalesInvoice.is_deleted == False)
-        )
+        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items))
+        if not include_archived:
+            stmt = stmt.where(SalesInvoice.is_deleted == False)
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
         if status_filter:
             stmt = stmt.where(SalesInvoice.status == status_filter)
 
         invoices = (await self.db.execute(stmt.order_by(SalesInvoice.date, SalesInvoice.invoice_no))).scalars().all()
+        company = (
+            await self.db.execute(
+                select(Company).where(Company.id == self.tenant.company_id)
+            )
+        ).scalars().first()
 
         lines: List[TaxInvoiceMasterRegisterLine] = []
         tot_qty = Decimal("0.00")
@@ -969,6 +1010,10 @@ class ReportsService:
                 igst_a = Decimal("0.00")
 
             t_tax = cgst_a + sgst_a + igst_a
+            effective_rate = (
+                (t_tax / taxable_val * Decimal("100.00")).quantize(Decimal("0.01"))
+                if taxable_val else Decimal("0.00")
+            )
             rnd = Decimal(str(getattr(inv, "rounding_amount", None) or (grand_val - (taxable_val + t_tax)))).quantize(Decimal("0.01"))
             words = getattr(inv, "amount_in_words", None) or self._number_to_indian_words(float(grand_val))
 
@@ -989,9 +1034,9 @@ class ReportsService:
                     status=inv_status,
                     document_type="TAX INVOICE",
                     sis_code=getattr(inv, "sis_code", None),
-                    supplier_name="Tattly Threads",
-                    supplier_gstin="27AAXFT2508H1ZR",
-                    supplier_state="Maharashtra (27)",
+                    supplier_name=getattr(company, "name", None) or "",
+                    supplier_gstin=getattr(company, "gst_number", None),
+                    supplier_state=getattr(company, "state", None) or "",
                     customer_name=getattr(inv, "customer_name", "Reliance Retail Limited"),
                     customer_gstin=getattr(inv, "customer_gstin", None),
                     place_of_supply=pos_disp,
@@ -1006,7 +1051,7 @@ class ReportsService:
                     items_count=len(items),
                     total_quantity=item_sum_qty,
                     taxable_value=taxable_val,
-                    gst_rate=Decimal("5.00"),
+                    gst_rate=effective_rate,
                     cgst_amount=cgst_a,
                     sgst_amount=sgst_a,
                     igst_amount=igst_a,
@@ -1117,10 +1162,12 @@ class ReportsService:
     async def store_wise_summary(self, from_date=None, to_date=None):
         """RPT-OPS-006 -- Store-Wise SIS Tax Invoice & Distribution Register."""
         from ..schemas.reports import StoreWiseSummaryLine, StoreWiseSummaryReport
+        from sqlalchemy.orm import selectinload
 
         stmt = (
             select(SalesInvoice)
-            .where(SalesInvoice.is_deleted == False)
+            .options(selectinload(SalesInvoice.items))
+            .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
@@ -1133,8 +1180,11 @@ class ReportsService:
             st = str(getattr(inv, "status", "COMPLETED") or "COMPLETED").upper()
             site = getattr(inv, "site_name", None) or getattr(inv, "shipping_address", "") or sis
             grand = Decimal(str(getattr(inv, "grand_total", None) or getattr(inv, "net_amount", "0") or 0))
-            taxable = Decimal(str(getattr(inv, "taxable_value", None) or (grand / Decimal("1.05")) or 0)).quantize(Decimal("0.01"))
-            tax = Decimal(str(getattr(inv, "tax_total", None) or (grand - taxable) or 0)).quantize(Decimal("0.01"))
+            tax = Decimal(str(getattr(inv, "tax_total", None) or getattr(inv, "tax_amount", None) or 0))
+            taxable = Decimal(str(getattr(inv, "taxable_value", None) or (grand - tax) or 0)).quantize(Decimal("0.01"))
+            if tax <= 0 and taxable > 0:
+                tax = (grand - taxable).quantize(Decimal("0.01"))
+            quantity = sum((Decimal(str(item.quantity or 0)) for item in (inv.items or [])), Decimal("0"))
 
             if sis not in agg:
                 agg[sis] = {
@@ -1155,6 +1205,7 @@ class ReportsService:
             else:
                 agg[sis]["completed_count"] += 1
 
+            agg[sis]["total_quantity"] += quantity
             agg[sis]["taxable_value"] += taxable
             agg[sis]["tax_amount"] += tax
             agg[sis]["grand_total"] += grand
@@ -1177,7 +1228,10 @@ class ReportsService:
             lines=lines,
         )
 
-    async def export_tax_invoices_master_excel(self, from_date=None, to_date=None, bill_from=None, bill_to=None, status=None) -> bytes:
+    async def export_tax_invoices_master_excel(
+        self, from_date=None, to_date=None, bill_from=None, bill_to=None,
+        status=None, include_archived: bool = True
+    ) -> bytes:
         """Exports full 6-sheet statutory Tax Invoices workbook as Excel bytes."""
         import io
         import openpyxl
@@ -1185,7 +1239,10 @@ class ReportsService:
         from openpyxl.utils import get_column_letter
 
         # Load data via reports methods
-        reg_report = await self.tax_invoices_master_register(from_date, to_date, bill_from, bill_to, status)
+        reg_report = await self.tax_invoices_master_register(
+            from_date, to_date, bill_from, bill_to, status,
+            include_archived=include_archived,
+        )
         matrix_report = await self.article_color_size_matrix(from_date, to_date)
         store_report = await self.store_wise_summary(from_date, to_date)
 

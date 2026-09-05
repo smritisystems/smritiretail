@@ -19,6 +19,9 @@ from ..db.base import BaseEntity
 class Product(BaseEntity):
     __tablename__ = "products"
 
+    # Canonical ItemMaster links retained alongside the legacy product identity.
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="SET NULL"), nullable=True, index=True)
     variant_id = Column(BigInteger, autoincrement=True, index=True)
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
@@ -55,6 +58,10 @@ class Product(BaseEntity):
     sourcing_mode_override = Column(String(30))
     tenant_id = Column(String(50))
     workflow_status = Column(String(30), default="Approved")
+
+    @property
+    def historical_invoice_qty(self):
+        return (self.attributes or {}).get("historical_invoice_qty", 0)
 
     __table_args__ = (
         Index("idx_products_attributes", "attributes", postgresql_using="gin"),
@@ -102,6 +109,8 @@ class StockMovement(BaseEntity):
     __tablename__ = "stock_movements"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     product_name = Column(String(255), nullable=False)
     sku = Column(String(50), nullable=False)
     quantity = Column(Numeric(10, 2), nullable=False)
@@ -170,6 +179,7 @@ class ProductBatchStock(BaseEntity):
     __tablename__ = "product_batch_stocks"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True)
     batch_no = Column(String(100), nullable=False, index=True)
     mfg_date = Column(Date, nullable=True)

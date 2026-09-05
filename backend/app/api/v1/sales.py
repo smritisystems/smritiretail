@@ -16,12 +16,12 @@ from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, require_role, require_permission
+from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, get_current_user, require_role, require_permission
 from ...models.auth import UserRole
 from ...schemas.sales import (
     SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
     SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
-    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse,
+    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse, SalesOrderLineActionRequest,
     SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
     SalesReturnContextResponse,
 )
@@ -210,32 +210,33 @@ async def get_sales_invoice_reprint_contract(
 )
 async def get_sales_invoice_pdf_stream(
     invoice_id: str,
-    format: Optional[str] = None,
+    format: Optional[str] = "binary",
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Stream rendered Tax Invoice PDF document from single Canonical TaxInvoiceRenderer."""
     from ...services.invoice_pdf_service import InvoicePdfService
-    if format == "binary":
-        pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
+    if format == "html":
+        html_content = await InvoicePdfService.generate_invoice_html(
             session=db,
             invoice_id=invoice_id,
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id
         )
-        safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}.pdf"'}
-        )
-    html_content = await InvoicePdfService.generate_invoice_html(
+        return Response(content=html_content, media_type="text/html")
+
+    pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
         session=db,
         invoice_id=invoice_id,
         company_id=tenant_ctx.company_id,
         branch_id=tenant_ctx.branch_id
     )
-    return Response(content=html_content, media_type="text/html")
+    safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}.pdf"'}
+    )
 
 
 @router.get(
@@ -336,6 +337,23 @@ async def delete_sales_quotation(
     """Soft-delete a sales quotation."""
     await SalesService(db, tenant_ctx).delete_sales_quotation(quotation_id)
     return Response(status_code=204)
+
+@router.post("/orders/{order_id}/lines/{line_id}/{action}", response_model=SalesOrderItemResponse)
+async def close_or_cancel_sales_order_line(
+    order_id: str,
+    line_id: int,
+    action: str,
+    request: SalesOrderLineActionRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Close or cancel an unbilled Sales Order line without changing its invoice history."""
+    user_name = getattr(current_user, "username", None) or getattr(current_user, "name", None) or "system"
+    line = await SalesService(db, tenant_ctx).close_or_cancel_sales_order_line(
+        order_id, line_id, action, request, user_name
+    )
+    return SalesOrderItemResponse.model_validate(line)
 
 
 # ─────────────────────────── Sales Order ───────────────────────────

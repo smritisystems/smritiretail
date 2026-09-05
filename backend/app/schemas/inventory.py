@@ -44,6 +44,7 @@ class ProductBase(BaseModel):
     attributes: Optional[Dict[str, Any]] = Field(default_factory=dict)
     primary_image_url: Optional[str] = Field(None, max_length=512)
     gallery_images: Optional[List[str]] = Field(default_factory=list)
+    historical_invoice_qty: Decimal = Decimal("0")
 
     @field_validator("code", "name", "barcode", "hsn_code", mode="before")
     @classmethod
@@ -216,6 +217,8 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: str
+    item_id: Optional[str] = None
+    item_variant_id: Optional[str] = None
     uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
@@ -297,3 +300,21 @@ class StockMovementResponse(BaseModel):
     closing_value: Optional[Decimal] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StockLedgerTotals(BaseModel):
+    total_in_qty: Decimal = Decimal("0.00")
+    total_out_qty: Decimal = Decimal("0.00")
+    total_in_value: Decimal = Decimal("0.00")
+    total_out_value: Decimal = Decimal("0.00")
+    total_movement_value: Decimal = Decimal("0.00")
+    total_moved_qty: Decimal = Decimal("0.00")
+    net_qty: Decimal = Decimal("0.00")
+
+
+class StockLedgerPageResponse(BaseModel):
+    items: List[StockMovementResponse]
+    total: int
+    skip: int
+    limit: int
+    totals: StockLedgerTotals

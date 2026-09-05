@@ -4,9 +4,9 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.17.0
+  Version      : 3.18.0
   Created      : 2026-07-11
-  Modified     : 2026-07-14
+  Modified     : 2026-09-02
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -18,6 +18,7 @@ This directory contains formal, version-controlled implementation plans for SMRI
 
 | Date | Plan Version | Module / Topic | Target File(s) | Status | Related Walkthrough |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-02 | v1.0.0 | **[F2 Universal Lookup Architecture v2 — Phase A](./foundation/F2_Universal_Lookup_Architecture_v2_Phase_A_v1.0.0.md)** | `src/context/F2DispatcherContext.tsx`, `src/services/f2LookupRegistry.ts`, `src/components/drilldown/UniversalBrowseEngine.tsx`, `src/context/ActiveFieldContext.tsx`, `src/contexts/ShortcutContext.tsx`, `src/App.tsx` | Completed | [Walkthrough](../walkthrough/foundation/F2_Universal_Lookup_Architecture_v2_Phase_A_v1.0.0.md) |
 | 2026-08-28 | v1.0.0 | [Purchase Order Auto-Generation Engine](./procurement/Auto_PO_Engine_v1.0.0.md) | `/src/utils/autoPOEngine.ts`, `/src/components/procurement/AutoPOModal.tsx`, `/src/tests/autoPOEngine.test.ts` | Completed | [Walkthrough](../walkthrough/procurement/Auto_PO_Engine_v1.0.0.md) |
 | 2026-08-28 | v1.0.0 | [Employee Attendance & Commission Engine](./hr/Employee_Attendance_Engine_v1.0.0.md) | `/src/utils/employeeAttendanceEngine.ts`, `/src/components/hr/EmployeeAttendanceModal.tsx`, `/src/tests/employeeAttendanceEngine.test.ts` | Completed | [Walkthrough](../walkthrough/hr/Employee_Attendance_Engine_v1.0.0.md) |
 | 2026-08-28 | v1.0.0 | [Sales Return & Exchange Engine](./pos/Sales_Return_Engine_v1.0.0.md) | `/src/utils/salesReturnEngine.ts`, `/src/components/pos/SalesReturnModal.tsx`, `/src/tests/salesReturnEngine.test.ts` | Completed | [Walkthrough](../walkthrough/pos/Sales_Return_Engine_v1.0.0.md) |
@@ -147,6 +148,34 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-08-23 | v3.22.0 | [Section 7 & 8: Shared Pricing Engine & Distribution Core Operations](./distribution/Dist_And_Shared.md) | `/backend/app/models/distribution.py`, `/backend/app/services/pricing_engine.py`, `/backend/app/services/distribution_svc.py`, `/backend/app/api/v1/distribution.py`, `/backend/alembic/versions/v1365_distribution_core.py` | Completed | [Walkthrough](../walkthrough/distribution/Dist_And_Shared.md) |
 | 2026-08-23 | v3.22.0 | [Section 9 & 10: Public Stock Verification, Commercial Growth Engine, PDT & Offline-First Sync](./cge/PSV_CGE_PDT_And.md) | `/backend/app/services/commercial_growth.py`, `/backend/app/services/pdt_analytics.py`, `/backend/app/services/offline_sync_svc.py`, `/backend/app/api/v1/cge.py`, `/backend/app/api/v1/sync.py` | Completed | [Walkthrough](../walkthrough/cge/PSV_CGE_PDT_And.md) |
 | 2026-08-23 | v3.23.0 | [Section 11 & 12: Analytics & Intelligence Plane, Integration Hub & Compliance Audit](./analytics/Analytics.md) | `/backend/app/models/analytics.py`, `/backend/app/models/audit.py`, `/backend/app/services/analytics_svc.py`, `/backend/app/services/tally_service.py`, `/backend/app/services/compliance_audit.py`, `/backend/app/api/v1/analytics.py`, `/backend/app/api/v1/integration.py` | Completed | [Walkthrough](../walkthrough/analytics/Analytics.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11C: Canonical Transaction Write Authority & Dual-Key Consistency Engine](./inventory/Inventory_Gate11C_Canonical_Transaction_Write_Authority_v1.0.0.md) | `/backend/app/services/canonical_transaction_writer.py`, `/backend/app/services/pos.py`, `/backend/app/models/sales.py`, `/backend/app/models/purchase.py`, `/backend/app/models/inventory.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11C_Canonical_Transaction_Write_Authority_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11D: Canonical Read & Reporting Consumer Migration](./inventory/Inventory_Gate11D_Canonical_Read_And_Reporting_Migration_v1.0.0.md) | `/backend/app/services/reports.py`, `/backend/app/services/analytics_svc.py`, `/scripts/audit_gate11d_read_reporting_consumers.py`, `/scripts/benchmark_gate11d_reporting_performance.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11D_Canonical_Read_And_Reporting_Migration_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11D.1: Legacy Dependency Closure & Gate 11E Prerequisite Audit](./inventory/Inventory_Gate11D1_Legacy_Dependency_Closure_v1.0.0.md) | `/scripts/execute_gate11d1_dependency_closure_audit.py`, `/docs/walkthrough/inventory/Inventory_Gate11D1_Legacy_Dependency_Closure_v1.0.0.md` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11D1_Legacy_Dependency_Closure_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 1: Preflight & Change-Safety Checkpoint](./inventory/Inventory_Gate11E_Phase1_Preflight_v1.0.0.md) | `/backend/app/db/gate11e_phase1_migration_manifest.json`, `/scripts/execute_gate11e_phase1_preflight.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase1_Preflight_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 2A: Canonical Backfill & Semantic Resolution](./inventory/Inventory_Gate11E_Phase2A_Canonical_Backfill_v1.0.0.md) | `/scripts/audit_phase2a_row_mappings.py`, `/scripts/execute_gate11e_phase2a_backfill.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2A_Canonical_Backfill_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 2B-1: Legacy Foreign Key Removal](./inventory/Inventory_Gate11E_Phase2B1_FK_Removal_v1.0.0.md) | `/scripts/execute_gate11e_phase2b1_fk_removal.py`, `/scripts/check_remaining_fks.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2B1_FK_Removal_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 2B-2 Pre-Flight: Transitional Index Pruning & Column Nullability Hardening Audit](./inventory/Inventory_Gate11E_Phase2B2_Preflight_v1.0.0.md) | `/scripts/execute_gate11e_phase2b2_preflight.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2B2_Preflight_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 2B-2 Evidence Audit: Index Obsolescence & Invariant Verification](./inventory/Inventory_Gate11E_Phase2B2_Evidence_Audit_v1.0.0.md) | `/scripts/execute_gate11e_phase2b2_evidence_audit.py`, `/scripts/reconcile_products_indexes.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2B2_Evidence_Audit_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 2B-2 Execution: Transitional Index Pruning & Nullability Hardening](./inventory/Inventory_Gate11E_Phase2B2_Execution_v1.0.0.md) | `/scripts/execute_gate11e_phase2b2_execution.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase2B2_Execution_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 3 Pre-Flight: Transitional Column Retirement & Table Decoupling Audit](./inventory/Inventory_Gate11E_Phase3_Preflight_v1.0.0.md) | `/scripts/execute_gate11e_phase3_preflight_audit.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3_Preflight_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 3A: Final Dead-Column Dependency Verification](./inventory/Inventory_Gate11E_Phase3A_Dead_Column_Verification_v1.0.0.md) | `/scripts/execute_gate11e_phase3a_verification.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3A_Dead_Column_Verification_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 3A Execution: Dead-Column Retirement](./inventory/Inventory_Gate11E_Phase3A_Execution_v1.0.0.md) | `/scripts/execute_gate11e_phase3a_execution.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3A_Execution_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 3B Pre-Flight: Finite Legacy Dependency & Deprecation Audit](./inventory/Inventory_Gate11E_Phase3B_Preflight_v1.0.0.md) | `/scripts/execute_gate11e_phase3b_preflight_audit.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3B_Preflight_v1.0.0.md) |
+| 2026-09-02 | v1.0.0 | [Gate 11E Phase 3B Execution: Final Schema Retirement & Gate 11E Closure](./inventory/Inventory_Gate11E_Phase3B_Execution_v1.0.0.md) | `/scripts/execute_gate11e_phase3b_execution.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3B_Execution_v1.0.0.md) |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

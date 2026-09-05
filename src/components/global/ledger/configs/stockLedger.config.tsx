@@ -7,7 +7,7 @@
  * Version      : 3.48.0
  * Created      : 2026-08-19
  * Modified     : 2026-08-27
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
@@ -160,33 +160,47 @@ export const stockLedgerConfig: LedgerConfig<any> = {
 
       return {
         id: item.id,
-        barcode: item.barcode || "â€”",
-        sku: item.sku || item.product_code || "â€”",
-        style_code: item.style_code || "â€”",
-        product_name: item.product_name || "â€”",
-        brand: item.brand || "â€”",
-        color: item.color || "â€”",
-        size: item.size || "â€”",
-        movement_type: item.movement_type || "OUTWARD_SALE",
+        barcode: item.barcode || "—",
+        sku: item.sku || item.product_code || "—",
+        style_code: item.style_code || "—",
+        product_name: item.product_name || "—",
+        brand: item.brand || "—",
+        color: item.color || "—",
+        size: item.size || "—",
+        movement_type: item.movement_type || "—",
         quantity: qty,
-        opening_qty: enriched.opening_qty,
-        in_qty: enriched.in_qty,
-        out_qty: enriched.out_qty,
-        closing_qty: enriched.closing_qty,
+        opening_qty: item.opening_qty !== undefined && item.opening_qty !== null
+          ? parseFloat(item.opening_qty)
+          : enriched.opening_qty,
+        in_qty: item.in_qty !== undefined && item.in_qty !== null
+          ? parseFloat(item.in_qty)
+          : enriched.in_qty,
+        out_qty: item.out_qty !== undefined && item.out_qty !== null
+          ? parseFloat(item.out_qty)
+          : enriched.out_qty,
+        closing_qty: item.closing_qty !== undefined && item.closing_qty !== null
+          ? parseFloat(item.closing_qty)
+          : enriched.closing_qty,
         mrp: mrp,
         selling_price: selling,
         buying_price: buying,
         cost_price: cost,
         total_value: totVal,
-        in_value: enriched.in_val,
-        out_value: enriched.out_val,
-        closing_value: enriched.closing_val,
-        reference_doc_type: item.reference_doc_type || "Sales Invoice",
-        reference_doc_id: item.reference_doc_id || "â€”",
-        reference_doc_no: item.reference_doc_no || item.reference_doc_id || "â€”",
-        warehouse: item.warehouse || "Main Outlet Retail WH",
+        in_value: item.in_value !== undefined && item.in_value !== null
+          ? parseFloat(item.in_value)
+          : enriched.in_val,
+        out_value: item.out_value !== undefined && item.out_value !== null
+          ? parseFloat(item.out_value)
+          : enriched.out_val,
+        closing_value: item.closing_value !== undefined && item.closing_value !== null
+          ? parseFloat(item.closing_value)
+          : enriched.closing_val,
+        reference_doc_type: item.reference_doc_type || "—",
+        reference_doc_id: item.reference_doc_id || "—",
+        reference_doc_no: item.reference_doc_no || item.reference_doc_id || "—",
+        warehouse: item.warehouse || "—",
         created_at: item.created_at,
-        date: item.created_at ? item.created_at.split("T")[0] : "â€”",
+        date: item.created_at ? item.created_at.split("T")[0] : "—",
       };
     });
   },
@@ -198,7 +212,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       width: "105px",
       render: (val) => (
         <span className="font-mono text-[11px] text-theme-muted">
-          {val ? String(val).split("T")[0] : "â€”"}
+          {val ? String(val).split("T")[0] : "—"}
         </span>
       ),
     },
@@ -302,7 +316,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono font-bold text-emerald-400 text-[11px]">
-          {val > 0 ? `+${val}` : "â€”"}
+          {val > 0 ? `+${val}` : "—"}
         </span>
       ),
     },
@@ -313,7 +327,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono font-bold text-rose-400 text-[11px]">
-          {val > 0 ? `-${val}` : "â€”"}
+          {val > 0 ? `-${val}` : "—"}
         </span>
       ),
     },
@@ -335,7 +349,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono text-theme-muted text-[11px]">
-          {val > 0 ? formatCurrency(val) : "â€”"}
+          {val > 0 ? formatCurrency(val) : "—"}
         </span>
       ),
     },
@@ -346,7 +360,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono text-sky-400 text-[11px] font-medium">
-          {val > 0 ? formatCurrency(val) : "â€”"}
+          {val > 0 ? formatCurrency(val) : "—"}
         </span>
       ),
     },
@@ -357,7 +371,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono text-theme-muted text-[11px]">
-          {val > 0 ? formatCurrency(val) : "â€”"}
+          {val > 0 ? formatCurrency(val) : "—"}
         </span>
       ),
     },
@@ -368,7 +382,7 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       align: "right",
       render: (val) => (
         <span className="font-mono text-theme-primary text-[11px] font-medium">
-          {val > 0 ? formatCurrency(val) : "â€”"}
+          {val > 0 ? formatCurrency(val) : "—"}
         </span>
       ),
     },

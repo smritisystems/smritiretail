@@ -28,7 +28,10 @@ from app.core.config import settings
 from app.db.base import Base
 
 # Import all models to ensure they are registered on Base.metadata
-from app.models.crm import CustomerGroup, Customer
+from app.models.crm import (
+    CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation,
+    CustomerBillingLocation, CustomerExternalIdentity,
+)
 from app.models.inventory import Product, StockMovement, Store, Warehouse
 from app.models.sales import (
     SalesInvoice, SalesInvoiceItem,
@@ -87,6 +90,10 @@ def include_object(object, name, type_, reflected, compare_to):
         return name in [
             "customer_groups",
             "customers",
+            "customer_gst_registrations",
+            "customer_delivery_locations",
+            "customer_billing_locations",
+            "customer_external_identities",
             "products",
             "stock_movements",
             "sales_invoices",

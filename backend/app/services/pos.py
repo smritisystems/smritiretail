@@ -31,6 +31,7 @@ from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement
 from ..api.deps import TenantContext
 from ..services.inventory_warehouse_resolver import InventoryWarehouseResolver
+from ..services.canonical_transaction_writer import CanonicalTransactionWriter
 from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
     CashRegisterCreate, ShiftOpen, ShiftClose,
@@ -1045,18 +1046,19 @@ class POSService:
 
 
 
-    # ───────────────────────────────────────────────────────────────
-    # POS Checkout  (Phase 1 — replaces Express in-memory bills[])
-    # ───────────────────────────────────────────────────────────────
+    # ---------------------------------------------------------------
+    # POS Checkout (Phase 1 -- Canonical Dual-Key Write Authority)
+    # ---------------------------------------------------------------
 
     async def pos_checkout(self, req: POSCheckoutRequest) -> dict:
         """
-        Process a POS sale:
+        Process a POS sale with Gate 11C Dual-Key Canonical Write Authority:
         1. Validate shift is OPEN and belongs to this tenant.
         2. Idempotency: if invoice_no already exists, return it (cached=True).
-        3. Deduct stock and record StockMovement for each tracked product.
-        4. Persist SalesInvoice with shift_id set.
-        5. Handle race-condition duplicate via IntegrityError catch.
+        3. Resolve canonical variant_id and legacy product_id via CanonicalTransactionWriter.
+        4. Deduct stock and record StockMovement with dual keys.
+        5. Persist SalesInvoice with dual-keyed SalesInvoiceItem lines.
+        6. Commit atomically.
 
         Returns {"invoice": SalesInvoice, "shift": Shift, "cached": bool}
         """
@@ -1098,8 +1100,27 @@ class POSService:
             tax_total   += item_tax
             grand_total += item_total
 
-            db_items.append(SalesInvoiceItem(
+            # Gate 11C Dual-Key Canonical Resolution
+            dual_key = await CanonicalTransactionWriter.resolve_dual_key_for_line(
+                session=self.db,
+                company_id=self.tenant.company_id,
+                variant_id=getattr(item, "variant_id", None),
                 product_id=item.product_id,
+                code_or_barcode=item.code,
+                is_fee_line=False,
+            )
+            if dual_key.is_quarantined:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Line item '{item.name}' ({dual_key.sku or item.code}) is locked under catalog review and cannot be transacted.",
+                )
+
+            target_product_id = dual_key.legacy_product_id or item.product_id
+            target_variant_id = dual_key.canonical_variant_id
+
+            db_items.append(SalesInvoiceItem(
+                product_id=target_product_id,
+                variant_id=target_variant_id,
                 code=item.code,
                 name=item.name,
                 quantity=qty,
@@ -1113,7 +1134,7 @@ class POSService:
             # Stock deduction
             prod_res = await self.db.execute(
                 select(Product).where(
-                    Product.id         == item.product_id,
+                    Product.id         == target_product_id,
                     Product.company_id == self.tenant.company_id,
                     Product.branch_id  == self.tenant.branch_id,
                     Product.is_deleted == False,
@@ -1139,7 +1160,8 @@ class POSService:
                 movements.append(StockMovement(
                     id=movement_id,
                     uuid=str(uuid.uuid4()),
-                    product_id=product.id,
+                    product_id=target_product_id,
+                    variant_id=target_variant_id,
                     product_name=product.name,
                     sku=product.sku or product.code,
                     quantity=-qty,

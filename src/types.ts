@@ -188,6 +188,7 @@ export interface Bill {
 }
 
 export interface SalesItemLine {
+  id?: number | string;
   productId: string;
   product_id?: string;
   code: string;
@@ -231,6 +232,16 @@ export interface SalesItemLine {
   delivery_date?: string;
   siteCode?: string;
   site_code?: string;
+  billedQuantity?: number;
+  billed_quantity?: number;
+  pendingQuantity?: number;
+  pending_quantity?: number;
+  overbilledQuantity?: number;
+  overbilled_quantity?: number;
+  lineStatus?: string;
+  line_status?: string;
+  closureReason?: string;
+  closure_reason?: string;
 }
 
 export interface Quotation {
@@ -527,10 +538,13 @@ export interface CustomerGroup {
 
   // Credit Management
   creditLimit: number; // ignored if unlimitedCredit is true
+  credit_limit?: number;
   unlimitedCredit: boolean;
   creditDays: number; // payment terms, e.g. 30
+  credit_days?: number;
   graceDays: number; // additional days before marked overdue
   creditHold: boolean; // true = new credit sales blocked regardless of limit
+  credit_hold?: boolean;
   autoBlockSales: boolean; // true = block sale automatically once limit exceeded
   warningThresholdPercent: number; // e.g. 80 = warn at 80% of credit limit used
   allowOverride: boolean; // can an individual Customer override this group's settings

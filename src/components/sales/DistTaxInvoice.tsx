@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.10.0
+ * Version      : 4.11.0
  * Created      : 2026-08-24
- * Modified     : 2026-08-24
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -24,6 +24,8 @@ import { TaxInvoiceDocumentState, TaxInvoiceItemRow } from "./types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { ExportColumnDefinition } from "../export/types.ts";
 import { X, Search } from "lucide-react";
+import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 
 export interface SmritiDistributorTaxInvoiceWorkspaceProps {
   initialInvoiceId?: string;
@@ -68,7 +70,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
   // Load customer directory
   const loadCustomers = useCallback(async () => {
     try {
-      const res = await apiFetchV1("/customers");
+      const res = await apiFetchV1("/crm/customers");
       const list = Array.isArray(res) ? res : res?.items || [];
       setCustomersList(list);
     } catch {
@@ -255,13 +257,12 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
     }
   };
 
-  // Keyboard shortcut listener
+  // Keyboard shortcut listener — F2 removed: handled by F2DispatcherProvider
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
-        e.preventDefault();
-        setIsCustomerModalOpen(true);
-      } else if (e.key === "Escape") {
+      // F2 is handled exclusively by F2DispatcherProvider (F2 Universal Lookup Architecture v2).
+      // This screen registers via useF2Screen() below. No screen-level F2 handler.
+      if (e.key === "Escape") {
         if (isCustomerModalOpen) {
           setIsCustomerModalOpen(false);
         } else if (onExit) {
@@ -282,6 +283,46 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isCustomerModalOpen, onExit, handleSaveInvoice]);
+
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase B Batch 2) ──
+  // Customer lookup: data-f2-entity="customer" on the TaxInvoiceDoc input (id="dist-customer-search").
+  // Variant lookup: data-f2-entity="variant" on the TaxEntryBar input (id="dist-entry-stockno").
+  // onCustomerSearchOpen prop (TaxInvoiceDoc) continues to serve the Enter key and icon click paths.
+  useF2Screen({
+    screenId: "DistTaxInvoice",
+    defaultEntity: "customer",
+    adapter: (result: LookupResult) => {
+      if (result.entity === "customer") {
+        setDocState((prev) => ({
+          ...prev,
+          customerCode: (result.record?.customer_code as string) || result.returnValue || prev.customerCode,
+          customerName: result.displayValue || (result.record?.name as string) || prev.customerName,
+        }));
+        setIsCustomerModalOpen(false);
+      } else if (result.entity === "variant" || result.entity === "item" || result.entity === "item_barcode") {
+        // Variant result from TaxEntryBar input: call handleAddItem with the looked-up product data.
+        handleAddItem({
+          stockNo:         (result.record?.stock_no as string) || result.returnValue || "",
+          barcode:         (result.record?.barcode as string) || "",
+          itemDescription: result.displayValue || (result.record?.name as string) || "Item",
+          qty:             1,
+          rate:            (result.record?.selling_price as number) || (result.record?.mrp as number) || 0,
+          value:           0,
+          discCode:        "",
+          discQty:         0,
+          discPercent:     0,
+          discAmt:         0,
+          total:           0,
+          salesStaff:      "",
+          gstRate:         (result.record?.tax_percent as number) || 18,
+        });
+      } else {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[DistTaxInvoice][F2] FieldAdapter: unhandled entity:", result.entity);
+        }
+      }
+    }
+  });
 
   // Export Columns definition
   const exportColumns: ExportColumnDefinition[] = useMemo(

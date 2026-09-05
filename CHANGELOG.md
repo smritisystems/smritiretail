@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.62.0
+  * Version    : 3.63.0
   * Created    : 2026-07-11
-  * Modified   : 2026-08-25
+  * Modified   : 2026-09-02
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,60 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.30.0] - 2026-09-02
+
+#### P0 Fix: Customer Master B2B Re-hydration + API Routing Blockers
+
+**Commit:** `6aac3be8`
+
+**Bug Fixes**
+- **CustMasterWs.tsx** (v5.6.0 → v5.7.0): `mapBackendCustomerToRecord()` — replaced `environment: bCust.environment || "Retail"` fallback with deterministic derivation from `customer_group_id` and `tags`. Eliminates B2B → Retail regression on every PostgreSQL round-trip re-hydration.
+- **CustMasterWs.tsx**: Cleared hardcoded `DEFAULT_MAILING_ADDRESS.mobilePhone: "9876543210"` to empty string. Prevents 400 Bad Request duplicate mobile errors on new customer records.
+- **CustMasterWs.tsx**: Added HREP-compliant human-readable error translation for duplicate mobile number backend rejections.
+- **CustMasterWs.tsx**: Synchronised `customer_group_id`, `tags`, `customerType`, `environment`, `price_group`, and `priceGroup` in localStorage cache on every save, preventing stale Retail classification after page reload.
+- **CustFormTab.tsx** (v3.0.0 → v3.1.0): Bidirectional Price Group ↔ Customer Type cascade. Selecting CORP price group auto-sets Corporate type + environment. Selecting Corporate customer type auto-applies CORP price group fields.
+- **inventory.py**: Added `@router.get("")` and `@router.post("")` empty-path decorators alongside `"/"` variants. Raised `page_size` max limit from 100 to 500. Eliminates 307 temporary redirect to internal Docker hostname (`smriti-api:8000`) causing `net::ERR_NAME_NOT_RESOLVED`.
+- **main.py**: Mounted `inventory.router` at `/api/v1/variants` prefix. Resolves 404 Not Found on `GET /api/v1/variants?page_size=200` used by Gate-11E F2 universal browse.
+
+**Tests**
+- Added `src/tests/customerRehydration.test.ts` — 5-scenario unit suite (TEST A–E) covering Corporate, Wholesale, Retail, VIP, and empty-payload re-hydration.
+- Full Vitest suite: 617/617 tests green, 0 failures.
+- Production build: 3526 modules, 0 errors.
+- Docker rebuild: all 4 containers healthy.
+- Headless Playwright UAT: 8/8 steps pass (exit code 0).
+
+**Documentation**
+- Created `docs/walkthrough/customer/Customer_B2B_Rehydration_Fix_v3.30.0.md`
+- Created `docs/implementation/customer/Customer_B2B_Rehydration_Fix_Plan_v3.30.0.md`
+
+---
+
+### [3.123.0] - 2026-09-02
+
+#### F2 Universal Lookup Architecture v2 — Phase C Complete
+
+**Batch 1 — Screen Migrations** (commit `cade22ac`)
+- **TagLabelPrintingTa.tsx** (v6.8.0 → v6.9.0): Replaced local `e.key==='F2'` handler with `useF2Screen` + `FieldAdapter`. `stockNoFrom` and `stockNoTo` tagged with `id` + `data-f2-entity="variant"`. Adapter routes deterministically via `dispatcher.originElementRef.current.id`. `PurchBrowseDlg` (button-triggered), F11, F8 preserved.
+- **CustMasterWs.tsx** (v5.5.0 → v5.6.0): Removed F2 keyboard branch. Registered `useF2Screen(entity=customer)`. Adapter resolves by canonical `id` → `code`. `Alt+S` and `SmritiAdvancedCustomerSearchModal` preserved entirely.
+- **f2PhaseC_Batch1.test.ts**: 17 new regression tests; 59/59 total suite passes.
+
+**Batch 2A — Legacy Infrastructure Decommission** (commit `4398d6a5`)
+- **DELETED** `src/components/drilldown/GlobalF2BrowseDlg.tsx` — 1,118-line dead-render component permanently removed; was rendering `null` on every cycle (isF2ModalOpen permanently false). Bundle: 3527 → 3526 modules.
+- **App.tsx**: Removed `GlobalF2BrowseModal` static import and JSX mount.
+- **ActiveFieldContext.tsx** (v7.0.0 → v7.1.0): Removed `isF2ModalOpen`, `openF2Modal`, `closeF2Modal`, `insertValueIntoActiveField` (no-op stub). Focus/input tracking and HUD support preserved.
+- **GlobalSearch.tsx** (v3.32.0 → v3.33.0): Removed `insertValueIntoActiveField` destructure and call (was already a no-op since Phase A). Ctrl+K, `openPanel`, `pushContext`, drill-down preserved.
+
+**Verification**: TSC 0 errors · 59/59 Vitest · build clean · 0 executable legacy symbol references · `ItemDetailsGrid` F2 untouched.
+
+**Batch 3 — Documentation** (commit `958beb2a`)
+- Created `docs/walkthrough/foundation/F2_Universal_Lookup_Architecture_v2_Phase_C_v1.0.0.md` (13 sections)
+- Updated `docs/walkthrough/README.md` (Phase C row added)
+- Note: `src/components/sales/SalesOrderTab.tsx` (sales order audit-view enhancement, 32 lines) was inadvertently included in `958beb2a` due to pre-existing staging. The change is unrelated to Phase C documentation; it is a valid SalesOrderTab working-tree change and is not rolled back.
+
+**Known limitation (pre-existing, disclosed):** `GlobalSearch.tsx` Ctrl+K field-injection into the previously focused input had been a no-op since Phase A (function body: `console.warn` + return). Batch 2A removal did not introduce new degradation. Classified as pre-existing degraded behaviour identified during legacy cleanup.
+
+---
 
 ### [3.122.1] - 2026-09-01
 

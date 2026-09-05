@@ -14,7 +14,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, Plus, Trash2, Check, MapPin, Phone, Mail, Home } from "lucide-react";
-import { CustomerAddressEntry } from "./types.ts";
+import { CustomerAddressEntry, CustomerAddressType } from "./types.ts";
 
 interface SmritiCustomerMailingModalProps {
   isOpen: boolean;
@@ -36,6 +36,10 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   const [addressList, setAddressList] = useState<CustomerAddressEntry[]>([]);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number>(0);
 
+  const addressTypeLabel = (type?: CustomerAddressType) => (
+    type === "billing" ? "Billing" : type === "shipping" ? "Shipping" : "Mailing"
+  );
+
   useEffect(() => {
     if (isOpen) {
       if (addresses && addresses.length > 0) {
@@ -44,6 +48,10 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
         setAddressList([{
           code: "001",
           contactPerson: customerName || "Primary Contact",
+          addressType: "mailing",
+          storeCode: "",
+          billingStoreCode: "",
+          shippingStoreCode: "",
           address1: "",
           address2: "",
           address3: "",
@@ -80,7 +88,7 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
         next[selectedAddressIndex] = { ...next[selectedAddressIndex], [key]: value };
         if (key === "isDefault" && value === true) {
           next.forEach((addr, idx) => {
-            if (idx !== selectedAddressIndex) addr.isDefault = false;
+            if (idx !== selectedAddressIndex && addr.addressType === next[selectedAddressIndex].addressType) addr.isDefault = false;
           });
         }
       }
@@ -93,6 +101,10 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
     const newEntry: CustomerAddressEntry = {
       code: newCode,
       contactPerson: customerName || "Contact Person",
+      addressType: "mailing",
+      storeCode: "",
+      billingStoreCode: "",
+      shippingStoreCode: "",
       address1: "",
       address2: "",
       address3: "",
@@ -193,7 +205,7 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                 >
                   <div className="flex items-center gap-1.5 truncate">
                     <Home size={12} className="shrink-0" />
-                    <span className="truncate">#{addr.code} {addr.locality || addr.city}</span>
+                    <span className="truncate">#{addr.code} {addressTypeLabel(addr.addressType)} · {addr.locality || addr.city}</span>
                   </div>
                   {addr.isDefault && (
                     <span className="w-2 h-2 rounded-full bg-[#0c9488] shrink-0" title="Default Address" />
@@ -228,6 +240,33 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                     value={currentAddress.code}
                     onChange={e => handleFieldChange("code", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                    Address Type
+                  </label>
+                  <select
+                    value={currentAddress.addressType || "mailing"}
+                    onChange={e => handleFieldChange("addressType", e.target.value as CustomerAddressType)}
+                    className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-semibold text-xs"
+                  >
+                    <option value="mailing">Mailing Address</option>
+                    <option value="billing">Billing Address</option>
+                    <option value="shipping">Shipping Address</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                    {currentAddress.addressType === "billing" ? "Billing Store Code" : currentAddress.addressType === "shipping" ? "Shipping Store Code" : "Store Code"}
+                  </label>
+                  <input
+                    type="text"
+                    value={currentAddress.addressType === "billing" ? currentAddress.billingStoreCode || "" : currentAddress.addressType === "shipping" ? currentAddress.shippingStoreCode || "" : currentAddress.storeCode || ""}
+                    onChange={e => handleFieldChange(currentAddress.addressType === "billing" ? "billingStoreCode" : currentAddress.addressType === "shipping" ? "shippingStoreCode" : "storeCode", e.target.value)}
+                    className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono text-xs"
                   />
                 </div>
 

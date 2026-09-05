@@ -7,7 +7,7 @@
  * Version      : 3.101.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -91,7 +91,7 @@ function buildSamplePOs(): PurchaseOrder[] {
     invoiceId: "INV-001", invoiceNo: "MA/26-27/4421", poId: po2.poId, vendorId: "VND-002",
     invoiceDate: "2026-08-27T12:00:00Z", invoiceTotal: 0,
     lines: [
-      { lineId: "LINE-1", invoicedQty: 200, invoicedUnitPrice: 355 }, // â‚¹5 price variance (1.43% > 1%)
+      { lineId: "LINE-1", invoicedQty: 200, invoicedUnitPrice: 355 }, // ₹5 price variance (1.43% > 1%)
       { lineId: "LINE-2", invoicedQty: 98,  invoicedUnitPrice: 620 },
     ],
   });
@@ -154,7 +154,7 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
     update(po);
     onNotification?.(
       po.status === "CLOSED" ? "PO Closed" : "Dispute Raised",
-      `${po.poNo} â†’ ${po.status}`,
+      `${po.poNo} → ${po.status}`,
       po.status === "CLOSED" ? "success" : "error"
     );
   };
@@ -170,7 +170,7 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Vendor PO Approval & 3-Way Match Engine</h2>
-              <p className="text-xs text-slate-400">PO â†’ GRN â†’ Invoice Â· Â±{THREE_WAY_CONFIG.qtyTolerancePct}% Qty Â· Â±{THREE_WAY_CONFIG.priceTolerancePct}% Price Tolerance Â· MATCHED/DISPUTED</p>
+              <p className="text-xs text-slate-400">PO → GRN → Invoice · Â±{THREE_WAY_CONFIG.qtyTolerancePct}% Qty · Â±{THREE_WAY_CONFIG.priceTolerancePct}% Price Tolerance · MATCHED/DISPUTED</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -197,7 +197,7 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
                 <div className="text-[10px] text-slate-400 mt-0.5 truncate">{o.vendorName}</div>
                 <div className="flex items-center justify-between mt-1.5">
                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${PO_STATUS_STYLE[o.status]}`}>{o.status.replace(/_/g, " ")}</span>
-                  <span className="text-[10px] font-mono text-slate-400">â‚¹{o.grandTotal.toLocaleString("en-IN")}</span>
+                  <span className="text-[10px] font-mono text-slate-400">₹{o.grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </button>
             ))}
@@ -212,9 +212,9 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
                   <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
                       <p className="text-lg font-bold font-mono text-slate-100">{selected.poNo}</p>
-                      <p className="text-xs text-slate-400">{selected.vendorName} Â· {selected.branchCode}</p>
+                      <p className="text-xs text-slate-400">{selected.vendorName} · {selected.branchCode}</p>
                       {selected.deliveryDate && <p className="text-xs text-indigo-400 mt-0.5">ðŸ“¦ EDD: {selected.deliveryDate}</p>}
-                      {selected.approvedBy && <p className="text-[10px] text-emerald-400 mt-0.5">âœ“ Approved by: {selected.approvedBy}</p>}
+                      {selected.approvedBy && <p className="text-[10px] text-emerald-400 mt-0.5">? Approved by: {selected.approvedBy}</p>}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${PO_STATUS_STYLE[selected.status]}`}>{selected.status.replace(/_/g, " ")}</span>
@@ -230,9 +230,9 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
                   {/* PO totals */}
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { label: "Taxable Value", value: `â‚¹${selected.totalValue.toLocaleString("en-IN")}`, color: "text-slate-300" },
-                      { label: "GST Total", value: `â‚¹${selected.taxTotal.toLocaleString("en-IN")}`, color: "text-indigo-400" },
-                      { label: "Grand Total", value: `â‚¹${selected.grandTotal.toLocaleString("en-IN")}`, color: "text-emerald-400" },
+                      { label: "Taxable Value", value: `₹${selected.totalValue.toLocaleString("en-IN")}`, color: "text-slate-300" },
+                      { label: "GST Total", value: `₹${selected.taxTotal.toLocaleString("en-IN")}`, color: "text-indigo-400" },
+                      { label: "Grand Total", value: `₹${selected.grandTotal.toLocaleString("en-IN")}`, color: "text-emerald-400" },
                     ].map((m) => (
                       <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-3 text-center">
                         <div className={`text-lg font-black font-mono ${m.color}`}>{m.value}</div>
@@ -260,11 +260,11 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
                             <tr key={l.lineId}>
                               <td className="py-2 px-3 font-sans text-slate-200">{l.productName}<div className="text-[10px] text-slate-500">{l.sku}</div></td>
                               <td className="py-2 px-3 text-right text-slate-400">{l.orderedQty}</td>
-                              <td className="py-2 px-3 text-right text-teal-400">{l.receivedQty ?? "â€”"}</td>
-                              <td className="py-2 px-3 text-right text-indigo-400">{l.invoicedQty ?? "â€”"}</td>
-                              <td className="py-2 px-3 text-right text-slate-300">â‚¹{l.unitPrice}</td>
+                              <td className="py-2 px-3 text-right text-teal-400">{l.receivedQty ?? "—"}</td>
+                              <td className="py-2 px-3 text-right text-indigo-400">{l.invoicedQty ?? "—"}</td>
+                              <td className="py-2 px-3 text-right text-slate-300">₹{l.unitPrice}</td>
                               <td className="py-2 px-3 text-right text-slate-400">{l.gstRate ?? 0}%</td>
-                              <td className="py-2 px-3 text-right font-bold text-slate-100">â‚¹{l.lineTotal.toLocaleString("en-IN")}</td>
+                              <td className="py-2 px-3 text-right font-bold text-slate-100">₹{l.lineTotal.toLocaleString("en-IN")}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -282,7 +282,7 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${PO_STATUS_STYLE[e.toStatus]}`}>{e.toStatus.replace(/_/g, " ")}</span>
-                              <span className="text-slate-500 text-[10px] font-mono">{e.performedBy} Â· {new Date(e.timestamp).toLocaleString("en-IN")}</span>
+                              <span className="text-slate-500 text-[10px] font-mono">{e.performedBy} · {new Date(e.timestamp).toLocaleString("en-IN")}</span>
                             </div>
                             {e.note && <p className="text-slate-400 mt-1">{e.note}</p>}
                           </div>
@@ -297,7 +297,7 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <p className="text-base font-bold text-slate-100">3-Way Match Report</p>
-                      <p className="text-xs text-slate-400">{matchReport.poNo} Â· {matchReport.vendorName}</p>
+                      <p className="text-xs text-slate-400">{matchReport.poNo} · {matchReport.vendorName}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-black px-3 py-1.5 rounded-full border ${MATCH_STYLE[matchReport.overallResult]}`}>{matchReport.overallResult.replace(/_/g, " ")}</span>
@@ -311,9 +311,9 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { label: "PO Value",      value: `â‚¹${matchReport.totalPOValue.toLocaleString("en-IN")}`,      color: "text-slate-300" },
-                      { label: "GRN Value",     value: `â‚¹${matchReport.totalGRNValue.toLocaleString("en-IN")}`,     color: "text-teal-400" },
-                      { label: "Invoice Value", value: `â‚¹${matchReport.totalInvoiceValue.toLocaleString("en-IN")}`, color: "text-indigo-400" },
+                      { label: "PO Value",      value: `₹${matchReport.totalPOValue.toLocaleString("en-IN")}`,      color: "text-slate-300" },
+                      { label: "GRN Value",     value: `₹${matchReport.totalGRNValue.toLocaleString("en-IN")}`,     color: "text-teal-400" },
+                      { label: "Invoice Value", value: `₹${matchReport.totalInvoiceValue.toLocaleString("en-IN")}`, color: "text-indigo-400" },
                     ].map((m) => (
                       <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-3 text-center">
                         <div className={`text-base font-black font-mono ${m.color}`}>{m.value}</div>
@@ -334,8 +334,8 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
                           <div className="grid grid-cols-3 gap-3 text-xs">
                             {[
                               { label: "Qty (PO/GRN/INV)", value: `${line.poQty} / ${line.grnQty} / ${line.invQty}` },
-                              { label: "Price (PO/INV)", value: `â‚¹${line.poUnitPrice} / â‚¹${line.invUnitPrice}` },
-                              { label: "Variances", value: `Qty: ${line.qtyVariancePct}% Â· Price: ${line.priceVariancePct}%` },
+                              { label: "Price (PO/INV)", value: `₹${line.poUnitPrice} / ₹${line.invUnitPrice}` },
+                              { label: "Variances", value: `Qty: ${line.qtyVariancePct}% · Price: ${line.priceVariancePct}%` },
                             ].map((m) => (
                               <div key={m.label} className="bg-slate-900/40 rounded-lg p-2">
                                 <div className="text-[10px] text-slate-500 mb-0.5">{m.label}</div>
@@ -345,10 +345,10 @@ export const POApprovalMatchModal: React.FC<POApprovalMatchModalProps> = ({ isOp
                           </div>
                           <div className="flex gap-3 mt-2 text-[10px]">
                             <span className={line.qtyVariancePct <= THREE_WAY_CONFIG.qtyTolerancePct ? "text-emerald-400" : "text-rose-400"}>
-                              Qty: {line.qtyVariancePct <= THREE_WAY_CONFIG.qtyTolerancePct ? "âœ“" : "âœ—"} {THREE_WAY_CONFIG.qtyTolerancePct}% tolerance
+                              Qty: {line.qtyVariancePct <= THREE_WAY_CONFIG.qtyTolerancePct ? "?" : "?"} {THREE_WAY_CONFIG.qtyTolerancePct}% tolerance
                             </span>
                             <span className={line.priceVariancePct <= THREE_WAY_CONFIG.priceTolerancePct ? "text-emerald-400" : "text-rose-400"}>
-                              Price: {line.priceVariancePct <= THREE_WAY_CONFIG.priceTolerancePct ? "âœ“" : "âœ—"} {THREE_WAY_CONFIG.priceTolerancePct}% tolerance
+                              Price: {line.priceVariancePct <= THREE_WAY_CONFIG.priceTolerancePct ? "?" : "?"} {THREE_WAY_CONFIG.priceTolerancePct}% tolerance
                             </span>
                           </div>
                         </div>

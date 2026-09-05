@@ -9,9 +9,9 @@
  * Description  : Enterprise-grade Sales Order Form with premium UI/UX
  *                Professional design, smooth interactions, and working lookups
  * 
- * Version      : 3.30.0
+ * Version      : 3.31.1
  * Created      : 2026-08-31
- * Modified     : 2026-08-31
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -48,6 +48,8 @@ import { validateSalesTransaction } from "../../services/sales/transactionValida
 import { validateSalesOrderItems } from "../../utils/salesOrderValidation";
 import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel";
 import type { TransactionAttachment } from "../../domain/attachment";
+import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -62,12 +64,15 @@ export interface SalesOrderItem {
   quantity: number;
   uom?: string;
   value: number;
+  discCode?: string;
+  discQty?: number;
   discPercent?: number;
   discAmount?: number;
   taxPercent?: number;
   taxAmount?: number;
   total: number;
   salesStaff?: string;
+  gstRate?: number;
 }
 
 export interface Customer {
@@ -117,6 +122,7 @@ interface SalesOrderFormProps {
   onSubmit?: (data: SalesOrderFormData) => Promise<void>;
   onCancel?: () => void;
   compact?: boolean;
+  readOnly?: boolean;
 }
 
 const toSharedSalesLineItem = (item: SalesOrderItem): SalesLineItem => ({
@@ -713,7 +719,8 @@ const PremiumSalesOrderHeader: React.FC<{
   errors?: Record<string, string>;
   onImportClick?: () => void;
   onRecallClick?: () => void;
-}> = ({ formData, onFieldChange, errors = {}, onImportClick, onRecallClick }) => {
+  readOnly?: boolean;
+}> = ({ formData, onFieldChange, errors = {}, onImportClick, onRecallClick, readOnly = false }) => {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
 
   const handleCustomerSelect = (customer: Customer) => {
@@ -745,7 +752,8 @@ const PremiumSalesOrderHeader: React.FC<{
               <button
                 type="button"
                 onClick={onImportClick}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-semibold rounded-l-md bg-sky-600/90 hover:bg-sky-500 text-white transition"
+                disabled={readOnly}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-[9px] font-semibold rounded-l-md bg-sky-600/90 hover:bg-sky-500 text-white transition ${readOnly ? "opacity-50 cursor-not-allowed" : ""}`}
                 title="Import transaction or PDT file"
               >
                 <Upload className="w-3 h-3" />
@@ -755,7 +763,8 @@ const PremiumSalesOrderHeader: React.FC<{
               <button
                 type="button"
                 onClick={onRecallClick}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-semibold rounded-r-md bg-slate-700/80 hover:bg-slate-600 text-white transition"
+                disabled={readOnly}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-[9px] font-semibold rounded-r-md bg-slate-700/80 hover:bg-slate-600 text-white transition ${readOnly ? "opacity-50 cursor-not-allowed" : ""}`}
                 title="Recall previous sales order or suspended transaction"
               >
                 <Clock className="w-3 h-3" />
@@ -780,7 +789,9 @@ const PremiumSalesOrderHeader: React.FC<{
                 value={formData.docPrefix || "SO"}
                 onChange={(e) => onFieldChange("docPrefix", e.target.value.toUpperCase())}
                 maxLength={3}
-                className="w-12 px-1.5 py-1 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                readOnly={readOnly}
+                disabled={readOnly}
+                className={`w-12 px-1.5 py-1 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
               />
             </div>
 
@@ -802,7 +813,9 @@ const PremiumSalesOrderHeader: React.FC<{
                 type="date"
                 value={formData.docDate || new Date().toISOString().split("T")[0]}
                 onChange={(e) => onFieldChange("docDate", e.target.value)}
-                className="w-24 px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                readOnly={readOnly}
+                disabled={readOnly}
+                className={`w-24 px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
               />
             </div>
 
@@ -813,7 +826,9 @@ const PremiumSalesOrderHeader: React.FC<{
                 type="time"
                 value={formData.docTime || new Date().toTimeString().slice(0, 5)}
                 onChange={(e) => onFieldChange("docTime", e.target.value)}
-                className="w-20 px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                readOnly={readOnly}
+                disabled={readOnly}
+                className={`w-20 px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
               />
             </div>
 
@@ -825,7 +840,9 @@ const PremiumSalesOrderHeader: React.FC<{
                 value={formData.referenceNo || ""}
                 onChange={(e) => onFieldChange("referenceNo", e.target.value)}
                 placeholder="PO"
-                className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                readOnly={readOnly}
+                disabled={readOnly}
+                className={`w-full px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
               />
             </div>
 
@@ -835,7 +852,8 @@ const PremiumSalesOrderHeader: React.FC<{
               <select
                 value={formData.orderStatus || "Open"}
                 onChange={(e) => onFieldChange("orderStatus", e.target.value)}
-                className="px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                disabled={readOnly}
+                className={`px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
               >
                 <option>Open</option>
                 <option>Confirmed</option>
@@ -855,14 +873,17 @@ const PremiumSalesOrderHeader: React.FC<{
                   value={formData.customerCode || ""}
                   onChange={(e) => onFieldChange("customerCode", e.target.value)}
                   placeholder="F2"
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className={`w-24 px-1.5 py-1 border rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${
                     errors.customerCode ? "border-red-500" : "border-slate-300"
-                  }`}
+                  } ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowCustomerModal(true)}
-                  className="px-1.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition"
+                  disabled={readOnly}
+                  className={`px-1.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition ${readOnly ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   F2
                 </button>
@@ -887,7 +908,8 @@ const PremiumSalesOrderHeader: React.FC<{
               <select
                 value={formData.salesStaff || ""}
                 onChange={(e) => onFieldChange("salesStaff", e.target.value)}
-                className="px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                disabled={readOnly}
+                className={`px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
               >
                 <option value="">--</option>
                 <option>Sales Team 1</option>
@@ -901,7 +923,8 @@ const PremiumSalesOrderHeader: React.FC<{
               <select
                 value={formData.deliveryTerms || "Door Delivery"}
                 onChange={(e) => onFieldChange("deliveryTerms", e.target.value)}
-                className="px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                disabled={readOnly}
+                className={`px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
               >
                 <option>Door Delivery</option>
                 <option>Self Pickup</option>
@@ -915,7 +938,8 @@ const PremiumSalesOrderHeader: React.FC<{
               <select
                 value={formData.paymentTerms || "Net 30"}
                 onChange={(e) => onFieldChange("paymentTerms", e.target.value)}
-                className="px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                disabled={readOnly}
+                className={`px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
               >
                 <option>Net 30</option>
                 <option>Net 15</option>
@@ -931,7 +955,9 @@ const PremiumSalesOrderHeader: React.FC<{
                 value={formData.remarks || ""}
                 onChange={(e) => onFieldChange("remarks", e.target.value)}
                 placeholder="Notes..."
-                className="w-full px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                readOnly={readOnly}
+                disabled={readOnly}
+                className={`w-full px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
               />
             </div>
           </div>
@@ -1061,14 +1087,19 @@ const PremiumSalesOrderDetail: React.FC<{
             <table className="w-full text-sm">
               <thead className="bg-slate-100 border-b border-slate-300 sticky top-0">
                 <tr className="text-[10px] font-bold text-slate-700 uppercase">
-                  <th className="px-2.5 py-2 text-left w-24">Stock No.</th>
+                  <th className="px-2.5 py-2 text-left w-20">Stock No.</th>
                   <th className="px-2.5 py-2 text-left flex-1">Description</th>
-                  <th className="px-2.5 py-2 text-right w-20">Rate</th>
-                  <th className="px-2.5 py-2 text-right w-20">Qty</th>
-                  <th className="px-2.5 py-2 text-right w-20">Value</th>
-                  <th className="px-2.5 py-2 text-right w-20">Disc %</th>
-                  <th className="px-2.5 py-2 text-right w-20">Tax %</th>
-                  <th className="px-2.5 py-2 text-right w-24">Total</th>
+                  <th className="px-2.5 py-2 text-right w-16">Rate</th>
+                  <th className="px-2.5 py-2 text-right w-14">Qty</th>
+                  <th className="px-2.5 py-2 text-right w-16">Value</th>
+                  <th className="px-2.5 py-2 text-right w-16">Disc Code</th>
+                  <th className="px-2.5 py-2 text-right w-14">Disc Qty</th>
+                  <th className="px-2.5 py-2 text-right w-14">Disc %</th>
+                  <th className="px-2.5 py-2 text-right w-16">Disc Amt</th>
+                  <th className="px-2.5 py-2 text-right w-14">Tax %</th>
+                  <th className="px-2.5 py-2 text-right w-16">Tax Amt</th>
+                  <th className="px-2.5 py-2 text-right w-16">Total</th>
+                  <th className="px-2.5 py-2 text-center w-20">Sales Staff</th>
                   <th className="px-2.5 py-2 text-center w-12">Action</th>
                 </tr>
               </thead>
@@ -1098,7 +1129,9 @@ const PremiumSalesOrderDetail: React.FC<{
                         }}
                         placeholder="F2 or click"
                         data-field-key="stock_no"
-                        data-f2-browse="product"
+                        data-f2-entity="variant"
+                        data-row-index={String(index)}
+                        aria-label={`Stock No — row ${index + 1}, F2 to browse variants`}
                         className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs font-mono bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       />
                     </td>
@@ -1128,26 +1161,64 @@ const PremiumSalesOrderDetail: React.FC<{
                     </td>
                     <td className="px-2.5 py-2">
                       <input
+                        type="text"
+                        value={item.discCode || ""}
+                        onChange={(e) => handleItemChange(index, "discCode", e.target.value)}
+                        data-field-key="disc_code"
+                        placeholder="—"
+                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
+                    </td>
+                    <td className="px-2.5 py-2">
+                      <input
+                        type="number"
+                        value={item.discQty || 0}
+                        onChange={(e) => handleItemChange(index, "discQty", parseFloat(e.target.value) || 0)}
+                        data-field-key="disc_qty"
+                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        step="0.01"
+                      />
+                    </td>
+                    <td className="px-2.5 py-2">
+                      <input
                         type="number"
                         value={item.discPercent || 0}
                         onChange={(e) => handleItemChange(index, "discPercent", parseFloat(e.target.value) || 0)}
+                        data-field-key="disc_percent"
                         className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         step="0.01"
                         max="100"
                       />
+                    </td>
+                    <td className="px-2.5 py-2 text-right font-mono text-xs font-semibold text-slate-900">
+                      {formatCurrency(item.discAmount || 0)}
                     </td>
                     <td className="px-2.5 py-2">
                       <input
                         type="number"
                         value={item.taxPercent || 0}
                         onChange={(e) => handleItemChange(index, "taxPercent", parseFloat(e.target.value) || 0)}
+                        data-field-key="tax_percent"
                         className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         step="0.01"
                         max="100"
                       />
                     </td>
+                    <td className="px-2.5 py-2 text-right font-mono text-xs font-semibold text-slate-900">
+                      {formatCurrency(item.taxAmount || 0)}
+                    </td>
                     <td className="px-2.5 py-2 text-right font-mono text-xs font-bold text-emerald-700 bg-emerald-50 rounded">
                       {formatCurrency(item.total || 0)}
+                    </td>
+                    <td className="px-2.5 py-2">
+                      <input
+                        type="text"
+                        value={item.salesStaff || ""}
+                        onChange={(e) => handleItemChange(index, "salesStaff", e.target.value)}
+                        data-field-key="sales_staff"
+                        placeholder="—"
+                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
                     </td>
                     <td className="px-2.5 py-2 text-center">
                       <motion.button
@@ -1198,45 +1269,44 @@ const PremiumSalesOrderFooter: React.FC<{
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="mt-3 bg-gradient-to-r from-blue-50 via-slate-50 to-indigo-50 border border-blue-200 rounded-2xl overflow-hidden shadow-lg"
+      className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border-t border-slate-700 shadow-[0_-12px_30px_rgba(15,23,42,0.14)]"
     >
       <div className="p-4">
-        <h3 className="text-sm font-bold text-slate-900 mb-3 uppercase tracking-wide">📊 Order Summary</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {/* Total Items */}
-          <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
-            <div className="text-[10px] font-semibold text-slate-600 uppercase mb-1">Total Items</div>
-            <div className="text-xl font-bold text-slate-900">{totalItems}</div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-300">Order Summary</h3>
+          <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-emerald-300">
+            Live
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Items</div>
+            <div className="mt-2 text-xl font-bold text-white">{totalItems}</div>
           </div>
 
-          {/* Total Quantity */}
-          <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
-            <div className="text-[10px] font-semibold text-slate-600 uppercase mb-1">Total Qty</div>
-            <div className="text-xl font-bold text-slate-900">{formatQuantity(totalQuantity)}</div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Qty</div>
+            <div className="mt-2 text-xl font-bold text-white">{formatQuantity(totalQuantity)}</div>
           </div>
 
-          {/* Sales Value */}
-          <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
-            <div className="text-[10px] font-semibold text-slate-600 uppercase mb-1">Sales Value</div>
-            <div className="text-xl font-bold text-blue-600">{formatCurrency(totalSalesValue)}</div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Value</div>
+            <div className="mt-2 text-lg font-bold text-blue-300">{formatCurrency(totalSalesValue)}</div>
           </div>
 
-          {/* Discount */}
-          <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
-            <div className="text-[10px] font-semibold text-slate-600 uppercase mb-1">Discount</div>
-            <div className="text-xl font-bold text-red-600">-{formatCurrency(totalDiscount)}</div>
+          <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 p-3 backdrop-blur-sm">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-200">Discount</div>
+            <div className="mt-2 text-lg font-bold text-rose-200">-{formatCurrency(totalDiscount)}</div>
           </div>
 
-          {/* Tax */}
-          <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
-            <div className="text-[10px] font-semibold text-slate-600 uppercase mb-1">Total Tax</div>
-            <div className="text-xl font-bold text-amber-600">{formatCurrency(totalTax)}</div>
+          <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 backdrop-blur-sm">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200">Tax</div>
+            <div className="mt-2 text-lg font-bold text-amber-200">{formatCurrency(totalTax)}</div>
           </div>
 
-          {/* Net Amount */}
-          <div className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-lg p-3 border border-green-300 shadow-md col-span-2 sm:col-span-1">
-            <div className="text-[10px] font-semibold text-white/90 uppercase mb-1">Net Amount</div>
-            <div className="text-xl font-bold text-white">{formatCurrency(netAmount)}</div>
+          <div className="rounded-xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500 to-emerald-700 p-3 shadow-lg shadow-emerald-900/20 sm:col-span-1">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-100">Net</div>
+            <div className="mt-2 text-lg font-bold text-white">{formatCurrency(netAmount)}</div>
           </div>
         </div>
       </div>
@@ -1253,6 +1323,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   onSubmit,
   onCancel,
   compact = false,
+  readOnly = false,
 }) => {
   const [formData, setFormData] = useState<Partial<SalesOrderFormData>>({
     docPrefix: "SO",
@@ -1273,6 +1344,21 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showImportModal, setShowImportModal] = useState(false);
   const [showRecallModal, setShowRecallModal] = useState(false);
+  const isAuditReadOnly = readOnly;
+  const [quickEntry, setQuickEntry] = useState({
+    stockNo: "",
+    description: "",
+    rate: "",
+    qty: "1",
+    discCode: "",
+    discQty: "",
+    discPercent: "",
+    discAmount: "",
+    taxPercent: "18",
+    taxAmount: "",
+    gstRate: "18",
+    salesStaff: "",
+  });
 
   const handleFieldChange = useCallback((field: string, value: any) => {
     setFormData((prev) => ({
@@ -1294,6 +1380,82 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       };
     });
   }, []);
+
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase B Batch 2) ──
+  // Two variant lookup inputs in this screen:
+  //   sofp-lineitem-stockno   → active line-item in PremiumSalesOrderDetail
+  //   sofp-quickentry-stockno → quick-entry bar (setQuickEntry lives here in the parent)
+  // useF2Screen is placed in the parent so both setQuickEntry and handleItemsChange are in scope.
+  // document.activeElement?.id is read at the time the adapter fires to route to the correct field.
+  useF2Screen({
+    screenId: "SalesOrderFormPremium",
+    defaultEntity: "variant",
+    adapter: (result: LookupResult) => {
+      if (result.entity !== "variant" && result.entity !== "item" && result.entity !== "item_barcode") {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[SalesOrderFormPremium][F2] FieldAdapter: unhandled entity:", result.entity);
+        }
+        return;
+      }
+      const stockVal = (result.record?.stock_no as string) || result.returnValue || "";
+      const nameVal  = result.displayValue || (result.record?.name as string) || "";
+      const rateVal  = (result.record?.selling_price as number)
+                    || (result.record?.mrp as number)
+                    || (result.record?.price as number) || 0;
+      // ── Route: quick-entry vs line-item ─────────────────────────────────────────────────
+      // The originating element is document.activeElement at the time the adapter fires.
+      // F2Dispatcher restores focus to the origin element before calling the adapter.
+      //
+      // Quick-entry: id="sofp-quickentry-stockno" (unique in DOM — only one quick-entry bar).
+      // Line-item:   data-row-index="{index}" (unique per row, no shared static id).
+      //   We read dataset.rowIndex from the focused element to get the exact originating row.
+      //   This is safe: focus cannot be on two elements simultaneously.
+      const origin = document.activeElement as HTMLElement | null;
+      const originId = origin?.id ?? "";
+
+      if (originId === "sofp-quickentry-stockno") {
+        // ── Quick-entry bar path ────────────────────────────────────────────────
+        setQuickEntry((prev) => ({ ...prev, stockNo: stockVal, description: nameVal, rate: String(rateVal) }));
+      } else {
+        // ── Line-item grid path ──────────────────────────────────────────────
+        // Read the exact row index from the originating element's data-row-index attribute.
+        // This is written as data-row-index={String(index)} on the input at render time
+        // and uniquely identifies which row was focused when F2 was pressed.
+        const rowIndexStr = origin?.dataset?.rowIndex;
+        const rowIdx = rowIndexStr !== undefined ? parseInt(rowIndexStr, 10) : -1;
+
+        if (rowIdx < 0 || isNaN(rowIdx)) {
+          // Cannot determine originating row — no-op rather than updating the wrong row.
+          if (process.env.NODE_ENV !== "production") {
+            console.warn(
+              "[SalesOrderFormPremium][F2] FieldAdapter: could not determine originating row.",
+              "origin:", origin, "dataset:", origin?.dataset
+            );
+          }
+          return;
+        }
+
+        setFormData((prev) => {
+          const updated = [...(prev.items ?? [])];
+          if (rowIdx >= updated.length) {
+            // Guard: index out of bounds — row was deleted between focus and lookup completion.
+            if (process.env.NODE_ENV !== "production") {
+              console.warn(
+                `[SalesOrderFormPremium][F2] FieldAdapter: rowIdx ${rowIdx} is out of bounds (items.length=${updated.length}). Skipping.`
+              );
+            }
+            return prev;
+          }
+          const target = { ...updated[rowIdx] } as SalesOrderItem;
+          target.stockNo      = stockVal;
+          target.description  = nameVal;
+          target.rate         = rateVal;
+          updated[rowIdx] = target;
+          return { ...prev, items: updated };
+        });
+      }
+    }
+  });
 
   const handleImport = useCallback((importedData: Partial<SalesOrderFormData>) => {
     setFormData((prev) => ({
@@ -1319,6 +1481,92 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
     setSuccess(true);
     setTimeout(() => setSuccess(false), 3000);
   }, []);
+
+  const handleQuickEntryLookup = useCallback(async (term: string) => {
+    const cleanTerm = term.trim();
+    if (!cleanTerm) {
+      setQuickEntry((prev) => ({ ...prev, description: "" }));
+      return;
+    }
+
+    try {
+      const data = await apiFetchV1(`/products?search=${encodeURIComponent(cleanTerm)}`);
+      const productList = Array.isArray(data) ? data : data?.data || [];
+      const product = productList.find(
+        (p: any) =>
+          String(p.code || "").toLowerCase() === cleanTerm.toLowerCase() ||
+          String(p.barcode || "").toLowerCase() === cleanTerm.toLowerCase() ||
+          String(p.stock_no || "").toLowerCase() === cleanTerm.toLowerCase() ||
+          String(p.name || "").toLowerCase().includes(cleanTerm.toLowerCase())
+      ) || productList[0];
+
+      if (product) {
+        setQuickEntry((prev) => ({
+          ...prev,
+          description: product.description || product.name || prev.description,
+          rate: String(product.rate ?? product.selling_price ?? product.price ?? ""),
+          gstRate: String(product.gst_percentage ?? product.gst_rate ?? 18),
+          taxPercent: String(product.gst_percentage ?? product.gst_rate ?? 18),
+        }));
+      }
+    } catch (error) {
+      console.warn("Failed to resolve quick-entry product:", error);
+    }
+  }, []);
+
+  const handleQuickAddItem = useCallback(() => {
+    if (isAuditReadOnly) return;
+
+    const stockNo = quickEntry.stockNo.trim();
+    const qty = Number(quickEntry.qty || 1);
+    const rate = Number(quickEntry.rate || 0);
+    const discPercent = Number(quickEntry.discPercent || 0);
+    const discAmount = Number(quickEntry.discAmount || 0);
+    const taxPercent = Number(quickEntry.taxPercent || 18);
+    
+    if (!stockNo && !quickEntry.description.trim()) {
+      return;
+    }
+
+    const calcValue = rate * (Number.isFinite(qty) && qty > 0 ? qty : 1);
+    const calcDiscAmount = discAmount || (calcValue * discPercent) / 100;
+    const calcTaxAmount = ((calcValue - calcDiscAmount) * taxPercent) / 100;
+    const calcTotal = calcValue - calcDiscAmount + calcTaxAmount;
+
+    const newItem: SalesOrderItem = {
+      id: `item-${Date.now()}`,
+      stockNo: stockNo || `SKU-${Math.random().toString().slice(-4)}`,
+      description: quickEntry.description.trim() || "Retail Item",
+      rate,
+      quantity: Number.isFinite(qty) && qty > 0 ? qty : 1,
+      value: calcValue,
+      discCode: quickEntry.discCode || undefined,
+      discQty: quickEntry.discQty ? Number(quickEntry.discQty) : undefined,
+      discPercent,
+      discAmount: calcDiscAmount,
+      taxPercent,
+      taxAmount: calcTaxAmount,
+      total: calcTotal,
+      salesStaff: quickEntry.salesStaff || undefined,
+      gstRate: Number(quickEntry.gstRate || 18),
+    };
+
+    handleItemsChange([...(formData.items || []), newItem]);
+    setQuickEntry({
+      stockNo: "",
+      description: "",
+      rate: "",
+      qty: "1",
+      discCode: "",
+      discQty: "",
+      discPercent: "",
+      discAmount: "",
+      taxPercent: "18",
+      taxAmount: "",
+      gstRate: "18",
+      salesStaff: "",
+    });
+  }, [quickEntry, formData.items, handleItemsChange]);
 
   const validateForm = () => {
     const txn: SalesTransaction = {
@@ -1363,6 +1611,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (isAuditReadOnly) return;
     if (!validateForm()) return;
 
     setIsSubmitting(true);
@@ -1383,38 +1632,45 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   };
 
   return (
-    <div className={`${compact ? "max-w-none mx-0 p-0 bg-slate-900 min-h-screen" : "max-w-7xl mx-auto p-6 bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen"}`}>
-      {/* Header Section */}
+    <div className={`${compact ? "max-w-none mx-0 p-0 bg-slate-900 min-h-screen" : "max-w-[1700px] mx-auto p-4 xl:p-6 bg-[radial-gradient(circle_at_top,_#f8fbff,_#eef3f9_38%,_#e7edf5_100%)] min-h-screen"}`}>
       {!compact && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          className="mb-4"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-3">
-                <FileText className="w-10 h-10 text-blue-600" />
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em] text-blue-700">
+                <FileText className="h-3.5 w-3.5" />
+                Transaction Workspace
+              </div>
+              <h1 className="text-3xl xl:text-4xl font-black tracking-tight text-slate-900 flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/20">
+                  <FileText className="w-5 h-5" />
+                </span>
                 Sales Order
               </h1>
-              <p className="text-slate-600 mt-2">Create and manage professional sales orders with ease</p>
             </div>
-            <motion.div whileHover={{ scale: 1.05 }} className="text-right">
-              <div className="text-sm font-semibold text-slate-600">Enterprise Edition</div>
-              <div className="text-xs text-slate-500 mt-1">v3.30.0</div>
+            <motion.div whileHover={{ scale: 1.02 }} className="flex items-center gap-2 self-start xl:self-auto">
+              <div className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Enterprise Edition
+              </div>
+              <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">
+                v3.30.0
+              </div>
             </motion.div>
           </div>
         </motion.div>
       )}
 
-      {/* Alerts */}
       <AnimatePresence>
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-red-700"
+            className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700 shadow-sm"
           >
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <span>{error}</span>
@@ -1425,7 +1681,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 text-green-700"
+            className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-700 shadow-sm"
           >
             <CheckCircle className="w-5 h-5 flex-shrink-0" />
             <span>Sales order saved successfully!</span>
@@ -1433,10 +1689,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Unified Form Container - Professional Sticky Layout */}
-      <div className="flex flex-col h-full bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        
-        {/* STICKY HEADER */}
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.12)]">
         <div className="sticky top-0 z-20 bg-white border-b border-slate-200 flex-shrink-0">
           <PremiumSalesOrderHeader
             formData={formData}
@@ -1444,76 +1697,217 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
             errors={errors}
             onImportClick={() => setShowImportModal(true)}
             onRecallClick={() => setShowRecallModal(true)}
+            readOnly={isAuditReadOnly}
           />
         </div>
 
-        {/* SCROLLABLE DETAIL SECTION */}
-        <div className="flex-1 overflow-y-auto min-h-0 bg-white">
-          <PremiumSalesOrderDetail
-            items={formData.items || []}
-            onItemsChange={handleItemsChange}
-          />
+        <div className="flex flex-col xl:flex-row min-h-[760px]">
+          <div className="flex-1 min-w-0 bg-white">
+            <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+              <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Order Entry
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                  <span className="rounded-full border border-slate-200 bg-white px-2 py-1">Pending validation</span>
+                  <span className="rounded-full border border-slate-200 bg-white px-2 py-1">Auto tax</span>
+                  <span className="rounded-full border border-slate-200 bg-white px-2 py-1">Barcode ready</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-0 bg-white">
+              <PremiumSalesOrderDetail
+                items={formData.items || []}
+                onItemsChange={handleItemsChange}
+              />
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="border-t border-slate-200 bg-gradient-to-r from-slate-50 via-emerald-50 to-white px-4 py-3"
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">Quick Add</span>
+                  <span className="text-[10px] text-slate-500">F2 lookup + enter to add</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-7">
+                  <input
+                    id="sofp-quickentry-stockno"
+                    type="text"
+                    value={quickEntry.stockNo}
+                    data-field-key="stock_no"
+                    data-f2-entity="variant"
+                    onChange={(e) => setQuickEntry((prev) => ({ ...prev, stockNo: e.target.value }))}
+                    onBlur={() => !isAuditReadOnly && void handleQuickEntryLookup(quickEntry.stockNo)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (!isAuditReadOnly) {
+                          handleQuickAddItem();
+                        }
+                      }
+                    }}
+                    placeholder="Stock No"
+                    readOnly={isAuditReadOnly}
+                    disabled={isAuditReadOnly}
+                    className={`w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs font-mono bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${isAuditReadOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
+                  />
+                  <input
+                    type="text"
+                    value={quickEntry.description}
+                    readOnly
+                    placeholder="Description"
+                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-slate-100 text-slate-700"
+                  />
+                  <input
+                    type="number"
+                    value={quickEntry.rate}
+                    data-field-key="rate"
+                    onChange={(e) => setQuickEntry((prev) => ({ ...prev, rate: e.target.value }))}
+                    placeholder="Rate"
+                    step="0.01"
+                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                  <input
+                    type="number"
+                    value={quickEntry.qty}
+                    data-field-key="quantity"
+                    onChange={(e) => setQuickEntry((prev) => ({ ...prev, qty: e.target.value }))}
+                    placeholder="Qty"
+                    min="1"
+                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                  <input
+                    type="number"
+                    value={quickEntry.discPercent}
+                    data-field-key="disc_percent"
+                    onChange={(e) => setQuickEntry((prev) => ({ ...prev, discPercent: e.target.value }))}
+                    placeholder="Disc %"
+                    step="0.01"
+                    max="100"
+                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                  <input
+                    type="number"
+                    value={quickEntry.taxPercent}
+                    data-field-key="tax_percent"
+                    onChange={(e) => setQuickEntry((prev) => ({ ...prev, taxPercent: e.target.value }))}
+                    placeholder="Tax %"
+                    step="0.01"
+                    max="100"
+                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                  {!isAuditReadOnly && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleQuickAddItem()}
+                      type="button"
+                      className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition"
+                    >
+                      Add item
+                    </motion.button>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          </div>
+
+          <aside className="w-full xl:w-[340px] border-t xl:border-t-0 xl:border-l border-slate-200 bg-slate-50/80">
+            <div className="sticky top-[120px] p-4 space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Customer</p>
+                    <h3 className="mt-1 text-sm font-bold text-slate-900">{formData.customerName || "Select customer"}</h3>
+                  </div>
+                  <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.18em] text-blue-700">
+                    {formData.orderStatus || "Open"}
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs text-slate-600">
+                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2">
+                    <span className="font-medium text-slate-500">Customer Code</span>
+                    <span className="font-bold text-slate-900">{formData.customerCode || "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2">
+                    <span className="font-medium text-slate-500">Delivery</span>
+                    <span className="font-bold text-slate-900">{formData.deliveryTerms || "Door Delivery"}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2">
+                    <span className="font-medium text-slate-500">Payment</span>
+                    <span className="font-bold text-slate-900">{formData.paymentTerms || "Net 30"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Action</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowImportModal(true)}
+                    disabled={isAuditReadOnly}
+                    className={`rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-sky-700 ${isAuditReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    Import
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {!isAuditReadOnly && (
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-3 py-2.5 text-xs font-bold text-white shadow hover:shadow-emerald-900/20 disabled:opacity-60"
+                    >
+                      {isSubmitting ? "Saving..." : "Save Sales Order"}
+                    </button>
+                  )}
+                  {!isAuditReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setShowRecallModal(true)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                    >
+                      Recall draft
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                  >
+                    {isAuditReadOnly ? "Close" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
 
-        {/* STICKY FOOTER */}
-        <div className="sticky bottom-0 z-20 bg-white border-t border-slate-200 flex-shrink-0">
+        <div className="border-t border-slate-200">
           <PremiumSalesOrderFooter summary={getSalesOrderSummary(formData.items || [], formData)} />
         </div>
 
-        {/* Transaction Attachments */}
         <div className="px-4 py-4 bg-white border-t border-slate-200">
           <TransactionAttachmentPanel
             documentType="sales_order"
             documentId={formData.docNumber || "new"}
             onAttachmentAdded={(att: TransactionAttachment) => {
-              // Optionally update formData with attachment reference
               if (formData.docNumber) {
                 console.log("Attachment added:", att.fileName);
               }
             }}
-            readOnly={false}
+            readOnly={isAuditReadOnly}
           />
         </div>
-
-        {/* Action Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="flex gap-2 justify-end items-center px-4 py-3 bg-slate-50 border-t border-slate-200 flex-shrink-0"
-        >
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={onCancel}
-          type="button"
-          className="px-4 py-2.5 bg-slate-300 hover:bg-slate-400 text-slate-900 rounded-lg text-sm font-medium transition"
-        >
-          Cancel
-        </motion.button>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg text-sm font-bold transition disabled:opacity-50"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="w-5 h-5" />
-              Save Sales Order (F7)
-            </>
-          )}
-        </motion.button>
-        </motion.div>
       </div>
 
-      {/* Import and Recall Modals */}
       <ImportPDTModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}

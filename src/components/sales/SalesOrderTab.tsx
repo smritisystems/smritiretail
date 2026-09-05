@@ -59,21 +59,23 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
       const response = await apiFetchV1("/sales/orders", {
         method: "POST",
         body: JSON.stringify({
+          id: crypto.randomUUID(),
+          order_no: formData.docNumber || `${formData.docPrefix}-${formData.docDate.replace(/-/g, "")}`,
+          date: formData.docDate,
           customer_id: formData.customerId,
-          customer_code: formData.customerCode,
           customer_name: formData.customerName,
-          sales_staff: formData.salesStaff,
-          doc_prefix: formData.docPrefix,
-          doc_date: formData.docDate,
-          doc_time: formData.docTime,
+          status: formData.orderStatus || "Draft",
+          tax_total: formData.totalTax,
+          grand_total: formData.netAmount,
           items: formData.items.map((item) => ({
-            stock_no: item.stockNo,
-            description: item.description,
-            rate: item.rate,
+            product_id: item.id || item.stockNo,
+            code: item.stockNo,
+            name: item.description,
+            price: item.rate,
             quantity: item.quantity,
-            disc_percent: item.discPercent || 0,
-            disc_amount: item.discAmount || 0,
-            sales_staff: item.salesStaff,
+            gst_rate: item.gstRate ?? item.taxPercent ?? 18,
+            tax_amount: item.taxAmount || 0,
+            total_amount: item.total,
           })),
         }),
       });
@@ -138,7 +140,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold text-slate-900">{order.order_number}</h3>
+                      <h3 className="font-semibold text-slate-900">{order.order_no || order.order_number}</h3>
                       <p className="text-sm text-slate-600">
                         Customer: {order.customer_name || order.customer_code}
                       </p>
@@ -147,7 +149,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-lg text-slate-900">₹{order.net_amount?.toLocaleString("en-IN")}</p>
+                      <p className="font-bold text-lg text-slate-900">₹{(order.grand_total ?? order.net_amount ?? 0).toLocaleString("en-IN")}</p>
                       <p className={`text-xs font-semibold ${
                         order.status === "OPEN" ? "text-blue-600" : 
                         order.status === "COMPLETED" ? "text-green-600" :
@@ -172,8 +174,38 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
         />
       )}
 
-      {/* View/Edit View */}
+      {/* View / Audit View */}
       {viewMode === "view" && selectedOrder && (
+        <SalesOrderFormPremium
+          initialData={{
+            docNumber: selectedOrder.order_no || selectedOrder.order_number,
+            customerName: selectedOrder.customer_name,
+            customerCode: selectedOrder.customer_code,
+            docDate: selectedOrder.date,
+            orderStatus: selectedOrder.status,
+            deliveryTerms: selectedOrder.delivery_terms || "Door Delivery",
+            paymentTerms: selectedOrder.payment_terms || "Net 30",
+            remarks: selectedOrder.remarks || "",
+            items: selectedOrder.items?.map((item: any) => ({
+              id: item.id || `${selectedOrder.order_no || selectedOrder.order_number}-${item.product_id}`,
+              stockNo: item.stock_no || item.code || item.product_id,
+              description: item.description || item.name || "Item",
+              rate: Number(item.rate ?? item.price ?? 0),
+              quantity: Number(item.quantity ?? 1),
+              value: Number(item.value ?? item.total_amount ?? 0),
+              discPercent: Number(item.disc_percent ?? 0),
+              discAmount: Number(item.disc_amount ?? 0),
+              taxPercent: Number(item.tax_percent ?? 18),
+              taxAmount: Number(item.tax_amount ?? 0),
+              total: Number(item.total ?? item.total_amount ?? 0),
+            })) || [],
+          }}
+          onCancel={() => setViewMode("list")}
+          readOnly={true}
+        />
+      )}
+
+      {false && viewMode === "view" && selectedOrder && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-6">

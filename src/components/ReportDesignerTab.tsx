@@ -123,6 +123,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [stockValuationData, setStockValuationData] = useState<any>(null);
   const [genericReportData, setGenericReportData] = useState<any>(null);
   const [loadingReports, setLoadingReports] = useState<boolean>(false);
+  const [reportRefreshKey, setReportRefreshKey] = useState<number>(0);
   const [soPreviewData, setSoPreviewData] = useState<any | null>(null);
   const [showSoPrintModal, setShowSoPrintModal] = useState<boolean>(false);
   const [convertingOrderId, setConvertingOrderId] = useState<string | null>(null);
@@ -139,7 +140,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
           const valData = await apiFetchV1("/reports/stock-valuation");
           setStockValuationData(valData);
-        } else if (selectedReport.id === "RPT-PUR-002") {
+        } else if (selectedReport.id === "RPT-PUR-001" || selectedReport.id === "RPT-PUR-002") {
           const data = await apiFetchV1(`/reports/purchase-summary${params}`);
           setPurchaseReportData(data);
 
@@ -175,7 +176,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           const data = await apiFetchV1(`/reports/attribute-size-sales${params}`);
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-TAX-006") {
-          const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}`);
+          const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}&include_archived=true`);
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-MRC-005") {
           const data = await apiFetchV1(`/reports/article-color-size-matrix${params}`);
@@ -248,7 +249,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       }
     }
     loadReportsData();
-  }, [selectedReport, drillLevel, drillFilter, filters.startDate, filters.endDate]);
+  }, [selectedReport, drillLevel, drillFilter, filters.startDate, filters.endDate, reportRefreshKey]);
 
   // Debounced search query audit logging
   useEffect(() => {
@@ -380,14 +381,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       }
 
       if (rows.length === 0) {
-        rows = [
-          { report: moduleTitle, generated_at: new Date().toISOString(), status: "Report initialized" }
-        ];
-        columns = [
-          { key: "report", label: "Report", datatype: "text" },
-          { key: "generated_at", label: "Generated At", datatype: "datetime" },
-          { key: "status", label: "Status", datatype: "text" },
-        ];
+        showNotification("info", "No live data is available for this report and date range. Nothing was exported.");
+        return;
       }
 
       await GlobalExportService.openInGoogleSheets({
@@ -490,7 +485,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     const upperFormat = format.toUpperCase();
 
     // 1. Direct High-Fidelity Native Backend Excel/CSV Routes for Master Registers
-    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-TAX-001") {
+    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-TAX-006") {
       const link = document.createElement("a");
       link.href = "/api/v1/reports/export/tax-invoices-excel";
       link.download = "SMRITI_Statutory_Tax_Invoices_Master.xlsx";
@@ -697,6 +692,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   // Switch views
   const runReport = (report: any) => {
     setSelectedReport(report);
+    setReportRefreshKey(0);
     recordAuditAction("VIEW", "reports", report.id, `Report viewed: ${report.title}`);
     setBreadcrumbs([{ title: report.title, level: 0, id: report.id }]);
     setDrillLevel(0);
@@ -809,6 +805,15 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <LayoutGrid size={13} /> New Dashboard
+            </button>
+            <button
+              type="button"
+              onClick={fetchStudios}
+              disabled={loading}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Reload the complete report catalogue from the database"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Reports List
             </button>
             {lastRefreshedAt && (
               <span className="hidden xl:flex items-center gap-1 text-[10px] text-theme-muted font-mono whitespace-nowrap" title={lastRefreshedAt.toLocaleString()}>
@@ -1197,6 +1202,17 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             {/* Universal Controls */}
             <div className="flex flex-wrap items-center gap-2">
 
+              <button
+                type="button"
+                onClick={() => setReportRefreshKey((key) => key + 1)}
+                disabled={loadingReports}
+                className="px-3 py-2 bg-theme-primary/10 border border-theme-primary/30 hover:bg-theme-primary/20 text-theme-primary rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Reload this report from the database"
+              >
+                <RefreshCw size={13} className={loadingReports ? "animate-spin" : ""} />
+                Refresh Data
+              </button>
+
               {/* Export Dropdown menu */}
               <div className="relative group">
                 <button className="px-3 py-2 bg-theme-surface-2 border border-theme-divider hover:border-blue-500/30 text-theme-body rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
@@ -1562,7 +1578,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             )}
 
             {/* Purchase Studio Outstanding Drilldown */}
-            {selectedReport.id === "RPT-PUR-002" && (
+            {(selectedReport.id === "RPT-PUR-001" || selectedReport.id === "RPT-PUR-002") && (
               <>
                 {drillLevel === 0 && (
                   <div className="overflow-x-auto text-xs">

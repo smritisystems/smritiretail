@@ -14,6 +14,7 @@ Classification: Internal
 
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, text
+from sqlalchemy import DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import Base, BaseEntity
@@ -55,6 +56,15 @@ class SalesInvoice(BaseEntity):
     billing_address         = Column(Text)
     shipping_address        = Column(Text)
     site_name               = Column(String(255))
+    # Corporate B2B Customer / Delivery Location / Multi-State GST / Billing Location (Phase 1 & Phase 2F)
+    delivery_location_id       = Column(String(50), ForeignKey("customer_delivery_locations.id", ondelete="SET NULL"), nullable=True, index=True)
+    delivery_store_code        = Column(String(50), nullable=True, index=True)
+    delivery_gstin             = Column(String(15), nullable=True)
+    billed_party_gstin_id      = Column(String(50), ForeignKey("customer_gst_registrations.id", ondelete="SET NULL"), nullable=True, index=True)
+    billing_location_id        = Column(String(50), ForeignKey("customer_billing_locations.id", ondelete="SET NULL"), nullable=True, index=True)
+    billing_store_code         = Column(String(50), nullable=True, index=True)
+    delivery_location_snapshot  = Column(JSONB, nullable=True)
+    place_of_supply_code       = Column(String(2), nullable=True)
     taxable_value           = Column(Numeric(15, 2))
     rounding_amount         = Column(Numeric(10, 4), default=0.0000)
     amount_in_words         = Column(Text)
@@ -86,6 +96,9 @@ class SalesInvoice(BaseEntity):
 
     # Relationships
     items = relationship("SalesInvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+    delivery_location = relationship("CustomerDeliveryLocation", foreign_keys=[delivery_location_id])
+    billed_party_gstin = relationship("CustomerGSTRegistration", foreign_keys=[billed_party_gstin_id])
+    billing_location = relationship("CustomerBillingLocation", foreign_keys=[billing_location_id])
 
 
 
@@ -95,6 +108,8 @@ class SalesInvoiceItem(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     invoice_id = Column(String(50), ForeignKey("sales_invoices.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     code = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
     batch_no = Column(String(100), nullable=True)
@@ -137,6 +152,8 @@ class SalesQuotationItem(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     quotation_id = Column(String(50), ForeignKey("sales_quotations.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id   = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
+    item_id      = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id   = Column(String(50), nullable=True, index=True)
     code         = Column(String(50), nullable=False)
     name         = Column(String(255), nullable=False)
     quantity     = Column(Numeric(12, 4), nullable=False, default=1.0000)
@@ -192,6 +209,8 @@ class SalesOrderItem(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     order_id     = Column(String(50), ForeignKey("sales_orders.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id   = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
+    item_id      = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id   = Column(String(50), nullable=True, index=True)
     code         = Column(String(50), nullable=False)
     name         = Column(String(255), nullable=False)
     quantity     = Column(Numeric(12, 4), nullable=False, default=1.0000)
@@ -218,6 +237,13 @@ class SalesOrderItem(Base):
     line_total   = Column(Numeric(15, 2))
     delivery_date = Column(Date)
     site_code    = Column(String(50))
+    billed_quantity = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    pending_quantity = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    overbilled_quantity = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    line_status = Column(String(30), nullable=False, default="OPEN")  # OPEN | PARTIALLY_BILLED | BILLED | CLOSED | CANCELLED
+    closure_reason = Column(Text, nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    closed_by = Column(String(100), nullable=True)
 
     # Relationships
     order = relationship("SalesOrder", back_populates="items")
@@ -281,6 +307,8 @@ class SalesReturnItem(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     return_id    = Column(String(50), ForeignKey("sales_returns.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id   = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
+    item_id      = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id   = Column(String(50), nullable=True, index=True)
     code         = Column(String(50), nullable=False)
     name         = Column(String(255), nullable=False)
     quantity     = Column(Numeric(12, 4), nullable=False, default=1.0000)

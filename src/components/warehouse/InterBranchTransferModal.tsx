@@ -7,7 +7,7 @@
  * Version      : 3.118.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -71,7 +71,7 @@ export const InterBranchTransferModal: React.FC<InterBranchTransferModalProps> =
     try {
       const lineQtys = Object.fromEntries(selected.lines.map((l) => [l.lineId, l.requestedQty]));
       update(InterBranchTransferEngine.dispatch(selected, "DISPATCH-001", lineQtys));
-      onNotification?.("Dispatched", `${selected.transferNo} â€” IN_TRANSIT`, "info");
+      onNotification?.("Dispatched", `${selected.transferNo} — IN_TRANSIT`, "info");
     } catch (e: any) { onNotification?.("Error", e.message, "error"); }
   };
 
@@ -80,7 +80,7 @@ export const InterBranchTransferModal: React.FC<InterBranchTransferModalProps> =
     try {
       const lineQtys = Object.fromEntries(selected.lines.map((l) => [l.lineId, l.dispatchedQty]));
       update(InterBranchTransferEngine.receive(selected, "RECV-001", lineQtys));
-      onNotification?.("Received", `${selected.transferNo} â€” checking variance`, "success");
+      onNotification?.("Received", `${selected.transferNo} — checking variance`, "success");
     } catch (e: any) { onNotification?.("Error", e.message, "error"); }
   };
 
@@ -107,7 +107,7 @@ export const InterBranchTransferModal: React.FC<InterBranchTransferModalProps> =
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Inter-Branch Stock Transfer Engine</h2>
-              <p className="text-xs text-slate-400">Transfer Orders Â· Dispatch Â· Receipt Â· Variance Detection</p>
+              <p className="text-xs text-slate-400">Transfer Orders · Dispatch · Receipt · Variance Detection</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -150,11 +150,11 @@ export const InterBranchTransferModal: React.FC<InterBranchTransferModalProps> =
               <button key={o.transferId} onClick={() => { setSelectedId(o.transferId); setActiveTab("LINES"); }}
                 className={`w-full text-left p-3 rounded-xl border transition-all ${selectedId === o.transferId ? "bg-sky-950/20 border-sky-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
                 <p className="text-[10px] font-mono font-bold text-slate-200 truncate">{o.transferNo}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{o.fromBranch} â†’ {o.toBranch}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{o.fromBranch} → {o.toBranch}</p>
                 <p className="text-xs font-bold text-sky-400 mt-0.5">{o.totalRequestedQty} units</p>
                 <div className="flex gap-1 mt-1.5 flex-wrap">
                   <span className={`text-[8px] font-bold px-1 py-0.5 rounded-full border ${STATUS_STYLE[o.status]}`}>{o.status}</span>
-                  {o.hasVariance && <span className="text-[8px] font-bold text-rose-400">âš  VAR</span>}
+                  {o.hasVariance && <span className="text-[8px] font-bold text-rose-400">? VAR</span>}
                 </div>
               </button>
             ))}
@@ -166,7 +166,7 @@ export const InterBranchTransferModal: React.FC<InterBranchTransferModalProps> =
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <p className="text-lg font-bold font-mono text-slate-100">{selected.transferNo}</p>
-                  <p className="text-xs text-slate-400">{selected.fromBranch} â†’ {selected.toBranch} Â· {selected.createdBy}</p>
+                  <p className="text-xs text-slate-400">{selected.fromBranch} → {selected.toBranch} · {selected.createdBy}</p>
                   {selected.dispatchedAt && <p className="text-[10px] text-slate-500">Dispatched: {new Date(selected.dispatchedAt).toLocaleString("en-IN")}</p>}
                   {selected.receivedAt   && <p className="text-[10px] text-slate-500">Received:   {new Date(selected.receivedAt).toLocaleString("en-IN")}</p>}
                 </div>
@@ -208,11 +208,11 @@ export const InterBranchTransferModal: React.FC<InterBranchTransferModalProps> =
                     <tbody className="divide-y divide-slate-800/40 font-mono">
                       {selected.lines.map((l) => (
                         <tr key={l.lineId} className={l.variance > 0 ? "bg-rose-950/10" : ""}>
-                          <td className="py-2 px-3 font-sans"><p className="text-xs text-slate-200">{l.productName}</p><p className="text-[10px] text-slate-500">{l.sku}{l.batchRef ? ` Â· ${l.batchRef}` : ""}</p></td>
+                          <td className="py-2 px-3 font-sans"><p className="text-xs text-slate-200">{l.productName}</p><p className="text-[10px] text-slate-500">{l.sku}{l.batchRef ? ` · ${l.batchRef}` : ""}</p></td>
                           <td className="py-2 px-3 text-right text-slate-400">{l.requestedQty}</td>
                           <td className="py-2 px-3 text-right text-amber-400">{l.dispatchedQty}</td>
                           <td className="py-2 px-3 text-right text-teal-400">{l.receivedQty}</td>
-                          <td className={`py-2 px-3 text-right font-bold ${l.variance > 0 ? "text-rose-400" : "text-emerald-400"}`}>{l.variance > 0 ? `-${l.variance}` : "â€”"}</td>
+                          <td className={`py-2 px-3 text-right font-bold ${l.variance > 0 ? "text-rose-400" : "text-emerald-400"}`}>{l.variance > 0 ? `-${l.variance}` : "—"}</td>
                         </tr>
                       ))}
                     </tbody>

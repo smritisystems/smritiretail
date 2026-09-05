@@ -80,6 +80,7 @@ class SupplierUpdate(BaseModel):
 
 class PurchaseOrderItemCreate(BaseModel):
     product_id: str
+    item_id: Optional[str] = None
     code:       str
     name:       str
     quantity:   Decimal
@@ -90,6 +91,7 @@ class PurchaseOrderItemCreate(BaseModel):
 class PurchaseOrderItemResponse(BaseModel):
     id:         str
     product_id: str
+    item_id:    Optional[str] = None
     code:       str
     name:       str
     quantity:   Decimal
@@ -146,6 +148,7 @@ from datetime import datetime, date
 
 class PurchaseReceiptItemCreate(BaseModel):
     product_id:        str
+    item_id:           Optional[str] = None
     code:              str
     name:              str
     batch_no:          Optional[str] = None
@@ -162,6 +165,7 @@ class PurchaseReceiptItemCreate(BaseModel):
 class PurchaseReceiptItemResponse(BaseModel):
     id:                str
     product_id:        str
+    item_id:           Optional[str] = None
     code:              str
     name:              str
     batch_no:          Optional[str] = None
