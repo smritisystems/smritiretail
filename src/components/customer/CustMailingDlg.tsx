@@ -15,11 +15,14 @@
 import React, { useState, useEffect } from "react";
 import { X, Plus, Trash2, Check, MapPin, Phone, Mail, Home } from "lucide-react";
 import { CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption } from "./types.ts";
+import { parseAndValidateGSTIN } from "../../utils/gstEngine.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 interface SmritiCustomerMailingModalProps {
   isOpen: boolean;
   onClose: () => void;
   customerName: string;
+  customerId?: string;
   addresses: CustomerAddressEntry[];
   gstRegistrations?: CustomerGSTRegistrationOption[];
   isLoadingGstRegistrations?: boolean;
@@ -31,6 +34,7 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   isOpen,
   onClose,
   customerName,
+  customerId,
   addresses,
   gstRegistrations = [],
   isLoadingGstRegistrations = false,
@@ -39,10 +43,17 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
 }) => {
   const [addressList, setAddressList] = useState<CustomerAddressEntry[]>([]);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number>(0);
+  const [poCandidates, setPoCandidates] = useState<any[]>([]);
+  const [isLoadingPoCandidates, setIsLoadingPoCandidates] = useState(false);
 
   const addressTypeLabel = (type?: CustomerAddressType) => (
     type === "billing" ? "Billing" : type === "shipping" ? "Shipping" : "Mailing"
   );
+
+  const addressDisplayCode = (address: CustomerAddressEntry, index: number) => {
+    const code = address.code?.trim();
+    return code && !/^c(?:dl|bl)-/i.test(code) ? code : String(index + 1).padStart(3, "0");
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -117,6 +128,20 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
     });
   };
 
+  const handleManualGstinChange = (gstin: string) => {
+    setAddressList(prev => {
+      const next = [...prev];
+      if (next[selectedAddressIndex]) {
+        next[selectedAddressIndex] = {
+          ...next[selectedAddressIndex],
+          gstin: gstin.trim().toUpperCase(),
+          gstRegistrationId: ""
+        };
+      }
+      return next;
+    });
+  };
+
   const handleAddNewAddress = () => {
     const newCode = String(addressList.length + 1).padStart(3, "0");
     const newEntry: CustomerAddressEntry = {
@@ -150,6 +175,46 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
     setSelectedAddressIndex(addressList.length);
   };
 
+  const handleLoadPoCandidates = async () => {
+    if (!customerId) {
+      onNotification?.("Customer Required", "Save the customer before importing a PO address.", "warning");
+      return;
+    }
+    setIsLoadingPoCandidates(true);
+    try {
+      const candidates = await apiFetchV1<any[]>(`/sales/orders/po-address-candidates?customer_id=${encodeURIComponent(customerId)}`);
+      setPoCandidates(Array.isArray(candidates) ? candidates : []);
+    } catch (error: any) {
+      onNotification?.("PO Addresses Unavailable", error?.message || "Could not load PO address candidates.", "error");
+    } finally {
+      setIsLoadingPoCandidates(false);
+    }
+  };
+
+  const handleApplyPoCandidate = (candidate: any) => {
+    const gst = parseAndValidateGSTIN(candidate.gstin);
+    const pin = String(candidate.address || "").match(/\b\d{6}\b/g)?.at(-1) || currentAddress.postalCode;
+    setAddressList(prev => {
+      const next = [...prev];
+      if (next[selectedAddressIndex]) {
+        next[selectedAddressIndex] = {
+          ...next[selectedAddressIndex],
+          addressType: "shipping",
+          shippingStoreCode: candidate.suggested_store_code || "",
+          address1: candidate.address || "",
+          gstin: candidate.gstin || "",
+          gstRegistrationId: "",
+          stateCode: gst.stateCode || next[selectedAddressIndex].stateCode,
+          state: gst.stateName || next[selectedAddressIndex].state,
+          postalCode: pin,
+        };
+      }
+      return next;
+    });
+    setPoCandidates([]);
+    onNotification?.("PO Address Prefilled", "Review the address and city, then apply the mailing details.", "info");
+  };
+
   const handleDeleteAddress = (indexToDelete: number) => {
     if (addressList.length <= 1) {
       onNotification?.("Action Restricted", "At least one mailing address record is required.", "error");
@@ -169,6 +234,37 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
       onNotification?.("Store Code Required", `${label} is required before saving this address.`, "error");
       return;
     }
+
+    const seenCodes = new Set<string>();
+    for (const address of addressList) {
+      const code = (address.addressType === "billing"
+        ? address.billingStoreCode
+        : address.addressType === "shipping"
+          ? address.shippingStoreCode || address.storeCode
+          : address.storeCode)?.trim().toUpperCase();
+      if (code) {
+        const key = `${address.addressType || "mailing"}:${code}`;
+        if (seenCodes.has(key)) {
+          onNotification?.("Duplicate Store Code", `${code} is used more than once for ${addressTypeLabel(address.addressType)} addresses.`, "error");
+          return;
+        }
+        seenCodes.add(key);
+      }
+
+      if (address.gstin) {
+        const validation = parseAndValidateGSTIN(address.gstin);
+        if (!validation.isValid) {
+          onNotification?.("Invalid GSTIN", `${address.gstin} is not a valid 15-character GSTIN.`, "error");
+          return;
+        }
+        const stateCode = address.stateCode?.trim().padStart(2, "0") || "";
+        if (stateCode && validation.stateCode && stateCode !== validation.stateCode) {
+          onNotification?.("GSTIN State Mismatch", `${address.gstin} belongs to state code ${validation.stateCode}, but this address is set to ${stateCode}.`, "error");
+          return;
+        }
+      }
+    }
+
     onSaveAddresses(addressList);
     onNotification?.("Mailing List Updated", `Saved ${addressList.length} address profiles.`, "success");
     onClose();
@@ -222,6 +318,30 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                   <Plus size={11} /> Add
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={handleLoadPoCandidates}
+                disabled={isLoadingPoCandidates}
+                className="w-full mb-2 p-2 border border-[#0f4c81] text-[#00355f] hover:bg-[#d0e1fb] rounded text-[10px] font-bold"
+              >
+                {isLoadingPoCandidates ? "Loading PO addresses..." : "Import From Reliance PO"}
+              </button>
+              {poCandidates.length > 0 && (
+                <div className="mb-2 max-h-40 overflow-y-auto space-y-1 border border-[#c6c6cd] rounded p-1">
+                  {poCandidates.map((candidate, index) => (
+                    <button
+                      key={`${candidate.suggested_store_code}-${index}`}
+                      type="button"
+                      onClick={() => handleApplyPoCandidate(candidate)}
+                      className="w-full text-left p-2 hover:bg-[#e5eeff] rounded text-[10px]"
+                    >
+                      <span className="font-bold">{candidate.suggested_store_code}</span>
+                      <span className="block truncate text-[#515f74]">{candidate.address}</span>
+                      <span className="block text-[#515f74]">GSTIN: {candidate.gstin || "Not available"}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {addressList.map((addr, idx) => (
                 <div
@@ -235,7 +355,7 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                 >
                   <div className="flex items-center gap-1.5 truncate">
                     <Home size={12} className="shrink-0" />
-                    <span className="truncate">#{addr.code} {addressTypeLabel(addr.addressType)} · {addr.locality || addr.city}</span>
+                    <span className="truncate">#{addressDisplayCode(addr, idx)} {addressTypeLabel(addr.addressType)} · {addr.locality || addr.city}</span>
                   </div>
                   {addr.isDefault && (
                     <span className="w-2 h-2 rounded-full bg-[#0c9488] shrink-0" title="Default Address" />
@@ -267,8 +387,13 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                   </label>
                   <input
                     type="text"
-                    value={currentAddress.code}
-                    onChange={e => handleFieldChange("code", e.target.value)}
+                    value={addressDisplayCode(currentAddress, selectedAddressIndex)}
+                    onChange={e => {
+                      if (!/^c(?:dl|bl)-/i.test(currentAddress.code || "")) {
+                        handleFieldChange("code", e.target.value);
+                      }
+                    }}
+                    readOnly={/^c(?:dl|bl)-/i.test(currentAddress.code || "")}
                     className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold text-xs"
                   />
                 </div>
@@ -302,7 +427,7 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
 
                 <div>
                   <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
-                    GST Registration
+                    Select GSTIN Registration
                   </label>
                   <select
                     value={currentAddress.gstRegistrationId || ""}
@@ -318,8 +443,25 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                     ))}
                   </select>
                   {currentAddress.gstin && !currentAddress.gstRegistrationId && (
-                    <span className="mt-1 block text-[9px] font-medium text-[#8a4b08]">Existing GSTIN: {currentAddress.gstin}</span>
+                    <span className="mt-1 block text-[9px] font-medium text-[#8a4b08]">Manual GSTIN will be saved with this address.</span>
                   )}
+                </div>
+
+                <div>
+                  <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                    Add New GSTIN
+                  </label>
+                  <input
+                    type="text"
+                    value={currentAddress.gstin || ""}
+                    onChange={e => handleManualGstinChange(e.target.value)}
+                    placeholder="15-character GSTIN"
+                    maxLength={15}
+                    className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono text-xs uppercase"
+                  />
+                  <span className="mt-1 block text-[9px] text-[#515f74] dark:text-[#bec6e0]">
+                    Enter a GSTIN that is not available in the registration list.
+                  </span>
                 </div>
 
                 <div>

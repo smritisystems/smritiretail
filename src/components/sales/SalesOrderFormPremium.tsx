@@ -58,6 +58,7 @@ import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 export interface SalesOrderItem {
   id: string;
   stockNo: string;
+  barcode?: string;
   description: string;
   hsn?: string;
   rate: number;
@@ -88,6 +89,7 @@ export interface Customer {
 export interface StockItem {
   id: string;
   code: string;
+  barcode?: string;
   description: string;
   category?: string;
   rate: number;
@@ -129,7 +131,7 @@ const toSharedSalesLineItem = (item: SalesOrderItem): SalesLineItem => ({
   id: item.id || `line-${Math.random().toString(36).slice(2, 9)}`,
   productId: item.id,
   stockNo: item.stockNo,
-  barcode: item.stockNo,
+  barcode: item.barcode || item.stockNo,
   itemDescription: item.description || item.stockNo || "Item",
   qty: Number(item.quantity || 0),
   rate: Number(item.rate || 0),
@@ -329,7 +331,14 @@ const StockLookupModal: React.FC<{
       const data = await apiFetchV1("/inventory/items", {
         params: query ? { search: query } : {},
       });
-      setItems(Array.isArray(data) ? data : data.data || []);
+      const rows = Array.isArray(data) ? data : data.data || [];
+      setItems(rows.map((item: any) => ({
+        ...item,
+        barcode: item.barcode || item.ean || item.item_barcode || "",
+        code: item.code || item.stock_no || item.sku || item.barcode || "",
+        description: item.description || item.name || "",
+        rate: Number(item.rate ?? item.price ?? 0),
+      })));
     } catch (err) {
       console.error("Failed to load items:", err);
       setItems([]);
@@ -989,6 +998,7 @@ const PremiumSalesOrderDetail: React.FC<{
     const newItem: SalesOrderItem = {
       id: `item-${Date.now()}`,
       stockNo: "",
+      barcode: "",
       description: "",
       rate: 0,
       quantity: 0,
@@ -1012,7 +1022,7 @@ const PremiumSalesOrderDetail: React.FC<{
       id: item.id || `line-${index}`,
       productId: item.id,
       stockNo: item.stockNo,
-      barcode: item.stockNo,
+      barcode: item.barcode || item.stockNo,
       itemDescription: item.description || item.stockNo || "Item",
       qty: Number(item.quantity || 0),
       rate: Number(item.rate || 0),
@@ -1122,6 +1132,7 @@ const PremiumSalesOrderDetail: React.FC<{
                           setSelectedItemIndex(index);
                           setStockModalCallback(() => (stock: StockItem) => {
                             handleItemChange(index, "stockNo", stock.code);
+                            handleItemChange(index, "barcode", stock.barcode || stock.code);
                             handleItemChange(index, "description", stock.description);
                             handleItemChange(index, "rate", stock.rate);
                           });

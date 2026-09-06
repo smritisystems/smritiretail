@@ -14,7 +14,7 @@ License      : Proprietary Commercial Software
 # SMRITI database models init
 from .crm import CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation
 from .inventory import Product, StockMovement
-from .sales import SalesInvoice, SalesInvoiceItem
+from .sales import SalesInvoice, SalesInvoiceItem, SalesOrderReservation
 from .tenant import Company, Branch
 from .company_policy import CompanyBankAccount, CompanyPolicySetting, ComplianceThreshold
 from .company_registry import CompanyDatabaseRegistry

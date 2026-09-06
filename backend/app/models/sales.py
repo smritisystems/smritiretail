@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, Index, text
 from sqlalchemy import DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
@@ -201,6 +201,7 @@ class SalesOrder(BaseEntity):
     # Relationships
     items = relationship("SalesOrderItem", back_populates="order", cascade="all, delete-orphan")
     allocations = relationship("SalesOrderInvoiceAllocation", back_populates="order", cascade="all, delete-orphan")
+    reservations = relationship("SalesOrderReservation", back_populates="order", cascade="all, delete-orphan")
 
 
 class SalesOrderItem(Base):
@@ -275,6 +276,36 @@ class SalesOrderInvoiceAllocation(BaseEntity):
     # Relationships
     order = relationship("SalesOrder", back_populates="allocations")
     invoice = relationship("SalesInvoice")
+
+
+class SalesOrderReservation(BaseEntity):
+    """Auditable barcode-keyed inventory reservation for one Sales Order line."""
+    __tablename__ = "sales_order_reservations"
+    __table_args__ = (
+        Index(
+            "uq_so_reservation_active_line",
+            "order_item_id",
+            unique=True,
+            postgresql_where=text("status IN ('ACTIVE', 'PARTIAL') AND is_deleted = false"),
+        ),
+        Index("ix_so_reservation_barcode_active", "company_id", "barcode", "status"),
+    )
+
+    order_id = Column(String(50), ForeignKey("sales_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_item_id = Column(Integer, ForeignKey("sales_order_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    barcode = Column(String(100), nullable=False, index=True)
+    requested_quantity = Column(Numeric(12, 4), nullable=False)
+    reserved_quantity = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    released_quantity = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    consumed_quantity = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    status = Column(String(20), nullable=False, default="ACTIVE")  # ACTIVE | PARTIAL | RELEASED | CONSUMED
+    idempotency_key = Column(String(100), nullable=False, index=True)
+    warehouse_id = Column(String(50), nullable=True, index=True)
+    release_reason = Column(Text, nullable=True)
+    metadata_json = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+    order = relationship("SalesOrder", back_populates="reservations")
 
 
 

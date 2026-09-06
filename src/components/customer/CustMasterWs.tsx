@@ -186,7 +186,18 @@ export const mergeCanonicalLocationsIntoAddresses = (
 
   deliveryLocations.forEach(location => appendLocation(location, "shipping", "shippingStoreCode"));
   billingLocations.forEach(location => appendLocation(location, "billing", "billingStoreCode"));
-  return normalizeMailingAddresses(merged, fallback);
+  const populatedTypes = new Set(
+    merged
+      .filter(address => address.id || address.storeCode || address.shippingStoreCode || address.billingStoreCode)
+      .map(address => address.addressType || "mailing")
+  );
+  const withoutEmptyPlaceholders = merged.filter(address => {
+    const type = address.addressType || "mailing";
+    const hasContent = [address.address1, address.address2, address.address3, address.address4, address.address5, address.locality, address.postalCode]
+      .some(value => value.trim());
+    return address.id || !populatedTypes.has(type) || hasContent;
+  });
+  return normalizeMailingAddresses(withoutEmptyPlaceholders, fallback);
 };
 
 export const getLocationIdsToDeactivate = (
@@ -1486,6 +1497,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         onClose={() => setIsMailingModalOpen(false)}
         customerName={currentCustomer.name}
         addresses={currentCustomer.mailingAddresses}
+        customerId={currentCustomer.id}
         gstRegistrations={customerGstRegistrations}
         isLoadingGstRegistrations={isLoadingGstRegistrations}
         onSaveAddresses={newAddrs => {

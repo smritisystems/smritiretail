@@ -230,6 +230,21 @@ async def delete_customer(
     return {"status": "success", "message": f"Customer '{customer_id}' deleted."}
 
 
+@router.post(
+    "/customers/{target_id}/merge/{source_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def merge_customer(
+    target_id: str,
+    source_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Merge source customer history and master data into the target customer."""
+    service = CrmService(db, tenant_ctx)
+    return await service.merge_customer(target_id, source_id)
+
+
 # --- Customer Group Endpoints ---
 
 @router.post(
