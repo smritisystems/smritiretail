@@ -261,6 +261,28 @@ def test_m_customer_gst_number_remains_backward_compatible():
     assert hasattr(c, "delivery_locations")
 
 
+def test_n_canonical_gstin_precedes_legacy_shadow_value():
+    """N. Active primary registration is authoritative over legacy shadow data."""
+    customer = Customer(
+        name="Reliance Retail Limited",
+        gst_number="27LEGACY0000A1Z5",
+    )
+    customer.gst_registrations = [
+        CustomerGSTRegistration(
+            customer_id="cust-ril-001",
+            gstin="29AAACR7015K1Z2",
+            state_name="Karnataka",
+            state_code="29",
+            is_primary=True,
+            status="ACTIVE",
+            is_active=True,
+            is_deleted=False,
+        )
+    ]
+
+    assert customer.canonical_gstin == "29AAACR7015K1Z2"
+
+
 def test_n_no_duplicate_customer_address_model():
     """N. No duplicate CustomerAddress / parallel delivery-location model was introduced."""
     import app.models.crm as crm_module

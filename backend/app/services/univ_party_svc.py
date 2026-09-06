@@ -78,7 +78,7 @@ class UniversalPartyService:
         # 1. Search for existing party by GSTIN / phone / email / code
         code = customer.code if hasattr(customer, "code") and customer.code else f"CUST-{customer.id[:8]}"
         phone = getattr(customer, "mobile", None) or getattr(customer, "phone", None)
-        gstin = getattr(customer, "gst_number", None) or getattr(customer, "gstin", None)
+        gstin = getattr(customer, "canonical_gstin", None) or getattr(customer, "gstin", None)
         email = getattr(customer, "email", None)
         name = getattr(customer, "name", "Valued Customer")
 
