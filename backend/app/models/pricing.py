@@ -71,3 +71,18 @@ class CustomerPriceTier(BaseEntity):
     price_book_id = Column(String(50), ForeignKey("price_books.id", ondelete="SET NULL"), nullable=True)
     discount_percentage = Column(Numeric(5, 2), nullable=False, default=0.00)
     description = Column(Text, nullable=True)
+
+
+class CustomerPriceAssignment(BaseEntity):
+    """Authoritative customer-to-price-tier assignment."""
+    __tablename__ = "customer_price_assignments"
+    __table_args__ = (
+        UniqueConstraint("customer_id", name="uq_customer_price_assignment_customer"),
+    )
+
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    price_tier_id = Column(String(50), ForeignKey("customer_price_tiers.id", ondelete="RESTRICT"), nullable=False, index=True)
+    valid_from = Column(DateTime(timezone=True), nullable=True)
+    valid_to = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(30), nullable=False, default="ACTIVE")
+    notes = Column(Text, nullable=True)

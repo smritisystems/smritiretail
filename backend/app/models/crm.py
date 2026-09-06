@@ -315,6 +315,25 @@ class CustomerBillingLocation(BaseEntity):
     )
 
 
+class CustomerCreditLedgerEntry(BaseEntity):
+    """Immutable customer credit movement supporting balance audit and replay."""
+    __tablename__ = "customer_credit_ledger_entries"
+    __table_args__ = (
+        Index("ix_customer_credit_ledger_customer_date", "customer_id", "entry_date"),
+        Index("uq_customer_credit_ledger_reference", "reference_type", "reference_id", unique=True),
+    )
+
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False, index=True)
+    entry_date = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    entry_type = Column(String(20), nullable=False)  # DEBIT, CREDIT
+    amount = Column(Numeric(15, 2), nullable=False)
+    balance_after = Column(Numeric(15, 2), nullable=False)
+    reference_type = Column(String(50), nullable=False)
+    reference_id = Column(String(100), nullable=False)
+    due_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+
+
 class CustomerExternalIdentity(BaseEntity):
     """
     External ERP and software identity mapping for Customer.

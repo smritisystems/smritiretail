@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 """
 
 # SMRITI database models init
-from .crm import CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation
+from .crm import CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerCreditLedgerEntry
 from .inventory import Product, StockMovement
 from .sales import SalesInvoice, SalesInvoiceItem, SalesOrderReservation
 from .tenant import Company, Branch
@@ -98,6 +98,7 @@ from .pricing import (
     PriceBook,
     PriceBookEntry,
     CustomerPriceTier,
+    CustomerPriceAssignment,
 )
 from .payment_ledger import (
     PaymentTransaction,

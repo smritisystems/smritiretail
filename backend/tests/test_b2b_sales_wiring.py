@@ -73,6 +73,20 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
     suffix = uuid.uuid4().hex[:6]
 
     async with TestSessionLocal() as session:
+        await session.execute(text("""
+            CREATE TABLE IF NOT EXISTS customer_credit_ledger_entries (
+                id VARCHAR(50) PRIMARY KEY, uuid VARCHAR(50), company_id VARCHAR(50), branch_id VARCHAR(50),
+                created_at TIMESTAMPTZ, modified_at TIMESTAMPTZ, created_by VARCHAR(50), updated_by VARCHAR(50),
+                is_active BOOLEAN DEFAULT TRUE, is_deleted BOOLEAN DEFAULT FALSE, deleted_at TIMESTAMPTZ,
+                deleted_by VARCHAR(50), version INTEGER DEFAULT 1, customer_id VARCHAR(50) NOT NULL,
+                entry_date TIMESTAMPTZ NOT NULL, entry_type VARCHAR(20) NOT NULL, amount NUMERIC(15, 2) NOT NULL,
+                balance_after NUMERIC(15, 2) NOT NULL, reference_type VARCHAR(50) NOT NULL,
+                reference_id VARCHAR(100) NOT NULL, due_date DATE, notes TEXT,
+                UNIQUE (reference_type, reference_id)
+            )
+        """))
+        await session.commit()
+
         # Pre-cleanup any leftover registrations/customers from prior tests
         for stmt in [
             "DELETE FROM sales_invoice_items WHERE invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%'))",
