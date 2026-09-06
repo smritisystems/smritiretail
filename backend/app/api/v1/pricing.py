@@ -13,6 +13,8 @@ Classification: Internal
 """
 
 import traceback
+import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -20,7 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ...api.deps import get_company_db, get_current_user
-from ...models.pricing import PriceBook, CustomerPriceTier, PriceBookEntry
+from ...models.pricing import PriceBook, CustomerPriceTier, PriceBookEntry, CustomerPriceAssignment
+from ...models.crm import Customer
 from ...services.pricing_engine import PricingEngine
 from ...schemas.pricing import (
     PriceBookCreateRequest,
@@ -29,6 +32,8 @@ from ...schemas.pricing import (
     PriceBookEntryResponse,
     CustomerPriceTierCreateRequest,
     CustomerPriceTierResponse,
+    CustomerPriceAssignmentCreateRequest,
+    CustomerPriceAssignmentResponse,
     PricingResolutionRequest,
     PricingResolutionResponse,
     BulkPricingRequest,
@@ -204,6 +209,56 @@ async def list_customer_tiers(
         )
         for t in tiers
     ]
+
+
+@router.post("/customer-assignments", response_model=CustomerPriceAssignmentResponse, status_code=status.HTTP_201_CREATED)
+async def assign_customer_price_tier(
+    req: CustomerPriceAssignmentCreateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Create or replace the active price-tier assignment for a customer."""
+    company_id, user_id = _extract_user_info(current_user)
+    customer = (await db.execute(select(Customer).where(
+        Customer.id == req.customer_id,
+        Customer.company_id == company_id,
+        Customer.is_deleted == False,
+    ))).scalar_one_or_none()
+    tier = (await db.execute(select(CustomerPriceTier).where(
+        CustomerPriceTier.id == req.price_tier_id,
+        CustomerPriceTier.company_id == company_id,
+        CustomerPriceTier.is_deleted == False,
+    ))).scalar_one_or_none()
+    if not customer or not tier:
+        raise HTTPException(status_code=404, detail="Customer or price tier not found for this company.")
+
+    assignment = (await db.execute(select(CustomerPriceAssignment).where(
+        CustomerPriceAssignment.customer_id == req.customer_id,
+        CustomerPriceAssignment.is_deleted == False,
+    ))).scalar_one_or_none()
+    if assignment:
+        assignment.price_tier_id = req.price_tier_id
+        assignment.valid_from = req.valid_from
+        assignment.valid_to = req.valid_to
+        assignment.notes = req.notes
+        assignment.status = "ACTIVE"
+        assignment.modified_at = datetime.now(timezone.utc)
+    else:
+        assignment = CustomerPriceAssignment(
+            id=f"cpa-{uuid.uuid4().hex[:10]}",
+            customer_id=req.customer_id,
+            price_tier_id=req.price_tier_id,
+            valid_from=req.valid_from,
+            valid_to=req.valid_to,
+            notes=req.notes,
+            status="ACTIVE",
+            company_id=company_id,
+            created_by=user_id,
+        )
+        db.add(assignment)
+    await db.commit()
+    await db.refresh(assignment)
+    return assignment
 
 
 # ============================================================================

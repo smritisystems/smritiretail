@@ -56,6 +56,16 @@ async def _ensure_schema_compatibility(conn):
     schema_fixes = [
         "ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS buying_price NUMERIC(15, 2);",
         "ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(15, 2);",
+        """CREATE TABLE IF NOT EXISTS customer_credit_ledger_entries (
+            id VARCHAR(50) PRIMARY KEY, uuid UUID, company_id VARCHAR(50), branch_id VARCHAR(50),
+            created_at TIMESTAMPTZ, modified_at TIMESTAMPTZ, created_by VARCHAR(50), updated_by VARCHAR(50),
+            is_active BOOLEAN DEFAULT TRUE, is_deleted BOOLEAN DEFAULT FALSE, deleted_at TIMESTAMPTZ,
+            deleted_by VARCHAR(50), version INTEGER DEFAULT 1, customer_id VARCHAR(50) NOT NULL,
+            entry_date TIMESTAMPTZ NOT NULL, entry_type VARCHAR(20) NOT NULL, amount NUMERIC(15, 2) NOT NULL,
+            balance_after NUMERIC(15, 2) NOT NULL, reference_type VARCHAR(50) NOT NULL,
+            reference_id VARCHAR(100) NOT NULL, due_date DATE, notes TEXT,
+            UNIQUE (reference_type, reference_id)
+        );""",
         "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS po_number VARCHAR(100);",
         "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS po_date DATE;",
         "ALTER TABLE IF EXISTS sales_orders ADD COLUMN IF NOT EXISTS delivery_date DATE;",

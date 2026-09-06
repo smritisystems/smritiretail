@@ -343,6 +343,16 @@ def seed_control_plane_test_assignments():
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER DEFAULT 1;
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_scope VARCHAR(50) DEFAULT 'GLOBAL';
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_snapshot JSONB;
+            CREATE TABLE IF NOT EXISTS customer_credit_ledger_entries (
+                id VARCHAR(50) PRIMARY KEY, uuid UUID, company_id VARCHAR(50), branch_id VARCHAR(50),
+                created_at TIMESTAMPTZ, modified_at TIMESTAMPTZ, created_by VARCHAR(50), updated_by VARCHAR(50),
+                is_active BOOLEAN DEFAULT TRUE, is_deleted BOOLEAN DEFAULT FALSE, deleted_at TIMESTAMPTZ,
+                deleted_by VARCHAR(50), version INTEGER DEFAULT 1, customer_id VARCHAR(50) NOT NULL,
+                entry_date TIMESTAMPTZ NOT NULL, entry_type VARCHAR(20) NOT NULL, amount NUMERIC(15, 2) NOT NULL,
+                balance_after NUMERIC(15, 2) NOT NULL, reference_type VARCHAR(50) NOT NULL,
+                reference_id VARCHAR(100) NOT NULL, due_date DATE, notes TEXT,
+                UNIQUE (reference_type, reference_id)
+            );
         """)
 
         # Seed sample products for integration tests in Company DB

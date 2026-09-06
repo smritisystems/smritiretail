@@ -650,6 +650,21 @@ class SalesService:
             cust_db_record.outstanding = previous_outstanding + calculated_grand_total
             cust_db_record.modified_at = datetime.now(timezone.utc)
             self.db.add(cust_db_record)
+            from ..models.crm import CustomerCreditLedgerEntry
+            self.db.add(CustomerCreditLedgerEntry(
+                id=f"ccle-{uuid.uuid4().hex[:12]}",
+                customer_id=cust_db_record.id,
+                entry_date=datetime.now(timezone.utc),
+                entry_type="DEBIT",
+                amount=calculated_grand_total,
+                balance_after=cust_db_record.outstanding,
+                reference_type="SALES_INVOICE",
+                reference_id=db_invoice.id,
+                due_date=due_date,
+                notes="Credit sale posted",
+                company_id=self.tenant_ctx.company_id,
+                branch_id=actual_branch_id,
+            ))
 
         try:
             await self.db.flush()

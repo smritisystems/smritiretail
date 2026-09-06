@@ -104,6 +104,26 @@ class CustomerPriceTierResponse(BaseModel):
     description: Optional[str] = None
 
 
+class CustomerPriceAssignmentCreateRequest(BaseModel):
+    customer_id: str
+    price_tier_id: str
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
+class CustomerPriceAssignmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    customer_id: str
+    price_tier_id: str
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    status: str
+    notes: Optional[str] = None
+
+
 # ============================================================================
 # PRICING RESOLUTION & CALCULATION SCHEMAS
 # ============================================================================
