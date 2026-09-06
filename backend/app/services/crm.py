@@ -19,7 +19,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from ..models.crm import (
@@ -54,6 +54,125 @@ class CrmService:
         self.billing_repo = CustomerBillingLocationRepository(db, tenant_ctx)
         self.ext_ident_repo = CustomerExternalIdentityRepository(db, tenant_ctx)
         self.identity_service = CustomerIdentityService(db, tenant_ctx)
+
+    async def merge_customer(self, target_id: str, source_id: str) -> Dict[str, Any]:
+        if target_id == source_id:
+            raise HTTPException(status_code=400, detail="Target and source customer must be different.")
+
+        result = await self.db.execute(
+            select(Customer)
+            .where(
+                Customer.id.in_([target_id, source_id]),
+                Customer.company_id == self.tenant_ctx.company_id,
+            )
+            .with_for_update()
+        )
+        customers = {customer.id: customer for customer in result.scalars().all()}
+        target = customers.get(target_id)
+        source = customers.get(source_id)
+        if not target or not source:
+            raise HTTPException(status_code=404, detail="Both customers must exist in the active company.")
+        if source.is_deleted or source.status != "Active":
+            raise HTTPException(status_code=400, detail="Source customer is already inactive or deleted.")
+
+        source_gst = (await self.db.execute(
+            select(CustomerGSTRegistration).where(CustomerGSTRegistration.customer_id == source_id)
+        )).scalars().all()
+        target_gst = (await self.db.execute(
+            select(CustomerGSTRegistration).where(CustomerGSTRegistration.customer_id == target_id)
+        )).scalars().all()
+        target_gst_by_value = {registration.gstin.upper(): registration for registration in target_gst}
+
+        for registration in source_gst:
+            existing = target_gst_by_value.get(registration.gstin.upper())
+            if existing:
+                await self.db.execute(text(
+                    "UPDATE customer_delivery_locations "
+                    "SET gst_registration_id = :target_reg "
+                    "WHERE gst_registration_id = :source_reg"
+                ), {"target_reg": existing.id, "source_reg": registration.id})
+                registration.is_deleted = True
+                registration.is_active = False
+                registration.status = "MERGED"
+            else:
+                registration.customer_id = target_id
+
+        for table, code_column in (
+            ("customer_delivery_locations", "store_code"),
+            ("customer_billing_locations", "billing_store_code"),
+        ):
+            conflicts = await self.db.execute(text(
+                f"SELECT source.id, source.{code_column} "
+                f"FROM {table} source JOIN {table} target "
+                f"ON target.customer_id = :target_id "
+                f"AND target.{code_column} = source.{code_column} "
+                "AND target.status = 'ACTIVE' AND target.is_deleted = false "
+                f"WHERE source.customer_id = :source_id AND source.status = 'ACTIVE' AND source.is_deleted = false"
+            ), {"target_id": target_id, "source_id": source_id})
+            conflict_rows = conflicts.fetchall()
+            if conflict_rows:
+                if table == "customer_delivery_locations":
+                    await self.db.execute(text(
+                        "UPDATE customer_delivery_locations target SET "
+                        "location_name = source.location_name, address_line1 = source.address_line1, "
+                        "address_line2 = source.address_line2, city = source.city, state = source.state, "
+                        "state_code = source.state_code, pincode = source.pincode, country = source.country, "
+                        "gst_registration_id = source.gst_registration_id, gstin = source.gstin, "
+                        "contact_person = source.contact_person, phone = source.phone, email = source.email, "
+                        "source = source.source, remarks = source.remarks "
+                        "FROM customer_delivery_locations source "
+                        "WHERE target.customer_id = :target_id AND source.customer_id = :source_id "
+                        "AND target.store_code = source.store_code AND target.status = 'ACTIVE' "
+                        "AND source.status = 'ACTIVE' AND target.is_deleted = false AND source.is_deleted = false"
+                    ), {"target_id": target_id, "source_id": source_id})
+                else:
+                    await self.db.execute(text(
+                        "UPDATE customer_billing_locations target SET "
+                        "location_name = source.location_name, address_line1 = source.address_line1, "
+                        "address_line2 = source.address_line2, city = source.city, state = source.state, "
+                        "state_code = source.state_code, pincode = source.pincode, country = source.country, "
+                        "gst_registration_id = source.gst_registration_id, gstin = source.gstin, "
+                        "contact_person = source.contact_person, phone = source.phone, email = source.email, "
+                        "source = source.source, remarks = source.remarks "
+                        "FROM customer_billing_locations source "
+                        "WHERE target.customer_id = :target_id AND source.customer_id = :source_id "
+                        "AND target.billing_store_code = source.billing_store_code AND target.status = 'ACTIVE' "
+                        "AND source.status = 'ACTIVE' AND target.is_deleted = false AND source.is_deleted = false"
+                    ), {"target_id": target_id, "source_id": source_id})
+                await self.db.execute(text(
+                    f"UPDATE {table} SET status = 'INACTIVE', is_active = false, is_deleted = true "
+                    f"WHERE customer_id = :source_id AND {code_column} IN "
+                    f"(SELECT {code_column} FROM {table} WHERE customer_id = :target_id AND status = 'ACTIVE' AND is_deleted = false)"
+                ), {"target_id": target_id, "source_id": source_id})
+            await self.db.execute(text(
+                f"UPDATE {table} SET customer_id = :target_id, is_default = false "
+                f"WHERE customer_id = :source_id AND status = 'ACTIVE' AND is_deleted = false"
+            ), {"target_id": target_id, "source_id": source_id})
+
+        for table, column in (
+            ("crm_customer_activities", "customer_id"),
+            ("crm_opportunities", "customer_id"),
+            ("customer_external_identities", "customer_id"),
+            ("loyalty_members", "customer_id"),
+            ("loyalty_transactions", "customer_id"),
+            ("referral_relationships", "referred_customer_id"),
+            ("sales_invoices", "customer_id"),
+        ):
+            await self.db.execute(text(
+                f"UPDATE {table} SET {column} = :target_id WHERE {column} = :source_id"
+            ), {"target_id": target_id, "source_id": source_id})
+
+        source.status = "Inactive"
+        source.is_active = False
+        source.is_deleted = True
+        source.code = f"{source.code}-MERGED-{source.id[-6:]}"
+        await self.db.commit()
+        return {
+            "target_id": target_id,
+            "source_id": source_id,
+            "status": "merged",
+            "message": f"Customer '{source_id}' merged into '{target_id}'.",
+        }
 
     async def create_customer_group(self, group_in: CustomerGroupCreate) -> CustomerGroup:
         # Check for duplicate name

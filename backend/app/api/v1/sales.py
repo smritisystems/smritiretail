@@ -15,6 +15,7 @@ Classification: Internal
 from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, get_current_user, require_role, require_permission
 from ...models.auth import UserRole
@@ -31,6 +32,14 @@ from ...services.sales import SalesService
 from ...services.eway_bill_service import EWayBillService
 
 router = APIRouter()
+
+
+class SalesOrderReservationRequest(BaseModel):
+    idempotency_key: str = Field(..., min_length=8, max_length=100)
+
+
+class SalesOrderReservationReleaseRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
 
 
 
@@ -403,6 +412,26 @@ async def list_sales_orders(
     )
 
 
+@router.get("/orders/po-address-candidates")
+async def list_po_address_candidates(
+    customer_id: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Preview historical PO billing addresses before adding them to customer master."""
+    return await SalesService(db, tenant_ctx).list_po_address_candidates(customer_id)
+
+
+@router.get("/orders/reconciliation")
+async def get_sales_order_reconciliation(
+    customer_id: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Reconcile PO, Sales Order, reservation, and invoice status for a customer."""
+    return await SalesService(db, tenant_ctx).get_customer_reconciliation(customer_id)
+
+
 @router.get("/orders/{order_id}", response_model=SalesOrderResponse)
 async def get_sales_order(
     order_id: str,
@@ -431,6 +460,32 @@ async def update_sales_order(
 ):
     """Partial-update a sales order."""
     return await SalesService(db, tenant_ctx).update_sales_order(order_id, update_in)
+
+
+@router.post(
+    "/orders/{order_id}/reserve",
+    dependencies=[Depends(require_permission("sales_billing", "EDIT"))],
+)
+async def reserve_sales_order(
+    order_id: str,
+    request_in: SalesOrderReservationRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    return await SalesService(db, tenant_ctx).reserve_sales_order(order_id, request_in.idempotency_key)
+
+
+@router.post(
+    "/orders/{order_id}/release-reservation",
+    dependencies=[Depends(require_permission("sales_billing", "EDIT"))],
+)
+async def release_sales_order_reservation(
+    order_id: str,
+    request_in: SalesOrderReservationReleaseRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    return await SalesService(db, tenant_ctx).release_sales_order_reservations(order_id, request_in.reason)
 
 
 @router.delete(

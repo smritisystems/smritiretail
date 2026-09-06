@@ -26,6 +26,7 @@ from ..models.sales import (
     SalesInvoice, SalesInvoiceItem,
     SalesQuotation, SalesQuotationItem,
     SalesOrder, SalesOrderItem, SalesOrderInvoiceAllocation,
+    SalesOrderReservation,
     SalesReturn, SalesReturnItem,
 )
 from ..models.inventory import Product, StockMovement
@@ -808,6 +809,107 @@ class SalesService:
         )
         return result.scalars().first()
 
+    async def reserve_sales_order(self, order_id: str, idempotency_key: str) -> Dict[str, Any]:
+        """Reserve barcode-keyed stock atomically for all open Sales Order lines."""
+        existing = await self.db.execute(
+            select(SalesOrderReservation).where(
+                SalesOrderReservation.order_id == order_id,
+                SalesOrderReservation.idempotency_key == idempotency_key,
+                SalesOrderReservation.is_deleted == False,
+            )
+        )
+        existing_rows = existing.scalars().all()
+        if existing_rows:
+            return {"status": "already_reserved", "order_id": order_id, "reservations": [row.id for row in existing_rows]}
+
+        order_result = await self.db.execute(
+            select(SalesOrder).options(selectinload(SalesOrder.items)).where(
+                SalesOrder.id == order_id,
+                SalesOrder.company_id == self.tenant_ctx.company_id,
+                SalesOrder.branch_id == self.tenant_ctx.branch_id,
+                SalesOrder.is_deleted == False,
+            ).with_for_update()
+        )
+        order = order_result.scalars().first()
+        if not order:
+            raise HTTPException(status_code=404, detail="Sales order not found")
+        if str(order.status).lower() in {"cancelled", "completed", "closed"}:
+            raise HTTPException(status_code=409, detail=f"Sales order status '{order.status}' cannot be reserved")
+
+        reservations: List[SalesOrderReservation] = []
+        for line in order.items:
+            quantity = Decimal(str(line.pending_quantity or line.quantity or 0))
+            if quantity <= 0 or str(line.line_status).upper() in {"CANCELLED", "CLOSED", "BILLED"}:
+                continue
+            product_result = await self.db.execute(
+                select(Product).where(
+                    Product.id == line.product_id,
+                    Product.company_id == self.tenant_ctx.company_id,
+                    Product.is_deleted == False,
+                ).with_for_update()
+            )
+            product = product_result.scalars().first()
+            if not product:
+                await self.db.rollback()
+                raise HTTPException(status_code=400, detail=f"Product for Sales Order line {line.id} was not found")
+            barcode = str(product.barcode or line.ean or "").strip()
+            if not barcode:
+                await self.db.rollback()
+                raise HTTPException(status_code=400, detail=f"Sales Order line {line.id} has no barcode")
+            available = Decimal(str(product.stock or 0)) - Decimal(str(product.reserved_stock or 0))
+            if available < quantity:
+                await self.db.rollback()
+                raise HTTPException(status_code=409, detail=f"Insufficient barcode stock for {barcode}: available {available}, requested {quantity}")
+            product.reserved_stock = Decimal(str(product.reserved_stock or 0)) + quantity
+            reservation = SalesOrderReservation(
+                id=f"sor-{uuid.uuid4().hex[:24]}",
+                order_id=order.id,
+                order_item_id=line.id,
+                product_id=product.id,
+                barcode=barcode,
+                requested_quantity=quantity,
+                reserved_quantity=quantity,
+                idempotency_key=idempotency_key,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                metadata_json={"order_no": order.order_no, "po_number": order.po_number},
+            )
+            self.db.add(reservation)
+            reservations.append(reservation)
+
+        if not reservations:
+            raise HTTPException(status_code=400, detail="Sales order has no open lines to reserve")
+        order.status = "Confirmed"
+        order.fulfillment_status = "RESERVED"
+        await self.db.commit()
+        return {"status": "reserved", "order_id": order.id, "reservations": [row.id for row in reservations]}
+
+    async def release_sales_order_reservations(self, order_id: str, reason: str) -> Dict[str, Any]:
+        """Release open barcode reservations and return stock to availability."""
+        result = await self.db.execute(
+            select(SalesOrderReservation).where(
+                SalesOrderReservation.order_id == order_id,
+                SalesOrderReservation.company_id == self.tenant_ctx.company_id,
+                SalesOrderReservation.branch_id == self.tenant_ctx.branch_id,
+                SalesOrderReservation.status.in_(["ACTIVE", "PARTIAL"]),
+                SalesOrderReservation.is_deleted == False,
+            ).with_for_update()
+        )
+        rows = result.scalars().all()
+        released = Decimal("0.0000")
+        for row in rows:
+            product_result = await self.db.execute(select(Product).where(Product.id == row.product_id).with_for_update())
+            product = product_result.scalars().first()
+            open_quantity = max(Decimal("0.0000"), Decimal(str(row.reserved_quantity or 0)) - Decimal(str(row.released_quantity or 0)) - Decimal(str(row.consumed_quantity or 0)))
+            if product and open_quantity:
+                product.reserved_stock = max(Decimal("0.0000"), Decimal(str(product.reserved_stock or 0)) - open_quantity)
+            row.released_quantity = Decimal(str(row.released_quantity or 0)) + open_quantity
+            row.status = "RELEASED"
+            row.release_reason = reason
+            released += open_quantity
+        await self.db.commit()
+        return {"status": "released", "order_id": order_id, "reservation_count": len(rows), "released_quantity": str(released)}
+
     async def list_sales_quotations(self) -> List[SalesQuotation]:
         res = await self.db.execute(
             select(SalesQuotation)
@@ -878,6 +980,17 @@ class SalesService:
             if not product:
                 raise HTTPException(status_code=400, detail=f"Item {index}: '{item_product_id}' was not found in the database. Please select a valid item before saving.")
 
+            barcode = str(product.barcode or "").strip()
+            if not barcode:
+                raise HTTPException(status_code=400, detail=f"Item {index}: barcode is required for inventory movement.")
+            requested_barcode = str(item.ean or "").strip()
+            accepted_barcodes = {barcode, *(str(value).strip() for value in (product.secondary_barcodes or []) if value)}
+            if requested_barcode and requested_barcode not in accepted_barcodes:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Item {index}: barcode '{requested_barcode}' does not match the selected product barcode."
+                )
+
             if not item_name:
                 raise HTTPException(status_code=400, detail=f"Item {index}: '{item_code or item_product_id}' was not found in the database. Please select a valid item before saving.")
 
@@ -905,6 +1018,29 @@ class SalesService:
                 gst_rate=gst_rate,
                 tax_amount=item_tax,
                 total_amount=item_total
+                ,sr_no=item.sr_no
+                ,article_no=item.article_no
+                ,ean=barcode
+                ,vendor_style=item.vendor_style
+                ,color=item.color
+                ,size=item.size
+                ,uom=item.uom or "EA"
+                ,mrp=item.mrp or product.mrp
+                ,base_cost=item.base_cost
+                ,taxable_value=item.taxable_value or (item.quantity * item.price).quantize(Decimal("0.01"))
+                ,igst_amount=item.igst_amount
+                ,cgst_amount=item.cgst_amount
+                ,sgst_amount=item.sgst_amount
+                ,line_total=item.line_total or item_total
+                ,delivery_date=item.delivery_date
+                ,site_code=item.site_code or so_in.site_code
+                ,billed_quantity=item.billed_quantity
+                ,pending_quantity=item.pending_quantity or item.quantity
+                ,overbilled_quantity=item.overbilled_quantity
+                ,line_status=item.line_status
+                ,closure_reason=item.closure_reason
+                ,closed_at=item.closed_at
+                ,closed_by=item.closed_by
             ))
 
         db_so = SalesOrder(
@@ -916,6 +1052,24 @@ class SalesService:
             grand_total=grand_total,
             status=so_in.status,
             source_quotation_id=so_in.source_quotation_id,
+            po_number=so_in.po_number,
+            po_date=so_in.po_date,
+            delivery_date=so_in.delivery_date,
+            site_code=so_in.site_code,
+            site_name=so_in.site_name,
+            delivery_address=so_in.delivery_address,
+            vendor_code=so_in.vendor_code,
+            customer_id=so_in.customer_id,
+            customer_gstin=so_in.customer_gstin,
+            basic_total=sum((item.quantity * item.price for item in so_in.items), Decimal("0.00")).quantize(Decimal("0.01")),
+            is_interstate=so_in.is_interstate,
+            total_qty=sum((item.quantity for item in so_in.items), Decimal("0.0000")),
+            billed_qty=sum((item.billed_quantity for item in so_in.items), Decimal("0.0000")),
+            billed_value=sum((item.billed_quantity * item.price for item in so_in.items), Decimal("0.00")).quantize(Decimal("0.01")),
+            pending_qty=sum((item.pending_quantity or item.quantity for item in so_in.items), Decimal("0.0000")),
+            pending_value=sum(((item.pending_quantity or item.quantity) * item.price for item in so_in.items), Decimal("0.00")).quantize(Decimal("0.01")),
+            fulfillment_status=so_in.fulfillment_status,
+            po_metadata=so_in.po_metadata or {},
             items=so_items,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
@@ -984,6 +1138,72 @@ class SalesService:
         res = await self.db.execute(stmt)
         return res.scalars().all()
 
+    async def list_po_address_candidates(self, customer_id: str) -> List[Dict[str, Any]]:
+        """Return deduplicated invoice/PO address snapshots for review before import."""
+        result = await self.db.execute(
+            select(SalesInvoice).where(
+                SalesInvoice.customer_id == customer_id,
+                SalesInvoice.company_id == self.tenant_ctx.company_id,
+                SalesInvoice.branch_id == self.tenant_ctx.branch_id,
+                SalesInvoice.is_deleted == False,
+                SalesInvoice.po_reference.is_not(None),
+                SalesInvoice.billing_address.is_not(None),
+            ).order_by(SalesInvoice.date.desc())
+        )
+        candidates: Dict[str, Dict[str, Any]] = {}
+        for invoice in result.scalars().all():
+            address = " ".join(str(invoice.billing_address or "").split()).strip()
+            if not address:
+                continue
+            key = address.upper()
+            candidate = candidates.setdefault(key, {
+                "suggested_store_code": f"PO-{str(invoice.po_reference).strip().upper()}",
+                "address": address,
+                "gstin": invoice.customer_gstin,
+                "po_references": [],
+                "invoice_numbers": [],
+                "last_seen": invoice.date,
+            })
+            if invoice.po_reference and invoice.po_reference not in candidate["po_references"]:
+                candidate["po_references"].append(invoice.po_reference)
+            if invoice.invoice_no and invoice.invoice_no not in candidate["invoice_numbers"]:
+                candidate["invoice_numbers"].append(invoice.invoice_no)
+        return list(candidates.values())
+
+    async def get_customer_reconciliation(self, customer_id: str) -> List[Dict[str, Any]]:
+        """Return PO/Sales Order/reservation/invoice status for operational reconciliation."""
+        result = await self.db.execute(
+            select(SalesOrder)
+            .options(selectinload(SalesOrder.items), selectinload(SalesOrder.allocations), selectinload(SalesOrder.reservations))
+            .where(
+                SalesOrder.customer_id == customer_id,
+                SalesOrder.company_id == self.tenant_ctx.company_id,
+                SalesOrder.branch_id == self.tenant_ctx.branch_id,
+                SalesOrder.is_deleted == False,
+            )
+            .order_by(SalesOrder.date.desc())
+        )
+        rows = []
+        for order in result.scalars().all():
+            active_reservations = [r for r in order.reservations if r.status in {"ACTIVE", "PARTIAL"} and not r.is_deleted]
+            rows.append({
+                "order_id": order.id,
+                "order_no": order.order_no,
+                "po_number": order.po_number,
+                "date": order.date,
+                "status": order.status,
+                "fulfillment_status": order.fulfillment_status,
+                "total_quantity": str(order.total_qty or 0),
+                "billed_quantity": str(order.billed_qty or 0),
+                "pending_quantity": str(order.pending_qty or 0),
+                "reservation_status": "RESERVED" if active_reservations else "NOT_RESERVED",
+                "reserved_quantity": str(sum((Decimal(str(r.reserved_quantity or 0)) for r in active_reservations), Decimal("0.0000"))),
+                "invoice_count": len(order.allocations),
+                "site_code": order.site_code,
+                "customer_gstin": order.customer_gstin,
+            })
+        return rows
+
     async def get_sales_order(self, so_id: str) -> tuple[SalesOrder, List[SalesOrderItem], List[SalesOrderInvoiceAllocation]]:
         stmt = (
             select(SalesOrder)
@@ -1019,24 +1239,45 @@ class SalesService:
         if not items:
             raise HTTPException(status_code=400, detail="Sales order has no line items to convert")
 
-        # Determine next invoice number safely by finding max existing suffix
-        import re
-        inv_count_res = await self.db.execute(select(SalesInvoice.invoice_no))
-        all_inv_nos = [str(r) for r in inv_count_res.scalars().all() if r]
-        max_num = 137
-        for inv_str in all_inv_nos:
-            m = re.search(r'/(\d+)$', inv_str)
-            if m:
-                max_num = max(max_num, int(m.group(1)))
-        next_num = max_num + 1
-        invoice_no = f"TT2026-2027/{next_num}"
+        await self.db.execute(
+            select(SalesOrder.id).where(
+                SalesOrder.id == so.id,
+                SalesOrder.company_id == self.tenant_ctx.company_id,
+                SalesOrder.branch_id == self.tenant_ctx.branch_id,
+                SalesOrder.is_deleted == False,
+            ).with_for_update()
+        )
+        if so.pending_qty is not None and Decimal(str(so.pending_qty)) <= 0 and allocations:
+            existing_invoice = await self.db.execute(
+                select(SalesInvoice).where(SalesInvoice.id == allocations[-1].invoice_id)
+            )
+            invoice = existing_invoice.scalars().first()
+            if invoice:
+                return invoice
+            raise HTTPException(status_code=409, detail="Sales order is already fully invoiced")
+
+        seq_alloc = await DocumentsEngine.allocate_next_number_in_transaction(
+            session=self.db,
+            company_id=self.tenant_ctx.company_id,
+            document_type="SALES_INVOICE",
+            branch_id=self.tenant_ctx.branch_id,
+            company_code=self.tenant_ctx.company_id,
+            created_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
+        )
+        invoice_no = seq_alloc.document_no
         invoice_id = f"inv-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
 
-        items_to_convert = items
+        items_to_convert = [
+            item for item in items
+            if Decimal(str(item.pending_quantity or item.quantity or 0)) > 0
+            and str(item.line_status).upper() not in {"CANCELLED", "CLOSED", "BILLED"}
+        ]
         if selected_item_ids:
             items_to_convert = [i for i in items if str(i.id) in selected_item_ids or str(i.product_id) in selected_item_ids]
             if not items_to_convert:
                 items_to_convert = items
+        if not items_to_convert:
+            raise HTTPException(status_code=409, detail="Sales order has no pending quantities to invoice")
 
         inv_items = []
         total_taxable = Decimal("0.00")
@@ -1054,7 +1295,7 @@ class SalesService:
         pos_state_name = GST_STATE_CODES.get(pos_code, "Maharashtra") if "GST_STATE_CODES" in globals() else "Maharashtra"
 
         for ln, item in enumerate(items_to_convert, start=1):
-            qty = Decimal(str(item.quantity or 1))
+            qty = Decimal(str(item.pending_quantity or item.quantity or 1))
             total_pairs += int(qty)
             price = Decimal(str(item.price or 0))
             taxable_val = (price * qty).quantize(Decimal("0.01"))
@@ -1099,6 +1340,9 @@ class SalesService:
                 sgst_amount=sgst_val,
                 line_no=ln,
             ))
+            item.billed_quantity = Decimal(str(item.billed_quantity or 0)) + qty
+            item.pending_quantity = max(Decimal("0.0000"), Decimal(str(item.quantity or 0)) - item.billed_quantity)
+            item.line_status = "BILLED" if item.pending_quantity <= 0 else "PARTIALLY_BILLED"
 
         db_inv = SalesInvoice(
             id=invoice_id,
