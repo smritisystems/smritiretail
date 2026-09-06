@@ -82,7 +82,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                 value={customer.name}
                 data-field-key="customer_name"
                 onChange={(e) => onChange("name", e.target.value)}
-                placeholder="e.g. Farida Jameel"
+                placeholder="Customer Name / Company Name"
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-bold text-xs outline-none focus:border-[#00355f]"
               />
             </div>

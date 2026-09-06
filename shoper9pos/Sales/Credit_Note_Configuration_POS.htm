@@ -1,0 +1,280 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Credit Note Configuration</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+tr.hcp1 { x-cell-content-align:top; }
+td.hcp2 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; background-color:#c0c0c0; }
+td.hcp3 { border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; background-color:#c0c0c0; }
+td.hcp4 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp5 { border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+table.hcp6 { x-cell-content-align:top; border-spacing:0px; }
+td.hcp7 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; background-color:#c0c0c0; }
+span.hcp8 { font-weight:bold; }
+-->
+</style>
+</head>
+<body>
+<h1 class=body-text>Credit Note Configuration</h1>
+
+<p class=body-text>In Shoper, 
+ credit notes are generated to handle the amount payable to the customer 
+ when there is a sales return or in cases of exchange where there is a 
+ balance amount due to the customer. Balance value comes into picture:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While exchanging a bill, 
+ if the Exchange value is more than the Net amount</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While redeeming a credit 
+ note, if the value of a credit note is not completely utilised</p></li>
+</ul>
+
+<p class=Body-Text>The parameters explained below can be set to facilitate 
+ effective handling of balance value. In the case of chain stores, HO decides 
+ the template for billing functionality and hence some of the parameters 
+ are being blocked from modification. This ensures consistency of billing 
+ functions across POS locations.</p>
+
+<table x-use-null-cells
+		style="x-cell-content-align: top;
+				left: 0px;
+				top: 150px;
+				width: 738px;
+				border-spacing: 0px;
+				border-spacing: 0px;"
+		cellspacing=0
+		width=738>
+<col style="width: 32.858%;">
+<col style="width: 32.286%;">
+<col style="width: 34.856%;">
+
+<tr style="height:39px;" valign="top" class="hcp1">
+<td rowspan="1" colspan="2" style="width:65.144%;" bgcolor="#C0C0C0" width="65.144%" class="hcp2">
+<p class=TableCell
+	style="font-weight: bold; text-align: center;"
+	align=center>Parameters &amp; Settings</td>
+<td style="width:34.856%;" bgcolor="#C0C0C0" width="34.856%" class="hcp3">
+<p class=TableCell
+	style="font-weight: bold; text-align: center;"
+	align=center>Effect</td></tr>
+
+<tr style="height:48px;" valign="top" class="hcp1">
+<td rowspan="2" colspan="1" style="width:32.858%;" width="32.858%" class="hcp4">
+<p class=TableCell
+	style="font-weight: bold;">Donot Prompt For Credit Note Generation 
+ If Bill Return Value Is Less Than Specified</td>
+<td style="width:32.286%;" width="32.286%" class="hcp5">
+<p class=TableCell>Balance value is less than the value assigned</td>
+<td style="width:34.856%;" width="34.856%" class="hcp5">
+<p class=TableCell>Pay Cash</td></tr>
+
+<tr style="height:98px;" valign="top" class="hcp1">
+<td style="width:32.286%;" width="32.286%" class="hcp5">
+<p class=TableCell>Balance value is greater than the value assigned</td>
+<td style="width:34.856%;" width="34.856%" class="hcp5">
+<p class=TableCell>Checks the values in the other two parameters given 
+ in the following tables</td></tr>
+</table>
+
+<p class=Body-Text>&nbsp;</p>
+
+<table x-use-null-cells style="width:100%;" cellspacing="0" width="100%" class="hcp6">
+<col style="width: 18.668%;">
+<col style="width: 19.854%;">
+<col style="width: 28.298%;">
+<col style="width: 33.18%;">
+
+<tr style="height:33px;" valign="top" class="hcp1">
+<td rowspan="1" colspan="3" style="width:66.82%;" bgcolor="#C0C0C0" width="66.82%" class="hcp2">
+<p class=TableCell
+	style="font-weight: bold; text-align: center;"
+	align=center>Parameters &amp; Settings</td>
+<td rowspan="2" colspan="1" style="width:33.18%;" bgcolor="#C0C0C0" width="33.18%" class="hcp3">
+<p style="font-weight: bold; text-align: center;"
+	align=center>&nbsp;</p>
+<p class=TableCell
+	style="font-weight: bold; text-align: center;"
+	align=center>Effect</p>
+<p>&nbsp;</td></tr>
+
+<tr style="height:74px;" valign="top" class="hcp1">
+<td rowspan="1" colspan="2" style="width:38.522%;" bgcolor="#C0C0C0" width="38.522%" class="hcp7">
+<p class=TableCell>&nbsp;</td>
+<td style="width:28.298%;" width="28.298%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Reuse Same Credit Note Or Issue New Credit 
+ Note for balance value in Old Credit Note</td>
+</tr>
+
+<tr style="height:64px;" valign="top" class="hcp1">
+<td rowspan="3" colspan="1" style="width:18.668%;" width="18.668%" class="hcp4">
+<p class=TableCell
+	style="font-weight: bold;">Donot Prompt For Credit Note Generation 
+ If Bill Return Value Is Less Than Specified</td>
+<td style="width:19.854%;" width="19.854%" class="hcp5">
+<p class=TableCell>Balance value is less than the value assigned</td>
+<td style="width:28.298%;" width="28.298%" class="hcp5">
+<p class=TableCell>Not Applicable</td>
+<td style="width:33.18%;" width="33.18%" class="hcp5">
+<p class=TableCell>Pay Cash</td></tr>
+
+<tr style="height:64px;" valign="top" class="hcp1">
+<td rowspan="2" colspan="1" style="width:19.854%;" width="19.854%" class="hcp5">
+<p class=TableCell>Balance value is greater than the value assigned</td>
+<td style="width:28.298%;" width="28.298%" class="hcp5">
+<p class=TableCell>Enabled</td>
+<td style="width:33.18%;" width="33.18%" class="hcp5">
+<p class=TableCell>The Balance value is retained in the same credit note</td></tr>
+
+<tr style="height:64px;" valign="top" class="hcp1">
+<td style="width:28.298%;" width="28.298%" class="hcp5">
+<p class=TableCell>Disabled</td>
+<td style="width:33.18%;" width="33.18%" class="hcp5">
+<p class=TableCell>A new credit note is generated for the Balance value</td></tr>
+</table>
+
+<p class=Body-Text>&nbsp;</p>
+
+<table x-use-null-cells style="width:100%;" cellspacing="0" width="100%" class="hcp6">
+<col style="width: 17.326%;">
+<col style="width: 16.799%;">
+<col style="width: 17.591%;">
+<col style="width: 20.36%;">
+<col style="width: 11.259%;">
+<col style="width: 16.667%;">
+
+<tr style="height:30px;" valign="top" class="hcp1">
+<td rowspan="1" colspan="4" style="width:66.668%;" bgcolor="#C0C0C0" width="66.668%" class="hcp2">
+<p class=TableCell
+	style="font-weight: bold; text-align: center;"
+	align=center>Parameters &amp; Settings</td>
+<td colspan="2" rowspan="2" style="width:27.926%;" bgcolor="#C0C0C0" width="27.926%" class="hcp3">
+<p class=TableCell
+	style="font-weight: bold; text-align: center;"
+	align=center>Effect</td>
+</tr>
+
+<tr style="height:97px;" valign="top" class="hcp1">
+<td rowspan="1" colspan="2" style="width:34.125%;" bgcolor="#C0C0C0" width="34.125%" class="hcp7">
+<p class=TableCell>&nbsp;</td>
+<td style="width:17.591%;" width="17.591%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Reuse Same Credit Note Or Issue New Credit 
+ Note for balance value in Old Credit Note</td>
+<td style="width:20.36%;" width="20.36%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Default Setting For Generate Credit Note 
+ Option In Billing</td>
+</tr>
+
+<tr style="height:55px;" valign="top" class="hcp1">
+<td rowspan="11" colspan="1" style="width:17.326%;" width="17.326%" class="hcp4">
+<p class=TableCell
+	style="font-weight: bold;">Donot Prompt For Credit Note Generation 
+ If Bill Return Value Is Less Than Specified</td>
+<td style="width:16.799%;" width="16.799%" class="hcp5">
+<p class=TableCell>Balance value is less than the value assigned</td>
+<td style="width:17.591%;" width="17.591%" class="hcp5">
+<p class=TableCell>Not Applicable</td>
+<td style="width:20.36%;" width="20.36%" class="hcp5">
+<p class=TableCell>Not Applicable</td>
+<td colspan="2" rowspan="1" style="width:27.926%;" width="27.926%" class="hcp5">
+<p class=TableCell>Pay Cash</td>
+</tr>
+
+<tr style="height:55px;" valign="top" class="hcp1">
+<td rowspan="10" colspan="1" style="width:16.799%;" width="16.799%" class="hcp5">
+<p class=TableCell>Balance value is greater than the value assigned</td>
+<td rowspan="5" colspan="1" style="width:17.591%;" width="17.591%" class="hcp5">
+<p class=TableCell>Enabled</td>
+<td rowspan="3" colspan="1" style="width:20.36%;" width="20.36%" class="hcp5">
+<p class=TableCell>1 - Ask</td>
+<td colspan="2" rowspan="1" style="width:27.926%;" width="27.926%" class="hcp5">
+<p class=TableCell>Displays a message <span class="hcp8">Do 
+ you wish to keep Credit Note for the balance value?</span></td>
+</tr>
+
+<tr style="height:32px;" valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:11.259%;" width="11.259%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Yes</td>
+<td colspan="1" rowspan="1" style="width:16.667%;" width="16.667%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">No</td></tr>
+
+<tr style="height:83px;" valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:11.259%;" width="11.259%" class="hcp5">
+<p class=TableCell>The Balance value is retained in the same credit note</td>
+<td colspan="1" rowspan="1" style="width:16.667%;" width="16.667%" class="hcp5">
+<p class=TableCell>The Balance value is paid by Cash</td></tr>
+
+<tr style="height:48px;" valign="top" class="hcp1">
+<td style="width:20.36%;" width="20.36%" class="hcp5">
+<p class=TableCell>2 - Don't Ask, assume Yes</td>
+<td colspan="2" rowspan="1" style="width:27.926%;" width="27.926%" class="hcp5">
+<p class=TableCell>The Balance value is retained in the same credit note</td>
+</tr>
+
+<tr style="height:48px;" valign="top" class="hcp1">
+<td style="width:20.36%;" width="20.36%" class="hcp5">
+<p class=TableCell>3 - Don't Ask, assume No</td>
+<td colspan="2" rowspan="1" style="width:27.926%;" width="27.926%" class="hcp5">
+<p class=TableCell>The Balance value is paid by cash</td>
+</tr>
+
+<tr style="height:55px;" valign="top" class="hcp1">
+<td colspan="1" rowspan="5" style="width:17.591%;" width="17.591%" class="hcp5">
+<p class=TableCell>Disabled</td>
+<td colspan="1" rowspan="3" style="width:20.36%;" width="20.36%" class="hcp5">
+<p class=TableCell>1 - Ask</td>
+<td colspan="2" rowspan="1" style="width:27.926%;" width="27.926%" class="hcp5">
+<p class=TableCell>Displays a message <span class="hcp8">Do 
+ you wish to Generate a new Credit Note for the balance value?</span></td>
+</tr>
+
+<tr style="height:32px;" valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:11.259%;" width="11.259%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Yes</td>
+<td colspan="1" rowspan="1" style="width:16.667%;" width="16.667%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">No</td></tr>
+
+<tr style="height:109px;" valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:11.259%;" width="11.259%" class="hcp5">
+<p class=TableCell>A new Credit Note is generated for the Balance value</td>
+<td colspan="1" rowspan="1" style="width:16.667%;" width="16.667%" class="hcp5">
+<p class=TableCell>The Balance value is paid by Cash</td></tr>
+
+<tr style="height:47px;" valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:20.36%;" width="20.36%" class="hcp5">
+<p class=TableCell>2 - Don't Ask, assume Yes</td>
+<td colspan="2" rowspan="1" style="width:27.926%;" width="27.926%" class="hcp5">
+<p class=TableCell>A new Credit Note is generated for the Balance value</td>
+</tr>
+
+<tr style="height:44px;" valign="top" class="hcp1">
+<td style="width:20.36%;" width="20.36%" class="hcp5">
+<p class=TableCell>3 - Don't Ask, assume No</td>
+<td colspan="2" rowspan="1" style="width:27.926%;" width="27.926%" class="hcp5">
+<p class=TableCell>Pay Cash</td>
+</tr>
+</table>
+
+<p class=Body-Text>&nbsp;</p>
+
+<p class=Note><span class="hcp8">Note:</span> The balance 
+ value paid by cash is taken care internally by Shoper 
+ application.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

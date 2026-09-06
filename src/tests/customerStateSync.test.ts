@@ -43,7 +43,7 @@ class CustomerMasterStateManager {
       email: "",
       customerGroupId: "CG-Retail",
       customer_group_id: "CG-Retail",
-      religion: "Muslim",
+      religion: "Hindu",
       ethnicity: "Asian",
       ageGroup: ">=20 - <35",
       profession: "",

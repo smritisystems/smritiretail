@@ -207,6 +207,16 @@ class CustomerDeliveryLocationBase(BaseModel):
                 raise ValueError(f"Invalid Indian state code '{v}'")
         return v
 
+    @field_validator("pincode")
+    @classmethod
+    def validate_delivery_pincode(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            clean = v.strip()
+            if clean and (len(clean) != 6 or not clean.isdigit()):
+                raise ValueError("Indian PIN code must contain exactly 6 digits")
+            return clean
+        return v
+
     @model_validator(mode="after")
     def validate_delivery_gstin_state_consistency(self) -> "CustomerDeliveryLocationBase":
         if self.gstin and self.state_code:
@@ -288,6 +298,16 @@ class CustomerDeliveryLocationUpdate(BaseModel):
             if v not in GST_STATE_CODES:
                 raise ValueError(f"Invalid Indian state code '{v}'")
             return v
+        return v
+
+    @field_validator("pincode")
+    @classmethod
+    def validate_delivery_pincode_opt(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            clean = v.strip()
+            if clean and (len(clean) != 6 or not clean.isdigit()):
+                raise ValueError("Indian PIN code must contain exactly 6 digits")
+            return clean
         return v
 
     @model_validator(mode="after")
@@ -414,6 +434,14 @@ class CustomerBillingLocationBase(BaseModel):
             raise ValueError(f"Invalid Indian state code '{v}'")
         return v
 
+    @field_validator("pincode")
+    @classmethod
+    def validate_billing_pincode(cls, v: str) -> str:
+        clean = v.strip()
+        if len(clean) != 6 or not clean.isdigit():
+            raise ValueError("Indian PIN code must contain exactly 6 digits")
+        return clean
+
 
 class CustomerBillingLocationCreate(CustomerBillingLocationBase):
     id: Optional[str] = Field(None, max_length=50)
@@ -440,6 +468,16 @@ class CustomerBillingLocationUpdate(BaseModel):
     remarks: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    @field_validator("pincode")
+    @classmethod
+    def validate_billing_pincode_opt(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            clean = v.strip()
+            if clean and (len(clean) != 6 or not clean.isdigit()):
+                raise ValueError("Indian PIN code must contain exactly 6 digits")
+            return clean
+        return v
 
 
 class CustomerBillingLocationResponse(CustomerBillingLocationBase):

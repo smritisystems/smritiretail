@@ -1,0 +1,372 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Bill Details</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+ul.hcp2 { list-style:circle; }
+img.hcp3 { border:none; float:none; border-style:none; }
+-->
+</style>
+</head>
+<body><script type="text/javascript" language="JavaScript1.2" src="../ehlpdhtm.js" x-save-method="compute-relative"></script>
+<script type="text/javascript"
+		language=JavaScript1.2>
+<!-- 
+if( typeof( kadovInitEffects ) != 'function' ) kadovInitEffects = new Function();if( typeof( kadovInitTrigger ) != 'function' ) kadovInitTrigger = new Function();if( typeof( kadovFilePopupInit ) != 'function' ) kadovFilePopupInit = new Function();if( typeof( kadovTextPopupInit ) != 'function' ) kadovTextPopupInit = new Function();
+ //-->
+</script>
+
+<div class=x-popup-text id=POPUP259390275 style='display: none; position: absolute' >
+<p class=Body-Text
+	style="margin-left: 47px;">Following are the settings required to prefill 
+ the quantity field with the current balance quantity of the item:</p>
+
+<ol>
+	
+	<ol>
+		
+		<li class=kadov-p-CNumbered><p class=Numbered>Enable the system 
+ parameter <span class="hcp1">Apply Current Balance Quantity 
+ Instead of LSQ</span> under the category <span class="hcp1">Billing</span><span>.</span></p></li>
+		
+		<li class=kadov-p-CNumbered><p class=Numbered>Make the General 
+ Lookup entries as:</p></li>
+	</ol>
+	
+	<ul type="circle" class="hcp2">
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Select <span class="hcp1">Applying 
+ the Current Balance Quantity Instead of LSQ</span> from the list, under 
+ <span class="hcp1">Select Categories</span>.</p></li>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Click <span class="hcp1">Add 
+ New</span> to open the grid to add new lookup entries under the selected 
+ category.</p></li>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Specify the LSQ (the 
+ LSQ of the items for which the current balance quantity is to be prefilled 
+ in the <span class="hcp1">Quantity</span> field while scanning 
+ the items) in the <span class="hcp1">Code</span> field. 
+ For example, if the LSQ of the items is <span class="hcp1">1</span>, 
+ specify <span class="hcp1">1</span> in the <span class="hcp1">Code</span> 
+ field.</p></li>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Give appropriate description 
+ and set <span class="hcp1">1</span> as the value of the 
+ flag.</p></li>
+	</ul>
+</ol>
+
+<p class=Body-Text
+	style="margin-left: 87px;">Similarly, you can add multiple entries 
+ under this category, if there are multiple LSQs to be replaced with the 
+ current balance quantity during billing.</p>
+
+<p class=body-text
+	style="margin-left: 87px;">Sample General Lookup entry with multiple 
+ LSQs is shown.</p>
+
+<p class=body-text
+	style="margin-left: 87px;"><img src="Qty-LSQ.gif" x-maintain-ratio="TRUE" style="width:550px; height:314px;" width="550" height="314" border="0" class="hcp3"></p>
+
+<p class=body-text>&nbsp;</p>
+</div>
+
+<div class=x-popup-text
+id=POPUP259454164 style='display: none; position: absolute' >
+<p class=Body-Text
+	style="margin-left: 47px;">Following are the settings required to make 
+ negative billing of stock items when the stock check of the items is enabled 
+ in billing:</p>
+
+<ol>
+	
+	<ol>
+		
+		<li class=kadov-p-CNumbered><p class=Numbered>Enable the system 
+ parameter <span class="hcp1">Apply Tolerance Factor Based 
+ Stock Check</span> under the category <span class="hcp1">Billing</span></p></li>
+		
+		<li class=kadov-p-CNumbered><p class=Numbered>Make the General 
+ Lookup entries as:</p></li>
+	</ol>
+	
+	<ul type="circle" class="hcp2">
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Select <span class="hcp1">Tolerance 
+ Factor for Stock Check </span>from the list, under <span class="hcp1">Select 
+ Categories</span>.</p></li>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Click <span class="hcp1">Add 
+ New</span> to open the grid to add new lookup entries under the selected 
+ category.</p></li>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Specify the LSQ (the 
+ LSQ of the items for which the Tolerance Factor is to be applied) in the 
+ <span class="hcp1">Code</span> field. </p></li>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Specify the Tolerance 
+ Factor allowed in the <span class="hcp1">Description</span> 
+ field. For example, if the Tolerance Factor defined for the items with 
+ LSQ<span class="hcp1"> 1</span> is <span class="hcp1">-5</span>, 
+ then you are allowed to make billing of the items, even if the quantity 
+ specified is upto 5 No.s less than the actual quantity present. </p></li>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Set <span class="hcp1">1</span> 
+ as the value of the flag.</p></li>
+	</ul>
+</ol>
+
+<p class=Body-Text
+	style="margin-left: 87px;">Similarly, you can add multiple entries 
+ under this category, if Tolerance Factor is to be defined for multiple 
+ LSQs.</p>
+
+<p class=Body-Text
+	style="margin-left: 87px;">Sample General Lookup entry with multiple 
+ LSQs is shown.</p>
+
+<p class=Body-Text
+	style="margin-left: 87px;"><img src="Qty-ToleranceFactor.gif" x-maintain-ratio="TRUE" style="width:550px; height:314px;" width="550" height="314" border="0" class="hcp3"></p>
+
+<p class=body-text>&nbsp;</p>
+</div>
+
+<h1>Bill Details</h1>
+
+<p class=Body-Text>The detail part of a bill is displayed.</p>
+
+<p class=body-text><img src="Bill_Details_1.gif" x-maintain-ratio="TRUE" style="width:550px; height:130px;" width="550" height="130" border="0" class="hcp3"></p>
+
+<p class=Body-Text
+	style="color: #000000;">Each item with its required details for <span>billing</span> 
+ can be entered in the Item Details grid from the Direct Entry grid. Press 
+ <span class="hcp1">F11</span> to enter the items in the 
+ Direct Entry grid.</p>
+
+<p class=Body-Text
+	style="text-align: left;"
+	align=left>The Direct Entry grid is displayed.</p>
+
+<p class=Body-Text
+	style="text-align: left;"
+	align=left><img src="Bill_Details_2.gif" x-maintain-ratio="TRUE" style="width:550px; height:22px;" width="550" height="22" border="0" class="hcp3"> </p>
+
+<p class=Body-Text><span class="hcp1">S No.</span>: The serial 
+ number is displayed by default.</p>
+
+<p class=Body-Text><span class="hcp1">Stock No</span>: Enter 
+ the stock number of the item or press <span class="hcp1">F2</span> 
+ to activate <a href="Item_Search_POS.htm">Item Search</a> window and select 
+ the required item. If the stock number of the item is entered by scanning 
+ the barcode, then the scanning of the barcode is to be done when the cursor 
+ is in this field.</p>
+
+<p class=Body-Text><span class="hcp1">Item Description</span>: 
+ The description of the selected item is displayed in this field. &nbsp;</p>
+
+<p class=Body-Text><span class="hcp1">Rate</span>: The rate 
+ (<span>retail price</span>) of the item is displayed. You may alter the 
+ rate if <a href="Billing_Configuration.htm#ItemEntryConfiguration">configured</a>. 
+ </p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">The rate is computed by applying price factors, 
+ if any, defined in the Sales Factor catalogue. Click <a href="../catalogue/Sales_Factors.htm">here</a> 
+ to know how to define price factors. </p>
+
+<p class=Body-Text><span class="hcp1">Qty</span>: Enter the 
+ quantity of the item being sold. You can also configure Shoper 9 to prefill 
+ the quantity field based on two different criteria as follows:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Prefill the quantity field 
+ with the Least Saleable Quantity (LSQ) of the item based on the <a href="Billing_Configuration.htm#ItemEntryConfiguration">parameter 
+ setting</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Prefill the quantity field 
+ with the current balance quantity of the item based on parameter setting 
+ and the related General Lookup entries. Click <a class=dropspot
+													x-use-popup=#POPUP259390275
+													x-popup-type=pulldown
+													href="javascript:kadovTextPopup(this)"
+													id=a2>here</a><script 
+ type="text/javascript"
+	language=JavaScript1.2><!--
+kadovTextPopupInit('a2');
+//--></script> 
+ to know the details.</p></li>
+</ul>
+
+<p class=Note
+	style="margin-left: 59px;"><span class="hcp1">Note:</span> 
+ You are allowed to make changes to the quantity of the item that is prefilled 
+ in the <span class="hcp1">Qty</span> field, if required.</p>
+
+<p class=Body-Text>Additionally, you can configure to make negative billing 
+ of stock items (i.e., billing of the stock items even if the specified 
+ quantity of the item is not available as per the Item Master) based on 
+ parameter setting and the related General Lookup entries. Click <a class=dropspot
+	x-use-popup=#POPUP259454164
+	x-popup-type=pulldown
+	href="javascript:kadovTextPopup(this)"
+	id=a3>here</a><script type="text/javascript"
+												language=JavaScript1.2><!--
+kadovTextPopupInit('a3');
+//--></script> 
+ to know the details.</p>
+
+<p class=Body-Text><span class="hcp1">Value</span>: The Item<span class="hcp1"> Rate * </span>Item<span class="hcp1"> 
+ Qty</span> is displayed in this field.</p>
+
+<p class=Body-Text><span class="hcp1">Disc Code</span>: Selection 
+ of discount/ <a href="../catalogue/SP_Sales_Promotions.htm">sales promotion 
+ schemes</a> depend on various settings. Click here<script 
+ type="text/javascript"
+	language=JavaScript1.2><!--
+kadovFilePopupInit('a1');
+//--></script> 
+ to learn about some of the billing configurations. In manual mode, selection 
+ of a discount code from the list is needed. If auto selection of discount 
+ code during item entry is configured and you want to change the promo 
+ or avoid selecting one while scanning items, use arrow keys to select 
+ another/ none.</p>
+
+<p class=Body-Text><span class="hcp1">Disc Qty</span>: Enter 
+ the quantity of the item being considered for discount. This is applicable 
+ only if you have selected <a href="../catalogue/SP_Discount_on_Last_Piece.htm">Last 
+ Piece Discount</a> code in the <span class="hcp1">Disc Code</span> 
+ field.</p>
+
+<p class=Body-Text>The quantity entered should be:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>in multiples of LSQ defined 
+ for the item</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>less than the quantity of 
+ the item being sold, i.e., it should be less than the value entered in 
+ the <span class="hcp1">Qty</span> field</p></li>
+</ul>
+
+<p class=Body-Text>The Direct Entry grid, where an item with last piece 
+ discount code applied is shown.</p>
+
+<p class=Body-Text><img src="Bill_Details_3.gif" x-maintain-ratio="TRUE" style="width:550px; height:24px;" width="550" height="24" border="0" class="hcp3"></p>
+
+<p class=Body-Text>The discount percentage and discount amount of the discount 
+ quantity entered will be calculated internally and displayed in the <span class="hcp1">Disc. %</span> and <span class="hcp1">Disc.Amt</span> 
+ fields respectively.</p>
+
+<p class=Note><span class="hcp1">Note:</span> The details 
+ of Last Piece Discount will not be displayed in the <span class="hcp1">Item 
+ Level Promotional Details</span> displayed on <a href="Applying_Promo_Details_in_Manual_Mode_POS.htm">pressing 
+ <span class="hcp1">F6</span></a>.</p>
+
+<p class=Body-Text
+	style="color: #000000;"><span class="hcp1">Disc. %</span>: 
+ Displays the percentage of discount applicable as per the selected discount 
+ code/ scheme, subjected to the maximum allowed (if defined). If the item 
+ level discount selected is a fixed one you cannot edit it. On the other 
+ hand, in the case of a variable discount, if it is defined as: </p>
+
+<ul>
+	
+	<li style="/*begin!kadov{{*/ color: #000000; /*}}end!kadov*/ "
+		class=kadov-p-Cbullet><p class=bullet
+								style="color: #000000;"><span class="hcp1">Percentage</span>: 
+ You may change the percentage of discount for the selected item </p></li>
+	
+	<li style="/*begin!kadov{{*/ color: #000000; /*}}end!kadov*/ "
+		class=kadov-p-Cbullet><p class=bullet
+								style="color: #000000;"><span class="hcp1">Amount</span>: 
+ The computed percentage based on the discount amount is displayed</p></li>
+</ul>
+
+<p class=Body-Text
+	style="color: #000000;"><span class="hcp1">Disc.Amt</span>: 
+ Displays the discount amount applicable as per the selected discount code/ 
+ scheme, subjected to the maximum allowed (if defined). If the item level 
+ discount selected is a fixed one you cannot edit it. On the other hand, 
+ in the case of a variable discount, if it is defined as: </p>
+
+<ul>
+	
+	<li style="/*begin!kadov{{*/ color: #000000; /*}}end!kadov*/ "
+		class=kadov-p-Cbullet><p class=bullet
+								style="color: #000000;"><span class="hcp1">Amount</span>: 
+ You may change the amount of discount for the selected item </p></li>
+	
+	<li style="/*begin!kadov{{*/ color: #000000; /*}}end!kadov*/ "
+		class=kadov-p-Cbullet><p class=bullet
+								style="color: #000000;"><span class="hcp1">Percentage</span>: 
+ The computed amount based on the discount percentage is displayed</p></li>
+</ul>
+
+<p class=Body-Text
+	style="color: #000000;">Additionally, if you have defined the variable 
+ discount as <span class="hcp1">Both</span>, you may enter 
+ either percentage or amount. If you enter percentage, the corresponding 
+ amount will be displayed and vice versa.</p>
+
+<p class=Note><span class="hcp1">Note:</span> In the case 
+ of manual selection of discount as well as auto selection of discount, 
+ changing variable discount percentage/ amount at item level are similar.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=FunctionKey><span class="hcp1">F6</span>: To display 
+ various active discounts/ offers in the system and/ or enter bill level 
+ remarks. Behaviour of this window depends on the mode of sales promo selection 
+ in billing.</p>
+
+<p class=FunctionKey>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font
+face="Symbol">&#183;</font>&nbsp;<a 
+ href="Applying_Promo_Details_in_Auto_Mode_POS.htm">Auto 
+ mode</a></p>
+
+<p class=FunctionKey>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font
+face="Symbol">&#183;</font>&nbsp;<a 
+ href="Applying_Promo_Details_in_Manual_Mode_POS.htm">Manual 
+ mode</a></p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note><span class="hcp1">Note:</span> Bill level 
+ discount value is appropriated against all the items selected for billing.</p>
+
+<p class=Body-Text><span class="hcp1">Total</span>: The calculated 
+ total value/ amount of the selected/ scanned item after discount is displayed 
+ in this field.</p>
+
+<p class=Body-Text><span class="hcp1">Sales Staff</span>: 
+ Select the sales staff Id from the list, if different items to be billed 
+ are handled by more than one sales person. For each item in the bill the 
+ respective sales staff can be selected.</p>
+
+<p class=Note><span class="hcp1">Note:</span> By double clicking 
+ on any of the items present in the Item Details grid, the item is brought 
+ to the Direct Entry grid where it can be edited as required. To delete 
+ any item from the Item details grid, you have to select the item by clicking 
+ and then press <span class="hcp1">Ctrl+D</span> when it 
+ is high lighted.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=FunctionKey><span class="hcp1">Ctrl+4</span>: To 
+ make <span style="color: #0000ff;"><a href="AddOns_and_Deductions_POS.htm"
+										style="font-weight: normal;">AddOns 
+ And Deductions</a></span>.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+</body>
+</html>

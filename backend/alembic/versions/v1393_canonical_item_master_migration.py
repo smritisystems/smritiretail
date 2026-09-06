@@ -22,6 +22,14 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    items_columns = {c["name"] for c in inspector.get_columns("items")} if inspector.has_table("items") else set()
+
+    if "item_type" not in items_columns:
+        op.execute("ALTER TABLE IF EXISTS items ADD COLUMN item_type VARCHAR(30) DEFAULT 'FINISHED_GOOD';")
+        op.execute("UPDATE items SET item_type = COALESCE(item_type, 'FINISHED_GOOD') WHERE item_type IS NULL;")
+
     # 1. Create legacy_id_mappings table
     op.execute("""
         CREATE TABLE IF NOT EXISTS legacy_id_mappings (
@@ -59,7 +67,20 @@ def upgrade() -> None:
     # Older installations may have the canonical items table without this optional column.
     op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS primary_uom VARCHAR(20);")
     op.execute("ALTER TABLE IF EXISTS items ALTER COLUMN primary_uom DROP NOT NULL;")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS item_type VARCHAR(30) DEFAULT 'FINISHED_GOOD';")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS category_code VARCHAR(50);")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(15);")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2);")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS attributes_json JSONB DEFAULT '{}'::jsonb;")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS primary_image_url VARCHAR(512);")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS tags VARCHAR[] DEFAULT '{}'::varchar[];")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS is_batch_tracked BOOLEAN NOT NULL DEFAULT FALSE;")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS is_serial_tracked BOOLEAN NOT NULL DEFAULT FALSE;")
+    op.execute("ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE;")
+    op.execute("UPDATE items SET item_type = COALESCE(item_type, 'FINISHED_GOOD') WHERE item_type IS NULL;")
+    op.execute("ALTER TABLE IF EXISTS items ALTER COLUMN item_type SET DEFAULT 'FINISHED_GOOD';")
     op.execute("ALTER TABLE IF EXISTS items ALTER COLUMN category DROP NOT NULL;")
+    op.execute("ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS attributes_json JSONB DEFAULT '{}'::jsonb;")
     op.execute("ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(15);")
     op.execute("ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2);")
     op.execute("ALTER TABLE IF EXISTS items DROP CONSTRAINT IF EXISTS items_item_code_key;")
@@ -77,7 +98,9 @@ def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS uq_variants_company_sku;")
     op.execute("DROP INDEX IF EXISTS uq_barcodes_company_barcode;")
 
-    # 2. Drop variant-level statutory columns
+    # 2. Drop item-level and variant-level statutory columns
+    op.execute("ALTER TABLE IF EXISTS items DROP COLUMN IF EXISTS hsn_code;")
+    op.execute("ALTER TABLE IF EXISTS items DROP COLUMN IF EXISTS tax_rate;")
     op.execute("ALTER TABLE IF EXISTS item_variants DROP COLUMN IF EXISTS hsn_code;")
     op.execute("ALTER TABLE IF EXISTS item_variants DROP COLUMN IF EXISTS tax_rate;")
 

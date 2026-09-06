@@ -27,6 +27,17 @@ export interface MasterLookupItem {
   sequence_order?: number;
 }
 
+export const mapLookupResponse = (items: any, typeCode: string) => (
+  Array.isArray(items)
+    ? items.map((item) => ({
+      ...item,
+      type_code: typeCode,
+      description: item.data?.description || item.data?.notes || "",
+      is_active: item.active !== false
+    }))
+    : []
+);
+
 export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
   entityName: "Lookup Value",
   entityNamePlural: "Lookup Values",
@@ -35,6 +46,14 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
   icon: <Database size={20} />,
   apiEndpoint: "/api/v1/masters/lookup/department/values",
   idKey: "id",
+  payloadTransform: (formData, _mode) => ({
+    code: String(formData.code || "").trim(),
+    name: String(formData.name || "").trim(),
+    active: formData.is_active !== false,
+    data: {
+      description: String(formData.description || "").trim()
+    }
+  }),
   searchPlaceholder: "Search by value name, code, category, or type...",
   searchFields: ["name", "code", "type_code", "category", "description"],
 

@@ -15,6 +15,45 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
+    def ensure_items_columns():
+        sql_statements = [
+            "ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS item_type VARCHAR(30) DEFAULT 'FINISHED_GOOD';",
+            "ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(15);",
+            "ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2);",
+            "ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS primary_uom VARCHAR(20);",
+            "ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS attributes_json JSONB DEFAULT '{}'::jsonb;",
+            "ALTER TABLE IF EXISTS items ADD COLUMN IF NOT EXISTS tags VARCHAR[] DEFAULT '{}'::varchar[];",
+            "UPDATE items SET item_type = COALESCE(item_type, 'FINISHED_GOOD') WHERE item_type IS NULL;",
+            "UPDATE items SET attributes_json = COALESCE(attributes_json, '{}'::jsonb) WHERE attributes_json IS NULL;",
+            "UPDATE items SET tags = COALESCE(tags, '{}'::varchar[]) WHERE tags IS NULL;",
+        ]
+        for stmt in sql_statements:
+            op.execute(sa.text(stmt))
+
+    def ensure_item_variants_columns():
+        sql_statements = [
+            "ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS attributes_json JSONB DEFAULT '{}'::jsonb;",
+            "ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(15);",
+            "ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2);",
+            "ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS mrp NUMERIC(15, 2) DEFAULT 0.00;",
+            "ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS selling_price NUMERIC(15, 2) DEFAULT 0.00;",
+            "ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS cost_price NUMERIC(15, 2) DEFAULT 0.00;",
+            "ALTER TABLE IF EXISTS item_variants ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;",
+            "UPDATE item_variants SET attributes_json = COALESCE(attributes_json, '{}'::jsonb) WHERE attributes_json IS NULL;",
+            "UPDATE item_variants SET mrp = COALESCE(mrp, 0.00) WHERE mrp IS NULL;",
+            "UPDATE item_variants SET selling_price = COALESCE(selling_price, 0.00) WHERE selling_price IS NULL;",
+            "UPDATE item_variants SET cost_price = COALESCE(cost_price, 0.00) WHERE cost_price IS NULL;",
+            "UPDATE item_variants SET is_active = COALESCE(is_active, TRUE) WHERE is_active IS NULL;",
+        ]
+        for stmt in sql_statements:
+            op.execute(sa.text(stmt))
+
+    ensure_items_columns()
+    ensure_item_variants_columns()
+
     # First recover exact existing links by legacy code or barcode.
     op.execute(sa.text("""
         UPDATE products p

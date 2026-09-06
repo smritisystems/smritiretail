@@ -12,11 +12,19 @@
  * Classification: Internal
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Plus, Trash2, Check, MapPin, Phone, Mail, Home } from "lucide-react";
 import { CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption } from "./types.ts";
 import { parseAndValidateGSTIN } from "../../utils/gstEngine.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import {
+  ALL_INDIAN_CITIES,
+  ALL_INDIAN_PINCODE_OPTIONS,
+  INDIAN_STATE_CITY_PIN_DATA,
+  INDIAN_STATES,
+  getCitySuggestionsForState,
+  getPincodeSuggestionsForCity
+} from "../../constants/indianLocationData.ts";
 
 interface SmritiCustomerMailingModalProps {
   isOpen: boolean;
@@ -45,6 +53,12 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number>(0);
   const [poCandidates, setPoCandidates] = useState<any[]>([]);
   const [isLoadingPoCandidates, setIsLoadingPoCandidates] = useState(false);
+  const [referenceStates, setReferenceStates] = useState<string[]>([]);
+  const [referenceStateCodes, setReferenceStateCodes] = useState<Record<string, string>>({});
+  const [referenceStateNamesByCode, setReferenceStateNamesByCode] = useState<Record<string, string>>({});
+  const [referenceCities, setReferenceCities] = useState<string[]>([]);
+  const [referencePincodes, setReferencePincodes] = useState<string[]>([]);
+  const cityResolutionRequest = useRef(0);
 
   const addressTypeLabel = (type?: CustomerAddressType) => (
     type === "billing" ? "Billing" : type === "shipping" ? "Shipping" : "Mailing"
@@ -72,11 +86,11 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
           address3: "",
           address4: "",
           address5: "",
-          locality: "Jayanagar",
-          city: "Bangalore",
-          postalCode: "560027",
-          state: "Karnataka",
-          zone: "South",
+          locality: "",
+          city: "",
+          postalCode: "",
+          state: "",
+          zone: "",
           country: "India",
           officePhone: "",
           homePhone: "",
@@ -92,15 +106,130 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
     }
   }, [isOpen, addresses, customerName]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    apiFetchV1<any[]>("/control/reference/states?country_code=IN")
+      .then((states) => {
+        const records = Array.isArray(states) ? states : [];
+        const names = records.map((state) => String(state.name)).filter(Boolean);
+        setReferenceStateCodes(Object.fromEntries(records.map((state) => [String(state.name), String(state.state_code || "")] )));
+        setReferenceStateNamesByCode(Object.fromEntries(records.map((state) => [String(state.state_code || "").toUpperCase(), String(state.name)])));
+        setReferenceStates(names.length > 0 ? names : INDIAN_STATES);
+      })
+      .catch(() => {
+        setReferenceStateCodes({});
+        setReferenceStateNamesByCode({});
+        setReferenceStates(INDIAN_STATES);
+      });
+  }, [isOpen]);
 
   const currentAddress = addressList[selectedAddressIndex] || addressList[0];
+  const currentState = currentAddress?.state || "";
+  const currentCity = currentAddress?.city || "";
+
+  useEffect(() => {
+    if (!isOpen || !currentState) {
+      setReferenceCities([]);
+      setReferencePincodes([]);
+      return;
+    }
+
+    const params = new URLSearchParams({ limit: "100" });
+    const stateCode = referenceStateCodes[currentState];
+    if (stateCode) params.set("state_code", stateCode);
+    if (currentCity) params.set("city", currentCity);
+
+    apiFetchV1<any[]>(`/control/reference/postal-codes?${params.toString()}`)
+      .then((postalRecords) => {
+        const records = Array.isArray(postalRecords) ? postalRecords : [];
+        const cities = [...new Set(records.map((record) => String(record.city || "")).filter(Boolean))];
+        const pincodes = [...new Set(records.map((record) => String(record.postal_code || record.postalCode || "")).filter(Boolean))];
+        setReferenceCities(cities);
+        setReferencePincodes(pincodes);
+      })
+      .catch(() => {
+        setReferenceCities(getCitySuggestionsForState(currentState));
+        setReferencePincodes(getPincodeSuggestionsForCity(currentCity, currentState));
+      });
+  }, [isOpen, currentState, currentCity, referenceStateCodes]);
+
+  if (!isOpen) return null;
+
+  const resolveCitySelection = async (cityName: string) => {
+    const cleanCity = cityName.trim();
+    if (!cleanCity) return;
+    const requestId = ++cityResolutionRequest.current;
+
+    try {
+      const params = new URLSearchParams({ city: cleanCity, limit: "100" });
+      const records = await apiFetchV1<any[]>(`/control/reference/postal-codes?${params.toString()}`);
+      if (requestId !== cityResolutionRequest.current) return;
+      const matches = (Array.isArray(records) ? records : []).filter((record) =>
+        String(record.city || "").trim().toLowerCase() === cleanCity.toLowerCase()
+      );
+      const stateCodes = [...new Set(matches.map((record) => String(record.state_code || "").toUpperCase()).filter(Boolean))];
+      if (stateCodes.length !== 1) return;
+
+      const selected = matches[0];
+      const resolvedState = referenceStateNamesByCode[stateCodes[0]];
+      setAddressList(prev => {
+        const next = [...prev];
+        if (next[selectedAddressIndex]) {
+          next[selectedAddressIndex] = {
+            ...next[selectedAddressIndex],
+            city: selected.city,
+            state: resolvedState || next[selectedAddressIndex].state,
+            locality: selected.locality || next[selectedAddressIndex].locality
+          };
+        }
+        return next;
+      });
+    } catch {
+      // Static fallback remains available when the reference API is unavailable.
+    }
+  };
+
+  const resolvePincodeSelection = async (postalCode: string) => {
+    const cleanPin = postalCode.trim();
+    if (!/^\d{6}$/.test(cleanPin)) return;
+
+    try {
+      const record = await apiFetchV1<any>(`/control/reference/postal-codes/${cleanPin}`);
+      const resolvedState = referenceStateNamesByCode[String(record.state_code || "").toUpperCase()];
+      setAddressList(prev => {
+        const next = [...prev];
+        if (next[selectedAddressIndex]) {
+          next[selectedAddressIndex] = {
+            ...next[selectedAddressIndex],
+            postalCode: cleanPin,
+            city: record.city || next[selectedAddressIndex].city,
+            state: resolvedState || next[selectedAddressIndex].state,
+            locality: record.locality || next[selectedAddressIndex].locality
+          };
+        }
+        return next;
+      });
+    } catch {
+      // Keep manually entered PIN when the reference record is unavailable.
+    }
+  };
 
   const handleFieldChange = (key: keyof CustomerAddressEntry, value: any) => {
     setAddressList(prev => {
       const next = [...prev];
       if (next[selectedAddressIndex]) {
         next[selectedAddressIndex] = { ...next[selectedAddressIndex], [key]: value };
+
+        if (key === "state" && typeof value === "string") {
+          const stateName = value.trim();
+          const currentCity = next[selectedAddressIndex].city.trim();
+          const stateCities = INDIAN_STATE_CITY_PIN_DATA[stateName] || [];
+          if (currentCity && !stateCities.some((entry) => entry.city.toLowerCase() === currentCity.toLowerCase())) {
+            next[selectedAddressIndex].city = "";
+            next[selectedAddressIndex].postalCode = "";
+          }
+        }
+
         if (key === "isDefault" && value === true) {
           next.forEach((addr, idx) => {
             if (idx !== selectedAddressIndex && addr.addressType === next[selectedAddressIndex].addressType) addr.isDefault = false;
@@ -157,10 +286,10 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
       address4: "",
       address5: "",
       locality: "",
-      city: "Bangalore",
+      city: "",
       postalCode: "",
-      state: "Karnataka",
-      zone: "South",
+      state: "",
+      zone: "",
       country: "India",
       officePhone: "",
       homePhone: "",
@@ -550,28 +679,60 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                   <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">City / Town</label>
                   <input
                     type="text"
+                    list="india-city-list"
                     value={currentAddress.city}
-                    onChange={e => handleFieldChange("city", e.target.value)}
+                    onChange={e => {
+                      const nextValue = e.target.value;
+                      handleFieldChange("city", nextValue);
+                      if (nextValue.trim()) {
+                        void resolveCitySelection(nextValue);
+                      }
+                    }}
+                    onBlur={() => void resolveCitySelection(currentAddress.city)}
                     className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs font-semibold"
                   />
+                  <datalist id="india-city-list">
+                    {(referenceCities.length > 0 ? referenceCities : (currentAddress.state ? getCitySuggestionsForState(currentAddress.state) : ALL_INDIAN_CITIES)).map((city) => (
+                      <option key={city} value={city} />
+                    ))}
+                  </datalist>
                 </div>
                 <div>
                   <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">Postal Code (PIN)</label>
                   <input
                     type="text"
+                    list="india-pincode-list"
                     value={currentAddress.postalCode}
-                    onChange={e => handleFieldChange("postalCode", e.target.value)}
+                    onChange={e => {
+                      const nextValue = e.target.value;
+                      handleFieldChange("postalCode", nextValue);
+                      if (/^\d{6}$/.test(nextValue.trim())) {
+                        void resolvePincodeSelection(nextValue.trim());
+                      }
+                    }}
+                    onBlur={() => void resolvePincodeSelection(currentAddress.postalCode)}
                     className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono text-xs font-bold"
                   />
+                  <datalist id="india-pincode-list">
+                    {(referencePincodes.length > 0 ? referencePincodes : (currentAddress.city ? getPincodeSuggestionsForCity(currentAddress.city, currentAddress.state) : ALL_INDIAN_PINCODE_OPTIONS)).map((pincode) => (
+                      <option key={pincode} value={pincode} />
+                    ))}
+                  </datalist>
                 </div>
                 <div>
                   <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">State / Province</label>
                   <input
                     type="text"
+                    list="india-state-list"
                     value={currentAddress.state}
                     onChange={e => handleFieldChange("state", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs font-semibold"
                   />
+                  <datalist id="india-state-list">
+                    {(referenceStates.length > 0 ? referenceStates : INDIAN_STATES).map((state) => (
+                      <option key={state} value={state} />
+                    ))}
+                  </datalist>
                 </div>
                 <div>
                   <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">Zone</label>
