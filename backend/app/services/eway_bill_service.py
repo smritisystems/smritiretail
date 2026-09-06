@@ -445,7 +445,9 @@ class EWayBillService:
             raise HTTPException(status_code=404, detail=f"Sales invoice {invoice_id} not found.")
 
         cust_res = await self.db.execute(
-            select(Customer).where(Customer.id == invoice.customer_id)
+            select(Customer).options(
+                selectinload(Customer.gst_registrations)
+            ).where(Customer.id == invoice.customer_id)
         )
         customer = cust_res.scalar_one_or_none()
         company = await self._get_company()
@@ -454,7 +456,7 @@ class EWayBillService:
         company_name = company.name if company else "SMRITI Enterprise"
         company_state_code = int(company_gstin[:2]) if company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit() else 27
 
-        customer_gstin = (getattr(customer, 'gst_number', None) or getattr(customer, 'gstin', None) or "URP") if customer else "URP"
+        customer_gstin = (getattr(customer, 'canonical_gstin', None) or getattr(customer, 'gstin', None) or "URP") if customer else "URP"
         customer_name = customer.name if customer else "Walk-in Retailer"
         customer_state_code = int(customer_gstin[:2]) if customer_gstin and customer_gstin != "URP" and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit() else company_state_code
 

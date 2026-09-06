@@ -83,6 +83,7 @@ class Customer(BaseEntity):
         back_populates="customer",
         cascade="all, delete-orphan",
         order_by="CustomerGSTRegistration.is_primary.desc()",
+        lazy="selectin",
     )
     delivery_locations = relationship(
         "CustomerDeliveryLocation",
@@ -101,6 +102,20 @@ class Customer(BaseEntity):
         back_populates="customer",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def canonical_gstin(self):
+        """Return the active primary GSTIN, with legacy-only fallback."""
+        active_registrations = [
+            registration
+            for registration in self.gst_registrations
+            if not registration.is_deleted
+            and registration.is_active
+            and registration.status == "ACTIVE"
+        ]
+        primary = next((registration for registration in active_registrations if registration.is_primary), None)
+        registration = primary or (active_registrations[0] if active_registrations else None)
+        return registration.gstin if registration else self.gst_number
 
 
 

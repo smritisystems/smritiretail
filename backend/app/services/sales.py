@@ -161,7 +161,9 @@ class SalesService:
         cust_db_record = None
         if resolved_customer_id and resolved_customer_id != "CUST-WALKIN":
             # Tenant verification
-            cust_stmt = select(Customer).where(
+            cust_stmt = select(Customer).options(
+                selectinload(Customer.gst_registrations)
+            ).where(
                 Customer.id == resolved_customer_id,
                 Customer.is_deleted == False
             )
@@ -196,7 +198,7 @@ class SalesService:
             if not customer_name:
                 customer_name = getattr(cust_db_record, "name", None)
             if not customer_gstin:
-                customer_gstin = getattr(cust_db_record, "gst_number", None)
+                customer_gstin = cust_db_record.canonical_gstin
         else:
             if not customer_name:
                 customer_name = "Walk-In / Cash Customer"
