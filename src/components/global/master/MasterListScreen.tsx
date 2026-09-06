@@ -46,6 +46,7 @@ export interface MasterListScreenProps<T = any> {
   currentUser?: { role: string; name: string } | null;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
   initialSubTab?: string;
+  onSubTabChange?: (subTabId: string) => void;
   // Optional slot overrides provided directly at screen instantiation
   extraColumns?: (item: T) => React.ReactNode;
   extraFields?: (formState: any, setFormField: (name: string, val: any) => void) => React.ReactNode;
@@ -58,6 +59,7 @@ export function MasterListScreen<T extends Record<string, any>>({
   currentUser,
   onNotification,
   initialSubTab,
+  onSubTabChange,
   extraColumns,
   extraFields,
   customActions,
@@ -514,7 +516,10 @@ export function MasterListScreen<T extends Record<string, any>>({
           {config.subTabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveSubTab(tab.id)}
+              onClick={() => {
+                setActiveSubTab(tab.id);
+                onSubTabChange?.(tab.id);
+              }}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 activeSubTab === tab.id
                   ? "bg-blue-600 text-white shadow-xs"

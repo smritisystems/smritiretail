@@ -57,10 +57,10 @@ const DEFAULT_MAILING_ADDRESS: CustomerAddressEntry = {
   address4: "",
   address5: "",
   locality: "",
-  city: "Bangalore",
+  city: "Gorakhpur",
   postalCode: "",
-  state: "Karnataka",
-  zone: "South",
+  state: "Uttar Pradesh",
+  zone: "North",
   country: "India",
   officePhone: "",
   homePhone: "",
@@ -310,12 +310,12 @@ const SEED_CUSTOMERS: RetailCustomerRecord[] = [
   {
     id: "cust-1",
     code: "CUST-001",
-    name: "Farida Jameel",
+    name: "Siddharth Mallah",
     priceGroup: "TI#Tech Infotech Ltd",
     phone: "9845510001",
-    email: "farida.jameel@gmail.com",
-    religion: "Muslim",
-    ethnicity: "Arab",
+    email: "siddharth.mallah@gmail.com",
+    religion: "Hindu",
+    ethnicity: "Asian",
     ageGroup: ">=35 - <45",
     profession: "Senior Consultant",
     customerType: "Retail",
@@ -464,7 +464,7 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
   email: "",
   customerGroupId: "CG-Retail",
   customer_group_id: "CG-Retail",
-  religion: "Muslim",
+  religion: "Hindu",
   ethnicity: "Asian",
   ageGroup: ">=20 - <35",
   profession: "",
@@ -480,7 +480,14 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
   delimiter: ";",
   buyingFactor: 1.00,
   sellingFactor: 1.00,
-  mailingAddresses: createDefaultAddressSet(),
+  mailingAddresses: createDefaultAddressSet().map((address, index) => ({
+    ...address,
+    contactPerson: "",
+    city: index === 0 ? "Gorakhpur" : address.city,
+    state: index === 0 ? "Uttar Pradesh" : address.state,
+    addressType: index === 0 ? "mailing" : address.addressType,
+    isDefault: index === 0
+  })),
   isDependant: false,
   primaryAccountCode: "",
   primaryAccountName: "",
@@ -584,7 +591,7 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     customer_group_id: resolvedGroupId,
     phone: bCust.mobile || bCust.phone || "",
     email: bCust.email || "",
-    religion: bCust.religion || "Muslim",
+    religion: bCust.religion || "Hindu",
     ethnicity: bCust.ethnicity || "Asian",
     ageGroup: bCust.age_group || bCust.ageGroup || ">=20 - <35",
     profession: bCust.profession || "",
@@ -1015,7 +1022,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     setIsDirty(true);
     isDirtyRef.current = true;
     setActiveTab("form");
-    onNotification?.("New Record", `Initialized new customer entry (${newRecord.code}).`, "info");
+    onNotification?.("New Record", `Initialized blank customer entry (${newRecord.code}). Name is left empty; suggested defaults are Hindu / Gorakhpur / Uttar Pradesh.`, "info");
   };
 
   const handleDelete = async () => {

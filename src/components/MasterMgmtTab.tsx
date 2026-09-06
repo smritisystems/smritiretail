@@ -16,7 +16,7 @@
 
 import React, { useState, useEffect } from "react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
-import { masterLookupConfig, MasterLookupItem } from "./global/configs/masterLookup.confi.tsx";
+import { mapLookupResponse, masterLookupConfig, MasterLookupItem } from "./global/configs/masterLookup.confi.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 
 export interface MasterManagementTabProps {
@@ -48,6 +48,12 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
   const dynamicConfig = {
     ...masterLookupConfig,
     apiEndpoint: `/masters/lookup/${selectedType}/values`,
+    responseTransform: (items: any) => mapLookupResponse(items, selectedType),
+    fields: masterLookupConfig.fields.map((field) =>
+      field.name === "type_code"
+        ? { ...field, defaultValue: selectedType, disabled: true }
+        : field
+    ),
     subTabs: lookupTypes.length > 0 ? lookupTypes.map((t) => ({
       id: t.code,
       label: t.label
@@ -58,6 +64,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     <MasterListScreen<MasterLookupItem>
       config={dynamicConfig}
       currentUser={currentUser}
+      onSubTabChange={setSelectedType}
       onNotification={(t, m, type) => {
         if (onNotification) onNotification(t, m, type === "warning" || type === "info" ? "success" : type);
       }}

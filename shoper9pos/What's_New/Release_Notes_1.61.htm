@@ -1,0 +1,231 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Release_Notes_1.61</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+-->
+</style>
+</head>
+<body>
+<h1>New Features in Shoper 9 POS Series A Release 1.61</h1>
+
+<p class=Body-Text
+	style="text-align: justify;">New Features:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ExciseDuty_New">Excise 
+ Duty</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#BillPrintingTemplate_New">Bill 
+ Printing Template</a></p></li>
+</ul>
+
+<p class=Body-Text
+	style="text-align: justify;">Enhancements:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#TaxRecomputation_ENH">Tax 
+ Recomputation</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Barcode_ENH">Barcode</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PurchaseOrder_ENH">Purchase 
+ Order</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#DataCommunications_ENH">Data 
+ Communications</a></p></li>
+</ul>
+
+<p class=Body-Text
+	style="text-align: justify;">Issues Resolved:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Billing_ISR">Billing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PriceRevision_ISR">Price 
+ Revision</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#DataUpload_ISR">Data 
+ Upload</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#MenuCompatibility_ISR">Menu 
+ &amp; Compatibility</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#StockReport_ISR">Stock 
+ Report</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#AnalysisReports_ISR">Analysis 
+ Reports</a></p></li>
+</ul>
+
+<h2>New Features</h2>
+
+<h3><a name=ExciseDuty_New>Excise Duty</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Catalogue to support excise 
+ duty invoicing as per the new Excise Duty introduced for Branded Readymade 
+ Garments (MRP based) in the Union Budget 2011.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Option to generate and print 
+ Excise Invoices, for the transactions such as sales, transfer out, purchase 
+ return, misc. issue, approval issue, where Excise Duty is applicable.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Excise Invoice Report to 
+ give the details of the Excise Invoices generated.</p></li>
+</ul>
+
+<p class=Note
+	style="margin-left: 59px;"><span class="hcp1">Note:</span> 
+ Print Engine is a prerequisite for printing Excise Invoice, as it uses 
+ Tally Printing technology.</p>
+
+<h3><a name=BillPrintingTemplate_New>Bill Printing Template</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>A new bill printing template 
+ <span class="hcp1">VATShoper40ColPOS</span> is introduced. 
+ This template prints the VAT details like VAT percentage, Taxable value 
+ and VAT amount in the bill under the heading <span class="hcp1">VAT 
+ Summary</span>, in addition to the item details.</p></li>
+</ul>
+
+<h2>Enhancements</h2>
+
+<h3><a name=TaxRecomputation_ENH>Tax Recomputation</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>A new utility <span class="hcp1">Tax 
+ Recomputation</span> is introduced in Shoper 9 POS to recalculate the 
+ tax amount of Sales, Sales Return or Void transactions, at a later point 
+ of time, if required. This enhancement is of great advantage if you have 
+ used wrongly catalogued tax details by mistake. This option allows you 
+ to change the wrongly catalogued tax rates and recalculate the correct 
+ tax amount of the transactions and update all the related documents accordingly.</p></li>
+</ul>
+
+<h3><a name=Barcode_ENH>Barcode</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Image of the item can be 
+ printed on the barcode label if the image is available in the Item Master.</p></li>
+</ul>
+
+<h3><a name=PurchaseOrder_ENH>Purchase Order</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>While generating a Purchase 
+ Order by importing item details from Excel or CSV file, you can select 
+ <span class="hcp1">Rate</span> along with <span class="hcp1">Stock 
+ Number</span> and <span class="hcp1">Order Quantity</span>.</p></li>
+</ul>
+
+<h3><a name=DataCommunications_ENH>Data Communications</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Data Download and Upload 
+ are enhanced to optionally use SIS, based on parameter setting.</p></li>
+</ul>
+
+<h2>Issues Resolved</h2>
+
+<h3><a name=Billing_ISR>Billing</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>An error message was being 
+ displayed while saving <span class="hcp1">Cash Receipts</span> 
+ when extensions are enabled at the footer level.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=PriceRevision_ISR>Price Revision</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>If multiple effective dates 
+ are present in the same document then price revision process was not updating 
+ properly in Item master.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>If the older price revision 
+ records get synchronised to POS, it was updating the old price in some 
+ conditions.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue is resolved.</p>
+
+<h3><a name=DataUpload_ISR>Data Upload</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>When there were pending upload 
+ requests and the communication mode was changed from FTP to any other 
+ mode, 0KB files were sent to FTP.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=MenuCompatibility_ISR>Menu &amp; Compatibility</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>In some of the Shoper 9 locations, 
+ while closing Shoper 9, a memory error was occurring.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=StockReport_ISR>Stock Report</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The <span class="hcp1">Attribute 
+ + Size wise</span> stock report was not displaying the correct quantity 
+ when the selected report format was <span class="hcp1">Pivot 
+ On Selected Columns</span>.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=AnalysisReports_ISR>Analysis Reports</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The Analysis Report, <span class="hcp1">Customer Offtake</span>, was showing incorrect 
+ values.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<p class=body-text>&nbsp;</p>
+
+</body>
+</html>

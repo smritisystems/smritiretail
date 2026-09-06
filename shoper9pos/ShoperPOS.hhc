@@ -1,0 +1,1464 @@
+<html>
+<!-- Sitemap 1.0 -->
+<object type="text/site properties">
+  <param name="SiteType" value="toc">
+  <param name="Image Width" value="16">
+  <param name="Window Styles" value="0x800027">
+  <param name="ExWindow Styles" value="0x100">
+</object>
+<ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Welcome to Shoper 9 POS Help">
+    <param name="Local" value="Common/Welcome_to_Shoper_9_POS_Help.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="What's New">
+    <param name="Local" value="What's_New/Whats_New.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.7">
+      <param name="Local" value="What's_New/Release_Notes_1.7.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.61">
+      <param name="Local" value="What's_New/Release_Notes_1.61.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.6">
+      <param name="Local" value="What's_New/Release_Notes_1.6.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.51">
+      <param name="Local" value="What's_New/Release_Notes_1.51.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.5">
+      <param name="Local" value="What's_New/Release_Notes_1.5.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.41">
+      <param name="Local" value="What's_New/Release_Notes_1.41.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.4">
+      <param name="Local" value="What's_New/Release_Notes_1.4.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.31">
+      <param name="Local" value="What's_New/Release_Notes_1.31.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.3">
+      <param name="Local" value="What's_New/Release_Notes_1.3.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.22">
+      <param name="Local" value="What's_New/Release_Notes_1.22.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.21">
+      <param name="Local" value="What's_New/Release_Notes_1.21.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.2">
+      <param name="Local" value="What's_New/Release_Notes_1.2.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.13">
+      <param name="Local" value="What's_New/Release_Notes_1.13.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.12">
+      <param name="Local" value="What's_New/Release_Notes_1.12.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.11">
+      <param name="Local" value="What's_New/Release_Notes_1.11.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.1">
+      <param name="Local" value="What's_New/Release_Notes_1.1.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper 9 POS Series A Release 1.0">
+      <param name="Local" value="What's_New/Release_Notes_1.0.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Sales">
+    <param name="Local" value="Sales/Sales.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Billing / Return / Cancellation">
+      <param name="Local" value="Sales/Billing.htm">
+      <param name="WindowName" value="Shoper 9 POS">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Sales Advice Slips">
+      <param name="Local" value="Sales/Sales_Advice_Slip.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Service Order">
+      <param name="Local" value="Sales/Service_Order.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Sales Order">
+      <param name="Local" value="Sales/Sales_Order_POS.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Sales Order Conversion">
+      <param name="Local" value="Sales/Sales_Order_Conversion_POS.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Walk-in Entry">
+      <param name="Local" value="Sales/Walk-In_Entry.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Change Payment Mode">
+      <param name="Local" value="Sales/Change_Payment_Mode.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Pending Order/Trn Closure">
+      <param name="Local" value="Sales/Pending_Order-Transaction_Closure.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Excise Invoice Generation">
+      <param name="Local" value="Sales/Excise_Invoice_Generation.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Cash">
+    <param name="Local" value="Cash/Cash.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Cash Payouts">
+      <param name="Local" value="Cash/Cash_Payouts.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Cash Receipts">
+      <param name="Local" value="Cash/Cash_Receipts.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Credit Card Management">
+      <param name="Local" value="Cash/Credit_Card_Management.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Submission">
+        <param name="Local" value="Cash/Credit_Card_Submission.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Realisation">
+        <param name="Local" value="Cash/Credit_Card_Realisation.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Franchisee A/C">
+      <param name="Local" value="Cash/Franchisee_AC.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Payments to HO">
+        <param name="Local" value="Cash/Payment_to_HO.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Franchisee Details Form">
+        <param name="Local" value="Cash/Franchisee_Details_Form.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Franchisee Outstanding">
+        <param name="Local" value="Cash/Franchisee_Outstanding_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Pay-in Slip Printing">
+        <param name="Local" value="Cash/Pay-in_Slip_Printing.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Till Management">
+      <param name="Local" value="Cash/Till_Management.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Till Status">
+        <param name="Local" value="Cash/Till_Status.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Set Opening Balance">
+        <param name="Local" value="Cash/Till_Opening_Balance.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Cash Lift">
+        <param name="Local" value="Cash/Cash_Lift.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Reconciliation">
+        <param name="Local" value="Cash/Till_Reconciliation.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Open Cash Drawer">
+        <param name="Local" value="Cash/Till_Open_Cash_Drawer.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Reprint">
+        <param name="Local" value="Cash/Till_Reprint.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Stock">
+    <param name="Local" value="Stock/Stock.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Import DC/ Master from PT File">
+      <param name="Local" value="Stock/Import_DC_Master_from_PT_File.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Physical Verification">
+      <param name="Local" value="Stock/Physical_Verification.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Goods Inwards">
+      <param name="Local" value="Stock/GI_Goods_Inwards.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Goods Inwards Size-wise">
+      <param name="Local" value="Stock/GI_Goods_Inwards_Size_wise.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Goods Outwards">
+      <param name="Local" value="Stock/GO_Goods_Outwards.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Goods Outwards Transaction">
+        <param name="Local" value="Stock/GO_Transaction.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Party Code Selection">
+        <param name="Local" value="Stock/GO_Party_Code_Selection.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Purchase Document Browse">
+        <param name="Local" value="Stock/GO_Purchase_Document_Browse.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Size Wise Entry">
+        <param name="Local" value="Stock/GO_Size_Wise_Entry.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="PDT File Format Selection">
+        <param name="Local" value="Stock/GO_PDT_File_Format_Selection.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Load Inward to Outward">
+        <param name="Local" value="Stock/GO_Load_Inward_to_Outward.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="View Dispatch Advice">
+        <param name="Local" value="Stock/GO_View_Dispatch_Advice.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="List of Purchase Documents">
+        <param name="Local" value="Stock/GO_List_of_Purchase_Documents.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Configuration">
+        <param name="Local" value="Stock/GO_Configuration.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Hotkeys">
+        <param name="Local" value="Stock/GO_Hotkeys.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="PT File Information">
+      <param name="Local" value="Stock/PT_File_Information.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Audit Trail – Size-wise">
+      <param name="Local" value="Stock/Audit_Trail_Size_wise.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Stock Take">
+      <param name="Local" value="Stock/Stock_Take.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Physical Stock Management">
+        <param name="Local" value="Stock/PSM-Physical_Stock_Management.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Physical Vs Computed Stock Report">
+        <param name="Local" value="Stock/Physical_Vs_Computed_Stock_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Physical Stock Report">
+        <param name="Local" value="Stock/Physical_Stock_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Physical Stock Report - Batch-wise">
+        <param name="Local" value="Stock/Physical_Stock_Report_Batch_wise.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Barcode">
+      <param name="Local" value="Stock/Barcode.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Design Label for Barcode Printers">
+        <param name="Local" value="Stock/BC_Designing_Label_for_Barcode_Printers.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Design Label for Standard Printers">
+        <param name="Local" value="Stock/BC_Designing_Label_for_Standard_Printers.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Design Layout for Standard Printers">
+        <param name="Local" value="Stock/BC_Designing_Layout_for_Standard_Printers.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Print Labels">
+        <param name="Local" value="Stock/BC_Printing_Barcode_Labels.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Purchase Order">
+      <param name="Local" value="Stock/PO_Purchase_Order.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Generation">
+        <param name="Local" value="Stock/PO_Purchase_Order-Indent_Generation.htm">
+      </object>
+      <ul>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Generating a Purchase Order/ Indent">
+          <param name="Local" value="Stock/PO-Gen_Generation_tab.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        </ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Import">
+        <param name="Local" value="Stock/Importing_Purchase_Order.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Foreclosure">
+        <param name="Local" value="Stock/PO_Closing_a_Purchase_Order-Indent.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Reopen">
+        <param name="Local" value="Stock/PO_Reopening_Purchase_Order.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Export">
+        <param name="Local" value="Stock/PO_Exporting_Purchase_Order.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Reprint">
+        <param name="Local" value="Stock/PO_Reprinting_a_Purchase_Order.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Status Report">
+        <param name="Local" value="Stock/PO_Purhase_Order-Status_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="PO/Indent Conversion">
+        <param name="Local" value="Stock/PO_Indent_Conversion.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Purchase Order Configuration">
+        <param name="Local" value="Stock/PO_Configuring_Purchase_Orders-Indents.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Reports">
+    <param name="Local" value="Reports/Reports.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Sales">
+      <param name="Local" value="Reports/Sales_Reports.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Daily Sales Book">
+        <param name="Local" value="Reports/Daily_Sales_Book.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Bill-wise Sales">
+        <param name="Local" value="Reports/Bill-wise_Sales_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Item-wise Sales">
+        <param name="Local" value="Reports/Item-wise_Sales_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Tax Register">
+        <param name="Local" value="Reports/Tax_Register.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Bill-wise Items">
+        <param name="Local" value="Reports/Bill-wise_Items_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Discount Given">
+        <param name="Local" value="Reports/Discount_Given_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Top Selling Items">
+        <param name="Local" value="Reports/Top_Selling_Items_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Salesperson Sales">
+        <param name="Local" value="Reports/Salesperson_Sales_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Cancelled Bills">
+        <param name="Local" value="Reports/Cancelled_Bills_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Returned Bills">
+        <param name="Local" value="Reports/Returned_Bills_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Attribute + Size wise">
+        <param name="Local" value="Reports/Attribute_and_Size_wise_Sales_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Day-wise Sales Summary">
+        <param name="Local" value="Reports/Day-wise_Sales_Summary_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Item-wise Sales Returns">
+        <param name="Local" value="Reports/Item-wise_Sales_Returns_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Salesperson Summary">
+        <param name="Local" value="Reports/Salesperson_Sales_Summary_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Node-wise Details">
+        <param name="Local" value="Reports/Node-wise_Details_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Stock">
+      <param name="Local" value="Reports/Stock_Reports.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Balance">
+        <param name="Local" value="Reports/Stock_Balance_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Movement">
+        <param name="Local" value="Reports/Stock_Movement_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Analysis">
+        <param name="Local" value="Reports/Stock_Analysis_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Statement">
+        <param name="Local" value="Reports/Stock_Statement_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Balance - Style / Model wise">
+        <param name="Local" value="Reports/Stock_Balance_Style_Model_wise_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Discrepancy">
+        <param name="Local" value="Reports/Stock_Discrepancy_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Transaction Ledger">
+        <param name="Local" value="Reports/Stock_Transaction_Ledger_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Attribute + Size wise">
+        <param name="Local" value="Reports/Attribute_and_Size_wise_Stock_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Balance as on Date">
+        <param name="Local" value="Reports/Stock_Balance_As_on_Date_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Aging">
+        <param name="Local" value="Reports/Stock_Aging_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Inward Discrepancy">
+        <param name="Local" value="Reports/Stock_Inward_Discrepancy_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Tax Register">
+        <param name="Local" value="Reports/purchase_tax_register.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Void Transactions">
+        <param name="Local" value="Reports/void_transactions_report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Stock Registers">
+      <param name="Local" value="Reports/Stock_Registers.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Transaction-wise Goods Register">
+        <param name="Local" value="Reports/Transaction-wise_Goods_Register.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Item-wise Goods Register">
+        <param name="Local" value="Reports/Item-wise_Goods_Register.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Cash">
+      <param name="Local" value="Reports/Cash_Reports.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Cash Transaction">
+        <param name="Local" value="Reports/Cash_Transaction_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Submission / Realisation List">
+        <param name="Local" value="Reports/Submission_Realisation_List.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Pending Submissions / Realisations">
+        <param name="Local" value="Reports/Pending_Submissions_Realisations_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Counter-wise Details">
+        <param name="Local" value="Reports/Counter-wise_Details_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Credit Note Status">
+        <param name="Local" value="Reports/Credit_Note_Status_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Counter Summary across Cashiers">
+        <param name="Local" value="Reports/Counter_Summary_across_Cashiers_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Advance Receipt Status Report">
+        <param name="Local" value="Reports/Advance_Receipt_Status_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Reconciliation Report">
+        <param name="Local" value="Reports/Reconciliation_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Till Status Report">
+        <param name="Local" value="Reports/Till_Status_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Till Activity Log">
+        <param name="Local" value="Reports/Till_Activity_Log.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="MIS">
+      <param name="Local" value="Reports/MIS_Reports.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Monthly Sales Comparison">
+        <param name="Local" value="Reports/Monthly_Sales_Comparison_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Rate Variation">
+        <param name="Local" value="Reports/Rate_Variation_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Sales Analysis">
+        <param name="Local" value="Reports/Sales_Analysis_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Attribute-wise Sales and Stock">
+        <param name="Local" value="Reports/Attribute_and_Size_wise_Sales_and_Stock_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Pending Transactions">
+        <param name="Local" value="Reports/Pending_Transactions_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Walk-in Details">
+        <param name="Local" value="Reports/Walk-in_Details_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Superclass-wise Sales / Stock">
+        <param name="Local" value="Reports/Superclass-wise_Sales-Stock_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Stock across Chain">
+        <param name="Local" value="Reports/Stock_across_Chain_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Transaction Details with Image">
+        <param name="Local" value="Reports/Transaction_Details_with_Image_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Gross Margin">
+        <param name="Local" value="Reports/Gross_Margin_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Bill Re-print">
+        <param name="Local" value="Reports/Bill_Reprint_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Sales Promotions">
+        <param name="Local" value="Reports/Sales_Promotions_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Salesperson-wise Discount">
+        <param name="Local" value="Reports/Salesperson-wise_Discount_Summary_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Excise Report">
+        <param name="Local" value="Reports/Excise_Report.htm">
+        <param name="New" value="1">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Customer Offtake">
+        <param name="Local" value="Reports/Customer_Offtake_Reports.htm">
+      </object>
+      <ul>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Period-wise">
+          <param name="Local" value="Reports/Customer_Offtake_Periodwise_Report.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Bill-wise">
+          <param name="Local" value="Reports/Customer_Offtake_Bill-wise_Report.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Product-wise">
+          <param name="Local" value="Reports/Customer_Offtake_Product-wise_Report_POS.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        </ul>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Analysis Reports">
+      <param name="Local" value="Reports/ar_analysis_reports.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Sales">
+        <param name="Local" value="Reports/AR_Sales_Reports.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Stock">
+        <param name="Local" value="Reports/AR_Stock_Reports.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Customer Offtake">
+        <param name="Local" value="Reports/AR_Customer_Offtake_Reports.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Catalogue">
+    <param name="Local" value="catalogue/Catalogue.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="General Lookup">
+      <param name="Local" value="catalogue/General_Lookup.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Vendor">
+      <param name="Local" value="catalogue/Vendor_Catalogue.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Tax">
+      <param name="Local" value="catalogue/Tax_Catalogue.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Item Classification">
+      <param name="Local" value="catalogue/IC_Item_Classification.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Size Management">
+      <param name="Local" value="catalogue/SM_Size_Management.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Item Master">
+      <param name="Local" value="catalogue/IM_Item_Master.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Define Price Revisions">
+      <param name="Local" value="catalogue/PR_Price_Revisions.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Define Sales Promotions">
+      <param name="Local" value="catalogue/SP_Sales_Promotions.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Sales Factors">
+      <param name="Local" value="catalogue/Sales_Factors.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Payment Mode">
+      <param name="Local" value="catalogue/PM_Payment_Mode.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="HO Chain Stores">
+      <param name="Local" value="catalogue/HO_Chain_Stores.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Sales Personnel">
+      <param name="Local" value="catalogue/Sales_Personnel.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Customer Price Group">
+      <param name="Local" value="catalogue/CPG_Customer_Price_Group.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Customer">
+      <param name="Local" value="catalogue/CC_Customer_Catalogue.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Customer Mailer">
+      <param name="Local" value="catalogue/CM_Customer_Mailer.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Print Address Labels">
+      <param name="Local" value="catalogue/Print_Address_Labels.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Excise Duty">
+      <param name="Local" value="catalogue/excise_duty_catalogue.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Cataloguing Excise Duty">
+        <param name="Local" value="catalogue/Excise_Duty_Catalogue_Add.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Excise Duty Document Browse">
+        <param name="Local" value="catalogue/excise_duty_document_browse.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Listings">
+      <param name="Local" value="catalogue/Listings.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Price">
+        <param name="Local" value="catalogue/Price_List.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Price Revision">
+        <param name="Local" value="catalogue/PR_Price_Revision_Listing.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Style Catalogue">
+        <param name="Local" value="catalogue/Style_Catalogue_Listing.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Sales Promotions">
+        <param name="Local" value="catalogue/SP_Sales_Promotions_Listing.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Sales Factors">
+        <param name="Local" value="catalogue/Sales_Factors_Listing.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Schedule Details">
+        <param name="Local" value="catalogue/Schedule_Details_Listing.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Terminal Prefix">
+        <param name="Local" value="catalogue/Terminal_Prefix_Listing.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Housekeeping">
+    <param name="Local" value="housekeep/Housekeeping.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="OPEN Day">
+      <param name="Local" value="housekeep/Day_Opening_Process.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="CLOSE Day">
+      <param name="Local" value="housekeep/Day_End_Process.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Backup">
+      <param name="Local" value="housekeep/Backup_Database.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Restore">
+      <param name="Local" value="housekeep/Restore_Database.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Compact">
+      <param name="Local" value="housekeep/Compact_Database.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Database Tuning Utility">
+      <param name="Local" value="housekeep/Database_Tuning_Utility.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Purge Data">
+      <param name="Local" value="housekeep/Purge_Data.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Delete Temporary Tables">
+      <param name="Local" value="housekeep/Delete_Temporary_Tables.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Delete Backup File">
+      <param name="Local" value="housekeep/Delete_Backup_Files.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="POS-HO Synchronisation">
+      <param name="Local" value="housekeep/POS-HO_Synchronisation.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Send Flat Files to HO">
+        <param name="Local" value="housekeep/Send_Flat_Files_to_HO.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Synchronise Manually">
+        <param name="Local" value="housekeep/Synchronise_with_HO.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Configure Synchronisation">
+        <param name="Local" value="housekeep/Configure_Synchronisation.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Status Report">
+        <param name="Local" value="housekeep/Synchronisation_Status_Report.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Data Import">
+      <param name="Local" value="housekeep/Data_Import.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Item Master">
+        <param name="Local" value="housekeep/Importing_Item_Master.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Price Revision">
+        <param name="Local" value="housekeep/Importing_Price_Revision.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Customer Information">
+        <param name="Local" value="housekeep/Importing_Customer_Information.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Replication Import (AST)">
+        <param name="Local" value="housekeep/Replication_Import_AST.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Active Sales Promotions">
+        <param name="Local" value="housekeep/Importing_Active_Sales_Promotions.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Import into Secondary Db.(s)">
+        <param name="Local" value="housekeep/Importing_into_Secondary_Db.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Import Items from Secondary to Primary Db.">
+        <param name="Local" value="housekeep/Importing_Items_from_Secondary_Db_to_Primary_Db.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Import Sales Promotions">
+        <param name="Local" value="housekeep/Importing_Sales_Promotions_from_a_File.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Data Export Masters">
+      <param name="Local" value="housekeep/Data_Export_Masters.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Post Transactions to Tally">
+        <param name="Local" value="housekeep/Post_Transactions_to_Tally.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Create PT File">
+        <param name="Local" value="housekeep/Creation_of_PT_File.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Pricing Details">
+        <param name="Local" value="housekeep/Exporting_Pricing_Details.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="ID – IM Flat File">
+        <param name="Local" value="housekeep/ID_IM_Flat_File.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Customer Information">
+        <param name="Local" value="housekeep/Exporting_Customer_Information.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Replication Export (AST)">
+        <param name="Local" value="housekeep/Replication_Export_AST.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Back-end Data">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Configure">
+        <param name="Local" value="housekeep/conf-back-end-data_import_setup.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Import Back-end Data">
+        <param name="Local" value="housekeep/Import_Back-end_Data.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Setup">
+    <param name="Local" value="Setup/Setup.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Company Creation">
+      <param name="Local" value="Setup/Company_Creation.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Company Maintenance">
+      <param name="Local" value="Setup/Company_Maintenance.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Create Secondary Database">
+      <param name="Local" value="Setup/Create_Secondary_Database.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="General">
+      <param name="Local" value="Setup/General.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="System Parameters">
+        <param name="Local" value="Setup/System_Parameters.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Bill Prefix">
+        <param name="Local" value="Setup/Bill_Prefix.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Stock Number Methodology">
+        <param name="Local" value="Setup/Stock_Number_Methodology.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Printing Templates">
+        <param name="Local" value="Setup/Printing_Templates.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Flat File Value">
+        <param name="Local" value="Setup/Flat_File_Value_Setup.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Goods Inwards/Outwards Prefix Definition">
+        <param name="Local" value="Setup/Goods_Inwards_Outwards_Prefix_Definition.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Cash/ Purchase Order Prefix">
+        <param name="Local" value="Setup/Cash-Purchase_Order_Prefix.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Tally Interface - Mapping">
+        <param name="Local" value="Setup/Tally_Interface_Mapping.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Tally Interface — HSN Mapping">
+        <param name="Local" value="Setup/HSN_Mapping_in_Tally_Interface.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Print Engine Configuration">
+        <param name="Local" value="Setup/print_engine_configuration.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Tally Interface Utilities">
+        <param name="Local" value="Setup/Tally_Interface_Utilities.htm">
+      </object>
+      <ul>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Change Company Information">
+          <param name="Local" value="Setup/TI_Change_Company_Information.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Delete Mapping">
+          <param name="Local" value="Setup/TI_Delete_Mapping.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Manage Master Changes">
+          <param name="Local" value="Setup/TI_Master_Changes.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Manage Missing Vouchers">
+          <param name="Local" value="Setup/Manage_Missing_Vouchers.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Offline Re-posting">
+          <param name="Local" value="Setup/TI_Offline_Reposting.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Voucher Comparison Utility">
+          <param name="Local" value="Setup/Voucher_Comparison_Utility.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        </ul>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Supervisory Functions">
+      <param name="Local" value="Setup/Supervisory_Functions.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Node Management">
+        <param name="Local" value="Setup/Node_Management.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Data Rebuild">
+        <param name="Local" value="Setup/Data_Rebuild.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Cost Price Variance Fixing">
+        <param name="Local" value="Setup/Cost_Price_Variance_Fixing.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Year End Process">
+        <param name="Local" value="Setup/Year_End_Process_.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Re-Open Day">
+        <param name="Local" value="Setup/Reopen_Day.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Database Archival">
+        <param name="Local" value="Setup/Database_Archival.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Manage DayEnd/ DayBegin Activity List">
+        <param name="Local" value="Setup/Manage_DayEnd_DayBegin_Activity_List.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Security Management">
+        <param name="Local" value="Setup/Security_Management/Security_Management.htm">
+      </object>
+      <ul>
+        <li><object type="text/sitemap">
+          <param name="Name" value="List Profiles">
+          <param name="Local" value="Setup/Security_Management/List_Profiles.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Manage Users">
+          <param name="Local" value="Setup/Security_Management/Manage_Users.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Manage Groups">
+          <param name="Local" value="Setup/Security_Management/Manage_Groups.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Change Password">
+          <param name="Local" value="Setup/Security_Management/Change_Password.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Manage Menu Access">
+          <param name="Local" value="Setup/Security_Management/Manage_Menu_Access.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Unlock Users">
+          <param name="Local" value="Setup/Security_Management/Unlock_Users.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Configuration">
+          <param name="Local" value="Setup/Security_Management/Configuration.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="Activity Log Report">
+          <param name="Local" value="Setup/Security_Management/Activity_Log_Report.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        <li><object type="text/sitemap">
+          <param name="Name" value="My Profile">
+          <param name="Local" value="Setup/Security_Management/My_Profile.htm">
+          <param name="ImageNumber" value="11">
+        </object>
+        </ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Price Revision Authorisation">
+        <param name="Local" value="Setup/Price_Revision_Authorisation.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Item Reclassification">
+        <param name="Local" value="Setup/Item_Reclassification.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Help">
+    <param name="Local" value="Help/Help.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shoper Help">
+      <param name="Local" value="Help/Shoper_Help.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Support Centre">
+      <param name="Local" value="Help/Support_Centre.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Configuration">
+    <param name="Local" value="Configuration.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Billing">
+      <param name="Local" value="Sales/Billing_Configuration.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Bill Return Value">
+      <param name="Local" value="Sales/Bill_Return_Value_Configuration.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Credit Note">
+      <param name="Local" value="Sales/Credit_Note_Configuration_POS.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Slips">
+      <param name="Local" value="Sales/Slips_Configuration_POS.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Reactivation of Slips">
+      <param name="Local" value="Sales/Reactivation_of_Slips_Configuration_POS.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Walk-in">
+      <param name="Local" value="Sales/Walk-in_Configuration.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Licensing">
+    <param name="Local" value="Licensing/Licensing.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Manage License">
+      <param name="Local" value="Licensing/Manage_License.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Activate License">
+      <param name="Local" value="Licensing/Activate_License.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Activate Multi Site License">
+      <param name="Local" value="Licensing/Activate_Multi_Site_License.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Activate Single Site License">
+      <param name="Local" value="Licensing/Activate_Single_Site_License.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Reactivate License">
+      <param name="Local" value="Licensing/Reactivate_License.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Configure Existing License">
+      <param name="Local" value="Licensing/Configure_Existing_Site_License.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Buy Rental License">
+      <param name="Local" value="Licensing/Rental_License.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Tools">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="TallyAdmin">
+      <param name="Local" value="Tools/TallyAdmin.htm">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="License Server">
+        <param name="Local" value="Tools/License_Server.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Local License">
+        <param name="Local" value="Tools/Local_License.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="License Service">
+        <param name="Local" value="Tools/License_Service.htm">
+        <param name="ImageNumber" value="11">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="SIS Manager">
+      <param name="Local" value="Tools/SIS_Manager_1.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Copyright Assertion">
+    <param name="Local" value="Common/copyright_assertion.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+</ul>
+</html>

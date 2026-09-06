@@ -1,0 +1,230 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Restore Database</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+img.hcp2 { border:none; float:none; border-style:none; }
+span.hcp3 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body><script type="text/javascript" language="JavaScript1.2" x-save-method="compute-relative" src="../ehlpdhtm.js"></script>
+<script type="text/javascript"
+		language=JavaScript1.2>
+<!-- 
+if( typeof( kadovFilePopupInit ) != 'function' ) kadovFilePopupInit = new Function();if( typeof( kadovTextPopupInit ) != 'function' ) kadovTextPopupInit = new Function();
+ //-->
+</script>
+
+<div class=x-popup-text id=POPUP37414597  style='display: none; position: absolute' >
+<p class=Body-Text
+	style="font-weight: bold;"><span><span class="hcp1">Logical 
+ name</span></span></p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Data file</span>: 
+ Displays the logical name of the data file.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Log file</span>: 
+ Displays the logical name of the log file .</p>
+
+<p class=Body-Text><span class="hcp1">DB File path</span>: 
+ Default SQL server path is displayed here. If required, either enter the 
+ path to restore data file or click on <img src="OpenFolder.gif" x-maintain-ratio="TRUE" style="width:29px; height:21px;" width="29" height="21" border="0" class="hcp2"> to browse and select 
+ the path. </p>
+
+<p class=Body-Text><span class="hcp1">Log File path</span>: 
+ Default SQL server path is displayed here. If required, either enter the 
+ path to restore log file or click on <img src="OpenFolder.gif" x-maintain-ratio="TRUE" style="width:29px; height:21px;" width="29" height="21" border="0" class="hcp2"> to browse and select 
+ the path.</p>
+</div>
+
+<h1>Restore Database</h1>
+
+<p class=Body-Text>Use this option to restore files like Company Database, 
+ Secondary Database, EIS Database and Other Folders from the required backup 
+ file in the event of data loss or corruption.</p>
+
+<p class=InvocationSequence>How to reach: &nbsp;<span class="hcp1">Housekeeping &gt; 
+ Restore</span></p>
+
+<p class=Body-Text>The <span class="hcp1">Restore Database 
+ </span>window with <span class="hcp1">Restore</span> option 
+ activated is displayed.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;"><img src="Restore_Database_1.gif" x-maintain-ratio="TRUE" style="width:550px; height:433px;" width="550" height="433" border="0" class="hcp2"></p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Restore Selection</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Company 
+ Code</span>: Select the company code for which the databases are to be 
+ restored.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Company 
+ Name</span>: Displays the company name of the company code selected.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Restore Type</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Auto Detect</span>: 
+ Select if you want the system to detect the latest available backup for 
+ restoring</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Manua</span>l: 
+ Select if you want to provide the latest available backup for restoring</p>
+
+<p class=Note><span class="hcp1">Note</span>:</p>
+
+<p class=Note>When the option <span class="hcp1">Auto Detect</span> 
+ is selected, you need to just specify the date and the system will search 
+ for the latest backup for that date. This makes it easy to restore backup 
+ of one company without entering the details. </p>
+
+<p class=Note>The <span class="hcp1">Manual</span> option 
+ is used in exceptional situations like when you want to restore the backup 
+ which is an SQL backup or when you want to specify a different path for 
+ the restoration process.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Auto detect</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Backup 
+ Date</span>: Select the date for the system to consider all the backup 
+ files available for that date so that the latest amongst them can be considered 
+ for restoration.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Retrieve</span>: 
+ Click to start the search for the latest available backup for the selected 
+ backup date. The backup file containing company database is chosen based 
+ on the created date/ time. An appropriate message is displayed whether 
+ the backup file is available for the selected date and company. If available, 
+ the name of the backup zip file is displayed.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Backup 
+ set</span>: Displays the backup zip file name which the system has judged 
+ to be the latest.</p>
+
+<p class=Body-Text><span class="hcp1">Restore Options</span>: 
+ Depending on the content of the backup zip file, the following check boxes 
+ are enabled</p>
+
+<p class=Body-Text
+	style="font-weight: bold; margin-left: 47px;">Restore Company Database</p>
+
+<p class=Body-Text
+	style="font-weight: bold; margin-left: 47px;">Restore Secondary Database</p>
+
+<p class=Body-Text
+	style="font-weight: bold; margin-left: 47px;">Restore EIS Database</p>
+
+<p class=Body-Text
+	style="font-weight: bold; margin-left: 47px;">Restore Archived Database</p>
+
+<p class=Body-Text
+	style="font-weight: bold; margin-left: 47px;">Restore Folders</p>
+
+<p class=Body-Text>Check to select the required database or folder for 
+ restoration.</p>
+
+<p class=Body-Text><span class="hcp1">Restore Folders</span>: 
+ The <span class="hcp1">Folder Name</span> and <span class="hcp1">Folder 
+ Path</span> of all the available folders in the backup are displayed. 
+ You may select / un-select any folders depending on which folders have 
+ to be restored.</p>
+
+<p class=Body-Text>On selecting <span class="hcp1">Manual</span> 
+ as the <span class="hcp1">Restore Type</span>, the <span class="hcp1">Advanced Options</span> are displayed as shown.</p>
+
+<p class=Body-Text>&nbsp;<span style="color: #ff0000;"><img src="Restore_Database_2.gif" x-maintain-ratio="TRUE" style="width:325px; height:352px;" width="325" height="352" border="0" class="hcp2"></span></p>
+
+<p class=Body-Text><span class="hcp1">Restore From</span>: 
+ Select <span class="hcp1">Shoper Backup</span> to restore 
+ from the backup taken using Shoper. The <span class="hcp1">SQL 
+ Backup</span> option should be used if SQL backup files have to be attached 
+ to the respective company.</p>
+
+<p class=Body-Text><span class="hcp1">Backup File Path</span>: 
+ Enter the backup file with the full path which has to be restored. You 
+ may click on <img src="OpenFolder.gif" x-maintain-ratio="TRUE" style="width:29px; height:21px;" width="29" height="21" border="0" class="hcp2"> to browse and select the file. </p>
+
+<p class=Body-Text><span class="hcp1">Backup DB Path</span>: 
+ Displays the default path where the unzipped database files are copied 
+ until completion of the restore operation.</p>
+
+<p class=Body-Text><span class="hcp1">Company Database Name</span>: 
+ Displays the company database name as available in the backup selected.</p>
+
+<p class=Body-Text><span class="hcp1">Secondary Database 
+ Name</span>: Displays the secondary database name as available in the 
+ backup selected.</p>
+
+<p class=Body-Text><span class="hcp1">EIS Database Name</span>: 
+ Displays the EIS database name as available in the backup selected.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;"><a class=dropspot
+									x-use-popup=#POPUP37414597
+									x-popup-type=pulldown
+									href="javascript:kadovTextPopup(this)"
+									id=a1>Advanced Setting</a><script 
+ type="text/javascript"
+	language=JavaScript1.2><!--
+kadovTextPopupInit('a1');
+//--></script>:</p>
+
+<p class=Body-Text><span class="hcp1">Restore Company Database 
+ Name As</span>: Enter the valid company data base name to which it has 
+ to be restored. Company database name entered is validated with Shoper 
+ configuration database before restore.</p>
+
+<p class=Body-Text><span class="hcp1">Restore Secondary Database 
+ Name As</span>: Enter the valid Secondary data base name to which it has 
+ to be restored.</p>
+
+<p class=Body-Text><span class="hcp1">Restore EIS Database 
+ Name As</span>: Enter the valid EIS database name to which it has to be 
+ restored.</p>
+
+<p class=Body-Text>When <span class="hcp1">SQL Backup</span> 
+ option is selected for <span class="hcp1">Restore From</span>, 
+ the following two fields are enabled:</p>
+
+<ul style="list-style: disc;"
+	type=disc>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text><span class="hcp1">SQL 
+ Backup Name</span>: The file name entered in the field Backup File Path 
+ is displayed.</p></li>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text><span class="hcp1">Restore 
+ SQL Backup Name As</span>: Enter the valid SQL database name to which 
+ it has to be restored.</p></li>
+</ul>
+
+<p class=Navigation><span class="hcp1">Restore</span>: To 
+ restore the backup based on the selections made</p>
+
+<p class=Navigation><span class="hcp3">C</span><span class="hcp1">lear</span>: To clear the selections made</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp3">x</span><span class="hcp1">it</span>: To quit the option</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Physical Verification based on Stock No.</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Physical Verification based on Stock No.</h1>
+
+<p class=Body-Text>The Physical Verification – Add window is displayed 
+ as shown.</p>
+
+<p class=Body-Text><img src="PV_StkNoBased.gif"
+						x-maintain-ratio=TRUE
+						style="border: none;
+								width: 678px;
+								height: 418px;
+								float: none;"
+						width=678
+						height=418
+						border=0></p>
+
+<p class=Body-Text><span class="hcp1">Transaction Type</span>: 
+ Select the transaction type as <span class="hcp1">Purchase</span>, 
+ <span class="hcp1">Transfer In</span>, <span class="hcp1">Approval 
+ Returns</span> or <span class="hcp1">Misc Rcpts</span>.</p>
+
+<p class=Body-Text><span class="hcp1">Supplier Id</span>: 
+ Enter a HO/ Chain Store Location Id if the transaction type is Transfer 
+ In. Similarly, enter the Vendor Id for Purchases, and for other types 
+ of transactions enter Customer code or Vendor ID as the case may be. Alternatively, 
+ you may press <span class="hcp1">F2</span> to open the browse 
+ window for making the required selection.</p>
+
+<p class=Body-Text><span class="hcp1">Ref. Doc. No.</span>: 
+ Enter the supplier's dispatch document number which is typically an Invoice 
+ Number or a Dispatch Challan Number.</p>
+
+<p class=Note><span class="hcp1">Note</span>: A Consignment 
+ is identified by the combination of details such as <span class="hcp1">Supplier 
+ Id</span>, <span class="hcp1">Ref. Doc. No.</span> and <span class="hcp1">Ref. Date</span>. Hence for all batches and 
+ Goods Inwards, the same number is to be specified.</p>
+
+<p class=Body-Text><span class="hcp1">Ref. Date</span>: Enter 
+ the reference date. The date can be entered in <span class="hcp1">dd/mm/yy</span> 
+ format or click on the drop-down button to open a calendar to select the 
+ required date.</p>
+
+<p class=Body-Text><span class="hcp1">Total Carton Count</span>: 
+ Enter the number of cartons received at the store for physical verification. 
+ Entry of value to this field is accepted only when entering the first 
+ batch of physical verification for a given consignment.</p>
+
+<p class=Note><span class="hcp1">Note</span>: Once saved, 
+ this count can not be altered.</p>
+
+<p class=Body-Text><span class="hcp1">Carton Number</span>: 
+ Enter a unique carton number for each batch of a document which acts as 
+ its key.</p>
+
+<p class=Note><span class="hcp1">Note</span>: Depending on 
+ the set value of the parameter - <span class="hcp1">Allow 
+ PDT File Loading in Goods Inwards/Goods Outwards/Physical Verification</span>, 
+ a button named <span class="hcp1">Load From PDT File</span> 
+ will be displayed on the right hand side of <span class="hcp1">Carton 
+ Number</span> field.</p>
+
+<p class=Body-Text><a href="Load_from_PDT_File.htm" style="font-weight: bold;">Load from PDT File</a>: 
+ Click this option to load Item Details from Text file.</p>
+
+<p class=Body-Text><span style="color: #0000ff; font-weight: bold;"><a 
+ href="Physical_Verification_based_on_Size.htm">Size-wise Entry</a></span>: 
+ Check this box to switch the mode of entry from stock number mode to size-wise 
+ mode or from size-wise mode to stock number mode.</p>
+
+<p class=Body-Text><span class="hcp1">Stock Number &amp; 
+ Quantity Grid</span>: This window displays the stock numbers and quantities 
+ recorded. The rows in the grid get added as and when new entries are added 
+ through stock number and quantity text boxes.</p>
+
+<p class=Body-Text><span class="hcp1">Stock Number</span>: 
+ Enter the stock number or press <span class="hcp1">F2</span> 
+ to view the <a href="../Sales/Item_Search_POS.htm">Advanced Item Search</a> 
+ window. Select the stock number from the list and the grid in the Physical 
+ Verification window gets populated with the details.</p>
+
+<p class=Body-Text><span class="hcp1">Quantity</span>: Enter 
+ the quantity depending on the value set for the parameter - <span class="hcp1">Apply 
+ LSQ in Physical Verification</span>. If set, then as the stock number 
+ is recorded (or scanned), the quantity is assumed to be <span class="hcp1">Least 
+ Saleable Quantity</span> (usually 1) specified in the items master and 
+ a new row gets added to the grid. Also, if <span class="hcp1">Club 
+ Duplicate Items</span> parameter is set to <span class="hcp1">ON</span>, 
+ then if the same stock number has been recorded earlier and added to the 
+ grid as a row, the quantity in that row gets increased by least saleable 
+ quantity.</p>
+
+<p class=Body-Text><span class="hcp1">Cartons Completed</span>: 
+ Displays the number of cartons (batches) completed for the given inward 
+ document.</p>
+
+<p class=Body-Text><span class="hcp1">Carton No. Qty</span>: 
+ Displays the total quantity of all the stock numbers recorded. This is 
+ for verifying the physical count of items in the batch.</p>
+
+<p class=Navigation><span class="hcp2">O</span><span class="hcp1">k</span>: To save the batch</p>
+
+<p class=Navigation><span class="hcp2">C</span><span class="hcp1">ancel</span>: To clear the entries</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp2">x</span><span class="hcp1">it</span>: To quit this option</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Release Notes 1.41</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+-->
+</style>
+</head>
+<body>
+<h1>New Features in Shoper 9 POS Series A Release 1.41</h1>
+
+<p class=Body-Text>Enhancements:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PrintingFramework_ENH">Printing 
+ Framework</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#GoodsInwards_ENH">Goods 
+ Inwards</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PhysicalStockTake_ENH">Physical 
+ Stock Take</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PurchaseOrder_ENH">Purchase 
+ Order</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#BillPrintingTemplates_ENH">Bill 
+ Printing Templates</a></p></li>
+</ul>
+
+<p class=Body-Text>Issues Resolved:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PurchaseOrder_ISR">Purchase 
+ Order</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#GoodsInwards_ISR">Goods 
+ Inwards</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#DataCommunication_ISR">Data 
+ Communication</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Import_Export_ISR">Import/ 
+ Export</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#StockReports_ISR">Stock 
+ Reports</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#MISReport_ISR">MIS 
+ Report</a></p></li>
+</ul>
+
+<h2>Enhancements</h2>
+
+<h3><a name=PrintingFramework_ENH>Printing Framework</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper 9 POS now provides 
+ support for USB based printers.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This enhanced printing framework also caters 
+ to easier customisation of specific printing requirements.</p>
+
+<h3><a name=GoodsInwards_ENH>Goods Inwards</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>In Goods Inwards transaction, 
+ prefix and document number are auto populated if there is only one prefix 
+ defined for that transaction.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper 9 POS will now automatically 
+ detect and fix common errors in PT file, such as blank lines, invalid 
+ characters, etc., thereby making this operation trouble free.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>On completion of loading 
+ PT files, the PT Files are moved to the Loaded folder.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>In addition to the current 
+ capability of accepting the document reference during inwards, a DC browse 
+ option is provided, improving the user experience and usability. User 
+ can choose the document and proceed with the inward process.</p></li>
+</ul>
+
+<h3><a name=PhysicalStockTake_ENH>Physical Stock Take</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Physical Vs Computed Stock 
+ Reports can be generated based on either Cost Price or Selling Price.</p></li>
+</ul>
+
+<h3><a name=PurchaseOrder_ENH>Purchase Order</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>User specific security policy 
+ can be defined to control Purchase Order operations such as add, alter, 
+ view, etc.</p></li>
+</ul>
+
+<h3><a name=BillPrintingTemplates_ENH>Bill Printing Templates</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper 9 now supports printing 
+ of VAT/ CST details in distributor environment.</p></li>
+</ul>
+
+<h2>Issues Resolved</h2>
+
+<h3><a name=PurchaseOrder_ISR>Purchase Order</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>During Purchase Order Generation, 
+ the <span class="hcp1">Net Value</span> was not correctly 
+ updated when Tax/ Duty Percentage or Amount was entered in the grid.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=GoodsInwards_ISR>Goods Inwards</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When duplicate DC was found 
+ in the PT File, the message displayed was inappropriate.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Pivotal sizes were not 
+ updated in the Size Catalogue table as per the sizes specified in the 
+ PT File during Goods Inwards.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>In some cases, PT File Information 
+ report generated for a period more than one year was showing incorrect 
+ information.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=DataCommunication_ISR>Data Communication</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>In online mode of synchronisation, 
+ scheduled synchronisation was skipped if acknowledgement was not received 
+ from Shoper 9 HO.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>In online mode of synchronisation, 
+ the status returned from HO was incorrect, when the volume of data was 
+ high.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Data extraction was failing 
+ if invalid characters were present in the extracted data.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Import_Export_ISR>Import/ Export</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>After reinstallation of Shoper 
+ 9 POS, during replication import, the installation paths were getting 
+ overwritten by the information from the replication data.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved and now the 
+ installation details as per the reinstallation are retained.</p>
+
+<h3><a name=StockReports_ISR>Stock Reports</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>There was a value mismatch 
+ in <span class="hcp1">Inwards Discrepancy Report</span> 
+ if the <span class="hcp1">Purchase Order</span> references 
+ were invalid.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>In <span class="hcp1">Current 
+ Stock Balance Normal Report</span>, if a month in the previous financial 
+ year was selected under the option <span class="hcp1">Monthly 
+ Opening Balance</span>, it throws a runtime error.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=MISReport_ISR>MIS Report</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While generating <span class="hcp1">Pending 
+ Transactions</span> report, incorrect information was being displayed 
+ if Shoper User ID was not <span class="hcp1">Super</span>.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>
