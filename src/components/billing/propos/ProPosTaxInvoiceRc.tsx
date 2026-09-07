@@ -192,6 +192,7 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
               {tenders.cash > 0 && <div className="flex justify-between"><span>Cash:</span><span>₹{tenders.cash.toFixed(2)}</span></div>}
               {tenders.card > 0 && <div className="flex justify-between"><span>Card:</span><span>₹{tenders.card.toFixed(2)}</span></div>}
               {tenders.upi > 0 && <div className="flex justify-between"><span>UPI:</span><span>₹{tenders.upi.toFixed(2)}</span></div>}
+              {tenders.credit > 0 && <div className="flex justify-between font-bold"><span>Credit / Pay Later:</span><span>₹{tenders.credit.toFixed(2)}</span></div>}
               {tenders.loyaltyAmount > 0 && <div className="flex justify-between"><span>Loyalty Rewards:</span><span>₹{tenders.loyaltyAmount.toFixed(2)}</span></div>}
               {changeDue > 0 && <div className="flex justify-between font-bold text-black pt-1"><span>Change Returned:</span><span>₹{changeDue.toFixed(2)}</span></div>}
             </div>

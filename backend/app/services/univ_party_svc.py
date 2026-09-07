@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..models.party import Party, PartyRole, CustomerProfile, SupplierProfile
-from ..models.crm import Customer
+from ..models.crm import Customer, CustomerGSTRegistration, CustomerGroup
 from ..models.purchase import Supplier
 
 
@@ -78,7 +78,16 @@ class UniversalPartyService:
         # 1. Search for existing party by GSTIN / phone / email / code
         code = customer.code if hasattr(customer, "code") and customer.code else f"CUST-{customer.id[:8]}"
         phone = getattr(customer, "mobile", None) or getattr(customer, "phone", None)
-        gstin = getattr(customer, "canonical_gstin", None) or getattr(customer, "gstin", None)
+        registration = (await session.execute(
+            select(CustomerGSTRegistration)
+            .where(
+                CustomerGSTRegistration.customer_id == customer.id,
+                CustomerGSTRegistration.is_primary.is_(True),
+                CustomerGSTRegistration.status == "ACTIVE",
+                CustomerGSTRegistration.is_deleted.is_(False),
+            )
+        )).scalars().first()
+        gstin = (registration.gstin if registration else None) or getattr(customer, "gst_number", None) or getattr(customer, "gstin", None)
         email = getattr(customer, "email", None)
         name = getattr(customer, "name", "Valued Customer")
 
@@ -130,18 +139,27 @@ class UniversalPartyService:
         cp_stmt = select(CustomerProfile).where(CustomerProfile.party_id == party.id)
         cp_match = (await session.execute(cp_stmt)).scalars().first()
         if not cp_match:
+            group = None
+            if getattr(customer, "customer_group_id", None):
+                group = (await session.execute(
+                    select(CustomerGroup).where(CustomerGroup.id == customer.customer_group_id)
+                )).scalars().first()
             cp = CustomerProfile(
                 id=f"cp_{uuid.uuid4().hex[:12]}",
                 party_id=party.id,
-                customer_group_id=getattr(customer, "group_id", None),
-                customer_category=getattr(customer, "category", "RETAIL"),
-                credit_limit=Decimal(str(getattr(customer, "credit_limit", 0.00) or 0.00)),
-                credit_days=int(getattr(customer, "credit_days", 0) or 0),
+                customer_group_id=getattr(customer, "customer_group_id", None),
+                customer_category="RETAIL",
+                credit_limit=Decimal(str(getattr(group, "credit_limit", 0.00) or 0.00)),
+                credit_days=int(getattr(group, "credit_days", 0) or 0),
                 tax_category="B2B" if gstin else "B2C",
-                outstanding_balance=Decimal(str(getattr(customer, "outstanding_balance", 0.00) or 0.00))
+                outstanding_balance=Decimal(str(getattr(customer, "outstanding", 0.00) or 0.00))
             )
             cp.party = party
             session.add(cp)
+        else:
+            cp_match.customer_group_id = getattr(customer, "customer_group_id", None)
+            cp_match.outstanding_balance = Decimal(str(getattr(customer, "outstanding", 0.00) or 0.00))
+            cp_match.tax_category = "B2B" if gstin else "B2C"
 
         await session.flush()
         return party

@@ -43,6 +43,8 @@ class MasterValue(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     master_type_id = Column(UUID(as_uuid=True), ForeignKey("master_types.id"), nullable=False)
+    company_id = Column(String(50), nullable=True, index=True)
+    branch_id = Column(String(50), nullable=True, index=True)
     code = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
     parent_value_id = Column(UUID(as_uuid=True), ForeignKey("master_values.id"), nullable=True)

@@ -157,6 +157,33 @@ class DocumentsEngine:
             session.add(series)
             await session.flush()
 
+        # Imported or pre-existing invoices can be ahead of the series counter.
+        # Reconcile the counter before allocating so numbering never goes backward.
+        if doc_type == "SALES_INVOICE":
+            from ..models.sales import SalesInvoice
+
+            invoice_filters = [
+                SalesInvoice.company_id == company_id,
+                SalesInvoice.is_deleted == False,
+            ]
+            if branch_id is not None:
+                invoice_filters.append(SalesInvoice.branch_id == branch_id)
+
+            existing_numbers = (await session.execute(
+                select(SalesInvoice.invoice_no).where(*invoice_filters)
+            )).scalars().all()
+            series_prefix = series.prefix or ""
+            highest_existing = 0
+            for existing_no in existing_numbers:
+                if not existing_no or not str(existing_no).startswith(series_prefix):
+                    continue
+                # Series may store `D1DS13` while rendered numbers use `D1DS13-137`.
+                numeric_suffix = str(existing_no)[len(series_prefix):].lstrip("-/")
+                if numeric_suffix.isdigit():
+                    highest_existing = max(highest_existing, int(numeric_suffix))
+            if highest_existing > (series.current_number or 0):
+                series.current_number = highest_existing
+
         old_num = series.current_number or 0
         new_num = old_num + 1
         series.current_number = new_num

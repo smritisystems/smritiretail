@@ -23,6 +23,7 @@ import {
   Gift, 
   Award, 
   FileText, 
+  WalletCards,
   Delete,
   CheckCircle,
   AlertCircle
@@ -35,7 +36,7 @@ interface SmritiPosSettlementProps {
   onClose: () => void;
 }
 
-type TenderMode = "CASH" | "CARD" | "UPI" | "GIFT_VOUCHER" | "LOYALTY" | "CREDIT_NOTE";
+type TenderMode = "CASH" | "CARD" | "UPI" | "GIFT_VOUCHER" | "LOYALTY" | "CREDIT" | "CREDIT_NOTE";
 
 interface AppliedPayment {
   id: string;
@@ -58,6 +59,9 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
   const [cardAuthCode, setCardAuthCode] = useState<string>("");
   const [upiRefNo, setUpiRefNo] = useState<string>("");
   const [voucherCode, setVoucherCode] = useState<string>("");
+  const [creditError, setCreditError] = useState<string>("");
+
+  const availableCredit = Math.max(0, (customer?.creditLimit ?? 0) - (customer?.currentBalance ?? 0));
 
   const totalPaid = useMemo(() => {
     return appliedPayments.reduce((acc, p) => acc + p.amount, 0);
@@ -100,6 +104,23 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
     const amt = parseFloat(keypadInput);
     if (isNaN(amt) || amt <= 0) return;
 
+    if (selectedMode === "CREDIT") {
+      if (!customer?.id) {
+        setCreditError("Select a customer before using pay later.");
+        return;
+      }
+      if (availableCredit <= 0) {
+        setCreditError("This customer has no available credit.");
+        return;
+      }
+      if (amt > availableCredit) {
+        setCreditError(`Credit available: ₹${availableCredit.toFixed(2)}`);
+        return;
+      }
+    }
+
+    setCreditError("");
+
     let subLabel = "Standard";
     let ref = "";
 
@@ -114,12 +135,14 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
       ref = voucherCode;
     } else if (selectedMode === "LOYALTY") {
       subLabel = `${customer?.loyaltyPoints || 0} pts available`;
+    } else if (selectedMode === "CREDIT") {
+      subLabel = `Pay later • Available ₹${availableCredit.toFixed(2)}`;
     }
 
     const newPayment: AppliedPayment = {
       id: `pay-${Date.now()}`,
       mode: selectedMode,
-      label: selectedMode === "CASH" ? "Cash" : selectedMode === "CARD" ? "Credit/Debit Card" : selectedMode === "UPI" ? "UPI / Instant QR" : selectedMode === "GIFT_VOUCHER" ? "Gift Voucher" : selectedMode === "LOYALTY" ? "Loyalty Redemption" : "Credit Note",
+      label: selectedMode === "CASH" ? "Cash" : selectedMode === "CARD" ? "Credit/Debit Card" : selectedMode === "UPI" ? "UPI / Instant QR" : selectedMode === "GIFT_VOUCHER" ? "Gift Voucher" : selectedMode === "LOYALTY" ? "Loyalty Redemption" : selectedMode === "CREDIT" ? "Credit / Pay Later" : "Credit Note",
       subLabel,
       amount: amt,
       reference: ref
@@ -137,20 +160,25 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
   };
 
   const handleFinalSettle = () => {
-    if (totalPaid < netAmount && selectedMode === "CASH") {
-      // Auto-fill cash if full amount tendered
+    if (totalPaid < netAmount && (selectedMode === "CASH" || selectedMode === "CREDIT")) {
       const diff = netAmount - totalPaid;
+      if (selectedMode === "CREDIT" && diff > availableCredit) {
+        setCreditError(`Credit available: ₹${availableCredit.toFixed(2)}`);
+        return;
+      }
       const cashTotal = appliedPayments.filter(p => p.mode === "CASH").reduce((a, b) => a + b.amount, 0) + diff;
       const cardTotal = appliedPayments.filter(p => p.mode === "CARD").reduce((a, b) => a + b.amount, 0);
       const upiTotal = appliedPayments.filter(p => p.mode === "UPI").reduce((a, b) => a + b.amount, 0);
       const voucherTotal = appliedPayments.filter(p => p.mode === "GIFT_VOUCHER").reduce((a, b) => a + b.amount, 0);
       const loyaltyTotal = appliedPayments.filter(p => p.mode === "LOYALTY").reduce((a, b) => a + b.amount, 0);
+      const creditTotal = appliedPayments.filter(p => p.mode === "CREDIT").reduce((a, b) => a + b.amount, 0);
       const creditNoteTotal = appliedPayments.filter(p => p.mode === "CREDIT_NOTE").reduce((a, b) => a + b.amount, 0);
 
       onSettle({
-        cash: cashTotal,
+        cash: selectedMode === "CASH" ? cashTotal : cashTotal - diff,
         card: cardTotal,
         upi: upiTotal,
+        credit: selectedMode === "CREDIT" ? creditTotal + diff : creditTotal,
         giftVoucher: voucherTotal,
         loyaltyPointsRedeemed: 0,
         loyaltyAmount: loyaltyTotal,
@@ -164,12 +192,14 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
     const upiTotal = appliedPayments.filter(p => p.mode === "UPI").reduce((a, b) => a + b.amount, 0);
     const voucherTotal = appliedPayments.filter(p => p.mode === "GIFT_VOUCHER").reduce((a, b) => a + b.amount, 0);
     const loyaltyTotal = appliedPayments.filter(p => p.mode === "LOYALTY").reduce((a, b) => a + b.amount, 0);
+    const creditTotal = appliedPayments.filter(p => p.mode === "CREDIT").reduce((a, b) => a + b.amount, 0);
     const creditNoteTotal = appliedPayments.filter(p => p.mode === "CREDIT_NOTE").reduce((a, b) => a + b.amount, 0);
 
     onSettle({
       cash: cashTotal,
       card: cardTotal,
       upi: upiTotal,
+      credit: creditTotal,
       giftVoucher: voucherTotal,
       loyaltyPointsRedeemed: 0,
       loyaltyAmount: loyaltyTotal,
@@ -318,6 +348,19 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
 
             <button
               type="button"
+              onClick={() => { setSelectedMode("CREDIT"); setCreditError(""); }}
+              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-bold transition ${
+                selectedMode === "CREDIT"
+                  ? "bg-[#00288e] text-white shadow-md"
+                  : "bg-white dark:bg-[#2d3133] hover:bg-[#e7e8e9] dark:hover:bg-[#3f465c] border border-[#c4c5d5] dark:border-[#444653]"
+              }`}
+            >
+              <WalletCards size={18} />
+              <span>Credit / Pay Later</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setSelectedMode("CREDIT_NOTE")}
               className={`flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-bold transition ${
                 selectedMode === "CREDIT_NOTE"
@@ -392,6 +435,14 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
                 </div>
               )}
 
+              {selectedMode === "CREDIT" && (
+                <div className="mt-3 rounded-lg border border-[#c4c5d5] dark:border-[#444653] bg-[#eef2ff] dark:bg-[#1e293b] px-3 py-2 text-xs">
+                  <div className="flex justify-between font-bold"><span>Customer credit available</span><span>₹{availableCredit.toFixed(2)}</span></div>
+                  <div className="mt-1 text-[#565e74] dark:text-[#bec6e0]">This amount will be added to the customer balance and is due later.</div>
+                  {creditError && <div className="mt-1 font-semibold text-[#ba1a1a]">{creditError}</div>}
+                </div>
+              )}
+
               {/* 3x4 Virtual POS Keypad */}
               <div className="grid grid-cols-3 gap-2 mt-4">
                 {["7", "8", "9", "4", "5", "6", "1", "2", "3", "0", "00", "."].map(num => (
@@ -452,6 +503,7 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
                         {p.mode === "CASH" && <Banknote size={14} className="text-[#00288e]" />}
                         {p.mode === "CARD" && <CreditCard size={14} className="text-[#00288e]" />}
                         {p.mode === "UPI" && <QrCode size={14} className="text-[#00288e]" />}
+                        {p.mode === "CREDIT" && <WalletCards size={14} className="text-[#00288e]" />}
                         {p.label}
                       </div>
                       <div className="text-[10px] text-[#565e74] dark:text-[#bec6e0]">{p.subLabel}</div>

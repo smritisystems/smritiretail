@@ -21,7 +21,7 @@ from datetime import date, datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from fastapi import HTTPException
 
 from ..models.inventory import Product
@@ -99,7 +99,7 @@ class ReportsService:
     async def daily_sales(self, report_date: Optional[date] = None) -> DailySalesSummary:
         stmt = select(SalesInvoice).where(
             SalesInvoice.is_deleted == False,
-            self._completed_invoice_filter(),
+            or_(SalesInvoice.status.is_(None), func.upper(SalesInvoice.status) != "CANCELLED"),
         )
         if report_date:
             stmt = stmt.where(SalesInvoice.date == report_date)
@@ -407,7 +407,10 @@ class ReportsService:
         stmt = (
             select(SalesInvoice)
             .options(selectinload(SalesInvoice.items))
-            .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
+            .where(
+                SalesInvoice.is_deleted == False,
+                or_(SalesInvoice.status.is_(None), func.upper(SalesInvoice.status).notin_(('DRAFT', 'HOLD'))),
+            )
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
@@ -523,7 +526,10 @@ class ReportsService:
         stmt = (
             select(SalesInvoice)
             .options(selectinload(SalesInvoice.items))
-            .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
+            .where(
+                SalesInvoice.is_deleted == False,
+                or_(SalesInvoice.status.is_(None), func.upper(SalesInvoice.status).notin_(('DRAFT', 'HOLD'))),
+            )
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
@@ -1168,7 +1174,10 @@ class ReportsService:
         stmt = (
             select(SalesInvoice)
             .options(selectinload(SalesInvoice.items))
-            .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
+            .where(
+                SalesInvoice.is_deleted == False,
+                or_(SalesInvoice.status.is_(None), func.upper(SalesInvoice.status).notin_(('DRAFT', 'HOLD'))),
+            )
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
         stmt = self._date_filter(stmt, SalesInvoice, from_date, to_date)
