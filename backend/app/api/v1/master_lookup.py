@@ -144,8 +144,14 @@ async def list_lookup_values(
 
     q = select(MasterValue).where(
         MasterValue.master_type_id == master_type.id,
-        MasterValue.is_deleted.is_(False)
+        MasterValue.is_deleted.is_(False),
     )
+    company_id = getattr(current_user, "company_id", None)
+    branch_id = getattr(current_user, "branch_id", None)
+    if company_id:
+        q = q.where((MasterValue.company_id == company_id) | MasterValue.company_id.is_(None))
+    if branch_id:
+        q = q.where((MasterValue.branch_id == branch_id) | MasterValue.branch_id.is_(None))
     if activeOnly:
         q = q.where(MasterValue.active.is_(True))
 
@@ -197,8 +203,14 @@ async def create_lookup_value(
     q_val = select(MasterValue).where(
         MasterValue.master_type_id == master_type.id,
         MasterValue.code == payload.code,
-        MasterValue.is_deleted.is_(False)
+        MasterValue.is_deleted.is_(False),
     )
+    company_id = getattr(current_user, "company_id", None)
+    branch_id = getattr(current_user, "branch_id", None)
+    if company_id:
+        q_val = q_val.where(MasterValue.company_id == company_id)
+    else:
+        q_val = q_val.where(MasterValue.company_id.is_(None))
     res_val = await db.execute(q_val)
     if res_val.scalar_one_or_none():
         raise HTTPException(
@@ -208,6 +220,8 @@ async def create_lookup_value(
 
     item = MasterValue(
         master_type_id=master_type.id,
+        company_id=company_id,
+        branch_id=branch_id,
         code=payload.code,
         name=payload.name,
         parent_value_id=payload.parent_value_id,
@@ -249,8 +263,11 @@ async def update_lookup_value(
     q_val = select(MasterValue).where(
         MasterValue.id == id,
         MasterValue.master_type_id == master_type.id,
-        MasterValue.is_deleted.is_(False)
+        MasterValue.is_deleted.is_(False),
     )
+    company_id = getattr(current_user, "company_id", None)
+    if company_id:
+        q_val = q_val.where((MasterValue.company_id == company_id) | MasterValue.company_id.is_(None))
     res_val = await db.execute(q_val)
     item = res_val.scalar_one_or_none()
     if not item:
@@ -318,8 +335,11 @@ async def delete_lookup_value(
     q_val = select(MasterValue).where(
         MasterValue.id == id,
         MasterValue.master_type_id == master_type.id,
-        MasterValue.is_deleted.is_(False)
+        MasterValue.is_deleted.is_(False),
     )
+    company_id = getattr(current_user, "company_id", None)
+    if company_id:
+        q_val = q_val.where((MasterValue.company_id == company_id) | MasterValue.company_id.is_(None))
     res_val = await db.execute(q_val)
     item = res_val.scalar_one_or_none()
     if not item:

@@ -192,6 +192,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
   let totalSGST = 0;
   let totalIGST = 0;
   let grandTotal = 0;
+  const declaredInterstate = data.supplyType === "Interstate";
 
   const hsnBreakdown: Record<string, {
     taxable: number;
@@ -210,7 +211,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
       : unitPrice * qty;
 
     const gstRate = Number(item.gst_rate ?? item.gstRate ?? (item.tax_rate ?? 5));
-    const isInter = isInterstate;
+    const isInter = declaredInterstate;
 
     // Dynamic tax calculations based on line gst_rate and jurisdiction
     const totalTax = taxableValue * (gstRate / 100);
@@ -284,7 +285,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
       data.shippingCountry
     ].filter(Boolean).join(", ") || "No Shipping Address Listed";
 
-  const isInterstate = data.supplyType === "Interstate" || totalIGST > 0;
+  const isInterstate = declaredInterstate || totalIGST > 0;
 
   const cleanItemName = (name: string): string => {
     if (!name) return "";

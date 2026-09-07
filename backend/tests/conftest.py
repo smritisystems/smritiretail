@@ -343,6 +343,8 @@ def seed_control_plane_test_assignments():
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER DEFAULT 1;
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_scope VARCHAR(50) DEFAULT 'GLOBAL';
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_snapshot JSONB;
+            ALTER TABLE IF EXISTS master_values ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);
+            ALTER TABLE IF EXISTS master_values ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);
             CREATE TABLE IF NOT EXISTS customer_credit_ledger_entries (
                 id VARCHAR(50) PRIMARY KEY, uuid UUID, company_id VARCHAR(50), branch_id VARCHAR(50),
                 created_at TIMESTAMPTZ, modified_at TIMESTAMPTZ, created_by VARCHAR(50), updated_by VARCHAR(50),

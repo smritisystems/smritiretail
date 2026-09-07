@@ -12,10 +12,11 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import uuid as uuid_pkg
 from datetime import datetime, date
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, DateTime, Text, UniqueConstraint, Index, text
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from ..db.base import BaseEntity
 
 
@@ -322,6 +323,10 @@ class CustomerCreditLedgerEntry(BaseEntity):
         Index("ix_customer_credit_ledger_customer_date", "customer_id", "entry_date"),
         Index("uq_customer_credit_ledger_reference", "reference_type", "reference_id", unique=True),
     )
+
+    # This table was migrated with a native PostgreSQL UUID column, unlike the
+    # legacy String UUID declared by BaseEntity.
+    uuid = Column(UUID(as_uuid=True), default=uuid_pkg.uuid4, unique=True, nullable=False)
 
     customer_id = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False, index=True)
     entry_date = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)

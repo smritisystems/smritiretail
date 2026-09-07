@@ -64,6 +64,17 @@ def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
 
+def _integrity_error_detail(error: IntegrityError) -> str:
+    """Return a safe, actionable database constraint message for API clients."""
+    original = getattr(error, "orig", error)
+    constraint = getattr(getattr(original, "diag", None), "constraint_name", None)
+    message = str(original)
+
+    if constraint:
+        return f"Invoice could not be saved because database constraint '{constraint}' was violated. Refresh the customer/location selections and document number, then retry."
+    return f"Invoice could not be saved because of a database integrity conflict: {message}"
+
+
 class SalesService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext, control_db: Optional[AsyncSession] = None):
         self.db = db
@@ -668,6 +679,9 @@ class SalesService:
 
         try:
             await self.db.flush()
+        except IntegrityError as ef:
+            await self.db.rollback()
+            raise HTTPException(status_code=409, detail=_integrity_error_detail(ef))
         except Exception as ef:
             print(f"[SalesService Error at flush db_invoice]: {ef}")
             raise
@@ -742,14 +756,19 @@ class SalesService:
         # -- End Sprint 14 hooks --
         try:
             await self.db.commit()
-        except Exception as e:
+        except IntegrityError as e:
             await self.db.rollback()
             import traceback
             traceback.print_exc()
             raise HTTPException(
-                status_code=400,
-                detail=f"Commit error: {str(e)}"
+                status_code=409,
+                detail=_integrity_error_detail(e)
             )
+        except Exception as e:
+            await self.db.rollback()
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=f"Commit error: {str(e)}")
         # Re-fetch with eager items to avoid MissingGreenlet during response serialization
         res = await self.db.execute(
             select(SalesInvoice)

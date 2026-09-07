@@ -490,8 +490,27 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
   };
 
+  const openCanonicalInvoicePrint = async (invoiceId: string) => {
+    const printWindow = window.open("", "_blank");
+    try {
+      const pdf = await apiFetchV1<Blob>(`/sales/invoices/${invoiceId}/pdf`);
+      const pdfUrl = URL.createObjectURL(pdf);
+      if (!printWindow) {
+        URL.revokeObjectURL(pdfUrl);
+        throw new Error("The print window was blocked. Please allow pop-ups and retry.");
+      }
+      printWindow.location.href = pdfUrl;
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+    } catch (error: any) {
+      printWindow?.close();
+      onNotification?.("Print Error", error?.message || "Unable to render the canonical tax invoice.", "error");
+    }
+  };
+
   const handleReprintInvoice = () => {
-    if (lastCompletedInvoice || items.length > 0) {
+    if (lastCompletedInvoice?.invoiceId) {
+      void openCanonicalInvoicePrint(lastCompletedInvoice.invoiceId);
+    } else if (items.length > 0) {
       setShowPrintModal(true);
     } else {
       onNotification?.("Reprint", "No recent invoice to reprint.", "error");
@@ -1307,6 +1326,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       });
 
       const completedInvoice = {
+        invoiceId: saved.id,
         invoiceNumber: saved.invoice_no || invNo || "INV-CONFIRMED",
         date: saved.date || headerState.billDate,
         customerName: headerState.customer?.name || "Counter Cash Sale",
@@ -1331,7 +1351,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       setLastCompletedInvoice(completedInvoice);
       setShowSettlementModal(false);
-      setShowPrintModal(true);
+      setShowPrintModal(false);
+      void openCanonicalInvoicePrint(saved.id);
 
       // Reset for next invoice
       setItems([]);
@@ -1360,7 +1381,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       onNotification?.("Settlement Complete", `Invoice ${completedInvoice.invoiceNumber} saved to PostgreSQL database.`, "success");
       onRefreshData?.();
     } catch (err: any) {
-      alert(`Database Settlement Error: ${err?.message || "Failed to commit transaction."}. Your invoice items are preserved. Please retry.`);
+      const message = err?.message || "Failed to commit transaction.";
+      console.error("[BillingTerm] Invoice settlement failed:", err);
+      alert(`Bill could not be saved.\n\n${message}\n\nYour invoice items are still preserved in the cart. Correct the indicated data and retry.`);
     }
   };
 
@@ -1435,7 +1458,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <Receipt size={26} className="text-secondary" />
             </span>
             <span className="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed tracking-tight">
-              Smriti Distributor
+              Speed Invoice
+              <span className="text-[10px] font-normal uppercase tracking-wider text-on-surface-variant dark:text-primary-fixed/70">
+                Distributor Workspace
+              </span>
             </span>
           </div>
 
@@ -1551,12 +1577,41 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               title="Settlement (F8)"
             >
               <CreditCard size={15} />
-              <span>Settlement (F8)</span>
+              <span>Settle &amp; Save (F8)</span>
             </button>
 
           </div>
         </div>
       </header>
+
+      <div className="border-b border-outline-variant bg-surface-container-lowest/95 px-margin-page py-2 shadow-xs">
+        <div className="max-w-container-max-width mx-auto flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+          <span className="rounded-full bg-primary-container px-3 py-1 text-on-primary" data-testid="invoice-workspace-mode">
+            {headerState.transaction === "Credit" ? "B2B CREDIT" : "B2B CASH"}
+          </span>
+          <span className="rounded-full border border-outline-variant bg-surface-container-low px-3 py-1 text-on-surface-variant">
+            {items.length} {items.length === 1 ? "item" : "items"}
+          </span>
+          <span className="rounded-full border border-outline-variant bg-surface-container-low px-3 py-1 text-on-surface-variant">
+            {headerState.customer?.name || "Customer required"}
+          </span>
+          <span className={`rounded-full border px-3 py-1 ${
+            headerState.customer?.gstNumber || headerState.billedGstin
+              ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+              : "border-amber-300 bg-amber-50 text-amber-800"
+          }`}>
+            {headerState.customer?.gstNumber || headerState.billedGstin ? "GST profile ready" : "GST profile pending"}
+          </span>
+          {headerState.poReference && (
+            <span className="rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-blue-800">
+              PO {headerState.poReference}
+            </span>
+          )}
+          <span className="ml-auto font-code-md text-sm font-bold text-primary">
+            Net ₹{summaryTotals.netAmount.toFixed(2)}
+          </span>
+        </div>
+      </div>
 
       {/* Main Invoicing Canvas */}
       <main className="flex-1 flex flex-col p-stack-gap gap-stack-gap overflow-y-auto max-w-container-max-width mx-auto w-full">
@@ -1611,6 +1666,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 className="bg-surface-container-low border-outline-variant text-body-md font-code-md text-on-surface-variant rounded h-9 cursor-not-allowed px-2.5 border"
               />
             </div>
+
+            {lastCompletedInvoice?.invoiceNumber && (
+              <div className="flex flex-col gap-unit min-w-44">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Last Saved Bill No.</label>
+                <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 rounded h-9 px-2.5 flex items-center font-code-md font-bold">
+                  {lastCompletedInvoice.invoiceNumber}
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2 ml-auto">
               <button

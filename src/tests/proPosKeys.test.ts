@@ -217,6 +217,7 @@ describe("SMRITI 9 POS — Hotkeys, Direct Entry & Billing Engine Unit Tests", (
         cash: netPayable,
         card: 0,
         upi: 0,
+        credit: 0,
         creditNote: 0,
         giftVoucher: 0,
         loyaltyPointsRedeemed: 0,

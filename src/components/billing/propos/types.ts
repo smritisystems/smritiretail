@@ -64,6 +64,7 @@ export interface ProPosTenderSplit {
   cardAuthCode?: string;
   upi: number;
   upiRef?: string;
+  credit: number;
   creditNote: number;
   creditNoteNo?: string;
   giftVoucher: number;
