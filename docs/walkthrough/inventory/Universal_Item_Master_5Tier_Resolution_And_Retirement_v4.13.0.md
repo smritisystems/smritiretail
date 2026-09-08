@@ -169,7 +169,9 @@ Alembic Engine Lifecycle Execution Proof (smriti002):
   - Distinct GS1 Barcodes: 450 (8904551% series)
   - Orphan Foreign Keys:  0 (Items: 0, Variants: 0, Barcodes: 0)
   - Active & Valid Rates: 450/450
-  - Live Resolution:      100% matched across Barcode & Buyer Article tiers
+  - Exhaustive Resolution: 900/900 individual live lookups passed (450 Tier-3 Buyer Codes + 450 Tier-1 Barcodes)
+  - Lookup Duration:      28.61s (31.79 ms/lookup average)
+  - Contract Rate Match:  100.00% exact match across all 450 records
 
 Tenant Schema Parity (Rule 12):
   - smriti001: 38/38 columns match, 4 FKs, 6 indexes match. Lineage: v1418_cust_art_map.
@@ -179,6 +181,9 @@ Tenant Schema Parity (Rule 12):
 ---
 
 ## 10. Known Limitations
+- **Historical Reconciliation Assumption**: The anti-double-deduction netting formula `net_reserved = max(0.0, raw_reserved - committed)` assumes modern sales order reservations are reflected in `Product.reserved_stock` (as executed by `sales.py:1002`). If legacy records bypassed this trigger, soft holds may be under-counted unless an automated ledger reconciliation job is run.
+- **Migration Reversibility vs. Zero-Downtime**: The Alembic downgrade/upgrade test proves transactional schema reversibility and engine authenticity on `smriti002`, but table drops are destructive. Production deployment requires expand/contract migration rather than in-place DDL drops.
+- **Local Developer Baseline**: Throughput measurements (12.5 - 14.0 req/sec) are single-node Windows developer loopback baselines, not production capacity claims. Production environments require multi-worker Uvicorn clustering and connection pooling.
 - Warehouse-level multi-location bucket partitioning defaults to all locations when `branch_id` is omitted.
 - Contract discounts specified as percentages (`contract_discount_pct`) require `contract_rate` override to be populated.
 
