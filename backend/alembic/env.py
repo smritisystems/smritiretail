@@ -23,6 +23,17 @@ backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
+# Load root .env if present before importing settings
+try:
+    from dotenv import dotenv_values
+    root_env = os.path.abspath(os.path.join(backend_dir, "..", ".env"))
+    if os.path.exists(root_env):
+        for k, v in dotenv_values(root_env).items():
+            if v is not None and k not in os.environ:
+                os.environ[k] = v
+except ImportError:
+    pass
+
 # Import our settings and base metadata
 from app.core.config import settings
 from app.db.base import Base
@@ -40,6 +51,7 @@ from app.models.sales import (
     SalesReturn, SalesReturnItem,
 )
 from app.models.customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
+from app.models.customer_article_mapping import CustomerArticleMapping
 from app.models.tenant import Company, Branch
 from app.models.auth import User, RefreshTokenBlacklist
 from app.models.purchase import (
@@ -102,6 +114,7 @@ def include_object(object, name, type_, reflected, compare_to):
             "customer_purchase_orders",
             "customer_purchase_order_lines",
             "customer_po_invoice_allocations",
+            "customer_article_mappings",
             "companies",
             "branches",
             "user_company_assignments",

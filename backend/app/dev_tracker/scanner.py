@@ -52,7 +52,7 @@ MODULES_MAP = {
     "item-master": {
         "name": "Item Master",
         "category": "Inventory & Sourcing",
-        "frontend": "ItemMasterTab.tsx",
+        "frontend": "ItemMasterWs.tsx",
         "routes": ["inventory", "items", "attributes", "variants"],
         "tables": ["items", "products", "attributes", "variants"],
         "tests": ["item", "inventory", "barcode", "product"],

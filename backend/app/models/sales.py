@@ -15,7 +15,7 @@ Classification: Internal
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, Index, text
 from sqlalchemy import DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import Base, BaseEntity
 
@@ -49,7 +49,7 @@ class SalesInvoice(BaseEntity):
     sis_code                = Column(String(50))
     pos_state               = Column(String(100))
     reverse_charge          = Column(Boolean, default=False)
-    is_reverse_charge       = Column(Boolean, default=False)
+    is_reverse_charge       = synonym("reverse_charge")
     po_reference            = Column(String(100))
     customer_po_id          = Column(String(50), ForeignKey("customer_purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True)
     customer_po_number_snapshot = Column(String(100), nullable=True)

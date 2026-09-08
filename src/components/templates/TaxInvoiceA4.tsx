@@ -205,20 +205,23 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
     const qty = Number(item.quantity ?? item.qty ?? 0);
     const unitPrice = Number(item.unit_price ?? item.price ?? item.rate ?? 0);
 
-    // Exact Taxable Value (GST-exclusive net base value)
-    const taxableValue = item.line_total !== undefined && item.line_total !== null
-      ? Number(item.line_total)
-      : unitPrice * qty;
+    // Prefer the persisted GST-exclusive taxable value. `line_total` is the
+    // post-tax total in imported invoices and must not be taxed a second time.
+    const taxableValue = item.taxable_value !== undefined && item.taxable_value !== null
+      ? Number(item.taxable_value)
+      : item.line_total !== undefined && item.line_total !== null
+        ? Number(item.line_total)
+        : unitPrice * qty;
 
     const gstRate = Number(item.gst_rate ?? item.gstRate ?? (item.tax_rate ?? 5));
     const isInter = declaredInterstate;
 
     // Dynamic tax calculations based on line gst_rate and jurisdiction
-    const totalTax = taxableValue * (gstRate / 100);
-    const igst = isInter ? totalTax : 0;
-    const cgst = isInter ? 0 : totalTax / 2;
-    const sgst = isInter ? 0 : totalTax / 2;
-    const itemTotal = taxableValue + totalTax;
+    const calculatedTax = taxableValue * (gstRate / 100);
+    const igst = isInter ? Number(item.igst_amount ?? calculatedTax) : 0;
+    const cgst = isInter ? 0 : Number(item.cgst_amount ?? calculatedTax / 2);
+    const sgst = isInter ? 0 : Number(item.sgst_amount ?? calculatedTax / 2);
+    const itemTotal = taxableValue + igst + cgst + sgst;
 
     const unitBaseCost = qty > 0 ? (taxableValue / qty) : unitPrice;
 
@@ -227,9 +230,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
     const mrp = isNaN(rawMrp) ? 0 : rawMrp;
 
     // Exact Discount % (Honors item.discount_percent or defaults to exact 43.76%)
-    const discPercent = Number(item.discount_percent ?? item.discountPercent ?? (
-      mrp > 0 && unitBaseCost > 0 ? (((mrp - unitBaseCost) / mrp) * 100) : 43.76
-    ));
+    const discPercent = Number(item.discount_percent ?? item.discountPercent ?? 0);
 
     const hsn = item.hsn || item.hsn_code || "64041990";
 

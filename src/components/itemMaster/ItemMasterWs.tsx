@@ -36,6 +36,7 @@ interface SmritiItemMasterWorkspaceProps {
   onRefreshProducts?: () => Promise<void>;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string } | null;
+  initialSubTab?: string;
   onClose?: () => void;
 }
 
@@ -46,6 +47,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   onRefreshProducts,
   onNotification,
   currentUser,
+  initialSubTab,
   onClose
 }) => {
   const [activeNav, setActiveNav] = useState<WorkspaceNavTab>("item_details");

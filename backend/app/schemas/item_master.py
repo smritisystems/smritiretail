@@ -145,7 +145,7 @@ class MatrixVariantGenRequest(BaseModel):
 
 
 class ItemResolutionResponse(BaseModel):
-    matched_by: str  # BARCODE, VARIANT_SKU, ITEM_CODE, SERIAL
+    matched_by: str  # BARCODE, VARIANT_SKU, BUYER_CODE, ITEM_CODE, SERIAL
     item_id: str
     item_code: str
     item_name: str
@@ -153,6 +153,7 @@ class ItemResolutionResponse(BaseModel):
     variant_sku: Optional[str] = None
     barcode: Optional[str] = None
     serial_number: Optional[str] = None
+    hsn_code: Optional[str] = None
     tax_rate: Optional[float] = 0.00
     mrp: Optional[float] = 0.00
     selling_price: Optional[float] = 0.00
@@ -160,6 +161,26 @@ class ItemResolutionResponse(BaseModel):
     primary_uom: Optional[str] = None
     category: Optional[str] = None
     brand: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    attributes_json: Optional[Dict[str, Any]] = None
+    customer_article: Optional[str] = None
+    contract_rate: Optional[float] = None
+    contract_discount_pct: Optional[float] = None
+    customer_style_description: Optional[str] = None
+    effective_price: Optional[float] = None
+    currency: Optional[str] = "INR"
+    tax_treatment: Optional[str] = "TAXABLE_EXCLUSIVE"
+    tax_amount: Optional[float] = 0.00
+    effective_price_inclusive: Optional[float] = 0.00
+    physical_on_hand: Optional[float] = 0.00
+    in_transit_qty: Optional[float] = 0.00
+    reserved_qty: Optional[float] = 0.00
+    committed_qty: Optional[float] = 0.00
+    quarantine_qty: Optional[float] = 0.00
+    available_to_promise: Optional[float] = 0.00
+    inventory: Optional[Dict[str, Any]] = None
+    pricing_audit: Optional[Dict[str, Any]] = None
 
 
 class LegacyProductAdapterResponse(BaseModel):

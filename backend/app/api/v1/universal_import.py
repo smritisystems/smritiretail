@@ -1,4 +1,16 @@
-"""Preview and controlled commit APIs for barcode and attribute-based imports."""
+"""
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 6.16.0
+Created      : 2026-08-25
+Modified     : 2026-09-09
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal
+"""
 
 import hashlib
 import json
@@ -19,7 +31,7 @@ from ...schemas.stock_acct import StockMovementRecordRequest
 from ...schemas.sales import SalesReturnCreate, SalesReturnItemCreate
 from ...schemas.pricing import PriceBookEntryCreateRequest
 from ...services.pricing_engine import PricingEngine
-from ...services.item_master_service import UniversalItemMasterService
+from ...services.item_master_svc import UniversalItemMasterService
 from ...services.purchase import PurchaseService
 from ...services.stock_acct_svc import StockAccountingBoundaryService
 from ...services.sales import SalesService
