@@ -94,6 +94,38 @@ describe("customer canonical location hydration", () => {
     expect(addresses.find(address => address.id === "loc-blr")?.city).toBe("Bengaluru");
   });
 
+  it("collapses same-type duplicate addresses by normalized address content", () => {
+    const addresses = mergeCanonicalLocationsIntoAddresses([
+      {
+        id: "mail-1",
+        code: "001",
+        addressType: "mailing",
+        address1: "12 MG Road,",
+        city: "Bengaluru",
+        state: "Karnataka",
+        postalCode: "560001",
+        country: "India",
+        isDefault: true
+      },
+      {
+        id: "mail-2",
+        code: "002",
+        addressType: "mailing",
+        address1: "12  MG Road",
+        city: " Bengaluru ",
+        state: "Karnataka",
+        postalCode: "560001",
+        country: "India",
+        contactPerson: "Updated Contact",
+        isDefault: false
+      }
+    ]);
+
+    expect(addresses.filter(address => address.addressType === "mailing")).toHaveLength(1);
+    expect(addresses.find(address => address.addressType === "mailing")?.contactPerson).toBe("Updated Contact");
+    expect(addresses.find(address => address.addressType === "mailing")?.isDefault).toBe(true);
+  });
+
   it("does not deactivate a location whose store code was renamed", () => {
     const knownAddressIds = new Set(["loc-blr"]);
     const submittedLocationIds = new Set(["loc-blr"]);

@@ -39,6 +39,9 @@ class SalesInvoiceItemBase(BaseModel):
     igst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("igst_amount", "igstAmount"))
     is_tax_inclusive: Optional[bool] = Field(None, validation_alias=AliasChoices("is_tax_inclusive", "isTaxInclusive"))
     line_no: Optional[int] = Field(None, validation_alias=AliasChoices("line_no", "lineNo"))
+    customer_po_line_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("customer_po_line_id", "customerPoLineId"))
+    source_line_type: Optional[str] = Field(None, max_length=30, validation_alias=AliasChoices("source_line_type", "sourceLineType"))
+    source_line_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_line_id", "sourceLineId"))
 
 class SalesInvoiceItemCreate(SalesInvoiceItemBase):
     pass
@@ -102,6 +105,12 @@ class SalesInvoiceBase(BaseModel):
     # so it remains correct even when customer GSTIN differs from delivery GSTIN.
     place_of_supply_code:     Optional[str]  = Field(None, max_length=2,   validation_alias=AliasChoices("place_of_supply_code",     "placeOfSupplyCode"))
     po_reference:             Optional[str]  = Field(None, max_length=100, validation_alias=AliasChoices("po_reference",            "poReference", "po_number", "poNumber"))
+    customer_po_id:           Optional[str]  = Field(None, max_length=50, validation_alias=AliasChoices("customer_po_id", "customerPoId"))
+    customer_po_number_snapshot: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("customer_po_number_snapshot", "customerPoNumberSnapshot"))
+    customer_po_date_snapshot: Optional[datetime_date] = Field(None, validation_alias=AliasChoices("customer_po_date_snapshot", "customerPoDateSnapshot"))
+    source_document_type:     Optional[str] = Field("DIRECT", max_length=30, validation_alias=AliasChoices("source_document_type", "sourceDocumentType"))
+    source_document_id:       Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_document_id", "sourceDocumentId"))
+    source_document_line_id:  Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_document_line_id", "sourceDocumentLineId"))
     psv_party_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_party_id", "psvPartyId"))
     psv_store_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_store_id", "psvStoreId"))
 

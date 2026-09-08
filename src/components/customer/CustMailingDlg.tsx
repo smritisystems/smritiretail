@@ -13,8 +13,8 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { X, Plus, Trash2, Check, MapPin, Phone, Mail, Home } from "lucide-react";
-import { CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption } from "./types.ts";
+import { X, Plus, Trash2, Check, MapPin, Phone, Mail, Home, Search } from "lucide-react";
+import { CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint } from "./types.ts";
 import { parseAndValidateGSTIN } from "../../utils/gstEngine.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import {
@@ -51,8 +51,8 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
 }) => {
   const [addressList, setAddressList] = useState<CustomerAddressEntry[]>([]);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number>(0);
-  const [poCandidates, setPoCandidates] = useState<any[]>([]);
-  const [isLoadingPoCandidates, setIsLoadingPoCandidates] = useState(false);
+  const [addressFilter, setAddressFilter] = useState("");
+  const [addressTypeFilter, setAddressTypeFilter] = useState<"all" | CustomerAddressType>("all");
   const [referenceStates, setReferenceStates] = useState<string[]>([]);
   const [referenceStateCodes, setReferenceStateCodes] = useState<Record<string, string>>({});
   const [referenceStateNamesByCode, setReferenceStateNamesByCode] = useState<Record<string, string>>({});
@@ -126,6 +126,29 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   const currentAddress = addressList[selectedAddressIndex] || addressList[0];
   const currentState = currentAddress?.state || "";
   const currentCity = currentAddress?.city || "";
+  const filteredAddressEntries = addressList
+    .map((address, index) => ({ address, index }))
+    .filter(({ address }) => {
+      if (addressTypeFilter !== "all" && address.addressType !== addressTypeFilter) return false;
+      const query = addressFilter.trim().toLowerCase();
+      if (!query) return true;
+      return [
+        address.code,
+        address.locationName,
+        address.address1,
+        address.address2,
+        address.address3,
+        address.address4,
+        address.address5,
+        address.locality,
+        address.city,
+        address.state,
+        address.postalCode,
+        address.storeCode,
+        address.billingStoreCode,
+        address.shippingStoreCode
+      ].some(value => String(value || "").toLowerCase().includes(query));
+    });
 
   useEffect(() => {
     if (!isOpen || !currentState) {
@@ -304,46 +327,6 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
     setSelectedAddressIndex(addressList.length);
   };
 
-  const handleLoadPoCandidates = async () => {
-    if (!customerId) {
-      onNotification?.("Customer Required", "Save the customer before importing a PO address.", "warning");
-      return;
-    }
-    setIsLoadingPoCandidates(true);
-    try {
-      const candidates = await apiFetchV1<any[]>(`/sales/orders/po-address-candidates?customer_id=${encodeURIComponent(customerId)}`);
-      setPoCandidates(Array.isArray(candidates) ? candidates : []);
-    } catch (error: any) {
-      onNotification?.("PO Addresses Unavailable", error?.message || "Could not load PO address candidates.", "error");
-    } finally {
-      setIsLoadingPoCandidates(false);
-    }
-  };
-
-  const handleApplyPoCandidate = (candidate: any) => {
-    const gst = parseAndValidateGSTIN(candidate.gstin);
-    const pin = String(candidate.address || "").match(/\b\d{6}\b/g)?.at(-1) || currentAddress.postalCode;
-    setAddressList(prev => {
-      const next = [...prev];
-      if (next[selectedAddressIndex]) {
-        next[selectedAddressIndex] = {
-          ...next[selectedAddressIndex],
-          addressType: "shipping",
-          shippingStoreCode: candidate.suggested_store_code || "",
-          address1: candidate.address || "",
-          gstin: candidate.gstin || "",
-          gstRegistrationId: "",
-          stateCode: gst.stateCode || next[selectedAddressIndex].stateCode,
-          state: gst.stateName || next[selectedAddressIndex].state,
-          postalCode: pin,
-        };
-      }
-      return next;
-    });
-    setPoCandidates([]);
-    onNotification?.("PO Address Prefilled", "Review the address and city, then apply the mailing details.", "info");
-  };
-
   const handleDeleteAddress = (indexToDelete: number) => {
     if (addressList.length <= 1) {
       onNotification?.("Action Restricted", "At least one mailing address record is required.", "error");
@@ -355,8 +338,10 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
 
   const handleSaveAndClose = () => {
     const missingStoreCode = addressList.find(address =>
-      (address.addressType === "billing" && !address.billingStoreCode?.trim()) ||
-      (address.addressType === "shipping" && !address.shippingStoreCode?.trim())
+      !address.id && (
+        (address.addressType === "billing" && !address.billingStoreCode?.trim()) ||
+        (address.addressType === "shipping" && !address.shippingStoreCode?.trim())
+      )
     );
     if (missingStoreCode) {
       const label = missingStoreCode.addressType === "billing" ? "Billing Store Code" : "Shipping Store Code";
@@ -364,8 +349,17 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
       return;
     }
 
-    const seenCodes = new Set<string>();
+    const seenCodes = new Map<string, CustomerAddressEntry>();
+    const seenAddresses = new Map<string, CustomerAddressEntry>();
     for (const address of addressList) {
+      const addressFingerprint = getCustomerAddressFingerprint(address);
+      const previousAddress = addressFingerprint ? seenAddresses.get(addressFingerprint) : undefined;
+      if (addressFingerprint && previousAddress && (!address.id || !previousAddress.id)) {
+        onNotification?.("Duplicate Address", `This ${addressTypeLabel(address.addressType).toLowerCase()} address already exists in the customer address list.`, "error");
+        return;
+      }
+      if (addressFingerprint && !previousAddress) seenAddresses.set(addressFingerprint, address);
+
       const code = (address.addressType === "billing"
         ? address.billingStoreCode
         : address.addressType === "shipping"
@@ -373,14 +367,15 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
           : address.storeCode)?.trim().toUpperCase();
       if (code) {
         const key = `${address.addressType || "mailing"}:${code}`;
-        if (seenCodes.has(key)) {
+        const previousAddress = seenCodes.get(key);
+        if (previousAddress && (!address.id || !previousAddress.id)) {
           onNotification?.("Duplicate Store Code", `${code} is used more than once for ${addressTypeLabel(address.addressType)} addresses.`, "error");
           return;
         }
-        seenCodes.add(key);
+        if (!previousAddress) seenCodes.set(key, address);
       }
 
-      if (address.gstin) {
+      if (address.gstin && !address.id) {
         const validation = parseAndValidateGSTIN(address.gstin);
         if (!validation.isValid) {
           onNotification?.("Invalid GSTIN", `${address.gstin} is not a valid 15-character GSTIN.`, "error");
@@ -395,8 +390,8 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
     }
 
     onSaveAddresses(addressList);
-    onNotification?.("Mailing List Updated", `Saved ${addressList.length} address profiles.`, "success");
     onClose();
+    onNotification?.("Mailing List Updated", `Saved ${addressList.length} address profiles.`, "success");
   };
 
   return (
@@ -447,32 +442,37 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                   <Plus size={11} /> Add
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={handleLoadPoCandidates}
-                disabled={isLoadingPoCandidates}
-                className="w-full mb-2 p-2 border border-[#0f4c81] text-[#00355f] hover:bg-[#d0e1fb] rounded text-[10px] font-bold"
-              >
-                {isLoadingPoCandidates ? "Loading PO addresses..." : "Import From Reliance PO"}
-              </button>
-              {poCandidates.length > 0 && (
-                <div className="mb-2 max-h-40 overflow-y-auto space-y-1 border border-[#c6c6cd] rounded p-1">
-                  {poCandidates.map((candidate, index) => (
-                    <button
-                      key={`${candidate.suggested_store_code}-${index}`}
-                      type="button"
-                      onClick={() => handleApplyPoCandidate(candidate)}
-                      className="w-full text-left p-2 hover:bg-[#e5eeff] rounded text-[10px]"
-                    >
-                      <span className="font-bold">{candidate.suggested_store_code}</span>
-                      <span className="block truncate text-[#515f74]">{candidate.address}</span>
-                      <span className="block text-[#515f74]">GSTIN: {candidate.gstin || "Not available"}</span>
-                    </button>
-                  ))}
+              <div className="mb-2 rounded border border-[#c6c6cd] bg-white/70 px-2 py-1.5 text-[10px] text-[#515f74] dark:border-[#45464d] dark:bg-[#191c1e]/60 dark:text-[#bec6e0]">
+                {addressList.filter(address => address.addressType === "billing").length} billing · {addressList.filter(address => address.addressType === "shipping").length} shipping · {addressList.filter(address => address.addressType === "mailing").length} mailing
+              </div>
+              <div className="mb-2 space-y-1.5">
+                <div className="relative">
+                  <Search size={12} className="absolute left-2 top-2 text-[#515f74]" />
+                  <input
+                    type="search"
+                    value={addressFilter}
+                    onChange={event => setAddressFilter(event.target.value)}
+                    placeholder="City, PIN, locality, store code"
+                    aria-label="Filter customer addresses"
+                    className="w-full p-1.5 pl-7 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-[10px]"
+                  />
                 </div>
-              )}
-
-              {addressList.map((addr, idx) => (
+                <select
+                  value={addressTypeFilter}
+                  onChange={event => setAddressTypeFilter(event.target.value as "all" | CustomerAddressType)}
+                  aria-label="Filter address type"
+                  className="w-full p-1.5 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-[10px]"
+                >
+                  <option value="all">All address types</option>
+                  <option value="billing">Billing only</option>
+                  <option value="shipping">Shipping only</option>
+                  <option value="mailing">Mailing only</option>
+                </select>
+                <div className="text-[9px] text-[#515f74] dark:text-[#bec6e0]">
+                  Showing {filteredAddressEntries.length} of {addressList.length}
+                </div>
+              </div>
+              {filteredAddressEntries.map(({ address: addr, index: idx }) => (
                 <div
                   key={idx}
                   onClick={() => setSelectedAddressIndex(idx)}
@@ -484,7 +484,7 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                 >
                   <div className="flex items-center gap-1.5 truncate">
                     <Home size={12} className="shrink-0" />
-                    <span className="truncate">#{addressDisplayCode(addr, idx)} {addressTypeLabel(addr.addressType)} · {addr.locality || addr.city}</span>
+                    <span className="truncate">#{addressDisplayCode(addr, idx)} {addressTypeLabel(addr.addressType)} · {addr.locationName || addr.locality || addr.city || "New address"}</span>
                   </div>
                   {addr.isDefault && (
                     <span className="w-2 h-2 rounded-full bg-[#0c9488] shrink-0" title="Default Address" />

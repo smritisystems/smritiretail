@@ -15,7 +15,13 @@ import os
 os.environ.setdefault("JWT_SECRET_KEY", "dev-test-jwt-secret-key-32-chars-long-smriti")
 os.environ.setdefault("INTERNAL_SERVICE_KEY", "dev-test-internal-service-key-32-chars")
 import asyncio
+import re
 import sys
+import subprocess
+import uuid
+from urllib.parse import urlparse
+
+import psycopg2
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -24,6 +30,73 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from app.db.ctrl_seeder import ControlPlaneSeeder
 import app.models  # noqa: F401
+
+
+def _test_database_name() -> str:
+    configured = os.getenv("SMRITI_TEST_DATABASE_NAME")
+    name = configured.strip().lower() if configured else f"smriti_test_{os.getpid()}_{uuid.uuid4().hex[:10]}"
+    if (
+        name in {"smritisys", "smriti001"}
+        or not re.fullmatch(r"smriti_test_[a-z0-9_]+", name)
+    ):
+        raise RuntimeError("Refusing test database lifecycle: target is not disposable and isolated.")
+    return name
+
+
+def _database_connection_parts() -> dict[str, object]:
+    parsed = urlparse(settings.DATABASE_URL)
+    return {
+        "host": os.getenv("POSTGRES_HOST") or parsed.hostname or "localhost",
+        "port": int(os.getenv("POSTGRES_PORT") or parsed.port or 5432),
+        "user": os.getenv("POSTGRES_USER") or parsed.username or "postgres",
+        "password": os.getenv("POSTGRES_PASSWORD") or parsed.password or "postgres",
+    }
+
+
+@pytest.fixture(scope="session")
+def disposable_company_database():
+    """Provision, migrate, and tear down an isolated company test database."""
+    database_name = _test_database_name()
+    parts = _database_connection_parts()
+    admin = psycopg2.connect(dbname="postgres", **parts)
+    admin.autocommit = True
+    try:
+        with admin.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (database_name,))
+            if cursor.fetchone():
+                raise RuntimeError(f"Refusing to reuse existing test database '{database_name}'.")
+
+        from app.db.provisioning import provision_postgresql_database
+        provision_result = asyncio.run(
+            provision_postgresql_database(
+                db_name=database_name,
+                pg_host=parts["host"],
+                pg_port=parts["port"],
+                pg_user=parts["user"],
+                pg_password=parts["password"],
+            )
+        )
+        if provision_result.get("status") != "SUCCESS":
+            raise RuntimeError(f"Test database provisioning failed: {provision_result}")
+
+        migration_env = os.environ.copy()
+        migration_env["DATABASE_URL"] = (
+            f"postgresql+asyncpg://{parts['user']}:{parts['password']}@"
+            f"{parts['host']}:{parts['port']}/{database_name}"
+        )
+        from app.db.tenant_harness import EphemeralTenantHarness
+        EphemeralTenantHarness.run_alembic_upgrade(database_name, "head")
+
+        yield migration_env["DATABASE_URL"]
+    finally:
+        with admin.cursor() as cursor:
+            cursor.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                "WHERE datname = %s AND pid <> pg_backend_pid()",
+                (database_name,),
+            )
+            cursor.execute(f'DROP DATABASE IF EXISTS "{database_name}"')
+        admin.close()
 
 # Force SelectorEventLoop on Windows to avoid proactor loop lifecycle race conditions in tests
 if sys.platform == "win32":
@@ -123,15 +196,12 @@ async def _ensure_schema_compatibility(conn):
             pass
 
 @pytest.fixture
-async def db_engine():
-    engine = create_async_engine(settings.DATABASE_URL)
+async def db_engine(disposable_company_database):
+    engine = create_async_engine(disposable_company_database)
     from app.db.base import Base
     from sqlalchemy import text
-    import app.models.psv  # noqa: F401
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        # Apply schema compatibility fixes before any tests run
-        await _ensure_schema_compatibility(conn)
+        # The disposable database is created by Alembic; create_all would mask migration drift.
         try:
             statements = [
                 "ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);",
@@ -220,6 +290,9 @@ async def clear_db(db_session: AsyncSession):
         "psv_parties",
         "sales_return_items",
         "sales_returns",
+        "customer_po_invoice_allocations",
+        "customer_purchase_order_lines",
+        "customer_purchase_orders",
         "product_identity",
         "barcode_providers",
         "identity_rules",

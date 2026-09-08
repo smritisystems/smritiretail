@@ -10,15 +10,41 @@ branch_labels = None
 depends_on = None
 
 
+def _existing_columns(table_name: str):
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return {col["name"] for col in inspector.get_columns(table_name)}
+
+
+def _existing_indexes(table_name: str):
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return {idx["name"] for idx in inspector.get_indexes(table_name)}
+
+
 def upgrade() -> None:
-    op.add_column("master_values", sa.Column("company_id", sa.String(50), nullable=True))
-    op.add_column("master_values", sa.Column("branch_id", sa.String(50), nullable=True))
-    op.create_index("ix_master_values_company_id", "master_values", ["company_id"])
-    op.create_index("ix_master_values_branch_id", "master_values", ["branch_id"])
+    columns = _existing_columns("master_values")
+    if "company_id" not in columns:
+        op.add_column("master_values", sa.Column("company_id", sa.String(50), nullable=True))
+    if "branch_id" not in columns:
+        op.add_column("master_values", sa.Column("branch_id", sa.String(50), nullable=True))
+
+    indexes = _existing_indexes("master_values")
+    if "ix_master_values_company_id" not in indexes:
+        op.create_index("ix_master_values_company_id", "master_values", ["company_id"])
+    if "ix_master_values_branch_id" not in indexes:
+        op.create_index("ix_master_values_branch_id", "master_values", ["branch_id"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_master_values_branch_id", table_name="master_values")
-    op.drop_index("ix_master_values_company_id", table_name="master_values")
-    op.drop_column("master_values", "branch_id")
-    op.drop_column("master_values", "company_id")
+    indexes = _existing_indexes("master_values")
+    if "ix_master_values_branch_id" in indexes:
+        op.drop_index("ix_master_values_branch_id", table_name="master_values")
+    if "ix_master_values_company_id" in indexes:
+        op.drop_index("ix_master_values_company_id", table_name="master_values")
+
+    columns = _existing_columns("master_values")
+    if "branch_id" in columns:
+        op.drop_column("master_values", "branch_id")
+    if "company_id" in columns:
+        op.drop_column("master_values", "company_id")

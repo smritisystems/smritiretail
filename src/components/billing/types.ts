@@ -38,6 +38,7 @@ export interface BillingLineItem {
   color?: string;
   size?: string;
   attributes?: Record<string, any>;
+  customerPoLineId?: string;
 }
 export type BillType = "Product" | "Service";
 export type TransactionType = "Credit" | "Cash";
@@ -117,6 +118,8 @@ export interface BillingHeaderState {
   deliveryLocationSnapshot?: Record<string, any> | null;
   placeOfSupplyCode?: string | null;
   poReference?: string | null;
+  billingSource?: "DIRECT" | "CUSTOMER_PO" | "SALES_ORDER" | "DELIVERY";
+  customerPoId?: string | null;
 
   // Phase 2F Billing Location & Address Snapshots
   billingLocationId?: string | null;

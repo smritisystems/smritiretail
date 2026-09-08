@@ -34,7 +34,7 @@ import {
   AlertCircle,
   Loader2
 } from "lucide-react";
-import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption } from "./types.ts";
+import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint } from "./types.ts";
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
 import { SmritiCustomerRetailDetailsTab } from "./CustRetailDetTab.tsx";
 import { SmritiCustomerAdditionalDetailsTab } from "./CustAddlDetTab.tsx";
@@ -103,21 +103,46 @@ const normalizeMailingAddresses = (addresses: unknown, fallback: Partial<Custome
     complete.push(createDefaultMailingAddress({ code: String(complete.length + 1).padStart(3, "0"), addressType: "shipping" }));
   }
 
+  const deduplicated = complete.reduce<CustomerAddressEntry[]>((result, address) => {
+    const fingerprint = getCustomerAddressFingerprint(address);
+    if (!fingerprint) {
+      result.push(address);
+      return result;
+    }
+
+    const duplicateIndex = result.findIndex(existing => getCustomerAddressFingerprint(existing) === fingerprint);
+    if (duplicateIndex < 0) {
+      result.push(address);
+      return result;
+    }
+
+    const existing = result[duplicateIndex];
+    result[duplicateIndex] = Object.keys(address).reduce((merged, key) => {
+      const value = address[key as keyof CustomerAddressEntry];
+      if (value !== undefined && value !== null && String(value).trim() !== "") {
+        (merged as any)[key] = value;
+      }
+      return merged;
+    }, { ...existing, isDefault: existing.isDefault || address.isDefault });
+    return result;
+  }, []);
+
   const defaultIndexes = new Map<CustomerAddressType, number>();
-  complete.forEach((address, index) => {
+  deduplicated.forEach((address, index) => {
     const addressType = address.addressType || "mailing";
     if (address.isDefault && !defaultIndexes.has(addressType)) defaultIndexes.set(addressType, index);
   });
   if (!defaultIndexes.has("mailing")) defaultIndexes.set("mailing", 0);
   if (!defaultIndexes.has("billing")) {
-    const billingIndex = complete.findIndex(address => address.addressType === "billing");
+    const billingIndex = deduplicated.findIndex(address => address.addressType === "billing");
     if (billingIndex >= 0) defaultIndexes.set("billing", billingIndex);
   }
   if (!defaultIndexes.has("shipping")) {
-    const shippingIndex = complete.findIndex(address => address.addressType === "shipping");
+    const shippingIndex = deduplicated.findIndex(address => address.addressType === "shipping");
     if (shippingIndex >= 0) defaultIndexes.set("shipping", shippingIndex);
   }
-  return complete.map((address, index) => ({
+
+  return deduplicated.map((address, index) => ({
     ...address,
     isDefault: index === defaultIndexes.get(address.addressType || "mailing")
   }));
@@ -234,6 +259,7 @@ const syncCanonicalCustomerLocations = async (
 
     const stateCode = resolveStateCode(address);
     if (!address.city.trim() || !address.state.trim() || !address.postalCode.trim() || !stateCode || !addressLine(address)) {
+      if (address.id) continue;
       throw new Error(`${isBilling ? "Billing" : "Delivery"} location ${code} needs a complete address, state, state code, and PIN code.`);
     }
 
@@ -250,8 +276,10 @@ const syncCanonicalCustomerLocations = async (
         stateCode,
         pincode: address.postalCode.trim(),
         country: address.country || "India",
-        gstRegistrationId: address.gstRegistrationId || undefined,
-        gstin: address.gstin?.trim().toUpperCase() || undefined,
+        ...(address.id ? {} : {
+          gstRegistrationId: address.gstRegistrationId || undefined,
+          gstin: address.gstin?.trim().toUpperCase() || undefined
+        }),
         contactPerson: address.contactPerson || undefined,
         phone: address.mobilePhone || address.officePhone || undefined,
         email: address.email1 || undefined,
@@ -276,8 +304,10 @@ const syncCanonicalCustomerLocations = async (
         stateCode,
         pincode: address.postalCode.trim(),
         country: address.country || "India",
-        gstRegistrationId: address.gstRegistrationId || undefined,
-        gstin: address.gstin?.trim().toUpperCase() || undefined,
+        ...(address.id ? {} : {
+          gstRegistrationId: address.gstRegistrationId || undefined,
+          gstin: address.gstin?.trim().toUpperCase() || undefined
+        }),
         contactPerson: address.contactPerson || undefined,
         phone: address.mobilePhone || address.officePhone || undefined,
         email: address.email1 || undefined,
