@@ -21,9 +21,8 @@ import {
 const REGISTERED_APP_TABS = [
   "dashboard",
   "launchpad",
-  "pos",
+  "billing-workspace",
   "sales",
-  "create-tax-invoice",
   "customer-master",
   "crm",
   "loyalty",
@@ -113,16 +112,16 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     const quickActions = LAUNCHPAD_CATALOG.filter((t) => t.isQuickAction);
     expect(quickActions.length).toBeGreaterThanOrEqual(4);
     const qaIds = quickActions.map((t) => t.id);
-    expect(qaIds).toContain("pos");
+    expect(qaIds).not.toContain("pos");
     expect(qaIds).toContain("item-master");
     expect(qaIds).toContain("stock-ledger");
-    expect(qaIds).toContain("create-tax-invoice");
+    expect(qaIds).not.toContain("create-tax-invoice");
   });
 
   it("should allow cashiers access to core POS, Item Master, and Stock Ledger", () => {
     const cashierTiles = getVisibleLaunchpadTiles("CASHIER");
     const cashierIds = cashierTiles.map((t) => t.id);
-    expect(cashierIds).toContain("pos");
+    expect(cashierIds).not.toContain("pos");
     expect(cashierIds).toContain("item-master");
     expect(cashierIds).toContain("stock-ledger");
     expect(cashierIds).not.toContain("company-setup");
@@ -154,7 +153,7 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     const cashierQA = getQuickActionTiles("CASHIER");
     expect(cashierQA.length).toBeGreaterThanOrEqual(4);
     const qaIds = cashierQA.map((t) => t.id);
-    expect(qaIds).toContain("pos");
+    expect(qaIds).not.toContain("pos");
     expect(qaIds).toContain("item-master");
   });
 });

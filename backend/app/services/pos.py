@@ -32,6 +32,7 @@ from ..models.inventory import Product, StockMovement
 from ..api.deps import TenantContext
 from ..services.inventory_warehouse_resolver import InventoryWarehouseResolver
 from ..services.canonical_transaction_writer import CanonicalTransactionWriter
+from ..services.sales import SalesService
 from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
     CashRegisterCreate, ShiftOpen, ShiftClose,
@@ -1054,17 +1055,23 @@ class POSService:
         """
         Process a POS sale with Gate 11C Dual-Key Canonical Write Authority:
         1. Validate shift is OPEN and belongs to this tenant.
-        2. Idempotency: if invoice_no already exists, return it (cached=True).
-        3. Resolve canonical variant_id and legacy product_id via CanonicalTransactionWriter.
-        4. Deduct stock and record StockMovement with dual keys.
-        5. Persist SalesInvoice with dual-keyed SalesInvoiceItem lines.
-        6. Commit atomically.
-
-        Returns {"invoice": SalesInvoice, "shift": Shift, "cached": bool}
+        2. Idempotency replay check via CanonicalSalesPostingWriter.
+        3. Allocate bill discount to line items.
+        4. Build CanonicalPostingRequest with tenders, items, shift, and context.
+        5. Delegate to CanonicalSalesPostingWriter.post_sales_transaction(commit=True).
+        6. Return {"invoice": SalesInvoice, "shift": Shift, "cached": bool}.
         """
-        resolver = InventoryWarehouseResolver(self.db)
+        from ..schemas.canonical_posting import (
+            CanonicalPostingRequest,
+            CanonicalPostingContext,
+            CanonicalPostingLineItem,
+            CanonicalTenderItem,
+        )
+        from .canonical_sales_writer import CanonicalSalesPostingWriter
+        from ..models.sales import SalesInvoice
+        from sqlalchemy.orm import selectinload
 
-        # 1. Validate shift with pessimistic row locking to prevent race with shift close
+        # Validate shift with pessimistic row locking to prevent race with shift close.
         shift = await self.get_shift(req.shift_id, for_update=True)
         if shift.status != "OPEN":
             raise HTTPException(
@@ -1072,179 +1079,86 @@ class POSService:
                 detail="The shift is not open. Please open a shift before processing sales.",
             )
 
-        # 2. Idempotency check (pre-insert)
-        existing_res = await self.db.execute(
-            select(SalesInvoice).where(
-                SalesInvoice.invoice_no == req.invoice_no,
-                SalesInvoice.company_id == self.tenant.company_id,
-                SalesInvoice.is_deleted == False,
-            )
-        )
-        if (existing_inv := existing_res.scalars().first()):
-            return {"invoice": existing_inv, "shift": shift, "cached": True}
-
-        # 3. Compute totals and build item records
-        tax_total   = Decimal("0.00")
-        grand_total = Decimal("0.00")
-        invoice_id  = uuid.uuid4().hex[:8]
-        db_items:   list[SalesInvoiceItem] = []
-        movements:  list[StockMovement]    = []
-
-        for item in req.items:
-            qty   = item.quantity
-            price = item.price
-            gst   = item.gst_rate
-
-            item_tax   = (qty * price * gst / Decimal("100.00")).quantize(Decimal("0.0001"))
-            item_total = (qty * price + item_tax).quantize(Decimal("0.01"))
-            tax_total   += item_tax
-            grand_total += item_total
-
-            # Gate 11C Dual-Key Canonical Resolution
-            dual_key = await CanonicalTransactionWriter.resolve_dual_key_for_line(
-                session=self.db,
-                company_id=self.tenant.company_id,
-                variant_id=getattr(item, "variant_id", None),
-                product_id=item.product_id,
-                code_or_barcode=item.code,
-                is_fee_line=False,
-            )
-            if dual_key.is_quarantined:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Line item '{item.name}' ({dual_key.sku or item.code}) is locked under catalog review and cannot be transacted.",
-                )
-
-            target_product_id = dual_key.legacy_product_id or item.product_id
-            target_variant_id = dual_key.canonical_variant_id
-
-            db_items.append(SalesInvoiceItem(
-                product_id=target_product_id,
-                variant_id=target_variant_id,
-                code=item.code,
-                name=item.name,
-                quantity=qty,
-                price=price,
-                hsn_code=item.hsn_code,
-                gst_rate=gst,
-                tax_amount=item_tax,
-                total_amount=item_total,
-            ))
-
-            # Stock deduction
-            prod_res = await self.db.execute(
-                select(Product).where(
-                    Product.id         == target_product_id,
-                    Product.company_id == self.tenant.company_id,
-                    Product.branch_id  == self.tenant.branch_id,
-                    Product.is_deleted == False,
-                )
-            )
-            product = prod_res.scalars().first()
-            if product and product.tracking_mode != "No-stock":
-                if product.stock < int(qty):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient stock for '{item.name}'. "
-                               f"Available: {product.stock}, requested: {int(qty)}.",
-                    )
-                product.stock = int(product.stock) - int(qty)
-                product.modified_at = datetime.now(timezone.utc)
-                self.db.add(product)
-
-                movement_id = (
-                    f"SM-{int(datetime.now(timezone.utc).timestamp())}-"
-                    f"{uuid.uuid4().hex[:6]}"
-                )
-                resolved_warehouse = await resolver.resolve(company_id=self.tenant.company_id, branch_id=self.tenant.branch_id)
-                movements.append(StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=target_product_id,
-                    variant_id=target_variant_id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=-qty,
-                    movement_type="OUT",
-                    reference_doc_type="POS Invoice",
-                    reference_doc_id=invoice_id,
-                    warehouse_id=resolved_warehouse.id,
-                    warehouse=resolved_warehouse.name,
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"POS sale: {req.invoice_no}",
-                    source_module="POS",
-                    company_id=self.tenant.company_id,
-                    branch_id=self.tenant.branch_id,
-                ))
-
-        # 4. Apply bill-level discount
+        base_total = sum(item.quantity * item.price for item in req.items)
+        bill_discount = Decimal("0.00")
         if req.bill_discount_val and req.bill_discount_val > 0:
-            if req.bill_discount_type == "percent":
-                discount = (
-                    grand_total * req.bill_discount_val / Decimal("100")
-                ).quantize(Decimal("0.01"))
-            else:
-                discount = req.bill_discount_val
-            grand_total = max(Decimal("0.00"), grand_total - discount)
+            bill_discount = (
+                base_total * req.bill_discount_val / Decimal("100")
+                if req.bill_discount_type == "percent"
+                else req.bill_discount_val
+            ).quantize(Decimal("0.01"))
+        bill_discount = min(max(bill_discount, Decimal("0.00")), base_total)
 
-        # 5. Persist invoice
-        from datetime import date as _date
-        invoice = SalesInvoice(
-            id=invoice_id,
-            invoice_no=req.invoice_no,
-            date=_date.today(),
-            customer_id=req.customer_id,
-            shift_id=req.shift_id,
-            tax_total=tax_total.quantize(Decimal("0.01")),
-            grand_total=grand_total.quantize(Decimal("0.01")),
-            payment_mode=req.payment_mode.upper(),
-            status="Submitted",
-            items=db_items,
-            is_active=True,
-            is_deleted=False,
-            company_id=self.tenant.company_id,
-            branch_id=self.tenant.branch_id,
-        )
-        self.db.add(invoice)
-        for m in movements:
-            self.db.add(m)
-
-        # Record Transactional Outbox event atomically within same DB transaction
-        from .outbox_service import OutboxService
-        await OutboxService.record_event(
-            session=self.db,
-            target_channel="PSV_QUEUE",
-            payload={
-                "action": "POS_SALE_COMPLETED",
-                "invoice_no": req.invoice_no,
-                "grand_total": str(grand_total),
-                "company_code": self.tenant.company_id,
-                "item_count": len(db_items)
-            },
-            causation_id=req.invoice_no
-        )
-
-        try:
-            await self.db.commit()
-        except IntegrityError:
-            # Race condition: concurrent request with same invoice_no committed first
-            await self.db.rollback()
-            race_res = await self.db.execute(
-                select(SalesInvoice).where(
-                    SalesInvoice.invoice_no == req.invoice_no,
-                    SalesInvoice.company_id == self.tenant.company_id,
-                    SalesInvoice.is_deleted == False,
+        canon_items = []
+        for item in req.items:
+            line_base = item.quantity * item.price
+            allocated_discount = (bill_discount * line_base / base_total) if base_total else Decimal("0.00")
+            disc_pct = (allocated_discount / line_base * Decimal("100")) if line_base else Decimal("0.00")
+            canon_items.append(
+                CanonicalPostingLineItem(
+                    variant_id=item.variant_id,
+                    product_id=item.product_id,
+                    code=item.code,
+                    name=item.name,
+                    quantity=item.quantity,
+                    unit_price=item.price,
+                    hsn_code=item.hsn_code,
+                    gst_rate=item.gst_rate,
+                    disc_pct=disc_pct,
+                    disc_amt=allocated_discount,
+                    is_tax_inclusive=False,
                 )
             )
-            race_inv = race_res.scalars().first()
-            if race_inv:
-                return {"invoice": race_inv, "shift": shift, "cached": True}
-            raise HTTPException(
-                status_code=400,
-                detail="A billing conflict occurred. Please try again.",
+
+        pm = (req.payment_mode or "CASH").upper()
+        tenders = []
+        if pm != "CREDIT":
+            est_total = sum(i.quantity * i.price for i in req.items) - bill_discount
+            tender_amt = req.grand_total if (req.grand_total and req.grand_total > Decimal("0.00")) else est_total
+            tenders.append(
+                CanonicalTenderItem(
+                    tender_type=pm,
+                    amount=max(tender_amt, Decimal("0.01")),
+                )
             )
 
-        await self.db.refresh(invoice)
+        canon_req = CanonicalPostingRequest(
+            context=CanonicalPostingContext(
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                warehouse_id=getattr(self.tenant, "warehouse_id", None),
+                shift_id=req.shift_id,
+                cashier_id=getattr(self.tenant, "user_id", None) or shift.cashier_id,
+                source_channel="POS_RETAIL",
+                client_invoice_no=req.invoice_no,
+                idempotency_key=req.invoice_no,
+                allow_negative_stock=False,
+            ),
+            customer_id=req.customer_id,
+            customer_name=req.customer_name or "Walk-in Customer",
+            payment_mode=pm,
+            items=canon_items,
+            tenders=tenders,
+        )
+
+        canon_result = await CanonicalSalesPostingWriter.post_sales_transaction(
+            session=self.db,
+            req=canon_req,
+            commit=True,
+        )
+
+        q_inv = (
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(
+                SalesInvoice.id == canon_result.invoice_id,
+                SalesInvoice.company_id == self.tenant.company_id,
+            )
+        )
+        res_inv = await self.db.execute(q_inv)
+        db_inv = res_inv.scalars().first()
+
         await self.db.refresh(shift)
-        return {"invoice": invoice, "shift": shift, "cached": False}
+        return {"invoice": db_inv, "shift": shift, "cached": canon_result.is_replayed}
+
 

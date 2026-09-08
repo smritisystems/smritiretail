@@ -106,9 +106,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         items: [
           LAUNCHPAD_ITEM,
           { id: 'sales', title: 'Sales Billing', icon: 'point_of_sale', isNextBestAction: true },
-          { id: 'pos', title: 'POS Touch Terminal', icon: 'receipt_long', badgeCount: 2 },
           { id: 'crm', title: 'Customer 360', icon: 'badge' },
-          { id: 'create-tax-invoice', title: 'Tax Invoice Builder', icon: 'description' },
           { id: 'tax-invoice-print', title: 'Statutory A4 Print', icon: 'print' },
           { id: 'reports', title: 'Sales Analytics', icon: 'analytics' },
         ],

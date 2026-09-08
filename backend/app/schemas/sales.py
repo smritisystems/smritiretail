@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, AliasChoices
 class SalesInvoiceItemBase(BaseModel):
     product_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("product_id", "productId"))
     item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
+    variant_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("variant_id", "variantId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     batch_no: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("batch_no", "batchNo"))

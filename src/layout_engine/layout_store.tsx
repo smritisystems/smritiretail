@@ -116,21 +116,15 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Operations",
     },
     {
-      id: "pos",
-      label: "Billing Desk",
-      icon: "point_of_sale",
+      id: "billing-workspace",
+      label: "Billing Workspace",
+      icon: "receipt_long",
       category: "Sales & POS",
     },
     {
       id: "sales",
       label: "Sales Studio",
       icon: "receipt_long",
-      category: "Sales & POS",
-    },
-    {
-      id: "create-tax-invoice",
-      label: "Create Tax Invoice (B2B)",
-      icon: "post_add",
       category: "Sales & POS",
     },
     {

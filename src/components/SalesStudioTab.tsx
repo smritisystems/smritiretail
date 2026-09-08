@@ -31,7 +31,6 @@ import { CompanySelector } from "./layout/CompanySelector.tsx";
 import { formatDate, formatDateTime, formatCurrency, formatNumber, safeNumber } from "../utils/formatters.ts";
 import { normalizeSalesOrders, normalizeQuotations } from "../utils/normalizeSales.ts";
 import { isValidMobile } from "../utils/validators.ts";
-import { DistTaxInvoice } from "./sales/DistTaxInvoice.tsx";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SalesOrderFormPremium, SalesOrderFormData } from "./sales/SalesOrderFormPremium";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
@@ -296,12 +295,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [editorStatus, setEditorStatus] = useState<"Draft" | "Submitted">("Draft");
 
   // Editor states (for creating Sales Invoices)
-  const [isCreatingInvoice, setIsCreatingInvoice] = useState<boolean>(false);
-  const [invoiceCustomerId, setInvoiceCustomerId] = useState<string>("");
-  const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
-  const [invoiceStatus, setInvoiceStatus] = useState<"Draft" | "Submitted">("Draft");
-  const [invoiceIsInterstate, setInvoiceIsInterstate] = useState<boolean>(false);
-  const [invoiceEWayBill, setInvoiceEWayBill] = useState<string>("");
   const [selectedEWayBill, setSelectedEWayBill] = useState<string>("");
 
   // Editor states (for creating Sales Returns)
@@ -762,8 +755,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       return;
     }
 
-    const currentItems = isCreatingInvoice ? invoiceItems : editorItems;
-    const setCurrentItems = isCreatingInvoice ? setInvoiceItems : setEditorItems;
+    const currentItems = editorItems;
+    const setCurrentItems = setEditorItems;
 
     // Check if variant already exists in current draft items list
     const existingIndex = currentItems.findIndex(item => item.productId === prod.id);
@@ -820,8 +813,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       return;
     }
 
-    const currentItems = isCreatingInvoice ? invoiceItems : editorItems;
-    const setCurrentItems = isCreatingInvoice ? setInvoiceItems : setEditorItems;
+    const currentItems = editorItems;
+    const setCurrentItems = setEditorItems;
 
     // Merge into current list
     const updated = [...currentItems];
@@ -841,11 +834,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   };
 
   const handleRemoveDraftItem = (index: number) => {
-    if (isCreatingInvoice) {
-      setInvoiceItems(invoiceItems.filter((_, i) => i !== index));
-    } else {
-      setEditorItems(editorItems.filter((_, i) => i !== index));
-    }
+    setEditorItems(editorItems.filter((_, i) => i !== index));
   };
 
   const handleSaveQuotation = async () => {
@@ -940,62 +929,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     } catch (e: any) {
       console.error(e);
       onNotification("Error", e.message || "Network error", "error");
-    }
-  };
-
-  const handleSaveInvoice = async () => {
-    if (isReadOnly) {
-      onNotification("Access Denied", "Operating under a Read-Only Report User role. Write operations are prohibited.", "error");
-      return;
-    }
-    if (!invoiceCustomerId) {
-      onNotification("Validation Error", "Please select a Customer.", "error");
-      return;
-    }
-    if (invoiceItems.length === 0) {
-      onNotification("Validation Error", "Please add at least one item line.", "error");
-      return;
-    }
-
-    try {
-      // Client-Generated Idempotency Key — persists across request retries
-      const idempotencyKey = (window as any)._activeInvoiceIdempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `idempotent-key-${Date.now()}`);
-      (window as any)._activeInvoiceIdempotencyKey = idempotencyKey;
-
-      // Migrated: POST /api/sales/invoices (Express) → POST /api/v1/sales/invoices (FastAPI)
-      const serverResponse = await apiFetchV1("/sales/invoices", {
-        method: "POST",
-        headers: {
-          "Idempotency-Key": idempotencyKey
-        },
-        body: JSON.stringify({
-          customerId: invoiceCustomerId,
-          items: invoiceItems,
-          status: invoiceStatus,
-          isInterstate: invoiceIsInterstate,
-          eWayBillNo: invoiceEWayBill || undefined
-        })
-      });
-      // Clear idempotency key upon successful commit
-      delete (window as any)._activeInvoiceIdempotencyKey;
-
-      // Authoritative State Replacement: replace local state with complete server response
-      const normalizedInv = {
-        ...serverResponse,
-        invoiceNo: serverResponse.invoiceNo || serverResponse.invoice_no || "INV",
-        customerId: serverResponse.customerId || serverResponse.customer_id || "",
-        grandTotal: typeof serverResponse.grandTotal === "number" ? serverResponse.grandTotal : parseFloat(serverResponse.grand_total || "0"),
-        taxTotal: typeof serverResponse.taxTotal === "number" ? serverResponse.taxTotal : parseFloat(serverResponse.tax_total || "0"),
-      };
-      onNotification("Success", `Sales Invoice ${normalizedInv.invoiceNo} written to database ledger.`, "success");
-      setSelectedInvoice(normalizedInv);
-      setIsCreatingInvoice(false);
-      setInvoiceCustomerId("");
-      setInvoiceItems([]);
-      setInvoiceEWayBill("");
-      fetchSalesInvoices();
-    } catch (e: any) {
-      onNotification("Network Error", e.message || "Connection failed while writing Invoice.", "error");
     }
   };
 
@@ -1137,7 +1070,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               setSelectedReturn(null);
               setSelectedCustomer(null);
               setIsCreatingQuotation(false);
-              setIsCreatingInvoice(false);
               setIsCreatingReturn(false);
               setIsImportingCustomers(false);
               if (tab === "quotations") fetchQuotations(activeFilters);
@@ -1322,21 +1254,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
             >
               <Plus size={14} />
               <span>Generate Sales Order</span>
-            </button>
-          )}
-          {subView === "invoices" && (
-            <button
-              onClick={() => {
-                setIsCreatingInvoice(true);
-                setInvoiceCustomerId("");
-                setInvoiceItems([]);
-                setInvoiceEWayBill("");
-              }}
-              disabled={isReadOnly}
-              className={`px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center space-x-2 shadow-lg hover:shadow-emerald-900/30 transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-            >
-              <Plus size={14} />
-              <span>Generate Sales Invoice</span>
             </button>
           )}
           {subView === "returns" && (
@@ -1771,18 +1688,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   </button>
                 </div>
               </div>
-            </div>
-          ) : isCreatingInvoice ? (
-            /* Smriti Distributor Stitch-Integrated Tax Invoice Workspace */
-            <div className="w-full h-full overflow-hidden animate-in fade-in duration-200">
-              <DistTaxInvoice
-                onExit={() => {
-                  setIsCreatingInvoice(false);
-                  fetchSalesInvoices();
-                }}
-                onNotification={onNotification}
-                currentUser={currentUser}
-              />
             </div>
           ) : isCreatingReturn ? (
             /* Record Sales Return Panel */

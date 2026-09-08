@@ -74,10 +74,12 @@ import {
 
 interface SmritiProPosBillinginalProps {
   onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
+  shiftId?: string;
 }
 
 export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = ({
-  onNotification
+  onNotification,
+  shiftId,
 }) => {
   // --- POS Mode & Activity State ---
   const [activeActivity, setActiveActivity] = useState<"BILLING" | "RETURN" | "RETURN_BLIND">("BILLING");
@@ -605,6 +607,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
     } else {
       const newItem: ProPosCartItem = {
         id: `item-${Date.now()}`,
+        productId: selectedProductMeta?.id,
         itemNo: cartItems.length + 1,
         sku: stockCode,
         barcode: barcodeCode,
@@ -719,28 +722,76 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
   };
 
   // Settlement Success
-  const handleSettlementSuccess = (tenders: ProPosTenderSplit, changeDue: number) => {
+  const handleSettlementSuccess = async (tenders: ProPosTenderSplit, changeDue: number) => {
     const generatedBillNo = `${billDocPrefix}-${billDocNumber}`;
-    const billRecord = {
-      billNo: generatedBillNo,
-      billDate: new Date().toISOString().slice(0, 10),
-      customer,
-      salesStaff,
-      items: cartItems,
-      subTotal: grossSalesValue,
-      discountTotal: itemDiscountsTotal,
-      taxTotal: totalTaxAmount,
-      netPayable: netPayableAmount,
-      tenders,
-      changeDue
-    };
+    if (!shiftId) {
+      onNotification?.("Checkout Blocked", "Open a register shift before finalizing a bill.", "error");
+      return;
+    }
+    if (cartItems.some((item) => !item.productId)) {
+      onNotification?.("Checkout Blocked", "Refresh the product selection before finalizing this bill so stock can be tracked.", "error");
+      return;
+    }
 
-    setLastCompletedBill(billRecord);
-    setShowSettlementModal(false);
-    setShowReceiptModal(true);
-    setCartItems([]);
-    setBillDocNumber((prev) => (parseInt(prev) + 1).toString());
-    onNotification?.("Invoice Finalized", `Invoice ${generatedBillNo} generated successfully!`, "success");
+    const paymentMode = tenders.credit > 0
+      ? "CREDIT"
+      : tenders.card >= tenders.cash && tenders.card >= tenders.upi
+        ? "CARD"
+        : tenders.upi > tenders.cash
+          ? "UPI"
+          : "CASH";
+
+    try {
+      const response = await apiFetchV1<{
+        invoice_no: string;
+        invoice_id: string;
+        grand_total: number;
+        tax_total: number;
+      }>("/pos/checkout", {
+        method: "POST",
+        headers: { "Idempotency-Key": generatedBillNo },
+        body: JSON.stringify({
+          invoice_no: generatedBillNo,
+          shift_id: shiftId,
+          payment_mode: paymentMode,
+          grand_total: netPayableAmount,
+          customer_id: customer.id.startsWith("cust-") ? undefined : customer.id,
+          customer_name: customer.name,
+          items: cartItems.map((item) => ({
+            product_id: item.productId as string,
+            code: item.sku,
+            name: item.name,
+            quantity: item.qty,
+            price: (item.taxableValue ?? Math.max(item.lineTotal - item.taxAmt, 0)) / item.qty,
+            hsn_code: item.hsnCode,
+            gst_rate: item.taxPct,
+          })),
+        }),
+      });
+
+      const billRecord = {
+        billNo: response.invoice_no,
+        billDate: new Date().toISOString().slice(0, 10),
+        customer,
+        salesStaff,
+        items: cartItems,
+        subTotal: grossSalesValue,
+        discountTotal: itemDiscountsTotal,
+        taxTotal: response.tax_total,
+        netPayable: response.grand_total,
+        tenders,
+        changeDue,
+      };
+
+      setLastCompletedBill(billRecord);
+      setShowSettlementModal(false);
+      setShowReceiptModal(true);
+      setCartItems([]);
+      setBillDocNumber((prev) => (parseInt(prev) + 1).toString());
+      onNotification?.("Invoice Finalized", `Invoice ${response.invoice_no} generated successfully!`, "success");
+    } catch (error) {
+      onNotification?.("Checkout Failed", error instanceof Error ? error.message : "The bill could not be posted.", "error");
+    }
   };
 
   // --- Complete Global POS Keyboard Shortcuts ---

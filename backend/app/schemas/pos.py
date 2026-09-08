@@ -259,6 +259,7 @@ class POSCheckoutItem(BaseModel):
     logic in POSService can be reused without conversion.
     """
     product_id: str
+    variant_id: Optional[str] = None
     code:       str
     name:       str
     quantity:   Decimal

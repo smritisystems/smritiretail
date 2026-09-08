@@ -13,7 +13,6 @@
  */
 
 import React, { useState } from "react";
-import { SmritiProPosBillinginal } from "./ProPosBillingTerm.tsx";
 import { SmritiProPosEodReportw } from "./ProPosEodReportVie.tsx";
 import { SmritiDailyReportsDashDashboard } from "./ProPosDailyReports.tsx";
 import { SmritiPromotionEngineine } from "./ProPosPromotionEng.tsx";
@@ -21,7 +20,6 @@ import { SmritiCommissionBuildilder } from "./ProPosCommissionBu.tsx";
 import { BillingTerm } from "../BillingTerm.tsx";
 import { Product, POSProfile, Shift } from "../../../types.ts";
 import { 
-  ShoppingCart, 
   Receipt,
   BarChart3, 
   Sparkles, 
@@ -81,28 +79,15 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
           <nav className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setActiveTab("INVOICING")}
+              onClick={() => setActiveTab("BILLING")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === "INVOICING"
+                activeTab === "BILLING"
                   ? "bg-[#041632] text-white shadow-xs"
                   : "text-[#565e74] dark:text-[#bec6e0] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
               }`}
             >
               <Receipt size={14} />
-              <span>Distributor Invoicing</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("BILLING")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === "BILLING"
-                  ? "bg-[#00288e] text-white shadow-xs"
-                  : "text-[#565e74] dark:text-[#bec6e0] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
-              }`}
-            >
-              <ShoppingCart size={14} />
-              <span>Speed POS Terminal</span>
+              <span>Billing Workspace</span>
             </button>
 
             <button
@@ -175,15 +160,12 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
 
       {/* Main Workspace Active View */}
       <div className="flex-1 overflow-hidden relative">
-        {activeTab === "INVOICING" && (
+        {(activeTab === "INVOICING" || activeTab === "BILLING") && (
           <BillingTerm
             products={products}
             onNotification={showToast}
             onRefreshData={onRefreshData}
           />
-        )}
-        {activeTab === "BILLING" && (
-          <SmritiProPosBillinginal onNotification={showToast} />
         )}
         {activeTab === "EOD_Z_REPORT" && (
           <SmritiProPosEodReportw
