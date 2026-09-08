@@ -51,6 +51,12 @@ class SalesInvoice(BaseEntity):
     reverse_charge          = Column(Boolean, default=False)
     is_reverse_charge       = Column(Boolean, default=False)
     po_reference            = Column(String(100))
+    customer_po_id          = Column(String(50), ForeignKey("customer_purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True)
+    customer_po_number_snapshot = Column(String(100), nullable=True)
+    customer_po_date_snapshot = Column(Date, nullable=True)
+    source_document_type     = Column(String(30), nullable=True, default="DIRECT")
+    source_document_id       = Column(String(50), nullable=True)
+    source_document_line_id  = Column(String(50), nullable=True)
     customer_name           = Column(String(255))
     customer_gstin          = Column(String(50))
     billing_address         = Column(Text)
@@ -99,6 +105,7 @@ class SalesInvoice(BaseEntity):
     delivery_location = relationship("CustomerDeliveryLocation", foreign_keys=[delivery_location_id])
     billed_party_gstin = relationship("CustomerGSTRegistration", foreign_keys=[billed_party_gstin_id])
     billing_location = relationship("CustomerBillingLocation", foreign_keys=[billing_location_id])
+    customer_purchase_order = relationship("CustomerPurchaseOrder", foreign_keys=[customer_po_id])
 
 
 
@@ -126,6 +133,9 @@ class SalesInvoiceItem(Base):
     cgst_amount  = Column(Numeric(15, 2), default=0.00)
     sgst_amount  = Column(Numeric(15, 2), default=0.00)
     line_no      = Column(Integer)
+    customer_po_line_id = Column(String(50), ForeignKey("customer_purchase_order_lines.id", ondelete="SET NULL"), nullable=True, index=True)
+    source_line_type = Column(String(30), nullable=True)
+    source_line_id = Column(String(50), nullable=True)
 
     # Relationships
     invoice = relationship("SalesInvoice", back_populates="items")

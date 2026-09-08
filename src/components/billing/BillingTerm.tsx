@@ -98,6 +98,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   // Main Line Items Table State
   const [items, setItems] = useState<BillingLineItem[]>([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1);
+  const [customerPOs, setCustomerPOs] = useState<any[]>([]);
+  const [selectedCustomerPO, setSelectedCustomerPO] = useState<any | null>(null);
+  const [isLoadingCustomerPOs, setIsLoadingCustomerPOs] = useState(false);
 
   // Header State
   const [headerState, setHeaderState] = useState<BillingHeaderState>({
@@ -116,8 +119,67 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     deliveryGstin: null,
     deliveryLocationSnapshot: null,
     placeOfSupplyCode: null,
-    poReference: ""
+    poReference: "",
+    billingSource: "DIRECT",
+    customerPoId: null
   });
+
+  const loadCustomerPOs = async (customerId: string) => {
+    if (!customerId || customerId === "CUST-WALKIN") {
+      setCustomerPOs([]);
+      setSelectedCustomerPO(null);
+      return;
+    }
+    setIsLoadingCustomerPOs(true);
+    try {
+      const response = await apiFetchV1<any>(`/sales/customer-pos?customer_id=${encodeURIComponent(customerId)}&status=OPEN`);
+      setCustomerPOs(Array.isArray(response) ? response : response?.items || []);
+    } catch {
+      setCustomerPOs([]);
+    } finally {
+      setIsLoadingCustomerPOs(false);
+    }
+  };
+
+  const selectCustomerPO = async (poId: string) => {
+    if (!poId) {
+      setSelectedCustomerPO(null);
+      setItems([]);
+      setHeaderState(prev => ({ ...prev, customerPoId: null, poReference: "" }));
+      return;
+    }
+    try {
+      const po = await apiFetchV1<any>(`/sales/customer-pos/${poId}`);
+      setSelectedCustomerPO(po);
+      setHeaderState(prev => ({ ...prev, customerPoId: po.id, poReference: po.po_number, billingSource: "CUSTOMER_PO" }));
+      setItems((po.lines || []).filter((line: any) => Number(line.quantity_remaining || 0) > 0).map((line: any, index: number) => ({
+        id: `customer-po-${line.id}`,
+        sNo: index + 1,
+        stockNo: line.code,
+        barcode: line.code,
+        itemDescription: line.description,
+        rate: Number(line.unit_price || 0),
+        qty: Number(line.quantity_remaining || 0),
+        value: Number(line.unit_price || 0) * Number(line.quantity_remaining || 0),
+        discCode: "",
+        discQty: 0,
+        discPercent: 0,
+        discAmt: 0,
+        total: Number(line.unit_price || 0) * Number(line.quantity_remaining || 0),
+        salesStaff: headerState.salesStaff,
+        productId: line.product_id,
+        hsnCode: line.hsn_code,
+        gstPercentage: Number(line.gst_rate || 18),
+        customerPoLineId: line.id
+      })));
+    } catch (error: any) {
+      onNotification?.("Customer PO Unavailable", error?.message || "Unable to load the selected Customer PO.", "error");
+    }
+  };
+
+  useEffect(() => {
+    if (headerState.customer?.id) void loadCustomerPOs(headerState.customer.id);
+  }, [headerState.customer?.id]);
 
   // Corporate B2B Multi-State GST, Billing & Delivery Location State
   const [customerGstRegistrations, setCustomerGstRegistrations] = useState<CustomerGSTRegistrationDTO[]>([]);
@@ -458,8 +520,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       deliveryGstin: null,
       deliveryLocationSnapshot: null,
       placeOfSupplyCode: null,
-      poReference: ""
+      poReference: "",
+      customerPoId: null
     }));
+    setSelectedCustomerPO(null);
     setCustomerGstRegistrations([]);
     setCustomerDeliveryLocations([]);
     setDirectEntry({
@@ -761,8 +825,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       deliveryGstin: null,
       deliveryLocationSnapshot: null,
       placeOfSupplyCode: null,
-      poReference: ""
+      poReference: "",
+      customerPoId: null
     }));
+    setSelectedCustomerPO(null);
     if (c) {
       setCustomerSearchInput(c.name);
       fetchCustomerB2BData(c.id);
@@ -1283,6 +1349,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       shipping_address: headerState.shippingAddress || null,
       place_of_supply_code: headerState.placeOfSupplyCode || null,
       po_reference: headerState.poReference || null,
+      customer_po_id: headerState.customerPoId || null,
+      source_document_type: headerState.billingSource || "DIRECT",
+      source_document_id: headerState.customerPoId || null,
       status: "Completed",
       payment_mode: isCreditTx ? "CREDIT" : (payments[0]?.mode.toUpperCase() || "CASH"),
       paid_amount: isCreditTx ? 0 : totalTendered,
@@ -1303,6 +1372,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         disc_pct: it.discPercent,
         gst_rate: it.gstPercentage,
         line_no: idx + 1
+        ,customer_po_line_id: it.customerPoLineId || null
+        ,source_line_type: it.customerPoLineId ? "CUSTOMER_PO" : null
+        ,source_line_id: it.customerPoLineId || null
       })),
       rule_snapshots: {
         transaction_type: isCreditTx ? "Credit" : "Cash",
@@ -1320,9 +1392,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     };
 
     try {
-      const saved = await apiFetchV1("/sales/invoices", {
+      const saveUrl = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+        ? `/sales/customer-pos/${headerState.customerPoId}/bill`
+        : "/sales/invoices";
+      const saveBody = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+        ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
+        : invoicePayload;
+      const saved = await apiFetchV1(saveUrl, {
         method: "POST",
-        body: JSON.stringify(invoicePayload)
+        body: JSON.stringify(saveBody)
       });
 
       const completedInvoice = {
@@ -1622,6 +1700,25 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           {/* Row 1: Bill Type, Transaction, Doc Prefix, Doc No, Action Buttons */}
           <div className="flex flex-wrap items-end gap-gutter">
             <div className="flex flex-col gap-unit w-48">
+              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Billing Source</label>
+              <select
+                aria-label="Billing Source"
+                value={headerState.billingSource || "DIRECT"}
+                onChange={event => {
+                  const source = event.target.value as BillingHeaderState["billingSource"];
+                  setHeaderState(prev => ({ ...prev, billingSource: source, customerPoId: null, poReference: "" }));
+                  setSelectedCustomerPO(null);
+                  if (source !== "CUSTOMER_PO") setItems([]);
+                }}
+                className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 bg-surface-container-lowest px-2.5 font-medium border"
+              >
+                <option value="DIRECT">Direct Invoice</option>
+                <option value="CUSTOMER_PO">Customer PO</option>
+                <option value="SALES_ORDER" disabled>Sales Order (Not configured)</option>
+                <option value="DELIVERY" disabled>Delivery (Not configured)</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-unit w-48">
               <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Bill Type</label>
               <select
                 value={headerState.billType}
@@ -1804,6 +1901,31 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           {/* Row 3: Corporate B2B Multi-State GST & Delivery Location Strip */}
           {headerState.customer && (
             <div className="flex flex-wrap items-end gap-gutter pt-2 border-t border-outline-variant/60" data-testid="b2b-corporate-strip">
+              {headerState.billingSource === "CUSTOMER_PO" && (
+                <div className="flex flex-col gap-unit flex-1 min-w-[320px]">
+                  <div className="flex items-center justify-between">
+                    <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Customer PO</label>
+                    <span className="text-[10px] text-blue-700 font-semibold">
+                      {selectedCustomerPO ? `${selectedCustomerPO.status} · ${selectedCustomerPO.remaining_quantity} remaining` : `${customerPOs.length} available`}
+                    </span>
+                  </div>
+                  <select
+                    aria-label="Customer PO"
+                    data-testid="customer-po-select"
+                    value={headerState.customerPoId || ""}
+                    onChange={event => void selectCustomerPO(event.target.value)}
+                    className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                    disabled={isLoadingCustomerPOs}
+                  >
+                    <option value="">{isLoadingCustomerPOs ? "Loading Customer POs..." : "-- Select Customer PO --"}</option>
+                    {customerPOs.map(po => (
+                      <option key={po.id} value={po.id}>
+                        {po.po_number} · {po.status} · Remaining {po.remaining_quantity}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               
               {/* Billed GST Registration */}
               <div className="flex flex-col gap-unit flex-1 min-w-[240px]">

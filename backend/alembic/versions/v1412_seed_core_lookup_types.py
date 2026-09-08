@@ -30,12 +30,12 @@ def upgrade() -> None:
                 """
                 INSERT INTO master_types (
                     id, code, label, field_schema, ui_schema,
-                    used_in_modules, version, evidence_level, created_by
+                    used_in_modules, version, evidence_level, created_by, created_at
                 )
                 VALUES (
                     gen_random_uuid(), :code, :label,
                     CAST(:field_schema AS jsonb), CAST(:ui_schema AS jsonb),
-                    ARRAY['master_registry'], 1, 'D', 'system'
+                    ARRAY['master_registry'], 1, 'D', 'system', NOW()
                 )
                 ON CONFLICT (code) DO NOTHING
                 """

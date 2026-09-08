@@ -14,12 +14,14 @@ License      : Proprietary Commercial Software
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
 
 from ...models.auth import UserRole
 from ...models.crm import Customer
+from ...models.customer_po import CustomerPurchaseOrder
+from ...models.sales import SalesInvoice, SalesOrder, SalesReturn
 from ...schemas.crm import (
     CustomerCreate, CustomerUpdate, CustomerResponse,
     CustomerGroupCreate, CustomerGroupUpdate, CustomerGroupResponse,
@@ -189,6 +191,82 @@ async def get_customer(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return CustomerResponse.from_orm_customer(customer)
+
+
+@router.get("/customers/{customer_id}/commercial-summary", summary="Tenant-Scoped Customer Commercial Summary")
+async def get_customer_commercial_summary(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Aggregate authoritative customer commercial records without loading history into the UI."""
+    customer = (await db.execute(select(Customer).where(
+        Customer.id == customer_id,
+        Customer.company_id == tenant_ctx.company_id,
+        Customer.branch_id == tenant_ctx.branch_id,
+        Customer.is_deleted == False,
+    ))).scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    po_result = await db.execute(select(
+        func.count(CustomerPurchaseOrder.id),
+        func.coalesce(func.sum(CustomerPurchaseOrder.remaining_value), 0),
+    ).where(
+        CustomerPurchaseOrder.customer_id == customer_id,
+        CustomerPurchaseOrder.company_id == tenant_ctx.company_id,
+        CustomerPurchaseOrder.branch_id == tenant_ctx.branch_id,
+        CustomerPurchaseOrder.is_deleted == False,
+        CustomerPurchaseOrder.status.in_(["OPEN", "PARTIALLY_BILLED"]),
+    ))
+    po_count, ready_to_bill_value = po_result.one()
+
+    order_result = await db.execute(select(
+        func.count(SalesOrder.id),
+        func.coalesce(func.sum(SalesOrder.pending_value), 0),
+    ).where(
+        SalesOrder.customer_id == customer_id,
+        SalesOrder.company_id == tenant_ctx.company_id,
+        SalesOrder.branch_id == tenant_ctx.branch_id,
+        SalesOrder.is_deleted == False,
+        SalesOrder.pending_value > 0,
+    ))
+    order_count, pending_order_value = order_result.one()
+
+    invoice_result = await db.execute(select(
+        func.count(SalesInvoice.id),
+        func.coalesce(func.sum(SalesInvoice.grand_total), 0),
+    ).where(
+        SalesInvoice.customer_id == customer_id,
+        SalesInvoice.company_id == tenant_ctx.company_id,
+        SalesInvoice.branch_id == tenant_ctx.branch_id,
+        SalesInvoice.is_deleted == False,
+    ))
+    invoice_count, invoiced_value = invoice_result.one()
+
+    return_result = await db.execute(select(
+        func.count(SalesReturn.id),
+        func.coalesce(func.sum(SalesReturn.grand_total), 0),
+    ).where(
+        SalesReturn.customer_id == customer_id,
+        SalesReturn.company_id == tenant_ctx.company_id,
+        SalesReturn.branch_id == tenant_ctx.branch_id,
+        SalesReturn.is_deleted == False,
+    ))
+    return_count, returned_value = return_result.one()
+
+    return {
+        "customer_id": customer_id,
+        "company_id": tenant_ctx.company_id,
+        "branch_id": tenant_ctx.branch_id,
+        "customer_outstanding": customer.outstanding or 0,
+        "customer_pos": {"open_count": po_count, "ready_to_bill_value": ready_to_bill_value},
+        "sales_orders": {"pending_count": order_count, "pending_value": pending_order_value},
+        "invoices": {"count": invoice_count, "value": invoiced_value},
+        "returns": {"count": return_count, "value": returned_value},
+        "quotations": {"available": False, "reason": "Existing quotation model has no authoritative customer_id relationship."},
+        "ready_to_bill_value": (ready_to_bill_value or 0) + (pending_order_value or 0),
+    }
 
 
 @router.put("/customers/{customer_id}", response_model=CustomerResponse)

@@ -39,6 +39,7 @@ from app.models.sales import (
     SalesOrder, SalesOrderItem,
     SalesReturn, SalesReturnItem,
 )
+from app.models.customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
 from app.models.tenant import Company, Branch
 from app.models.auth import User, RefreshTokenBlacklist
 from app.models.purchase import (
@@ -98,6 +99,9 @@ def include_object(object, name, type_, reflected, compare_to):
             "stock_movements",
             "sales_invoices",
             "sales_invoice_items",
+            "customer_purchase_orders",
+            "customer_purchase_order_lines",
+            "customer_po_invoice_allocations",
             "companies",
             "branches",
             "user_company_assignments",
@@ -233,8 +237,27 @@ def do_run_migrations(connection) -> None:
         include_object=include_object
     )
 
+    # Candidate #5 Track 1: Fresh-Install Bootstrap Prerequisite Hook
+    # Ensures sales_orders.po_number is present on fresh installs before v1403 executes.
+    mig_ctx = context.get_context()
+    orig_migrations_fn = mig_ctx._migrations_fn
+
+    if orig_migrations_fn is not None:
+        def wrapped_migrations_fn(heads, m_ctx):
+            for step in orig_migrations_fn(heads, m_ctx):
+                if step.is_upgrade and "v1403_so_line_reconcile" in getattr(step, "to_revisions_no_deps", ()):
+                    orig_step_fn = step.migration_fn
+                    def wrapped_step_fn(**kw):
+                        from app.db.bootstrap import bootstrap_company_database_prerequisites
+                        bootstrap_company_database_prerequisites(connection)
+                        return orig_step_fn(**kw)
+                    step.migration_fn = wrapped_step_fn
+                yield step
+        mig_ctx._migrations_fn = wrapped_migrations_fn
+
     with context.begin_transaction():
         context.run_migrations()
+
 
 async def run_async_migrations() -> None:
     database_url = get_target_db_url()

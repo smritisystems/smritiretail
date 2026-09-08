@@ -106,6 +106,16 @@ def _verify_database_is_registered(db_clean: str) -> bool:
     return False
 
 
+def validate_company_database_name(database_name: str) -> bool:
+    """Return True only for registered company database name shapes."""
+    if not database_name:
+        return False
+    clean_name = str(database_name).strip().lower()
+    if clean_name == "smritisys":
+        return False
+    return bool(re.fullmatch(r"smriti(?!000$|sys$)[a-z0-9]{3,12}", clean_name))
+
+
 def get_company_async_engine(database_name: str, host: str = "localhost", port: int = 5432) -> AsyncEngine:
     """
     Retrieves or creates a cached AsyncEngine for a specific company database.
@@ -235,8 +245,7 @@ async def resolve_company_database_name(company_id_or_code: Optional[str]) -> st
                     detail=f"Company Database for '{candidate}' is in status '{db_status}'. Access denied."
                 )
             clean_db = str(db_name).strip().lower()
-            pattern = r"^smriti(?!(?:000|sys)$)[a-z0-9]{3}$|^smriti(?!0000$)(?!sys0$)[a-z0-9]{4}$"
-            if not re.match(pattern, clean_db):
+            if not validate_company_database_name(clean_db):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid database name '{clean_db}' resolved. Violates official naming standard."

@@ -19,6 +19,7 @@ export interface TaxEntryBartryBarProps {
   onAddItem: (item: Omit<TaxInvoiceItemRow, "sNo" | "id">) => void;
   staffList?: { id: string; name: string }[];
   onLookupProduct?: (term: string) => Promise<any | null>;
+  onLookupError?: (term: string) => void;
 }
 
 export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
@@ -29,6 +30,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
     { id: "EMP003", name: "EMP003 - Jane Smith" },
   ],
   onLookupProduct,
+  onLookupError,
 }) => {
   const [stockNo, setStockNo] = useState("");
   const [description, setDescription] = useState("");
@@ -60,17 +62,26 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
         setRate(Number(prod.price || prod.mrp || 0));
         setHsnCode(prod.hsn_code || "64041990");
         setGstRate(Number(prod.gst_percentage || 18));
+      } else {
+        setDescription("");
+        setRate("");
+        onLookupError?.(stockNo.trim());
       }
     }
   };
 
   const handleCommitRow = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!stockNo.trim() && !description.trim()) return;
+    if (!stockNo.trim()) return;
+
+    if (!description.trim() || numRate <= 0) {
+      onLookupError?.(stockNo.trim());
+      return;
+    }
 
     onAddItem({
-      stockNo: stockNo.trim() || `SKU-${Date.now().toString().slice(-4)}`,
-      itemDescription: description.trim() || "Retail Item",
+      stockNo: stockNo.trim(),
+      itemDescription: description.trim(),
       rate: numRate,
       qty: numQty,
       value: numValue,

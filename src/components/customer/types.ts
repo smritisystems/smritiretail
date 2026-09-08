@@ -57,6 +57,32 @@ export interface CustomerAddressEntry {
   isDefault: boolean;
 }
 
+export const normalizeAddressPart = (value: unknown): string => String(value ?? "")
+  .trim()
+  .toLowerCase()
+  .replace(/[\s,./\\#-]+/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+export const getCustomerAddressFingerprint = (address: Partial<CustomerAddressEntry>): string => {
+  const addressType = address.addressType || "mailing";
+  const parts = [
+    address.address1,
+    address.address2,
+    address.address3,
+    address.address4,
+    address.address5,
+    address.locality,
+    address.city,
+    address.state,
+    address.stateCode,
+    address.postalCode,
+    address.country
+  ].map(normalizeAddressPart);
+
+  return parts.slice(0, -1).some(Boolean) ? `${addressType}|${parts.join("|")}` : "";
+};
+
 export interface CustomerDependantEntry {
   code: string;
   name: string;

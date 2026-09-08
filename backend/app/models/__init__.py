@@ -15,6 +15,7 @@ License      : Proprietary Commercial Software
 from .crm import CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerCreditLedgerEntry
 from .inventory import Product, StockMovement
 from .sales import SalesInvoice, SalesInvoiceItem, SalesOrderReservation
+from .customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
 from .tenant import Company, Branch
 from .company_policy import CompanyBankAccount, CompanyPolicySetting, ComplianceThreshold
 from .company_registry import CompanyDatabaseRegistry

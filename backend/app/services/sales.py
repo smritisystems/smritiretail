@@ -88,7 +88,27 @@ class SalesService:
     # Sales Invoice
     # ??????????????????????????????????????????????????????????????
 
-    async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate, idempotency_key: Optional[str] = None) -> SalesInvoice:
+    async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate, idempotency_key: Optional[str] = None, commit: bool = True) -> SalesInvoice:
+        if idempotency_key:
+            idempotency_key = str(idempotency_key).strip()
+            if not idempotency_key:
+                idempotency_key = None
+            elif len(idempotency_key) > 50:
+                raise HTTPException(status_code=400, detail="Idempotency-Key must not exceed 50 characters.")
+
+        if getattr(invoice_in, "customer_po_id", None):
+            from .customer_po import CustomerPOService
+            from ..schemas.customer_po import CustomerPOBillingLine, CustomerPOBillingRequest
+            if getattr(invoice_in, "source_document_type", None) != "CUSTOMER_PO":
+                raise HTTPException(status_code=400, detail="Customer PO invoices must declare source_document_type=CUSTOMER_PO.")
+            po_request = CustomerPOBillingRequest(
+                invoice={"customer_id": invoice_in.customer_id},
+                lines=[CustomerPOBillingLine(customer_po_line_id=item.customer_po_line_id, quantity=item.quantity) for item in invoice_in.items if item.customer_po_line_id],
+            )
+            if len(po_request.lines) != len(invoice_in.items):
+                raise HTTPException(status_code=400, detail="Every Customer PO invoice line must reference a Customer PO line.")
+            await CustomerPOService(self.db, self.tenant_ctx).validate_billing(invoice_in.customer_po_id, po_request)
+
         # 1. Authoritative Idempotency Check (Phase 6)
         # Check strictly by idempotency_key / primary request ID
         if idempotency_key:
@@ -176,6 +196,8 @@ class SalesService:
                 selectinload(Customer.gst_registrations)
             ).where(
                 Customer.id == resolved_customer_id,
+                Customer.company_id == self.tenant_ctx.company_id,
+                (Customer.branch_id == self.tenant_ctx.branch_id) | (Customer.branch_id.is_(None)),
                 Customer.is_deleted == False
             )
             if is_credit_mode or is_settled_status:
@@ -242,6 +264,8 @@ class SalesService:
                     status_code=403,
                     detail="Cross-company billing location access is prohibited."
                 )
+            if billing_loc_record.branch_id and billing_loc_record.branch_id != self.tenant_ctx.branch_id:
+                raise HTTPException(status_code=403, detail="Cross-branch billing location access is prohibited.")
             if billing_loc_record.customer_id != resolved_customer_id:
                 raise HTTPException(
                     status_code=400,
@@ -276,6 +300,8 @@ class SalesService:
                     status_code=403,
                     detail="Cross-company GST registration access is prohibited."
                 )
+            if billed_reg_record.branch_id and billed_reg_record.branch_id != self.tenant_ctx.branch_id:
+                raise HTTPException(status_code=403, detail="Cross-branch GST registration access is prohibited.")
             if billed_reg_record.customer_id != resolved_customer_id:
                 raise HTTPException(
                     status_code=400,
@@ -307,6 +333,8 @@ class SalesService:
                     status_code=403,
                     detail="Cross-company delivery location access is prohibited."
                 )
+            if delivery_loc_record.branch_id and delivery_loc_record.branch_id != self.tenant_ctx.branch_id:
+                raise HTTPException(status_code=403, detail="Cross-branch delivery location access is prohibited.")
             if delivery_loc_record.customer_id != resolved_customer_id:
                 raise HTTPException(
                     status_code=400,
@@ -330,6 +358,8 @@ class SalesService:
                             status_code=403,
                             detail="Delivery location linked GST registration belongs to a different company."
                         )
+                    if linked_reg.branch_id and linked_reg.branch_id != self.tenant_ctx.branch_id:
+                        raise HTTPException(status_code=403, detail="Delivery location linked GST registration belongs to a different branch.")
                     if linked_reg.customer_id != resolved_customer_id:
                         raise HTTPException(
                             status_code=400,
@@ -431,7 +461,8 @@ class SalesService:
             )
             product_res = await self.db.execute(product_stmt)
             product = product_res.scalars().first()
-            if not product:
+            is_customer_po_service_line = invoice_in.source_document_type == "CUSTOMER_PO" and not item.product_id
+            if not product and not is_customer_po_service_line:
                 raise HTTPException(status_code=404, detail=f"Product not found: {item.product_id or item.code}")
 
             quantity = Decimal(str(item.quantity))
@@ -441,7 +472,7 @@ class SalesService:
             # Determine batch allocation
             assigned_batch = item.batch_no or "BATCH-OPENING"
             is_settled_status = (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]
-            if product.tracking_mode != "No-stock" and is_settled_status:
+            if product and product.tracking_mode != "No-stock" and is_settled_status:
                 if item.batch_no:
                     batch_deductions.append({
                         "product": product,
@@ -495,13 +526,14 @@ class SalesService:
             calculated_grand_total += tax_calc["total_amount"]
 
             db_item = SalesInvoiceItem(
-                product_id=product.id,
-                code=item.code or product.code,
-                name=item.name or product.name,
+                product_id=product.id if product else None,
+                item_id=item.item_id,
+                code=item.code or (product.code if product else "SERVICE"),
+                name=item.name or (product.name if product else "Customer PO Service"),
                 batch_no=assigned_batch,
                 quantity=quantity,
                 price=unit_price,
-                hsn_code=item.hsn_code or product.hsn_code,
+                hsn_code=item.hsn_code or (product.hsn_code if product else None),
                 gst_rate=gst_rate,
                 tax_amount=tax_calc["tax_amount"],
                 total_amount=tax_calc["total_amount"],
@@ -509,9 +541,12 @@ class SalesService:
                 cgst_amount=tax_calc["cgst_amount"],
                 sgst_amount=tax_calc["sgst_amount"],
                 igst_amount=tax_calc["igst_amount"],
-                mrp=item.mrp or product.mrp or unit_price,
+                mrp=item.mrp or (product.mrp if product else unit_price) or unit_price,
                 disc_pct=disc_pct,
                 line_no=item.line_no or idx,
+                customer_po_line_id=getattr(item, "customer_po_line_id", None),
+                source_line_type=getattr(item, "source_line_type", None),
+                source_line_id=getattr(item, "source_line_id", None),
             )
             invoice_items.append(db_item)
 
@@ -546,9 +581,10 @@ class SalesService:
                         credit_days_configured = cg_rec.credit_days or 30
                         credit_limit_configured = Decimal(str(cg_rec.credit_limit or "0.00"))
 
-        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN" and is_settled_status:
+        credit_check_amount = calculated_grand_total if is_credit_mode else final_balance_amount
+        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN" and is_settled_status and (is_credit_mode or credit_check_amount > Decimal("0.00")):
             # Credit control must strictly FAIL CLOSED — do NOT swallow unexpected errors
-            await self.crm_service.check_credit_limit(resolved_customer_id, float(calculated_grand_total))
+            await self.crm_service.check_credit_limit(resolved_customer_id, float(credit_check_amount))
 
         # 3. Save Sales Invoice & items
         db_customer_id = resolved_customer_id if (resolved_customer_id and resolved_customer_id != "CUST-WALKIN") else None
@@ -651,6 +687,12 @@ class SalesService:
             delivery_location_snapshot=snapshot_del_loc,
             place_of_supply_code=pos_state_code,
             po_reference=getattr(invoice_in, "po_reference", None),
+            customer_po_id=getattr(invoice_in, "customer_po_id", None),
+            customer_po_number_snapshot=getattr(invoice_in, "customer_po_number_snapshot", None),
+            customer_po_date_snapshot=getattr(invoice_in, "customer_po_date_snapshot", None),
+            source_document_type=getattr(invoice_in, "source_document_type", None) or "DIRECT",
+            source_document_id=getattr(invoice_in, "source_document_id", None),
+            source_document_line_id=getattr(invoice_in, "source_document_line_id", None),
             # Legacy compatibility: sis_code mirrors delivery_store_code
             sis_code=snapshot_del_store_code or getattr(invoice_in, "sis_code", None),
         )
@@ -755,7 +797,10 @@ class SalesService:
         )
         # -- End Sprint 14 hooks --
         try:
-            await self.db.commit()
+            if commit:
+                await self.db.commit()
+            else:
+                await self.db.flush()
         except IntegrityError as e:
             await self.db.rollback()
             import traceback

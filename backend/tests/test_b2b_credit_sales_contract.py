@@ -558,3 +558,176 @@ async def test_canonical_document_series_allocation(credit_test_env):
         assert inv.invoice_no is not None
         assert inv.invoice_no != "D1DS13-1"
         assert len(inv.invoice_no) >= 4
+
+
+@pytest.mark.asyncio
+async def test_cash_sale_succeeds_even_when_customer_credit_hold_is_active(credit_test_env):
+    """
+    Scenario 12 (Cash Independence from Credit Gate):
+    A registered customer with active credit_hold or credit limit exceeded can still purchase via CASH/CARD.
+    Cash sales must not consume credit limit or fail closed on credit control.
+    """
+    env = credit_test_env
+    cust_id = env["cust_id"]
+    cg_id = env["cg_id"]
+    session_factory = get_company_sessionmaker("smriti001")
+
+    # Put customer on explicit credit hold
+    async with session_factory() as session:
+        cg = (await session.execute(select(CustomerGroup).where(CustomerGroup.id == cg_id))).scalars().first()
+        cg.credit_hold = True
+        await session.commit()
+
+    # Cash sale must succeed even while credit hold is active
+    async with session_factory() as session:
+        sales_svc = SalesService(session, _get_tenant_context())
+        inv = await sales_svc.create_sales_invoice(
+            SalesInvoiceCreate(
+                customer_id=cust_id,
+                status="Completed",
+                payment_mode="CASH",
+                paid_amount=Decimal("118.00"),
+                balance_amount=Decimal("0.00"),
+                items=[
+                    SalesInvoiceItemCreate(
+                        product_id=env["prod_id"],
+                        code=env["prod_code"],
+                        name="Widget",
+                        quantity=Decimal("1.00"),
+                        price=Decimal("100.00"),
+                        gst_rate=Decimal("18.00"),
+                        is_tax_inclusive=False,
+                        total_amount=Decimal("118.00")
+                    )
+                ]
+            )
+        )
+        assert inv.payment_mode == "CASH"
+        assert Decimal(str(inv.paid_amount)) == Decimal("118.00")
+        assert Decimal(str(inv.balance_amount)) == Decimal("0.00")
+
+    # Restore customer group credit hold
+    async with session_factory() as session:
+        cg = (await session.execute(select(CustomerGroup).where(CustomerGroup.id == cg_id))).scalars().first()
+        cg.credit_hold = False
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_interstate_cash_sale_preserves_cash_mode_and_zero_balance(credit_test_env):
+    """
+    Scenario 13 (Interstate Cash Disambiguation):
+    An Interstate Sale (IGST) paid in Cash must remain CASH mode with paid_amount == grand_total.
+    Interstate controls tax jurisdiction (IGST), NOT payment terms (CREDIT).
+    """
+    env = credit_test_env
+    cust_id = env["cust_id"]
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        sales_svc = SalesService(session, _get_tenant_context())
+        inv = await sales_svc.create_sales_invoice(
+            SalesInvoiceCreate(
+                customer_id=cust_id,
+                status="Completed",
+                payment_mode="CASH",
+                is_interstate=True,
+                place_of_supply_code="18",
+                paid_amount=Decimal("118.00"),
+                balance_amount=Decimal("0.00"),
+                items=[
+                    SalesInvoiceItemCreate(
+                        product_id=env["prod_id"],
+                        code=env["prod_code"],
+                        name="Widget",
+                        quantity=Decimal("1.00"),
+                        price=Decimal("100.00"),
+                        gst_rate=Decimal("18.00"),
+                        is_tax_inclusive=False,
+                        total_amount=Decimal("118.00")
+                    )
+                ]
+            )
+        )
+        assert inv.payment_mode == "CASH"
+        assert inv.is_interstate == True
+        assert Decimal(str(inv.paid_amount)) == Decimal("118.00")
+        assert Decimal(str(inv.balance_amount)) == Decimal("0.00")
+
+
+@pytest.mark.asyncio
+async def test_partial_tender_checks_credit_limit_only_on_unpaid_balance_amount(credit_test_env):
+    """
+    Scenario 14 (Partial Tender Credit Policy):
+    Validates the 4-tier credit check policy:
+    - 100% Cash/Card/UPI paid: no credit check.
+    - Partial tender with outstanding balance: credit check evaluated strictly against remaining unpaid balance.
+    - Full on-account Credit: credit check evaluated against full invoice amount.
+    """
+    env = credit_test_env
+    cust_id = env["cust_id"]
+    cg_id = env["cg_id"]
+    session_factory = get_company_sessionmaker("smriti001")
+
+    # 1. Configure customer group with credit limit of ₹100.00
+    async with session_factory() as session:
+        cg = (await session.execute(select(CustomerGroup).where(CustomerGroup.id == cg_id))).scalars().first()
+        cg.credit_limit = Decimal("100.00")
+        cg.credit_hold = False
+        await session.commit()
+
+    # 2. Case A: Total is ₹1,180.00. Paid cash ₹1,000.00 leaves ₹180.00 balance.
+    # Because ₹180.00 > credit_limit (₹100.00), partial tender MUST fail closed with 400.
+    async with session_factory() as session:
+        sales_svc = SalesService(session, _get_tenant_context())
+        with pytest.raises(HTTPException) as exc_info:
+            await sales_svc.create_sales_invoice(
+                SalesInvoiceCreate(
+                    customer_id=cust_id,
+                    status="Completed",
+                    payment_mode="CASH",
+                    paid_amount=Decimal("1000.00"),
+                    balance_amount=Decimal("180.00"),
+                    items=[
+                        SalesInvoiceItemCreate(
+                            product_id=env["prod_id"],
+                            code=env["prod_code"],
+                            name="Widget",
+                            quantity=Decimal("10.00"),
+                            price=Decimal("100.00"),
+                            gst_rate=Decimal("18.00"),
+                            is_tax_inclusive=False,
+                            total_amount=Decimal("1180.00")
+                        )
+                    ]
+                )
+            )
+        assert exc_info.value.status_code == 400
+        assert "credit limit" in exc_info.value.detail.lower()
+
+    # 3. Case B: Same customer with ₹100.00 credit limit pays ₹1,100.00 cash, leaving ₹80.00 balance.
+    # Because ₹80.00 <= credit_limit (₹100.00), partial tender MUST SUCCEED!
+    async with session_factory() as session:
+        sales_svc = SalesService(session, _get_tenant_context())
+        inv = await sales_svc.create_sales_invoice(
+            SalesInvoiceCreate(
+                customer_id=cust_id,
+                status="Completed",
+                payment_mode="CASH",
+                paid_amount=Decimal("1100.00"),
+                balance_amount=Decimal("80.00"),
+                items=[
+                    SalesInvoiceItemCreate(
+                        product_id=env["prod_id"],
+                        code=env["prod_code"],
+                        name="Widget",
+                        quantity=Decimal("10.00"),
+                        price=Decimal("100.00"),
+                        gst_rate=Decimal("18.00"),
+                        is_tax_inclusive=False,
+                        total_amount=Decimal("1180.00")
+                    )
+                ]
+            )
+        )
+        assert Decimal(str(inv.paid_amount)) == Decimal("1100.00")
+        assert Decimal(str(inv.balance_amount)) == Decimal("80.00")

@@ -1858,13 +1858,13 @@ const AppContent: React.FC = () => {
           />
         );
       case "create-tax-invoice":
+      case "tax-invoice":
+      case "distributor-tax-invoice":
+      case "tax-invoice-workspace":
         return (
-          <PosTerminalTab
-            products={products}
-            profiles={profiles}
-            shifts={shifts}
-            onRefreshData={fetchSystemState}
+          <DistTaxInvoice
             onNotification={addNotification}
+            currentUser={currentUser}
           />
         );
       case "purchase":
@@ -1930,15 +1930,6 @@ const AppContent: React.FC = () => {
         return <PrintHistoryTab />;
       case "about-smriti":
         return <AboutSmritiTab />;
-      case "tax-invoice":
-      case "distributor-tax-invoice":
-      case "tax-invoice-workspace":
-        return (
-          <DistTaxInvoice
-            onNotification={addNotification}
-            currentUser={currentUser}
-          />
-        );
       case "tax-invoice-print":
       case "statutory-a4":
         return <TaxInvoicePrintPage />;
