@@ -104,7 +104,7 @@ import {
 const SalesStudioTab = lazy(() => import("./components/SalesStudioTab.tsx").then(m => ({ default: m.SalesStudioTab })));
 const ReportDesignerTab = lazy(() => import("./components/ReportDesignerTab.tsx").then(m => ({ default: m.ReportDesignerTab })));
 const PurchaseStudioTab = lazy(() => import("./components/PurchaseStudioTab.tsx").then(m => ({ default: m.PurchaseStudioTab })));
-const ItemMasterTab = lazy(() => import("./components/ItemMasterTab.tsx").then(m => ({ default: m.ItemMasterTab })));
+const ItemMasterWs = lazy(() => import("./components/itemMaster/ItemMasterWs.tsx").then(m => ({ default: m.ItemMasterWs })));
 const BarcodeStudioTab = lazy(() => import("./components/BarcodeStudioTab.tsx").then(m => ({ default: m.BarcodeStudioTab })));
 const MasterManagementTab = lazy(() => import("./components/MasterMgmtTab.tsx").then(m => ({ default: m.MasterManagementTab })));
 const CrmStudioTab = lazy(() => import("./components/CrmStudioTab.tsx").then(m => ({ default: m.CrmStudioTab })));
@@ -1898,7 +1898,7 @@ const AppContent: React.FC = () => {
         return <ReportDesignerTab currentUser={currentUser} />;
       case "item-master":
         return (
-          <ItemMasterTab
+          <ItemMasterWs
             products={products}
             onRefreshProducts={fetchSystemState}
             onNotification={addNotification}
@@ -1908,7 +1908,7 @@ const AppContent: React.FC = () => {
         );
       case "item-create-grid":
         return (
-          <ItemMasterTab
+          <ItemMasterWs
             products={products}
             onRefreshProducts={fetchSystemState}
             onNotification={addNotification}

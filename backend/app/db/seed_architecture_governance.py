@@ -222,14 +222,14 @@ DECISIONS = [
      "Chief Systems Architect"),
 
     ("ADR-EXEMPT-006",
-     "Sales Order Entry Form Compatibility Wrapper",
+     "Sales Order Entry Form Compatibility Wrapper (RETIRED)",
      "SalesOrderFormPremium.tsx",
      "SalesOrderForm.tsx",
      "COMPATIBILITY",
-     "SalesOrderForm.tsx is a 45-line re-export wrapper forwarding to SalesOrderFormPremium.tsx to prevent broken imports during legacy transition.",
+     "SalesOrderForm.tsx was a 45-line re-export wrapper forwarding to SalesOrderFormPremium.tsx. Call-site migration completed and file permanently retired.",
      "Sales Order Management",
-     "Retain SalesOrderForm.tsx until all calling components migrate to SalesOrderFormPremium.tsx directly.",
-     "APPROVED",
+     "Retirement complete: all callers use SalesOrderFormPremium.tsx directly; legacy facade safely removed.",
+     "RETIRED",
      "Chief Systems Architect"),
 ]
 

@@ -16,6 +16,7 @@ from .crm import CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliv
 from .inventory import Product, StockMovement
 from .sales import SalesInvoice, SalesInvoiceItem, SalesOrderReservation
 from .customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
+from .customer_article_mapping import CustomerArticleMapping
 from .tenant import Company, Branch
 from .company_policy import CompanyBankAccount, CompanyPolicySetting, ComplianceThreshold
 from .company_registry import CompanyDatabaseRegistry

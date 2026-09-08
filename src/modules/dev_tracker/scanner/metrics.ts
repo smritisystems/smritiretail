@@ -75,7 +75,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       docKeywords: ["dashboard", "architecture", "readme"]
     },
     "item-master": {
-      frontendKeyword: "ItemMasterTab.tsx",
+      frontendKeyword: "ItemMasterWs.tsx",
       routeKeywords: ["inventory", "items", "attributes", "variants"],
       tableKeywords: ["items", "products", "attributes", "variants"],
       testKeywords: ["item", "inventory", "barcode", "product"],

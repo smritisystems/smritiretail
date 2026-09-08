@@ -28,6 +28,19 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [4.13.0] - 2026-09-09
+
+#### Universal Item Master 5-Tier Product Resolution Engine & Duplicate Retirement
+
+- **5-Tier Resolution Hierarchy**: Real-time multi-level resolution across Barcode (GS1/EAN), SKU, Customer Article Mapping (Buyer Article Code), Supplier/Vendor Code, and Substring Search.
+- **Adopted 5-Bucket Enterprise Inventory & ATP Engine**: Real-time aggregation of `physical_on_hand`, `in_transit_qty`, `reserved_qty`, `committed_qty` (from sales order reservations), and `quarantine_qty`, implementing the adopted enterprise formula: `ATP = max(0.0, round((physical_on_hand + in_transit_qty) - (reserved_qty + committed_qty + quarantine_qty), 4))`.
+- **Temporal & Customer Contract Pricing with Negative Suite**: Customer active verification, customer-group validation against `cam.metadata_json["eligible_customer_groups"]`, transaction currency matching, effective date window checks (`effective_from <= as_of_date <= effective_to`), invalid date range detection (`effective_from > effective_to`), statutory GST slab calculations (0, 5, 12, 18, 28%) with intra/inter-state splits, and immutable `pricing_audit` metadata.
+- **Rule 12 Schema Parity & Live Migration Execution**: Tenant database migration `v1418_customer_article_mappings.py` applied and verified across tenant databases (`smriti001`, `smriti002`) with 100% column parity (38 columns), foreign key constraints, and partial unique indexes. Proved live DDL execution, DML read/write, foreign key rejection, and partial unique constraint rejection on `smriti002`.
+- **Legacy Duplicate Retirement**: Decommissioned `ItemMasterTab.tsx`, `SalesOrderForm.tsx`, `item_master_service.py`, and `party_service.py`; eliminated all stale code and registry references.
+- **Empirical Benchmarking**: Verified developer baseline latency metrics on `smriti001`: cold cache 501.5ms, warm cache p50 19.7ms, p95 28.4ms, p99 49.1ms, 10-worker concurrency burst 100% success at 14.0 req/sec baseline.
+
+---
+
 ### [3.30.0] - 2026-09-02
 
 #### P0 Fix: Customer Master B2B Re-hydration + API Routing Blockers

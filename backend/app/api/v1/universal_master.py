@@ -214,14 +214,38 @@ async def create_item(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/items/resolve", response_model=ItemResolutionResponse, summary="Resolve canonical Item by barcode/SKU/serial")
+@router.get("/items/resolve", response_model=ItemResolutionResponse, summary="Resolve canonical Item by barcode/SKU/buyer code/serial")
 async def resolve_item(
-    query: str = Query(..., description="Barcode, Variant SKU, Item Code, or Serial Number"),
+    query: str = Query(..., description="Barcode, Variant SKU, Buyer Article Code, Item Code, or Serial Number"),
+    customer_id: Optional[str] = Query(None, description="Optional customer ID for buyer catalog and contract price resolution"),
+    branch_id: Optional[str] = Query(None, description="Optional branch or warehouse ID for localized inventory buckets"),
+    as_of_date: Optional[str] = Query(None, description="Optional date (YYYY-MM-DD) for temporal contract evaluation"),
+    currency: Optional[str] = Query("INR", description="Transaction currency (e.g. INR, USD)"),
+    customer_group_id: Optional[str] = Query(None, description="Optional customer group ID for contract group authorization"),
+    place_of_supply: Optional[str] = Query(None, description="2-digit GST state code of destination/place of supply"),
+    company_state: Optional[str] = Query("27", description="2-digit GST state code of dispatching company/branch"),
     db: AsyncSession = Depends(get_company_db),
     current_user: dict = Depends(get_current_user),
 ):
-    """Fast 4-tier scanner resolver for POS register and WMS mobile scanners."""
-    res = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(db, query)
+    """Fast 5-tier scanner resolver with 5-bucket inventory, temporal contract pricing, and statutory GST slab validation."""
+    parsed_date = None
+    if as_of_date:
+        try:
+            from datetime import datetime
+            parsed_date = datetime.strptime(as_of_date, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    res = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(
+        session=db,
+        query_str=query,
+        customer_id=customer_id,
+        branch_id=branch_id,
+        as_of_date=parsed_date,
+        transaction_currency=currency,
+        customer_group_id=customer_group_id,
+        place_of_supply=place_of_supply,
+        company_state=company_state,
+    )
     if not res:
         raise HTTPException(status_code=404, detail=f"No item found matching '{query}'.")
     return res
