@@ -111,22 +111,32 @@ async def verify_450_reliance_mappings(db_name: str = "smriti001") -> bool:
     assert orphans[2] == 0, f"Found {orphans[2]} orphan barcodes in customer_article_mappings"
     print("  ✅ 100% Referential Integrity: Zero orphan foreign keys across all 450 records.")
 
-    # 3. Live 5-Tier Universal Resolution on Representative Sample
-    print(f"\n[Phase 4: Live 5-Tier Universal Resolution Testing across Dataset]")
+    # 3. Live 5-Tier Universal Resolution across all 450 Mappings
+    print(f"\n[Phase 4: Exhaustive Live 5-Tier Resolution across ALL 450 Records (900 Total Lookups)]")
     cur.execute("""
         SELECT customer_article, barcode, vendor_article, contract_rate
         FROM customer_article_mappings
         WHERE customer_id = 'CUST-001'
-        ORDER BY id
-        LIMIT 10;
+        ORDER BY id;
     """)
-    sample_rows = cur.fetchall()
+    all_rows = cur.fetchall()
     cur.close()
     conn.close()
 
+    total_mappings = len(all_rows)
+    print(f"  • Starting exhaustive resolution loop for {total_mappings} records...")
+    assert total_mappings == 450, f"Expected 450 rows, got {total_mappings}"
+
+    buyer_success = 0
+    barcode_success = 0
+    contract_rate_matches = 0
+
+    import time
+    t_start = time.perf_counter()
+
     maker = get_company_sessionmaker(db_name)
     async with maker() as session:
-        for idx, (buyer_code, barcode, vendor_style, expected_rate) in enumerate(sample_rows, 1):
+        for idx, (buyer_code, barcode, vendor_style, expected_rate) in enumerate(all_rows, 1):
             # Test Tier 3: Resolve by Buyer Article Code
             res_buyer = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(
                 session=session,
@@ -138,6 +148,7 @@ async def verify_450_reliance_mappings(db_name: str = "smriti001") -> bool:
             assert float(res_buyer.effective_price) == float(expected_rate), f"Rate mismatch for {buyer_code}"
             assert res_buyer.pricing_audit["contract_status"] == "ACTIVE"
             assert res_buyer.pricing_audit["pricing_rule_applied"] == "CUSTOMER_CONTRACT_RATE"
+            buyer_success += 1
 
             # Test Tier 1: Resolve by EAN Barcode
             res_bc = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(
@@ -148,12 +159,28 @@ async def verify_450_reliance_mappings(db_name: str = "smriti001") -> bool:
             assert res_bc is not None, f"Failed to resolve barcode {barcode}"
             assert res_bc.matched_by == "BARCODE", f"Expected BARCODE match, got {res_bc.matched_by}"
             assert float(res_bc.effective_price) == float(expected_rate), f"Rate mismatch for {barcode}"
+            barcode_success += 1
+            contract_rate_matches += 1
 
-            print(f"  ✓ [{idx:02d}/10] Buyer Code: {buyer_code} | EAN: {barcode} | Item: {res_buyer.item_name[:25]:25} | Contract: ₹{res_buyer.effective_price} [ACTIVE]")
+            if idx % 50 == 0 or idx == total_mappings:
+                print(f"  ✓ Verified [{idx:03d}/450] mappings | Buyer Codes: {buyer_success}/450 | Barcodes: {barcode_success}/450")
+
+    total_time = time.perf_counter() - t_start
+    avg_per_resolution = (total_time / (total_mappings * 2)) * 1000.0
+
+    print(f"\n[Exhaustive Resolution Performance Metrics]")
+    print(f"  • Total Individual Resolutions Executed : {buyer_success + barcode_success} (450 Buyer + 450 Barcode)")
+    print(f"  • Buyer Code (Tier 3) Pass Rate          : {buyer_success}/{total_mappings} (100.00%)")
+    print(f"  • Barcode (Tier 1) Pass Rate             : {barcode_success}/{total_mappings} (100.00%)")
+    print(f"  • Contract Rate Exact Match Rate         : {contract_rate_matches}/{total_mappings} (100.00%)")
+    print(f"  • Total Resolution Duration              : {total_time:.2f} s ({avg_per_resolution:.2f} ms/lookup)")
+
+    assert buyer_success == 450, f"Expected 450 buyer code successes, got {buyer_success}"
+    assert barcode_success == 450, f"Expected 450 barcode successes, got {barcode_success}"
 
     print("\n--------------------------------------------------------------------------------")
     print("✅ PROVED: All 450 Reliance mappings are physically seeded, relational-linked,")
-    print("   and 100% resolvable via Tier 1 (Barcode) and Tier 3 (Buyer Article Code).")
+    print("   and demonstrated 100% resolvable via 900 individual live lookups.")
     print("================================================================================")
     return True
 
