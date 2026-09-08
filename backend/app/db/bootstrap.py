@@ -70,6 +70,12 @@ def bootstrap_company_database_prerequisites(
         "sales_invoices": {
             "is_deleted": "BOOLEAN",
         },
+        "stock_movements": {
+            "variant_id": "VARCHAR(50)",
+        },
+        "product_batch_stocks": {
+            "variant_id": "VARCHAR(50)",
+        },
         "sales_invoice_items": {
             "variant_id": "VARCHAR(50)",
         },
@@ -99,6 +105,8 @@ def bootstrap_company_database_prerequisites(
         "sales_orders": ("ix_sales_orders_po_number", "po_number"),
         "sales_invoice_items": ("ix_sales_invoice_items_variant_id", "variant_id"),
         "sales_order_items": ("ix_sales_order_items_variant_id", "variant_id"),
+        "stock_movements": ("ix_stock_movements_variant_id", "variant_id"),
+        "product_batch_stocks": ("ix_product_batch_stocks_variant_id", "variant_id"),
     }
 
     existing_tables = {

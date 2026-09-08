@@ -195,7 +195,11 @@ class InventoryWmsService:
                 else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"SMRITI-STOCK-001: Cannot deduct from non-existent batch {batch_no} in warehouse {warehouse_id}."
+                        detail=(
+                            f"SMRITI-STOCK-001: Insufficient stock available for product {product_id} "
+                            f"in warehouse {warehouse_id}. Available: {agg_stock}, "
+                            f"requested: {abs(qty_delta_dec)}."
+                        )
                     )
             else:
                 batch_stock = ProductBatchStock(

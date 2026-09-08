@@ -113,7 +113,6 @@ const ApprovalMatrixTab = lazy(() => import("./components/ApprovalMatrixTab.tsx"
 const StaffManagementTab = lazy(() => import("./components/StaffManagementTab.tsx").then(m => ({ default: m.StaffManagementTab })));
 const PrintStudioTab = lazy(() => import("./print_engine/PrintStudioTab.tsx").then(m => ({ default: m.PrintStudioTab })));
 const PrintHistoryTab = lazy(() => import("./print_engine/PrintHistoryTab.tsx").then(m => ({ default: m.PrintHistoryTab })));
-const DistTaxInvoice = lazy(() => import("./components/sales/DistTaxInvoice.tsx").then(m => ({ default: m.DistTaxInvoice })));
 const TrainingAcademyTab = lazy(() => import("./components/training/TrainingAcademyTab.tsx").then(m => ({ default: m.TrainingAcademyTab })));
 const AccountingSyncTab = lazy(() => import("./components/AccountingSyncTab.tsx").then(m => ({ default: m.AccountingSyncTab })));
 const BusinessLedgerTab = lazy(() => import("./components/BusinessLedgerTab.tsx").then(m => ({ default: m.BusinessLedgerTab })));
@@ -129,6 +128,7 @@ const WmsStudioTab = lazy(() => import("./components/wms/WmsStudioTab.tsx").then
 const SetupWizardTab = lazy(() => import("./components/SetupWizard/SetupWizardTab.tsx").then(m => ({ default: m.SetupWizardTab })));
 const PrintPreviewModal = lazy(() => import("./components/PrintPreviewModal.tsx").then(m => ({ default: m.PrintPreviewModal })));
 const MenuManagerStudioTab = lazy(() => import("./components/MenuManagerStudioTab.tsx").then(m => ({ default: m.MenuManagerStudioTab })));
+const BillingWorkspace = lazy(() => import("./components/billing/BillingWorkspace.tsx").then(m => ({ default: m.BillingWorkspace })));
 
 // Tab loading fallback component
 const TabLoadingFallback = () => (
@@ -1740,7 +1740,15 @@ const AppContent: React.FC = () => {
       menu_access: "security-management",
       "menu-dashboard": "dashboard",
       "menu-user-profile": "user-profile",
-      "menu-pos": "pos",
+      billing: "billing-workspace",
+      "billing-workspace": "billing-workspace",
+      billing_workspace: "billing-workspace",
+      pos: "billing-workspace",
+      "menu-pos": "billing-workspace",
+      "menu-billing": "billing-workspace",
+      "create-tax-invoice": "billing-workspace",
+      "dist-invoice": "billing-workspace",
+      "tax-invoice": "billing-workspace",
       "menu-sales": "sales",
       "menu-customer-master": "customer-master",
       "menu-crm": "crm",
@@ -1805,16 +1813,6 @@ const AppContent: React.FC = () => {
             }}
           />
         );
-      case "pos":
-        return (
-          <PosTerminalTab
-            products={products}
-            profiles={profiles}
-            shifts={shifts}
-            onRefreshData={fetchSystemState}
-            onNotification={addNotification}
-          />
-        );
       case "day-close":
       case "day-end":
       case "eod-report":
@@ -1849,20 +1847,38 @@ const AppContent: React.FC = () => {
         );
       case "psv":
         return <PsvTab psvParties={psvParties} currentUser={currentUser} />;
+      case "billing-workspace":
+      case "billing":
+      case "pos":
+        return (
+          <BillingWorkspace
+            products={products}
+            profiles={profiles}
+            shifts={shifts}
+            currentUser={currentUser}
+            onRefreshData={fetchSystemState}
+            onNotification={addNotification}
+            initialMode="RETAIL_POS"
+          />
+        );
+      case "tax-invoice":
+      case "dist-invoice":
+      case "create-tax-invoice":
+        return (
+          <BillingWorkspace
+            products={products}
+            profiles={profiles}
+            shifts={shifts}
+            currentUser={currentUser}
+            onRefreshData={fetchSystemState}
+            onNotification={addNotification}
+            initialMode="B2B_INVOICE"
+          />
+        );
       case "sales":
         return (
           <SalesStudioTab
             products={products}
-            onNotification={addNotification}
-            currentUser={currentUser}
-          />
-        );
-      case "create-tax-invoice":
-      case "tax-invoice":
-      case "distributor-tax-invoice":
-      case "tax-invoice-workspace":
-        return (
-          <DistTaxInvoice
             onNotification={addNotification}
             currentUser={currentUser}
           />

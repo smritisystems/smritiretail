@@ -48,7 +48,6 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
       lastHealthCheck: new Date().toISOString()
     },
     modules: [
-      { id: 'pos', name: 'POS Billing & Cash Shift', enabled: true },
       { id: 'sales', name: 'Sales & Invoicing', enabled: true },
       { id: 'purchase', name: 'Procurement & GRN', enabled: true },
       { id: 'inventory', name: 'Inventory & Stock Ledger', enabled: true },

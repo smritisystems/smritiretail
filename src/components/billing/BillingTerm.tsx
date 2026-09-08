@@ -1536,7 +1536,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <Receipt size={26} className="text-secondary" />
             </span>
             <span className="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed tracking-tight">
-              Speed Invoice
+              Billing Desk
               <span className="text-[10px] font-normal uppercase tracking-wider text-on-surface-variant dark:text-primary-fixed/70">
                 Distributor Workspace
               </span>

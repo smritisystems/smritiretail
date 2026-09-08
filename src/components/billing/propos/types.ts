@@ -14,6 +14,7 @@
 
 export interface ProPosCartItem {
   id: string;
+  productId?: string;
   itemNo: number;
   sku: string;
   barcode: string;

@@ -467,7 +467,7 @@ class SalesService:
 
             quantity = Decimal(str(item.quantity))
             unit_price = Decimal(str(item.price))
-            gst_rate = Decimal(str(item.gst_rate or "18.00"))
+            gst_rate = Decimal(str(item.gst_rate if item.gst_rate is not None else "18.00"))
 
             # Determine batch allocation
             assigned_batch = item.batch_no or "BATCH-OPENING"
@@ -821,6 +821,64 @@ class SalesService:
             .where(SalesInvoice.id == db_invoice.id)
         )
         return res.scalars().first()
+
+    async def post_pos_transaction(
+        self,
+        invoice_in: SalesInvoiceCreate,
+        shift_id: str,
+        payment_request=None,
+        payment_mode: Optional[str] = None,
+        commit: bool = True,
+    ) -> SalesInvoice:
+        """Compose POS invoice, stock, outbox, and optional payment in one unit of work."""
+        invoice = await self.create_sales_invoice(
+            invoice_in,
+            idempotency_key=invoice_in.invoice_no,
+            commit=False,
+        )
+        invoice.shift_id = shift_id
+        await self.db.flush()
+
+        if payment_request is None and (payment_mode or "CASH").upper() != "CREDIT":
+            from ..schemas.payments import PaymentTenderItem, ProcessPaymentRequest
+            payment_request = ProcessPaymentRequest(
+                reference_doc_type="POS_BILL",
+                reference_doc_id=invoice.id,
+                party_id=invoice.customer_id,
+                tenders=[PaymentTenderItem(
+                    tender_type=(payment_mode or "CASH").upper(),
+                    amount=float(invoice.grand_total),
+                )],
+                idempotency_key=f"POS-PAY-{invoice.id}",
+                branch_id=self.tenant_ctx.branch_id,
+                auto_allocate=True,
+            )
+
+        if payment_request is not None:
+            from .payments_engine import PaymentsEngine
+            await PaymentsEngine.process_payment(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                req=payment_request,
+                created_by=getattr(self.tenant_ctx, "user_id", None),
+                commit=False,
+            )
+
+        if commit:
+            await self.db.commit()
+        else:
+            await self.db.flush()
+
+        result = await self.db.execute(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(
+                SalesInvoice.id == invoice.id,
+                SalesInvoice.company_id == self.tenant_ctx.company_id,
+                SalesInvoice.branch_id == invoice.branch_id,
+            )
+        )
+        return result.scalars().first()
 
     # ??????????????????????????????????????????????????????????????
     # Sales Quotation

@@ -96,7 +96,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
             </div>
             <div>
               <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-none">
-                Speed Invoice
+                Tax Invoice
               </h1>
               <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
                 DISTRIBUTOR WORKSPACE

@@ -73,8 +73,8 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
     suffix = uuid.uuid4().hex[:6]
 
     async with TestSessionLocal() as session:
-        await session.execute(text("""
-            CREATE TABLE IF NOT EXISTS customer_credit_ledger_entries (
+        ddl_stmts = [
+            """CREATE TABLE IF NOT EXISTS customer_credit_ledger_entries (
                 id VARCHAR(50) PRIMARY KEY, uuid VARCHAR(50), company_id VARCHAR(50), branch_id VARCHAR(50),
                 created_at TIMESTAMPTZ, modified_at TIMESTAMPTZ, created_by VARCHAR(50), updated_by VARCHAR(50),
                 is_active BOOLEAN DEFAULT TRUE, is_deleted BOOLEAN DEFAULT FALSE, deleted_at TIMESTAMPTZ,
@@ -83,8 +83,19 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
                 balance_after NUMERIC(15, 2) NOT NULL, reference_type VARCHAR(50) NOT NULL,
                 reference_id VARCHAR(100) NOT NULL, due_date DATE, notes TEXT,
                 UNIQUE (reference_type, reference_id)
-            )
-        """))
+            )""",
+            "ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS customer_po_id VARCHAR(50)",
+            "ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS customer_po_number_snapshot VARCHAR(100)",
+            "ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS customer_po_date_snapshot DATE",
+            "ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS source_document_type VARCHAR(50)",
+            "ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS source_document_id VARCHAR(100)",
+            "ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS source_document_line_id VARCHAR(100)",
+            "ALTER TABLE sales_invoice_items ADD COLUMN IF NOT EXISTS customer_po_line_id VARCHAR(50)",
+            "ALTER TABLE sales_invoice_items ADD COLUMN IF NOT EXISTS source_line_type VARCHAR(50)",
+            "ALTER TABLE sales_invoice_items ADD COLUMN IF NOT EXISTS source_line_id VARCHAR(100)",
+        ]
+        for ddl in ddl_stmts:
+            await session.execute(text(ddl))
         await session.commit()
 
         # Pre-cleanup any leftover registrations/customers from prior tests
