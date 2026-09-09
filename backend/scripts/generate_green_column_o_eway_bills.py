@@ -80,6 +80,7 @@ def clean_addr(text, max_len=120):
 async def build_and_export_green_eway():
     print("=" * 90)
     print("SMRITI RETAIL OS: STATUTORY NIC E-WAY BILL GENERATION (22 GREEN COLUMN 'O' INVOICES)")
+    print("Export Folder Target: ewayupdated (Part-A Clean — Transport details left blank)")
     print("Source Scope: Exactly 22 Invoices highlighted Green in Column 'O' of RIL_Dispatch-2.xlsx")
     print("=" * 90)
 
@@ -207,12 +208,12 @@ async def build_and_export_green_eway():
             "totInvValue": round(grand_tot, 2),
             "transMode": 1,
             "transDistance": dist,
-            "transporterName": "V-Trans India Ltd",
+            "transporterName": "",
             "transporterId": "",
-            "transDocNo": f"LR-{store_code}",
-            "transDocDate": "08/09/2026",
-            "vehicleNo": "MH04TR1000",
-            "vehicleType": "R",
+            "transDocNo": "",
+            "transDocDate": "",
+            "vehicleNo": "",
+            "vehicleType": "",
             "mainHsnCode": "64041990",
             "itemList": item_list
         }
@@ -271,28 +272,25 @@ async def build_and_export_green_eway():
     jsonschema.validate(instance=payload_decimal, schema=schema_json)
     print("PASS: 100% JSON Schema compliance confirmed across all 22 green bills!")
 
-    # 3. Destination Directories
-    out_dir_eway = r"F:\Smriti-Clients Data\Eway"
-    out_dir_dispatch = r"F:\Smriti-Clients Data\08-09-2026"
-    
-    indiv_green_eway = os.path.join(out_dir_eway, "Green_Column_O_Invoices_JSON")
-    indiv_green_dispatch = os.path.join(out_dir_dispatch, "Green_Column_O_Invoices_JSON")
-    os.makedirs(indiv_green_eway, exist_ok=True)
-    os.makedirs(indiv_green_dispatch, exist_ok=True)
+    # 3. Destination Directories: explicitly named 'ewayupdated'
+    dir_eway_target = r"F:\Smriti-Clients Data\Eway\ewayupdated"
+    dir_dispatch_target = r"F:\Smriti-Clients Data\08-09-2026\ewayupdated"
+    os.makedirs(dir_eway_target, exist_ok=True)
+    os.makedirs(dir_dispatch_target, exist_ok=True)
 
-    # 3a. Save Bulk JSON files
-    bulk_json_name = "EWayBill_Bulk_Upload_Green_Column_O_22_Invoices.json"
-    bulk_path_eway = os.path.join(out_dir_eway, bulk_json_name)
-    bulk_path_dispatch = os.path.join(out_dir_dispatch, bulk_json_name)
+    # 3a. Save Bulk JSON files inside ewayupdated
+    bulk_json_name = "EWayBill_Bulk_Upload_ewayupdated.json"
+    bulk_path_eway = os.path.join(dir_eway_target, bulk_json_name)
+    bulk_path_dispatch = os.path.join(dir_dispatch_target, bulk_json_name)
     
     with open(bulk_path_eway, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
     with open(bulk_path_dispatch, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
-    print(f"\nSaved Bulk JSON (Eway): {bulk_path_eway} ({os.path.getsize(bulk_path_eway):,} bytes)")
-    print(f"Saved Bulk JSON (Dispatch): {bulk_path_dispatch} ({os.path.getsize(bulk_path_dispatch):,} bytes)")
+    print(f"\nSaved Bulk JSON (Eway/ewayupdated): {bulk_path_eway} ({os.path.getsize(bulk_path_eway):,} bytes)")
+    print(f"Saved Bulk JSON (08-09-2026/ewayupdated): {bulk_path_dispatch} ({os.path.getsize(bulk_path_dispatch):,} bytes)")
 
-    # 4. Save Individual JSON files into SEPARATE folder
+    # 4. Save Individual JSON files directly into ewayupdated folder
     for b in bills:
         single_payload = {
             "version": "1.0.1118",
@@ -300,36 +298,36 @@ async def build_and_export_green_eway():
         }
         fname = f"{b['docNo'].replace('/', '_')}_Eway.json"
         
-        # Save to Eway dedicated separate folder
-        p1 = os.path.join(indiv_green_eway, fname)
+        # Save to F:\Smriti-Clients Data\Eway\ewayupdated\
+        p1 = os.path.join(dir_eway_target, fname)
         with open(p1, "w", encoding="utf-8") as f:
             json.dump(single_payload, f, indent=2)
             
-        # Mirror to 08-09-2026 dedicated separate folder
-        p2 = os.path.join(indiv_green_dispatch, fname)
+        # Mirror to F:\Smriti-Clients Data\08-09-2026\ewayupdated\
+        p2 = os.path.join(dir_dispatch_target, fname)
         with open(p2, "w", encoding="utf-8") as f:
             json.dump(single_payload, f, indent=2)
 
-    print(f"Saved 22 individual JSON files in : {indiv_green_eway}")
-    print(f"Mirrored 22 individual JSON files in: {indiv_green_dispatch}")
+    print(f"Saved 22 individual JSON files in : {dir_eway_target}")
+    print(f"Mirrored 22 individual JSON files in: {dir_dispatch_target}")
 
-    # 5. Generate Professional Excel Consignment Register
-    print("\n--- Generating Excel Consignment Register for 22 Green Consignments ---")
+    # 5. Generate Professional Excel Consignment Register for ewayupdated
+    print("\n--- Generating Excel Consignment Register for ewayupdated ---")
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "EWB_Green_Consignments"
+    ws.title = "EWB_Consignments_PartA"
     ws.views.sheetView[0].showGridLines = True
 
     title_font = Font(name="Segoe UI", size=15, bold=True, color="1E3A8A")
     ws.merge_cells("A1:T1")
-    ws["A1"] = "SMRITI RETAIL OS — NIC E-WAY BILL BULK UPLOAD REGISTER (22 GREEN COLUMN 'O' CONSIGNMENTS)"
+    ws["A1"] = "SMRITI RETAIL OS — NIC E-WAY BILL BULK REGISTER (22 GREEN 'O' CONSIGNMENTS — PART-A)"
     ws["A1"].font = title_font
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[1].height = 28
 
     sub_font = Font(name="Segoe UI", size=10, italic=True, color="4B5563")
     ws.merge_cells("A2:T2")
-    ws["A2"] = "Consignment Scope: 22 Invoices Highlighted Green in Column 'O' (RIL_Dispatch-2.xlsx) | Schema: NIC v1.0.1118 | Supplier: TATTLY THREADS (27AAXFT2508H1ZR)"
+    ws["A2"] = "Scope: 22 Invoices Highlighted Green in Column 'O' | Transport: Blank (Part-A Ready) | Supplier: TATTLY THREADS (27AAXFT2508H1ZR)"
     ws["A2"].font = sub_font
     ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[2].height = 20
@@ -381,12 +379,15 @@ async def build_and_export_green_eway():
         tot_sg += b.get("sgstValue", 0.0)
         tot_inv += b.get("totInvValue", 0.0)
         
-        store_code = b.get("transDocNo", "").replace("LR-", "")
+        store_code = inv_no = b.get("docNo", "")
+        store_match = re.search(r'/(\d+)', inv_no)
         
         ws.cell(row=r, column=1, value=idx).alignment = Alignment(horizontal="center")
         ws.cell(row=r, column=2, value=b.get("docNo")).alignment = Alignment(horizontal="center")
         ws.cell(row=r, column=3, value=b.get("docDate")).alignment = Alignment(horizontal="center")
-        ws.cell(row=r, column=4, value=store_code).alignment = Alignment(horizontal="center")
+        # Store code from override map lookup
+        matched_store = [k for k, v in STORE_CITY_OVERRIDE.items() if v[1] == b.get("toPincode") and v[0] == b.get("toPlace")]
+        ws.cell(row=r, column=4, value=matched_store[0] if matched_store else "").alignment = Alignment(horizontal="center")
         ws.cell(row=r, column=5, value=b.get("toAddr1", "")[:40]).alignment = Alignment(horizontal="left")
         ws.cell(row=r, column=6, value=b.get("toPlace")).alignment = Alignment(horizontal="left")
         ws.cell(row=r, column=7, value=b.get("actualToStateCode")).alignment = Alignment(horizontal="center")
@@ -420,9 +421,9 @@ async def build_and_export_green_eway():
         
         ws.cell(row=r, column=17, value=b.get("transDistance")).alignment = Alignment(horizontal="center")
         ws.cell(row=r, column=18, value="ROAD (1)").alignment = Alignment(horizontal="center")
-        ws.cell(row=r, column=19, value=b.get("vehicleNo")).alignment = Alignment(horizontal="center")
+        ws.cell(row=r, column=19, value="").alignment = Alignment(horizontal="center") # Vehicle blank
         
-        c_st = ws.cell(row=r, column=20, value="VALID - READY")
+        c_st = ws.cell(row=r, column=20, value="PART-A READY")
         c_st.font = status_font
         c_st.fill = status_fill
         c_st.alignment = Alignment(horizontal="center")
@@ -436,7 +437,7 @@ async def build_and_export_green_eway():
     tot_r = len(bills) + 5
     ws.row_dimensions[tot_r].height = 24
     ws.merge_cells(start_row=tot_r, start_column=1, end_row=tot_r, end_column=10)
-    ws.cell(row=tot_r, column=1, value="GRAND TOTAL (22 GREEN CONSIGNMENTS)").alignment = Alignment(horizontal="center", vertical="center")
+    ws.cell(row=tot_r, column=1, value="GRAND TOTAL (22 GREEN CONSIGNMENTS — PART-A)").alignment = Alignment(horizontal="center", vertical="center")
     ws.cell(row=tot_r, column=1).font = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
 
     tot_fill = PatternFill(start_color="111827", end_color="111827", fill_type="solid")
@@ -466,40 +467,40 @@ async def build_and_export_green_eway():
     ws.column_dimensions['E'].width = 30
     ws.column_dimensions['I'].width = 35
 
-    reg_name = "EWayBill_Generation_Register_Green_Column_O_22_Invoices.xlsx"
-    reg_path_eway = os.path.join(out_dir_eway, reg_name)
-    reg_path_dispatch = os.path.join(out_dir_dispatch, reg_name)
+    reg_name = "EWayBill_Generation_Register_ewayupdated.xlsx"
+    reg_path_eway = os.path.join(dir_eway_target, reg_name)
+    reg_path_dispatch = os.path.join(dir_dispatch_target, reg_name)
     
     wb.save(reg_path_eway)
     wb.save(reg_path_dispatch)
-    print(f"Saved Consignment Register (Eway): {reg_path_eway}")
-    print(f"Saved Consignment Register (Dispatch): {reg_path_dispatch}")
+    print(f"Saved Consignment Register (Eway/ewayupdated): {reg_path_eway}")
+    print(f"Saved Consignment Register (08-09-2026/ewayupdated): {reg_path_dispatch}")
 
-    # 6. Repackage 7-Zip Archive
-    print("\n--- Packaging 7-Zip Archive for 22 Green Consignments ---")
+    # 6. Repackage 7-Zip Archive for ewayupdated
+    print("\n--- Packaging 7-Zip Archive for ewayupdated ---")
     seven_zip_path = r"C:\Program Files\7-Zip\7z.exe"
-    archive_name = "EWayBill_Generation_Register_Green_Column_O_22_Invoices.7z"
-    archive_path_eway = os.path.join(out_dir_eway, archive_name)
-    archive_path_dispatch = os.path.join(out_dir_dispatch, archive_name)
+    archive_name = "EWayBill_Generation_Register_ewayupdated.7z"
+    archive_path_eway = os.path.join(dir_eway_target, archive_name)
+    archive_path_dispatch = os.path.join(dir_dispatch_target, archive_name)
     
     cmd_7z = [
         seven_zip_path, "a", "-t7z", "-m0=lzma2", "-mx=9", "-y",
         archive_path_eway,
         reg_path_eway,
         bulk_path_eway,
-        os.path.join(out_dir_eway, "EWB_Attributes_new.xlsx"),
-        indiv_green_eway
+        r"F:\Smriti-Clients Data\Eway\EWB_Attributes_new.xlsx",
+        os.path.join(dir_eway_target, "*.json")
     ]
     res_7z = subprocess.run(cmd_7z, capture_output=True, text=True)
     if res_7z.returncode == 0:
-        print(f"Created 7z Archive (Eway): {archive_path_eway} ({os.path.getsize(archive_path_eway):,} bytes)")
+        print(f"Created 7z Archive (Eway/ewayupdated): {archive_path_eway} ({os.path.getsize(archive_path_eway):,} bytes)")
         shutil.copy2(archive_path_eway, archive_path_dispatch)
-        print(f"Mirrored 7z Archive (Dispatch): {archive_path_dispatch}")
+        print(f"Mirrored 7z Archive (08-09-2026/ewayupdated): {archive_path_dispatch}")
     else:
         print("7z update warning/error:", res_7z.stderr)
 
     print("\n" + "=" * 90)
-    print("SUCCESS: Statutory NIC E-Way Bill files generated for all 22 Green Column 'O' Invoices!")
+    print("SUCCESS: Clean Part-A E-Way Bills exported into folder 'ewayupdated'!")
     print("=" * 90)
 
 if __name__ == "__main__":
