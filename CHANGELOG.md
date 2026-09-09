@@ -28,7 +28,40 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.30.0-security] - 2026-09-09
+
+#### Production Readiness Sprint — Secret Hygiene, Version SSOT, TS Closure, Bundle Splitting
+
+**Walkthrough:** [ProductionReadiness_Sprint_v3.30.0.md](docs/walkthrough/foundation/ProductionReadiness_Sprint_v3.30.0.md)
+
+**Track 1 — Secret Hygiene (CRITICAL)**
+- Replaced 3 hardcoded weak development secrets in root `.env` with 256-bit (64 hex char) cryptographically random values: `JWT_SECRET_KEY`, `INTERNAL_SERVICE_KEY`, `SGIP_VAULT_MASTER_KEY`.
+- Added `⚠️ LOCAL DEV ONLY` warning comment block with procedure reference.
+- Created `SECRETS_NOTICE.md` — documents rotation procedure, minimum key lengths, deployment patterns, and audit trail.
+- Confirmed: `.env` never committed to git (`git log -- .env` = 0 commits). `backend/.env` already uses `${VAR}` substitution (safe).
+
+**Track 2 — Version SSOT**
+- Unified all 4 runtime version locations to `3.30.0` (canonical = `package.json`):
+  - `src/config/version.ts`: `APP_VERSION` bumped from `3.29.0` → `3.30.0`
+  - `backend/app/core/config.py`: `VERSION` bumped from `3.16.0` → `3.30.0` (runtime setting + file header)
+  - `vite.config.ts`: file header updated from `3.17.0` → `3.30.0`
+- Note: `db_provisioner.py` `schema_version: "6.16.0"` is the highest Alembic revision — intentionally not changed.
+
+**Track 3 — TypeScript Zero-Error Audit Closure**
+- Confirmed `npx tsc --noEmit` = 0 errors, 0 output lines (2026-09-09).
+- Confirmed `loyaltyTierEngine.ts` (10,917 bytes) and `rmaEngine.ts` (7,622 bytes) exist in `src/utils/`.
+- Formally closed findings in `docs/_audit/07_version_status.md` with evidence stamp.
+
+**Track 4 — Bundle Splitting Enhancement**
+- Added `vendor-react` chunk (React/ReactDOM/scheduler isolated — fixes circular chunk warning).
+- Added `vendor-query` chunk (@tanstack/react-query isolated).
+- Added `smriti-engines` chunk (all `*Engine.ts` files in `src/utils/`).
+- Added `smriti-billing` chunk (BillingWorkspace + billing components).
+- Added per-tab chunks: `smriti-crm`, `smriti-inventory`, `smriti-accounts`, `smriti-settings`.
+- Circular chunk warning eliminated. Build: 3523 modules, 0 errors, ✓ in 27s.
+
 ### [4.13.0] - 2026-09-09
+
 
 #### Universal Item Master 5-Tier Product Resolution Engine & Duplicate Retirement
 
