@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-07-11
- * Modified     : 2026-07-14
+ * Modified     : 2026-09-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -96,7 +96,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       docKeywords: ["sales"]
     },
     "pos": {
-      frontendKeyword: "PosTerminalTab.tsx",
+      frontendKeyword: "BillingWorkspace.tsx",
       routeKeywords: ["pos", "billing"],
       tableKeywords: ["pos_transactions", "pos_payments", "sales_invoices"],
       testKeywords: ["pos", "billing", "sales"],
@@ -136,6 +136,13 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       tableKeywords: [],
       testKeywords: ["about", "changelog"],
       docKeywords: ["about", "changelog", "readme"]
+    },
+    "billing-workspace": {
+      frontendKeyword: "BillingWorkspace.tsx",
+      routeKeywords: ["billing", "pos", "sales", "payments", "invoices"],
+      tableKeywords: ["sales_invoices", "pos_transactions", "shift_cash_transactions", "payment_transactions", "shifts"],
+      testKeywords: ["canonical_sales_writer", "pos", "payments", "billing", "invoice"],
+      docKeywords: ["billing", "pos", "sales", "walkthrough"]
     }
   };
 
