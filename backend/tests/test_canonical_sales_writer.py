@@ -13,13 +13,23 @@ Classification: Canonical Sales Posting Writer Test Suite (Phase 2C Step 2)
 """
 
 import sys
+import os
 import uuid
 import pytest
 from decimal import Decimal
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+backend_dir = Path(__file__).resolve().parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from dotenv import dotenv_values
+env_file = backend_dir.parent / ".env"
+if env_file.exists():
+    for k, v in dotenv_values(env_file).items():
+        if v is not None and k not in os.environ:
+            os.environ[k] = v
 
 from sqlalchemy import select, delete
 from fastapi import HTTPException

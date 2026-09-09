@@ -318,6 +318,7 @@ class PaymentsEngine:
         payment_id: str,
         req: PaymentAllocationRequest,
         created_by: Optional[str] = None,
+        commit: bool = True,
     ) -> PaymentAllocationDetail:
         """
         Distributes unallocated balance of a payment across an invoice.
@@ -361,7 +362,11 @@ class PaymentsEngine:
             created_by=created_by,
         )
         session.add(alloc)
-        await session.commit()
+
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
 
         return PaymentAllocationDetail(
             id=alloc.id,

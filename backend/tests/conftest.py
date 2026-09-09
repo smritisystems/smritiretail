@@ -11,6 +11,19 @@ License      : Proprietary Commercial Software
 """
 
 import sys, os
+from pathlib import Path
+
+backend_dir = Path(__file__).resolve().parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from dotenv import dotenv_values
+env_file = backend_dir.parent / ".env"
+if env_file.exists():
+    for k, v in dotenv_values(env_file).items():
+        if v is not None and k not in os.environ:
+            os.environ[k] = v
+
 import pytest
 import psycopg2
 import uuid
