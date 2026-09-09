@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.24.0
+Version      : 3.25.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-09-09
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -143,4 +143,38 @@ class AnalyticsDaemonService:
             "cycle_executed_at": datetime.now(timezone.utc).isoformat(),
             "tenants_evaluated": len(tenants),
             "tenant_results": results
+        }
+
+    @classmethod
+    async def run_accounting_outbox_cycle(
+        cls,
+        tenants: Optional[List[Dict[str, str]]] = None,
+        limit: int = 50
+    ) -> Dict[str, Any]:
+        """
+        Processes pending transactional outbox events across tenant databases and
+        dispatches them directly into the Unified Accounting Ledger to create authoritative
+        double-entry GL vouchers.
+        """
+        from .unified_ledger import UnifiedAccountingLedgerService
+        if not tenants:
+            tenants = [
+                {"db_name": "smriti001", "company_id": "COMP-001"},
+                {"db_name": "smriti002", "company_id": "COMP-002"}
+            ]
+
+        results = {}
+        for t in tenants:
+            db_name = t["db_name"]
+            res = await OutboxQueueWorker.process_tenant_database(
+                database_name=db_name,
+                dispatcher_callback=UnifiedAccountingLedgerService.dispatch_outbox_event,
+                limit=limit
+            )
+            results[db_name] = res
+
+        return {
+            "cycle_executed_at": datetime.now(timezone.utc).isoformat(),
+            "tenants_processed": len(tenants),
+            "outbox_results": results
         }
