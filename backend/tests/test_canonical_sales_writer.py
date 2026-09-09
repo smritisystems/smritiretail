@@ -121,6 +121,39 @@ async def setup_test_master_data():
             )
             session.add(prod)
 
+        from app.models.inventory import ProductBatchStock
+        q_whs = select(Warehouse).where(Warehouse.company_id == "COMP-001", Warehouse.is_active == True, Warehouse.is_deleted == False)
+        whs = (await session.execute(q_whs)).scalars().all()
+        for w in whs:
+            pbs = (await session.execute(
+                select(ProductBatchStock).where(
+                    ProductBatchStock.company_id == "COMP-001",
+                    ProductBatchStock.warehouse_id == w.id,
+                    ProductBatchStock.product_id == "prod_canon_01",
+                    ProductBatchStock.batch_no == "DEFAULT",
+                    ProductBatchStock.is_deleted == False,
+                )
+            )).scalars().first()
+            if not pbs:
+                pbs = ProductBatchStock(
+                    id=f"pbs-canon-{w.id}",
+                    uuid=str(uuid.uuid4()),
+                    company_id="COMP-001",
+                    branch_id="MAIN",
+                    warehouse_id=w.id,
+                    product_id="prod_canon_01",
+                    batch_no="DEFAULT",
+                    quantity=Decimal("100.0000"),
+                    reserved_quantity=Decimal("0.0000"),
+                    damaged_quantity=Decimal("0.0000"),
+                    is_active=True,
+                    is_deleted=False,
+                )
+                session.add(pbs)
+            else:
+                pbs.quantity = Decimal("100.0000")
+                session.add(pbs)
+
         # 4. CashRegister & Open Shift
         from app.models.pos import CashRegister
         reg = (await session.execute(select(CashRegister).where(CashRegister.id == "REG-01"))).scalar_one_or_none()

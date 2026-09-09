@@ -34,6 +34,7 @@ from ..core.gst_engine import (
     calculate_line_item_tax,
     round_currency,
     extract_state_code_from_gstin,
+    GST_STATE_CODES,
 )
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.pos import Shift
@@ -423,7 +424,90 @@ class CanonicalSalesPostingWriter:
                 # Deterministic fallback format: INV-<YYYYMMDD>-<UUID4_SHORT>
                 invoice_no = f"INV-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
-        # 8. Persist SalesInvoice
+        # 8. Resolve and validate Dispatch From physical origin location
+        raw_dispatch_id = req.dispatch_from_location_id or req.context.dispatch_from_location_id or warehouse_id
+        dispatch_from_snapshot: Optional[Dict[str, Any]] = None
+        dispatch_from_location_id: Optional[str] = None
+
+        if batch_deductions and not raw_dispatch_id:
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-LOC-006: Dispatch From location is required for physical goods fulfillment.",
+            )
+
+        if raw_dispatch_id:
+            # First check if warehouse exists within tenant company
+            q_disp = select(Warehouse).where(
+                (Warehouse.id == raw_dispatch_id) | (Warehouse.code == raw_dispatch_id),
+                Warehouse.company_id == company_id,
+            )
+            res_disp = await session.execute(q_disp)
+            disp_wh = res_disp.scalars().first()
+
+            if not disp_wh:
+                # Cross-tenant check: if warehouse belongs to another company
+                q_cross = select(Warehouse).where(
+                    (Warehouse.id == raw_dispatch_id) | (Warehouse.code == raw_dispatch_id)
+                )
+                res_cross = await session.execute(q_cross)
+                cross_wh = res_cross.scalars().first()
+                if cross_wh and cross_wh.company_id != company_id:
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"SMRITI-LOC-001: Cross-tenant dispatch location reference forbidden. Warehouse '{raw_dispatch_id}' belongs to another company.",
+                    )
+                if req.dispatch_from_location_id or req.context.dispatch_from_location_id:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"SMRITI-LOC-002: Dispatch location '{raw_dispatch_id}' not found for company '{company_id}'.",
+                    )
+
+            if disp_wh:
+                if disp_wh.is_deleted or not disp_wh.is_active:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"SMRITI-LOC-003: Dispatch location '{disp_wh.name}' ({disp_wh.code}) is inactive or decommissioned.",
+                    )
+
+                disp_pin = str(disp_wh.pincode or "").strip()
+                if not disp_pin or not disp_pin.isdigit() or len(disp_pin) != 6:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"SMRITI-LOC-004: Dispatch location '{disp_wh.code}' has missing or invalid 6-digit Indian PIN code '{disp_wh.pincode}'.",
+                    )
+                if not disp_wh.state:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"SMRITI-LOC-005: Dispatch location '{disp_wh.code}' is missing state information.",
+                    )
+
+                state_code_map = {v.lower(): k for k, v in GST_STATE_CODES.items()}
+                disp_state_code = state_code_map.get(disp_wh.state.strip().lower())
+                if not disp_state_code:
+                    if comp_obj and comp_obj.gst_number and len(comp_obj.gst_number) >= 2 and comp_obj.gst_number[:2].isdigit():
+                        disp_state_code = comp_obj.gst_number[:2]
+                    else:
+                        disp_state_code = "27"
+
+                dispatch_from_location_id = disp_wh.id
+                dispatch_from_snapshot = {
+                    "location_id": disp_wh.id,
+                    "code": disp_wh.code,
+                    "name": getattr(comp_obj, "name", "Tattly Threads"),
+                    "location_name": disp_wh.name,
+                    "address_line1": disp_wh.address or "",
+                    "address_line2": "",
+                    "city": disp_wh.city or "",
+                    "district": disp_wh.city or "",
+                    "state": disp_wh.state or "Maharashtra",
+                    "state_code": disp_state_code,
+                    "pincode": disp_pin,
+                    "gstin": getattr(comp_obj, "gst_number", "27AAXFT2508H1ZR") or "27AAXFT2508H1ZR",
+                    "contact_person": disp_wh.contact_person,
+                    "phone": disp_wh.phone,
+                }
+
+        # 9. Persist SalesInvoice
         invoice_id = f"inv-{uuid.uuid4().hex[:12]}"
         db_invoice = SalesInvoice(
             id=invoice_id,
@@ -437,6 +521,8 @@ class CanonicalSalesPostingWriter:
             billing_address=req.billing_address or (getattr(db_customer, "address", None) if db_customer else None),
             shipping_address=req.shipping_address or req.billing_address,
             warehouse_id=warehouse_id,
+            dispatch_from_location_id=dispatch_from_location_id,
+            dispatch_from_snapshot=dispatch_from_snapshot,
             shift_id=shift_id,
             terminal_id=req.context.terminal_id,
             counter_id=req.context.counter_id,

@@ -90,4 +90,9 @@ export interface TaxInvoiceDocumentState {
   billedPartyGstinId?: string | null;
   placeOfSupplyCode?: string | null;
   poReference?: string | null;
+  // Canonical Physical Origin / Dispatch From
+  dispatchFromLocationId?: string | null;
+  dispatchFromSnapshot?: any | null;
+  dispatchFromAddress?: string | null;
+  dispatchFromName?: string | null;
 }

@@ -212,6 +212,48 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
         data-purpose="transaction-context-strip"
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 min-w-[1100px]">
+          {/* Card 0A: Bill From */}
+          <div
+            className="group relative bg-white border border-slate-200 rounded-lg p-2 transition-all duration-150 flex items-center space-x-2.5"
+          >
+            <div className="w-8 h-8 rounded bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center flex-none font-bold text-sm">
+              <Building2 className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider leading-none">
+                Bill From
+              </div>
+              <div className="text-xs font-bold text-slate-900 truncate mt-0.5 leading-tight">
+                Tattly Threads
+              </div>
+              <div className="text-[11px] text-slate-500 leading-none mt-0.5 font-mono">
+                Mumbai (27)
+              </div>
+            </div>
+          </div>
+
+          {/* Card 0B: Dispatch From */}
+          <div
+            onClick={() => togglePopover("dispatch")}
+            className="group relative bg-white border border-blue-200 hover:border-blue-400 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
+          >
+            <div className="w-8 h-8 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center flex-none font-bold text-sm">
+              <Truck className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase font-bold text-blue-700 tracking-wider leading-none">
+                Dispatch From
+              </div>
+              <div className="text-xs font-bold text-slate-900 truncate mt-0.5 leading-tight font-mono">
+                {docState.dispatchFromLocationId === "wh-central-001" ? "WH-MAIN" : (docState.dispatchFromLocationId === "wh-shop-001" ? "WH-SHOP" : "WH-NGP")}
+              </div>
+              <div className="text-[11px] text-slate-500 leading-none mt-0.5 truncate">
+                {docState.dispatchFromName ? docState.dispatchFromName.replace("Tattly Threads ", "") : "Nagpur Depot"}
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 flex-none" />
+          </div>
+
           {/* Card 1: Customer (Active State) */}
           <div
             onClick={() => togglePopover("customer")}
@@ -510,6 +552,81 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                   <span className="text-[10px] text-slate-400">
                     Compliant with GST e-Invoice &amp; NIC E-Way Bill specifications.
                   </span>
+                </div>
+              </div>
+            )}
+
+            {/* Popover 0B: Dispatch From Location */}
+            {activePopover === "dispatch" && (
+              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
+                <div>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                    <h3 className="font-bold text-slate-900 text-xs">Dispatch From (Physical Origin)</h3>
+                    <button
+                      type="button"
+                      onClick={() => setActivePopover(null)}
+                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="mb-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Select Physical Dispatch Godown / Depot</label>
+                    <select
+                      aria-label="Dispatch From Location"
+                      data-testid="dist-dispatch-from-select"
+                      value={docState.dispatchFromLocationId || "wh-ngp-001"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const whList = [
+                          { id: "wh-ngp-001", code: "WH-NGP", name: "Tattly Threads Nagpur Depot", address: "Om Sai Nagar, Kalamana", city: "Nagpur", state: "Maharashtra", state_code: "27", pincode: "440029" },
+                          { id: "wh-central-001", code: "WH-MAIN", name: "Central Distribution Godown", address: "Plot 12, Industrial Estate", city: "Mumbai", state: "Maharashtra", state_code: "27", pincode: "400001" },
+                          { id: "wh-shop-001", code: "WH-SHOP", name: "Retail Floor & Display Shelf", address: "Office No. 81, Ibrahim Rehmatullah Road", city: "Mumbai", state: "Maharashtra", state_code: "27", pincode: "400003" },
+                        ];
+                        const sel = whList.find(w => w.id === val || w.code === val) || whList[0];
+                        onChange({
+                          dispatchFromLocationId: sel.id,
+                          dispatchFromName: sel.name,
+                          dispatchFromAddress: `${sel.address}, ${sel.city}, ${sel.state} - ${sel.pincode}`,
+                          dispatchFromSnapshot: {
+                            location_id: sel.id,
+                            code: sel.code,
+                            name: "Tattly Threads",
+                            location_name: sel.name,
+                            address_line1: sel.address,
+                            city: sel.city,
+                            district: sel.city,
+                            state: sel.state,
+                            state_code: sel.state_code,
+                            pincode: sel.pincode,
+                            gstin: "27AAXFT2508H1ZR",
+                          }
+                        });
+                      }}
+                      className="mt-1 w-full text-xs font-medium border border-slate-300 rounded px-2 py-1.5 bg-slate-50"
+                    >
+                      <option value="wh-ngp-001">[WH-NGP] Tattly Threads Nagpur Depot — Nagpur (440029)</option>
+                      <option value="wh-central-001">[WH-MAIN] Central Distribution Godown — Mumbai (400001)</option>
+                      <option value="wh-shop-001">[WH-SHOP] Retail Floor &amp; Display Shelf — Mumbai (400003)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5 text-[11px]">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Warehouse:</span>
+                      <span className="font-mono font-bold text-slate-900">{docState.dispatchFromName || "Tattly Threads Nagpur Depot"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Address:</span>
+                      <p className="text-slate-700 text-[10px] leading-relaxed mt-0.5">
+                        {docState.dispatchFromAddress || "Om Sai Nagar, Kalamana, Nagpur, Maharashtra - 440029"}
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-slate-100">
+                      <span className="text-[10px] text-slate-400">
+                        Physical origin location for E-Way Bill &amp; transport documentation.
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

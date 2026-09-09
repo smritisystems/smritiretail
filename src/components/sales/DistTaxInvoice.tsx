@@ -86,6 +86,23 @@ const DEFAULT_DOC_STATE: TaxInvoiceDocumentState = {
   paymentDetails: [],
   addonsAndDeductions: [],
   documentRemarks: "",
+  // Canonical Physical Origin / Dispatch From (Configured Tattly Threads Depot)
+  dispatchFromLocationId: "wh-ngp-001",
+  dispatchFromName: "Tattly Threads Nagpur Depot",
+  dispatchFromAddress: "Om Sai Nagar, Kalamana, Nagpur, Maharashtra - 440029",
+  dispatchFromSnapshot: {
+    location_id: "wh-ngp-001",
+    code: "WH-NGP",
+    name: "Tattly Threads",
+    location_name: "Tattly Threads Nagpur Depot",
+    address_line1: "Om Sai Nagar, Kalamana",
+    city: "Nagpur",
+    district: "Nagpur",
+    state: "Maharashtra",
+    state_code: "27",
+    pincode: "440029",
+    gstin: "27AAXFT2508H1ZR",
+  },
 };
 
 export const calculateTaxInvoiceMetrics = (

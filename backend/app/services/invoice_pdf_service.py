@@ -410,6 +410,19 @@ class InvoicePdfService:
         dispatch_email = meta.get("dispatch_email", "dispatch@tattlythreads.com")
         accounts_email = meta.get("accounts_email", "accounts@tattlythreads.com")
 
+        # Resolve Dispatch From Snapshot (Statutory Physical Origin)
+        dispatch_from = getattr(invoice, "dispatch_from_snapshot", None) or meta.get("dispatch_from_snapshot") or {}
+        dispatch_name = dispatch_from.get("name") or company_name
+        dispatch_addr1 = dispatch_from.get("address_line1") or ""
+        dispatch_addr2 = dispatch_from.get("address_line2") or ""
+        dispatch_city = dispatch_from.get("city") or ""
+        dispatch_state = dispatch_from.get("state") or ""
+        dispatch_pin = str(dispatch_from.get("pincode") or "")
+        dispatch_addr_parts = [p for p in [dispatch_addr1, dispatch_addr2] if p]
+        dispatch_addr_joined = ", ".join(dispatch_addr_parts)
+        dispatch_city_state_pin = f"{dispatch_city}, {dispatch_state} - {dispatch_pin}".strip(" ,-")
+        has_separate_dispatch = bool(dispatch_addr_joined or dispatch_city_state_pin)
+
         grand_total = Decimal(str(invoice.grand_total or 0))
 
         # Barcode & Compliance-Aware QR Generation (Backend-Driven Compliance State)
@@ -697,6 +710,16 @@ class InvoicePdfService:
                           <div class="company-gstin">
                             GSTIN: <span class="gstin-val">{company_gstin}</span>
                           </div>
+                          {f'''
+                          <div style="margin-top: 4px; padding-top: 3px; border-top: 1px dashed #cbd5e1;">
+                            <div style="font-size: 7.2pt; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px;">DISPATCH FROM</div>
+                            <div style="font-size: 8.5pt; font-weight: 700; color: #0f172a;">{dispatch_name}</div>
+                            <div class="company-details">
+                              {f'<div>{dispatch_addr_joined}</div>' if dispatch_addr_joined else ''}
+                              {f'<div>{dispatch_city_state_pin}</div>' if dispatch_city_state_pin else ''}
+                            </div>
+                          </div>
+                          ''' if has_separate_dispatch else ''}
                         </div>
                       </div>
                     </td>

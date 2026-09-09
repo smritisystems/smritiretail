@@ -381,6 +381,17 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
             <p className="text-gray-950 font-extrabold mt-1.5 font-mono text-[12.5px] tracking-wide">
               GSTIN: <span className="text-blue-900 font-black tracking-wider">{data.companyGst || "27AAXFT2508H1ZR"}</span>
             </p>
+            {((data as any).dispatchFromSnapshot || (data as any).dispatch_from_snapshot || (data as any).dispatchFromAddress) && (
+              <div className="mt-2 pt-1.5 border-t border-dashed border-gray-300">
+                <div className="text-blue-800 font-bold uppercase text-[9px] tracking-wider mb-0.5">DISPATCH FROM</div>
+                <p className="font-bold text-gray-900 text-xs">{((data as any).dispatchFromSnapshot?.name || (data as any).dispatch_from_snapshot?.name || "Tattly Threads")}</p>
+                <p className="text-gray-700 text-[10.5px] leading-relaxed font-medium">
+                  {((data as any).dispatchFromSnapshot?.address_line1 || (data as any).dispatch_from_snapshot?.address_line1 || (data as any).dispatchFromAddress || "Om Sai Nagar, Kalamana")}
+                  <br />
+                  {((data as any).dispatchFromSnapshot?.city || (data as any).dispatch_from_snapshot?.city || "Nagpur")}, {((data as any).dispatchFromSnapshot?.state || (data as any).dispatch_from_snapshot?.state || "Maharashtra")} - {((data as any).dispatchFromSnapshot?.pincode || (data as any).dispatch_from_snapshot?.pincode || "440029")}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

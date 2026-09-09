@@ -89,6 +89,8 @@ class SalesInvoice(BaseEntity):
     ack_date                = Column(String(100))
     signed_qr_payload       = Column(Text)
     warehouse_id            = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=True)
+    dispatch_from_location_id = Column(String(50), ForeignKey("warehouses.id", ondelete="SET NULL"), nullable=True, index=True)
+    dispatch_from_snapshot  = Column(JSONB, nullable=True)
 
     # v1373 -- Sprint 14/15: Salesperson, Terminal, Payment extension
     salesperson_id   = Column(String(50),    nullable=True, index=True)
@@ -106,6 +108,7 @@ class SalesInvoice(BaseEntity):
     billed_party_gstin = relationship("CustomerGSTRegistration", foreign_keys=[billed_party_gstin_id])
     billing_location = relationship("CustomerBillingLocation", foreign_keys=[billing_location_id])
     customer_purchase_order = relationship("CustomerPurchaseOrder", foreign_keys=[customer_po_id])
+    dispatch_from_location = relationship("Warehouse", foreign_keys=[dispatch_from_location_id])
 
 
 
