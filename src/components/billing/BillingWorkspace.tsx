@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 4.14.0
  * Created      : 2026-09-08
- * Modified     : 2026-09-08
+ * Modified     : 2026-09-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Single Consolidated Billing Workspace Component (Phase 2C Step 13)
@@ -99,6 +99,33 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
       if (e.key === "F1") {
         e.preventDefault();
         setAuxView("WORKSPACE");
+        return;
+      }
+
+      // Alt+1: Retail POS Mode
+      if (e.altKey && e.key === "1") {
+        e.preventDefault();
+        setAuxView("WORKSPACE");
+        setActiveMode("RETAIL_POS");
+        showToast("Mode Switched", "Retail POS Mode Active (Alt+1)", "info");
+        return;
+      }
+
+      // Alt+2: B2B Statutory Tax Invoice Mode
+      if (e.altKey && e.key === "2") {
+        e.preventDefault();
+        setAuxView("WORKSPACE");
+        setActiveMode("B2B_INVOICE");
+        showToast("Mode Switched", "B2B Statutory Tax Invoice Mode Active (Alt+2)", "info");
+        return;
+      }
+
+      // Alt+3: Wholesale Sizing Matrix Mode
+      if (e.altKey && e.key === "3") {
+        e.preventDefault();
+        setAuxView("WORKSPACE");
+        setActiveMode("WHOLESALE_MATRIX");
+        showToast("Mode Switched", "Wholesale Sizing Matrix Mode Active (Alt+3)", "info");
         return;
       }
 
