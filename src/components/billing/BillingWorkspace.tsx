@@ -14,11 +14,11 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Product, POSProfile, Shift, Customer } from "../../types.ts";
-import { SmritiProPosBillinginal } from "./propos/ProPosBillingTerm.tsx";
+import { SmritiProPosBillingTerminal } from "./propos/ProPosBillingTerm.tsx";
 import { BillingTerm } from "./BillingTerm.tsx";
 import { DistTaxInvoice } from "../sales/DistTaxInvoice.tsx";
-import { SmritiProPosEodReportw } from "./propos/ProPosEodReportVie.tsx";
-import { SmritiDailyReportsDashDashboard } from "./propos/ProPosDailyReports.tsx";
+import { SmritiProPosEodReport } from "./propos/ProPosEodReportVie.tsx";
+import { SmritiDailyReportsDashboard } from "./propos/ProPosDailyReports.tsx";
 import {
   Receipt,
   FileText,
@@ -256,7 +256,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
       {/* ── Main Workspace Body ── */}
       <div className="flex-1 overflow-hidden relative">
         {auxView === "EOD_Z_REPORT" ? (
-          <SmritiProPosEodReportw
+          <SmritiProPosEodReport
             onCommitCloseout={(eod) => {
               showToast("Register Closed", `Z-Report committed for shift ${eod.shiftId}`, "success");
               setAuxView("WORKSPACE");
@@ -264,9 +264,9 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             onNotification={showToast}
           />
         ) : auxView === "SHIFT_REPORTS" ? (
-          <SmritiDailyReportsDashDashboard />
+          <SmritiDailyReportsDashboard />
         ) : activeMode === "RETAIL_POS" ? (
-          <SmritiProPosBillinginal onNotification={showToast} shiftId={activeShift?.id} />
+          <SmritiProPosBillingTerminal onNotification={showToast} shiftId={activeShift?.id} />
         ) : activeMode === "B2B_INVOICE" ? (
           <DistTaxInvoice
             onNotification={showToast}

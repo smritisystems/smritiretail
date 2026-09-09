@@ -36,13 +36,13 @@ import {
   RefreshCw
 } from "lucide-react";
 
-interface SmritiProPosEodReportwProps {
+interface SmritiProPosEodReportProps {
   initialEod?: EodRegisterCloseout;
   onCommitCloseout: (eod: EodRegisterCloseout) => void;
   onNotification?: (title: string, msg: string, type: "success" | "error") => void;
 }
 
-export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
+export const SmritiProPosEodReport: React.FC<SmritiProPosEodReportProps> = ({
   initialEod,
   onCommitCloseout,
   onNotification
@@ -492,4 +492,4 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
   );
 };
 
-export default SmritiProPosEodReportw;
+export default SmritiProPosEodReport;

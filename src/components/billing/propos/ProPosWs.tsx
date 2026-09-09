@@ -13,10 +13,11 @@
  */
 
 import React, { useState } from "react";
-import { SmritiProPosEodReportw } from "./ProPosEodReportVie.tsx";
-import { SmritiDailyReportsDashDashboard } from "./ProPosDailyReports.tsx";
-import { SmritiPromotionEngineine } from "./ProPosPromotionEng.tsx";
-import { SmritiCommissionBuildilder } from "./ProPosCommissionBu.tsx";
+import { ENTERPRISE_BILLING_SUITE_VERSION_LABEL } from "../../../config/version.ts";
+import { SmritiProPosEodReport } from "./ProPosEodReportVie.tsx";
+import { SmritiDailyReportsDashboard } from "./ProPosDailyReports.tsx";
+import { SmritiPromotionEngine } from "./ProPosPromotionEng.tsx";
+import { SmritiCommissionBuilder } from "./ProPosCommissionBu.tsx";
 import { BillingTerm } from "../BillingTerm.tsx";
 import { Product, POSProfile, Shift } from "../../../types.ts";
 import { 
@@ -72,7 +73,7 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a] animate-pulse"></span>
             <h1 className="text-sm font-bold text-[#00288e] dark:text-[#a8b8ff] tracking-tight flex items-center gap-1.5">
               <span>Enterprise Billing Suite</span>
-              <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">v6.16</span>
+              <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">{ENTERPRISE_BILLING_SUITE_VERSION_LABEL}</span>
             </h1>
           </div>
 
@@ -168,7 +169,7 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
           />
         )}
         {activeTab === "EOD_Z_REPORT" && (
-          <SmritiProPosEodReportw
+          <SmritiProPosEodReport
             onCommitCloseout={(eod) => {
               showToast("Register Closed", `Z-Report committed for shift ${eod.shiftId}`, "success");
             }}
@@ -176,13 +177,13 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
           />
         )}
         {activeTab === "DAILY_REPORTS" && (
-          <SmritiDailyReportsDashDashboard />
+          <SmritiDailyReportsDashboard />
         )}
         {activeTab === "PROMOTIONS" && (
-          <SmritiPromotionEngineine />
+          <SmritiPromotionEngine />
         )}
         {activeTab === "COMMISSIONS" && (
-          <SmritiCommissionBuildilder />
+          <SmritiCommissionBuilder />
         )}
       </div>
 
