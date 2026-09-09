@@ -16,7 +16,7 @@ import uuid
 import logging
 from decimal import Decimal
 from datetime import datetime, timezone, date, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from fastapi import HTTPException
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1111,6 +1111,128 @@ class UnifiedAccountingLedgerService:
         )
 
     @classmethod
+    async def post_bank_deposit_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        amount: Decimal,
+        bank_account_code: str = "1020",
+        cash_account_code: str = "1010",
+        deposit_date: Optional[Union[date, str]] = None,
+        reference_no: Optional[str] = None,
+        reference_doc_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        narration: Optional[str] = None,
+        created_by: Optional[str] = None,
+        bank_account_id: Optional[str] = None,
+        cash_account_id: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        Translates a physical cash drawer deposit / bank deposit slip into an authoritative
+        double-entry GL voucher:
+            Debit: Bank Accounts (1020 or specific bank account) = amount
+            Credit: Cash in Hand (1010 or specific cash drawer) = amount
+        Provides strict idempotency protection based on reference_doc_id / reference_no.
+        """
+        deposit_amt = Decimal(str(amount)).quantize(Decimal("0.01"))
+        if deposit_amt <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Deposit amount must be greater than zero.")
+
+        # Idempotency check: check if voucher already exists for this deposit slip or reference
+        if reference_doc_id:
+            existing_stmt = select(JournalVoucher).where(
+                JournalVoucher.company_id == company_id,
+                JournalVoucher.reference_doc_type == "BANK_DEPOSIT",
+                JournalVoucher.reference_doc_id == str(reference_doc_id),
+                JournalVoucher.is_deleted == False
+            )
+            existing_v = (await session.execute(existing_stmt)).scalar_one_or_none()
+            if existing_v:
+                return existing_v
+        elif reference_no:
+            existing_stmt = select(JournalVoucher).where(
+                JournalVoucher.company_id == company_id,
+                JournalVoucher.reference_doc_type == "BANK_DEPOSIT",
+                JournalVoucher.reference_doc_no == str(reference_no),
+                JournalVoucher.is_deleted == False
+            )
+            existing_v = (await session.execute(existing_stmt)).scalar_one_or_none()
+            if existing_v:
+                return existing_v
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        # Resolve bank account
+        acc_bank = None
+        if bank_account_id:
+            acc_bank = (await session.execute(
+                select(Account).where(
+                    Account.id == bank_account_id,
+                    Account.company_id == company_id,
+                    Account.is_deleted == False
+                )
+            )).scalar_one_or_none()
+        if not acc_bank:
+            acc_bank = await cls.get_account_by_code(session, company_id, bank_account_code)
+
+        # Resolve cash account
+        acc_cash = None
+        if cash_account_id:
+            acc_cash = (await session.execute(
+                select(Account).where(
+                    Account.id == cash_account_id,
+                    Account.company_id == company_id,
+                    Account.is_deleted == False
+                )
+            )).scalar_one_or_none()
+        if not acc_cash:
+            acc_cash = await cls.get_account_by_code(session, company_id, cash_account_code)
+
+        # Normalize voucher date
+        if isinstance(deposit_date, str):
+            try:
+                voucher_date = date.fromisoformat(deposit_date[:10])
+            except Exception:
+                voucher_date = date.today()
+        elif isinstance(deposit_date, date):
+            voucher_date = deposit_date
+        else:
+            voucher_date = date.today()
+
+        lines = [
+            {
+                "account_id": acc_bank.id,
+                "debit_amount": deposit_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Bank deposit to {acc_bank.account_name} ({reference_no or 'Cash Deposit'})"
+            },
+            {
+                "account_id": acc_cash.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": deposit_amt,
+                "remarks": f"Cash drawer deposit transfer ({reference_no or 'Deposit Slip'})"
+            }
+        ]
+
+        ref_id = str(reference_doc_id) if reference_doc_id else (reference_no or f"DEP-{uuid.uuid4().hex[:8]}")
+        ref_no = reference_no or f"SLIP-{ref_id[:12]}"
+        default_narration = f"Automated bank cash deposit slip {ref_no} for amount ₹{deposit_amt}"
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="BANK_DEPOSIT",
+            voucher_date=voucher_date,
+            lines=lines,
+            reference_doc_type="BANK_DEPOSIT",
+            reference_doc_id=ref_id,
+            reference_doc_no=ref_no,
+            narration=narration or default_narration,
+            created_by=created_by or "bank_deposit_engine"
+        )
+
+    @classmethod
     async def dispatch_outbox_event(
         cls,
         event: Any,
@@ -1269,6 +1391,32 @@ class UnifiedAccountingLedgerService:
                     company_id=company_id,
                     shift_id=str(shift_id),
                     branch_id=branch_id
+                )
+
+            # F. Bank Deposit / Cash Transfer posting
+            elif (
+                event_type in ["BANK_DEPOSIT_POSTED", "CASH_DEPOSIT_RECORDED", "BANK_DEPOSIT"]
+                or inner_event_type in ["BANK_DEPOSIT_POSTED", "CASH_DEPOSIT_RECORDED"]
+                or aggregate_type in ["BANK_DEPOSIT", "CASH_DEPOSIT"]
+            ):
+                amount = payload.get("amount") or payload.get("deposit_amount")
+                if amount is None:
+                    logger.warning("[UnifiedLedger] Missing amount for BANK_DEPOSIT event: %s", payload)
+                    return None
+                return await cls.post_bank_deposit_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    amount=Decimal(str(amount)),
+                    bank_account_code=payload.get("bank_account_code") or "1020",
+                    cash_account_code=payload.get("cash_account_code") or "1010",
+                    deposit_date=payload.get("deposit_date"),
+                    reference_no=payload.get("reference_no") or payload.get("slip_number") or payload.get("ref_no"),
+                    reference_doc_id=payload.get("deposit_id") or aggregate_id or payload.get("id"),
+                    branch_id=branch_id,
+                    narration=payload.get("narration"),
+                    created_by=payload.get("created_by"),
+                    bank_account_id=payload.get("bank_account_id"),
+                    cash_account_id=payload.get("cash_account_id")
                 )
 
             logger.info("[UnifiedLedger] Outbox event '%s' ignored by accounting ledger dispatcher.", event_type)

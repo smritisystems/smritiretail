@@ -929,6 +929,30 @@ class POSService:
             created_by=requesting_user_id
         )
 
+        # Stage transactional outbox event for shift close
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            event_type="SHIFT_CLOSED",
+            aggregate_type="SHIFT",
+            aggregate_id=shift.id,
+            payload={
+                "shift_id": shift.id,
+                "register_id": shift.register_id,
+                "cashier_id": shift.cashier_id,
+                "branch_id": self.tenant.branch_id,
+                "opening_balance": float(shift.opening_balance or 0),
+                "closing_balance": float(shift.closing_balance or 0),
+                "expected_cash": float(shift.expected_cash or 0),
+                "variance": float(shift.variance or 0),
+                "closed_at": shift.closed_at.isoformat() if shift.closed_at else None,
+                "closed_by": requesting_user_id
+            },
+            target_channel="POS_STREAM"
+        )
+
         await self.db.commit()
         await self.db.refresh(shift)
         return shift
