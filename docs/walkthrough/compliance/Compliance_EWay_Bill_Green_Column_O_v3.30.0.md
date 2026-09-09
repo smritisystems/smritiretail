@@ -32,14 +32,11 @@ Generate compliant statutory NIC E-Way Bill payloads (v1.0.1118) for the 22 sale
 
 ## 3. Files Created
 1. `backend/scripts/generate_green_column_o_eway_bills.py` — Statutory E-Way Bill generation, validation, and packaging engine.
-2. `F:\Smriti-Clients Data\Eway\Green_Column_O_Invoices_JSON\` — Dedicated separate folder with 22 individual JSON files (`TT2026-2027_145_Eway.json` to `TT2026-2027_193_Eway.json`).
-3. `F:\Smriti-Clients Data\Eway\EWayBill_Bulk_Upload_Green_Column_O_22_Invoices.json` — Consolidated bulk upload JSON (666,243 bytes).
-4. `F:\Smriti-Clients Data\Eway\EWayBill_Generation_Register_Green_Column_O_22_Invoices.xlsx` — Formatted consignment Excel register.
-5. `F:\Smriti-Clients Data\Eway\EWayBill_Generation_Register_Green_Column_O_22_Invoices.7z` — High-compression LZMA2 archive.
-6. `F:\Smriti-Clients Data\08-09-2026\Green_Column_O_Invoices_JSON\` — Mirrored separate folder for direct client access.
-7. `F:\Smriti-Clients Data\08-09-2026\EWayBill_Bulk_Upload_Green_Column_O_22_Invoices.json` — Mirrored bulk upload JSON.
-8. `F:\Smriti-Clients Data\08-09-2026\EWayBill_Generation_Register_Green_Column_O_22_Invoices.xlsx` — Mirrored consignment register.
-9. `F:\Smriti-Clients Data\08-09-2026\EWayBill_Generation_Register_Green_Column_O_22_Invoices.7z` — Mirrored archive.
+2. `F:\Smriti-Clients Data\Eway\ewayupdated\` — Dedicated separate folder with 22 clean Part-A individual JSON files (`TT2026-2027_145_Eway.json` to `TT2026-2027_193_Eway.json`) with all transport details left blank.
+3. `F:\Smriti-Clients Data\Eway\ewayupdated\EWayBill_Bulk_Upload_ewayupdated.json` — Consolidated bulk upload JSON (665,253 bytes).
+4. `F:\Smriti-Clients Data\Eway\ewayupdated\EWayBill_Generation_Register_ewayupdated.xlsx` — Formatted consignment Excel register for Part-A.
+5. `F:\Smriti-Clients Data\Eway\ewayupdated\EWayBill_Generation_Register_ewayupdated.7z` — High-compression LZMA2 archive (60,175 bytes).
+6. `F:\Smriti-Clients Data\08-09-2026\ewayupdated\` — Mirrored separate folder for direct client access with identical clean Part-A payloads.
 
 ---
 
