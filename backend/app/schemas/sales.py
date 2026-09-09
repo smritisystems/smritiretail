@@ -114,6 +114,9 @@ class SalesInvoiceBase(BaseModel):
     source_document_line_id:  Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_document_line_id", "sourceDocumentLineId"))
     psv_party_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_party_id", "psvPartyId"))
     psv_store_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_store_id", "psvStoreId"))
+    # Statutory GST Physical Origin / Dispatch From
+    dispatch_from_location_id: Optional[str] = Field(None, max_length=50,  validation_alias=AliasChoices("dispatch_from_location_id", "dispatchFromLocationId"))
+    dispatch_from_snapshot:    Optional[dict] = Field(None,                validation_alias=AliasChoices("dispatch_from_snapshot", "dispatchFromSnapshot"))
 
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50)
@@ -123,6 +126,8 @@ class SalesInvoiceUpdate(BaseModel):
     invoice_no: Optional[str] = None
     date: Optional[datetime_date] = None
     customer_id: Optional[str] = None
+    dispatch_from_location_id: Optional[str] = None
+    dispatch_from_snapshot: Optional[dict] = None
     tax_total: Optional[Decimal] = None
     grand_total: Optional[Decimal] = None
     is_interstate: Optional[bool] = None

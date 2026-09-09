@@ -103,6 +103,9 @@ export interface InvoiceData {
   status?: string;
   isInterstate?: boolean;
   is_interstate?: boolean;
+  dispatch_from_snapshot?: any;
+  dispatchFromSnapshot?: any;
+  dispatchFromAddress?: string;
   items?: InvoiceItem[];
 }
 
@@ -413,6 +416,18 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                       <p className="text-[10.5px] text-slate-800 font-bold mt-0.5 m-0">
                         GSTIN: <span className="font-mono">{companyGst}</span>
                       </p>
+                      {((data as any).dispatchFromSnapshot || (data as any).dispatch_from_snapshot || (data as any).dispatchFromAddress) && (
+                        <div className="mt-2 pt-1.5 border-t border-dashed border-slate-300">
+                          <div className="text-blue-900 font-bold uppercase text-[9px] tracking-wider mb-0.5">DISPATCH FROM</div>
+                          <p className="font-bold text-slate-900 text-[10.5px] m-0">{((data as any).dispatchFromSnapshot?.name || (data as any).dispatch_from_snapshot?.name || companyName)}</p>
+                          <p className="text-slate-600 text-[10px] leading-tight m-0">
+                            {((data as any).dispatchFromSnapshot?.address_line1 || (data as any).dispatch_from_snapshot?.address_line1 || (data as any).dispatchFromAddress)}
+                            {((data as any).dispatchFromSnapshot?.city || (data as any).dispatch_from_snapshot?.city) ? `, ${((data as any).dispatchFromSnapshot?.city || (data as any).dispatch_from_snapshot?.city)}` : ""}
+                            {((data as any).dispatchFromSnapshot?.state || (data as any).dispatch_from_snapshot?.state) ? `, ${((data as any).dispatchFromSnapshot?.state || (data as any).dispatch_from_snapshot?.state)}` : ""}
+                            {((data as any).dispatchFromSnapshot?.pincode || (data as any).dispatch_from_snapshot?.pincode) ? ` - ${((data as any).dispatchFromSnapshot?.pincode || (data as any).dispatch_from_snapshot?.pincode)}` : ""}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="text-right flex flex-col items-end">

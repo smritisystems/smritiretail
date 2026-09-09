@@ -456,8 +456,8 @@ class EWayBillService:
         company_name = company.name if company else "SMRITI Enterprise"
         company_state_code = int(company_gstin[:2]) if company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit() else 27
 
-        customer_gstin = (getattr(customer, 'canonical_gstin', None) or getattr(customer, 'gstin', None) or "URP") if customer else "URP"
-        customer_name = customer.name if customer else "Walk-in Retailer"
+        customer_gstin = getattr(invoice, 'customer_gstin', None) or ((getattr(customer, 'canonical_gstin', None) or getattr(customer, 'gstin', None) or "URP") if customer else "URP")
+        customer_name = getattr(invoice, 'customer_name', None) or (customer.name if customer else "Walk-in Retailer")
         customer_state_code = int(customer_gstin[:2]) if customer_gstin and customer_gstin != "URP" and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit() else company_state_code
 
         is_inter_state = company_state_code != customer_state_code
@@ -530,6 +530,39 @@ class EWayBillService:
         )
         is_threshold_applicable = float(invoice.grand_total) >= float(threshold_value)
 
+        # Canonical Physical Origin / Dispatch From Resolution
+        disp_snap = getattr(invoice, "dispatch_from_snapshot", None) or {}
+        comp_pin = 400003
+        
+        has_disp = bool(disp_snap and (disp_snap.get("address_line1") or disp_snap.get("city") or disp_snap.get("pincode")))
+        disp_addr1 = (disp_snap.get("address_line1") or getattr(company, "address", "Office No. 81, Ibrahim Rehmatullah Road") if company else "Office No. 81, Ibrahim Rehmatullah Road")[:120]
+        disp_addr2 = (disp_snap.get("address_line2") or (disp_snap.get("location_name") or "Depot"))[:120]
+        disp_place = (disp_snap.get("city") or "Nagpur" if has_disp else "Mumbai")[:50]
+        
+        raw_disp_pin = disp_snap.get("pincode")
+        disp_pin = int(raw_disp_pin) if (raw_disp_pin and str(raw_disp_pin).isdigit()) else (440029 if has_disp else comp_pin)
+        
+        raw_disp_sc = disp_snap.get("state_code")
+        act_from_state = int(raw_disp_sc) if (raw_disp_sc and str(raw_disp_sc).isdigit()) else company_state_code
+
+        # Delivery Site / Destination Resolution
+        deliv_snap = getattr(invoice, "delivery_location_snapshot", None) or {}
+        deliv_gstin = getattr(invoice, "delivery_gstin", None) or deliv_snap.get("gstin") or customer_gstin
+        act_to_state = int(deliv_gstin[:2]) if (deliv_gstin and len(deliv_gstin) >= 2 and deliv_gstin[:2].isdigit()) else customer_state_code
+        
+        # Determine Statutory NIC Transaction Type (transType: 1=Regular, 2=BillTo-ShipTo, 3=BillFrom-DispatchFrom, 4=Combination)
+        is_dispatch_diff = has_disp and (disp_pin != comp_pin or act_from_state != company_state_code or "NAGPUR" in disp_place.upper())
+        is_ship_diff = (act_to_state != customer_state_code)
+        
+        if is_dispatch_diff and is_ship_diff:
+            trans_type = 4
+        elif is_dispatch_diff:
+            trans_type = 3
+        elif is_ship_diff:
+            trans_type = 2
+        else:
+            trans_type = 1
+
         eway_payload = {
             "version": "1.0.0",
             "compliance": {
@@ -544,26 +577,31 @@ class EWayBillService:
                 {
                     "userGstin": company_gstin,
                     "supplyType": "O",
-                    "subSupplyType": "1", # 1 = Supply
+                    "subSupplyType": 1, # 1 = Supply
                     "docType": "INV",
                     "docNo": invoice.invoice_no,
                     "docDate": doc_date,
-                    "transType": "1",
+                    "transType": trans_type,
+                    # Bill From: Supplier Legal Registered Identity & State
                     "fromGstin": company_gstin,
                     "fromTrdName": company_name,
-                    "fromAddr1": getattr(company, 'address', "Plot 12, Industrial Estate") if company else "Plot 12, Industrial Estate",
-                    "fromAddr2": "Central Warehouse",
-                    "fromPlace": "Mumbai",
-                    "fromPincode": 400001,
-                    "actFromStateCode": company_state_code,
                     "fromStateCode": company_state_code,
+                    # Dispatch From: Physical Origin of Goods per NIC Rule 10
+                    "fromAddr1": disp_addr1,
+                    "fromAddr2": disp_addr2,
+                    "fromPlace": disp_place,
+                    "fromPincode": disp_pin,
+                    "actualFromStateCode": act_from_state,
+                    "actFromStateCode": act_from_state,
+                    # Bill To & Ship To: Consignee & Delivery Destination
                     "toGstin": customer_gstin,
                     "toTrdName": customer_name,
-                    "toAddr1": getattr(customer, 'address', None) or getattr(invoice, 'billing_address', None) or "Retail Market Shop",
-                    "toAddr2": "Commercial District",
-                    "toPlace": getattr(customer, 'city', None) or getattr(invoice, 'pos_state', None) or "Mumbai",
-                    "toPincode": 400002,
-                    "actToStateCode": customer_state_code,
+                    "toAddr1": (getattr(customer, 'address', None) or getattr(invoice, 'shipping_address', None) or getattr(invoice, 'billing_address', None) or "Retail Market Shop")[:120],
+                    "toAddr2": (getattr(invoice, 'site_name', None) or "Commercial Destination")[:120],
+                    "toPlace": (getattr(customer, 'city', None) or getattr(invoice, 'pos_state', None) or "Destination")[:50],
+                    "toPincode": int(deliv_snap.get("pincode")) if (deliv_snap.get("pincode") and str(deliv_snap.get("pincode")).isdigit()) else 400002,
+                    "actualToStateCode": act_to_state,
+                    "actToStateCode": act_to_state,
                     "toStateCode": customer_state_code,
                     "totalValue": round(taxable_tot, 2),
                     "cgstValue": cgst_val,
