@@ -29,7 +29,7 @@ from app.core.security import create_access_token
 from app.services.analytics_daemon import AnalyticsDaemonService
 
 
-def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:
+def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "MAIN") -> dict:
     """Helper to generate JWT auth headers with tenant claims."""
     token = create_access_token(
         data={
@@ -42,7 +42,7 @@ def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branc
             "is_active": True,
         }
     )
-    return {"Authorization": f"Bearer {token}", "x-company-id": "001"}
+    return {"Authorization": f"Bearer {token}", "x-company-id": "001", "x-branch-id": branch_id}
 
 
 @pytest.mark.asyncio
