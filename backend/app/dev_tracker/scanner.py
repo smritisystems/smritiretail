@@ -18,7 +18,7 @@ Founders
 
 * Version    : 1.0.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-09-09
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -129,6 +129,15 @@ MODULES_MAP = {
         "tables": [],
         "tests": ["about", "changelog"],
         "docs": ["about", "changelog", "readme"]
+    },
+    "billing-workspace": {
+        "name": "Billing Workspace",
+        "category": "Sales & POS",
+        "frontend": "BillingWorkspace.tsx",
+        "routes": ["billing", "pos", "sales", "payments", "invoices"],
+        "tables": ["sales_invoices", "pos_transactions", "shift_cash_transactions", "payment_transactions", "shifts"],
+        "tests": ["canonical_sales_writer", "pos", "payments", "billing", "invoice"],
+        "docs": ["billing", "pos", "sales", "walkthrough"]
     }
 }
 
