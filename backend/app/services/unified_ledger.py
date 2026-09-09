@@ -6,13 +6,14 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-09-09
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
 import uuid
+import logging
 from decimal import Decimal
 from datetime import datetime, timezone, date, timedelta
 from typing import Dict, Any, List, Optional
@@ -20,6 +21,8 @@ from fastapi import HTTPException
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+logger = logging.getLogger("smriti.unified_ledger")
 
 from ..models.accounting import (
     Account,
@@ -455,6 +458,17 @@ class UnifiedAccountingLedgerService:
         if not inv:
             raise HTTPException(status_code=404, detail=f"Sales invoice {invoice_id} not found.")
 
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SALES_INVOICE",
+            JournalVoucher.reference_doc_id == invoice_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
         # Ensure COA is present
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
@@ -582,6 +596,17 @@ class UnifiedAccountingLedgerService:
         receipt = (await session.execute(stmt)).scalar_one_or_none()
         if not receipt:
             raise HTTPException(status_code=404, detail=f"Purchase receipt {receipt_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "PURCHASE_RECEIPT",
+            JournalVoucher.reference_doc_id == receipt_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
 
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
@@ -806,6 +831,16 @@ class UnifiedAccountingLedgerService:
         if not payment:
             raise HTTPException(status_code=404, detail=f"Payment transaction {payment_id} not found.")
 
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_id == payment_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
         tender_type = (payment.tender_type or "CASH").upper()
@@ -892,6 +927,17 @@ class UnifiedAccountingLedgerService:
         audit = (await session.execute(stmt)).scalar_one_or_none()
         if not audit:
             raise HTTPException(status_code=404, detail=f"Stock audit {audit_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "STOCK_AUDIT",
+            JournalVoucher.reference_doc_id == audit_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
 
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
@@ -1064,6 +1110,183 @@ class UnifiedAccountingLedgerService:
             created_by=created_by or shift.cashier_id or "pos_shift_engine"
         )
 
+    @classmethod
+    async def dispatch_outbox_event(
+        cls,
+        event: Any,
+        session: Optional[AsyncSession] = None
+    ) -> Optional[JournalVoucher]:
+        """
+        Authoritative Transactional Outbox Event Dispatcher Adapter for Unified Accounting Ledger.
+        Subscribes to transactional outbox events (SALES_INVOICE_POSTED, PURCHASE_RECEIPT_POSTED,
+        PAYMENT_TRANSACTION_POSTED, STOCK_AUDIT_RECONCILED, SHIFT_CLOSED, etc.) and translates
+        them into balanced, double-entry General Ledger vouchers.
+
+        Guarantees strict idempotency by verifying prior voucher existence before execution.
+        Supports execution both within an existing caller session or in a dedicated per-tenant
+        session resolved via the Control Plane registry.
+        """
+        # 1. Normalize event metadata and payload
+        event_type = (
+            getattr(event, "event_type", None)
+            or (event.get("event_type") if isinstance(event, dict) else "")
+            or ""
+        ).strip().upper()
+
+        payload = getattr(event, "payload_json", None) or (event.get("payload_json") if isinstance(event, dict) else None)
+        if payload is None:
+            payload = getattr(event, "payload", None) or (event.get("payload") if isinstance(event, dict) else {})
+        if isinstance(payload, str):
+            try:
+                import json
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+
+        company_id = (
+            getattr(event, "company_id", None)
+            or (event.get("company_id") if isinstance(event, dict) else None)
+            or payload.get("company_id")
+            or payload.get("company_code")
+        )
+        branch_id = (
+            getattr(event, "branch_id", None)
+            or (event.get("branch_id") if isinstance(event, dict) else None)
+            or payload.get("branch_id")
+        )
+        aggregate_type = (
+            getattr(event, "aggregate_type", None)
+            or (event.get("aggregate_type") if isinstance(event, dict) else None)
+            or payload.get("aggregate_type")
+            or ""
+        ).strip().upper()
+        aggregate_id = (
+            getattr(event, "aggregate_id", None)
+            or (event.get("aggregate_id") if isinstance(event, dict) else None)
+            or payload.get("aggregate_id")
+        )
+
+        inner_event_type = (
+            payload.get("event_type") or payload.get("action") or ""
+        ).strip().upper()
+
+        if not company_id:
+            logger.warning("[UnifiedLedger] Outbox event missing company_id; cannot dispatch: %s", event)
+            return None
+
+        # 2. Worker execution handler
+        async def _execute_posting(target_session: AsyncSession) -> Optional[JournalVoucher]:
+            # A. Sales Invoice posting
+            if (
+                event_type in ["SALES_INVOICE_POSTED", "CANONICAL_SALES_INVOICE_POSTED"]
+                or inner_event_type in ["CANONICALSALESINVOICEPOSTEDEVENT", "SALES_INVOICE_POSTED"]
+                or aggregate_type == "SALES_INVOICE"
+            ):
+                invoice_id = payload.get("invoice_id") or aggregate_id or payload.get("id")
+                if not invoice_id:
+                    logger.warning("[UnifiedLedger] Missing invoice_id for SALES_INVOICE_POSTED event: %s", payload)
+                    return None
+                return await cls.post_sales_invoice_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    invoice_id=str(invoice_id),
+                    branch_id=branch_id
+                )
+
+            # B. Purchase Receipt posting
+            elif (
+                event_type in ["PURCHASE_RECEIPT_POSTED", "PURCHASE_RECEIPT_COMPLETED"]
+                or inner_event_type in ["PURCHASE_RECEIPT_COMPLETED", "PURCHASE_RECEIPT_POSTED"]
+                or aggregate_type == "PURCHASE_RECEIPT"
+            ):
+                receipt_id = payload.get("receipt_id") or aggregate_id or payload.get("id")
+                if not receipt_id and payload.get("receipt_no"):
+                    from ..models.purchase import PurchaseReceipt
+                    stmt_rcpt = select(PurchaseReceipt).where(
+                        PurchaseReceipt.receipt_no == payload["receipt_no"],
+                        PurchaseReceipt.company_id == company_id
+                    )
+                    rcpt_obj = (await target_session.execute(stmt_rcpt)).scalars().first()
+                    if rcpt_obj:
+                        receipt_id = rcpt_obj.id
+
+                if not receipt_id:
+                    logger.warning("[UnifiedLedger] Missing receipt_id for PURCHASE_RECEIPT event: %s", payload)
+                    return None
+                return await cls.post_purchase_receipt_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    receipt_id=str(receipt_id),
+                    branch_id=branch_id
+                )
+
+            # C. Payment Transaction posting
+            elif (
+                event_type in ["PAYMENT_TRANSACTION_POSTED", "PAYMENT_PROCESSED", "PAYMENT_SUCCESS"]
+                or inner_event_type in ["PAYMENT_TRANSACTION_POSTED", "PAYMENT_PROCESSED"]
+                or aggregate_type == "PAYMENT_TRANSACTION"
+            ):
+                payment_id = payload.get("payment_id") or aggregate_id or payload.get("id")
+                if not payment_id:
+                    logger.warning("[UnifiedLedger] Missing payment_id for PAYMENT event: %s", payload)
+                    return None
+                return await cls.post_payment_transaction_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    payment_id=str(payment_id),
+                    branch_id=branch_id
+                )
+
+            # D. Physical Stock Audit posting
+            elif (
+                event_type in ["STOCK_AUDIT_RECONCILED", "STOCK_AUDIT_POSTED"]
+                or inner_event_type in ["STOCK_AUDIT_RECONCILED"]
+                or aggregate_type == "STOCK_AUDIT"
+            ):
+                audit_id = payload.get("audit_id") or aggregate_id or payload.get("id")
+                if not audit_id:
+                    logger.warning("[UnifiedLedger] Missing audit_id for STOCK_AUDIT event: %s", payload)
+                    return None
+                return await cls.post_stock_audit_reconciliation_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    audit_id=str(audit_id),
+                    branch_id=branch_id
+                )
+
+            # E. Shift Close / Z-Report posting
+            elif (
+                event_type in ["SHIFT_CLOSED", "POS_SHIFT_CLOSED"]
+                or inner_event_type in ["SHIFT_CLOSED"]
+                or aggregate_type in ["SHIFT", "POS_SHIFT"]
+            ):
+                shift_id = payload.get("shift_id") or aggregate_id or payload.get("id")
+                if not shift_id:
+                    logger.warning("[UnifiedLedger] Missing shift_id for SHIFT event: %s", payload)
+                    return None
+                return await cls.post_shift_close_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    shift_id=str(shift_id),
+                    branch_id=branch_id
+                )
+
+            logger.info("[UnifiedLedger] Outbox event '%s' ignored by accounting ledger dispatcher.", event_type)
+            return None
+
+        # 3. Session routing
+        if session is not None:
+            voucher = await _execute_posting(session)
+            await session.flush()
+            return voucher
+        else:
+            from ..db.session import resolve_company_database_name, get_company_sessionmaker
+            target_db = await resolve_company_database_name(company_id)
+            session_factory = get_company_sessionmaker(target_db)
+            async with session_factory() as sess:
+                voucher = await _execute_posting(sess)
+                await sess.commit()
+                return voucher
 
     @classmethod
     async def generate_period_balance_snapshot(
