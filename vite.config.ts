@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.17.0
+ * * Version    : 3.30.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-08-26
+ * * Modified   : 2026-09-09
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -66,32 +66,65 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // ── Vendor: React core (must be first to prevent circular chunk) ─
+          if (
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/") ||
+            id.includes("/node_modules/scheduler/")
+          ) {
+            return "vendor-react";
+          }
+          // ── Vendor: TanStack Query ───────────────────────────────────────
+          if (id.includes("@tanstack")) {
+            return "vendor-query";
+          }
+          // ── Vendor: Charts + D3 ─────────────────────────────────────────
+          if (id.includes("recharts") || id.includes("/d3-")) {
+            return "vendor-charts";
+          }
+          // ── Vendor: Icons ───────────────────────────────────────────────
+          if (id.includes("lucide-react") || id.includes("@material-symbols")) {
+            return "vendor-icons";
+          }
+          // ── Vendor: Animation ───────────────────────────────────────────
+          if (id.includes("motion") || id.includes("framer")) {
+            return "vendor-motion";
+          }
+          // ── Vendor: Documents (xlsx, jspdf, html2canvas) ────────────────
+          if (id.includes("xlsx") || id.includes("jspdf") || id.includes("html2canvas")) {
+            return "vendor-documents";
+          }
+          // ── Vendor: Everything else ──────────────────────────────────────
           if (id.includes("node_modules")) {
-            if (id.includes("recharts") || id.includes("d3")) {
-              return "vendor-charts";
-            }
-            if (id.includes("lucide-react") || id.includes("@material-symbols")) {
-              return "vendor-icons";
-            }
-            if (id.includes("motion")) {
-              return "vendor-motion";
-            }
-            if (id.includes("xlsx") || id.includes("jspdf") || id.includes("html2canvas")) {
-              return "vendor-documents";
-            }
             return "vendor-core";
           }
 
-          if (id.includes("/src/components/")) {
-            if (id.includes("SalesStudioTab")) return "smriti-sales-studio";
-            if (id.includes("PurchaseStudioTab")) return "smriti-purchase-studio";
-            if (id.includes("ReportDesignerTab")) return "smriti-report-designer";
-            if (id.includes("TermsEngineTab")) return "smriti-terms-engine";
-            if (id.includes("BarcodeStudioTab")) return "smriti-barcode-studio";
-            if (id.includes("PrintPreviewModal")) return "smriti-print-preview";
-            if (id.includes("DashboardTab")) return "smriti-dashboard";
+          // ── SMRITI: Business Engines ────────────────────────────────────
+          if (id.includes("/src/utils/") && id.includes("Engine")) {
+            return "smriti-engines";
           }
 
+          // ── SMRITI: Billing (largest standalone workspace) ───────────────
+          if (id.includes("BillingWorkspace") || id.includes("/billing/")) {
+            return "smriti-billing";
+          }
+
+          // ── SMRITI: Named Studio Tabs ────────────────────────────────────
+          if (id.includes("SalesStudioTab")) return "smriti-sales-studio";
+          if (id.includes("PurchaseStudioTab")) return "smriti-purchase-studio";
+          if (id.includes("ReportDesignerTab")) return "smriti-report-designer";
+          if (id.includes("TermsEngineTab")) return "smriti-terms-engine";
+          if (id.includes("BarcodeStudioTab")) return "smriti-barcode-studio";
+          if (id.includes("PrintPreviewModal")) return "smriti-print-preview";
+          if (id.includes("DashboardTab")) return "smriti-dashboard";
+
+          // ── SMRITI: Feature Tabs ─────────────────────────────────────────
+          if (id.includes("CRMTab") || id.includes("/crm/")) return "smriti-crm";
+          if (id.includes("InventoryTab") || id.includes("/inventory/")) return "smriti-inventory";
+          if (id.includes("AccountsTab") || id.includes("/accounts/")) return "smriti-accounts";
+          if (id.includes("SettingsTab") || id.includes("/settings/")) return "smriti-settings";
+
+          // ── SMRITI: Shared Infrastructure ────────────────────────────────
           if (id.includes("/src/lib/")) return "app-lib";
           if (id.includes("/src/services/")) return "app-services";
           if (id.includes("/src/contexts/")) return "app-contexts";
