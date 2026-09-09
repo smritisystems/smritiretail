@@ -465,6 +465,20 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [suspendedBills, setSuspendedBills] = useState<{ id: string; header: BillingHeaderState; items: BillingLineItem[]; date: string; netAmount: number }[]>([]);
   const [lastCompletedInvoice, setLastCompletedInvoice] = useState<any>(null);
 
+  const hasGstProfile = Boolean(headerState.customer?.gstNumber || headerState.billedGstin);
+
+  const openSettlement = () => {
+    if (items.length === 0) {
+      onNotification?.("Settlement", "Add items to invoice before opening settlement.", "error");
+      return;
+    }
+    if (!hasGstProfile) {
+      onNotification?.("GST profile pending", "Add a customer GSTIN before opening settlement.", "error");
+      return;
+    }
+    setShowSettlementModal(true);
+  };
+
   // Fullscreen State & Terminal Ref
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
@@ -787,8 +801,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         }
       } else if (e.key === "F8") {
         e.preventDefault();
-        if (items.length > 0) setShowSettlementModal(true);
-        else onNotification?.("Settlement", "Add items to invoice before opening settlement.", "error");
+        openSettlement();
       } else if (e.key === "F12") {
         e.preventDefault();
         handleSuspendInvoice();
@@ -1647,10 +1660,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             {/* Settlement F8 Primary Action */}
             <button
               type="button"
-              onClick={() => {
-                if (items.length > 0) setShowSettlementModal(true);
-                else alert("Add items before settlement.");
-              }}
+              disabled={items.length === 0 || !hasGstProfile}
+              onClick={openSettlement}
               className="h-9 px-4 bg-primary hover:bg-primary-container text-on-primary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
               title="Settlement (F8)"
             >

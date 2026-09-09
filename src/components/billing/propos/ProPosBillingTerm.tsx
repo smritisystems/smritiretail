@@ -72,12 +72,12 @@ import {
   Lock
 } from "lucide-react";
 
-interface SmritiProPosBillinginalProps {
+interface SmritiProPosBillingTerminalProps {
   onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
   shiftId?: string;
 }
 
-export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = ({
+export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalProps> = ({
   onNotification,
   shiftId,
 }) => {
@@ -1861,5 +1861,5 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
   );
 };
 
-export default SmritiProPosBillinginal;
+export default SmritiProPosBillingTerminal;
 
