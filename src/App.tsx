@@ -31,12 +31,10 @@ import { LayoutManager } from "./layout_engine/layout_manager.tsx";
 
 // Synchronously imported (lightweight or frequently used)
 import { DashboardTab } from "./components/DashboardTab.tsx";
-import { PosTerminalTab } from "./components/PosTerminalTab.tsx";
 import { FieldExplorerTab } from "./components/FieldExplorerTab.tsx";
 import { FormulaRegistryTab } from "./components/FormulaRegistryTab.tsx";
 import { PsvTab } from "./components/PsvTab.tsx";
 import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
-import { AdvancedBillingEngine } from "./components/AdvancedBillingEng.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
 import { SupplierDashboardTab } from "./components/SupplierDashTab.tsx";
@@ -1817,13 +1815,15 @@ const AppContent: React.FC = () => {
       case "day-end":
       case "eod-report":
         return (
-          <PosTerminalTab
+          <BillingWorkspace
             products={products}
             profiles={profiles}
             shifts={shifts}
+            currentUser={currentUser}
             onRefreshData={fetchSystemState}
             onNotification={addNotification}
-            initialTab="EOD_Z_REPORT"
+            initialMode="RETAIL_POS"
+            initialView="EOD_Z_REPORT"
           />
         );
       case "crm":
