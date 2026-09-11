@@ -219,8 +219,10 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     cleanEndpoint = cleanEndpoint.replace(/^\/api\/v1/, "");
   }
 
-  const baseUrl = typeof window !== "undefined" && window.location?.origin 
-    ? "" 
+  const browserHost = typeof window !== "undefined" ? window.location?.hostname : "";
+  const isLocalBrowser = browserHost === "localhost" || browserHost === "127.0.0.1";
+  const baseUrl = typeof window !== "undefined" && window.location?.origin
+    ? (isLocalBrowser ? "http://127.0.0.1:8000" : "")
     : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:8000");
   const url = applyQueryParams(
     `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`,
