@@ -47,6 +47,7 @@ import { ItemBrowseOverlayModal } from "./ItemBrowseOverlayD.tsx";
 import { PdtImportModal } from "./PdtImportModal.tsx";
 import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
+import { InvoicingTransactionBrowserModal, InvoicingBrowserTab } from "./InvoicingTransactionBrowserModal.tsx";
 import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel.tsx";
 import type { TransactionAttachment } from "../../domain/attachment";
 import { 
@@ -460,6 +461,17 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
+  const [showTransactionBrowserModal, setShowTransactionBrowserModal] = useState<boolean>(false);
+  const [isReadOnlyView, setIsReadOnlyView] = useState<boolean>(false);
+  const [loadedDocMetadata, setLoadedDocMetadata] = useState<{
+    id: string;
+    docNo: string;
+    docType: string;
+    status: string;
+    date: string;
+    customerName: string;
+    grandTotal: number;
+  } | null>(null);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [showAttachmentPanel, setShowAttachmentPanel] = useState<boolean>(false);
   const [suspendedBills, setSuspendedBills] = useState<{ id: string; header: BillingHeaderState; items: BillingLineItem[]; date: string; netAmount: number }[]>([]);
@@ -518,9 +530,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Quick Action Handlers
   const handleNewInvoice = () => {
-    if (items.length > 0) {
+    if (!isReadOnlyView && items.length > 0) {
       if (!window.confirm("Start a new invoice? Current unsaved items will be cleared.")) return;
     }
+    setIsReadOnlyView(false);
+    setLoadedDocMetadata(null);
     setItems([]);
     setHeaderState(prev => ({
       ...prev,
@@ -799,6 +813,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         } else {
           directStockNoRef.current?.focus();
         }
+      } else if (e.key === "F4" || (e.altKey && e.key === "6")) {
+        e.preventDefault();
+        setShowTransactionBrowserModal(true);
       } else if (e.key === "F8") {
         e.preventDefault();
         openSettlement();
@@ -1298,7 +1315,121 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
     setSuspendedBills(prev => prev.filter(b => b.id !== suspended.id));
     setShowRecallModal(false);
+    setIsReadOnlyView(false);
+    setLoadedDocMetadata(null);
     onNotification?.("Invoice Recalled", `Restored bill ${suspended.header.docPrefix}-${suspended.header.docNo}`, "success");
+  };
+
+  // Select and load document from Invoicing Transaction Browser (Read-Only Mode)
+  const handleSelectDocumentFromBrowser = async (docType: InvoicingBrowserTab, doc: any) => {
+    try {
+      if (docType === "SUSPENDED") {
+        handleRecallInvoice(doc);
+        return;
+      }
+
+      let fullDoc = doc;
+      if (doc.id && (docType === "INVOICES" || docType === "CANCELLED")) {
+        try {
+          const fetched = await apiFetchV1<any>(`/sales/invoices/${doc.id}`);
+          if (fetched) fullDoc = fetched;
+        } catch {
+          fullDoc = doc;
+        }
+      } else if (doc.id && docType === "ORDERS") {
+        try {
+          const fetched = await apiFetchV1<any>(`/sales/orders/${doc.id}`);
+          if (fetched) fullDoc = fetched;
+        } catch {
+          fullDoc = doc;
+        }
+      }
+
+      const docNo = fullDoc.invoice_no || fullDoc.order_no || fullDoc.return_no || fullDoc.po_number || "DOC";
+      const dateStr = fullDoc.date || fullDoc.billDate || new Date().toLocaleDateString("en-GB");
+
+      setHeaderState(prev => ({
+        ...prev,
+        docNo: docNo,
+        docPrefix: "",
+        billDate: dateStr,
+        customer: {
+          id: fullDoc.customer_id || "CUST-WALK",
+          name: fullDoc.customer_name || "Counter Walk-in",
+          gstNumber: fullDoc.customer_gstin || "",
+          email: "",
+          phone: "",
+          address: fullDoc.billing_address || "",
+        } as any,
+        billedGstin: fullDoc.customer_gstin || null,
+        billedPartyGstinId: fullDoc.billed_party_gstin_id || null,
+        deliveryLocationId: fullDoc.delivery_location_id || null,
+        deliveryStoreCode: fullDoc.delivery_store_code || null,
+        deliveryGstin: fullDoc.delivery_gstin || null,
+        deliveryLocationSnapshot: fullDoc.delivery_location_snapshot || null,
+        placeOfSupplyCode: fullDoc.place_of_supply_code || null,
+        poReference: fullDoc.po_reference || fullDoc.po_number || null,
+        remarks: fullDoc.remarks || `Audit View: ${fullDoc.status || "Finalized"}`,
+      }));
+
+      const rawItems = fullDoc.items || [];
+      const mappedItems: BillingLineItem[] = rawItems.map((it: any, idx: number) => {
+        const rate = Number(it.price || it.rate || 0);
+        const qty = Number(it.quantity || it.qty || 1);
+        const taxable = Number(it.taxable_value || (rate * qty));
+        const discAmt = Number(it.disc_amt || 0);
+        const total = Number(it.total_amount || it.total || (taxable + Number(it.tax_amount || 0)));
+        return {
+          id: it.id ? String(it.id) : `audit-item-${idx}`,
+          sNo: idx + 1,
+          stockNo: it.code || it.stock_no || "SKU",
+          barcode: it.barcode || it.ean || it.code || "",
+          itemDescription: it.name || it.description || "Line Item",
+          rate,
+          qty,
+          value: taxable,
+          discCode: "",
+          discQty: 0,
+          discPercent: Number(it.disc_pct || 0),
+          discAmt,
+          total,
+          salesStaff: headerState.salesStaff,
+          productId: it.product_id,
+          hsnCode: it.hsn_code,
+          gstPercentage: Number(it.gst_rate || 0),
+          taxAmount: Number(it.tax_amount || 0),
+          mrp: it.mrp ? Number(it.mrp) : undefined,
+        };
+      });
+
+      setItems(mappedItems);
+      setIsReadOnlyView(true);
+      setLoadedDocMetadata({
+        id: fullDoc.id,
+        docNo: docNo,
+        docType: docType,
+        status: fullDoc.status || "Completed",
+        date: dateStr,
+        customerName: fullDoc.customer_name || "Counter Walk-in",
+        grandTotal: Number(fullDoc.grand_total || fullDoc.total_amount || 0),
+      });
+
+      onNotification?.(
+        "Audit Mode Active",
+        `Loaded ${docNo} in Read-Only Mode. All modifications locked.`,
+        "success"
+      );
+    } catch (err: any) {
+      console.error("[BillingTerm] Failed to inspect document:", err);
+      onNotification?.("Error", "Failed to load document into terminal.", "error");
+    }
+  };
+
+  const handleExitReadOnlyMode = () => {
+    setIsReadOnlyView(false);
+    setLoadedDocMetadata(null);
+    handleNewInvoice();
+    onNotification?.("Active Billing", "Returned to new bill creation mode.", "success");
   };
 
   // Handle PDT Import Items
@@ -1599,6 +1730,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               >
                 <Printer size={18} />
               </button>
+              <button
+                type="button"
+                onClick={() => setShowTransactionBrowserModal(true)}
+                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
+                title="Commercial Transactions & Audit (F4 / Alt+6)"
+              >
+                <History size={18} className="text-secondary" />
+              </button>
             </div>
 
             {/* Vertical Separator */}
@@ -1658,20 +1797,66 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
             {/* Settlement F8 Primary Action */}
-            <button
-              type="button"
-              disabled={items.length === 0 || !hasGstProfile}
-              onClick={openSettlement}
-              className="h-9 px-4 bg-primary hover:bg-primary-container text-on-primary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
-              title="Settlement (F8)"
-            >
-              <CreditCard size={15} />
-              <span>Settle &amp; Save (F8)</span>
-            </button>
+            {isReadOnlyView ? (
+              <button
+                type="button"
+                onClick={() => loadedDocMetadata?.id && void openCanonicalInvoicePrint(loadedDocMetadata.id)}
+                className="h-9 px-4 bg-secondary hover:bg-secondary-container text-on-secondary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
+                title="Print Canonical Document"
+              >
+                <Printer size={15} />
+                <span>Print Document</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={items.length === 0 || !hasGstProfile}
+                onClick={openSettlement}
+                className="h-9 px-4 bg-primary hover:bg-primary-container text-on-primary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
+                title="Settlement (F8)"
+              >
+                <CreditCard size={15} />
+                <span>Settle &amp; Save (F8)</span>
+              </button>
+            )}
 
           </div>
         </div>
       </header>
+
+      {/* Audit Read-Only Mode Banner */}
+      {isReadOnlyView && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-margin-page py-2.5 flex items-center justify-between animate-in fade-in shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white font-mono uppercase tracking-wider">
+              Audit Read-Only Mode
+            </span>
+            <div className="text-xs text-amber-950 dark:text-amber-200">
+              Viewing finalized document <strong className="font-mono font-bold">{loadedDocMetadata?.docNo}</strong> • Status: <span className="font-bold uppercase">{loadedDocMetadata?.status}</span> • All modifications locked
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {loadedDocMetadata?.id && (
+              <button
+                type="button"
+                onClick={() => void openCanonicalInvoicePrint(loadedDocMetadata.id)}
+                className="px-3 py-1 bg-primary text-on-primary hover:bg-primary-container rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Printer size={13} />
+                <span>Print A4 PDF</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleExitReadOnlyMode}
+              className="px-3 py-1 bg-surface-container-highest hover:bg-surface-container border border-outline-variant text-on-surface rounded text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw size={13} />
+              <span>Exit Audit Mode (Ctrl+N)</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="border-b border-outline-variant bg-surface-container-lowest/95 px-margin-page py-2 shadow-xs">
         <div className="max-w-container-max-width mx-auto flex flex-wrap items-center gap-2 text-[11px] font-semibold">
@@ -2189,17 +2374,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       {item.salesStaff}
                     </td>
                     <td className="px-2 py-2 text-center">
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleRemoveItem(item.id);
-                        }}
-                        className="text-on-surface-variant hover:text-error transition-colors p-1 cursor-pointer"
-                        title="Delete Row"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {!isReadOnlyView && (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleRemoveItem(item.id);
+                          }}
+                          className="text-on-surface-variant hover:text-error transition-colors p-1 cursor-pointer"
+                          title="Delete Row"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -2902,6 +3089,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           onClose={() => setShowPrintModal(false)}
         />
       )}
+
+      {/* 7. Commercial Transactions & Audit Browser Modal (F4 / Alt+6) */}
+      <InvoicingTransactionBrowserModal
+        isOpen={showTransactionBrowserModal}
+        onClose={() => setShowTransactionBrowserModal(false)}
+        onSelectDocument={handleSelectDocumentFromBrowser}
+        onPrintPdf={(docId) => void openCanonicalInvoicePrint(docId)}
+        onNotification={(title, msg, type) => onNotification?.(title, msg, type === "error" ? "error" : "success")}
+      />
+
 
     </div>
   );

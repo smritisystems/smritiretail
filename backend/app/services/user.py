@@ -29,6 +29,7 @@ from ..schemas.user import (
     UserPreferencesSchema, NotificationSettings
 )
 from ..core.security import hash_password, verify_password, validate_password_strength
+from ..api.deps import TenantContext
 
 
 def to_staff_response(user: User) -> StaffUserResponse:
@@ -114,8 +115,17 @@ def to_staff_response(user: User) -> StaffUserResponse:
 
 
 class UserService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, tenant: TenantContext | None = None):
         self.db = db
+        self.tenant = tenant
+
+    def _tenant_scope(self, query, tenant: TenantContext | None = None):
+        active_tenant = tenant or self.tenant
+        if active_tenant and active_tenant.company_id:
+            query = query.where(User.company_id == active_tenant.company_id)
+        if active_tenant and active_tenant.branch_id:
+            query = query.where(User.branch_id == active_tenant.branch_id)
+        return query
 
     # ------------------------------------------------------------------
     # Create user (SYSADMIN only)
@@ -200,10 +210,10 @@ class UserService:
     # ------------------------------------------------------------------
     # Get single user
     # ------------------------------------------------------------------
-    async def get_user(self, user_id: str) -> User:
-        res = await self.db.execute(
-            select(User).where(User.id == user_id, User.is_deleted == False)
-        )
+    async def get_user(self, user_id: str, tenant: TenantContext | None = None) -> User:
+        query = select(User).where(User.id == user_id, User.is_deleted == False)
+        query = self._tenant_scope(query, tenant)
+        res = await self.db.execute(query)
         user = res.scalars().first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found.")
@@ -294,7 +304,14 @@ class UserService:
         emp_id = req.employeeId or f"EMP-{random.randint(1000, 9999)}"
         emp_code = req.employeeCode or f"EMP-{random.randint(1000, 9999)}"
         display_name = req.displayName or (req.fullName.split(" ")[0] if req.fullName else "")
-        pwd = req.passwordHash or "smriti123"
+        supplied_password = req.passwordHash or req.password
+        if not supplied_password:
+            raise HTTPException(
+                status_code=400,
+                detail="A temporary password is required when creating a staff account.",
+            )
+        validate_password_strength(supplied_password)
+        pwd = supplied_password
         hashed = hash_password(pwd)
 
         salary_str = req.salary.json() if req.salary else json.dumps({
@@ -335,13 +352,21 @@ class UserService:
             "policyAnnouncements": True
         })
 
-        # Resolve company_id from branch
-        comp_id = None
-        if req.branchId:
-            br_q = select(Branch).where(Branch.id == req.branchId)
+        # Resolve and validate company/branch from the authenticated tenant.
+        comp_id = self.tenant.company_id if self.tenant else None
+        branch_id = req.branchId or (self.tenant.branch_id if self.tenant else None)
+        if not comp_id or not branch_id:
+            if not branch_id:
+                raise HTTPException(status_code=400, detail="A company and branch context are required to create staff.")
+        if self.tenant and self.tenant.company_id and req.branchId and req.branchId != self.tenant.branch_id:
+            raise HTTPException(status_code=403, detail="Staff must be created in the active branch context.")
+        if branch_id:
+            br_q = select(Branch).where(Branch.id == branch_id)
+            if comp_id:
+                br_q = br_q.where(Branch.company_id == comp_id)
             br_obj = (await self.db.execute(br_q)).scalars().first()
             if not br_obj:
-                raise HTTPException(status_code=400, detail=f"Branch with ID '{req.branchId}' does not exist.")
+                raise HTTPException(status_code=400, detail=f"Branch with ID '{branch_id}' does not exist in the active company.")
             comp_id = br_obj.company_id
 
         allowed_br = json.dumps(req.allowedBranches) if req.allowedBranches else json.dumps([req.branch or "Andheri West, Mumbai"])
@@ -356,7 +381,7 @@ class UserService:
             is_active=True,
             is_deleted=False,
             company_id=comp_id,
-            branch_id=req.branchId,
+            branch_id=branch_id,
             employee_id=emp_id,
             employee_code=emp_code,
             display_name=display_name,
@@ -392,8 +417,8 @@ class UserService:
         await self.db.refresh(user)
         return to_staff_response(user)
 
-    async def update_staff_user(self, user_id: str, req: StaffUserUpdate, requesting_user: User) -> StaffUserResponse:
-        user = await self.get_user(user_id)
+    async def update_staff_user(self, user_id: str, req: StaffUserUpdate, requesting_user: User, tenant: TenantContext | None = None) -> StaffUserResponse:
+        user = await self.get_user(user_id, tenant=tenant)
         is_self = (requesting_user.id == user_id)
         is_manager = (requesting_user.role in [UserRole.MANAGER, UserRole.SYSADMIN])
 
@@ -408,6 +433,7 @@ class UserService:
                 user.status = req.status
                 user.is_active = (req.status == "Active")
             if req.passwordHash is not None:
+                validate_password_strength(req.passwordHash)
                 user.hashed_password = hash_password(req.passwordHash)
             if req.department is not None: user.department = req.department
             if req.designation is not None: user.designation = req.designation
@@ -489,9 +515,11 @@ class UserService:
         limit: int = 50,
         role_filter: str | None = None,
         status_filter: str | None = None,
-        search: str | None = None
+        search: str | None = None,
+        tenant: TenantContext | None = None,
     ) -> tuple[int, list[StaffUserResponse]]:
         q = select(User).where(User.is_deleted == False)
+        q = self._tenant_scope(q, tenant)
         
         if role_filter:
             q = q.where(User.role == role_filter)
@@ -514,10 +542,10 @@ class UserService:
         
         return total, [to_staff_response(u) for u in users_list]
 
-    async def deactivate_staff(self, user_id: str, requesting_user_id: str) -> None:
+    async def deactivate_staff(self, user_id: str, requesting_user_id: str, tenant: TenantContext | None = None) -> None:
         if user_id == requesting_user_id:
             raise HTTPException(status_code=400, detail="You cannot delete your own active operator profile.")
-        user = await self.get_user(user_id)
+        user = await self.get_user(user_id, tenant=tenant)
         if user.role == UserRole.SYSADMIN:
             q = select(func.count()).where(
                 User.role == UserRole.SYSADMIN,

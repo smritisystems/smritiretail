@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-33A901",
+  "entity": "sales_invoice",
+  "capability": "sales_invoice.transaction_browser",
+  "asset_type": "component",
+  "proposed_name": "InvoicingTransactionBrowserModal.tsx",
+  "target_file_path": "src/components/billing/InvoicingTransactionBrowserModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "InvoicingTransactionBrowserModal.tsx",
+  "content_hash": "58d9c91fbde2fda955a693ca7a943bc53261cbe24daadedc03338bb23c54bc8e",
+  "git_commit": "306311f8264467b30815fef60792bb21b9538c71",
+  "issued_at": "2026-09-11T16:12:46.521246+00:00",
+  "expires_at": "2026-09-18T16:12:46.521246+00:00",
+  "status": "ISSUED"
+}
