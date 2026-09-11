@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.18.0
  * Created      : 2026-07-10
- * Modified     : 2026-09-02
+ * Modified     : 2026-09-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -38,6 +38,7 @@ import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
 import { SupplierDashboardTab } from "./components/SupplierDashTab.tsx";
+import { VendorMasterWs } from "./components/vendor/VendorMasterWs.tsx";
 import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownCrumbs.tsx";
@@ -1405,6 +1406,82 @@ interface AppNotification {
   type: "success" | "error" | "info" | "warning";
 }
 
+const mapModuleId = (id: string): string => {
+  const map: Record<string, string> = {
+    launchpad: "launchpad",
+    item_master: "item-master",
+    inventory: "stock-ledger",
+    suppliers: "vendor-360",
+    "supplier-mgmt": "vendor-360",
+    "vendor-360": "vendor-360",
+    "vendor-master": "vendor-360",
+    vendor: "vendor-360",
+    vendors: "vendor-360",
+    supplier: "vendor-360",
+    "supplier-directory": "vendor-360",
+    "supplier_directory": "vendor-360",
+    "vendor_directory": "vendor-360",
+    reports: "report-designer",
+    dev_tracker: "dev-tracker",
+    system: "masters",
+    settings: "profiles",
+    about: "about-smriti",
+    grn: "purchase",
+    "menu-manager": "menu-manager",
+    menu_manager: "menu-manager",
+    menu_studio: "menu-manager",
+    "menu-studio": "menu-manager",
+    "day-close": "day-close",
+    day_close: "day-close",
+    "day-end": "day-close",
+    day_end: "day-close",
+    "eod-report": "day-close",
+    security: "security-management",
+    security_management: "security-management",
+    menu_access: "security-management",
+    "menu-dashboard": "dashboard",
+    "menu-user-profile": "user-profile",
+    billing: "billing-workspace",
+    "billing-workspace": "billing-workspace",
+    billing_workspace: "billing-workspace",
+    pos: "billing-workspace",
+    "menu-pos": "billing-workspace",
+    "menu-billing": "billing-workspace",
+    "create-tax-invoice": "billing-workspace",
+    "dist-invoice": "billing-workspace",
+    "tax-invoice": "billing-workspace",
+    "menu-sales": "sales",
+    "menu-customer-master": "customer-master",
+    "menu-crm": "crm",
+    "menu-loyalty": "loyalty",
+    "menu-inventory": "inventory",
+    "menu-item-master": "item-master",
+    "menu-barcode": "barcode",
+    "menu-stock-ledger": "stock-ledger",
+    "menu-purchase": "purchase",
+    "menu-supplier-mgmt": "vendor-360",
+    "menu-vendor-360": "vendor-360",
+    "menu-business-ledger": "business-ledger",
+    "menu-accounting-sync": "accounting-sync",
+    "menu-reports": "report-designer",
+    "menu-report-designer": "report-designer",
+    "menu-masters": "masters",
+    "menu-ufe": "ufe",
+    "menu-formulas": "formulas",
+    "menu-psv": "psv",
+    "menu-document-series": "document-series",
+    "menu-print-studio": "print-studio",
+    "menu-print-history": "print-history",
+    "menu-terms-engine": "terms-engine",
+    "menu-data-exchange": "data-exchange",
+    "menu-staff-management": "staff-management",
+    "menu-approval-matrix": "approval-matrix",
+    "menu-company-setup": "company-setup",
+    "menu-audit-logs": "audit-logs",
+  };
+  return map[id] || id;
+};
+
 const AppContent: React.FC = () => {
   const toastIdRef = useRef(0);
   const { preferences, addToRecentlyUsed, registeredWorkspaces } = useLayoutEngine();
@@ -1525,8 +1602,13 @@ const AppContent: React.FC = () => {
 
   // Active tab resolution — company-setup is only valid when navigated to explicitly.
   // Never resolve company-setup as the default landing tab from startup.
+  const urlTab = typeof window !== "undefined"
+    ? (new URLSearchParams(window.location.search).get("tab") || new URLSearchParams(window.location.search).get("workspace"))
+    : null;
   const safeLastWorkspace =
-    preferences.lastWorkspace === "company-setup"
+    urlTab
+      ? mapModuleId(urlTab)
+      : preferences.lastWorkspace === "company-setup"
       ? "dashboard"
       : preferences.lastWorkspace;
 
@@ -1712,71 +1794,7 @@ const AppContent: React.FC = () => {
     };
   }, [activeTab, registeredWorkspaces, popOutTab]);
 
-  const mapModuleId = (id: string): string => {
-    const map: Record<string, string> = {
-      launchpad: "launchpad",
-      item_master: "item-master",
-      inventory: "stock-ledger",
-      suppliers: "supplier-mgmt",
-      reports: "report-designer",
-      dev_tracker: "dev-tracker",
-      system: "masters",
-      settings: "profiles",
-      about: "about-smriti",
-      grn: "purchase",
-      "menu-manager": "menu-manager",
-      menu_manager: "menu-manager",
-      menu_studio: "menu-manager",
-      "menu-studio": "menu-manager",
-      "day-close": "day-close",
-      day_close: "day-close",
-      "day-end": "day-close",
-      day_end: "day-close",
-      "eod-report": "day-close",
-      security: "security-management",
-      security_management: "security-management",
-      menu_access: "security-management",
-      "menu-dashboard": "dashboard",
-      "menu-user-profile": "user-profile",
-      billing: "billing-workspace",
-      "billing-workspace": "billing-workspace",
-      billing_workspace: "billing-workspace",
-      pos: "billing-workspace",
-      "menu-pos": "billing-workspace",
-      "menu-billing": "billing-workspace",
-      "create-tax-invoice": "billing-workspace",
-      "dist-invoice": "billing-workspace",
-      "tax-invoice": "billing-workspace",
-      "menu-sales": "sales",
-      "menu-customer-master": "customer-master",
-      "menu-crm": "crm",
-      "menu-loyalty": "loyalty",
-      "menu-inventory": "inventory",
-      "menu-item-master": "item-master",
-      "menu-barcode": "barcode",
-      "menu-stock-ledger": "stock-ledger",
-      "menu-purchase": "purchase",
-      "menu-supplier-mgmt": "supplier-mgmt",
-      "menu-business-ledger": "business-ledger",
-      "menu-accounting-sync": "accounting-sync",
-      "menu-reports": "report-designer",
-      "menu-report-designer": "report-designer",
-      "menu-masters": "masters",
-      "menu-ufe": "ufe",
-      "menu-formulas": "formulas",
-      "menu-psv": "psv",
-      "menu-document-series": "document-series",
-      "menu-print-studio": "print-studio",
-      "menu-print-history": "print-history",
-      "menu-terms-engine": "terms-engine",
-      "menu-data-exchange": "data-exchange",
-      "menu-staff-management": "staff-management",
-      "menu-approval-matrix": "approval-matrix",
-      "menu-company-setup": "company-setup",
-      "menu-audit-logs": "audit-logs",
-    };
-    return map[id] || id;
-  };
+
 
   useEffect(() => {
     const handleMenuSearchNavigation = (event: Event) => {
@@ -1894,7 +1912,10 @@ const AppContent: React.FC = () => {
         );
       case "supplier-mgmt":
       case "vendor-360":
-        return <SupplierDashboardTab currentUser={currentUser} onNotification={addNotification} />;
+      case "vendor-master":
+      case "vendors":
+      case "supplier":
+        return <VendorMasterWs currentUser={currentUser} onNotification={addNotification} />;
       case "report-designer":
         return <ReportDesignerTab currentUser={currentUser} />;
       case "item-master":

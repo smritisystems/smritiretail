@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.17.0
  * Created      : 2026-08-16
- * Modified     : 2026-08-16
+ * Modified     : 2026-09-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -126,7 +126,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           LAUNCHPAD_ITEM,
           { id: 'purchase', title: 'Purchase Orders', icon: 'shopping_cart', isNextBestAction: true },
           { id: 'grn', title: 'Goods Receipt (GRN)', icon: 'local_shipping' },
-          { id: 'supplier-mgmt', title: 'Supplier Directory', icon: 'storefront' },
+          { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
           { id: 'approval-matrix', title: 'PO Approval Matrix', icon: 'rule' },
           { id: 'inventory', title: 'Stock Ledger Impact', icon: 'warehouse' },
           { id: 'reports', title: 'Procurement BI', icon: 'analytics' },
@@ -168,7 +168,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           { id: 'item-master', title: 'Item Master (Browse)', icon: 'inventory_2' },
           { id: 'item-create-grid', title: 'Create Items (Excel Grid)', icon: 'grid_on', isNextBestAction: true },
           { id: 'customer-master', title: 'Customer Master', icon: 'person_search' },
-          { id: 'supplier-mgmt', title: 'Supplier Master', icon: 'storefront' },
+          { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
           { id: 'masters', title: 'Master Registry', icon: 'tune' },
           { id: 'document-series', title: 'Document Series Prefix', icon: 'tag' },
         ],
