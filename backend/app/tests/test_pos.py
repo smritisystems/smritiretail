@@ -628,3 +628,44 @@ async def test_close_shift_contract_url(db_session):
         )
     assert close_r.status_code == 200, close_r.text
     assert close_r.json()["id"] == shift_id
+
+
+async def test_pos_checkout_rejects_rate_exceeding_mrp(db_session):
+    """
+    Statutory Price Validation: Selling price cannot exceed MRP.
+    """
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"mrp{s}")
+    cashier = await _make_user(db_session, f"mrp{s}", comp.id, br.id)
+    reg = await _make_register(db_session, f"mrp{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"mrp{s}", comp.id, br.id, stock=10)
+    shift = await _make_open_shift(db_session, f"mrp{s}", comp.id, br.id, cashier.id, reg.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    payload = {
+        "invoice_no": f"INV-MRP-{s}",
+        "shift_id": shift.id,
+        "payment_mode": "CASH",
+        "grand_total": "1200.00",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1",
+            "price": "1200.00",
+            "mrp": "1000.00",
+            "gst_rate": "0.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            "/api/v1/pos/checkout",
+            json=payload,
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+
+    assert r.status_code == 400
+    assert "Selling price" in r.text
+    assert "cannot exceed MRP" in r.text
+

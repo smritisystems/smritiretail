@@ -1115,6 +1115,12 @@ class POSService:
 
         canon_items = []
         for item in req.items:
+            # Statutory Price Validation: Unit Rate cannot exceed statutory MRP
+            if item.mrp and item.mrp > Decimal("0.00") and item.price > item.mrp:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Selling price (₹{item.price:,.2f}) cannot exceed MRP (₹{item.mrp:,.2f}) for item '{item.name}'."
+                )
             line_base = item.quantity * item.price
             allocated_discount = (bill_discount * line_base / base_total) if base_total else Decimal("0.00")
             disc_pct = (allocated_discount / line_base * Decimal("100")) if line_base else Decimal("0.00")
@@ -1131,6 +1137,7 @@ class POSService:
                     disc_pct=disc_pct,
                     disc_amt=allocated_discount,
                     is_tax_inclusive=False,
+                    mrp=item.mrp,
                 )
             )
 

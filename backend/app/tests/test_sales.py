@@ -1262,3 +1262,41 @@ async def test_convert_quotation_to_invoice(db_session):
     data = r.json()
     assert "id" in data
     assert data["status"] == "Draft"
+
+
+async def test_sales_invoice_rejects_rate_exceeding_mrp(db_session):
+    """POST /sales/invoices rejects selling price exceeding statutory MRP."""
+    import uuid as _u
+    s = _u.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"imrp{s}")
+    cashier = await _make_cashier(db_session, f"imrp{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"imrp{s}", comp.id, br.id)
+    _set_tenant(comp.id, br.id)
+
+    payload = {
+        "invoice_no": f"INV-MRP-{s}",
+        "customer_name": "Walk-in Customer",
+        "payment_mode": "CASH",
+        "grand_total": "1500.00",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1",
+            "price": "1500.00",
+            "mrp": "1000.00",
+            "gst_rate": "0.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            "/api/v1/sales/invoices",
+            json=payload,
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+
+    assert r.status_code == 400, r.text
+    assert "Selling price" in r.text
+    assert "cannot exceed statutory MRP" in r.text
+

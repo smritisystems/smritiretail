@@ -268,6 +268,7 @@ class POSCheckoutItem(BaseModel):
     price:      Decimal
     hsn_code:   Optional[str]     = None
     gst_rate:   Decimal           = Decimal("0.00")
+    mrp:        Optional[Decimal] = None
 
 
 class POSCheckoutRequest(BaseModel):
