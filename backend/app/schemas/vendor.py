@@ -61,12 +61,26 @@ class ContactCategory(str, Enum):
     GENERAL = "GENERAL"
 
 
+from pydantic.alias_generators import to_camel
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Base DTO with CamelCase Serialization & Field Parity
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SMRITICamelModel(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Sub-Entity DTOs
 # ─────────────────────────────────────────────────────────────────────────────
 
-class VendorBankAccountDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class VendorBankAccountDTO(SMRITICamelModel):
 
     id: Optional[str] = None
     bank_name: str
@@ -80,9 +94,7 @@ class VendorBankAccountDTO(BaseModel):
     verified_at: Optional[datetime] = None
 
 
-class VendorContactDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class VendorContactDTO(SMRITICamelModel):
     id: Optional[str] = None
     contact_name: str
     contact_category: str = "GENERAL"
@@ -94,9 +106,7 @@ class VendorContactDTO(BaseModel):
     is_primary: bool = False
 
 
-class VendorAddressDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class VendorAddressDTO(SMRITICamelModel):
     id: Optional[str] = None
     address_type: str = "BILLING"
     address_title: Optional[str] = None
@@ -111,9 +121,7 @@ class VendorAddressDTO(BaseModel):
     is_primary: bool = False
 
 
-class VendorCommercialProfileDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class VendorCommercialProfileDTO(SMRITICamelModel):
     supplier_type: str = "DISTRIBUTOR"
     payment_terms_days: int = 30
     msme_registration_no: Optional[str] = None
@@ -125,7 +133,7 @@ class VendorCommercialProfileDTO(BaseModel):
     outstanding_liability: float = 0.0
 
 
-class VendorComplianceProfileDTO(BaseModel):
+class VendorComplianceProfileDTO(SMRITICamelModel):
     gstin: Optional[str] = None
     pan: Optional[str] = None
     msme_registration_no: Optional[str] = None
@@ -141,9 +149,7 @@ class VendorComplianceProfileDTO(BaseModel):
 # Canonical Vendor DTOs
 # ─────────────────────────────────────────────────────────────────────────────
 
-class VendorSummary(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class VendorSummary(SMRITICamelModel):
     id: str
     code: str
     legal_name: str
@@ -160,9 +166,7 @@ class VendorSummary(BaseModel):
     outstanding: float = 0.0
 
 
-class VendorDetail(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class VendorDetail(SMRITICamelModel):
     id: str
     code: str
     legal_name: str
@@ -190,7 +194,7 @@ class VendorDetail(BaseModel):
     tags: List[str] = Field(default_factory=list)
 
 
-class VendorCreateRequest(BaseModel):
+class VendorCreateRequest(SMRITICamelModel):
     code: Optional[str] = None
     legal_name: str
     trade_name: Optional[str] = None
@@ -217,7 +221,7 @@ class VendorCreateRequest(BaseModel):
     tags: List[str] = Field(default_factory=list)
 
 
-class VendorUpdateRequest(BaseModel):
+class VendorUpdateRequest(SMRITICamelModel):
     legal_name: Optional[str] = None
     trade_name: Optional[str] = None
     gstin: Optional[str] = None
@@ -238,13 +242,13 @@ class VendorUpdateRequest(BaseModel):
     tags: Optional[List[str]] = None
 
 
-class VendorMergeRequest(BaseModel):
+class VendorMergeRequest(SMRITICamelModel):
     primary_vendor_id: str
     secondary_vendor_id: str
     merge_reason: str = "DUPLICATE_CONVERGENCE"
 
 
-class VendorMergeResponse(BaseModel):
+class VendorMergeResponse(SMRITICamelModel):
     success: bool
     primary_vendor_id: str
     secondary_vendor_id: str
