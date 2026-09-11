@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-2E9EFA",
+  "entity": "vendor",
+  "capability": "vendor.scorecard",
+  "asset_type": "component",
+  "proposed_name": "VendorScorecardTab.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/tabs/VendorScorecardTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "90424c73812adae4173067a006664e8bbd8cd58dc83041075195c445e89a2335",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:59.350063+00:00",
+  "expires_at": "2026-09-18T05:21:59.350063+00:00",
+  "status": "ISSUED"
+}

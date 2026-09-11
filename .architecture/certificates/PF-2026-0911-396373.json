@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-396373",
+  "entity": "vendor",
+  "capability": "vendor.merge",
+  "asset_type": "component",
+  "proposed_name": "VendorMergeModal.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/tabs/VendorMergeModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "143f7e68d9c06898721297993675e51198028df080bc7d66b47854264f44affa",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:59.427228+00:00",
+  "expires_at": "2026-09-18T05:21:59.427228+00:00",
+  "status": "ISSUED"
+}

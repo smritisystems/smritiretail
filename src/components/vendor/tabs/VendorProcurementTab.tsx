@@ -16,12 +16,13 @@ import React, { useState, useEffect } from "react";
 import { FileText, Package, ArrowUpRight, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { VendorDetail } from "../../../types/vendor";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
+import { withCapability } from "../../../types/architecture";
 
 interface VendorProcurementTabProps {
   vendor: VendorDetail;
 }
 
-export const VendorProcurementTab: React.FC<VendorProcurementTabProps> = ({ vendor }) => {
+const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -105,3 +106,14 @@ export const VendorProcurementTab: React.FC<VendorProcurementTabProps> = ({ vend
     </div>
   );
 };
+
+export const VendorProcurementTab = withCapability(VendorProcurementTabBase, {
+  entity: "vendor",
+  capability: "vendor.procurement",
+  role: "SPECIALIZED_UI",
+  canonicalOwner: "VendorMasterWs.tsx",
+  decisionId: "ADR-VEND-01",
+});
+
+export default VendorProcurementTab;
+

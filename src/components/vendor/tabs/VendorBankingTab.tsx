@@ -15,6 +15,7 @@
 import React, { useState } from "react";
 import { CreditCard, Plus, Trash2, Star, CheckCircle2, ShieldAlert, Building2 } from "lucide-react";
 import { VendorDetail, VendorBankAccount } from "../../../types/vendor";
+import { withCapability } from "../../../types/architecture";
 
 interface VendorBankingTabProps {
   vendor: VendorDetail;
@@ -22,7 +23,7 @@ interface VendorBankingTabProps {
   isEditing: boolean;
 }
 
-export const VendorBankingTab: React.FC<VendorBankingTabProps> = ({ vendor, onUpdateBanks, isEditing }) => {
+const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdateBanks, isEditing }) => {
   const [showModal, setShowModal] = useState(false);
   const [newBank, setNewBank] = useState<Partial<VendorBankAccount>>({
     bankName: "",
@@ -289,3 +290,14 @@ export const VendorBankingTab: React.FC<VendorBankingTabProps> = ({ vendor, onUp
     </div>
   );
 };
+
+export const VendorBankingTab = withCapability(VendorBankingTabBase, {
+  entity: "vendor",
+  capability: "vendor.banking",
+  role: "SPECIALIZED_UI",
+  canonicalOwner: "VendorMasterWs.tsx",
+  decisionId: "ADR-VEND-01",
+});
+
+export default VendorBankingTab;
+

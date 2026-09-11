@@ -15,6 +15,7 @@
 import React, { useState, useMemo } from "react";
 import { DollarSign, Clock, AlertTriangle, CheckCircle2, CreditCard, ChevronRight } from "lucide-react";
 import { VendorDetail } from "../../../types/vendor";
+import { withCapability } from "../../../types/architecture";
 import SupplierPaymentEngine, { SupplierInvoice, AgingBucket } from "../../../utils/supplierPaymentEngine";
 
 interface VendorPayablesTabProps {
@@ -29,7 +30,7 @@ const BUCKET_STYLES: Record<AgingBucket, { bg: string; border: string; text: str
   CRITICAL:   { bg: "bg-rose-950/30",    border: "border-rose-600/40",    text: "text-rose-400" },
 };
 
-export const VendorPayablesTab: React.FC<VendorPayablesTabProps> = ({ vendor }) => {
+const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor }) => {
   const [invoices, setInvoices] = useState<SupplierInvoice[]>(() => {
     const now = new Date();
     const inv1 = SupplierPaymentEngine.createInvoice({
@@ -133,3 +134,14 @@ export const VendorPayablesTab: React.FC<VendorPayablesTabProps> = ({ vendor }) 
     </div>
   );
 };
+
+export const VendorPayablesTab = withCapability(VendorPayablesTabBase, {
+  entity: "vendor",
+  capability: "vendor.payables",
+  role: "SPECIALIZED_UI",
+  canonicalOwner: "VendorMasterWs.tsx",
+  decisionId: "ADR-VEND-01",
+});
+
+export default VendorPayablesTab;
+
