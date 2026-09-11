@@ -15,6 +15,7 @@
 import React, { useState } from "react";
 import { Users, Phone, Mail, Plus, Trash2, Star, Shield, Briefcase, Truck, CreditCard } from "lucide-react";
 import { VendorDetail, VendorContact, ContactCategory } from "../../../types/vendor";
+import { withCapability } from "../../../types/architecture";
 
 interface VendorContactTabProps {
   vendor: VendorDetail;
@@ -31,7 +32,7 @@ const CATEGORY_BADGES: Record<ContactCategory, { bg: string; text: string; icon:
   OTHER:      { bg: "bg-slate-500/10 border-slate-500/30",  text: "text-slate-400",  icon: <Users size={12} /> },
 };
 
-export const VendorContactTab: React.FC<VendorContactTabProps> = ({ vendor, onUpdateContacts, isEditing }) => {
+const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdateContacts, isEditing }) => {
   const [showModal, setShowModal] = useState(false);
   const [newContact, setNewContact] = useState<Partial<VendorContact>>({
     contactName: "",
@@ -261,3 +262,14 @@ export const VendorContactTab: React.FC<VendorContactTabProps> = ({ vendor, onUp
     </div>
   );
 };
+
+export const VendorContactTab = withCapability(VendorContactTabBase, {
+  entity: "vendor",
+  capability: "vendor.contact",
+  role: "SPECIALIZED_UI",
+  canonicalOwner: "VendorMasterWs.tsx",
+  decisionId: "ADR-VEND-01",
+});
+
+export default VendorContactTab;
+
