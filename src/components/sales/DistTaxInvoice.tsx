@@ -536,7 +536,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
       }));
       setIsSettlementModalOpen(false);
     } catch (err: any) {
-      onNotification?.("Save Error", err?.message || "Failed to commit Tax Invoice to PostgreSQL ledger.", "error");
+      onNotification?.("Save Error", err?.message || "Failed to commit Tax Invoice to database ledger.", "error");
     } finally {
       setIsSaving(false);
     }

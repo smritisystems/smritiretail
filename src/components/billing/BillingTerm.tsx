@@ -1267,7 +1267,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         customer: null
       }));
       setCustomerSearchInput("");
-      onNotification?.("Invoice Suspended", `Bill ${suspended.header.docPrefix}-${suspended.header.docNo} held in PostgreSQL database.`, "success");
+      onNotification?.("Invoice Suspended", `Bill ${suspended.header.docPrefix}-${suspended.header.docNo} held in system database.`, "success");
     } catch {
       // Local fallback
       const suspended = {
@@ -1469,7 +1469,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       setCustomerDeliveryLocations([]);
       setCustomerBillingLocations([]);
       setCustomerSearchInput("");
-      onNotification?.("Settlement Complete", `Invoice ${completedInvoice.invoiceNumber} saved to PostgreSQL database.`, "success");
+      onNotification?.("Settlement Complete", `Invoice ${completedInvoice.invoiceNumber} saved successfully.`, "success");
       onRefreshData?.();
     } catch (err: any) {
       const message = err?.message || "Failed to commit transaction.";

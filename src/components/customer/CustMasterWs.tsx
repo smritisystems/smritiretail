@@ -1024,7 +1024,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
       onNotification?.(
         "Catalogue Saved",
-        `Customer account ${recordToSave.name} (${recordToSave.code}) persisted to PostgreSQL database.`,
+        `Customer account ${recordToSave.name} (${recordToSave.code}) saved successfully.`,
         "success"
       );
     } catch (err: any) {

@@ -92,7 +92,7 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
         method: "POST",
         body: JSON.stringify({ industry: templateName })
       });
-      onNotification("Template Loaded", `Pre-configured template "${templateName}" seeded successfully in Postgres.`, "success");
+      onNotification("Template Loaded", `Pre-configured template "${templateName}" loaded successfully.`, "success");
       await fetchAll();
     } catch (err: any) {
       onNotification("Template Error", err.message || "Failed to load template.", "error");
@@ -287,7 +287,7 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
           <Sparkles size={14} className="text-amber-400" />
           <span>One-Click Industry Configuration Templates</span>
         </h4>
-        <p className="text-[11px] text-theme-muted">Select an industry to automatically seed dynamic attribute definitions, sizing grids, and category maps into Postgres.</p>
+        <p className="text-[11px] text-theme-muted">Select an industry to automatically load dynamic attribute definitions, sizing grids, and category maps.</p>
         
         <div className="flex flex-wrap gap-3">
           {["Footwear", "Apparel", "Grocery", "Electronics", "Jewellery"].map(ind => (

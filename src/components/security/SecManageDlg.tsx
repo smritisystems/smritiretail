@@ -238,7 +238,7 @@ export const SecManageDlg: React.FC<SmritiSecurityManagementModalProps> = ({
                 <div className="text-[10px] text-[#94a3b8]">Cluster Status:</div>
                 <div className="text-emerald-700 font-bold flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Postgres RBAC Active
+                  Enterprise RBAC Active
                 </div>
               </div>
               <button
@@ -625,7 +625,7 @@ export const SecManageDlg: React.FC<SmritiSecurityManagementModalProps> = ({
                     Immutable Security Audit Log Stream
                   </h3>
                   <p className="text-xs text-[#64748b]">
-                    Live audit trail recorded directly into PostgreSQL table smriti_audit_log.
+                    Live audit trail recorded directly into system audit log.
                   </p>
                 </div>
                 <div className="bg-white border border-[#e2e8f0] rounded-xl p-4 shadow-xs space-y-3 font-mono text-xs">
