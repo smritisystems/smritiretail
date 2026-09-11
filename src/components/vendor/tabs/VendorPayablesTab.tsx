@@ -23,11 +23,11 @@ interface VendorPayablesTabProps {
 }
 
 const BUCKET_STYLES: Record<AgingBucket, { bg: string; border: string; text: string }> = {
-  CURRENT:    { bg: "bg-emerald-950/20", border: "border-emerald-600/30", text: "text-emerald-400" },
-  OVERDUE_30: { bg: "bg-amber-950/20",   border: "border-amber-600/30",   text: "text-amber-400" },
-  OVERDUE_60: { bg: "bg-orange-950/20",  border: "border-orange-600/30",  text: "text-orange-400" },
-  OVERDUE_90: { bg: "bg-red-950/20",     border: "border-red-600/30",     text: "text-red-400" },
-  CRITICAL:   { bg: "bg-rose-950/30",    border: "border-rose-600/40",    text: "text-rose-400" },
+  CURRENT:    { bg: "bg-emerald-50 dark:bg-emerald-950/20", border: "border-emerald-200 dark:border-emerald-600/30", text: "text-emerald-700 dark:text-emerald-400" },
+  OVERDUE_30: { bg: "bg-amber-50 dark:bg-amber-950/20",   border: "border-amber-200 dark:border-amber-600/30",   text: "text-amber-800 dark:text-amber-400" },
+  OVERDUE_60: { bg: "bg-orange-50 dark:bg-orange-950/20",  border: "border-orange-200 dark:border-orange-600/30",  text: "text-orange-800 dark:text-orange-400" },
+  OVERDUE_90: { bg: "bg-red-50 dark:bg-red-950/20",     border: "border-red-200 dark:border-red-600/30",     text: "text-red-700 dark:text-red-400" },
+  CRITICAL:   { bg: "bg-rose-50 dark:bg-rose-950/30",    border: "border-rose-200 dark:border-rose-600/40",    text: "text-rose-800 dark:text-rose-400" },
 };
 
 const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor }) => {
@@ -75,8 +75,8 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor }) => 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-bold text-white">Accounts Payable Aging & Ledger</h3>
-        <p className="text-xs text-slate-400">Chronological liability buckets, payment schedule, and early payment cash discounts</p>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Accounts Payable Aging & Ledger</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Chronological liability buckets, payment schedule, and early payment cash discounts</p>
       </div>
 
       {/* Aging Bucket Strip */}
@@ -85,8 +85,8 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor }) => 
           const style = BUCKET_STYLES[bucket];
           const amt = agingReport.bucketTotals[bucket] || 0;
           return (
-            <div key={bucket} className={`p-3 rounded-xl border ${style.bg} ${style.border}`}>
-              <div className="text-[10px] font-bold text-slate-400 tracking-wider">
+            <div key={bucket} className={`p-3 rounded-xl border shadow-xs ${style.bg} ${style.border}`}>
+              <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">
                 {bucket.replace("_", " ")}
               </div>
               <div className={`text-base font-black font-mono mt-1 ${style.text}`}>
@@ -99,10 +99,10 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor }) => 
 
       {/* Invoices List */}
       <div className="space-y-3">
-        <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Active Payable Invoices</h4>
-        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-800/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800 font-bold">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Active Payable Invoices</h4>
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs">
+          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+            <thead className="bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800 font-bold">
               <tr>
                 <th className="p-3">Invoice No</th>
                 <th className="p-3">Invoice Date</th>
@@ -112,19 +112,19 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor }) => 
                 <th className="p-3 text-right">Outstanding</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
               {invoices.map((inv) => (
-                <tr key={inv.invoiceId} className="hover:bg-slate-800/30">
-                  <td className="p-3 font-bold text-white">{inv.invoiceNo}</td>
-                  <td className="p-3 text-slate-400">{inv.invoiceDate}</td>
-                  <td className="p-3 text-slate-400">{inv.dueDate}</td>
+                <tr key={inv.invoiceId} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                  <td className="p-3 font-bold text-slate-900 dark:text-white">{inv.invoiceNo}</td>
+                  <td className="p-3 text-slate-500 dark:text-slate-400">{inv.invoiceDate}</td>
+                  <td className="p-3 text-slate-500 dark:text-slate-400">{inv.dueDate}</td>
                   <td className="p-3">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${BUCKET_STYLES[inv.agingBucket].bg} ${BUCKET_STYLES[inv.agingBucket].text} ${BUCKET_STYLES[inv.agingBucket].border}`}>
                       {inv.agingBucket} ({inv.daysOverdue}d)
                     </span>
                   </td>
-                  <td className="p-3 text-right text-slate-300">{fmt(inv.invoiceAmt)}</td>
-                  <td className="p-3 text-right font-bold text-rose-400">{fmt(inv.outstandingAmt)}</td>
+                  <td className="p-3 text-right text-slate-700 dark:text-slate-300">{fmt(inv.invoiceAmt)}</td>
+                  <td className="p-3 text-right font-bold text-rose-600 dark:text-rose-400">{fmt(inv.outstandingAmt)}</td>
                 </tr>
               ))}
             </tbody>

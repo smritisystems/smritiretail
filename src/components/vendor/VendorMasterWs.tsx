@@ -78,21 +78,21 @@ type TabKey =
   | "scorecard";
 
 const STATUS_CHIPS: Record<VendorStatus, { bg: string; text: string; border: string }> = {
-  ACTIVE:               { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/30" },
-  INACTIVE:             { bg: "bg-slate-500/10",   text: "text-slate-400",   border: "border-slate-500/30" },
-  BLOCKED:              { bg: "bg-red-500/10",     text: "text-red-400",     border: "border-red-500/30" },
-  ON_HOLD:              { bg: "bg-amber-500/10",   text: "text-amber-400",   border: "border-amber-500/30" },
-  PENDING_VERIFICATION: { bg: "bg-sky-500/10",     text: "text-sky-400",     border: "border-sky-500/30" },
-  ARCHIVED:             { bg: "bg-slate-700/20",   text: "text-slate-400",   border: "border-slate-700/30" },
-  MERGED:               { bg: "bg-purple-500/10",  text: "text-purple-400",  border: "border-purple-500/30" },
+  ACTIVE:               { bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-500/30" },
+  INACTIVE:             { bg: "bg-slate-100 dark:bg-slate-500/10",   text: "text-slate-700 dark:text-slate-400",   border: "border-slate-200 dark:border-slate-500/30" },
+  BLOCKED:              { bg: "bg-red-50 dark:bg-red-500/10",     text: "text-red-700 dark:text-red-400",     border: "border-red-200 dark:border-red-500/30" },
+  ON_HOLD:              { bg: "bg-amber-50 dark:bg-amber-500/10",   text: "text-amber-800 dark:text-amber-400",   border: "border-amber-200 dark:border-amber-500/30" },
+  PENDING_VERIFICATION: { bg: "bg-sky-50 dark:bg-sky-500/10",     text: "text-sky-700 dark:text-sky-400",     border: "border-sky-200 dark:border-sky-500/30" },
+  ARCHIVED:             { bg: "bg-slate-100 dark:bg-slate-700/20",   text: "text-slate-700 dark:text-slate-400",   border: "border-slate-200 dark:border-slate-700/30" },
+  MERGED:               { bg: "bg-purple-50 dark:bg-purple-500/10",  text: "text-purple-700 dark:text-purple-400",  border: "border-purple-200 dark:border-purple-500/30" },
 };
 
-const CLASSIFICATION_CHIPS: Record<CommercialClassification, { bg: string; text: string }> = {
-  PREFERRED:   { bg: "bg-indigo-500/20", text: "text-indigo-300" },
-  APPROVED:    { bg: "bg-teal-500/20",   text: "text-teal-300" },
-  CONDITIONAL: { bg: "bg-amber-500/20",  text: "text-amber-300" },
-  RESTRICTED:  { bg: "bg-orange-500/20", text: "text-orange-300" },
-  BLOCKED:     { bg: "bg-rose-500/20",   text: "text-rose-300" },
+const CLASSIFICATION_CHIPS: Record<CommercialClassification, { bg: string; text: string; border?: string }> = {
+  PREFERRED:   { bg: "bg-indigo-50 dark:bg-indigo-500/20", text: "text-indigo-700 dark:text-indigo-300", border: "border border-indigo-200 dark:border-indigo-500/30" },
+  APPROVED:    { bg: "bg-teal-50 dark:bg-teal-500/20",   text: "text-teal-700 dark:text-teal-300", border: "border border-teal-200 dark:border-teal-500/30" },
+  CONDITIONAL: { bg: "bg-amber-50 dark:bg-amber-500/20",  text: "text-amber-800 dark:text-amber-300", border: "border border-amber-200 dark:border-amber-500/30" },
+  RESTRICTED:  { bg: "bg-orange-50 dark:bg-orange-500/20", text: "text-orange-800 dark:text-orange-300", border: "border border-orange-200 dark:border-orange-500/30" },
+  BLOCKED:     { bg: "bg-rose-50 dark:bg-rose-500/20",   text: "text-rose-800 dark:text-rose-300", border: "border border-rose-200 dark:border-rose-500/30" },
 };
 
 function normalizeVendorSummary(v: any): VendorSummary {
@@ -398,15 +398,15 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   });
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
       {/* ─────────────────── LEFT: VENDOR DIRECTORY LIST ─────────────────── */}
-      <div className="w-80 border-r border-slate-800/80 bg-slate-900/50 flex flex-col shrink-0">
+      <div className="w-80 border-r border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/50 flex flex-col shrink-0">
         {/* Header & Search */}
-        <div className="p-4 border-b border-slate-800 space-y-3">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Building2 size={18} className="text-indigo-400" />
-              <span className="font-black text-sm text-white tracking-tight">Vendors Directory</span>
+              <Building2 size={18} className="text-indigo-600 dark:text-indigo-400" />
+              <span className="font-black text-sm text-slate-900 dark:text-white tracking-tight">Vendors Directory</span>
             </div>
             <div className="flex items-center space-x-1.5">
               <button
@@ -414,10 +414,10 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                   setPrintWithData(false);
                   setShowPrintModal(true);
                 }}
-                className="p-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition flex items-center space-x-1"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition flex items-center space-x-1"
                 title="Print Blank Vendor KYC Onboarding Form"
               >
-                <Printer size={13} className="text-indigo-400" />
+                <Printer size={13} className="text-indigo-600 dark:text-indigo-400" />
                 <span className="hidden sm:inline text-[11px]">Blank Form</span>
               </button>
               <button
@@ -431,23 +431,23 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
           </div>
 
           <div className="relative">
-            <Search size={14} className="text-slate-500 absolute left-3 top-2.5" />
+            <Search size={14} className="text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
             <input
               type="text"
               placeholder="Search vendor, code, GSTIN..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-800/80 border border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
             />
           </div>
         </div>
 
         {/* Directory Items List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-800/40">
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/40">
           {loading ? (
-            <div className="p-6 text-center text-xs text-slate-500">Loading directory...</div>
+            <div className="p-6 text-center text-xs text-slate-400 dark:text-slate-500">Loading directory...</div>
           ) : filteredVendors.length === 0 ? (
-            <div className="p-6 text-center text-xs text-slate-500">No vendors found.</div>
+            <div className="p-6 text-center text-xs text-slate-400 dark:text-slate-500">No vendors found.</div>
           ) : (
             filteredVendors.map((v) => {
               const isSelected = v.id === selectedVendorId;
@@ -457,11 +457,11 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                   key={v.id}
                   onClick={() => setSelectedVendorId(v.id)}
                   className={`p-3.5 cursor-pointer transition flex flex-col space-y-1.5 ${
-                    isSelected ? "bg-indigo-600/10 border-l-4 border-indigo-500" : "hover:bg-slate-800/30"
+                    isSelected ? "bg-indigo-50/80 dark:bg-indigo-600/10 border-l-4 border-indigo-600" : "hover:bg-slate-50 dark:hover:bg-slate-800/30"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-white truncate max-w-[170px]">
+                    <span className="font-bold text-xs text-slate-900 dark:text-white truncate max-w-[170px]">
                       {v.legalName}
                     </span>
                     <span className={`text-[9px] px-1.5 py-0.2 rounded border font-mono ${statusChip.bg} ${statusChip.text} ${statusChip.border}`}>
@@ -469,15 +469,15 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
-                    <span className="font-mono text-[10px] text-slate-500">{v.code}</span>
-                    <span className={`font-mono font-bold ${v.outstanding > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                    <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">{v.code}</span>
+                    <span className={`font-mono font-bold ${v.outstanding > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                       ₹{v.outstanding.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                     </span>
                   </div>
 
                   {v.city && (
-                    <div className="text-[10px] text-slate-500 flex items-center space-x-1">
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center space-x-1">
                       <MapPin size={10} />
                       <span>{v.city}{v.state ? `, ${v.state}` : ""}</span>
                     </div>
@@ -494,25 +494,25 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
         {selectedVendor ? (
           <>
             {/* Top Command Toolbar */}
-            <div className="p-5 border-b border-slate-800/80 bg-slate-900/40 flex items-center justify-between">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-lg">
+                <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-lg">
                   {selectedVendor.legalName.charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h2 className="text-lg font-black text-white">{selectedVendor.legalName}</h2>
-                    <span className="font-mono text-xs text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white">{selectedVendor.legalName}</h2>
+                    <span className="font-mono text-xs text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-500/20">
                       {selectedVendor.code}
                     </span>
                     <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${STATUS_CHIPS[selectedVendor.status as VendorStatus]?.bg} ${STATUS_CHIPS[selectedVendor.status as VendorStatus]?.text} ${STATUS_CHIPS[selectedVendor.status as VendorStatus]?.border}`}>
                       {selectedVendor.status}
                     </span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${CLASSIFICATION_CHIPS[selectedVendor.commercial?.commercialClassification as CommercialClassification]?.bg}`}>
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${CLASSIFICATION_CHIPS[selectedVendor.commercial?.commercialClassification as CommercialClassification]?.bg} ${CLASSIFICATION_CHIPS[selectedVendor.commercial?.commercialClassification as CommercialClassification]?.border || ""}`}>
                       {selectedVendor.commercial?.commercialClassification}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-400 mt-0.5 flex items-center space-x-2">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center space-x-2">
                     <span>{selectedVendor.tradeName || selectedVendor.legalName}</span>
                     <span>•</span>
                     <span className="font-mono">{selectedVendor.gstin || "No GSTIN"}</span>
@@ -528,17 +528,17 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                 <div className="relative">
                   <button
                     onClick={() => setShowPrintDropdown(!showPrintDropdown)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition shadow-xs"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition shadow-xs"
                     title="Print Vendor Form (With or Without Data)"
                   >
-                    <Printer size={14} className="text-indigo-400" />
+                    <Printer size={14} className="text-indigo-600 dark:text-indigo-400" />
                     <span>Print Form</span>
                     <ChevronDown size={12} className="text-slate-400" />
                   </button>
 
                   {showPrintDropdown && (
                     <div 
-                      className="absolute right-0 mt-1.5 w-64 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl py-1.5 z-50 text-xs divide-y divide-slate-800"
+                      className="absolute right-0 mt-1.5 w-64 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl py-1.5 z-50 text-xs divide-y divide-slate-100 dark:divide-slate-800"
                       onMouseLeave={() => setShowPrintDropdown(false)}
                     >
                       <button
@@ -547,15 +547,15 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                           setPrintWithData(true);
                           setShowPrintModal(true);
                         }}
-                        className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-600/20 hover:text-indigo-300 flex items-start space-x-2.5 text-slate-200 transition"
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-600/20 flex items-start space-x-2.5 text-slate-700 dark:text-slate-200 transition"
                       >
-                        <FileText size={15} className="text-indigo-400 mt-0.5 shrink-0" />
+                        <FileText size={15} className="text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
                         <div>
-                          <div className="font-bold text-white flex items-center space-x-1.5">
+                          <div className="font-bold text-slate-900 dark:text-white flex items-center space-x-1.5">
                             <span>Print with Data</span>
-                            <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded font-mono font-bold">Dossier</span>
+                            <span className="text-[9px] bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.2 rounded font-mono font-bold border border-indigo-200 dark:border-indigo-500/30">Dossier</span>
                           </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                             Full KYC profile with statutory, banking & contact details for {selectedVendor.code}
                           </div>
                         </div>
@@ -567,15 +567,15 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                           setPrintWithData(false);
                           setShowPrintModal(true);
                         }}
-                        className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-600/20 hover:text-indigo-300 flex items-start space-x-2.5 text-slate-200 transition"
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-600/20 flex items-start space-x-2.5 text-slate-700 dark:text-slate-200 transition"
                       >
-                        <FileSpreadsheet size={15} className="text-emerald-400 mt-0.5 shrink-0" />
+                        <FileSpreadsheet size={15} className="text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
                         <div>
-                          <div className="font-bold text-white flex items-center space-x-1.5">
+                          <div className="font-bold text-slate-900 dark:text-white flex items-center space-x-1.5">
                             <span>Print without Data</span>
-                            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">Blank KYC</span>
+                            <span className="text-[9px] bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold border border-emerald-200 dark:border-emerald-500/30">Blank KYC</span>
                           </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                             Clean blank vendor registration form for offline onboarding & physical submission
                           </div>
                         </div>
@@ -586,7 +586,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
 
                 <button
                   onClick={() => setShowMergeModal(true)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition"
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition shadow-xs"
                 >
                   <GitMerge size={14} />
                   <span>Merge Entity</span>
@@ -596,7 +596,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                   <>
                     <button
                       onClick={() => setIsEditing(false)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white text-xs"
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs"
                     >
                       Cancel
                     </button>
@@ -612,7 +612,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                 ) : (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="px-4 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 text-xs font-semibold"
+                    className="px-4 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-xs font-semibold"
                   >
                     Edit Vendor
                   </button>
@@ -621,7 +621,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
             </div>
 
             {/* 9-Tab Navigation Bar */}
-            <div className="flex items-center space-x-1 px-5 border-b border-slate-800 bg-slate-900/20 overflow-x-auto text-xs font-semibold">
+            <div className="flex items-center space-x-1 px-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/20 overflow-x-auto text-xs font-semibold">
               {[
                 { id: "overview", label: "Overview", icon: <Building2 size={13} /> },
                 { id: "identity", label: "Statutory & Tax", icon: <ShieldCheck size={13} /> },
@@ -638,8 +638,8 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                   onClick={() => setActiveTab(tab.id as TabKey)}
                   className={`py-3 px-3.5 flex items-center space-x-1.5 border-b-2 transition whitespace-nowrap ${
                     activeTab === tab.id
-                      ? "border-indigo-500 text-indigo-400 font-bold"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                      ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold"
+                      : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                   }`}
                 >
                   {tab.icon}
@@ -649,9 +649,9 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
             </div>
 
             {/* Tab Body Viewport */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-transparent">
               {detailLoading ? (
-                <div className="p-12 text-center text-xs text-slate-500">Refreshing vendor details...</div>
+                <div className="p-12 text-center text-xs text-slate-400 dark:text-slate-500">Refreshing vendor details...</div>
               ) : (
                 <>
                   {activeTab === "overview" && (
@@ -709,7 +709,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">
+          <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-slate-500 text-xs">
             Select a vendor from the directory or create a new vendor.
           </div>
         )}
@@ -740,111 +740,111 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
 
       {/* Rapid Onboarding Modal */}
       {showNewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-white flex items-center space-x-2">
-              <Building2 className="text-indigo-400" size={18} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+              <Building2 className="text-indigo-600 dark:text-indigo-400" size={18} />
               <span>Rapid Vendor Onboarding (Universal Party)</span>
             </h3>
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1">Legal Company Name *</label>
+                <label className="block text-slate-700 dark:text-slate-400 mb-1">Legal Company Name *</label>
                 <input
                   type="text"
                   placeholder="e.g. Acme Textile Mills Pvt Ltd"
                   value={newForm.legalName}
                   onChange={(e) => setNewForm({ ...newForm, legalName: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Trade / Display Name</label>
+                <label className="block text-slate-700 dark:text-slate-400 mb-1">Trade / Display Name</label>
                 <input
                   type="text"
                   placeholder="e.g. Acme Fabrics"
                   value={newForm.tradeName}
                   onChange={(e) => setNewForm({ ...newForm, tradeName: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">GSTIN Number</label>
+                  <label className="block text-slate-700 dark:text-slate-400 mb-1">GSTIN Number</label>
                   <input
                     type="text"
                     maxLength={15}
                     placeholder="27AABCA1234A1Z5"
                     value={newForm.gstin}
                     onChange={(e) => setNewForm({ ...newForm, gstin: e.target.value.toUpperCase() })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono uppercase"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono uppercase focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">PAN Number</label>
+                  <label className="block text-slate-700 dark:text-slate-400 mb-1">PAN Number</label>
                   <input
                     type="text"
                     maxLength={10}
                     placeholder="AABCA1234A"
                     value={newForm.pan}
                     onChange={(e) => setNewForm({ ...newForm, pan: e.target.value.toUpperCase() })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono uppercase"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono uppercase focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Contact Mobile</label>
+                  <label className="block text-slate-700 dark:text-slate-400 mb-1">Contact Mobile</label>
                   <input
                     type="text"
                     placeholder="10-digit mobile"
                     value={newForm.mobile}
                     onChange={(e) => setNewForm({ ...newForm, mobile: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Email Address</label>
+                  <label className="block text-slate-700 dark:text-slate-400 mb-1">Email Address</label>
                   <input
                     type="email"
                     placeholder="accounts@acmefabrics.com"
                     value={newForm.email}
                     onChange={(e) => setNewForm({ ...newForm, email: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">City</label>
+                  <label className="block text-slate-700 dark:text-slate-400 mb-1">City</label>
                   <input
                     type="text"
                     placeholder="e.g. Mumbai"
                     value={newForm.city}
                     onChange={(e) => setNewForm({ ...newForm, city: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Payment Terms (Days)</label>
+                  <label className="block text-slate-700 dark:text-slate-400 mb-1">Payment Terms (Days)</label>
                   <input
                     type="number"
                     value={newForm.paymentTermsDays}
                     onChange={(e) => setNewForm({ ...newForm, paymentTermsDays: parseInt(e.target.value) || 30 })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-800">
+            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-200 dark:border-slate-800">
               <button
                 onClick={() => setShowNewModal(false)}
-                className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white text-xs"
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs"
               >
                 Cancel
               </button>

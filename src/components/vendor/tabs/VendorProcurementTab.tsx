@@ -53,25 +53,25 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold text-white">Purchase Orders & Goods Inward Register</h3>
-          <p className="text-xs text-slate-400">Order lifecycle, delivery status, and GRN receipts for {vendor.legalName}</p>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Purchase Orders & Goods Inward Register</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Order lifecycle, delivery status, and GRN receipts for {vendor.legalName}</p>
         </div>
       </div>
 
       {loading ? (
-        <div className="p-8 text-center text-xs text-slate-500">Loading procurement records...</div>
+        <div className="p-8 text-center text-xs text-slate-400 dark:text-slate-500">Loading procurement records...</div>
       ) : orders.length === 0 ? (
-        <div className="p-8 rounded-xl bg-slate-900/40 border border-dashed border-slate-800 text-center space-y-2">
-          <Package size={32} className="mx-auto text-slate-600" />
-          <div className="text-sm font-semibold text-slate-300">No Purchase Orders Issued Yet</div>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+        <div className="p-8 rounded-xl bg-white dark:bg-slate-900/40 border border-dashed border-slate-300 dark:border-slate-800 text-center space-y-2">
+          <Package size={32} className="mx-auto text-slate-400 dark:text-slate-600" />
+          <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">No Purchase Orders Issued Yet</div>
+          <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
             Once a purchase order is generated via the PO Generator tab for this vendor, order metrics and goods receipts will appear here.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-800/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800 font-bold">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs">
+          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+            <thead className="bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800 font-bold">
               <tr>
                 <th className="p-3">PO Number</th>
                 <th className="p-3">Order Date</th>
@@ -80,21 +80,21 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
                 <th className="p-3 text-right">Grand Total</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
               {orders.map((po, idx) => (
-                <tr key={po.id || idx} className="hover:bg-slate-800/30">
-                  <td className="p-3 font-bold text-white flex items-center space-x-1.5">
-                    <FileText size={13} className="text-indigo-400" />
+                <tr key={po.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                  <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center space-x-1.5">
+                    <FileText size={13} className="text-indigo-600 dark:text-indigo-400" />
                     <span>{po.order_no || po.id}</span>
                   </td>
-                  <td className="p-3 text-slate-400">{po.created_at ? new Date(po.created_at).toLocaleDateString("en-GB") : "—"}</td>
+                  <td className="p-3 text-slate-500 dark:text-slate-400">{po.created_at ? new Date(po.created_at).toLocaleDateString("en-GB") : "—"}</td>
                   <td className="p-3">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
                       {po.status || "CONFIRMED"}
                     </span>
                   </td>
-                  <td className="p-3 text-right">{po.items?.length || 0}</td>
-                  <td className="p-3 text-right font-bold text-emerald-400">
+                  <td className="p-3 text-right text-slate-600 dark:text-slate-300">{po.items?.length || 0}</td>
+                  <td className="p-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
                     ₹{Number(po.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
