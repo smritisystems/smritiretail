@@ -124,7 +124,7 @@ async def run_vendor_360_headless_verification():
             localStorage.setItem('smriti_company_code', '001');
             localStorage.setItem('smriti_branch_id', 'MAIN');
             localStorage.setItem('smriti_branch_code', 'MAIN');
-            localStorage.setItem('smriti_company_name', 'Tattly Threads Pvt Ltd');
+            localStorage.setItem('smriti_company_name', 'Tattly Threads');
             localStorage.setItem('smriti_branch_name', 'Main Branch');
         }}""")
 
