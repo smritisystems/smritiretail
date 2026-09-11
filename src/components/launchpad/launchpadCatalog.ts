@@ -129,10 +129,10 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   },
   {
     id: "supplier-mgmt",
-    title: "Supplier Directory",
-    subtitle: "Vendor master profiles, GSTIN validation, commercial terms & payable balances",
+    title: "Vendor 360 Workspace",
+    subtitle: "Universal Party vendor master, statutory GSTIN/MSME, banking, contacts, procurement & payables",
     icon: "local_shipping",
-    tag: "Vendors",
+    tag: "Vendor 360",
     badgeType: "info",
     group: "Master Data & Stock",
     roles: ["MANAGER", "SYSADMIN"],

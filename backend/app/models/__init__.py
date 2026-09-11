@@ -88,6 +88,10 @@ from .party import (
     PartyRole,
     CustomerProfile,
     SupplierProfile,
+    PartyAddress,
+    PartyContact,
+    SupplierBankAccount,
+    VendorIdentityMigration,
 )
 from .item_master import (
     Item,

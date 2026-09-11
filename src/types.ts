@@ -961,5 +961,31 @@ export interface CustomerPriceGroup {
   modifiedAt?: string;
 }
 
-
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Canonical Vendor 360 & Universal Party Types
+// ─────────────────────────────────────────────────────────────────────────────
+export type {
+  VendorStatus,
+  PartyRole,
+  PartyType,
+  SupplierType,
+  CommercialClassification,
+  TaxTreatment,
+  MSMECategory,
+  AddressType,
+  ContactCategory,
+  BankAccountType,
+  BankVerificationStatus,
+  VendorBankAccount,
+  VendorContact,
+  VendorAddress,
+  VendorCommercial,
+  VendorCompliance,
+  VendorSummary,
+  VendorDetail,
+  VendorCreateRequest,
+  VendorUpdateRequest,
+  VendorMergeRequest,
+  VendorMergeResponse,
+  VendorTabId,
+} from "./types/vendor.ts";

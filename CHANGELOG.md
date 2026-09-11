@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [4.0.0] - 2026-09-11
+
+#### Vendor 360 Workspace & Universal Party Master Canonical Architecture
+
+**Walkthrough:** [Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md](docs/walkthrough/purchase/Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md)  
+**Implementation Plan:** [Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md](docs/implementation/purchase/Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md)
+
+- **Universal Party as Single Source of Truth:** Reconciled dual data models by establishing `Party` + `PartyRole(SUPPLIER)` + `SupplierProfile` as canonical master.
+- **Alembic Migration v1421:** Added `party_bank_accounts` (`SupplierBankAccount`) and `vendor_identity_migrations` (`VendorIdentityMigration`); enhanced `supplier_profiles` with MSME categories, commercial classification, TDS section/rate, and verification flags; enhanced `party_contacts` with `contact_category`.
+- **Atomic Application Service (`VendorService`):** Orchestrated multi-table atomic creation, duplicate prevention guards, and non-destructive dual-write projection to legacy `suppliers` table with `sup-<code.lower()>`.
+- **Canonical DTO & REST API Router:** Created contract-first DTO layer and mounted REST endpoints under `/api/v1/purchase/vendors` and `/api/v1/vendors`.
+- **Vendor 360 Workspace (`VendorMasterWs`):** Delivered responsive 9-tab workspace covering Overview, Identity & Statutory, Addresses, Contacts, Commercial, Banking, Procurement, Payables Aging, and Scorecard, plus Vendor Merge Modal.
+- **Canonical RTV Engine (`CanonicalRTVDomainEngine`):** Standardized on 6-stage procurement return lifecycle (Request → Approval → Dispatch → Vendor Receipt → Debit Note → Settle) and converted `PRTVModal` into a backward-compatible adapter.
+- **Verification:** 4/4 backend tests green, 10/10 vitest tests green, TypeScript 0 errors.
+
 ### [3.30.0-security] - 2026-09-09
 
 #### Production Readiness Sprint — Secret Hygiene, Version SSOT, TS Closure, Bundle Splitting

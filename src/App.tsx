@@ -1893,7 +1893,8 @@ const AppContent: React.FC = () => {
           />
         );
       case "supplier-mgmt":
-        return <SupplierDashboardTab currentUser={currentUser} />;
+      case "vendor-360":
+        return <SupplierDashboardTab currentUser={currentUser} onNotification={addNotification} />;
       case "report-designer":
         return <ReportDesignerTab currentUser={currentUser} />;
       case "item-master":

@@ -106,6 +106,7 @@ from .api.v1 import (
     universal_master,
     universal_import,
     users,
+    vendor,
     wms,
     workflow,
     workspace_ui,
@@ -187,6 +188,8 @@ app.include_router(sales.router,         prefix=settings.API_V1_STR + "/tattly",
 app.include_router(sales_reports.router, prefix=settings.API_V1_STR,                     tags=["Sales Reports"])
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Deprecated — remove at v3.20.0
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Contract URL (Phase 4A)
+app.include_router(vendor.router,    prefix=settings.API_V1_STR + "/purchase",      tags=["Vendors"])          # Canonical Vendor 360
+app.include_router(vendor.router,    prefix=settings.API_V1_STR,                    tags=["Vendors"])
 app.include_router(pos.router,            prefix=settings.API_V1_STR,           tags=["POS Shift"])
 app.include_router(physical_stock.router, prefix=settings.API_V1_STR,           tags=["Physical Stock"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
