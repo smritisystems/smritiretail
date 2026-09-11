@@ -676,6 +676,17 @@ class CustomerBase(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
+    @field_validator("gst_number")
+    @classmethod
+    def normalize_customer_gstin(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not v.strip():
+            return None
+        value = v.strip().upper()
+        from ..core.gst_engine import GSTIN_REGEX
+        if not GSTIN_REGEX.match(value):
+            raise ValueError(f"Invalid GSTIN format '{value}'")
+        return value
+
     @model_validator(mode="before")
     @classmethod
     def map_aliases(cls, data: Any) -> Any:
@@ -707,6 +718,17 @@ class CustomerUpdate(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
+    @field_validator("gst_number")
+    @classmethod
+    def normalize_customer_gstin_update(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not v.strip():
+            return None
+        value = v.strip().upper()
+        from ..core.gst_engine import GSTIN_REGEX
+        if not GSTIN_REGEX.match(value):
+            raise ValueError(f"Invalid GSTIN format '{value}'")
+        return value
+
 def get_loaded_customer_group(customer: Any) -> Optional[Any]:
     """
     Safely retrieve CustomerGroup only if already loaded in-memory.
@@ -731,6 +753,28 @@ def get_loaded_customer_group(customer: Any) -> Optional[Any]:
             return val
 
     return None
+
+
+def get_loaded_relationship(customer: Any, attr_name: str) -> list:
+    """
+    Safely extract relationship collection without triggering SQLAlchemy async lazy loader.
+    """
+    if isinstance(customer, dict):
+        return customer.get(attr_name) or []
+
+    insp = inspect(customer, raiseerr=False)
+    if insp is not None and hasattr(insp, "attrs") and attr_name in insp.attrs:
+        loaded = insp.attrs[attr_name].loaded_value
+        if loaded is not NO_VALUE and loaded is not None:
+            return loaded if isinstance(loaded, (list, tuple, set)) else [loaded]
+        return []
+
+    if hasattr(customer, "__dict__"):
+        val = customer.__dict__.get(attr_name)
+        if val is not NO_VALUE and val is not None:
+            return val if isinstance(val, (list, tuple, set)) else [val]
+
+    return []
 
 
 def map_customer_to_response_dict(customer: Any) -> dict:
@@ -772,20 +816,20 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         "credit_hold": grp.credit_hold if grp else None,
         "billing_locations": [
             CustomerBillingLocationResponse.model_validate(bl)
-            for bl in getattr(customer, "billing_locations", []) or []
-        ] if hasattr(customer, "billing_locations") else [],
+            for bl in get_loaded_relationship(customer, "billing_locations")
+        ],
         "gst_registrations": [
             CustomerGSTRegistrationResponse.model_validate(reg)
-            for reg in getattr(customer, "gst_registrations", []) or []
-        ] if hasattr(customer, "gst_registrations") else [],
+            for reg in get_loaded_relationship(customer, "gst_registrations")
+        ],
         "delivery_locations": [
             CustomerDeliveryLocationResponse.model_validate(loc)
-            for loc in getattr(customer, "delivery_locations", []) or []
-        ] if hasattr(customer, "delivery_locations") else [],
+            for loc in get_loaded_relationship(customer, "delivery_locations")
+        ],
         "external_identities": [
             CustomerExternalIdentityResponse.model_validate(ei)
-            for ei in getattr(customer, "external_identities", []) or []
-        ] if hasattr(customer, "external_identities") else [],
+            for ei in get_loaded_relationship(customer, "external_identities")
+        ],
     }
 
 

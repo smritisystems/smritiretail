@@ -1872,7 +1872,7 @@ const AppContent: React.FC = () => {
             currentUser={currentUser}
             onRefreshData={fetchSystemState}
             onNotification={addNotification}
-            initialMode="B2B_INVOICE"
+            initialMode="RETAIL_POS"
           />
         );
       case "sales":

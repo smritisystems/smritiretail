@@ -19,13 +19,12 @@ import { Shift } from "../types.ts";
 
 describe("Phase 2C — Billing Workspace Convergence & Ergonomics Tests", () => {
   // TEST 1 — Mode and View Contract Validation
-  it("TEST 1: should support all three canonical operational modes and auxiliary views", () => {
-    const validModes: BillingWorkspaceMode[] = ["RETAIL_POS", "B2B_INVOICE", "WHOLESALE_MATRIX"];
+  it("TEST 1: should expose only the Retail POS workspace and auxiliary views", () => {
+    const validModes: BillingWorkspaceMode[] = ["RETAIL_POS"];
     const validViews: BillingAuxiliaryView[] = ["WORKSPACE", "EOD_Z_REPORT", "SHIFT_REPORTS"];
 
     expect(validModes).toContain("RETAIL_POS");
-    expect(validModes).toContain("B2B_INVOICE");
-    expect(validModes).toContain("WHOLESALE_MATRIX");
+    expect(validModes).toHaveLength(1);
     expect(validViews).toContain("WORKSPACE");
     expect(validViews).toContain("EOD_Z_REPORT");
     expect(validViews).toContain("SHIFT_REPORTS");
@@ -80,8 +79,6 @@ describe("Phase 2C — Billing Workspace Convergence & Ergonomics Tests", () => 
   it("TEST 3: should declare complete hotkey mapping matrix with zero conflicts", () => {
     const hotkeyMatrix: Record<string, { action: string; category: string }> = {
       "Alt+1": { action: "SWITCH_RETAIL_POS", category: "Mode" },
-      "Alt+2": { action: "SWITCH_B2B_INVOICE", category: "Mode" },
-      "Alt+3": { action: "SWITCH_WHOLESALE_MATRIX", category: "Mode" },
       F1: { action: "WORKSPACE_DEFAULT", category: "Navigation" },
       F2: { action: "ITEM_LOOKUP_SCANNER", category: "Entry" },
       F3: { action: "CUSTOMER_LOOKUP", category: "Entry" },
@@ -94,10 +91,8 @@ describe("Phase 2C — Billing Workspace Convergence & Ergonomics Tests", () => 
       Escape: { action: "CLEAR_DISMISS", category: "Control" },
     };
 
-    expect(Object.keys(hotkeyMatrix)).toHaveLength(13);
+    expect(Object.keys(hotkeyMatrix)).toHaveLength(11);
     expect(hotkeyMatrix["Alt+1"].action).toBe("SWITCH_RETAIL_POS");
-    expect(hotkeyMatrix["Alt+2"].action).toBe("SWITCH_B2B_INVOICE");
-    expect(hotkeyMatrix["Alt+3"].action).toBe("SWITCH_WHOLESALE_MATRIX");
     expect(hotkeyMatrix["F5"].action).toBe("HOLD_PARK_BILL");
     expect(hotkeyMatrix["F6"].action).toBe("RECALL_PARKED_BILL");
     expect(hotkeyMatrix["F10"].action).toBe("TENDER_SETTLEMENT");
@@ -105,29 +100,9 @@ describe("Phase 2C — Billing Workspace Convergence & Ergonomics Tests", () => 
 
   // TEST 4 — Mode Tax Semantics (Phase 2B Canonical Financial Policy)
   it("TEST 4: should enforce correct tax-inclusive / tax-exclusive semantics per mode", () => {
-    // Mode tax policy resolver
-    const resolveModeTaxPolicy = (mode: BillingWorkspaceMode) => {
-      switch (mode) {
-        case "RETAIL_POS":
-          return { isTaxInclusive: true, channel: "POS_RETAIL", defaultTender: "CASH" };
-        case "B2B_INVOICE":
-          return { isTaxInclusive: false, channel: "B2B_WHOLESALE", defaultTender: "CREDIT" };
-        case "WHOLESALE_MATRIX":
-          return { isTaxInclusive: false, channel: "WHOLESALE_MATRIX", defaultTender: "CREDIT" };
-      }
-    };
-
-    const posPolicy = resolveModeTaxPolicy("RETAIL_POS");
+    const posPolicy = { isTaxInclusive: true, channel: "POS_RETAIL", defaultTender: "CASH" };
     expect(posPolicy.isTaxInclusive).toBe(true);
     expect(posPolicy.channel).toBe("POS_RETAIL");
-
-    const b2bPolicy = resolveModeTaxPolicy("B2B_INVOICE");
-    expect(b2bPolicy.isTaxInclusive).toBe(false);
-    expect(b2bPolicy.channel).toBe("B2B_WHOLESALE");
-
-    const matrixPolicy = resolveModeTaxPolicy("WHOLESALE_MATRIX");
-    expect(matrixPolicy.isTaxInclusive).toBe(false);
-    expect(matrixPolicy.channel).toBe("WHOLESALE_MATRIX");
   });
 
   // TEST 5 — Proportional Bill Discount Allocation (Phase 2B Resolution)

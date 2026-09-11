@@ -62,6 +62,8 @@ def validate_company_database_name(database_name: str) -> bool:
     if database_name == "smritisys":
         return True  # Control Plane DB
     pattern = r"^smriti(?!(?:000|SYS)$)[A-Z0-9]{3,12}$"
+    if len(str(database_name).strip()) > 15:
+        return False
     return bool(re.match(pattern, database_name))
 
 class CompanyDatabaseResolver:

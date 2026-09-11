@@ -171,9 +171,12 @@ DECISIONS = [
      "items / item_variants",
      "products",
      "FROZEN_INVESTIGATION",
-     "products table (682 rows) is retained as transitional read-only compatibility store for 7-year audit compliance and backward compatibility while items (255 rows) and item_variants (682 rows) serve as Gate 11E catalog. Frozen pending formal transaction path audit.",
+     "[UPDATED v4.17.0 2026-09-10] items table (76 rows, 17 incoming FKs) is confirmed canonical item master. "
+     "products table (895 rows, 4 incoming FKs) is retained as operational compatibility store with FKs from "
+     "CPO lines, stock audit, stock transfer, and reservations. Both must be preserved. "
+     "products.item_id FK links the two catalogs. Formal unification migration pending.",
      "Global Product & Item Domain",
-     "Do not delete or drop products table. Retain read-only query capability and legacy_id_mappings sync.",
+     "Do not delete or drop products table. items is canonical; products is compatibility alias with live FK children.",
      "ARCHITECTURE_DECISION_REQUIRED",
      "Chief Systems Architect"),
 
@@ -181,22 +184,29 @@ DECISIONS = [
      "Sales Invoice Items vs Sales Invoice Lines Line Model",
      "sales_invoice_items",
      "sales_invoice_lines",
-     "FROZEN_INVESTIGATION",
-     "sales_invoice_items (6,671 rows) is active transactional line ledger using product_id. sales_invoice_lines (3 rows) contains variant_id and attribute_json for Gate 11E variant billing. Frozen pending formal billing pipeline review.",
+     "PHASE_B_DEPRECATED",
+     "[UPDATED v4.17.0 2026-09-10] sales_invoice_items (11,461 rows) is confirmed canonical live ledger. "
+     "sales_invoice_lines (0 rows) had a silent write-path bug: sales_hook.write_invoice_lines() "
+     "was inserting into the wrong table. Fixed in v4.17.0 — write_invoice_lines now inserts into sales_invoice_items. "
+     "sales_invoice_lines is Phase B deprecated — schema preserved, no new writes.",
      "Sales Invoicing Module",
-     "Do not delete sales_invoice_lines. Evaluate Gate 11E variant billing compatibility before migration.",
-     "ARCHITECTURE_DECISION_REQUIRED",
+     "Do not delete sales_invoice_lines until Phase C migration gates are passed. "
+     "write_invoice_lines() now writes to sales_invoice_items only.",
+     "PHASE_B_DEPRECATED",
      "Chief Systems Architect"),
 
     ("ADR-FROZEN-003",
      "Customer Monolith vs Universal Party Model",
      "customers",
      "customer_profiles",
-     "FROZEN_INVESTIGATION",
-     "customers (15 rows tenant, 629 sys) is active transactional customer master. customer_profiles (0 rows) is unpopulated universal party scaffold (party_id). Frozen pending enterprise party model decision.",
+     "PHASE_B_DEPRECATED",
+     "[UPDATED v4.17.0 2026-09-10] customers (411 rows, 11 FK dependents) is confirmed canonical operational customer master. "
+     "customer_profiles (0 rows) is the Universal Party migration staging table — actively written by party_master_svc.py "
+     "and univ_party_svc.py but not yet used by COMP-001 production tenant. Phase B deprecated in governance; schema preserved.",
      "CRM & Party Domain",
-     "Do not delete customer_profiles. Maintain customers as canonical operational table.",
-     "ARCHITECTURE_DECISION_REQUIRED",
+     "Do not delete customer_profiles. It is the Party migration staging table. "
+     "customers remains canonical. customer_profiles Phase C removal requires Universal Party migration completion.",
+     "PHASE_B_DEPRECATED",
      "Chief Systems Architect"),
 
     ("ADR-EXEMPT-004",

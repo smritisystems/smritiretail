@@ -45,31 +45,35 @@ async def write_invoice_lines(
     warehouse_id: Optional[str] = None,
 ) -> int:
     """
-    Write one sales_invoice_lines row per item in the invoice payload.
+    Write one sales_invoice_items row per item in the invoice payload.
     Called atomically BEFORE commit in SalesService.create_sales_invoice.
     Returns count of rows inserted.
 
+    MIGRATION NOTE (v4.17.0, 2026-09-10):
+    This function previously inserted into `sales_invoice_lines` (0 rows, Phase B deprecated).
+    It now inserts into `sales_invoice_items` — the canonical live ledger (11,461 rows).
+    `sales_invoice_lines` is preserved in schema but no longer written to (Phase B).
     Column mapping from SalesInvoiceItemCreate:
       product_id     <- item.product_id
-      product_name   <- item.name
-      sku            <- item.code
+      name           <- item.name
+      code           <- item.code
       hsn_code       <- item.hsn_code
       quantity       <- item.quantity
-      unit_price     <- item.price
+      price          <- item.price
       mrp            <- item.mrp
-      discount_pct   <- item.disc_pct
-      discount_amount <- derived: quantity * unit_price * disc_pct / 100
+      disc_pct       <- item.disc_pct
       taxable_value  <- item.taxable_value or (qty * price - discount)
-      tax_rate       <- item.gst_rate
+      gst_rate       <- item.gst_rate
       tax_amount     <- item.tax_amount
-      net_amount     <- item.total_amount
+      total_amount   <- item.total_amount
       line_no        <- item.line_no or idx
     """
+    import logging as _log
+    _logger = _log.getLogger(__name__)
     inserted = 0
     try:
         async with db.begin_nested():
             for idx, item in enumerate(items, start=1):
-                line_id = _sid()
                 qty        = Decimal(str(getattr(item, "quantity", 1) or 1))
                 price      = Decimal(str(getattr(item, "price", 0) or 0))
                 disc_pct   = Decimal(str(getattr(item, "disc_pct", 0) or 0))
@@ -82,52 +86,54 @@ async def write_invoice_lines(
                 net_amt    = Decimal(str(net_amt_val)) if net_amt_val is not None else Decimal(str(taxable + tax_amt))
                 line_no_val = getattr(item, "line_no", None)
                 line_no    = line_no_val if line_no_val is not None else idx
+                igst   = Decimal(str(getattr(item, "igst_amount", 0) or 0))
+                cgst   = Decimal(str(getattr(item, "cgst_amount", 0) or 0))
+                sgst   = Decimal(str(getattr(item, "sgst_amount", 0) or 0))
 
                 await db.execute(text("""
-                    INSERT INTO sales_invoice_lines (
-                        id, company_id, branch_id,
-                        invoice_id, line_no,
-                        product_id, product_name, sku, hsn_code,
-                        quantity, unit_price, mrp,
-                        discount_pct, discount_amount,
-                        taxable_value, tax_rate, tax_amount, net_amount,
-                        warehouse_id,
-                        created_by, updated_by,
-                        created_at, modified_at,
-                        is_active, is_deleted, version
+                    INSERT INTO sales_invoice_items (
+                        invoice_id,
+                        product_id, item_id, variant_id,
+                        name, code, hsn_code,
+                        quantity, price, mrp,
+                        disc_pct, taxable_value,
+                        gst_rate, tax_amount, total_amount,
+                        igst_amount, cgst_amount, sgst_amount,
+                        line_no, batch_no
                     ) VALUES (
-                        :id, :company_id, :branch_id,
-                        :invoice_id, :line_no,
-                        :product_id, :product_name, :sku, :hsn_code,
+                        :invoice_id,
+                        :product_id, :item_id, :variant_id,
+                        :name, :code, :hsn_code,
                         :qty, :price, :mrp,
-                        :disc_pct, :disc_amt,
-                        :taxable, :tax_rate, :tax_amt, :net_amt,
-                        :warehouse_id,
-                        :creator, :creator,
-                        NOW(), NOW(),
-                        true, false, 1
+                        :disc_pct, :taxable,
+                        :tax_rate, :tax_amt, :net_amt,
+                        :igst, :cgst, :sgst,
+                        :line_no, :batch_no
                     )
                     ON CONFLICT DO NOTHING
                 """), {
-                    "id": line_id, "company_id": company_id, "branch_id": branch_id,
-                    "invoice_id": invoice_id, "line_no": line_no,
+                    "invoice_id": invoice_id,
                     "product_id": getattr(item, "product_id", None) or getattr(item, "code", ""),
-                    "product_name": getattr(item, "name", "") or "",
-                    "sku": getattr(item, "code", "") or "",
+                    "item_id": getattr(item, "item_id", None),
+                    "variant_id": getattr(item, "variant_id", None),
+                    "name": getattr(item, "name", "") or "",
+                    "code": getattr(item, "code", "") or "",
                     "hsn_code": getattr(item, "hsn_code", None) or None,
                     "qty": float(qty), "price": float(price),
                     "mrp": float(getattr(item, "mrp", 0)) if getattr(item, "mrp", None) else None,
-                    "disc_pct": float(disc_pct), "disc_amt": float(disc_amt),
+                    "disc_pct": float(disc_pct),
                     "taxable": float(taxable),
                     "tax_rate": float(tax_rate), "tax_amt": float(tax_amt),
                     "net_amt": float(net_amt),
-                    "warehouse_id": warehouse_id,
-                    "creator": creator,
+                    "igst": float(igst), "cgst": float(cgst), "sgst": float(sgst),
+                    "line_no": line_no,
+                    "batch_no": getattr(item, "batch_no", None),
                 })
                 inserted += 1
     except Exception as e:
-        # Never fail the invoice commit due to line-item hook
-        pass
+        # Log but never fail the invoice commit due to line-item hook
+        _logger.warning("[sales_hook.write_invoice_lines] Failed to write %d items for invoice %s: %s",
+                        len(items), invoice_id, e)
 
     return inserted
 

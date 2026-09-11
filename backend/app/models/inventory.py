@@ -131,6 +131,14 @@ class StockMovement(BaseEntity):
     approval = Column(String(50), nullable=True)
 
 
+# DEPRECATED — Phase B (2026-09-10, v4.17.0)
+# Audit status: 0 rows in production DB (smriti001). FK child table
+# `user_store_assignments` also 0 rows. No live API route writes to this table.
+# Phase C removal requires:
+#   1. DDL backup to docs/archive/
+#   2. Alembic DOWN migration authored and reviewed
+#   3. Full regression suite passed
+# DO NOT DROP until all 5 gates in docs/walkthrough/foundation/Staged_Migration_Audit... pass.
 class Store(BaseEntity):
     __tablename__ = "stores"
 

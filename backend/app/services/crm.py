@@ -338,26 +338,7 @@ class CrmService:
         return True
 
     async def get_customer(self, customer_id: str) -> Optional[Customer]:
-        stmt = (
-            select(Customer)
-            .options(
-                selectinload(Customer.group),
-                selectinload(Customer.gst_registrations),
-                selectinload(Customer.delivery_locations),
-                selectinload(Customer.billing_locations),
-                selectinload(Customer.external_identities),
-            )
-            .filter(
-                Customer.id == customer_id,
-                Customer.is_deleted == False,
-            )
-        )
-        if self.tenant_ctx.company_id:
-            stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))
-        if self.tenant_ctx.branch_id:
-            stmt = stmt.filter((Customer.branch_id == self.tenant_ctx.branch_id) | (Customer.branch_id.is_(None)))
-        res = await self.db.execute(stmt)
-        return res.scalars().first()
+        return await self.customer_repo.get(customer_id)
 
     async def check_credit_limit(self, customer_id: str, new_amount: float) -> bool:
         if customer_id == "CUST-WALKIN":

@@ -33,7 +33,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   {
     id: "billing-workspace",
     title: "Billing Workspace",
-    subtitle: "Unified retail POS, corporate B2B tax invoicing & wholesale matrix billing",
+    subtitle: "Retail POS checkout, payments, receipts & shift operations",
     icon: "receipt_long",
     tag: "Billing",
     badgeType: "success",

@@ -37,6 +37,8 @@ export interface TaxInvoiceItemGridProps {
   staffList?: { id: string; name: string }[];
   activeAuxTab?: string;
   onSelectAuxTab?: (tab: "items" | "transporter" | "remarks" | "addons") => void;
+  isInterstate?: boolean;
+  placeOfSupplyCode?: string | null;
 }
 
 export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
@@ -54,6 +56,8 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
   ],
   activeAuxTab = "items",
   onSelectAuxTab,
+  isInterstate = true,
+  placeOfSupplyCode,
 }) => {
   // Rapid scan dock state
   const [scanBarcode, setScanBarcode] = useState("");
@@ -439,8 +443,15 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
           <div className="hidden sm:flex items-center space-x-2 text-[11px] text-slate-500 font-mono">
             <span className="font-medium text-slate-700">Cur: INR (₹)</span>
             <span>•</span>
-            <span className="bg-slate-200/80 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-semibold">
-              Tax Regime: GST 18% Inter-State IGST
+            <span
+              title={`Statutory Tax Treatment: ${isInterstate ? 'Inter-State IGST (Place of supply: ' + (placeOfSupplyCode || 'Out of state') + ')' : 'Intra-State CGST+SGST (Local State)'}`}
+              className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                isInterstate
+                  ? "bg-blue-50 text-blue-800 border-blue-200"
+                  : "bg-emerald-50 text-emerald-800 border-emerald-200"
+              }`}
+            >
+              Tax Regime: {items.length > 0 ? `GST ${items[0].gstRate}%` : "GST 18%"} {isInterstate ? "Inter-State IGST" : "Intra-State CGST+SGST"}
             </span>
           </div>
         </div>

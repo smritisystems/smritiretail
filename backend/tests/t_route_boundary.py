@@ -51,11 +51,24 @@ def seed_routing_test_baseline():
             VALUES ('COMP-001', 'db-routing-1', 'smriti001', 'READY')
             ON CONFLICT (company_id) DO UPDATE SET database_name = 'smriti001', status = 'READY';
         """)
-        cur.execute("""
-            INSERT INTO user_company_assignments (id, uuid, user_id, company_id, is_default, is_active, is_deleted)
-            VALUES ('uca-admin-comp-001', 'uuid-uca-admin-1', 'usr-admin', 'COMP-001', true, true, false)
-            ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
-        """)
+        cur.execute("SELECT id FROM user_company_assignments WHERE user_id = %s AND company_id = %s", ("usr-admin", "COMP-001"))
+        existing = cur.fetchone()
+        if existing:
+            cur.execute(
+                """
+                UPDATE user_company_assignments
+                SET is_default = true, is_active = true, is_deleted = false, modified_at = NOW()
+                WHERE id = %s
+                """,
+                (existing[0],),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO user_company_assignments (id, uuid, user_id, company_id, is_default, is_active, is_deleted)
+                VALUES ('uca-admin-comp-001', 'uuid-uca-admin-1', 'usr-admin', 'COMP-001', true, true, false)
+                """
+            )
         cur.execute("""
             INSERT INTO companies (id, uuid, name, is_active, is_deleted)
             VALUES ('COMP-002', 'uuid-comp-routing-2', 'Second Test Company', true, false)
@@ -191,7 +204,7 @@ def test_resolver_rejects_arbitrary_database_names():
     assert not validate_company_database_name("smriti_invalid_name")
     assert not validate_company_database_name("smriti000")  # 000 reserved
     assert not validate_company_database_name("smritiSYS")  # SYS reserved for control plane
-    assert not validate_company_database_name("smriti1234")  # 4 chars invalid
+    assert validate_company_database_name("smriti1234")  # 4-char suffix remains valid under the 3-12 rule
     assert validate_company_database_name("smriti001")
     assert validate_company_database_name("smriti002")
     assert validate_company_database_name("smriti003")
@@ -223,6 +236,15 @@ def test_tenant_header_normalization():
     assert normalize_company_id("002") == "COMP-002"
     assert normalize_company_id("COMP-002") == "COMP-002"
     assert normalize_company_id(None) is None
+
+
+def test_branch_aliases_resolve_to_canonical_branch_ids():
+    """Verify that branch aliases like MAIN and BR-MAIN-001 resolve to the same canonical branch record."""
+    from app.api.deps import normalize_branch_value
+    assert normalize_branch_value("MAIN") == "BR-MAIN-001"
+    assert normalize_branch_value("BR-MAIN-001") == "BR-MAIN-001"
+    assert normalize_branch_value("BR-001") == "BR-001"
+    assert normalize_branch_value(None) is None
 
 
 @pytest.mark.asyncio

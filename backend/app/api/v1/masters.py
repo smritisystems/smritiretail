@@ -181,7 +181,13 @@ async def create_master(
         setattr(item_warehouse, "name", req_warehouse.name)
         setattr(item_warehouse, "branch_id", req_warehouse.branch)
         setattr(item_warehouse, "is_transit", req_warehouse.is_transit or False)
+        setattr(item_warehouse, "is_central_godown", getattr(req_warehouse, "is_central_godown", False) or False)
         setattr(item_warehouse, "address", req_warehouse.address)
+        setattr(item_warehouse, "city", getattr(req_warehouse, "city", None))
+        setattr(item_warehouse, "state", getattr(req_warehouse, "state", None))
+        setattr(item_warehouse, "pincode", getattr(req_warehouse, "pincode", None))
+        setattr(item_warehouse, "contact_person", getattr(req_warehouse, "contact_person", None))
+        setattr(item_warehouse, "phone", getattr(req_warehouse, "phone", None))
         setattr(item_warehouse, "is_active", req_warehouse.status == "Active" if req_warehouse.status else True)
         setattr(item_warehouse, "is_deleted", False)
         setattr(item_warehouse, "created_by", current_user.username)
@@ -304,8 +310,20 @@ async def update_master(
             setattr(item_warehouse, "code", req_warehouse.code)
         if req_warehouse.is_transit is not None:
             setattr(item_warehouse, "is_transit", req_warehouse.is_transit)
+        if getattr(req_warehouse, "is_central_godown", None) is not None:
+            setattr(item_warehouse, "is_central_godown", req_warehouse.is_central_godown)
         if req_warehouse.address is not None:
             setattr(item_warehouse, "address", req_warehouse.address)
+        if getattr(req_warehouse, "city", None) is not None:
+            setattr(item_warehouse, "city", req_warehouse.city)
+        if getattr(req_warehouse, "state", None) is not None:
+            setattr(item_warehouse, "state", req_warehouse.state)
+        if getattr(req_warehouse, "pincode", None) is not None:
+            setattr(item_warehouse, "pincode", req_warehouse.pincode)
+        if getattr(req_warehouse, "contact_person", None) is not None:
+            setattr(item_warehouse, "contact_person", req_warehouse.contact_person)
+        if getattr(req_warehouse, "phone", None) is not None:
+            setattr(item_warehouse, "phone", req_warehouse.phone)
         if req_warehouse.status is not None:
             setattr(item_warehouse, "is_active", req_warehouse.status == "Active")
             
