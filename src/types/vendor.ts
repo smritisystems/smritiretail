@@ -148,6 +148,7 @@ export interface VendorDetail {
   pincode?: string;
   status: VendorStatus;
   mergedIntoPartyId?: string;
+  legacySupplierId?: string;
 
   commercial: VendorCommercialProfile;
   compliance: VendorComplianceProfile;

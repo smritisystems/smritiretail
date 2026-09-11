@@ -32,7 +32,11 @@ import {
   CheckCircle2, 
   AlertCircle,
   TrendingUp,
-  Filter
+  Filter,
+  Printer,
+  FileText,
+  FileSpreadsheet,
+  ChevronDown
 } from "lucide-react";
 import { 
   VendorSummary, 
@@ -55,6 +59,7 @@ import { VendorProcurementTab } from "./tabs/VendorProcurementTab";
 import { VendorPayablesTab } from "./tabs/VendorPayablesTab";
 import { VendorScorecardTab } from "./tabs/VendorScorecardTab";
 import { VendorMergeModal } from "./tabs/VendorMergeModal";
+import { VendorPrintModal } from "./VendorPrintModal";
 
 export interface VendorMasterWsProps {
   currentUser?: { role: string; name: string } | null;
@@ -90,6 +95,118 @@ const CLASSIFICATION_CHIPS: Record<CommercialClassification, { bg: string; text:
   BLOCKED:     { bg: "bg-rose-500/20",   text: "text-rose-300" },
 };
 
+function normalizeVendorSummary(v: any): VendorSummary {
+  return {
+    id: v?.id || "",
+    code: v?.code || "",
+    legalName: v?.legalName || v?.legal_name || "Unnamed Vendor",
+    tradeName: v?.tradeName || v?.trade_name || v?.legalName || v?.legal_name || "",
+    gstin: v?.gstin || "",
+    pan: v?.pan || "",
+    mobile: v?.mobile || "",
+    email: v?.email || "",
+    city: v?.city || "",
+    state: v?.state || "",
+    status: v?.status || "ACTIVE",
+    commercialClassification: v?.commercialClassification || v?.commercial_classification || "APPROVED",
+    supplierType: v?.supplierType || v?.supplier_type || "DISTRIBUTOR",
+    outstanding: Number(v?.outstanding ?? 0),
+  };
+}
+
+function normalizeVendorDetail(v: any): VendorDetail {
+  if (!v) return null as any;
+  const comm = v.commercial || {};
+  const comp = v.compliance || {};
+  return {
+    id: v.id || "",
+    code: v.code || "",
+    legalName: v.legalName || v.legal_name || "Unnamed Vendor",
+    tradeName: v.tradeName || v.trade_name || v.legalName || v.legal_name || "",
+    partyType: v.partyType || v.party_type || "ORGANIZATION",
+    gstin: v.gstin || comp.gstin || "",
+    pan: v.pan || comp.pan || "",
+    email: v.email || "",
+    phone: v.phone || "",
+    mobile: v.mobile || "",
+    addressLine1: v.addressLine1 || v.address_line1 || "",
+    city: v.city || "",
+    state: v.state || "",
+    pincode: v.pincode || "",
+    status: v.status || "ACTIVE",
+    mergedIntoPartyId: v.mergedIntoPartyId || v.merged_into_party_id || null,
+    legacySupplierId: v.legacySupplierId || v.legacy_supplier_id || null,
+    commercial: {
+      supplierType: comm.supplierType || comm.supplier_type || v.supplierType || v.supplier_type || "DISTRIBUTOR",
+      paymentTermsDays: comm.paymentTermsDays ?? comm.payment_terms_days ?? 30,
+      msmeRegistrationNo: comm.msmeRegistrationNo || comm.msme_registration_no || "",
+      msmeCategory: comm.msmeCategory || comm.msme_category || "NOT_APPLICABLE",
+      commercialClassification: comm.commercialClassification || comm.commercial_classification || v.commercialClassification || v.commercial_classification || "APPROVED",
+      tdsSection: comm.tdsSection || comm.tds_section || "194Q",
+      tdsRate: comm.tdsRate ?? comm.tds_rate ?? 0.1,
+      taxTreatment: comm.taxTreatment || comm.tax_treatment || "REGISTERED_REGULAR",
+      outstandingLiability: comm.outstandingLiability ?? comm.outstanding_liability ?? v.outstanding ?? 0,
+    },
+    compliance: {
+      gstin: comp.gstin || v.gstin || "",
+      pan: comp.pan || v.pan || "",
+      msmeRegistrationNo: comp.msmeRegistrationNo || comp.msme_registration_no || comm.msmeRegistrationNo || comm.msme_registration_no || "",
+      msmeCategory: comp.msmeCategory || comp.msme_category || comm.msmeCategory || comm.msme_category || "NOT_APPLICABLE",
+      verificationFlags: {
+        gstVerified: comp.verificationFlags?.gstVerified ?? comp.verification_flags?.gst_verified ?? comp.gstVerified ?? comp.gst_verified ?? !!(v.gstin || comp.gstin),
+        panVerified: comp.verificationFlags?.panVerified ?? comp.verification_flags?.pan_verified ?? comp.panVerified ?? comp.pan_verified ?? !!(v.pan || comp.pan),
+        bankVerified: comp.verificationFlags?.bankVerified ?? comp.verification_flags?.bank_verified ?? comp.bankVerified ?? comp.bank_verified ?? false,
+        msmeVerified: comp.verificationFlags?.msmeVerified ?? comp.verification_flags?.msme_verified ?? comp.msmeVerified ?? comp.msme_verified ?? false,
+      },
+    },
+    contacts: Array.isArray(v.contacts)
+      ? v.contacts.map((c: any) => ({
+          id: c.id,
+          contactName: c.contactName || c.contact_name || "",
+          contactCategory: c.contactCategory || c.contact_category || "GENERAL",
+          designation: c.designation || "",
+          department: c.department || "",
+          phone: c.phone || "",
+          mobile: c.mobile || "",
+          email: c.email || "",
+          isPrimary: Boolean(c.isPrimary ?? c.is_primary),
+        }))
+      : [],
+    addresses: Array.isArray(v.addresses)
+      ? v.addresses.map((a: any) => ({
+          id: a.id,
+          addressType: a.addressType || a.address_type || "BILLING",
+          addressTitle: a.addressTitle || a.address_title || "",
+          addressLine1: a.addressLine1 || a.address_line1 || "",
+          addressLine2: a.addressLine2 || a.address_line2 || "",
+          city: a.city || "",
+          state: a.state || "",
+          stateCode: a.stateCode || a.state_code || "",
+          pincode: a.pincode || "",
+          country: a.country || "India",
+          gstin: a.gstin || "",
+          isPrimary: Boolean(a.isPrimary ?? a.is_primary),
+        }))
+      : [],
+    bankAccounts: Array.isArray(v.bankAccounts || v.bank_accounts)
+      ? (v.bankAccounts || v.bank_accounts).map((b: any) => ({
+          id: b.id,
+          bankName: b.bankName || b.bank_name || "",
+          accountHolderName: b.accountHolderName || b.account_holder_name || "",
+          accountNumber: b.accountNumber || b.account_number || "",
+          ifsc: b.ifsc || "",
+          branch: b.branch || "",
+          accountType: b.accountType || b.account_type || "CURRENT",
+          isPrimary: Boolean(b.isPrimary ?? b.is_primary),
+          verificationStatus: b.verificationStatus || b.verification_status || "PENDING",
+          verifiedAt: b.verifiedAt || b.verified_at,
+        }))
+      : [],
+    roles: Array.isArray(v.roles) ? v.roles : ["SUPPLIER"],
+    tags: Array.isArray(v.tags) ? v.tags : [],
+  };
+}
+
 const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNotification }) => {
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
@@ -102,6 +219,9 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   const [saving, setSaving] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printWithData, setPrintWithData] = useState(true);
+  const [showPrintDropdown, setShowPrintDropdown] = useState(false);
 
   // New Vendor Form State
   const [newForm, setNewForm] = useState({
@@ -122,7 +242,8 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
     setLoading(true);
     try {
       const res = await apiFetchV1("/purchase/vendors/");
-      const list = Array.isArray(res) ? res : [];
+      const rawList = Array.isArray(res) ? res : [];
+      const list = rawList.map(normalizeVendorSummary);
       setVendors(list);
       if (list.length > 0 && !selectedVendorId) {
         setSelectedVendorId(list[0].id);
@@ -145,7 +266,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
       setDetailLoading(true);
       try {
         const detail = await apiFetchV1(`/purchase/vendors/${selectedVendorId}`);
-        setSelectedVendor(detail);
+        setSelectedVendor(normalizeVendorDetail(detail));
         setIsEditing(false);
       } catch (err: any) {
         onNotification?.("Error", err?.message || "Failed to load vendor details.", "error");
@@ -202,9 +323,10 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
         body: JSON.stringify(payload),
       });
 
-      setSelectedVendor(updated);
+      const normUpdated = normalizeVendorDetail(updated);
+      setSelectedVendor(normUpdated);
       setIsEditing(false);
-      onNotification?.("Vendor Updated", `Successfully saved changes for ${updated.legalName}.`, "success");
+      onNotification?.("Vendor Updated", `Successfully saved changes for ${normUpdated.legalName}.`, "success");
       loadVendors();
     } catch (err: any) {
       onNotification?.("Save Error", err?.message || "Failed to update vendor.", "error");
@@ -239,7 +361,8 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
         }),
       });
 
-      onNotification?.("Vendor Created", `Added ${created.legalName} to Universal Party Master.`, "success");
+      const normCreated = normalizeVendorDetail(created);
+      onNotification?.("Vendor Created", `Added ${normCreated.legalName} to Universal Party Master.`, "success");
       setShowNewModal(false);
       setNewForm({
         legalName: "",
@@ -254,7 +377,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
         paymentTermsDays: 30,
       });
       await loadVendors();
-      setSelectedVendorId(created.id);
+      setSelectedVendorId(normCreated.id);
     } catch (err: any) {
       onNotification?.("Creation Failed", err?.message || "Could not create vendor.", "error");
     } finally {
@@ -285,13 +408,26 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
               <Building2 size={18} className="text-indigo-400" />
               <span className="font-black text-sm text-white tracking-tight">Vendors Directory</span>
             </div>
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow flex items-center space-x-1"
-            >
-              <Plus size={14} />
-              <span>New</span>
-            </button>
+            <div className="flex items-center space-x-1.5">
+              <button
+                onClick={() => {
+                  setPrintWithData(false);
+                  setShowPrintModal(true);
+                }}
+                className="p-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition flex items-center space-x-1"
+                title="Print Blank Vendor KYC Onboarding Form"
+              >
+                <Printer size={13} className="text-indigo-400" />
+                <span className="hidden sm:inline text-[11px]">Blank Form</span>
+              </button>
+              <button
+                onClick={() => setShowNewModal(true)}
+                className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow flex items-center space-x-1"
+              >
+                <Plus size={14} />
+                <span>New</span>
+              </button>
+            </div>
           </div>
 
           <div className="relative">
@@ -388,6 +524,66 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
 
               {/* Action Buttons */}
               <div className="flex items-center space-x-2">
+                {/* Print Form Dropdown Menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowPrintDropdown(!showPrintDropdown)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition shadow-xs"
+                    title="Print Vendor Form (With or Without Data)"
+                  >
+                    <Printer size={14} className="text-indigo-400" />
+                    <span>Print Form</span>
+                    <ChevronDown size={12} className="text-slate-400" />
+                  </button>
+
+                  {showPrintDropdown && (
+                    <div 
+                      className="absolute right-0 mt-1.5 w-64 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl py-1.5 z-50 text-xs divide-y divide-slate-800"
+                      onMouseLeave={() => setShowPrintDropdown(false)}
+                    >
+                      <button
+                        onClick={() => {
+                          setShowPrintDropdown(false);
+                          setPrintWithData(true);
+                          setShowPrintModal(true);
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-600/20 hover:text-indigo-300 flex items-start space-x-2.5 text-slate-200 transition"
+                      >
+                        <FileText size={15} className="text-indigo-400 mt-0.5 shrink-0" />
+                        <div>
+                          <div className="font-bold text-white flex items-center space-x-1.5">
+                            <span>Print with Data</span>
+                            <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded font-mono font-bold">Dossier</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            Full KYC profile with statutory, banking & contact details for {selectedVendor.code}
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowPrintDropdown(false);
+                          setPrintWithData(false);
+                          setShowPrintModal(true);
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-indigo-600/20 hover:text-indigo-300 flex items-start space-x-2.5 text-slate-200 transition"
+                      >
+                        <FileSpreadsheet size={15} className="text-emerald-400 mt-0.5 shrink-0" />
+                        <div>
+                          <div className="font-bold text-white flex items-center space-x-1.5">
+                            <span>Print without Data</span>
+                            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">Blank KYC</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            Clean blank vendor registration form for offline onboarding & physical submission
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={() => setShowMergeModal(true)}
                   className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition"
@@ -533,6 +729,14 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
           onNotification={onNotification}
         />
       )}
+
+      {/* Universal Vendor Print & Export Modal */}
+      <VendorPrintModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        vendor={selectedVendor}
+        initialWithData={printWithData}
+      />
 
       {/* Rapid Onboarding Modal */}
       {showNewModal && (
