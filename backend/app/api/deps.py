@@ -181,6 +181,8 @@ async def get_tenant_context(
     )
 
     raw_target = header_company if header_company else current_user.company_id
+    if current_user.role == UserRole.SYSADMIN and not raw_target:
+        return TenantContext(company_id=None, branch_id=None)
     target_company = normalize_company_id(raw_target)
     if not target_company:
         raise HTTPException(

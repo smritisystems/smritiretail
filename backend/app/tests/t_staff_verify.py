@@ -233,3 +233,41 @@ async def test_staff_user_response_schema_verification(db_session):
     assert data["performance"]["attendancePercentage"] == 96.5
     assert data["preferences"]["theme"] == "dark"
     assert data["notificationSettings"]["salaryCredit"] is True
+
+
+@pytest.mark.asyncio
+async def test_staff_access_is_scoped_to_active_company_and_branch(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    company_a, branch_a = await _make_tenant(db_session, f"a-{suffix}")
+    company_b, branch_b = await _make_tenant(db_session, f"b-{suffix}")
+    manager = await _make_user(db_session, f"manager-{suffix}", company_a.id, branch_a.id, UserRole.MANAGER)
+    foreign_staff = await _make_user(db_session, f"foreign-{suffix}", company_b.id, branch_b.id, UserRole.CASHIER)
+    _set_tenant(db_session, company_a.id, branch_a.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(f"/api/v1/users/{foreign_staff.id}", headers=_bearer(manager, company_a.id, branch_a.id))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_staff_creation_requires_explicit_password(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    company, branch = await _make_tenant(db_session, suffix)
+    manager = await _make_user(db_session, f"manager-{suffix}", company.id, branch.id, UserRole.MANAGER)
+    _set_tenant(db_session, company.id, branch.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/users/",
+            json={
+                "username": f"new_staff_{suffix}",
+                "fullName": "New Staff",
+                "role": "CASHIER",
+                "branchId": branch.id,
+            },
+            headers=_bearer(manager, company.id, branch.id),
+        )
+
+    assert response.status_code == 400
+    assert "temporary password is required" in response.json()["message"].lower()

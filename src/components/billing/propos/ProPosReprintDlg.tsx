@@ -12,15 +12,16 @@
  * Classification: Internal
  */
 
-import React, { useState } from "react";
-import { X, Printer, Search, FileText, CheckCircle, Clock, Calendar } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Printer, Search, FileText, CheckCircle, Clock, Calendar, RefreshCw } from "lucide-react";
+import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 
 interface SmritiProPosReprintDlgProps {
   onReprintBill: (docType: "BILL" | "RETURN", docNo: string) => void;
   onClose: () => void;
 }
 
-const RECENT_DOCUMENTS = [
+const FALLBACK_DOCUMENTS = [
   { docNo: "INV-84919", docType: "BILL" as const, customer: "Farida Jameel", time: "19:45 PM", amount: 1798.20, itemsCount: 2 },
   { docNo: "INV-84918", docType: "BILL" as const, customer: "Customer01 (Walk-in)", time: "18:30 PM", amount: 899.10, itemsCount: 1 },
   { docNo: "CRN-1002", docType: "RETURN" as const, customer: "Rajesh Kumar", time: "17:15 PM", amount: 999.00, itemsCount: 1 },
@@ -34,7 +35,60 @@ export const SmritiProPosReprintDlg: React.FC<SmritiProPosReprintDlgProps> = ({
   const [docType, setDocType] = useState<"BILL" | "RETURN">("BILL");
   const [docPrefix, setDocPrefix] = useState<string>("INV");
   const [docNumber, setDocNumber] = useState<string>("");
-  const [selectedDoc, setSelectedDoc] = useState<string>(RECENT_DOCUMENTS[0].docNo);
+  const [documents, setDocuments] = useState<any[]>(FALLBACK_DOCUMENTS);
+  const [selectedDoc, setSelectedDoc] = useState<string>(FALLBACK_DOCUMENTS[0].docNo);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveDocs = async () => {
+      setIsLoading(true);
+      try {
+        if (docType === "BILL") {
+          const res = await apiFetchV1<any>("/sales/invoices?page_size=20");
+          const list = Array.isArray(res) ? res : (res?.items || []);
+          if (isMounted) {
+            const mapped = list.map((inv: any) => ({
+              docNo: inv.invoice_no || inv.id,
+              docType: "BILL" as const,
+              customer: inv.customer_name || "Counter Customer",
+              time: inv.date || "Today",
+              amount: Number(inv.grand_total || 0),
+              itemsCount: Array.isArray(inv.items) ? inv.items.length : 1
+            }));
+            const finalList = mapped.length > 0 ? mapped : FALLBACK_DOCUMENTS;
+            setDocuments(finalList);
+            setSelectedDoc(finalList[0].docNo);
+          }
+        } else {
+          const res = await apiFetchV1<any>("/sales/returns?page_size=20");
+          const list = Array.isArray(res) ? res : (res?.items || []);
+          if (isMounted) {
+            const mapped = list.map((ret: any) => ({
+              docNo: ret.return_no || ret.id,
+              docType: "RETURN" as const,
+              customer: ret.customer_name || "Customer",
+              time: ret.date || "Today",
+              amount: Number(ret.grand_total || 0),
+              itemsCount: Array.isArray(ret.items) ? ret.items.length : 1
+            }));
+            const finalList = mapped.length > 0 ? mapped : FALLBACK_DOCUMENTS;
+            setDocuments(finalList);
+            setSelectedDoc(finalList[0].docNo);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setDocuments(FALLBACK_DOCUMENTS);
+          setSelectedDoc(FALLBACK_DOCUMENTS[0].docNo);
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    void fetchLiveDocs();
+    return () => { isMounted = false; };
+  }, [docType]);
 
   const handlePrint = (targetNo?: string) => {
     const finalNo = targetNo || (docNumber.trim() ? `${docPrefix}-${docNumber.trim()}` : selectedDoc);
@@ -134,35 +188,43 @@ export const SmritiProPosReprintDlg: React.FC<SmritiProPosReprintDlgProps> = ({
               Recent Transactions
             </h4>
             <div className="border border-[#c4c5d5] dark:border-[#444653] rounded-xl overflow-hidden divide-y divide-[#eceef0] dark:divide-[#2d3133]">
-              {RECENT_DOCUMENTS.map(doc => {
-                const isSelected = selectedDoc === doc.docNo;
-                return (
-                  <div
-                    key={doc.docNo}
-                    onClick={() => setSelectedDoc(doc.docNo)}
-                    className={`p-3 flex items-center justify-between cursor-pointer transition ${
-                      isSelected
-                        ? "bg-[#dde1ff] dark:bg-[#1e40af]/30 font-bold"
-                        : "hover:bg-[#f8f9fa] dark:hover:bg-[#191c1e]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText size={16} className="text-[#00288e] dark:text-[#a8b8ff]" />
-                      <div>
-                        <span className="font-mono text-xs">{doc.docNo}</span>
-                        <div className="text-[11px] text-[#565e74] dark:text-[#bec6e0]">
-                          {doc.customer} • {doc.time}
+              {isLoading ? (
+                <div className="py-8 flex items-center justify-center gap-2 text-xs text-[#565e74] dark:text-[#bec6e0]">
+                  <RefreshCw size={14} className="animate-spin text-[#00288e]" />
+                  <span>Loading recent transactions...</span>
+                </div>
+              ) : (
+                documents.map(doc => {
+                  const isSelected = selectedDoc === doc.docNo;
+                  return (
+                    <div
+                      key={doc.docNo}
+                      onClick={() => setSelectedDoc(doc.docNo)}
+                      className={`p-3 flex items-center justify-between cursor-pointer transition ${
+                        isSelected
+                          ? "bg-[#dde1ff] dark:bg-[#1e40af]/30 font-bold"
+                          : "hover:bg-[#f8f9fa] dark:hover:bg-[#191c1e]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText size={16} className="text-[#00288e] dark:text-[#a8b8ff]" />
+                        <div>
+                          <span className="font-mono text-xs">{doc.docNo}</span>
+                          <div className="text-[11px] text-[#565e74] dark:text-[#bec6e0]">
+                            {doc.customer} • {doc.time}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="text-right">
-                      <span className="font-mono font-bold text-xs">₹{doc.amount.toFixed(2)}</span>
-                      <div className="text-[10px] text-[#565e74] dark:text-[#bec6e0]">{doc.itemsCount} items</div>
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-xs">₹{doc.amount.toFixed(2)}</span>
+                        <div className="text-[10px] text-[#565e74] dark:text-[#bec6e0]">{doc.itemsCount} items</div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
+
             </div>
           </div>
 

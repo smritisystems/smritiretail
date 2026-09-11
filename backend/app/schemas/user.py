@@ -118,6 +118,8 @@ class StaffUserCreate(BaseModel):
     fullName: str
     role: UserRole
     passwordHash: Optional[str] = None
+    # Compatibility input for legacy callers; the service validates either field.
+    password: Optional[str] = None
     status: Optional[str] = "Active"
     employeeId: Optional[str] = None
     employeeCode: Optional[str] = None

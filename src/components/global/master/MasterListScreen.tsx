@@ -304,7 +304,7 @@ export function MasterListScreen<T extends Record<string, any>>({
     }
 
     const url = isEdit ? `${config.apiEndpoint.replace(/\/$/, "")}/${itemId}` : config.apiEndpoint;
-    const method = isEdit ? "PUT" : "POST";
+    const method = isEdit ? "PATCH" : "POST";
 
     const res = await apiFetchV1(url, {
       method,

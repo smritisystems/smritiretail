@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-1381F9",
+  "entity": "hr_domain",
+  "capability": "hr.staff_master",
+  "asset_type": "component",
+  "proposed_name": "StaffMasterWs.tsx",
+  "target_file_path": "src/components/staff/StaffMasterWs.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "StaffMasterWs.tsx",
+  "content_hash": "6511db71f2aa056ba728cbc59a8cdc906126a33682c465a51a4c7b3447ae2aaa",
+  "git_commit": "306311f8264467b30815fef60792bb21b9538c71",
+  "issued_at": "2026-09-11T16:12:46.610623+00:00",
+  "expires_at": "2026-09-18T16:12:46.610623+00:00",
+  "status": "ISSUED"
+}
