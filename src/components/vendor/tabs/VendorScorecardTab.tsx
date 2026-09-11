@@ -15,6 +15,7 @@
 import React, { useMemo } from "react";
 import { Award, Clock, CheckCircle2, AlertTriangle, TrendingUp, Percent } from "lucide-react";
 import { VendorDetail } from "../../../types/vendor";
+import { withCapability } from "../../../types/architecture";
 import SupplierScorecardEngine, {
   SupplierProfile as ScorecardProfile,
   PurchaseOrderRecord,
@@ -32,7 +33,7 @@ const SLA_STYLES: Record<SupplierSLAStatus, { bg: string; border: string; text: 
   CRITICAL: { bg: "bg-red-950/30",     border: "border-red-600/50",     text: "text-red-400",     label: "CRITICAL — Breach of SLA" },
 };
 
-export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ vendor }) => {
+const VendorScorecardTabBase: React.FC<VendorScorecardTabProps> = ({ vendor }) => {
   const scorecard = useMemo(() => {
     const profile: ScorecardProfile = {
       supplierId: vendor.id,
@@ -136,3 +137,14 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ vendor }
     </div>
   );
 };
+
+export const VendorScorecardTab = withCapability(VendorScorecardTabBase, {
+  entity: "vendor",
+  capability: "vendor.scorecard",
+  role: "SPECIALIZED_UI",
+  canonicalOwner: "VendorMasterWs.tsx",
+  decisionId: "ADR-VEND-01",
+});
+
+export default VendorScorecardTab;
+

@@ -15,6 +15,7 @@
 import React from "react";
 import { CreditCard, DollarSign, Award, Clock, AlertTriangle, ShieldCheck } from "lucide-react";
 import { VendorDetail } from "../../../types/vendor";
+import { withCapability } from "../../../types/architecture";
 
 interface VendorCommercialTabProps {
   vendor: VendorDetail;
@@ -22,7 +23,7 @@ interface VendorCommercialTabProps {
   isEditing: boolean;
 }
 
-export const VendorCommercialTab: React.FC<VendorCommercialTabProps> = ({ vendor, onChangeCommercial, isEditing }) => {
+const VendorCommercialTabBase: React.FC<VendorCommercialTabProps> = ({ vendor, onChangeCommercial, isEditing }) => {
   const comm = vendor.commercial;
   const isMicroOrSmall = comm?.msmeCategory === "MICRO" || comm?.msmeCategory === "SMALL";
 
@@ -139,3 +140,14 @@ export const VendorCommercialTab: React.FC<VendorCommercialTabProps> = ({ vendor
     </div>
   );
 };
+
+export const VendorCommercialTab = withCapability(VendorCommercialTabBase, {
+  entity: "vendor",
+  capability: "vendor.commercial",
+  role: "SPECIALIZED_UI",
+  canonicalOwner: "VendorMasterWs.tsx",
+  decisionId: "ADR-VEND-01",
+});
+
+export default VendorCommercialTab;
+

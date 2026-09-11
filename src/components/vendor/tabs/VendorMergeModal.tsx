@@ -16,6 +16,7 @@ import React, { useState } from "react";
 import { GitMerge, AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
 import { VendorSummary } from "../../../types/vendor";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
+import { withCapability } from "../../../types/architecture";
 
 interface VendorMergeModalProps {
   currentVendorId: string;
@@ -26,7 +27,7 @@ interface VendorMergeModalProps {
   onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
 }
 
-export const VendorMergeModal: React.FC<VendorMergeModalProps> = ({
+const VendorMergeModalBase: React.FC<VendorMergeModalProps> = ({
   currentVendorId,
   vendorsList,
   isOpen,
@@ -149,3 +150,14 @@ export const VendorMergeModal: React.FC<VendorMergeModalProps> = ({
     </div>
   );
 };
+
+export const VendorMergeModal = withCapability(VendorMergeModalBase, {
+  entity: "vendor",
+  capability: "vendor.merge",
+  role: "SPECIALIZED_UI",
+  canonicalOwner: "VendorMasterWs.tsx",
+  decisionId: "ADR-VEND-01",
+});
+
+export default VendorMergeModal;
+
