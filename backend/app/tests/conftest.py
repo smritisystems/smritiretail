@@ -225,6 +225,7 @@ async def db_engine(disposable_company_database):
                     await conn.execute(text(stmt))
                 except Exception:
                     pass
+            await _ensure_schema_compatibility(conn)
         except Exception:
             pass
     yield engine

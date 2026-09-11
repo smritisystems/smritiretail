@@ -508,6 +508,14 @@ class SalesService:
             else:
                 is_inclusive = not is_registered_b2b
 
+            # Statutory Price Validation: Unit Rate cannot exceed statutory MRP
+            effective_mrp = item.mrp or (product.mrp if product else None)
+            if effective_mrp and effective_mrp > Decimal("0.00") and unit_price > effective_mrp:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Selling price (₹{unit_price:,.2f}) cannot exceed statutory MRP (₹{effective_mrp:,.2f}) for item '{item.name or item.code}'."
+                )
+
             # Compute discount amount if discount percentage is given
             disc_pct = Decimal(str(item.disc_pct or "0.00"))
             discount_amount = (unit_price * quantity * disc_pct / Decimal("100.00")) if disc_pct > 0 else Decimal("0.00")
