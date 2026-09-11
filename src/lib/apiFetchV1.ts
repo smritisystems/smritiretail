@@ -204,12 +204,16 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     requestInit.body = options.body as BodyInit;
   }
 
-  // Sanitize endpoint string — remove any embedded docker hostname prefixes
+  // Sanitize endpoint string — remove any embedded docker hostname prefixes.
+  // Handles both http://smriti-api:8000/... and bare smriti-api:8000/... forms.
   let cleanEndpoint = endpoint
     .replace(/https?:\/\/python-core(:[0-9]+)?/gi, "")
     .replace(/https?:\/\/smriti-api(:[0-9]+)?/gi, "")
     .replace(/https?:\/\/localhost(:[0-9]+)?/gi, "")
-    .replace(/https?:\/\/127\.0\.0\.1(:[0-9]+)?/gi, "");
+    .replace(/https?:\/\/127\.0\.0\.1(:[0-9]+)?/gi, "")
+    // Bare (no-protocol) Docker hostnames — e.g. "smriti-api:8000/api/v1/..."
+    .replace(/^python-core(:[0-9]+)?\//gi, "/")
+    .replace(/^smriti-api(:[0-9]+)?\//gi, "/");
 
   if (cleanEndpoint.startsWith("/api/v1")) {
     cleanEndpoint = cleanEndpoint.replace(/^\/api\/v1/, "");
@@ -231,7 +235,12 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     });
   } catch (networkError: any) {
     console.error(`[apiFetchV1 Network Error] Target URL "${url}" unreachable:`, networkError);
-    throw new Error("SMRITI Backend API Server is unreachable. Please ensure the FastAPI service (python-core:8000 / localhost:8000) is running.");
+    // HREP-compliant user-facing message — no internal hostnames or stack details exposed
+    throw new Error(
+      "The SMRITI backend service is currently unreachable. " +
+      "Please ensure the FastAPI backend is running (localhost:8000) and try again. " +
+      "If this issue persists, contact your system administrator."
+    );
   }
 
   // ── Silent Token Refresh on 401 ──────────────────────────────────────────────
