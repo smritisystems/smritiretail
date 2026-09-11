@@ -5,7 +5,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.17.0
  * Created      : 2026-08-16
- * Modified     : 2026-08-16
+ * Modified     : 2026-09-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -36,7 +36,7 @@ const mapModuleToContext = (moduleId: string): BusinessContext => {
   if (['sales', 'crm', 'tax-invoice-print'].includes(moduleId)) {
     return 'sales';
   }
-  if (['purchase', 'grn', 'supplier-mgmt', 'approval-matrix'].includes(moduleId)) {
+  if (['purchase', 'grn', 'supplier-mgmt', 'vendor-360', 'vendor-master', 'vendors', 'approval-matrix'].includes(moduleId)) {
     return 'purchase';
   }
   if (['stock-ledger', 'barcode', 'inventory', 'terms-engine'].includes(moduleId)) {
