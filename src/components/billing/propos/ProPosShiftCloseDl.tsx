@@ -211,7 +211,7 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
                 Shift Successfully Closed &amp; Reconciled
               </h2>
               <p className="text-xs text-[#64748b] dark:text-[#94a3b8] mt-1">
-                Z-Report has been committed to PostgreSQL. Dual-entry General Ledger balancing entries posted.
+                Z-Report has been committed to ledger. Dual-entry General Ledger balancing entries posted.
               </p>
             </div>
 

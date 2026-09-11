@@ -402,7 +402,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
             </span>
           </div>
           <p className="text-xs text-[#515f74] dark:text-[#a0a5b5] mt-0.5">
-            Real-time spreadsheet parser, canonical schema alignment, and PostgreSQL persistence.
+            Real-time spreadsheet parser, canonical schema alignment, and database persistence.
           </p>
         </div>
 

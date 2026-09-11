@@ -260,8 +260,8 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
               <Database size={16} />
             </div>
             <div>
-              <div className="text-blue-200/70 text-[9px] uppercase font-bold tracking-wider">Backend</div>
-              <div className="text-xs font-bold text-white">FastAPI + PG</div>
+              <div className="text-blue-200/70 text-[9px] uppercase font-bold tracking-wider">Service Engine</div>
+              <div className="text-xs font-bold text-white">Connected</div>
             </div>
           </div>
 

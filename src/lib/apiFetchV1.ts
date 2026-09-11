@@ -239,8 +239,8 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     console.error(`[apiFetchV1 Network Error] Target URL "${url}" unreachable:`, networkError);
     // HREP-compliant user-facing message — no internal hostnames or stack details exposed
     throw new Error(
-      "The SMRITI backend service is currently unreachable. " +
-      "Please ensure the FastAPI backend is running (localhost:8000) and try again. " +
+      "The SMRITI application service is currently unreachable. " +
+      "Please ensure your network connection or server service is active and try again. " +
       "If this issue persists, contact your system administrator."
     );
   }

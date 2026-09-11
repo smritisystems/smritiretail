@@ -380,7 +380,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   {
     id: "database-manager",
     title: "Database Manager (DB Studio)",
-    subtitle: "Multi-tenant PostgreSQL schema browser, table data explorer, live telemetry & SQL console",
+    subtitle: "Multi-tenant database schema browser, table data explorer, live telemetry & SQL console",
     icon: "database",
     tag: "DB Studio",
     badgeType: "primary",
