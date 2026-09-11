@@ -31,6 +31,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { TaxInvoiceDocumentState } from "../types.ts";
+import { GST_STATE_MAP } from "../../../utils/gstEngine.ts";
 
 export interface TaxInvoiceDocumentPanelProps {
   docState: TaxInvoiceDocumentState;
@@ -80,6 +81,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
   };
 
   const isInterstate = docState.transactionMode === "Interstate Sale";
+  const hasSelectedCustomer = Boolean(docState.customerId && docState.customerName && docState.customerCode !== "WALK-IN");
 
   return (
     <div className="flex flex-col flex-none border-b border-slate-200 bg-white shadow-2xs select-none">
@@ -311,10 +313,10 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                 Bill To
               </div>
               <div className="text-xs font-bold text-slate-800 truncate mt-0.5 leading-tight font-mono">
-                {docState.billingStoreCode || "BILL-A"}
+                {docState.billingStoreCode || (hasSelectedCustomer ? "Not assigned" : "Select customer")}
               </div>
               <div className="text-[11px] text-slate-500 leading-none mt-0.5">
-                {customerBillingLocations.length > 0 ? `${customerBillingLocations.length} Sites` : "1 Location"}
+                {customerBillingLocations.length > 0 ? `${customerBillingLocations.length} Sites` : "No location"}
               </div>
             </div>
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 flex-none" />
@@ -333,10 +335,10 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                 Ship To
               </div>
               <div className="text-xs font-bold text-slate-800 truncate mt-0.5 leading-tight font-mono">
-                {docState.deliveryStoreCode || "8361"}
+                {docState.deliveryStoreCode || (hasSelectedCustomer ? "Not assigned" : "Select customer")}
               </div>
               <div className="text-[11px] text-slate-500 leading-none mt-0.5">
-                {customerDeliveryLocations.length > 0 ? `${customerDeliveryLocations.length} Stores` : "1 Location"}
+                {customerDeliveryLocations.length > 0 ? `${customerDeliveryLocations.length} Stores` : "No location"}
               </div>
             </div>
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 flex-none" />
@@ -355,7 +357,9 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                 POS
               </div>
               <div className="text-xs font-bold text-slate-800 truncate mt-0.5 leading-tight">
-                {docState.placeOfSupplyCode ? `State (${docState.placeOfSupplyCode})` : (isInterstate ? "Assam (18)" : "Local (27)")}
+                {docState.placeOfSupplyCode
+                  ? `${GST_STATE_MAP[docState.placeOfSupplyCode] || 'State'} (${docState.placeOfSupplyCode})`
+                  : (isInterstate ? "Assam (18)" : "Maharashtra (27)")}
               </div>
               <div className={`text-[10px] leading-none mt-0.5 font-medium ${isInterstate ? "text-blue-600" : "text-emerald-600"}`}>
                 {isInterstate ? "Inter-State (IGST)" : "Intra-State"}
@@ -672,20 +676,30 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                     </div>
                   )}
                   <div className="space-y-1.5 text-[11px]">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Code:</span>
-                      <span className="font-mono font-bold text-slate-900">{docState.billingStoreCode || "BILL-A"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Office:</span>
-                      <span className="font-semibold text-slate-800">Corporate HQ Billing Desk</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Address:</span>
-                      <p className="text-slate-700 text-[10px] leading-relaxed mt-0.5">
-                        {docState.billingAddress || docState.customerAddress || "Unit No. 101, Corporate Tower BKC, Mumbai - 400051"}
+                    {docState.billingStoreCode || docState.billingAddress || docState.customerAddress ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Code:</span>
+                          <span className="font-mono font-bold text-slate-900">{docState.billingStoreCode || "Not assigned"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Office:</span>
+                          <span className="font-semibold text-slate-800">{docState.customerName || "Customer billing location"}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Address:</span>
+                          <p className="text-slate-700 text-[10px] leading-relaxed mt-0.5">
+                            {docState.billingAddress || docState.customerAddress}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="rounded border border-amber-200 bg-amber-50 p-2 text-[10px] leading-relaxed text-amber-800">
+                        {hasSelectedCustomer
+                          ? "No billing location is registered for this customer. Add one in Customer Master before issuing the invoice."
+                          : "Select a registered customer to load the billing address."}
                       </p>
-                    </div>
+                    )}
                     <div className="pt-2 border-t border-slate-100">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">PO / Buyer Reference</label>
                       <input
@@ -761,22 +775,32 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                     </div>
                   )}
                   <div className="space-y-1.5 text-[11px]">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Store Code:</span>
-                      <span className="font-mono font-bold text-slate-900">{docState.deliveryStoreCode || "8361"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Store Name:</span>
-                      <span className="font-semibold text-slate-800">
-                        {docState.deliveryLocationSnapshot?.location_name || "RRL Footprint Store"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Delivery Address:</span>
-                      <p className="text-slate-700 text-[10px] leading-relaxed mt-0.5">
-                        {docState.shippingAddress || "GS Road, Guwahati, Assam - 781001"}
+                    {docState.deliveryStoreCode || docState.shippingAddress || docState.deliveryLocationSnapshot ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Store Code:</span>
+                          <span className="font-mono font-bold text-slate-900">{docState.deliveryStoreCode || "Not assigned"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Store Name:</span>
+                          <span className="font-semibold text-slate-800">
+                            {docState.deliveryLocationSnapshot?.location_name || docState.customerName || "Customer delivery location"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Delivery Address:</span>
+                          <p className="text-slate-700 text-[10px] leading-relaxed mt-0.5">
+                            {docState.shippingAddress}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="rounded border border-amber-200 bg-amber-50 p-2 text-[10px] leading-relaxed text-amber-800">
+                        {hasSelectedCustomer
+                          ? "No shipping location is registered for this customer. Add one in Customer Master before issuing the invoice."
+                          : "Select a registered customer to load the delivery address."}
                       </p>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

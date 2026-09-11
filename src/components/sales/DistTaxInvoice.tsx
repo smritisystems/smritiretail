@@ -36,12 +36,13 @@ export interface SmritiDistributorTaxInvoiceWorkspaceProps {
 export const deriveCustomerInvoiceDefaults = (
   customer: any | null,
   gstRegistrations: any[] = [],
-  deliveryLocations: any[] = []
+  deliveryLocations: any[] = [],
+  sellerStateCode: string = "27"
 ) => {
   const primaryReg = gstRegistrations.find((reg: any) => reg.is_primary) || gstRegistrations[0] || null;
   const defaultDelivery = deliveryLocations.find((loc: any) => loc.is_default) || deliveryLocations[0] || null;
   const customerGstin = customer?.gstNumber || customer?.gstin || primaryReg?.gstin || "";
-  const placeOfSupplyCode = defaultDelivery?.state_code || primaryReg?.state_code || "27";
+  const placeOfSupplyCode = defaultDelivery?.state_code || primaryReg?.state_code || sellerStateCode;
 
   const hasCustomerProfile = !!customer && (
     !!customer.id ||
@@ -52,13 +53,11 @@ export const deriveCustomerInvoiceDefaults = (
     Number(customer.creditLimit ?? customer.credit_limit ?? 0) > 0
   );
 
-  const transactionMode = hasCustomerProfile
-    ? (
-        primaryReg && defaultDelivery && primaryReg.state_code && defaultDelivery.state_code && primaryReg.state_code !== defaultDelivery.state_code
-          ? "Interstate Sale"
-          : "Tax Invoice"
-      )
-    : "Tax Invoice";
+  const isInterstate = hasCustomerProfile
+    ? (placeOfSupplyCode !== sellerStateCode || (primaryReg && defaultDelivery && primaryReg.state_code && defaultDelivery.state_code && primaryReg.state_code !== defaultDelivery.state_code))
+    : false;
+
+  const transactionMode = isInterstate ? "Interstate Sale" : "Tax Invoice";
 
   return {
     billType: "Tax Invoice" as const,
@@ -201,12 +200,15 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
 
   // Modals & Auxiliary View states
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
   const [isSkuModalOpen, setIsSkuModalOpen] = useState(false);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [activeAuxTab, setActiveAuxTab] = useState<"items" | "transporter" | "remarks" | "addons">("items");
 
   // Search state
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [newCustomerDraft, setNewCustomerDraft] = useState({ name: "", mobile: "", gstNumber: "" });
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [skuSearchQuery, setSkuSearchQuery] = useState("");
   const [customersList, setCustomersList] = useState<any[]>([]);
 
@@ -394,6 +396,40 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
     setIsCustomerModalOpen(false);
     onNotification?.("Customer Attached", `Selected ${cust.name} for this invoice. Loading location accounts...`, "info");
     void fetchCustomerB2BData(cust.id);
+  };
+
+  const handleCreateCustomer = async () => {
+    const name = newCustomerDraft.name.trim();
+    if (!name) {
+      onNotification?.("Customer Name Required", "Enter a customer name before creating the account.", "error");
+      return;
+    }
+
+    setIsCreatingCustomer(true);
+    try {
+      const created = await apiFetchV1<any>("/crm/customers", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          mobile: newCustomerDraft.mobile.trim() || undefined,
+          gst_number: newCustomerDraft.gstNumber.trim() || undefined,
+          customer_group_id: "CG-Retail",
+          status: "Active",
+          tags: ["Retail"],
+        }),
+      });
+      const customer = normalizeCustomerCatalogEntry(created);
+      if (!customer?.id) throw new Error("The customer was created without an identifier.");
+      setCustomersList((prev) => [customer, ...prev.filter((entry) => entry.id !== customer.id)]);
+      setNewCustomerDraft({ name: "", mobile: "", gstNumber: "" });
+      setIsNewCustomerModalOpen(false);
+      handleSelectCustomer(customer);
+      onNotification?.("Customer Created", `${customer.name} is ready for this invoice.`, "success");
+    } catch (error: any) {
+      onNotification?.("Customer Creation Failed", error?.message || "Unable to create the customer account.", "error");
+    } finally {
+      setIsCreatingCustomer(false);
+    }
   };
 
   // Save invoice
@@ -648,7 +684,10 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
         docState={docState}
         onChange={handleDocChange}
         onCustomerSearchOpen={() => setIsCustomerModalOpen(true)}
-        onAddCustomerOpen={() => setIsCustomerModalOpen(true)}
+        onAddCustomerOpen={() => {
+          setIsCustomerModalOpen(false);
+          setIsNewCustomerModalOpen(true);
+        }}
         onImportClick={() => onNotification?.("Import Active", "Direct import queue ready.", "info")}
         onRecallClick={() => onNotification?.("Recall Active", "Previous invoice recall ready.", "info")}
         onSaveClick={() => setIsSettlementModalOpen(true)}
@@ -691,6 +730,8 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
             }}
             activeAuxTab={activeAuxTab}
             onSelectAuxTab={setActiveAuxTab}
+            isInterstate={docState.transactionMode === "Interstate Sale"}
+            placeOfSupplyCode={docState.placeOfSupplyCode}
           />
         ) : (
           <div className="flex-1 flex flex-col bg-white p-3 overflow-y-auto">
@@ -724,6 +765,54 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
             </div>
           </div>
         )}
+
+        {/* Persistent review area keeps the checkout decision visible below the grid. */}
+        <section className="flex-none border-t border-slate-200 bg-slate-50 px-4 py-2.5" data-purpose="invoice-review-summary">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                  docState.items.length > 0
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-amber-200 bg-amber-50 text-amber-700"
+                }`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${docState.items.length > 0 ? "bg-emerald-500" : "bg-amber-500"}`} />
+                  {docState.items.length > 0 ? "Ready to settle" : "Editing"}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-600">
+                  {docState.items.length > 0 ? `${metrics.itemCount} line item${metrics.itemCount === 1 ? "" : "s"} · ${metrics.totalQty.toFixed(2)} units` : "Scan or add an item to begin"}
+                </span>
+              </div>
+              <div className="mt-1 truncate text-xs text-slate-600">
+                <span className="font-semibold text-slate-800">{docState.customerName || "Walk-in Customer"}</span>
+                {docState.documentRemarks && <span className="ml-2 text-slate-500">· {docState.documentRemarks}</span>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-x-5 gap-y-0.5 text-right text-[11px] text-slate-500">
+              <span>Subtotal <strong className="ml-1 font-mono text-slate-700">₹{metrics.salesValue.toFixed(2)}</strong></span>
+              <span>Discount <strong className="ml-1 font-mono text-amber-700">-₹{(metrics.itemDiscount + metrics.billDiscount).toFixed(2)}</strong></span>
+              <span>GST <strong className="ml-1 font-mono text-emerald-700">₹{metrics.totalTax.toFixed(2)}</strong></span>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-l border-slate-200 pl-4">
+              <div className="text-right">
+                <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Grand Total</div>
+                <div className="font-mono text-2xl font-black leading-none text-blue-800">₹{metrics.netAmount.toFixed(2)}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSettlementModalOpen(true)}
+                disabled={docState.items.length === 0 || isSaving}
+                title="Review and settle invoice (F8)"
+                className="h-10 rounded bg-blue-700 px-4 text-xs font-extrabold text-white shadow-sm transition hover:bg-blue-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Settle &amp; Save
+                <span className="ml-1 font-mono text-[10px] opacity-80">F8</span>
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* ── 4. Horizontal Summary Totals Bar (Deep Navy #0c243f) ── */}
@@ -1099,6 +1188,57 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
                 className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-xs font-semibold cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isNewCustomerModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+              <h2 className="text-sm font-bold">Create New Customer</h2>
+              <button type="button" onClick={() => setIsNewCustomerModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer" aria-label="Close new customer dialog">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <label className="block text-xs font-semibold text-slate-700">
+                Customer Name <span className="text-rose-600">*</span>
+                <input
+                  autoFocus
+                  value={newCustomerDraft.name}
+                  onChange={(e) => setNewCustomerDraft((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Apex Retail Traders"
+                  className="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-xs font-normal focus:border-blue-600 focus:outline-none"
+                />
+              </label>
+              <label className="block text-xs font-semibold text-slate-700">
+                Mobile
+                <input
+                  value={newCustomerDraft.mobile}
+                  onChange={(e) => setNewCustomerDraft((prev) => ({ ...prev, mobile: e.target.value }))}
+                  placeholder="10-digit mobile number"
+                  className="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-xs font-normal focus:border-blue-600 focus:outline-none"
+                />
+              </label>
+              <label className="block text-xs font-semibold text-slate-700">
+                GSTIN <span className="font-normal text-slate-400">(optional)</span>
+                <input
+                  value={newCustomerDraft.gstNumber}
+                  onChange={(e) => setNewCustomerDraft((prev) => ({ ...prev, gstNumber: e.target.value.toUpperCase() }))}
+                  placeholder="27ABCDE1234F1Z5"
+                  className="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-xs font-mono font-normal focus:border-blue-600 focus:outline-none"
+                />
+              </label>
+            </div>
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button type="button" onClick={() => setIsNewCustomerModalOpen(false)} className="px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-white cursor-pointer">
+                Cancel
+              </button>
+              <button type="button" disabled={isCreatingCustomer} onClick={handleCreateCustomer} className="px-4 py-1.5 rounded bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 cursor-pointer">
+                {isCreatingCustomer ? "Creating..." : "Create & Select"}
               </button>
             </div>
           </div>

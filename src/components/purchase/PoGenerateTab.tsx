@@ -42,6 +42,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 }) => {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [suppliersList, setSuppliersList] = useState<{ id: string; name: string; code?: string }[]>([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
+  const [suppliersError, setSuppliersError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"generation" | "size_pivot" | "other">("generation");
   const [showF2Hint, setShowF2Hint] = useState(true);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
@@ -56,8 +58,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     prefix: "PO13",
     orderNumber: "46",
     orderDate: new Date().toLocaleDateString("en-GB"),
-    supplierId: "sup-1",
-    supplierName: "RPSH KMR:Rupesh Kumar",
+    supplierId: "",
+    supplierName: "",
     billTo: "ACME TEXTILES",
     deliveryDate: new Date(Date.now() + 10 * 86400000).toLocaleDateString("en-GB"),
     leadTimeDays: 10,
@@ -131,6 +133,10 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   }, []);
 
   const loadData = async () => {
+    setSuppliersLoading(true);
+    setSuppliersError(null);
+    setSuppliersList([]);
+    setHeader(current => ({ ...current, supplierId: "", supplierName: "" }));
     try {
       if (products.length === 0) {
         const prodRes = await apiFetchV1("/products");
@@ -140,20 +146,20 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       const supRes = await apiFetchV1("/purchase/suppliers");
       const supList = Array.isArray(supRes) ? supRes : supRes?.items || [];
       if (supList.length > 0) {
-        setSuppliersList(supList.map((s: any) => ({ id: s.id, name: s.name, code: s.vendor_code || s.code })));
+        const suppliers = supList.map((s: any) => ({ id: s.id, name: s.name, code: s.vendor_code || s.code }));
+        setSuppliersList(suppliers);
+        setHeader(current => {
+          const selected = suppliers.find((s: { id: string; name: string; code?: string }) => s.id === current.supplierId) || suppliers[0];
+          return { ...current, supplierId: selected.id, supplierName: selected.name };
+        });
       } else {
-        setSuppliersList([
-          { id: "sup-1", name: "RPSH KMR:Rupesh Kumar", code: "RPSH" },
-          { id: "sup-2", name: "ACME Suppliers Pvt Ltd", code: "ACME" },
-          { id: "sup-3", name: "Raymond Apparel Ltd", code: "RAYM" }
-        ]);
+        setSuppliersList([]);
       }
-    } catch {
-      setSuppliersList([
-        { id: "sup-1", name: "RPSH KMR:Rupesh Kumar", code: "RPSH" },
-        { id: "sup-2", name: "ACME Suppliers Pvt Ltd", code: "ACME" },
-        { id: "sup-3", name: "Raymond Apparel Ltd", code: "RAYM" }
-      ]);
+    } catch (error) {
+      setSuppliersList([]);
+      setSuppliersError(error instanceof Error ? error.message : "Supplier service is unavailable.");
+    } finally {
+      setSuppliersLoading(false);
     }
   };
 
@@ -401,6 +407,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       ? lineItems.filter(l => l.stockNo && l.orderQty > 0)
       : sizePivotRows.filter(r => r.articleNo && r.totalQty > 0);
 
+    if (!header.supplierId || suppliersLoading || suppliersError) {
+      if (onNotification) onNotification("Supplier Required", "Load and select a supplier from the backend before saving the purchase order.", "error");
+      return;
+    }
+
     if (activeLines.length === 0) {
       if (onNotification) onNotification("Validation Error", "Please enter at least one line item with quantity.", "error");
       return;
@@ -411,7 +422,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       const payload = {
         order_number: `${header.prefix}-${header.orderNumber}`,
         order_date: new Date().toISOString().split("T")[0],
-        supplier_id: header.supplierId || "sup-1",
+        supplier_id: header.supplierId,
         supplier_name: header.supplierName,
         delivery_date: new Date(Date.now() + header.leadTimeDays * 86400000).toISOString().split("T")[0],
         total_amount: totals.totalValue,
@@ -587,17 +598,37 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             <label className="col-span-3 font-semibold text-[#434652]">Supplier</label>
             <select
               value={header.supplierId}
+              disabled={suppliersLoading || !!suppliersError || suppliersList.length === 0}
               onChange={(e) => {
                 const s = suppliersList.find(x => x.id === e.target.value);
                 setHeader({ ...header, supplierId: e.target.value, supplierName: s ? s.name : header.supplierName });
               }}
               className="col-span-9 border border-[#737685] rounded px-2 h-6 bg-white outline-none focus:ring-1 focus:ring-[#00296d] font-medium"
             >
+              {suppliersLoading && <option value="">Loading suppliers...</option>}
+              {!suppliersLoading && suppliersError && <option value="">Supplier service unavailable</option>}
+              {!suppliersLoading && !suppliersError && suppliersList.length === 0 && <option value="">No suppliers available</option>}
               {suppliersList.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>
+          {suppliersError && (
+            <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-red-700" role="alert">
+              <span>{suppliersError}</span>
+              <button type="button" onClick={loadData} className="font-semibold underline hover:text-red-900">
+                Retry
+              </button>
+            </div>
+          )}
+          {!suppliersLoading && !suppliersError && suppliersList.length === 0 && (
+            <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-[#5d6270]" role="status">
+              <span>No suppliers found for the current company and branch.</span>
+              <button type="button" onClick={loadData} className="font-semibold underline hover:text-[#00296d]">
+                Retry
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-12 gap-1.5 items-center mb-1">
             <label className="col-span-3 font-semibold text-[#434652]">Bill to</label>
             <input

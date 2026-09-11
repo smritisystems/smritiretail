@@ -18,12 +18,13 @@ from pydantic import BaseModel, Field
 
 
 class CashRegisterCreate(BaseModel):
-    id:        str = Field(..., max_length=50)
-    name:      str = Field(..., min_length=2, max_length=100)
-    code:      str = Field(..., min_length=2, max_length=50)
-    notes:     Optional[str] = Field(None, max_length=500)
-    cashier:   Optional[str] = None
-    warehouse: Optional[str] = None
+    id:           str = Field(..., max_length=50)
+    name:         str = Field(..., min_length=2, max_length=100)
+    code:         str = Field(..., min_length=2, max_length=50)
+    notes:        Optional[str] = Field(None, max_length=500)
+    cashier:      Optional[str] = None
+    warehouse_id: Optional[str] = None
+    warehouse:    Optional[str] = None
 
 
 class CashRegisterResponse(BaseModel):
@@ -41,6 +42,7 @@ class CashRegisterResponse(BaseModel):
     active_shift_opened: Optional[datetime] = None
     is_locked:           bool = False
     cashier:             Optional[str] = None
+    warehouse_id:        Optional[str] = None
     warehouse:           Optional[str] = None
     company_id:          Optional[str] = None
     branch_id:           Optional[str] = None
@@ -283,6 +285,15 @@ class POSCheckoutRequest(BaseModel):
     grand_total:          Decimal                          # client display total; server re-computes
     customer_id:          Optional[str]        = None
     customer_name:        Optional[str]        = None
+    billing_location_id:  Optional[str]        = None
+    billing_store_code:   Optional[str]        = None
+    billing_address:      Optional[str]        = None
+    delivery_location_id: Optional[str]        = None
+    delivery_store_code:  Optional[str]        = None
+    delivery_gstin:       Optional[str]        = None
+    delivery_location_snapshot: Optional[Dict[str, Any]] = None
+    shipping_address:     Optional[str]        = None
+    place_of_supply_code: Optional[str]        = None
     bill_discount_val:    Optional[Decimal]    = None
     bill_discount_type:   Optional[str]        = None     # "percent" | "flat"
     loyalty_redeem_points: Optional[int]       = None

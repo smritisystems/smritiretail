@@ -14,7 +14,7 @@ Classification: Internal
 
 import re
 from typing import Any, Dict, Optional, Union
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..api.deps import TenantContext
 from ..models.crm import (
@@ -249,35 +249,37 @@ class CustomerIdentityService:
         if raw_mobile and str(raw_mobile).strip():
             clean_mobile = str(raw_mobile).strip()
             digits = re.sub(r"\D", "", clean_mobile)
+            mob_clauses = [Customer.mobile == clean_mobile]
             if digits:
                 last10 = digits[-10:] if len(digits) >= 10 else digits
-                stmt_mob = select(Customer).filter(
-                    Customer.mobile.like(f"%{last10}"),
-                    Customer.is_deleted == False,
+                mob_clauses.append(Customer.mobile.like(f"%{last10}"))
+            stmt_mob = select(Customer).filter(
+                or_(*mob_clauses),
+                Customer.is_deleted == False,
+            )
+            if self.tenant_ctx.company_id:
+                stmt_mob = stmt_mob.filter(
+                    (Customer.company_id == self.tenant_ctx.company_id)
+                    | (Customer.company_id.is_(None))
                 )
-                if self.tenant_ctx.company_id:
-                    stmt_mob = stmt_mob.filter(
-                        (Customer.company_id == self.tenant_ctx.company_id)
-                        | (Customer.company_id.is_(None))
-                    )
-                res_mob = await self.db.execute(stmt_mob)
-                mob_cust = res_mob.scalars().first()
-                if mob_cust and mob_cust.id != exclude_customer_id:
-                    return CustomerDuplicateCheckResponse(
-                        decision=DuplicateDecision.POSSIBLE_DUPLICATE,
-                        matched_identity=MatchedIdentityType.MOBILE,
-                        existing_customer=ExistingCustomerSummary(
-                            id=mob_cust.id,
-                            code=mob_cust.code,
-                            name=mob_cust.name,
-                            mobile=mob_cust.mobile,
-                            email=mob_cust.email,
-                            gst_number=mob_cust.gst_number,
-                            status=mob_cust.status,
-                        ),
-                        reason=f"Mobile number '{clean_mobile}' is already in use by customer '{mob_cust.name}' ({mob_cust.code or mob_cust.id}). Verify if this represents the same customer account.",
-                        allow_override=True,
-                    )
+            res_mob = await self.db.execute(stmt_mob)
+            mob_cust = res_mob.scalars().first()
+            if mob_cust and mob_cust.id != exclude_customer_id:
+                return CustomerDuplicateCheckResponse(
+                    decision=DuplicateDecision.POSSIBLE_DUPLICATE,
+                    matched_identity=MatchedIdentityType.MOBILE,
+                    existing_customer=ExistingCustomerSummary(
+                        id=mob_cust.id,
+                        code=mob_cust.code,
+                        name=mob_cust.name,
+                        mobile=mob_cust.mobile,
+                        email=mob_cust.email,
+                        gst_number=mob_cust.gst_number,
+                        status=mob_cust.status,
+                    ),
+                    reason=f"Mobile number '{clean_mobile}' is already in use by customer '{mob_cust.name}' ({mob_cust.code or mob_cust.id}). Verify if this represents the same customer account.",
+                    allow_override=True,
+                )
 
         # 6. Check Secondary Signals: Email (Possible Duplicate)
         if raw_email and str(raw_email).strip():

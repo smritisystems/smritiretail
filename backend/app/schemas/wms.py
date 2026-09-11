@@ -12,10 +12,12 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from pydantic import BaseModel, ConfigDict
+import re
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
+from ..core.gst_engine import GST_STATE_CODES
 
 
 # --- Warehouse Schemas ---
@@ -31,6 +33,41 @@ class WarehouseBase(BaseModel):
     contact_person: Optional[str] = None
     phone: Optional[str] = None
 
+    @field_validator("pincode")
+    @classmethod
+    def validate_pincode(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        if not re.match(r"^[0-9]{6}$", cleaned):
+            raise ValueError("PIN code must be exactly 6 Indian postal digits (e.g. '440029').")
+        return cleaned
+
+    @field_validator("state")
+    @classmethod
+    def validate_state(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        if cleaned in GST_STATE_CODES:
+            return GST_STATE_CODES[cleaned]
+        state_names = {s.lower(): s for s in GST_STATE_CODES.values()}
+        if cleaned.lower() in state_names:
+            return state_names[cleaned.lower()]
+        if "-" in cleaned:
+            parts = cleaned.split("-", 1)
+            code_part = parts[0].strip()
+            name_part = parts[1].strip().lower()
+            if code_part in GST_STATE_CODES:
+                return GST_STATE_CODES[code_part]
+            if name_part in state_names:
+                return state_names[name_part]
+        raise ValueError(f"Invalid Indian State/UT '{cleaned}'. Must match a valid Indian state or 2-digit GST state code.")
+
 class WarehouseCreate(WarehouseBase):
     pass
 
@@ -44,6 +81,33 @@ class WarehouseUpdate(BaseModel):
     contact_person: Optional[str] = None
     phone: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator("pincode")
+    @classmethod
+    def validate_pincode(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        if not re.match(r"^[0-9]{6}$", cleaned):
+            raise ValueError("PIN code must be exactly 6 Indian postal digits (e.g. '440029').")
+        return cleaned
+
+    @field_validator("state")
+    @classmethod
+    def validate_state(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        if cleaned in GST_STATE_CODES:
+            return GST_STATE_CODES[cleaned]
+        state_names = {s.lower(): s for s in GST_STATE_CODES.values()}
+        if cleaned.lower() in state_names:
+            return state_names[cleaned.lower()]
+        return cleaned
 
 class WarehouseResponse(WarehouseBase):
     id: str

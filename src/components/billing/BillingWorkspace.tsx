@@ -15,14 +15,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Product, POSProfile, Shift, Customer } from "../../types.ts";
 import { SmritiProPosBillingTerminal } from "./propos/ProPosBillingTerm.tsx";
-import { BillingTerm } from "./BillingTerm.tsx";
-import { DistTaxInvoice } from "../sales/DistTaxInvoice.tsx";
 import { SmritiProPosEodReport } from "./propos/ProPosEodReportVie.tsx";
 import { SmritiDailyReportsDashboard } from "./propos/ProPosDailyReports.tsx";
 import {
   Receipt,
-  FileText,
-  Layers,
   FileSpreadsheet,
   BarChart3,
   Clock,
@@ -37,7 +33,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-export type BillingWorkspaceMode = "RETAIL_POS" | "B2B_INVOICE" | "WHOLESALE_MATRIX";
+export type BillingWorkspaceMode = "RETAIL_POS";
 export type BillingAuxiliaryView = "WORKSPACE" | "EOD_Z_REPORT" | "SHIFT_REPORTS";
 
 export interface BillingWorkspaceProps {
@@ -61,11 +57,8 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   currentUser,
   onRefreshData,
   onNotification,
-  initialMode = "RETAIL_POS",
   initialView = "WORKSPACE",
-  isStandaloneTab = false,
 }) => {
-  const [activeMode, setActiveMode] = useState<BillingWorkspaceMode>(initialMode);
   const [auxView, setAuxView] = useState<BillingAuxiliaryView>(initialView);
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>(() => new Date().toLocaleTimeString());
@@ -102,30 +95,11 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
         return;
       }
 
-      // Alt+1: Retail POS Mode
+      // Alt+1: Retail POS workspace
       if (e.altKey && e.key === "1") {
         e.preventDefault();
         setAuxView("WORKSPACE");
-        setActiveMode("RETAIL_POS");
         showToast("Mode Switched", "Retail POS Mode Active (Alt+1)", "info");
-        return;
-      }
-
-      // Alt+2: B2B Statutory Tax Invoice Mode
-      if (e.altKey && e.key === "2") {
-        e.preventDefault();
-        setAuxView("WORKSPACE");
-        setActiveMode("B2B_INVOICE");
-        showToast("Mode Switched", "B2B Statutory Tax Invoice Mode Active (Alt+2)", "info");
-        return;
-      }
-
-      // Alt+3: Wholesale Sizing Matrix Mode
-      if (e.altKey && e.key === "3") {
-        e.preventDefault();
-        setAuxView("WORKSPACE");
-        setActiveMode("WHOLESALE_MATRIX");
-        showToast("Mode Switched", "Wholesale Sizing Matrix Mode Active (Alt+3)", "info");
         return;
       }
 
@@ -157,67 +131,10 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             </h1>
           </div>
 
-          {/* Mode Switcher Buttons */}
-          <div className="flex items-center gap-1 bg-[#f3f4f5] dark:bg-[#1e2329] p-1 rounded-xl border border-[#c4c5d5]/50 dark:border-[#444653]/50">
-            <button
-              type="button"
-              onClick={() => {
-                setAuxView("WORKSPACE");
-                setActiveMode("RETAIL_POS");
-              }}
-              title="Retail POS Mode (Alt+1)"
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                auxView === "WORKSPACE" && activeMode === "RETAIL_POS"
-                  ? "bg-[#041632] text-white shadow-xs"
-                  : "text-[#565e74] dark:text-[#bec6e0] hover:bg-white dark:hover:bg-[#2d3133]"
-              }`}
-            >
-              <Receipt size={14} />
-              <span>Retail POS</span>
-              <kbd className="hidden sm:inline-block ml-1 text-[9px] px-1 py-0.2 bg-black/20 text-current rounded font-mono">
-                Alt+1
-              </kbd>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setAuxView("WORKSPACE");
-                setActiveMode("B2B_INVOICE");
-              }}
-              title="B2B Statutory Tax Invoice (Alt+2)"
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                auxView === "WORKSPACE" && activeMode === "B2B_INVOICE"
-                  ? "bg-[#00288e] text-white shadow-xs"
-                  : "text-[#565e74] dark:text-[#bec6e0] hover:bg-white dark:hover:bg-[#2d3133]"
-              }`}
-            >
-              <FileText size={14} />
-              <span>B2B Tax Invoice</span>
-              <kbd className="hidden sm:inline-block ml-1 text-[9px] px-1 py-0.2 bg-black/20 text-current rounded font-mono">
-                Alt+2
-              </kbd>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setAuxView("WORKSPACE");
-                setActiveMode("WHOLESALE_MATRIX");
-              }}
-              title="Wholesale Sizing Matrix (Alt+3)"
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                auxView === "WORKSPACE" && activeMode === "WHOLESALE_MATRIX"
-                  ? "bg-[#00288e] text-white shadow-xs"
-                  : "text-[#565e74] dark:text-[#bec6e0] hover:bg-white dark:hover:bg-[#2d3133]"
-              }`}
-            >
-              <Layers size={14} />
-              <span>Wholesale Matrix</span>
-              <kbd className="hidden sm:inline-block ml-1 text-[9px] px-1 py-0.2 bg-black/20 text-current rounded font-mono">
-                Alt+3
-              </kbd>
-            </button>
+          <div className="flex items-center gap-2 bg-[#041632] text-white px-3 py-1.5 rounded-lg text-xs font-bold">
+            <Receipt size={14} />
+            <span>Retail POS</span>
+            <kbd className="text-[9px] px-1 py-0.2 bg-white/15 text-current rounded font-mono">Alt+1</kbd>
           </div>
         </div>
 
@@ -292,25 +209,8 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           />
         ) : auxView === "SHIFT_REPORTS" ? (
           <SmritiDailyReportsDashboard />
-        ) : activeMode === "RETAIL_POS" ? (
-          <SmritiProPosBillingTerminal onNotification={showToast} shiftId={activeShift?.id} />
-        ) : activeMode === "B2B_INVOICE" ? (
-          <DistTaxInvoice
-            onNotification={showToast}
-            currentUser={currentUser}
-            onExit={() => setActiveMode("RETAIL_POS")}
-          />
         ) : (
-          <BillingTerm
-            products={products}
-            customers={customers}
-            profiles={profiles}
-            shifts={shifts}
-            currentUser={currentUser}
-            onRefreshData={onRefreshData}
-            onNotification={showToast}
-            isStandaloneTab={isStandaloneTab}
-          />
+          <SmritiProPosBillingTerminal onNotification={showToast} shiftId={activeShift?.id} />
         )}
       </div>
 
@@ -338,12 +238,8 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
                 <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">Alt+1</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
-                <span>B2B Tax Invoice Mode</span>
-                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">Alt+2</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
-                <span>Wholesale Matrix Mode</span>
-                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">Alt+3</kbd>
+                <span>Retail POS Workspace</span>
+                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">Alt+1</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
                 <span>Billing Workspace Focus</span>

@@ -450,7 +450,7 @@ describe("Smriti Stitch Speed Invoice UI Workflow & Contract Engine", () => {
     expect(htmlBilling).toContain("Apex Hypermarket Retail Pvt Ltd");
     expect(htmlBilling).toContain("CORP-8899");
     expect(htmlBilling).toContain("POS");
-    expect(htmlBilling).toContain("State (18)");
+    expect(htmlBilling).toContain("Assam (18)");
   });
 
   it("Markup Validation 8: TaxInvoiceItemGrid renders item row, stock numbers, rates, and values", () => {
@@ -460,6 +460,8 @@ describe("Smriti Stitch Speed Invoice UI Workflow & Contract Engine", () => {
         onUpdateItem: () => {},
         onDeleteItem: () => {},
         onAddItem: () => {},
+        isInterstate: true,
+        placeOfSupplyCode: "18",
       })
     );
 
@@ -468,6 +470,8 @@ describe("Smriti Stitch Speed Invoice UI Workflow & Contract Engine", () => {
     expect(html).toContain("2000.00");
     expect(html).toContain("2360.00");
     expect(html).toContain("Jawahar Mallah");
+    expect(html).toContain("Tax Regime:");
+    expect(html).toContain("Inter-State IGST");
   });
 
   it("Markup Validation 9: TaxStatusBar renders accurate totals, net amount, and item counts", () => {

@@ -34,8 +34,11 @@ class CashRegister(BaseEntity):
     code      = Column(String(50),  nullable=False)          # e.g. "REG-001"
     notes     = Column(Text, nullable=True)
     cashier   = Column(String(100), nullable=True)           # assigned cashier
-    warehouse = Column(String(100), nullable=True)           # serving warehouse
+    warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="SET NULL"), nullable=True, index=True)
+    warehouse = Column(String(100), nullable=True)           # serving warehouse code (compat)
     is_locked = Column(Boolean, default=False, nullable=False)  # terminal lock
+
+    warehouse_rel = relationship("Warehouse", foreign_keys=[warehouse_id])
 
 
 class Shift(BaseEntity):

@@ -67,6 +67,8 @@ async def _make_tenant(db_session, suffix):
     warehouse = Warehouse(
         id=f"wh-central-{suffix}", company_id=comp.id, branch_id=br.id,
         code=f"WH-POS-{suffix}", name="Central Warehouse", is_active=True,
+        address="POS Test Warehouse", city="Mumbai", state="Maharashtra",
+        pincode="400001",
     )
     db_session.add(warehouse)
     await db_session.commit()
@@ -401,6 +403,8 @@ async def test_pos_checkout_happy_path(db_session):
         "shift_id": shift.id,
         "payment_mode": "CASH",
         "grand_total": "100.00",
+        "billing_address": "1 Corporate Park, Mumbai, Maharashtra - 400001",
+        "shipping_address": "12 MG Road, Bengaluru, Karnataka - 560001",
         "items": [{
             "product_id": product.id,
             "code": product.code,
@@ -423,6 +427,13 @@ async def test_pos_checkout_happy_path(db_session):
     assert data["invoice_no"] == f"POS-{s}"
     assert data["payment_mode"] == "CASH"
     assert Decimal(data["grand_total"]) == Decimal("100.00")
+
+    invoice = (await db_session.execute(
+        select(SalesInvoice).where(SalesInvoice.invoice_no == f"POS-{s}")
+    )).scalars().first()
+    assert invoice is not None
+    assert invoice.billing_address == "1 Corporate Park, Mumbai, Maharashtra - 400001"
+    assert invoice.shipping_address == "12 MG Road, Bengaluru, Karnataka - 560001"
 
     # Verify stock was deducted in DB
     await db_session.refresh(product)

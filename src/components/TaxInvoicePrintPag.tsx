@@ -118,6 +118,16 @@ export const TaxInvoicePrintPage: React.FC = () => {
     loading: boolean;
     error?: string;
   }>({ loading: false });
+  const [showTransportDialog, setShowTransportDialog] = useState(false);
+  const [transportDetails, setTransportDetails] = useState({
+    mode: "Road",
+    distanceKm: "120",
+    transporterId: "",
+    transporterName: "",
+    vehicleNo: "",
+    transportDocNo: "",
+    transportDocDate: "",
+  });
 
   // Presentation Header Customization State
   const [isHeaderDrawerOpen, setIsHeaderDrawerOpen] = useState<boolean>(false);
@@ -510,6 +520,76 @@ export const TaxInvoicePrintPage: React.FC = () => {
     }
   };
 
+  const buildEWayBillPayload = () => {
+    const items = (invoice?.items || []).map((item: any, index: number) => ({
+      itemNo: index + 1,
+      productName: item.name || item.description || item.itemName || "Item",
+      productDesc: item.description || item.name || "Item",
+      hsnCode: item.hsnCode || item.hsn_code || "",
+      quantity: Number(item.quantity || item.qty || 0),
+      qtyUnit: item.unit || "PCS",
+      taxableAmount: Number(item.taxable_value || item.taxableValue || item.amount || 0),
+      sgstRate: Number(item.sgst_rate || item.sgstRate || 0),
+      cgstRate: Number(item.cgst_rate || item.cgstRate || 0),
+      igstRate: Number(item.igst_rate || item.igstRate || 0),
+      cessRate: 0,
+      cessNonAdvol: 0,
+    }));
+    return {
+      userGstin: invoice?.companyGst || "",
+      supplyType: "O",
+      subSupplyType: 1,
+      subSupplyDesc: "",
+      docType: "INV",
+      docNo: invoice?.invoiceNo || "",
+      docDate: invoice?.date ? String(invoice.date).slice(0, 10).split("-").reverse().join("/") : "",
+      fromGstin: invoice?.companyGst || "",
+      fromTrdName: headerConfig.companyDisplayName,
+      fromAddr1: headerConfig.companyAddressDisplay,
+      fromPlace: "Mumbai",
+      fromPincode: 400003,
+      fromStateCode: Number((invoice?.companyGst || "27").slice(0, 2)) || 27,
+      actualFromStateCode: Number((invoice?.companyGst || "27").slice(0, 2)) || 27,
+      toGstin: invoice?.customerGst || "URP",
+      toTrdName: invoice?.customerName || "",
+      toAddr1: invoice?.shippingAddress || invoice?.customerAddress || "",
+      toPlace: invoice?.pos_state || "",
+      toPincode: Number(invoice?.shippingPincode || invoice?.pincode || 0),
+      toStateCode: Number(invoice?.placeOfSupplyCode || "27") || 27,
+      actualToStateCode: Number(invoice?.placeOfSupplyCode || "27") || 27,
+      totalValue: Number(invoice?.taxableAmount || invoice?.taxable_value || 0),
+      cgstValue: Number(invoice?.cgstTotal || 0),
+      sgstValue: Number(invoice?.sgstTotal || 0),
+      igstValue: Number(invoice?.igstTotal || 0),
+      cessValue: 0,
+      TotNonAdvolVal: 0,
+      OthValue: Number(invoice?.rounding_amount || 0),
+      totInvValue: Number(invoice?.grandTotal || 0),
+      transMode: transportDetails.mode === "Road" ? 1 : transportDetails.mode === "Rail" ? 2 : transportDetails.mode === "Air" ? 3 : 4,
+      transDistance: Number(transportDetails.distanceKm || 0),
+      transporterName: transportDetails.transporterName.trim(),
+      transporterId: transportDetails.transporterId.trim(),
+      transDocNo: transportDetails.transportDocNo.trim(),
+      transDocDate: transportDetails.transportDocDate,
+      vehicleNo: transportDetails.vehicleNo.trim().toUpperCase(),
+      vehicleType: "R",
+      mainHsnCode: items[0]?.hsnCode || "",
+      itemList: items,
+    };
+  };
+
+  const handleDownloadEWayJson = () => {
+    if (!invoice) return;
+    const payload = buildEWayBillPayload();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${String(invoice.invoiceNo || "invoice").replace(/[^a-zA-Z0-9-_]/g, "_")}_EWayBill.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleGenerateEWayBill = async () => {
     if (!invoice) return;
     setEwaybillState(prev => ({ ...prev, loading: true, error: undefined }));
@@ -522,8 +602,12 @@ export const TaxInvoicePrintPage: React.FC = () => {
         to_gstin: invoice.customerGst || "27BBBCU9603R1ZM",
         from_pincode: "400003",
         to_pincode: "400001",
-        trans_distance_km: 120,
-        vehicle_no: "MH01AB1234",
+        trans_distance_km: Number(transportDetails.distanceKm),
+        vehicle_no: transportDetails.vehicleNo.trim().toUpperCase(),
+        transporter_id: transportDetails.transporterId.trim() || undefined,
+        transporter_name: transportDetails.transporterName.trim() || undefined,
+        transport_doc_no: transportDetails.transportDocNo.trim() || undefined,
+        transport_doc_date: transportDetails.transportDocDate || undefined,
         total_invoice_value: Number(invoice.grandTotal || 1000),
       };
 
@@ -696,7 +780,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
             {/* SGIP E-Way Bill Action */}
             <button
-              onClick={handleGenerateEWayBill}
+              onClick={() => setShowTransportDialog(true)}
               disabled={ewaybillState.loading || !!(ewaybillState.ewbNo || headerConfig.eWayBillNo)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md transition border ${
                 ewaybillState.ewbNo || headerConfig.eWayBillNo
@@ -713,6 +797,25 @@ export const TaxInvoicePrintPage: React.FC = () => {
                 <Truck size={14} />
               )}
               <span>{ewaybillState.ewbNo || headerConfig.eWayBillNo ? "EWB Active" : "Generate EWB"}</span>
+            </button>
+
+            <button
+              onClick={handleDownloadEWayJson}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-lg text-xs font-semibold border border-cyan-700/60 transition"
+              title="Download a portal-ready E-Way Bill JSON payload"
+            >
+              <Download size={14} />
+              <span>E-Way JSON</span>
+            </button>
+
+            <button
+              type="button"
+              disabled
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-slate-500 rounded-lg text-xs font-semibold border border-slate-800 cursor-not-allowed"
+              title="Live GSP/NIC API submission is coming soon"
+            >
+              <ShieldCheck size={14} />
+              <span>API Coming Soon</span>
             </button>
 
             <button
@@ -755,7 +858,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
       </div>
 
       {/* ── SGIP STATUTORY COMPLIANCE STATUS BANNER (No-Print) ── */}
-      {(einvoiceState.irn || ewaybillState.ewbNo || headerConfig.eWayBillNo || einvoiceState.error || ewaybillState.error) && (
+      {(showTransportDialog || einvoiceState.irn || ewaybillState.ewbNo || headerConfig.eWayBillNo || einvoiceState.error || ewaybillState.error) && (
         <div className="max-w-4xl mx-auto mb-4 no-print">
           <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center space-x-3">
@@ -764,6 +867,78 @@ export const TaxInvoicePrintPage: React.FC = () => {
               </div>
               <div>
                 <div className="flex items-center space-x-2">
+
+            {showTransportDialog && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 no-print">
+                <div className="w-full max-w-lg rounded-xl border border-slate-700 bg-slate-900 text-slate-100 shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+                    <div>
+                      <h2 className="text-sm font-bold">Prepare E-Way Bill</h2>
+                      <p className="mt-1 text-[11px] text-slate-400">Enter transport details before portal submission.</p>
+                    </div>
+                    <button type="button" onClick={() => setShowTransportDialog(false)} className="p-1 text-slate-400 hover:text-white" title="Close">
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <form
+                    className="space-y-4 p-5"
+                    onSubmit={async event => {
+                      event.preventDefault();
+                      await handleGenerateEWayBill();
+                      setShowTransportDialog(false);
+                    }}
+                  >
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="text-xs text-slate-300">
+                        Transport mode
+                        <select value={transportDetails.mode} onChange={event => setTransportDetails(prev => ({ ...prev, mode: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white">
+                          <option>Road</option>
+                          <option>Rail</option>
+                          <option>Air</option>
+                          <option>Ship</option>
+                        </select>
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        Distance (KM)
+                        <input required min="1" type="number" value={transportDetails.distanceKm} onChange={event => setTransportDetails(prev => ({ ...prev, distanceKm: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white" />
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="text-xs text-slate-300">
+                        Vehicle number
+                        <input required={transportDetails.mode === "Road"} placeholder="MH12AB1234" value={transportDetails.vehicleNo} onChange={event => setTransportDetails(prev => ({ ...prev, vehicleNo: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs uppercase text-white" />
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        Transporter GSTIN / ID
+                        <input value={transportDetails.transporterId} onChange={event => setTransportDetails(prev => ({ ...prev, transporterId: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs uppercase text-white" />
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="text-xs text-slate-300">
+                        Transporter name
+                        <input value={transportDetails.transporterName} onChange={event => setTransportDetails(prev => ({ ...prev, transporterName: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white" />
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        LR / transport document no.
+                        <input value={transportDetails.transportDocNo} onChange={event => setTransportDetails(prev => ({ ...prev, transportDocNo: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white" />
+                      </label>
+                    </div>
+                    <label className="block text-xs text-slate-300">
+                      Transport document date
+                      <input type="date" value={transportDetails.transportDocDate} onChange={event => setTransportDetails(prev => ({ ...prev, transportDocDate: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white" />
+                    </label>
+                    <div className="flex items-center justify-between border-t border-slate-800 pt-4">
+                      <button type="button" onClick={handleDownloadEWayJson} className="flex items-center gap-2 rounded-lg border border-cyan-700/60 bg-slate-800 px-3 py-2 text-xs font-semibold text-cyan-300">
+                        <Download size={14} /> Download JSON
+                      </button>
+                      <button type="submit" disabled={ewaybillState.loading} className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-500 disabled:opacity-50">
+                        <Truck size={14} /> Generate E-Way Bill
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
                   <span className="font-bold text-slate-100">SGIP Statutory Status:</span>
                   {einvoiceState.irn && (
                     <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/40">

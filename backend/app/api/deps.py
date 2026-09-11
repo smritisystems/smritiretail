@@ -137,6 +137,30 @@ def normalize_company_id(cid: Optional[str]) -> Optional[str]:
     return raw
 
 
+def normalize_branch_value(branch: Optional[str]) -> Optional[str]:
+    """Normalize known branch aliases to the canonical database branch identifier.
+
+    We intentionally do not rewrite arbitrary branch codes like "SOUTH-01".
+    Only legacy aliases that are known to refer to the primary branch are mapped
+    to their canonical DB branch row, while preserving the real branch code values
+    for branch lookups.
+    """
+    if not branch:
+        return None
+
+    raw = str(branch).strip()
+    if not raw:
+        return None
+
+    normalized = raw.upper()
+    aliases = {
+        "MAIN": "BR-MAIN-001",
+        "BR-MAIN-001": "BR-MAIN-001",
+        "BR-001": "BR-001",
+    }
+    return aliases.get(normalized, raw)
+
+
 async def get_tenant_context(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -167,15 +191,20 @@ async def get_tenant_context(
     target_branch = header_branch if header_branch else current_user.branch_id
     if not target_branch or not str(target_branch).strip():
         target_branch = "BR-001"
-    if target_branch == "BR-MAIN-001":
-        target_branch = "MAIN"
+
+    canonical_branch = normalize_branch_value(target_branch)
 
     # A branch is part of the tenant identity, not a client-provided label.
     # Resolve it only when it belongs to the selected company and is active.
     branch_res = await db.execute(
         select(Branch).where(
             Branch.company_id == target_company,
-            (Branch.id == target_branch) | (Branch.code == target_branch),
+            (
+                (Branch.id == canonical_branch)
+                | (Branch.code == canonical_branch)
+                | (Branch.id == target_branch)
+                | (Branch.code == target_branch)
+            ),
             Branch.is_deleted == False,
             Branch.is_active == True,
         )

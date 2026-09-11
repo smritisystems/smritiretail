@@ -1985,22 +1985,28 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     )}
                   </label>
                 </div>
-                <select
-                  aria-label="Billing Location"
-                  data-testid="billing-location-select"
-                  value={headerState.billingLocationId || ""}
-                  onChange={e => handleBillingLocationChange(e.target.value)}
-                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
-                >
-                  <option value="">
-                    {customerBillingLocations.length === 0 ? "No Registered Billing Locations" : "-- Select Billing Location / Store --"}
-                  </option>
-                  {customerBillingLocations.map(loc => (
-                    <option key={loc.id} value={loc.id}>
-                      [{loc.billing_store_code}] {loc.name || "Billing Location"} — {loc.city}, {loc.state} ({loc.gstin || "No GSTIN"})
-                    </option>
-                  ))}
-                </select>
+                {customerBillingLocations.length > 1 ? (
+                  <select
+                    aria-label="Billing Location"
+                    data-testid="billing-location-select"
+                    value={headerState.billingLocationId || ""}
+                    onChange={e => handleBillingLocationChange(e.target.value)}
+                    className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                  >
+                    <option value="">-- Select Billing Location / Store --</option>
+                    {customerBillingLocations.map(loc => (
+                      <option key={loc.id} value={loc.id}>
+                        [{loc.billing_store_code}] {loc.name || "Billing Location"} — {loc.city}, {loc.state} ({loc.gstin || "No GSTIN"})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="h-9 px-2.5 flex items-center border border-outline-variant rounded bg-surface-container-low text-body-md font-medium">
+                    {customerBillingLocations.length === 1
+                      ? `${customerBillingLocations[0].name || "Billing Location"} — ${customerBillingLocations[0].city}, ${customerBillingLocations[0].state}`
+                      : "No registered billing location"}
+                  </div>
+                )}
               </div>
 
               {/* Delivery Location / Store */}
@@ -2015,22 +2021,28 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     )}
                   </label>
                 </div>
-                <select
-                  aria-label="Delivery Location"
-                  data-testid="delivery-location-select"
-                  value={headerState.deliveryLocationId || ""}
-                  onChange={e => handleDeliveryLocationChange(e.target.value)}
-                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
-                >
-                  <option value="">
-                    {customerDeliveryLocations.length === 0 ? "No Registered Delivery Locations" : "-- Select Delivery Location / Store --"}
-                  </option>
-                  {customerDeliveryLocations.map(loc => (
-                    <option key={loc.id} value={loc.id}>
-                      [{loc.store_code}] {loc.location_name} — {loc.city}, {loc.state_name} ({loc.delivery_gstin || "No GSTIN"})
-                    </option>
-                  ))}
-                </select>
+                {customerDeliveryLocations.length > 1 ? (
+                  <select
+                    aria-label="Delivery Location"
+                    data-testid="delivery-location-select"
+                    value={headerState.deliveryLocationId || ""}
+                    onChange={e => handleDeliveryLocationChange(e.target.value)}
+                    className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                  >
+                    <option value="">-- Select Delivery Location / Store --</option>
+                    {customerDeliveryLocations.map(loc => (
+                      <option key={loc.id} value={loc.id}>
+                        [{loc.store_code}] {loc.location_name} — {loc.city}, {loc.state_name} ({loc.delivery_gstin || "No GSTIN"})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="h-9 px-2.5 flex items-center border border-outline-variant rounded bg-surface-container-low text-body-md font-medium">
+                    {customerDeliveryLocations.length === 1
+                      ? `${customerDeliveryLocations[0].location_name} — ${customerDeliveryLocations[0].city}, ${customerDeliveryLocations[0].state_name}`
+                      : "No registered delivery location"}
+                  </div>
+                )}
               </div>
 
               {/* Store Code Badge */}
