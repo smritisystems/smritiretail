@@ -184,6 +184,23 @@ def get_tattly_logo_base64() -> str:
     return ""
 
 
+def get_tattly_logo_rotated_anticlockwise_base64() -> str:
+    """Loads Tattly Threads black logo asset rotated 90 degrees anticlockwise as base64 PNG data URI."""
+    if os.path.exists(TATTLY_LOGO_PATH):
+        try:
+            from PIL import Image
+            img = Image.open(TATTLY_LOGO_PATH)
+            # Pillow rotate 90 is counter-clockwise (anticlockwise)
+            rot_img = img.rotate(90, expand=True)
+            buf = io.BytesIO()
+            rot_img.save(buf, format="PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            return f"data:image/png;base64,{b64}"
+        except Exception:
+            pass
+    return ""
+
+
 # ==============================================================================
 # GST STATE DIRECTORY & PLACE OF SUPPLY FORMATTER
 # ==============================================================================
@@ -410,6 +427,19 @@ class InvoicePdfService:
         dispatch_email = meta.get("dispatch_email", "dispatch@tattlythreads.com")
         accounts_email = meta.get("accounts_email", "accounts@tattlythreads.com")
 
+        # Resolve Dispatch From Snapshot (Statutory Physical Origin)
+        dispatch_from = getattr(invoice, "dispatch_from_snapshot", None) or meta.get("dispatch_from_snapshot") or {}
+        dispatch_name = dispatch_from.get("name") or company_name
+        dispatch_addr1 = dispatch_from.get("address_line1") or ""
+        dispatch_addr2 = dispatch_from.get("address_line2") or ""
+        dispatch_city = dispatch_from.get("city") or ""
+        dispatch_state = dispatch_from.get("state") or ""
+        dispatch_pin = str(dispatch_from.get("pincode") or "")
+        dispatch_addr_parts = [p for p in [dispatch_addr1, dispatch_addr2] if p]
+        dispatch_addr_joined = ", ".join(dispatch_addr_parts)
+        dispatch_city_state_pin = f"{dispatch_city}, {dispatch_state} - {dispatch_pin}".strip(" ,-")
+        has_separate_dispatch = bool(dispatch_addr_joined or dispatch_city_state_pin)
+
         grand_total = Decimal(str(invoice.grand_total or 0))
 
         # Barcode & Compliance-Aware QR Generation (Backend-Driven Compliance State)
@@ -443,6 +473,7 @@ class InvoicePdfService:
 
         qr_uri = generate_qr_base64(qr_data_str)
         logo_uri = get_tattly_logo_base64()
+        logo_rotated_uri = get_tattly_logo_rotated_anticlockwise_base64()
 
         # Process Items
         items_data = []
@@ -451,6 +482,7 @@ class InvoicePdfService:
         sum_cgst = Decimal("0.00")
         sum_sgst = Decimal("0.00")
         sum_igst = Decimal("0.00")
+        hsn_summary: Dict[str, Dict[str, Decimal]] = {}
 
         # Sort items by line_no if available
         sorted_items = sorted(invoice.items, key=lambda x: getattr(x, "line_no", 0) or 0)
@@ -489,6 +521,21 @@ class InvoicePdfService:
                 sum_sgst += sgst_val
                 
             sum_taxable += taxable_val
+
+            hsn_key = item.hsn_code or "64041990"
+            hsn_row = hsn_summary.setdefault(hsn_key, {
+                "taxable": Decimal("0.00"),
+                "cgst": Decimal("0.00"),
+                "sgst": Decimal("0.00"),
+                "igst": Decimal("0.00"),
+                "tax": Decimal("0.00"),
+                "gst_rate": gst_rate,
+            })
+            hsn_row["taxable"] += taxable_val
+            hsn_row["cgst"] += cgst_val
+            hsn_row["sgst"] += sgst_val
+            hsn_row["igst"] += igst_val
+            hsn_row["tax"] += cgst_val + sgst_val + igst_val
 
             clean_desc = item.name.replace("Tattly Footwear ", "").replace("Size ", "").strip()
 
@@ -541,6 +588,38 @@ class InvoicePdfService:
         # never the pre-rounding sum.  Generate unconditionally from grand_total.
         # grand_total = Decimal(invoice.grand_total) which is the DB-stored rounded value.
         amount_words = number_to_indian_words(float(grand_total))
+
+        def format_rate(value: Decimal) -> str:
+          return f"{value:.0f}%" if value % 1 == 0 else f"{value:.2f}%".rstrip("0").rstrip(".") + "%"
+
+        if is_interstate:
+          gst_summary_rows = "".join(
+            f"""
+            <tr>
+              <td style="font-weight: 700;">{hsn}</td>
+              <td style="text-align: right;">₹{row['taxable']:,.2f}</td>
+              <td style="text-align: right;">{format_rate((row['igst'] / row['taxable'] * Decimal('100')) if row['taxable'] else Decimal('0'))}</td>
+              <td style="text-align: right;">₹{row['igst']:,.2f}</td>
+              <td style="text-align: right; font-weight: 700;">₹{row['tax']:,.2f}</td>
+            </tr>
+            """
+            for hsn, row in sorted(hsn_summary.items())
+          )
+        else:
+          gst_summary_rows = "".join(
+            f"""
+            <tr>
+              <td style="font-weight: 700;">{hsn}</td>
+              <td style="text-align: right;">₹{row['taxable']:,.2f}</td>
+              <td style="text-align: right;">{format_rate((row['cgst'] / row['taxable'] * Decimal('100')) if row['taxable'] else Decimal('0'))}</td>
+              <td style="text-align: right;">₹{row['cgst']:,.2f}</td>
+              <td style="text-align: right;">{format_rate((row['sgst'] / row['taxable'] * Decimal('100')) if row['taxable'] else Decimal('0'))}</td>
+              <td style="text-align: right;">₹{row['sgst']:,.2f}</td>
+              <td style="text-align: right; font-weight: 700;">₹{row['tax']:,.2f}</td>
+            </tr>
+            """
+            for hsn, row in sorted(hsn_summary.items())
+          )
         
         # Dynamic address line and party container geometry
         b_lines = len([l for l in billing_addr.split("\n") if l.strip()])
@@ -682,8 +761,12 @@ class InvoicePdfService:
                 <table class="header-table">
                   <tr>
                     <td style="width: 58%;">
-                      <div style="display: flex; gap: 8px; align-items: flex-start;">
-                        {f'<img src="{logo_uri}" style="height: 38px; width: auto; object-fit: contain; margin-top: 1px;"/>' if logo_uri else ''}
+                      <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        {f'''
+                        <div style="border-right: 0.5px dashed #cbd5e1; padding-right: 9px; margin-right: 2px;">
+                          <img src="{logo_rotated_uri or logo_uri}" style="height: {182 if has_separate_dispatch else 95}px; width: auto; object-fit: contain; margin-top: 0px; display: block;"/>
+                        </div>
+                        ''' if (logo_rotated_uri or logo_uri) else ''}
                         <div>
                           <div class="company-name">{company_name}</div>
                           <div class="company-details">
@@ -697,6 +780,16 @@ class InvoicePdfService:
                           <div class="company-gstin">
                             GSTIN: <span class="gstin-val">{company_gstin}</span>
                           </div>
+                          {f'''
+                          <div style="margin-top: 4px; padding-top: 3px; border-top: 1px dashed #cbd5e1;">
+                            <div style="font-size: 7.2pt; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px;">DISPATCH FROM</div>
+                            <div style="font-size: 8.5pt; font-weight: 700; color: #0f172a;">{dispatch_name}</div>
+                            <div class="company-details">
+                              {f'<div>{dispatch_addr_joined}</div>' if dispatch_addr_joined else ''}
+                              {f'<div>{dispatch_city_state_pin}</div>' if dispatch_city_state_pin else ''}
+                            </div>
+                          </div>
+                          ''' if has_separate_dispatch else ''}
                         </div>
                       </div>
                     </td>
@@ -775,13 +868,7 @@ class InvoicePdfService:
                         </tr>
                       </thead>
                       <tbody>
-                        <tr>
-                          <td style="font-weight: 700;">64041990</td>
-                          <td style="text-align: right;">₹{taxable_total:,.2f}</td>
-                          <td style="text-align: right;">5%</td>
-                          <td style="text-align: right;">₹{igst_total:,.2f}</td>
-                          <td style="text-align: right; font-weight: 700;">₹{igst_total:,.2f}</td>
-                        </tr>
+                        {gst_summary_rows}
                       </tbody>
                     </table>
                     """
@@ -810,15 +897,7 @@ class InvoicePdfService:
                         </tr>
                       </thead>
                       <tbody>
-                        <tr>
-                          <td style="font-weight: 700;">64041990</td>
-                          <td style="text-align: right;">₹{taxable_total:,.2f}</td>
-                          <td style="text-align: right;">2.5%</td>
-                          <td style="text-align: right;">₹{cgst_total:,.2f}</td>
-                          <td style="text-align: right;">2.5%</td>
-                          <td style="text-align: right;">₹{sgst_total:,.2f}</td>
-                          <td style="text-align: right; font-weight: 700;">₹{cgst_total + sgst_total:,.2f}</td>
-                        </tr>
+                        {gst_summary_rows}
                       </tbody>
                     </table>
                     """
@@ -1130,15 +1209,19 @@ class InvoicePdfService:
                 headless=True,
                 args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
             )
-            page = await browser.new_page()
-            await page.set_content(html_content, wait_until="networkidle")
-
-            pdf_bytes = await page.pdf(
-                format="A4",
-                margin={"top": "8mm", "bottom": "10mm", "left": "12mm", "right": "6mm"},
-                print_background=True
-            )
-            await browser.close()
+            try:
+                page = await browser.new_page()
+                try:
+                    await page.set_content(html_content, wait_until="domcontentloaded")
+                    pdf_bytes = await page.pdf(
+                        format="A4",
+                        margin={"top": "8mm", "bottom": "10mm", "left": "12mm", "right": "6mm"},
+                        print_background=True
+                    )
+                finally:
+                    await page.close()
+            finally:
+                await browser.close()
 
         return pdf_bytes
 
@@ -1266,8 +1349,6 @@ class InvoicePdfService:
                 template_code="TAX_INVOICE_TATTLY_THREADS",
                 template_version="V1",
                 template_status="FROZEN",
-                artifact_subtype="CANONICAL",
-                source_type=getattr(invoice, "source_type", "HISTORICAL_IMPORT") or "HISTORICAL_IMPORT",
                 storage_path=storage_path,
                 sha256_hash=sha256_hex,
                 file_size=file_size,

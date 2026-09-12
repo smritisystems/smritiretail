@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-D3D0B8",
+  "entity": "vendor",
+  "capability": "vendor.procurement",
+  "asset_type": "component",
+  "proposed_name": "VendorProcurementTab.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/tabs/VendorProcurementTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "6ea1ad85718183f5d32d93dc32423622cd337c8f5e80372754de83830fc231e7",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:59.157360+00:00",
+  "expires_at": "2026-09-18T05:21:59.157360+00:00",
+  "status": "ISSUED"
+}

@@ -7,7 +7,7 @@
  * Version      : 3.97.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -44,7 +44,7 @@ const NEXT_ACTIONS: Partial<Record<TransferStatus, { label: string; color: strin
 };
 
 function makeSampleOrders(): StockTransferOrder[] {
-  // Order 1: In progress â€” submitted
+  // Order 1: In progress — submitted
   const o1 = StockTransferEngine.createRequisition({
     transferType: "INTER_BRANCH", fromBranch: "BR-MUM-01", toBranch: "BR-DEL-01",
     lines: [
@@ -143,7 +143,7 @@ export const StockTransferStudioModal: React.FC<StockTransferStudioModalProps> =
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Multi-Branch Stock Transfer & Inter-Branch Requisition</h2>
-              <p className="text-xs text-slate-400">Requisition Â· Approval Â· Dispatch Â· In-Transit Â· Receiving Confirmation</p>
+              <p className="text-xs text-slate-400">Requisition · Approval · Dispatch · In-Transit · Receiving Confirmation</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -168,10 +168,10 @@ export const StockTransferStudioModal: React.FC<StockTransferStudioModalProps> =
                 <button key={o.transferId} onClick={() => setSelectedId(o.transferId)}
                   className={`w-full text-left p-3 rounded-xl border transition-all ${selectedId === o.transferId ? "bg-cyan-950/20 border-cyan-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
                   <div className="text-xs font-bold text-slate-200 font-mono truncate">{o.transferId}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">{o.fromBranch} â†’ {o.toBranch}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{o.fromBranch} → {o.toBranch}</div>
                   <div className="flex items-center justify-between mt-1.5">
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_STYLE[o.status]}`}>{o.status}</span>
-                    <span className="text-[10px] font-mono text-slate-400">â‚¹{o.totalTransferValue.toLocaleString("en-IN")}</span>
+                    <span className="text-[10px] font-mono text-slate-400">₹{o.totalTransferValue.toLocaleString("en-IN")}</span>
                   </div>
                 </button>
               ))}
@@ -184,8 +184,8 @@ export const StockTransferStudioModal: React.FC<StockTransferStudioModalProps> =
                 <div className="flex items-start justify-between flex-wrap gap-3">
                   <div>
                     <p className="text-lg font-bold text-slate-100 font-mono">{selected.transferId}</p>
-                    <p className="text-xs text-slate-400">{selected.transferType.replace(/_/g, " ")} Â· {selected.fromBranch} â†’ {selected.toBranch}</p>
-                    {selected.logisticsRef && <p className="text-xs text-cyan-400 font-mono mt-0.5">ðŸ“¦ {selected.logisticsRef}{selected.expectedArrival && ` Â· ETA: ${selected.expectedArrival}`}</p>}
+                    <p className="text-xs text-slate-400">{selected.transferType.replace(/_/g, " ")} · {selected.fromBranch} → {selected.toBranch}</p>
+                    {selected.logisticsRef && <p className="text-xs text-cyan-400 font-mono mt-0.5">ðŸ“¦ {selected.logisticsRef}{selected.expectedArrival && ` · ETA: ${selected.expectedArrival}`}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${STATUS_STYLE[selected.status]}`}>{selected.status}</span>
@@ -211,17 +211,17 @@ export const StockTransferStudioModal: React.FC<StockTransferStudioModalProps> =
                           <tr key={line.lineId}>
                             <td className="py-2 px-3"><div className="text-slate-200 font-sans font-medium">{line.productName}</div><div className="text-[10px] text-slate-500">{line.sku}</div></td>
                             <td className="py-2 px-3 text-right text-slate-400">{line.requestedQty}</td>
-                            <td className="py-2 px-3 text-right text-emerald-400">{line.approvedQty ?? "â€”"}</td>
-                            <td className="py-2 px-3 text-right text-amber-400">{line.dispatchedQty ?? "â€”"}</td>
-                            <td className="py-2 px-3 text-right text-teal-400">{line.receivedQty ?? "â€”"}</td>
-                            <td className="py-2 px-3 text-right">{line.shortQty !== undefined ? <span className={line.shortQty > 0 ? "text-rose-400 font-bold" : "text-slate-500"}>{line.shortQty}</span> : "â€”"}</td>
-                            <td className="py-2 px-3 text-right font-bold text-slate-100">â‚¹{(line.transferValue ?? 0).toLocaleString("en-IN")}</td>
+                            <td className="py-2 px-3 text-right text-emerald-400">{line.approvedQty ?? "—"}</td>
+                            <td className="py-2 px-3 text-right text-amber-400">{line.dispatchedQty ?? "—"}</td>
+                            <td className="py-2 px-3 text-right text-teal-400">{line.receivedQty ?? "—"}</td>
+                            <td className="py-2 px-3 text-right">{line.shortQty !== undefined ? <span className={line.shortQty > 0 ? "text-rose-400 font-bold" : "text-slate-500"}>{line.shortQty}</span> : "—"}</td>
+                            <td className="py-2 px-3 text-right font-bold text-slate-100">₹{(line.transferValue ?? 0).toLocaleString("en-IN")}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                     <div className="border-t border-slate-800 px-3 py-2 flex justify-end">
-                      <span className="text-sm font-black text-slate-100 font-mono">â‚¹{selected.totalTransferValue.toLocaleString("en-IN")}</span>
+                      <span className="text-sm font-black text-slate-100 font-mono">₹{selected.totalTransferValue.toLocaleString("en-IN")}</span>
                     </div>
                   </div>
                 </div>
@@ -238,7 +238,7 @@ export const StockTransferStudioModal: React.FC<StockTransferStudioModalProps> =
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_STYLE[e.toStatus]}`}>{e.toStatus}</span>
                             <span className="text-slate-500 text-[10px] ml-auto font-mono">{new Date(e.timestamp).toLocaleTimeString("en-IN")}</span>
                           </div>
-                          {e.note && <p className="text-slate-400 mt-1">{e.note} <span className="text-slate-600">â€” {e.performedBy}</span></p>}
+                          {e.note && <p className="text-slate-400 mt-1">{e.note} <span className="text-slate-600">— {e.performedBy}</span></p>}
                         </div>
                       </div>
                     ))}
@@ -264,7 +264,7 @@ export const StockTransferStudioModal: React.FC<StockTransferStudioModalProps> =
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Value In Transit", value: `â‚¹${metrics.totalValueInTransit.toLocaleString("en-IN")}`, color: "text-amber-400" },
+                { label: "Value In Transit", value: `₹${metrics.totalValueInTransit.toLocaleString("en-IN")}`, color: "text-amber-400" },
                 { label: "Avg Transit Days", value: `${metrics.avgTransitDays}d`, color: "text-slate-300" },
                 { label: "Short Receipt Rate", value: `${metrics.shortReceiptRate}%`, color: metrics.shortReceiptRate > 0 ? "text-rose-400" : "text-emerald-400" },
               ].map((m) => (

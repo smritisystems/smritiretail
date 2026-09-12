@@ -1,3 +1,5 @@
+from ...models.attributes import AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
+from ...models.master_lookup import MasterType, MasterValue
 """
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
@@ -24,6 +26,7 @@ from ...models.auth import User, UserRole
 from ...models.attributes import (
     AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
 )
+from ...models.master_lookup import MasterType, MasterValue
 from ...models.inventory import Product
 from ...schemas.attributes import (
     AttributeDefinitionCreate, AttributeDefinitionUpdate, AttributeDefinitionResponse,
@@ -34,6 +37,16 @@ from ...schemas.attributes import (
 from ...services.attributes import AttributesService
 
 router = APIRouter()
+
+
+def _scope_master_value_query(query, current_user: User):
+    company_id = getattr(current_user, "company_id", None)
+    branch_id = getattr(current_user, "branch_id", None)
+    if company_id:
+        query = query.where((MasterValue.company_id == company_id) | MasterValue.company_id.is_(None))
+    if branch_id:
+        query = query.where((MasterValue.branch_id == branch_id) | MasterValue.branch_id.is_(None))
+    return query
 
 
 # --- Attribute Definitions CRUD ---
@@ -192,7 +205,9 @@ async def list_groups(
             name=g.name,
             attributeIds=json.loads(g.attribute_ids) if g.attribute_ids else [],
             gridColumnAttributeId=g.grid_column_attribute_id,
-            gridRowAttributeId=g.grid_row_attribute_id
+            gridRowAttributeId=g.grid_row_attribute_id,
+            sizeGroupId=g.size_group_id,
+            colorGroupId=g.color_group_id
         ))
     return res
 
@@ -218,7 +233,9 @@ async def create_group(
         name=g.name,
         attributeIds=json.loads(g.attribute_ids) if g.attribute_ids else [],
         gridColumnAttributeId=g.grid_column_attribute_id,
-        gridRowAttributeId=g.grid_row_attribute_id
+        gridRowAttributeId=g.grid_row_attribute_id,
+        sizeGroupId=g.size_group_id,
+        colorGroupId=g.color_group_id
     )
 
 
@@ -243,7 +260,9 @@ async def update_group(
         name=g.name,
         attributeIds=json.loads(g.attribute_ids) if g.attribute_ids else [],
         gridColumnAttributeId=g.grid_column_attribute_id,
-        gridRowAttributeId=g.grid_row_attribute_id
+        gridRowAttributeId=g.grid_row_attribute_id,
+        sizeGroupId=g.size_group_id,
+        colorGroupId=g.color_group_id
     )
 
 
@@ -284,12 +303,15 @@ async def list_templates(
         res.append(VariantTemplateResponse(
             id=t.id,
             styleCode=t.style_code,
+            vendorCode=t.vendor_code,
+            masterValueId=str(t.master_value_id) if t.master_value_id else None,
             name=t.name,
             brand=t.brand or "SMRITI",
             category=t.category or "General",
             hsnCode=t.hsn_code or "61091000",
             basePrice=float(t.base_price or 0),
             baseMrp=float(t.base_mrp or 0),
+            baseCostPrice=float(t.base_cost_price or 0),
             gstPercentage=float(t.gst_percentage or 18),
             attributeGroupId=t.attribute_group_id,
             pricingMode=t.pricing_mode,
@@ -313,16 +335,46 @@ async def create_template(
     Create a new variant template.
     """
     service = AttributesService(db)
+    vendor_code = req.vendorCode.strip().upper()
+    lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
+    vendor_query = select(MasterValue).where(
+        MasterValue.master_type_id == lookup_type.id if lookup_type else False,
+        MasterValue.code == vendor_code,
+        MasterValue.active.is_(True),
+        MasterValue.is_deleted.is_(False),
+    ) if lookup_type else None
+    governed_code = await db.scalar(_scope_master_value_query(vendor_query, current_user)) if vendor_query is not None else None
+    if not governed_code:
+        raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
+    if req.masterValueId:
+        article_type = await db.scalar(select(MasterType).where(MasterType.code == "style_article"))
+        article_query = select(MasterValue).where(
+            MasterValue.id == req.masterValueId,
+            MasterValue.master_type_id == article_type.id if article_type else False,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        ) if article_type else None
+        article = await db.scalar(_scope_master_value_query(article_query, current_user)) if article_query is not None else None
+        if not article:
+            raise HTTPException(status_code=400, detail="Article / Style must be selected from the active Master Registry.")
+        if article.vendor_code != vendor_code:
+            raise HTTPException(status_code=409, detail="Article / Style is not assigned to this vendor.")
+        if article.code != req.styleCode.strip().upper():
+            raise HTTPException(status_code=400, detail="Article / Style code does not match the selected Master Registry value.")
+        req.styleCode = article.code
     t = await service.create_template(req, current_user.username)
     return VariantTemplateResponse(
         id=t.id,
         styleCode=t.style_code,
+        vendorCode=t.vendor_code,
+        masterValueId=str(t.master_value_id) if t.master_value_id else None,
         name=t.name,
         brand=t.brand or "SMRITI",
         category=t.category or "General",
         hsnCode=t.hsn_code or "61091000",
         basePrice=float(t.base_price or 0),
         baseMrp=float(t.base_mrp or 0),
+        baseCostPrice=float(t.base_cost_price or 0),
         gstPercentage=float(t.gst_percentage or 18),
         attributeGroupId=t.attribute_group_id,
         pricingMode=t.pricing_mode,
@@ -345,16 +397,55 @@ async def update_template(
     Update variant template.
     """
     service = AttributesService(db)
+    if req.vendorCode is not None:
+        vendor_code = req.vendorCode.strip().upper()
+        template = await db.get(VariantTemplate, id)
+        if template and template.vendor_code and template.vendor_code != vendor_code:
+            raise HTTPException(status_code=400, detail="Vendor Code is immutable after Article/Style assignment.")
+        lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
+        vendor_query = select(MasterValue).where(
+            MasterValue.master_type_id == lookup_type.id if lookup_type else False,
+            MasterValue.code == vendor_code,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        ) if lookup_type else None
+        governed_code = await db.scalar(_scope_master_value_query(vendor_query, current_user)) if vendor_query is not None else None
+        if not governed_code:
+            raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
+        req.vendorCode = vendor_code
+    if req.masterValueId:
+        article_type = await db.scalar(select(MasterType).where(MasterType.code == "style_article"))
+        article_query = select(MasterValue).where(
+            MasterValue.id == req.masterValueId,
+            MasterValue.master_type_id == article_type.id if article_type else False,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        ) if article_type else None
+        article = await db.scalar(_scope_master_value_query(article_query, current_user)) if article_query is not None else None
+        if not article:
+            raise HTTPException(status_code=400, detail="Article / Style must be selected from the active Master Registry.")
+        template = await db.get(VariantTemplate, id)
+        if template and template.master_value_id and str(template.master_value_id) != str(req.masterValueId):
+            raise HTTPException(status_code=409, detail="Article / Style cannot be changed after template assignment.")
+        effective_vendor_code = (template.vendor_code if template else None) or req.vendorCode
+        if article.vendor_code != effective_vendor_code:
+            raise HTTPException(status_code=409, detail="Article / Style is not assigned to this vendor.")
+        if req.styleCode is not None and article.code != req.styleCode.strip().upper():
+            raise HTTPException(status_code=400, detail="Article / Style code does not match the selected Master Registry value.")
+        req.styleCode = article.code
     t = await service.update_template(id, req, current_user.username)
     return VariantTemplateResponse(
         id=t.id,
         styleCode=t.style_code,
+        vendorCode=t.vendor_code,
+        masterValueId=str(t.master_value_id) if t.master_value_id else None,
         name=t.name,
         brand=t.brand or "SMRITI",
         category=t.category or "General",
         hsnCode=t.hsn_code or "61091000",
         basePrice=float(t.base_price or 0),
         baseMrp=float(t.base_mrp or 0),
+        baseCostPrice=float(t.base_cost_price or 0),
         gstPercentage=float(t.gst_percentage or 18),
         attributeGroupId=t.attribute_group_id,
         pricingMode=t.pricing_mode,
@@ -429,11 +520,20 @@ async def generate_variants(
         res = await db.execute(q)
         existing = res.scalars().first()
 
+        cost_val = v.get("costPrice")
+        if cost_val is not None and str(cost_val).strip() != "":
+            resolved_cost = float(cost_val)
+        elif template.base_cost_price is not None:
+            resolved_cost = float(template.base_cost_price)
+        else:
+            resolved_cost = 0.0
+
         if existing:
+            existing.vendor_code = template.vendor_code
             existing.stock = int(v.get("stock", 0))
             existing.price = float(v.get("price", template.base_price))
             existing.mrp = float(v.get("mrp", template.base_mrp))
-            existing.cost_price = float(v.get("costPrice", float(existing.price) * 0.6))
+            existing.cost_price = resolved_cost
             existing.sku = v.get("sku") or existing.sku
             existing.barcode = v.get("barcode") or existing.barcode
             existing.attributes = {**existing.attributes, **v.get("attributes", {})}
@@ -447,11 +547,12 @@ async def generate_variants(
                 name=template.name,
                 price=float(v.get("price", template.base_price)),
                 mrp=float(v.get("mrp", template.base_mrp or v.get("price", template.base_price))),
-                cost_price=float(v.get("costPrice", float(v.get("price", template.base_price)) * 0.6)),
+                cost_price=resolved_cost,
                 stock=int(v.get("stock", 0)),
                 category=template.category,
                 barcode=barcode,
                 style_code=template.style_code,
+                vendor_code=template.vendor_code,
                 gst_percentage=template.gst_percentage,
                 attributes=v.get("attributes", {}),
                 pricing_mode=template.pricing_mode,

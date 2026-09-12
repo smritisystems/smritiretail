@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Plus, Layers, Trash2, Edit3, Grid, CheckCircle2, 
   HelpCircle, Settings, RefreshCw, Layers3, ArrowRight
@@ -35,27 +35,42 @@ interface VariantTplSectionProps {
   products: Product[];
   onRefreshProducts: () => Promise<void>;
   onNotification: (title: string, message: string, type?: "success" | "error") => void;
+  defaultVendorCode?: string;
+  vendorFilterCode?: string;
+  articleOptions?: { id: string; code: string; name: string; vendorCode?: string | null }[];
 }
 
 export const VariantTplSec: React.FC<VariantTplSectionProps> = ({ 
   products, 
   onRefreshProducts, 
-  onNotification 
+  onNotification,
+  defaultVendorCode,
+  vendorFilterCode,
+  articleOptions = []
 }) => {
   const [templates, setTemplates] = useState<VariantTemplate[]>([]);
   const [groups, setGroups] = useState<AttributeGroup[]>([]);
   const [definitions, setDefinitions] = useState<AttributeDefinition[]>([]);
+  const [sizeGroups, setSizeGroups] = useState<{ code: string; name: string; values: string[] }[]>([]);
+  const [colorGroups, setColorGroups] = useState<{ code: string; name: string; values: string[] }[]>([]);
+  const [gstRates, setGstRates] = useState<{ code: string; name: string; rate: number }[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<VariantTemplate | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Form states for Templates
   const [styleCode, setStyleCode] = useState("");
+  const [masterValueId, setMasterValueId] = useState("");
+  const [vendorCode, setVendorCode] = useState(defaultVendorCode || "");
+  const [vendorCodeOptions, setVendorCodeOptions] = useState<{ code: string; name: string }[]>([]);
+  const [brandOptions, setBrandOptions] = useState<{ code: string; name: string }[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<{ code: string; name: string }[]>([]);
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("SMRITI");
-  const [category, setCategory] = useState("Apparel");
+  const [category, setCategory] = useState("APPAREL");
   const [hsnCode, setHSNCode] = useState("61091000");
   const [basePrice, setBasePrice] = useState(0);
   const [baseMrp, setBaseMrp] = useState(0);
+  const [baseCostPrice, setBaseCostPrice] = useState(0);
   const [gstPercentage, setGstPercentage] = useState(18);
   const [groupId, setGroupId] = useState("");
   const [pricingMode, setPricingMode] = useState<"Fixed" | "Weight-based" | "Negotiated" | "Service">("Fixed");
@@ -68,14 +83,47 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [res1, res2, res3] = await Promise.all([
+      const [res1, res2, res3, vendorCodes, brands, categories, registrySizeGroups, colorGroupLookup, taxRates] = await Promise.all([
         apiFetchV1("/attributes/templates"),
         apiFetchV1("/attributes/groups"),
-        apiFetchV1("/attributes/definitions")
+        apiFetchV1("/attributes/definitions"),
+        apiFetchV1("/masters/lookup/vendor_code/values?activeOnly=true"),
+        apiFetchV1("/masters/lookup/brand/values?activeOnly=true"),
+        apiFetchV1("/masters/lookup/category/values?activeOnly=true"),
+        apiFetchV1("/masters/lookup/size_group/values?activeOnly=true").catch(() => []),
+        apiFetchV1("/masters/lookup/color_group/values?activeOnly=true").catch(() => []),
+        apiFetchV1("/reference/tax-rates").catch(() => [])
       ]);
       setTemplates(res1);
       setGroups(res2);
       setDefinitions(res3);
+      setSizeGroups(Array.isArray(registrySizeGroups) ? registrySizeGroups.map((value: any) => ({
+        code: String(value.code || "").trim(),
+        name: String(value.name || value.code || "").trim(),
+        values: Array.isArray(value.data?.values) ? value.data.values.map(String).map((item: string) => item.trim()).filter(Boolean) : []
+      })).filter((value) => value.code && value.values.length > 0) : []);
+      setColorGroups(Array.isArray(colorGroupLookup) ? colorGroupLookup.map((value: any) => ({
+        code: String(value.code || "").trim(),
+        name: String(value.name || value.code || "").trim(),
+        values: Array.isArray(value.data?.values) ? value.data.values.map(String).map((item: string) => item.trim()).filter(Boolean) : [],
+      })).filter((value) => value.code && value.values.length > 0) : []);
+      setGstRates(Array.isArray(taxRates) ? taxRates.map((value: any) => ({
+        code: String(value.code || "").trim(),
+        name: String(value.name || value.code || "").trim(),
+        rate: Number(value.rate)
+      })).filter((value) => value.code && value.name && Number.isFinite(value.rate)) : []);
+      setVendorCodeOptions(Array.isArray(vendorCodes) ? vendorCodes.map((value: any) => ({
+        code: String(value.code || "").trim(),
+        name: String(value.name || value.code || "").trim()
+      })).filter((value) => value.code) : []);
+      setBrandOptions(Array.isArray(brands) ? brands.map((value: any) => ({
+        code: String(value.code || "").trim(),
+        name: String(value.name || value.code || "").trim()
+      })).filter((value) => value.code) : []);
+      setCategoryOptions(Array.isArray(categories) ? categories.map((value: any) => ({
+        code: String(value.code || "").trim(),
+        name: String(value.name || value.code || "").trim()
+      })).filter((value) => value.code) : []);
     } catch (e) {
       console.error(e);
       onNotification("Fetch Error", "Failed to load variant templates.", "error");
@@ -88,6 +136,22 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (defaultVendorCode) {
+      setVendorCode(defaultVendorCode);
+    }
+  }, [defaultVendorCode]);
+
+  const resolveDimensionValues = (attribute: AttributeDefinition, group: AttributeGroup) => {
+    if (attribute.name.toLowerCase() === "size" && group.sizeGroupId) {
+      return sizeGroups.find((sizeGroup) => sizeGroup.code === group.sizeGroupId)?.values || [];
+    }
+    if (attribute.name.toLowerCase() === "color" && group.colorGroupId) {
+      return colorGroups.find((colorGroup) => colorGroup.code === group.colorGroupId)?.values || [];
+    }
+    return attribute.validValues;
+  };
+
   // Set default matrices when template is selected
   useEffect(() => {
     if (!selectedTemplate) {
@@ -99,21 +163,32 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
     const colAttr = definitions.find(d => d.id === group.gridColumnAttributeId);
     const rowAttr = definitions.find(d => d.id === group.gridRowAttributeId);
+    const colValues = colAttr ? resolveDimensionValues(colAttr, group) : [];
+    const rowValues = rowAttr ? resolveDimensionValues(rowAttr, group) : [];
 
     if (colAttr && rowAttr) {
       const initialCells: Record<string, { active: boolean; stock: number; price: number; mrp: number; costPrice: number; sku: string; barcode: string }> = {};
-      rowAttr.validValues.forEach(rowVal => {
-        colAttr.validValues.forEach(colVal => {
+      rowValues.forEach(rowVal => {
+        colValues.forEach(colVal => {
           // Check if variant already exists in catalog
           const constructedCode = `${selectedTemplate.styleCode}-${rowVal.toUpperCase()}-${colVal.toUpperCase()}`;
           const existing = products.find(p => p.code === constructedCode);
+
+          const resolvedBaseCost = (selectedTemplate.baseCostPrice !== undefined && selectedTemplate.baseCostPrice !== null && !isNaN(Number(selectedTemplate.baseCostPrice)))
+            ? Number(selectedTemplate.baseCostPrice)
+            : 0;
+          const resolvedCellCost = existing
+            ? (existing.costPrice !== undefined && existing.costPrice !== null && !isNaN(Number(existing.costPrice))
+                ? Number(existing.costPrice)
+                : resolvedBaseCost)
+            : resolvedBaseCost;
 
           initialCells[`${rowVal}::${colVal}`] = {
             active: !!existing,
             stock: existing ? existing.stock : 0,
             price: existing ? existing.price : selectedTemplate.basePrice,
             mrp: existing ? (existing.mrp || existing.price) : selectedTemplate.baseMrp,
-            costPrice: existing ? (existing.costPrice || Math.round(existing.price * 0.6)) : Math.round(selectedTemplate.basePrice * 0.6),
+            costPrice: resolvedCellCost,
             sku: existing ? (existing.sku || existing.code) : constructedCode,
             barcode: existing ? existing.barcode : `SMR-B${Math.floor(100000 + Math.random() * 900000)}`
           };
@@ -125,19 +200,34 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
   const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!styleCode.trim() || !name.trim() || !groupId) {
-      onNotification("Missing Fields", "Style Code, Name, and Attribute Group are required.", "error");
+    if ((!styleCode.trim() || (vendorFilterCode && !masterValueId)) || !name.trim() || !groupId || !vendorCode) {
+      onNotification("Missing Fields", "Select a Master Registry Article / Style, enter a name, and choose an Attribute Group.", "error");
+      return;
+    }
+    if (basePrice < 0 || baseMrp < 0) {
+      onNotification("Invalid Pricing", "Base Selling Price and Base MRP cannot be negative.", "error");
+      return;
+    }
+    if (baseMrp > 0 && baseMrp < basePrice) {
+      onNotification("Invalid Pricing", "Base MRP must be greater than or equal to Base Selling Price.", "error");
+      return;
+    }
+    if (baseCostPrice < 0) {
+      onNotification("Invalid Pricing", "Vendor Buying Cost cannot be negative.", "error");
       return;
     }
 
     const payload = {
       styleCode: styleCode.trim().toUpperCase(),
+      vendorCode: vendorCode.trim().toUpperCase(),
+      masterValueId: masterValueId || undefined,
       name: name.trim(),
       brand: brand.trim(),
       category,
       hsnCode: hsnCode.trim(),
       basePrice,
       baseMrp: baseMrp || basePrice,
+      baseCostPrice,
       gstPercentage,
       attributeGroupId: groupId,
       pricingMode,
@@ -157,6 +247,8 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
       onNotification("Saved", `Template "${name}" committed.`, "success");
       setStyleCode("");
+      setMasterValueId("");
+      setVendorCode("");
       setName("");
       setGroupId("");
       setEditingTemplateId(null);
@@ -181,12 +273,15 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
   const handleEditTemplate = (t: VariantTemplate) => {
     setEditingTemplateId(t.id);
     setStyleCode(t.styleCode);
+    setMasterValueId(t.masterValueId || "");
+    setVendorCode(t.vendorCode || "");
     setName(t.name);
     setBrand(t.brand);
     setCategory(t.category);
     setHSNCode(t.hsnCode);
     setBasePrice(t.basePrice);
     setBaseMrp(t.baseMrp);
+    setBaseCostPrice(t.baseCostPrice || 0);
     setGstPercentage(t.gstPercentage);
     setGroupId(t.attributeGroupId);
     setPricingMode(t.pricingMode);
@@ -200,6 +295,8 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
     const colAttr = definitions.find(d => d.id === group.gridColumnAttributeId);
     const rowAttr = definitions.find(d => d.id === group.gridRowAttributeId);
+    const colValues = colAttr ? resolveDimensionValues(colAttr, group) : [];
+    const rowValues = rowAttr ? resolveDimensionValues(rowAttr, group) : [];
 
     if (!colAttr || !rowAttr) {
       onNotification("Unsupported Grid", "This group is not configured with col/row dimensions.", "error");
@@ -208,8 +305,8 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
     const variantsToSubmit: any[] = [];
 
-    rowAttr.validValues.forEach(rowVal => {
-      colAttr.validValues.forEach(colVal => {
+    rowValues.forEach(rowVal => {
+      colValues.forEach(colVal => {
         const cell = matrixCells[`${rowVal}::${colVal}`];
         if (cell && cell.active) {
           variantsToSubmit.push({
@@ -240,7 +337,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
         body: JSON.stringify({ variants: variantsToSubmit })
       });
 
-      onNotification("Success", `Registered ${variantsToSubmit.length} variants inside SMRITI master.`, "success");
+      onNotification("Item Master Updated", `Generated ${variantsToSubmit.length} variants in Item Master.`, "success");
       await onRefreshProducts();
     } catch (err: any) {
       onNotification("Matrix Error", err.message || "Failed to generate variants.", "error");
@@ -248,6 +345,27 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
       setLoading(false);
     }
   };
+
+  const filteredTemplates = useMemo(
+    () => vendorFilterCode
+      ? templates.filter((t) => (t.vendorCode || "").toUpperCase() === vendorFilterCode.toUpperCase())
+      : templates,
+    [templates, vendorFilterCode]
+  );
+
+  useEffect(() => {
+    setSelectedTemplate((current) => {
+      if (current && filteredTemplates.some((template) => template.id === current.id)) return current;
+      return filteredTemplates[0] || null;
+    });
+  }, [filteredTemplates]);
+
+  const currentVendorCode = (defaultVendorCode || vendorFilterCode || "").trim().toUpperCase();
+  const hasCurrentVendorOption = vendorCodeOptions.some((option) => option.code.toUpperCase() === currentVendorCode);
+  const hasSelectableArticle = articleOptions.some((option) => option.vendorCode?.toUpperCase() === currentVendorCode);
+  const selectedGroup = groups.find((group) => group.id === groupId);
+  const selectedGroupColumn = definitions.find((definition) => definition.id === selectedGroup?.gridColumnAttributeId);
+  const selectedGroupRow = definitions.find((definition) => definition.id === selectedGroup?.gridRowAttributeId);
 
   // Helper to quickly check the number of active cells in current matrix
   const activeCellsCount = Object.values(matrixCells).filter(c => c.active).length;
@@ -262,12 +380,12 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-4">
             <h3 className="font-display font-bold text-sm text-theme-body flex items-center space-x-2 border-b border-theme-divider/50 pb-3">
               <Layers size={16} className="text-indigo-400" />
-              <span>Variant Templates</span>
+              <span>Vendor Article / Style Master</span>
             </h3>
 
             {/* List of Templates */}
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {templates.map(t => (
+              {filteredTemplates.map(t => (
                 <div 
                   key={t.id} 
                   onClick={() => setSelectedTemplate(t)}
@@ -280,7 +398,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                   <div>
                     <span className="text-xs font-bold text-theme-body block">{t.name}</span>
                     <span className="text-[10px] text-theme-muted font-mono block mt-0.5">
-                      Code base: <span className="text-indigo-300">{t.styleCode}</span> • Group: <span className="text-violet-400">{groups.find(g => g.id === t.attributeGroupId)?.name || t.attributeGroupId}</span>
+                      Code base: <span className="text-indigo-300">{t.styleCode}</span> • Vendor: <span className="text-emerald-300">{t.vendorCode || "Unassigned"}</span> • Group: <span className="text-violet-400">{groups.find(g => g.id === t.attributeGroupId)?.name || t.attributeGroupId}</span>
                     </span>
                     <div className="flex items-center space-x-1.5 mt-1">
                       <span className="text-[9px] font-mono px-1 bg-emerald-950 text-emerald-400 border border-emerald-900 rounded uppercase font-bold">
@@ -306,20 +424,69 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
             {/* Form to Create/Edit Template */}
             <form onSubmit={handleSaveTemplate} className="bg-theme-surface-2/50 border border-dashed border-theme-divider p-4 rounded-xl space-y-3">
               <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 font-bold block">
-                {editingTemplateId ? "Modify Variant Template" : "Add Parent Variant Template"}
+                {editingTemplateId ? "Modify Article / Style" : "Add Article / Style"}
               </span>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Style Code prefix *</label>
-                  <input
-                    type="text"
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Master Article / Style *</label>
+                  {vendorFilterCode || articleOptions.length > 0 ? (
+                    <>
+                      <select
+                        required
+                        value={masterValueId}
+                        onChange={(e) => {
+                          const selected = articleOptions.find((option) => option.id === e.target.value);
+                          setMasterValueId(e.target.value);
+                          setStyleCode(selected?.code || "");
+                          if (selected?.name && !name.trim()) setName(selected.name);
+                        }}
+                        className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body font-mono"
+                      >
+                        <option value="">{articleOptions.length > 0 ? "Select Article / Style" : "No Article / Style in Master Registry"}</option>
+                        {articleOptions.map((option) => (
+                          <option
+                            key={option.id}
+                            value={option.id}
+                            disabled={!option.vendorCode || (vendorFilterCode ? option.vendorCode.toUpperCase() !== vendorFilterCode.toUpperCase() : false)}
+                          >
+                            {option.code} - {option.name} [{option.vendorCode ? `Owner: ${option.vendorCode}` : "Unassigned"}]
+                          </option>
+                        ))}
+                      </select>
+                      {vendorFilterCode && articleOptions.length > 0 && !hasSelectableArticle && (
+                        <p className="mt-1 text-[9px] leading-tight text-amber-300">
+                          No unassigned Article / Style is available for {vendorFilterCode}. The listed article is owned by another vendor and is locked.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      value={styleCode}
+                      onChange={(e) => setStyleCode(e.target.value)}
+                      placeholder="e.g. SNE-LTH"
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body placeholder-[#8892a4] font-mono uppercase"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Owning Vendor Code *</label>
+                  <select
                     required
-                    value={styleCode}
-                    onChange={(e) => setStyleCode(e.target.value)}
-                    placeholder="e.g. SNE-LTH"
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body placeholder-[#8892a4] font-mono uppercase"
-                  />
+                    disabled={Boolean(editingTemplateId && vendorCode) || Boolean(defaultVendorCode || vendorFilterCode)}
+                    value={vendorCode}
+                    onChange={(e) => setVendorCode(e.target.value)}
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body font-mono disabled:opacity-60"
+                  >
+                    <option value="">Select active Master Registry code</option>
+                    {currentVendorCode && !hasCurrentVendorOption && (
+                      <option value={currentVendorCode}>{currentVendorCode} - Current vendor</option>
+                    )}
+                    {vendorCodeOptions.map((option) => <option key={option.code} value={option.code}>{option.code} - {option.name}</option>)}
+                  </select>
+                  <span className="text-[9px] text-theme-muted">Bound to this Vendor Directory entry and validated by Master Registry.</span>
                 </div>
                 <div>
                   <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Base Name *</label>
@@ -336,58 +503,78 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Brand</label>
-                  <input
-                    type="text"
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Brand *</label>
+                  <select
+                    required
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body font-mono"
-                  />
+                  >
+                    <option value="">Select Master Registry brand...</option>
+                    {brandOptions.map((option) => <option key={option.code} value={option.code}>{option.code} - {option.name}</option>)}
+                  </select>
                 </div>
                 <div>
-                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Category</label>
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Category *</label>
                   <select
+                    required
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded px-1.5 py-1 text-xs text-theme-body"
                   >
-                    <option value="Apparel">Apparel</option>
-                    <option value="Footwear">Footwear</option>
-                    <option value="Pharmacy">Pharmacy</option>
-                    <option value="Jewellery">Jewellery</option>
-                    <option value="Accessories">Accessories</option>
-                    <option value="General">General</option>
+                    <option value="">Select Master Registry category...</option>
+                    {categoryOptions.map((option) => <option key={option.code} value={option.code}>{option.code} - {option.name}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
                 <div>
-                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Base Price</label>
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Base Selling Price</label>
                   <input
                     type="number"
+                    min="0"
                     value={basePrice || ""}
                     onChange={(e) => setBasePrice(parseFloat(e.target.value) || 0)}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body font-mono"
                   />
+                  <p className="mt-1 text-[9px] leading-tight text-theme-muted">Default selling price copied to each new SKU. Not vendor cost.</p>
                 </div>
                 <div>
                   <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Base MRP</label>
                   <input
                     type="number"
+                    min="0"
                     value={baseMrp || ""}
                     onChange={(e) => setBaseMrp(parseFloat(e.target.value) || 0)}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body font-mono"
                   />
+                  <p className="mt-1 text-[9px] leading-tight text-theme-muted">Maximum retail price for the SKU. Leave blank to use Base Selling Price.</p>
                 </div>
                 <div>
-                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">GST %</label>
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Vendor Buying Cost (Excl. GST)</label>
                   <input
                     type="number"
-                    value={gstPercentage}
-                    onChange={(e) => setGstPercentage(parseInt(e.target.value) || 18)}
+                    min="0"
+                    value={baseCostPrice || ""}
+                    onChange={(e) => setBaseCostPrice(parseFloat(e.target.value) || 0)}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body font-mono"
                   />
+                  <p className="mt-1 text-[9px] leading-tight text-theme-muted">Taxable vendor cost copied to new SKUs. GST is applied separately.</p>
+                </div>
+                <div>
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">GST Tax Slab *</label>
+                  <select
+                    required
+                    value={gstPercentage}
+                    onChange={(e) => setGstPercentage(Number(e.target.value))}
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body font-mono"
+                  >
+                    <option value="">Select GST slab...</option>
+                    {gstRates.map((taxRate) => (
+                      <option key={taxRate.code} value={taxRate.rate}>{taxRate.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -422,7 +609,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
               </div>
 
               <div>
-                <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Attribute Group Link *</label>
+                <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Attribute Group Link (Size Group + Color Lookup) *</label>
                 <select
                   value={groupId}
                   onChange={(e) => setGroupId(e.target.value)}
@@ -430,9 +617,18 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                 >
                   <option value="">Select Group Link...</option>
                   {groups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
+                    <option key={g.id} value={g.id}>
+                      {g.name} ({definitions.find((definition) => definition.id === g.gridRowAttributeId)?.label || "Color"} / {definitions.find((definition) => definition.id === g.gridColumnAttributeId)?.label || "Size"})
+                    </option>
                   ))}
                 </select>
+                {selectedGroup && (
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-theme-muted">
+                    <span>Color lookup: <strong className="text-indigo-300">{selectedGroupRow?.label || "Not configured"}</strong></span>
+                    <span>Size group: <strong className="text-amber-300">{selectedGroup.sizeGroupId || "Not configured"}</strong></span>
+                    <span>Size axis: <strong className="text-sky-300">{selectedGroupColumn?.label || "Not configured"}</strong></span>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-2 pt-1">
@@ -442,6 +638,8 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                     onClick={() => {
                       setEditingTemplateId(null);
                       setStyleCode("");
+                      setMasterValueId("");
+                      setVendorCode("");
                       setName("");
                       setGroupId("");
                     }}
@@ -452,9 +650,10 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                 )}
                 <button
                   type="submit"
+                  disabled={Boolean(vendorFilterCode && !hasSelectableArticle)}
                   className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-bold transition-colors cursor-pointer"
                 >
-                  {editingTemplateId ? "Update Template" : "Save Template"}
+                  {editingTemplateId ? "Update Article / Style" : "Save Article / Style"}
                 </button>
               </div>
             </form>
@@ -467,7 +666,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
             <div className="flex items-center justify-between border-b border-theme-divider/50 pb-3">
               <h3 className="font-display font-bold text-sm text-theme-body flex items-center space-x-2">
                 <Grid size={16} className="text-emerald-400" />
-                <span>Dynamic Matrix Size Grid</span>
+                <span>Generate SKU Variants</span>
               </h3>
               {selectedTemplate && (
                 <span className="text-[11px] font-mono text-theme-muted">
@@ -478,7 +677,9 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
             {!selectedTemplate ? (
               <div className="p-24 text-center text-theme-muted text-xs">
-                Please select a Variant Template from the sidebar list to render its dynamic row/column matrix grid!
+                {filteredTemplates.length === 0
+                  ? "Save an Article / Style owned by this vendor first, then select it here to create size and color SKU variants."
+                  : "Select a saved Article / Style above to create size and color SKU variants."}
               </div>
             ) : (() => {
               const group = groups.find(g => g.id === selectedTemplate.attributeGroupId);
@@ -486,6 +687,8 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
               const colAttr = definitions.find(d => d.id === group.gridColumnAttributeId);
               const rowAttr = definitions.find(d => d.id === group.gridRowAttributeId);
+              const colValues = colAttr ? resolveDimensionValues(colAttr, group) : [];
+              const rowValues = rowAttr ? resolveDimensionValues(rowAttr, group) : [];
 
               if (!colAttr || !rowAttr) {
                 return (
@@ -496,6 +699,55 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                 );
               }
 
+              const sizeDimension = [colAttr, rowAttr].find((attribute) => attribute?.name.toLowerCase() === "size");
+              if (sizeDimension && ((colAttr?.name.toLowerCase() === "size" && colValues.length === 0) || (rowAttr?.name.toLowerCase() === "size" && rowValues.length === 0))) {
+                return (
+                  <div className="p-12 text-center text-theme-muted space-y-3">
+                    <p className="text-xs">No Size Group values are configured for this Attribute Group.</p>
+                    <p className="text-[11px] text-[#5b6576]">Add active values under Master Lookup → Size Group, then reload this Article / Style.</p>
+                  </div>
+                );
+              }
+
+              const colorDimension = [colAttr, rowAttr].find((attribute) => attribute?.name.toLowerCase() === "color");
+              if (colorDimension && ((colAttr?.name.toLowerCase() === "color" && colValues.length === 0) || (rowAttr?.name.toLowerCase() === "color" && rowValues.length === 0))) {
+                return (
+                  <div className="p-12 text-center text-theme-muted space-y-3">
+                    <p className="text-xs">No Color Group values are configured for this Attribute Group.</p>
+                    <p className="text-[11px] text-[#5b6576]">Add active values under Master Lookup → Color Group, then reload this Article / Style.</p>
+                  </div>
+                );
+              }
+
+              const allCombinationsSelected = rowValues.every((rowVal) =>
+                colValues.every((colVal) => matrixCells[`${rowVal}::${colVal}`]?.active)
+              );
+
+              const toggleAllCombinations = () => {
+                setMatrixCells((current) => {
+                  const next = { ...current };
+                  rowValues.forEach((rowVal) => {
+                    colValues.forEach((colVal) => {
+                      const cellKey = `${rowVal}::${colVal}`;
+                      const defaultCost = (selectedTemplate.baseCostPrice !== undefined && selectedTemplate.baseCostPrice !== null && !isNaN(Number(selectedTemplate.baseCostPrice)))
+                        ? Number(selectedTemplate.baseCostPrice)
+                        : 0;
+                      const existingCell = next[cellKey] || {
+                        active: false,
+                        stock: 0,
+                        price: selectedTemplate.basePrice,
+                        mrp: selectedTemplate.baseMrp,
+                        costPrice: defaultCost,
+                        sku: `${selectedTemplate.styleCode}-${rowVal.toUpperCase()}-${colVal.toUpperCase()}`,
+                        barcode: `SMR-B${Math.floor(100000 + Math.random() * 900000)}`
+                      };
+                      next[cellKey] = { ...existingCell, active: !allCombinationsSelected };
+                    });
+                  });
+                  return next;
+                });
+              };
+
               return (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between bg-theme-surface-2 p-3 rounded-xl border border-theme-divider/50 text-xs">
@@ -505,10 +757,33 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                       <span className="mx-3 text-[#2a3a5c]">|</span>
                       <span className="text-theme-muted">Matrix rows represent:</span>{" "}
                       <span className="text-indigo-400 font-bold font-mono uppercase">{rowAttr.label}</span>
+                      {group.sizeGroupId && (
+                        <>
+                          <span className="mx-3 text-[#2a3a5c]">|</span>
+                          <span className="text-theme-muted">Size Group:</span>{" "}
+                          <span className="text-amber-300 font-bold font-mono uppercase">{group.sizeGroupId}</span>
+                        </>
+                      )}
+                      {group.colorGroupId && (
+                        <>
+                          <span className="mx-3 text-[#2a3a5c]">|</span>
+                          <span className="text-theme-muted">Color Group:</span>{" "}
+                          <span className="text-indigo-300 font-bold font-mono uppercase">{group.colorGroupId}</span>
+                        </>
+                      )}
                     </div>
-                    <span className="text-[10px] bg-emerald-950 text-emerald-400 px-2 py-0.5 border border-emerald-900 rounded font-bold font-mono">
-                      {activeCellsCount} Variants Checked
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={toggleAllCombinations}
+                        className="rounded border border-indigo-400/40 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold text-indigo-300 hover:bg-indigo-500/20"
+                      >
+                        {allCombinationsSelected ? "Clear All" : "Select All Combinations"}
+                      </button>
+                      <span className="text-[10px] bg-emerald-950 text-emerald-400 px-2 py-0.5 border border-emerald-900 rounded font-bold font-mono">
+                        {activeCellsCount} Variants Selected
+                      </span>
+                    </div>
                   </div>
 
                   {/* Horizontal Matrix Grid Spreadsheet */}
@@ -519,7 +794,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                           <th className="p-3 font-mono text-[10px] uppercase border-r border-theme-divider/50 text-indigo-300 font-bold">
                             {rowAttr.label} \ {colAttr.label}
                           </th>
-                          {colAttr.validValues.map(colVal => (
+                          {colValues.map(colVal => (
                             <th key={colVal} className="p-3 font-mono text-[10px] text-center border-r border-theme-divider/40 font-bold text-sky-300">
                               {colVal}
                             </th>
@@ -527,14 +802,17 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                         </tr>
                       </thead>
                       <tbody>
-                        {rowAttr.validValues.map(rowVal => (
+                        {rowValues.map(rowVal => (
                           <tr key={rowVal} className="border-b border-theme-divider/40 hover:bg-theme-surface-2/30">
                             <td className="p-3 font-bold text-theme-body bg-theme-surface-2/20 border-r border-theme-divider/50">
                               {rowVal}
                             </td>
-                            {colAttr.validValues.map(colVal => {
+                            {colValues.map(colVal => {
                               const cellKey = `${rowVal}::${colVal}`;
-                              const cell = matrixCells[cellKey] || { active: false, stock: 0, price: selectedTemplate.basePrice, mrp: selectedTemplate.baseMrp, costPrice: Math.round(selectedTemplate.basePrice * 0.6), sku: "", barcode: "" };
+                              const fallbackCost = (selectedTemplate.baseCostPrice !== undefined && selectedTemplate.baseCostPrice !== null && !isNaN(Number(selectedTemplate.baseCostPrice)))
+                                ? Number(selectedTemplate.baseCostPrice)
+                                : 0;
+                              const cell = matrixCells[cellKey] || { active: false, stock: 0, price: selectedTemplate.basePrice, mrp: selectedTemplate.baseMrp, costPrice: fallbackCost, sku: "", barcode: "" };
                               return (
                                 <td key={colVal} className="p-2 border-r border-theme-divider/40 min-w-[170px]">
                                   <div className="space-y-1 bg-theme-surface-2/40 p-2 rounded border border-theme-divider/25">
@@ -663,7 +941,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                       ) : (
                         <>
                           <CheckCircle2 size={13} />
-                          <span>Commit Selected Matrix ({activeCellsCount} items)</span>
+                          <span>Generate All in Item Master ({activeCellsCount} items)</span>
                         </>
                       )}
                     </button>

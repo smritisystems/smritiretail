@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,14 +7,14 @@
  * Version      : 6.7.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-22
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useMemo, useEffect } from "react";
 import { ProPosCustomer } from "./types.ts";
-import { getCustomers, initialCustomers, saveCustomers, persistCustomerChange } from "../../../services/customerStore.ts";
+import { getCustomers, saveCustomers, persistCustomerChange } from "../../../services/customerStore.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { X, Search, UserPlus, Check } from "lucide-react";
 
@@ -67,7 +67,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
   // Fetch live customers from server on modal mount
   useEffect(() => {
     let isMounted = true;
-    apiFetchV1("/customers")
+    apiFetchV1("/crm/customers")
       .then((res: any) => {
         if (isMounted && Array.isArray(res) && res.length > 0) {
           setCustomerList(mapToProPosCustomers(res));
@@ -314,7 +314,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono">{c.loyaltyPoints?.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-right font-mono">â‚¹{c.creditLimit?.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right font-mono">₹{c.creditLimit?.toLocaleString()}</td>
                     <td className="px-3 py-2.5 text-center">
                       <button
                         type="button"

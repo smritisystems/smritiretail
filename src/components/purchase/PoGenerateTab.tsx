@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.32.0
+ * Version      : 3.33.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -22,6 +22,8 @@ import {
   PurchaseOrderSummaryTotals
 } from "./types.ts";
 import { PurchBrowseDlg } from "./PurchBrowseDlg.tsx";
+import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 
 interface PurchaseOrderGenerationTabProps {
   products?: Product[];
@@ -40,6 +42,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 }) => {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [suppliersList, setSuppliersList] = useState<{ id: string; name: string; code?: string }[]>([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
+  const [suppliersError, setSuppliersError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"generation" | "size_pivot" | "other">("generation");
   const [showF2Hint, setShowF2Hint] = useState(true);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
@@ -54,8 +58,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     prefix: "PO13",
     orderNumber: "46",
     orderDate: new Date().toLocaleDateString("en-GB"),
-    supplierId: "sup-1",
-    supplierName: "RPSH KMR:Rupesh Kumar",
+    supplierId: "",
+    supplierName: "",
     billTo: "ACME TEXTILES",
     deliveryDate: new Date(Date.now() + 10 * 86400000).toLocaleDateString("en-GB"),
     leadTimeDays: 10,
@@ -129,6 +133,10 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   }, []);
 
   const loadData = async () => {
+    setSuppliersLoading(true);
+    setSuppliersError(null);
+    setSuppliersList([]);
+    setHeader(current => ({ ...current, supplierId: "", supplierName: "" }));
     try {
       if (products.length === 0) {
         const prodRes = await apiFetchV1("/products");
@@ -138,20 +146,20 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       const supRes = await apiFetchV1("/purchase/suppliers");
       const supList = Array.isArray(supRes) ? supRes : supRes?.items || [];
       if (supList.length > 0) {
-        setSuppliersList(supList.map((s: any) => ({ id: s.id, name: s.name, code: s.vendor_code || s.code })));
+        const suppliers = supList.map((s: any) => ({ id: s.id, name: s.name, code: s.vendor_code || s.code }));
+        setSuppliersList(suppliers);
+        setHeader(current => {
+          const selected = suppliers.find((s: { id: string; name: string; code?: string }) => s.id === current.supplierId) || suppliers[0];
+          return { ...current, supplierId: selected.id, supplierName: selected.name };
+        });
       } else {
-        setSuppliersList([
-          { id: "sup-1", name: "RPSH KMR:Rupesh Kumar", code: "RPSH" },
-          { id: "sup-2", name: "ACME Suppliers Pvt Ltd", code: "ACME" },
-          { id: "sup-3", name: "Raymond Apparel Ltd", code: "RAYM" }
-        ]);
+        setSuppliersList([]);
       }
-    } catch {
-      setSuppliersList([
-        { id: "sup-1", name: "RPSH KMR:Rupesh Kumar", code: "RPSH" },
-        { id: "sup-2", name: "ACME Suppliers Pvt Ltd", code: "ACME" },
-        { id: "sup-3", name: "Raymond Apparel Ltd", code: "RAYM" }
-      ]);
+    } catch (error) {
+      setSuppliersList([]);
+      setSuppliersError(error instanceof Error ? error.message : "Supplier service is unavailable.");
+    } finally {
+      setSuppliersLoading(false);
     }
   };
 
@@ -310,14 +318,64 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     })));
   };
 
-  // Keyboard Navigation (F2, F4, F5, F6, F7)
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase B Batch 2) ──
+  // F2 on stock number / article number fields → entity=variant (Tier 1 data-f2-entity).
+  // FieldAdapter populates the active row via updateLineItem / updatePivotRow.
+  // PurchBrowseDlg onClick button trigger (line 638) is preserved as a non-F2 consumer.
+  useF2Screen({
+    screenId: "PoGenerateTab",
+    defaultEntity: "variant",
+    adapter: (result: LookupResult) => {
+      if (result.entity !== "variant" && result.entity !== "item" && result.entity !== "item_barcode") {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[PoGenerateTab][F2] FieldAdapter: unhandled entity:", result.entity);
+        }
+        return;
+      }
+      const stockVal  = (result.record?.stock_no as string)
+                     || (result.record?.style_code as string)
+                     || result.returnValue || "";
+      const nameVal   = result.displayValue || (result.record?.name as string) || "";
+      const brandVal  = (result.record?.brand as string) || "";
+      const styleVal  = (result.record?.style_code as string) || "-";
+      const colorVal  = (result.record?.color as string) || "-";
+      const sizeVal   = (result.record?.size as string) || "-";
+      const rateVal   = (result.record?.cost_price as number)
+                     || (result.record?.selling_price as number)
+                     || (result.record?.mrp as number) || 0;
+      const stockQty  = (result.record?.stock_qty as number) ?? 0;
+      if (activeTab === "generation") {
+        setShowF2Hint(false);
+        updateLineItem(activeRowIndex, {
+          stockNo: stockVal,
+          product: nameVal,
+          brand:   brandVal,
+          style:   styleVal,
+          shade:   colorVal,
+          size:    sizeVal,
+          rate:    rateVal,
+          stockOnHand: stockQty,
+        });
+      } else {
+        setShowF2Hint(false);
+        updatePivotRow(activeRowIndex, {
+          articleNo: stockVal,
+          product:   nameVal,
+          brand:     brandVal,
+          style:     styleVal,
+          color:     colorVal,
+          rate:      rateVal,
+        });
+      }
+    }
+  });
+
+  // Keyboard Navigation (F4, F6) — F2 removed: now handled by F2DispatcherProvider
   useEffect(() => {
     const handleKeys = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
-        e.preventDefault();
-        setShowF2Hint(false);
-        setShowBrowseModal(true);
-      } else if (e.key === "F4") {
+      // F2 is handled exclusively by F2DispatcherProvider (F2 Universal Lookup Architecture v2).
+      // This screen registers via useF2Screen() above. No screen-level F2 handler.
+      if (e.key === "F4") {
         e.preventDefault();
         // Delete current row
         if (activeTab === "generation") {
@@ -349,6 +407,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       ? lineItems.filter(l => l.stockNo && l.orderQty > 0)
       : sizePivotRows.filter(r => r.articleNo && r.totalQty > 0);
 
+    if (!header.supplierId || suppliersLoading || suppliersError) {
+      if (onNotification) onNotification("Supplier Required", "Load and select a supplier from the backend before saving the purchase order.", "error");
+      return;
+    }
+
     if (activeLines.length === 0) {
       if (onNotification) onNotification("Validation Error", "Please enter at least one line item with quantity.", "error");
       return;
@@ -359,7 +422,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       const payload = {
         order_number: `${header.prefix}-${header.orderNumber}`,
         order_date: new Date().toISOString().split("T")[0],
-        supplier_id: header.supplierId || "sup-1",
+        supplier_id: header.supplierId,
         supplier_name: header.supplierName,
         delivery_date: new Date(Date.now() + header.leadTimeDays * 86400000).toISOString().split("T")[0],
         total_amount: totals.totalValue,
@@ -535,17 +598,37 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             <label className="col-span-3 font-semibold text-[#434652]">Supplier</label>
             <select
               value={header.supplierId}
+              disabled={suppliersLoading || !!suppliersError || suppliersList.length === 0}
               onChange={(e) => {
                 const s = suppliersList.find(x => x.id === e.target.value);
                 setHeader({ ...header, supplierId: e.target.value, supplierName: s ? s.name : header.supplierName });
               }}
               className="col-span-9 border border-[#737685] rounded px-2 h-6 bg-white outline-none focus:ring-1 focus:ring-[#00296d] font-medium"
             >
+              {suppliersLoading && <option value="">Loading suppliers...</option>}
+              {!suppliersLoading && suppliersError && <option value="">Supplier service unavailable</option>}
+              {!suppliersLoading && !suppliersError && suppliersList.length === 0 && <option value="">No suppliers available</option>}
               {suppliersList.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>
+          {suppliersError && (
+            <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-red-700" role="alert">
+              <span>{suppliersError}</span>
+              <button type="button" onClick={loadData} className="font-semibold underline hover:text-red-900">
+                Retry
+              </button>
+            </div>
+          )}
+          {!suppliersLoading && !suppliersError && suppliersList.length === 0 && (
+            <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-[#5d6270]" role="status">
+              <span>No suppliers found for the current company and branch.</span>
+              <button type="button" onClick={loadData} className="font-semibold underline hover:text-[#00296d]">
+                Retry
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-12 gap-1.5 items-center mb-1">
             <label className="col-span-3 font-semibold text-[#434652]">Bill to</label>
             <input
@@ -713,12 +796,13 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     <td className="border-r border-[#c4c6d4] p-0.5">
                       <input
                         type="text"
-                        value={item.stockNo}
-                        onFocus={() => setShowF2Hint(false)}
-                        onChange={(e) => updateLineItem(idx, { stockNo: e.target.value })}
-                        data-context-type="product"
+                        id="pogen-gen-stockno"
                         name="stockNo"
-                        aria-label="Stock Number — Product Lookup"
+                        aria-label="Stock Number — F2 to browse variants"
+                        data-f2-entity="variant"
+                        value={item.stockNo}
+                        onFocus={() => { setActiveRowIndex(idx); setShowF2Hint(false); }}
+                        onChange={(e) => updateLineItem(idx, { stockNo: e.target.value })}
                         className="w-full bg-transparent border-none p-1 h-6 font-mono font-bold text-xs focus:ring-1 focus:ring-[#00296d]"
                       />
                     </td>
@@ -897,12 +981,13 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     <td className="border-r border-[#c4c6d4] p-0.5">
                       <input
                         type="text"
-                        value={row.articleNo}
-                        onFocus={() => setShowF2Hint(false)}
-                        onChange={(e) => updatePivotRow(idx, { articleNo: e.target.value })}
-                        data-context-type="product"
+                        id="pogen-pivot-articleno"
                         name="articleNo"
-                        aria-label="Article Number — Product Lookup"
+                        aria-label="Article Number — F2 to browse variants"
+                        data-f2-entity="variant"
+                        value={row.articleNo}
+                        onFocus={() => { setActiveRowIndex(idx); setShowF2Hint(false); }}
+                        onChange={(e) => updatePivotRow(idx, { articleNo: e.target.value })}
                         className="w-full bg-transparent border-none p-1 h-6 font-mono font-bold text-xs focus:ring-1 focus:ring-[#00296d]"
                       />
                     </td>

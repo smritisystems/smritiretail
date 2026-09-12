@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.0
+ * Version      : 3.30.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-19
+ * Modified     : 2026-09-12
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -296,14 +296,14 @@ export const AboutSmritiTab: React.FC = () => {
                     SMRITI Retail OS Desk
                   </h1>
                   <p className="max-w-xl text-sm text-theme-muted leading-relaxed mb-6">
-                    Welcome to the SMRITI Reference Desk. This module serves as the primary system registry and operational overview for version controls, author details, architectures, and support.
+                    Welcome to the SMRITI Reference Desk. Review the platform identity, operational capabilities, architecture, governance, release history, and live system diagnostics from one workspace.
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <span className="px-2.5 py-1 text-xs font-bold font-mono tracking-wider uppercase bg-[#2563EB]/15 text-blue-400 rounded border border-[#2563EB]/30">
-                      {metadata?.app.edition}
+                      {metadata?.app?.edition ?? "—"}
                     </span>
                     <span className="px-2.5 py-1 text-xs font-bold font-mono tracking-wider uppercase bg-theme-surface-3 rounded border border-theme-divider text-theme-muted">
-                      v{metadata?.app.version}
+                      v{metadata?.app?.version ?? "—"}
                     </span>
                     <span className="px-2.5 py-1 text-xs font-semibold font-mono tracking-wider uppercase bg-emerald-500/10 text-emerald-400 rounded border border-emerald-500/20">
                       {sysDiagnostics.onlineStatus}
@@ -319,7 +319,7 @@ export const AboutSmritiTab: React.FC = () => {
                   >
                     <Info className="text-blue-400 mb-3 group-hover:scale-105 transition-transform" size={20} />
                     <h3 className="font-bold text-xs font-mono uppercase tracking-wider text-theme-muted mb-1">Product Details</h3>
-                    <p className="text-sm font-semibold text-theme-body">{metadata?.app.productName}</p>
+                    <p className="text-sm font-semibold text-theme-body">{metadata?.app?.productName ?? "—"}</p>
                   </div>
                   
                   <div 
@@ -389,24 +389,24 @@ export const AboutSmritiTab: React.FC = () => {
                     </div>
                   </div>
                   <h1 className="text-3xl font-bold font-display text-white mb-2">
-                    {metadata?.app.productName}
+                    {metadata?.app?.productName ?? "—"}
                   </h1>
                   <span className="px-2.5 py-1 text-xs font-bold font-mono tracking-wider uppercase bg-[#2563EB]/15 text-blue-500 rounded border border-[#2563EB]/25 mb-4">
-                    {metadata?.app.edition}
+                    {metadata?.app?.edition ?? "—"}
                   </span>
                   <p className="max-w-xl text-theme-muted mb-8 leading-relaxed text-sm">
-                    SMRITI Retail OS is a modern, enterprise-ready business experience and operational intelligence layer. Purpose-built for retail operations, distribution, and real-time inventory management, it integrates multi-database synchronization mechanisms, offline-first execution routines, and flexible layout configuration engines.
+                    SMRITI Retail OS is an enterprise retail operations workspace for point of sale, inventory, procurement, customer management, finance, workforce governance, and reporting. It combines a governed React workspace with tenant-aware FastAPI services and PostgreSQL-backed transactional workflows, giving store and operations teams one consistent place to run daily work.
                   </p>
                   
                   <div className="w-full grid grid-cols-2 gap-4 text-left border-t border-theme-divider pt-6 max-w-lg">
                     <div>
                       <span className="block text-[10px] text-theme-muted font-mono uppercase">Organization</span>
-                      <span className="font-semibold text-theme-body">{metadata?.author.organization}</span>
+                      <span className="font-semibold text-theme-body">{metadata?.author?.organization ?? metadata?.app?.organization ?? "-"}</span>
                     </div>
                     <div>
                       <span className="block text-[10px] text-theme-muted font-mono uppercase">Official Sites</span>
                       <span className="font-mono text-xs text-blue-400 break-all">
-                        aitdl.com | erpnbook.com | smritibooks.com
+                        {(metadata?.author?.officialSites ?? [metadata?.author?.website]).filter(Boolean).join(" | ") || "-"}
                       </span>
                     </div>
                   </div>
@@ -964,19 +964,19 @@ export const AboutSmritiTab: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
                     <div className="flex justify-between items-center p-2.5 bg-theme-surface-2 rounded border border-theme-divider">
                       <span className="text-theme-muted">Product Version:</span>
-                      <span className="font-bold text-white">{metadata?.app.version}</span>
+                      <span className="font-bold text-white">{metadata?.app?.version ?? "—"}</span>
                     </div>
                     <div className="flex justify-between items-center p-2.5 bg-theme-surface-2 rounded border border-theme-divider">
                       <span className="text-theme-muted">Build ID:</span>
-                      <span className="font-bold text-white">{metadata?.app.buildNumber}</span>
+                      <span className="font-bold text-white">{metadata?.app?.buildNumber ?? "—"}</span>
                     </div>
                     <div className="flex justify-between items-center p-2.5 bg-theme-surface-2 rounded border border-theme-divider">
-                      <span className="text-theme-muted">Last Commit Hash:</span>
-                      <span className="font-bold text-white">e4c2149</span>
+                      <span className="text-theme-muted">Build Commit:</span>
+                      <span className="font-bold text-white">{metadata?.app?.commitHash ?? metadata?.app?.commit_hash ?? "Not provided"}</span>
                     </div>
                     <div className="flex justify-between items-center p-2.5 bg-theme-surface-2 rounded border border-theme-divider">
                       <span className="text-theme-muted">Build Date:</span>
-                      <span className="font-bold text-white">{metadata?.app.buildDate}</span>
+                      <span className="font-bold text-white">{metadata?.app?.buildDate ?? "—"}</span>
                     </div>
                     <div className="flex justify-between items-center p-2.5 bg-theme-surface-2 rounded border border-theme-divider">
                       <span className="text-theme-muted">Host OS Platform:</span>

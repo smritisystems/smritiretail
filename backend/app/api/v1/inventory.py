@@ -37,6 +37,7 @@ from ...schemas.inventory import (
     ProductUpdate,
     StockMovementCreate,
     StockMovementResponse,
+    StockLedgerPageResponse,
 )
 from ...services.inventory import InventoryService
 from ...services.spif import SpifService
@@ -44,6 +45,13 @@ from ...services.spif import SpifService
 router = APIRouter()
 
 
+@router.post(
+    "",
+    response_model=ProductResponse,
+    status_code=201,
+    dependencies=[Depends(require_permission("item_master", "ADD"))],
+    include_in_schema=False,
+)
 @router.post(
     "/",
     response_model=ProductResponse,
@@ -60,10 +68,11 @@ async def create_product(
     return await service.create_product(product_in)
 
 
+@router.get("", response_model=PaginatedResponse[ProductResponse], include_in_schema=False)
 @router.get("/", response_model=PaginatedResponse[ProductResponse])
 async def list_products(
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
+    page_size: int = Query(25, ge=1, le=500),
     q: str | None = Query(None),
     category: str | None = Query(None),
     sort: str = Query("name"),
@@ -106,8 +115,8 @@ async def search_products(
     return await repo.search(q=q, category=category, skip=skip, limit=limit)
 
 
-@router.get("/ledger", response_model=list[StockMovementResponse])
-@router.get("/stock-movements", response_model=list[StockMovementResponse])
+@router.get("/ledger", response_model=StockLedgerPageResponse)
+@router.get("/stock-movements", response_model=StockLedgerPageResponse)
 async def list_stock_ledger(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
@@ -204,31 +213,80 @@ async def list_stock_ledger(
             )
         )
 
-    stmt = stmt.order_by(StockMovement.created_at.desc()).offset(skip).limit(limit)
+    # Load the complete filtered stream first so running balances are correct
+    # even when the response is paginated.
+    stmt = stmt.order_by(StockMovement.created_at.asc(), StockMovement.id.asc())
 
     res = await db.execute(stmt)
-    rows = res.all()
-    items = []
-    for row in rows:
-        mv = row[0]
-        cost_val = mv.unit_cost or row.prod_cost_price or row.prod_buying_price or row.prod_price or Decimal("0.00")
-        raw_qty = mv.quantity if mv.quantity is not None else Decimal("0.00")
-        qty_abs = abs(raw_qty)
-        tot_val = qty_abs * cost_val
-        doc_no = row.inv_invoice_no or mv.reference_doc_id or "—"
+    all_rows = res.all()
 
-        m_type = (mv.movement_type or "").upper()
+    def split_quantity(movement: StockMovement):
+        raw_qty = movement.quantity if movement.quantity is not None else Decimal("0.00")
+        qty_abs = abs(raw_qty)
+        m_type = (movement.movement_type or "").upper()
         if m_type in ("OUTWARD_SALE", "SALE", "ADJUSTMENT_OUT", "TRANSFER_OUT", "DAMAGE", "WRITE_OFF", "OUT"):
             is_inward = False
         elif m_type in ("IN", "RETURN", "RETURN_INWARD", "INWARD_GRN", "ADJUSTMENT_IN", "TRANSFER_IN", "PURCHASE"):
             is_inward = True
         else:
             is_inward = raw_qty > 0
+        return raw_qty, (qty_abs if is_inward else Decimal("0.00")), (qty_abs if not is_inward else Decimal("0.00"))
 
-        in_qty = qty_abs if is_inward else Decimal("0.00")
-        out_qty = qty_abs if not is_inward else Decimal("0.00")
-        in_val = in_qty * cost_val
-        out_val = out_qty * cost_val
+    running_by_sku = {}
+    ledger_values = {}
+
+    def movement_cost(row):
+        movement = row[0]
+        if movement.unit_cost is not None:
+            return movement.unit_cost
+        return row.prod_cost_price if row.prod_cost_price is not None else (
+            row.prod_buying_price if row.prod_buying_price is not None else (row.prod_price or Decimal("0.00"))
+        )
+
+    for row in all_rows:
+        mv = row[0]
+        sku_key = mv.sku or mv.product_id
+        raw_qty, in_qty, out_qty = split_quantity(mv)
+        cost_val = movement_cost(row)
+        opening_qty = running_by_sku.get(sku_key, Decimal("0.00"))
+        closing_qty = opening_qty + in_qty - out_qty
+        running_by_sku[sku_key] = closing_qty
+        ledger_values[mv.id] = {
+            "in_qty": in_qty,
+            "out_qty": out_qty,
+            "opening_qty": opening_qty,
+            "closing_qty": closing_qty,
+            "in_value": in_qty * cost_val,
+            "out_value": out_qty * cost_val,
+            "closing_value": closing_qty * cost_val,
+        }
+
+    totals = {
+        "total_in_qty": sum((v["in_qty"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_out_qty": sum((v["out_qty"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_in_value": sum((v["in_value"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_out_value": sum((v["out_value"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_movement_value": sum(
+            (
+                abs(row[0].quantity or Decimal("0.00")) * movement_cost(row)
+                for row in all_rows
+            ),
+            Decimal("0.00"),
+        ),
+    }
+    totals["total_moved_qty"] = totals["total_in_qty"] + totals["total_out_qty"]
+    totals["net_qty"] = totals["total_in_qty"] - totals["total_out_qty"]
+
+    rows = list(reversed(all_rows))[skip:skip + limit]
+    items = []
+    for row in rows:
+        mv = row[0]
+        cost_val = movement_cost(row)
+        raw_qty = mv.quantity if mv.quantity is not None else Decimal("0.00")
+        qty_abs = abs(raw_qty)
+        tot_val = qty_abs * cost_val
+        doc_no = row.inv_invoice_no or mv.reference_doc_id or "—"
+        ledger_value = ledger_values[mv.id]
 
         item_dict = {
             "id": mv.id,
@@ -266,13 +324,22 @@ async def list_stock_ledger(
             "buying_price": row.prod_buying_price or Decimal("0.00"),
             "cost_price": cost_val,
             "total_value": tot_val,
-            "in_qty": in_qty,
-            "out_qty": out_qty,
-            "in_value": in_val,
-            "out_value": out_val,
+            "in_qty": ledger_value["in_qty"],
+            "out_qty": ledger_value["out_qty"],
+            "opening_qty": ledger_value["opening_qty"],
+            "closing_qty": ledger_value["closing_qty"],
+            "in_value": ledger_value["in_value"],
+            "out_value": ledger_value["out_value"],
+            "closing_value": ledger_value["closing_value"],
         }
         items.append(StockMovementResponse(**item_dict))
-    return items
+    return {
+        "items": items,
+        "total": len(all_rows),
+        "skip": skip,
+        "limit": limit,
+        "totals": totals,
+    }
 
 
 @router.post(

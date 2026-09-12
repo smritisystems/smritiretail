@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { Product, AttributeDefinition } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { validateItemMasterLookupOptions } from "../../services/itemMasterLookupGate.ts";
 import { getUnifiedItemMasterFields, getGloballyVisibleFields, getGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 import { getCustomFieldLabels } from "../../lib/headerMapping/HeaderAliasRegistry.ts";
 import { resolveProductImageUrl, getImagePathConfig } from "../../services/imagePathConfig.ts";
@@ -255,12 +256,41 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
+  const [warehouseOptions, setWarehouseOptions] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [locationOptions, setLocationOptions] = useState<{ id: string; warehouseId: string; code: string; name: string }[]>([]);
 
   // Listen to global visibility changes
   useEffect(() => {
     const handleVisChange = () => setVisibilityVersion(v => v + 1);
     window.addEventListener("smriti_field_visibility_updated", handleVisChange);
     return () => window.removeEventListener("smriti_field_visibility_updated", handleVisChange);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      apiFetchV1("/wms/warehouses"),
+      apiFetchV1("/wms/locations")
+    ]).then(([warehouses, locations]) => {
+      if (!isMounted) return;
+      if (Array.isArray(warehouses)) {
+        setWarehouseOptions(warehouses.map((item: any) => ({
+          id: String(item.id), code: String(item.code || ""), name: String(item.name || item.code || "")
+        })));
+      }
+      if (Array.isArray(locations)) {
+        setLocationOptions(locations.map((item: any) => ({
+          id: String(item.id), warehouseId: String(item.warehouse_id || ""),
+          code: String(item.code || ""), name: String(item.name || item.code || "")
+        })));
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setWarehouseOptions([]);
+        setLocationOptions([]);
+      }
+    });
+    return () => { isMounted = false; };
   }, []);
 
   // Load backend attribute definitions
@@ -304,6 +334,8 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         a7: p.attributes?.a7 || "",
         a8: p.attributes?.a8 || "",
         a9: p.attributes?.a9 || "",
+        warehouseId: p.attributes?.warehouse_id || "",
+        binLocation: p.attributes?.location_id || "",
         hasTransactions: (p as any).has_transactions || Boolean(p.id && idx % 3 === 0)
       }));
       setGridRows(rows);
@@ -342,6 +374,8 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
           a7: "",
           a8: "",
           a9: "",
+            warehouseId: "",
+            binLocation: "",
           hasTransactions: false
         }]);
       }
@@ -884,6 +918,17 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       return;
     }
 
+    try {
+      const lookupErrors = await validateItemMasterLookupOptions(gridRows as unknown as Record<string, unknown>[]);
+      if (lookupErrors.length > 0) {
+        onNotification?.("System Lookup Required", lookupErrors.slice(0, 5).join(" "), "error");
+        return;
+      }
+    } catch (err: any) {
+      onNotification?.("System Lookup Unavailable", err.message || "Could not verify governed Item Master options.", "error");
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Commit to FastAPI transactional endpoint (PUT for existing, POST for new)
@@ -903,6 +948,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
           name: String(row.name ?? "").trim(),
           primary_image_url: row.imageName && String(row.imageName).trim() ? String(row.imageName).trim() : null,
           brand: row.brand && String(row.brand).trim() ? String(row.brand).trim() : null,
+          vendor_code: row.vendorCode && String(row.vendorCode).trim() ? String(row.vendorCode).trim() : null,
           style_code: row.styleCode && String(row.styleCode).trim() ? String(row.styleCode).trim() : null,
           color: row.colour && String(row.colour).trim() ? String(row.colour).trim() : null,
           size: row.size && String(row.size).trim() ? String(row.size).trim() : null,
@@ -923,7 +969,9 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             a6: row.a6 || "",
             a7: row.a7 || "",
             a8: row.a8 || "",
-            a9: row.a9 || ""
+            a9: row.a9 || "",
+            warehouse_id: row.warehouseId || "",
+            location_id: row.binLocation || ""
           }
         };
 
@@ -1323,7 +1371,31 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                 }`}
                               >
                                 <div className="flex items-center gap-1">
-                                  <input
+                                  {col.key === "warehouseId" ? (
+                                    <select
+                                      value={val}
+                                      onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
+                                      className="w-full px-2 py-1 rounded outline-none text-xs font-semibold bg-transparent border border-transparent focus:border-[#0052cc]"
+                                    >
+                                      <option value="">Select Warehouse</option>
+                                      {warehouseOptions.map(option => (
+                                        <option key={option.id} value={option.id}>{option.code} - {option.name}</option>
+                                      ))}
+                                    </select>
+                                  ) : col.key === "binLocation" ? (
+                                    <select
+                                      value={val}
+                                      onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
+                                      className="w-full px-2 py-1 rounded outline-none text-xs font-semibold bg-transparent border border-transparent focus:border-[#0052cc]"
+                                    >
+                                      <option value="">Select Location</option>
+                                      {locationOptions
+                                        .filter(option => !row.warehouseId || option.warehouseId === row.warehouseId)
+                                        .map(option => (
+                                          <option key={option.id} value={option.id}>{option.code} - {option.name}</option>
+                                        ))}
+                                    </select>
+                                  ) : (<input
                                     type="text"
                                     readOnly={isNonEditableInEditMode || activeMode === "delete"}
                                     title={
@@ -1345,7 +1417,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                         ? "bg-transparent text-[#515f74] dark:text-[#bec6e0] cursor-not-allowed font-mono font-bold"
                                         : "bg-transparent hover:bg-white dark:hover:bg-[#191c1e] focus:bg-white dark:focus:bg-[#191c1e] border border-transparent focus:border-[#0052cc]"
                                     }`}
-                                  />
+                                  />)}
                                   {isDuplicate && (
                                     <span
                                       title={

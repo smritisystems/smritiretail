@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.10.0
+ * Version      : 4.10.1
  * Created      : 2026-08-24
- * Modified     : 2026-08-24
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -19,6 +19,7 @@ export interface TaxEntryBartryBarProps {
   onAddItem: (item: Omit<TaxInvoiceItemRow, "sNo" | "id">) => void;
   staffList?: { id: string; name: string }[];
   onLookupProduct?: (term: string) => Promise<any | null>;
+  onLookupError?: (term: string) => void;
 }
 
 export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
@@ -29,6 +30,7 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
     { id: "EMP003", name: "EMP003 - Jane Smith" },
   ],
   onLookupProduct,
+  onLookupError,
 }) => {
   const [stockNo, setStockNo] = useState("");
   const [description, setDescription] = useState("");
@@ -60,17 +62,26 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
         setRate(Number(prod.price || prod.mrp || 0));
         setHsnCode(prod.hsn_code || "64041990");
         setGstRate(Number(prod.gst_percentage || 18));
+      } else {
+        setDescription("");
+        setRate("");
+        onLookupError?.(stockNo.trim());
       }
     }
   };
 
   const handleCommitRow = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!stockNo.trim() && !description.trim()) return;
+    if (!stockNo.trim()) return;
+
+    if (!description.trim() || numRate <= 0) {
+      onLookupError?.(stockNo.trim());
+      return;
+    }
 
     onAddItem({
-      stockNo: stockNo.trim() || `SKU-${Date.now().toString().slice(-4)}`,
-      itemDescription: description.trim() || "Retail Item",
+      stockNo: stockNo.trim(),
+      itemDescription: description.trim(),
       rate: numRate,
       qty: numQty,
       value: numValue,
@@ -109,10 +120,11 @@ export const TaxEntryBar: React.FC<TaxEntryBartryBarProps> = ({
         {/* Stock No */}
         <input
           ref={stockInputRef}
+          id="dist-entry-stockno"
           type="text"
           value={stockNo}
           data-field-key="item_code"
-          data-f2-browse="product"
+          data-f2-entity="variant"
           onChange={(e) => setStockNo(e.target.value)}
           onBlur={handleStockNoBlur}
           placeholder="Stock No/Barcode"

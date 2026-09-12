@@ -1,0 +1,102 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Bill Recall Details</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+-->
+</style>
+</head>
+<body>
+<h1>Recall</h1>
+
+<p class=Body-Text>The Recall option allows you to recall (<a href="Invoicing_Configuration.htm#Recall">configurable</a>) 
+ transaction types (expected transactions) like Sales Orders, Sales DC, 
+ Approval Issue DC and Suspended Invoices at any stage of an invoicing 
+ process. On recalling any of these transaction types, you get the items, 
+ which are entered previously in the respective transaction types. In a 
+ single invoicing process, you can recall any or all the transaction types 
+ available for that particular invoice type (i.e., Product invoicing or 
+ Service invoicing). Once you recall a document in a terminal, the same 
+ document will not be available for recall in any other terminals. Customer 
+ validation can be done before recalling a transaction slip, if <a href="Invoicing_Configuration.htm#Recall">configured</a>.</p>
+
+<p class=Body-Text>On clicking <span class="hcp1">Recall</span> 
+ button from the Invoice window, Recall Details is displayed.</p>
+
+<p class=Body-Text><img src="bill%20recall%20details-distributor.gif" x-maintain-ratio="TRUE" style="border: none;
+								float: none;
+								border-style: none;
+								width: 200px;
+								height: 94px;
+								border-style: none;" width="200" height="94" border="0"></p>
+
+<p class=Body-Text><span class="hcp1">Transaction Type</span>: 
+ Select the type of transaction from the drop down list.</p>
+
+<p class=Body-Text><span class="hcp1">Doc No Prefix</span>: 
+ The document prefix used for the selected Transaction Type is displayed 
+ by default. You can edit this value, if required.</p>
+
+<p class=Body-Text><span class="hcp1">Document No</span>: 
+ Enter the document number. Alternatively, press <span class="hcp1">F2</span> 
+ and the<span class="hcp1"> <a href="Document_Search-Distributor.htm">Document 
+ Search</a></span> window for the selected Transaction Type pops up. You 
+ can browse for the document number in this window.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Navigation><span class="hcp1">Submit</span>: To 
+ submit the recall details entered to proceed with the invoicing.</p>
+
+<p class=Navigation><span class="hcp1">Cancel</span>: To 
+ exit from the Recall Details window. You can also press <span class="hcp1">Esc</span> 
+ to exit.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note><span class="hcp1">Notes:</span> </p>
+
+<p class=Note>&nbsp;&nbsp;&nbsp;&nbsp;<font
+face="Symbol">&#183;</font> You may delete items from 
+ the document that is recalled, if <a href="Invoicing_Configuration.htm#Recall">configured</a>.</p>
+
+<p class=Note>&nbsp;&nbsp;&nbsp;&nbsp;<font
+face="Symbol">&#183;</font> You may suspend an invoice 
+ even after recalling any document. The suspended invoice is available 
+ for recall later. </p>
+
+<p class=Body-Text>When you delete any items from a document that is recalled, 
+ or suspend an invoice after recalling any document, the status of the 
+ respective document varies according to the type of the transaction. The 
+ possible scenarios are explained.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Sales Order/ Sales DC/ Approval Issue DC</p>
+
+<p class=Body-Text>After recalling a Sales Order, Sales DC or Approval 
+ Issue DC, if you perform partial deletion, i.e., if you delete one or 
+ more items from the recalled transaction type, and invoiced for the rest 
+ of the items, then the status of the Sales Order, Sales DC or Approval 
+ Issue DC will still be enabled (opened). Here, the Sales Order, Sales 
+ DC or Approval Issue DC can be recalled till all the items get invoiced. 
+ </p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Suspension</p>
+
+<p class=Body-Text>After recalling a Sales Order, Sales DC or Approval 
+ Issue DC, if you suspend the invoice, then the status of the respective 
+ transaction type is disabled (closed). However, if you <a href="Invoicing_Configuration.htm#Suspension">delete</a> 
+ this suspended invoice later, then the respective transaction type will 
+ be available for recalling it again.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

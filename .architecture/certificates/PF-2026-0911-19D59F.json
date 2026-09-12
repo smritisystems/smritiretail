@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-19D59F",
+  "entity": "vendor",
+  "capability": "vendor.service",
+  "asset_type": "service",
+  "proposed_name": "vendor_svc.py",
+  "target_file_path": "F:/SMRITRretailNX/backend/app/services/vendor_svc.py",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "vendor_svc.py",
+  "content_hash": "bd39d78a4cebfa101d82a992497bacbf6b04993b108b90cdeb8327fcadefd33c",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:58.429527+00:00",
+  "expires_at": "2026-09-18T05:21:58.429527+00:00",
+  "status": "ISSUED"
+}

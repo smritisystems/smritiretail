@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-4B9E8F",
+  "entity": "vendor",
+  "capability": "vendor.identity",
+  "asset_type": "component",
+  "proposed_name": "VendorIdentityTab.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/tabs/VendorIdentityTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "c851255a35003e9d31e7ccbe239ee560a7d25288d610faa1686b57e72a937c08",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:58.756174+00:00",
+  "expires_at": "2026-09-18T05:21:58.756174+00:00",
+  "status": "ISSUED"
+}

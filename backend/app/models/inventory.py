@@ -12,13 +12,16 @@
  """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
 
 class Product(BaseEntity):
     __tablename__ = "products"
 
+    # Canonical ItemMaster links retained alongside the legacy product identity.
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="SET NULL"), nullable=True, index=True)
     variant_id = Column(BigInteger, autoincrement=True, index=True)
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
@@ -29,6 +32,7 @@ class Product(BaseEntity):
     barcode = Column(String(100), nullable=False, index=True)
     secondary_barcodes = Column(ARRAY(String), server_default="{}")
     brand = Column(String(100))
+    vendor_code = Column(String(100))
     color = Column(String(50))
     size = Column(String(50))
     mrp = Column(Numeric(15, 2), default=0.00, server_default="0.00")
@@ -102,6 +106,8 @@ class StockMovement(BaseEntity):
     __tablename__ = "stock_movements"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     product_name = Column(String(255), nullable=False)
     sku = Column(String(50), nullable=False)
     quantity = Column(Numeric(10, 2), nullable=False)
@@ -122,6 +128,14 @@ class StockMovement(BaseEntity):
     approval = Column(String(50), nullable=True)
 
 
+# DEPRECATED — Phase B (2026-09-10, v4.17.0)
+# Audit status: 0 rows in production DB (smriti001). FK child table
+# `user_store_assignments` also 0 rows. No live API route writes to this table.
+# Phase C removal requires:
+#   1. DDL backup to docs/archive/
+#   2. Alembic DOWN migration authored and reviewed
+#   3. Full regression suite passed
+# DO NOT DROP until all 5 gates in docs/walkthrough/foundation/Staged_Migration_Audit... pass.
 class Store(BaseEntity):
     __tablename__ = "stores"
 
@@ -166,10 +180,28 @@ class Warehouse(BaseEntity):
     )
 
 
+class WarehouseLocation(BaseEntity):
+    """Reusable warehouse location master for governed bin assignments."""
+    __tablename__ = "warehouse_locations"
+
+    warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(50), nullable=False)
+    name = Column(String(100), nullable=False)
+    aisle = Column(String(50), nullable=True)
+    rack = Column(String(50), nullable=True)
+    shelf = Column(String(50), nullable=True)
+    bin_code = Column(String(50), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_warehouse_location_code"),
+    )
+
+
 class ProductBatchStock(BaseEntity):
     __tablename__ = "product_batch_stocks"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True)
     batch_no = Column(String(100), nullable=False, index=True)
     mfg_date = Column(Date, nullable=True)

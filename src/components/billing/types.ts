@@ -38,11 +38,66 @@ export interface BillingLineItem {
   color?: string;
   size?: string;
   attributes?: Record<string, any>;
+  customerPoLineId?: string;
 }
-
 export type BillType = "Product" | "Service";
 export type TransactionType = "Credit" | "Cash";
-export type PaymentMode = "Cash" | "Credit Card" | "Debit Card" | "Cheque" | "UPI" | "Credit Note" | "Split";
+export type PaymentMode = "Cash" | "Credit Card" | "Debit Card" | "Cheque" | "UPI" | "Credit Note" | "Split" | "Credit" | "On Account";
+
+export interface CustomerGSTRegistrationDTO {
+  id: string;
+  customer_id: string;
+  gstin: string;
+  trade_name?: string | null;
+  legal_name?: string | null;
+  state_code: string;
+  state_name: string;
+  registration_type: string;
+  is_primary: boolean;
+  is_active: boolean;
+}
+
+export interface CustomerDeliveryLocationDTO {
+  id: string;
+  customer_id: string;
+  store_code: string;
+  location_name: string;
+  site_type?: string | null;
+  address_line1: string;
+  address_line2?: string | null;
+  city: string;
+  district?: string | null;
+  state_code: string;
+  state_name: string;
+  pin_code: string;
+  gst_registration_id?: string | null;
+  delivery_gstin?: string | null;
+  contact_person?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  is_default?: boolean;
+  is_active: boolean;
+}
+
+export interface CustomerBillingLocationDTO {
+  id: string;
+  customer_id: string;
+  billing_store_code: string;
+  name?: string | null;
+  gst_registration_id?: string | null;
+  address_line1: string;
+  address_line2?: string | null;
+  city: string;
+  state: string;
+  state_code?: string | null;
+  pincode: string;
+  gstin?: string | null;
+  contact_person?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  is_default: boolean;
+  status: string;
+}
 
 export interface BillingHeaderState {
   billType: BillType;
@@ -53,6 +108,24 @@ export interface BillingHeaderState {
   customer: Customer | null;
   salesStaff: string;
   remarks: string;
+
+  // Phase 2C Corporate B2B Billing Fields
+  billedPartyGstinId?: string | null;
+  billedGstin?: string | null;
+  deliveryLocationId?: string | null;
+  deliveryStoreCode?: string | null;
+  deliveryGstin?: string | null;
+  deliveryLocationSnapshot?: Record<string, any> | null;
+  placeOfSupplyCode?: string | null;
+  poReference?: string | null;
+  billingSource?: "DIRECT" | "CUSTOMER_PO" | "SALES_ORDER" | "DELIVERY";
+  customerPoId?: string | null;
+
+  // Phase 2F Billing Location & Address Snapshots
+  billingLocationId?: string | null;
+  billingStoreCode?: string | null;
+  billingAddress?: string | null;
+  shippingAddress?: string | null;
 }
 
 export interface TransporterRow {

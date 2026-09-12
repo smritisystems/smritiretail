@@ -146,7 +146,7 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   const branchId = localStorage.getItem("smriti_branch_id") || "MAIN";
   if (branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", branchId);
   if (branchId && !headers.has("X-Branch-Code")) headers.set("X-Branch-Code", branchId);
-  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+  if (!headers.has("Content-Type") && options.body !== undefined && options.body !== null && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   return headers;
@@ -204,19 +204,25 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     requestInit.body = options.body as BodyInit;
   }
 
-  // Sanitize endpoint string — remove any embedded docker hostname prefixes
+  // Sanitize endpoint string — remove any embedded docker hostname prefixes.
+  // Handles both http://smriti-api:8000/... and bare smriti-api:8000/... forms.
   let cleanEndpoint = endpoint
     .replace(/https?:\/\/python-core(:[0-9]+)?/gi, "")
     .replace(/https?:\/\/smriti-api(:[0-9]+)?/gi, "")
     .replace(/https?:\/\/localhost(:[0-9]+)?/gi, "")
-    .replace(/https?:\/\/127\.0\.0\.1(:[0-9]+)?/gi, "");
+    .replace(/https?:\/\/127\.0\.0\.1(:[0-9]+)?/gi, "")
+    // Bare (no-protocol) Docker hostnames — e.g. "smriti-api:8000/api/v1/..."
+    .replace(/^python-core(:[0-9]+)?\//gi, "/")
+    .replace(/^smriti-api(:[0-9]+)?\//gi, "/");
 
   if (cleanEndpoint.startsWith("/api/v1")) {
     cleanEndpoint = cleanEndpoint.replace(/^\/api\/v1/, "");
   }
 
-  const baseUrl = typeof window !== "undefined" && window.location?.origin 
-    ? "" 
+  const browserHost = typeof window !== "undefined" ? window.location?.hostname : "";
+  const isLocalBrowser = browserHost === "localhost" || browserHost === "127.0.0.1";
+  const baseUrl = typeof window !== "undefined" && window.location?.origin
+    ? (isLocalBrowser ? "http://127.0.0.1:8000" : "")
     : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:8000");
   const url = applyQueryParams(
     `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`,
@@ -231,7 +237,12 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     });
   } catch (networkError: any) {
     console.error(`[apiFetchV1 Network Error] Target URL "${url}" unreachable:`, networkError);
-    throw new Error("SMRITI Backend API Server is unreachable. Please ensure the FastAPI service (python-core:8000 / localhost:8000) is running.");
+    // HREP-compliant user-facing message — no internal hostnames or stack details exposed
+    throw new Error(
+      "The SMRITI application service is currently unreachable. " +
+      "Please ensure your network connection or server service is active and try again. " +
+      "If this issue persists, contact your system administrator."
+    );
   }
 
   // ── Silent Token Refresh on 401 ──────────────────────────────────────────────
@@ -273,11 +284,11 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     throw new Error(typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg);
   }
 
-  if (response.status === 204 || response.headers.get("content-length") === "0") {
+  if (response.status === 204 || response.headers?.get?.("content-length") === "0") {
     return null as unknown as T;
   }
 
-  const contentType = response.headers.get("content-type") || "";
+  const contentType = response.headers?.get?.("content-type") || "";
   if (contentType.includes("text/plain")) {
     return (await response.text()) as unknown as T;
   }

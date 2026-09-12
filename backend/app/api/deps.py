@@ -41,6 +41,7 @@ from ..db.session import (
     get_session_by_db_name,
 )
 from ..models.auth import User, UserRole
+from ..models.tenant import Branch
 from ..models.role import Role
 from ..models.security import SmritiPermission
 from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
@@ -136,6 +137,30 @@ def normalize_company_id(cid: Optional[str]) -> Optional[str]:
     return raw
 
 
+def normalize_branch_value(branch: Optional[str]) -> Optional[str]:
+    """Normalize known branch aliases to the canonical database branch identifier.
+
+    We intentionally do not rewrite arbitrary branch codes like "SOUTH-01".
+    Only legacy aliases that are known to refer to the primary branch are mapped
+    to their canonical DB branch row, while preserving the real branch code values
+    for branch lookups.
+    """
+    if not branch:
+        return None
+
+    raw = str(branch).strip()
+    if not raw:
+        return None
+
+    normalized = raw.upper()
+    aliases = {
+        "MAIN": "BR-MAIN-001",
+        "BR-MAIN-001": "BR-MAIN-001",
+        "BR-001": "BR-001",
+    }
+    return aliases.get(normalized, raw)
+
+
 async def get_tenant_context(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -156,6 +181,8 @@ async def get_tenant_context(
     )
 
     raw_target = header_company if header_company else current_user.company_id
+    if current_user.role == UserRole.SYSADMIN and not raw_target:
+        return TenantContext(company_id=None, branch_id=None)
     target_company = normalize_company_id(raw_target)
     if not target_company:
         raise HTTPException(
@@ -166,8 +193,31 @@ async def get_tenant_context(
     target_branch = header_branch if header_branch else current_user.branch_id
     if not target_branch or not str(target_branch).strip():
         target_branch = "BR-001"
-    if target_branch == "BR-MAIN-001":
-        target_branch = "MAIN"
+
+    canonical_branch = normalize_branch_value(target_branch)
+
+    # A branch is part of the tenant identity, not a client-provided label.
+    # Resolve it only when it belongs to the selected company and is active.
+    branch_res = await db.execute(
+        select(Branch).where(
+            Branch.company_id == target_company,
+            (
+                (Branch.id == canonical_branch)
+                | (Branch.code == canonical_branch)
+                | (Branch.id == target_branch)
+                | (Branch.code == target_branch)
+            ),
+            Branch.is_deleted == False,
+            Branch.is_active == True,
+        )
+    )
+    branch = branch_res.scalars().first()
+    if branch is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied: the selected branch does not belong to the selected company.",
+        )
+    target_branch = branch.id
 
     if current_user.role != UserRole.SYSADMIN:
         # Header Tampering Security Check with normalized company IDs
@@ -238,8 +288,21 @@ async def get_company_db(
     Never trusts raw unvalidated client headers or query parameters.
     """
     target_db_name = await resolve_company_database_name(tenant_ctx.company_id)
+    if target_db_name == "smritisys":
+        raise HTTPException(
+            status_code=500,
+            detail="Routing invariant violated: business data cannot use the control-plane database.",
+        )
     session_factory = get_company_sessionmaker(target_db_name)
     async with session_factory() as session:
+        session.info.update({
+            "tenant_id": tenant_ctx.company_id,
+            "company_id": tenant_ctx.company_id,
+            "branch_id": tenant_ctx.branch_id,
+            "resolved_database_name": target_db_name,
+            "control_plane_database": "smritisys",
+            "transactional_scope_validated": True,
+        })
         try:
             yield session
         finally:

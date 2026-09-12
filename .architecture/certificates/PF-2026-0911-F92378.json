@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-F92378",
+  "entity": "vendor",
+  "capability": "vendor.payables",
+  "asset_type": "component",
+  "proposed_name": "VendorPayablesTab.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/tabs/VendorPayablesTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "cb467bf59a5bede142eed3eb3180a3a72e575ff28038abb74c7daffc21c98d9a",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:59.233161+00:00",
+  "expires_at": "2026-09-18T05:21:59.233161+00:00",
+  "status": "ISSUED"
+}

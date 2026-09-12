@@ -33,6 +33,48 @@ from ...schemas.masters_tier2 import (
 router = APIRouter()
 
 
+def _is_sysadmin(current_user: User) -> bool:
+    return current_user.role == UserRole.SYSADMIN
+
+
+def _company_id(current_user: User) -> str | None:
+    return getattr(current_user, "company_id", None)
+
+
+def _branch_id(current_user: User) -> str | None:
+    return getattr(current_user, "branch_id", None)
+
+
+def _scoped_query(model: Any, current_user: User):
+    query = select(model).where(model.is_deleted.is_(False))
+    if not _is_sysadmin(current_user):
+        company_id = _company_id(current_user)
+        if not company_id:
+            raise HTTPException(status_code=403, detail="Active company context is required for organizational master access.")
+        if hasattr(model, "company_id"):
+            query = query.where(model.company_id == company_id)
+        elif model is Company:
+            query = query.where(model.id == company_id)
+    return query
+
+
+async def _scoped_entity(db: AsyncSession, model: Any, entity_id: str, current_user: User):
+    query = _scoped_query(model, current_user).where(model.id == entity_id)
+    result = await db.execute(query)
+    entity = result.scalar_one_or_none()
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"{model.__name__} not found in the active organizational scope.")
+    return entity
+
+
+async def _validate_branch_scope(db: AsyncSession, branch_id: str, current_user: User) -> Branch:
+    branch = await _scoped_entity(db, Branch, branch_id, current_user)
+    active_branch_id = _branch_id(current_user)
+    if not _is_sysadmin(current_user) and active_branch_id and branch.id != active_branch_id:
+        raise HTTPException(status_code=403, detail="Branch is outside the active organizational scope.")
+    return branch
+
+
 def normalize_type(et: str) -> str:
     val = et.lower().strip()
     if val in ["companies", "company"]:
@@ -60,22 +102,22 @@ async def list_masters(
     norm_type = normalize_type(entity_type)
     
     if norm_type == "company":
-        q_company = select(Company).where(Company.is_deleted.is_(False)).order_by(Company.name.asc())
+        q_company = _scoped_query(Company, current_user).order_by(Company.name.asc())
         res = await db.execute(q_company)
         return [CompanyResponse.from_orm_model(x) for x in res.scalars().all()]
         
     elif norm_type == "branch":
-        q_branch = select(Branch).where(Branch.is_deleted.is_(False)).order_by(Branch.name.asc())
+        q_branch = _scoped_query(Branch, current_user).order_by(Branch.name.asc())
         res = await db.execute(q_branch)
         return [BranchResponse.from_orm_model(x) for x in res.scalars().all()]
         
     elif norm_type == "store":
-        q_store = select(Store).where(Store.is_deleted.is_(False)).order_by(Store.name.asc())
+        q_store = _scoped_query(Store, current_user).order_by(Store.name.asc())
         res = await db.execute(q_store)
         return [StoreResponse.from_orm_model(x) for x in res.scalars().all()]
         
     elif norm_type == "warehouse":
-        q_warehouse = select(Warehouse).where(Warehouse.is_deleted.is_(False)).order_by(Warehouse.name.asc())
+        q_warehouse = _scoped_query(Warehouse, current_user).order_by(Warehouse.name.asc())
         res = await db.execute(q_warehouse)
         return [WarehouseResponse.from_orm_model(x) for x in res.scalars().all()]
         
@@ -116,12 +158,20 @@ async def create_master(
     elif norm_type == "branch":
         req_branch = BranchCreate(**payload)
         # Referential integrity check
+        if not _is_sysadmin(current_user) and req_branch.company != _company_id(current_user):
+            raise HTTPException(status_code=403, detail="Branch company is outside the active organizational scope.")
         company_exists = await db.get(Company, req_branch.company)
         if not company_exists or company_exists.is_deleted:
             raise HTTPException(
                 status_code=400,
                 detail=f"Referential Integrity Error: Company ID '{req_branch.company}' does not exist."
             )
+
+        duplicate_branch = await db.scalar(
+            select(Branch).where(Branch.code == req_branch.code, Branch.is_deleted == False)
+        )
+        if duplicate_branch:
+            raise HTTPException(status_code=400, detail=f"Branch code '{req_branch.code}' already exists.")
 
         new_id = f"br-{timestamp_ms}"
         item_branch = Branch()
@@ -139,12 +189,7 @@ async def create_master(
     elif norm_type == "store":
         req_store = StoreCreate(**payload)
         # Referential integrity check
-        branch_exists = await db.get(Branch, req_store.branch)
-        if not branch_exists or branch_exists.is_deleted:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Referential Integrity Error: Branch ID '{req_store.branch}' does not exist."
-            )
+        branch_exists = await _validate_branch_scope(db, req_store.branch, current_user)
 
         new_id = f"store-{timestamp_ms}"
         item_store = Store()
@@ -167,12 +212,9 @@ async def create_master(
         req_warehouse = WarehouseCreate(**payload)
         # Referential integrity check
         if req_warehouse.branch:
-            branch_exists = await db.get(Branch, req_warehouse.branch)
-            if not branch_exists or branch_exists.is_deleted:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Referential Integrity Error: Branch ID '{req_warehouse.branch}' does not exist."
-                )
+            branch_exists = await _validate_branch_scope(db, req_warehouse.branch, current_user)
+        elif not _is_sysadmin(current_user):
+            raise HTTPException(status_code=400, detail="A branch is required for tenant warehouse creation.")
 
         new_id = f"wh-{timestamp_ms}"
         item_warehouse = Warehouse()
@@ -181,7 +223,13 @@ async def create_master(
         setattr(item_warehouse, "name", req_warehouse.name)
         setattr(item_warehouse, "branch_id", req_warehouse.branch)
         setattr(item_warehouse, "is_transit", req_warehouse.is_transit or False)
+        setattr(item_warehouse, "is_central_godown", getattr(req_warehouse, "is_central_godown", False) or False)
         setattr(item_warehouse, "address", req_warehouse.address)
+        setattr(item_warehouse, "city", getattr(req_warehouse, "city", None))
+        setattr(item_warehouse, "state", getattr(req_warehouse, "state", None))
+        setattr(item_warehouse, "pincode", getattr(req_warehouse, "pincode", None))
+        setattr(item_warehouse, "contact_person", getattr(req_warehouse, "contact_person", None))
+        setattr(item_warehouse, "phone", getattr(req_warehouse, "phone", None))
         setattr(item_warehouse, "is_active", req_warehouse.status == "Active" if req_warehouse.status else True)
         setattr(item_warehouse, "is_deleted", False)
         setattr(item_warehouse, "created_by", current_user.username)
@@ -212,9 +260,7 @@ async def update_master(
 
     if norm_type == "company":
         req_company = CompanyUpdate(**payload)
-        item_company = await db.get(Company, id)
-        if not item_company or item_company.is_deleted:
-            raise HTTPException(status_code=404, detail="Company not found.")
+        item_company = await _scoped_entity(db, Company, id, current_user)
         
         if req_company.name is not None:
             setattr(item_company, "name", req_company.name)
@@ -229,11 +275,11 @@ async def update_master(
 
     elif norm_type == "branch":
         req_branch = BranchUpdate(**payload)
-        item_branch = await db.get(Branch, id)
-        if not item_branch or item_branch.is_deleted:
-            raise HTTPException(status_code=404, detail="Branch not found.")
+        item_branch = await _scoped_entity(db, Branch, id, current_user)
         
         if req_branch.company:
+            if not _is_sysadmin(current_user) and req_branch.company != _company_id(current_user):
+                raise HTTPException(status_code=403, detail="Branch company is outside the active organizational scope.")
             company_exists = await db.get(Company, req_branch.company)
             if not company_exists or company_exists.is_deleted:
                 raise HTTPException(
@@ -245,6 +291,13 @@ async def update_master(
         if req_branch.name is not None:
             setattr(item_branch, "name", req_branch.name)
         if req_branch.code is not None:
+            duplicate_branch = await db.scalar(select(Branch).where(
+                Branch.code == req_branch.code,
+                Branch.id != id,
+                Branch.is_deleted == False,
+            ))
+            if duplicate_branch:
+                raise HTTPException(status_code=400, detail=f"Branch code '{req_branch.code}' already exists.")
             setattr(item_branch, "code", req_branch.code)
             
         await db.commit()
@@ -253,17 +306,10 @@ async def update_master(
 
     elif norm_type == "store":
         req_store = StoreUpdate(**payload)
-        item_store = await db.get(Store, id)
-        if not item_store or item_store.is_deleted:
-            raise HTTPException(status_code=404, detail="Store not found.")
+        item_store = await _scoped_entity(db, Store, id, current_user)
         
         if req_store.branch:
-            branch_exists = await db.get(Branch, req_store.branch)
-            if not branch_exists or branch_exists.is_deleted:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Referential Integrity Error: Branch ID '{req_store.branch}' does not exist."
-                )
+            branch_exists = await _validate_branch_scope(db, req_store.branch, current_user)
             setattr(item_store, "branch_id", req_store.branch)
 
         if req_store.name is not None:
@@ -285,17 +331,10 @@ async def update_master(
 
     elif norm_type == "warehouse":
         req_warehouse = WarehouseUpdate(**payload)
-        item_warehouse = await db.get(Warehouse, id)
-        if not item_warehouse or item_warehouse.is_deleted:
-            raise HTTPException(status_code=404, detail="Warehouse not found.")
+        item_warehouse = await _scoped_entity(db, Warehouse, id, current_user)
         
         if req_warehouse.branch:
-            branch_exists = await db.get(Branch, req_warehouse.branch)
-            if not branch_exists or branch_exists.is_deleted:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Referential Integrity Error: Branch ID '{req_warehouse.branch}' does not exist."
-                )
+            branch_exists = await _validate_branch_scope(db, req_warehouse.branch, current_user)
             setattr(item_warehouse, "branch_id", req_warehouse.branch)
 
         if req_warehouse.name is not None:
@@ -304,8 +343,20 @@ async def update_master(
             setattr(item_warehouse, "code", req_warehouse.code)
         if req_warehouse.is_transit is not None:
             setattr(item_warehouse, "is_transit", req_warehouse.is_transit)
+        if getattr(req_warehouse, "is_central_godown", None) is not None:
+            setattr(item_warehouse, "is_central_godown", req_warehouse.is_central_godown)
         if req_warehouse.address is not None:
             setattr(item_warehouse, "address", req_warehouse.address)
+        if getattr(req_warehouse, "city", None) is not None:
+            setattr(item_warehouse, "city", req_warehouse.city)
+        if getattr(req_warehouse, "state", None) is not None:
+            setattr(item_warehouse, "state", req_warehouse.state)
+        if getattr(req_warehouse, "pincode", None) is not None:
+            setattr(item_warehouse, "pincode", req_warehouse.pincode)
+        if getattr(req_warehouse, "contact_person", None) is not None:
+            setattr(item_warehouse, "contact_person", req_warehouse.contact_person)
+        if getattr(req_warehouse, "phone", None) is not None:
+            setattr(item_warehouse, "phone", req_warehouse.phone)
         if req_warehouse.status is not None:
             setattr(item_warehouse, "is_active", req_warehouse.status == "Active")
             
@@ -334,27 +385,21 @@ async def delete_master(
     norm_type = normalize_type(entity_type)
 
     if norm_type == "company":
-        item_company = await db.get(Company, id)
-        if not item_company or item_company.is_deleted:
-            raise HTTPException(status_code=404, detail="Company not found.")
+        item_company = await _scoped_entity(db, Company, id, current_user)
         setattr(item_company, "is_deleted", True)
         setattr(item_company, "modified_at", datetime.now(timezone.utc))
         await db.commit()
         return {"success": True, "deletedId": id}
 
     elif norm_type == "branch":
-        item_branch = await db.get(Branch, id)
-        if not item_branch or item_branch.is_deleted:
-            raise HTTPException(status_code=404, detail="Branch not found.")
+        item_branch = await _scoped_entity(db, Branch, id, current_user)
         setattr(item_branch, "is_deleted", True)
         setattr(item_branch, "modified_at", datetime.now(timezone.utc))
         await db.commit()
         return {"success": True, "deletedId": id}
 
     elif norm_type == "store":
-        item_store = await db.get(Store, id)
-        if not item_store or item_store.is_deleted:
-            raise HTTPException(status_code=404, detail="Store not found.")
+        item_store = await _scoped_entity(db, Store, id, current_user)
         setattr(item_store, "is_deleted", True)
         setattr(item_store, "deleted_at", datetime.now(timezone.utc))
         setattr(item_store, "deleted_by", current_user.username)
@@ -362,9 +407,7 @@ async def delete_master(
         return {"success": True, "deletedId": id}
 
     elif norm_type == "warehouse":
-        item_warehouse = await db.get(Warehouse, id)
-        if not item_warehouse or item_warehouse.is_deleted:
-            raise HTTPException(status_code=404, detail="Warehouse not found.")
+        item_warehouse = await _scoped_entity(db, Warehouse, id, current_user)
         setattr(item_warehouse, "is_deleted", True)
         setattr(item_warehouse, "deleted_at", datetime.now(timezone.utc))
         setattr(item_warehouse, "deleted_by", current_user.username)

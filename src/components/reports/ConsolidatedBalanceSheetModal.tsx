@@ -157,6 +157,8 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
     },
   ];
 
+  const liveLines: BalanceSheetLine[] = [];
+
   // Calculated totals per column
   const calculatedMatrix = useMemo(() => {
     const branchTotals: Record<
@@ -172,7 +174,7 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
     let totalConsolidatedLiabilities = 0;
     let totalConsolidatedEquity = 0;
 
-    sampleLines.forEach((line) => {
+    liveLines.forEach((line) => {
       let lineConsolidated = 0;
       branches.forEach((b) => {
         const val = line.branch_values[b.id] || 0;
@@ -209,7 +211,7 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
       totalConsolidatedEquity,
       isBalanced,
     };
-  }, [branches]);
+  }, [branches, liveLines]);
 
   if (!isOpen) return null;
 
@@ -227,12 +229,16 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
                 Enterprise Multi-Branch Consolidated Balance Sheet Matrix
                 <span
                   className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border font-bold ${
-                    calculatedMatrix.isBalanced
+                    liveLines.length > 0 && calculatedMatrix.isBalanced
                       ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                       : "bg-rose-500/20 text-rose-300 border-rose-500/30"
                   }`}
                 >
-                  {calculatedMatrix.isBalanced ? "BALANCED & VERIFIED (A = L + E)" : "OUT OF BALANCE"}
+                  {liveLines.length === 0
+                    ? "NO LIVE DATA"
+                    : calculatedMatrix.isBalanced
+                      ? "BALANCED & VERIFIED (A = L + E)"
+                      : "OUT OF BALANCE"}
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
@@ -270,6 +276,17 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
+              {liveLines.length === 0 && (
+                <tr>
+                  <td colSpan={branches.length + 3} className="px-4 py-12 text-center font-sans">
+                    <div className="text-sm font-semibold text-slate-200">Balance Sheet data is not connected yet</div>
+                    <div className="mt-2 text-xs text-slate-400">
+                      No accounting ledger data was returned, so sample figures are hidden.
+                    </div>
+                    <div className="mt-1 text-xs text-amber-300">This report will be available after the live ledger API is connected.</div>
+                  </td>
+                </tr>
+              )}
               {/* ASSETS SECTION */}
               <tr className="bg-slate-800/30 font-sans">
                 <td
@@ -279,7 +296,7 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
                   1. Assets (Current & Fixed)
                 </td>
               </tr>
-              {sampleLines
+              {liveLines
                 .filter((l) => l.root_type === "ASSET")
                 .map((line) => {
                   let lineTotal = 0;
@@ -315,7 +332,7 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
                     ₹{calculatedMatrix.branchTotals[b.id].assets.toLocaleString()}
                   </td>
                 ))}
-                <td className="py-2.5 px-3 text-right font-mono text-rose-400">-₹80,000</td>
+                <td className="py-2.5 px-3 text-right font-mono text-slate-500">—</td>
                 <td className="py-2.5 px-3 text-right font-mono text-cyan-400 text-sm">
                   ₹{calculatedMatrix.totalConsolidatedAssets.toLocaleString()}
                 </td>
@@ -330,7 +347,7 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
                   2. Liabilities (Current & Term)
                 </td>
               </tr>
-              {sampleLines
+              {liveLines
                 .filter((l) => l.root_type === "LIABILITY")
                 .map((line) => {
                   let lineTotal = 0;
@@ -366,7 +383,7 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
                     ₹{calculatedMatrix.branchTotals[b.id].liabilities.toLocaleString()}
                   </td>
                 ))}
-                <td className="py-2.5 px-3 text-right font-mono text-rose-400">-₹80,000</td>
+                <td className="py-2.5 px-3 text-right font-mono text-slate-500">—</td>
                 <td className="py-2.5 px-3 text-right font-mono text-amber-400 text-sm">
                   ₹{calculatedMatrix.totalConsolidatedLiabilities.toLocaleString()}
                 </td>
@@ -381,7 +398,7 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
                   3. Shareholders' Equity & Reserves
                 </td>
               </tr>
-              {sampleLines
+              {liveLines
                 .filter((l) => l.root_type === "EQUITY")
                 .map((line) => {
                   let lineTotal = 0;
@@ -438,12 +455,9 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
             <div>
               <span className="text-slate-500 block text-[10px] uppercase">Consolidated Gearing Ratio</span>
               <span className="font-mono font-bold text-slate-200">
-                {(
-                  (calculatedMatrix.totalConsolidatedLiabilities /
-                    calculatedMatrix.totalConsolidatedEquity) *
-                  100
-                ).toFixed(1)}
-                %
+                {liveLines.length > 0 && calculatedMatrix.totalConsolidatedEquity !== 0
+                  ? `${((calculatedMatrix.totalConsolidatedLiabilities / calculatedMatrix.totalConsolidatedEquity) * 100).toFixed(1)}%`
+                  : "Not available"}
               </span>
             </div>
           </div>
@@ -456,10 +470,9 @@ export const ConsolidatedBalanceSheetModal: React.FC<ConsolidatedBalanceSheetMod
               Close
             </button>
             <button
-              onClick={() => {
-                onNotification?.("Balance Sheet Exported", "Consolidated statement exported to XLSX.", "success");
-              }}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-500/20 transition-all"
+              disabled
+              title="Balance Sheet export is unavailable until the live ledger API is connected"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-slate-500 bg-slate-800 cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-sm">download</span>
               <span>Export Consolidated Statement</span>

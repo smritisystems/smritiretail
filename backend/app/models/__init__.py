@@ -6,15 +6,17 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.21.0
 Created      : 2026-07-11
-Modified     : 2026-08-15
+Modified     : 2026-09-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 # SMRITI database models init
-from .crm import CustomerGroup, Customer
-from .inventory import Product, StockMovement
-from .sales import SalesInvoice, SalesInvoiceItem
+from .crm import CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerCreditLedgerEntry
+from .inventory import Product, StockMovement, WarehouseLocation
+from .sales import SalesInvoice, SalesInvoiceItem, SalesOrderReservation
+from .customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
+from .customer_article_mapping import CustomerArticleMapping
 from .tenant import Company, Branch
 from .company_policy import CompanyBankAccount, CompanyPolicySetting, ComplianceThreshold
 from .company_registry import CompanyDatabaseRegistry
@@ -32,6 +34,11 @@ from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment
 from .report_schedule import ReportSchedule, ReportDispatchLog
 from .role import Role
+from .hr import AttendanceRecord, LeaveBalance, LeaveRequest
+from .staff_profile import StaffProfile
+from .size_groups import SizeGroup, SizeGroupValue
+from .staff_profile_history import StaffProfileHistory
+from .staff_placement import StaffPlacementAssignment
 
 
 # CRM, Loyalty Program & Universal Incentive Commission Engine (SICE)
@@ -86,6 +93,10 @@ from .party import (
     PartyRole,
     CustomerProfile,
     SupplierProfile,
+    PartyAddress,
+    PartyContact,
+    SupplierBankAccount,
+    VendorIdentityMigration,
 )
 from .item_master import (
     Item,
@@ -98,6 +109,7 @@ from .pricing import (
     PriceBook,
     PriceBookEntry,
     CustomerPriceTier,
+    CustomerPriceAssignment,
 )
 from .payment_ledger import (
     PaymentTransaction,

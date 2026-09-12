@@ -21,6 +21,22 @@ vi.mock('../db/pool.js', () => ({
   }
 }));
 
+// Mock localStorage for node test environment
+const mockStorage: Record<string, string> = {};
+const mockLocalStorage = {
+  getItem: vi.fn((key: string) => mockStorage[key] || null),
+  setItem: vi.fn((key: string, val: string) => { mockStorage[key] = String(val); }),
+  removeItem: vi.fn((key: string) => { delete mockStorage[key]; }),
+  clear: vi.fn(() => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }),
+  get length() { return Object.keys(mockStorage).length; },
+  key: vi.fn((idx: number) => Object.keys(mockStorage)[idx] || null)
+};
+
+Object.defineProperty(globalThis, "localStorage", {
+  value: mockLocalStorage,
+  writable: true
+});
+
 // Mock global fetch
 global.fetch = vi.fn();
 

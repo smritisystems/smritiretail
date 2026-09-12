@@ -18,7 +18,7 @@
 import crypto from "crypto";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
 import { pool } from "../db/pool.js";
-import { FASTAPI_BASE_URL } from "../config/api.js";
+import { apiFetchV1 } from "./apiFetchV1.js";
 
 // ==========================================
 // SECURE PASSWORD HASHING (HREP COMPLIANT)
@@ -55,9 +55,14 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 }
 
 // ==========================================
-// DYNAMIC GST 2.0 PRICE-TIER TAX ENGINE
+// DYNAMIC GST 2.0 PRICE-TIER TAX ENGINE (LEGACY)
 // ==========================================
 
+/**
+ * @deprecated Legacy tax tier calculation. Statutory GST calculations (CGST/SGST/IGST, 
+ *             taxable value, and GSTIN state resolution) are canonically handled by 
+ *             `src/utils/gstEngine.ts` (`calculateGST`).
+ */
 export function calculateItemGstRate(category: string, price: number, defaultRate?: number): number {
   const cat = (category || "").trim().toLowerCase();
   if (cat === "apparel" || cat === "footwear" || cat === "clothing") {
@@ -155,32 +160,20 @@ export async function allocateVoucherNumber(docType: string, context?: { branch?
     }
     const seriesId = dbRes.rows[0].id;
 
-    const pythonCoreHost = FASTAPI_BASE_URL;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "X-Internal-Service-Key": process.env.INTERNAL_SERVICE_KEY || ""
-    };
-    if (context?.authHeader) {
-      headers["Authorization"] = context.authHeader;
-    }
-
     const payload = {
       branch: context?.branch || "HQ",
       fy: context?.fy || "26-27"
     };
 
-    const response = await fetch(`${pythonCoreHost}/api/v1/numbering/series/${seriesId}/allocate`, {
+    const data = await apiFetchV1(`/numbering/series/${seriesId}/allocate`, {
       method: "POST",
-      headers,
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      headers: {
+        "X-Internal-Service-Key": (typeof process !== "undefined" && process.env?.INTERNAL_SERVICE_KEY) || "",
+        ...(context?.authHeader ? { "Authorization": context.authHeader } : {}),
+      }
     });
 
-    if (!response.ok) {
-      console.error(`[SMRITI] Upstream allocation failed with status ${response.status}: ${await response.text()}`);
-      return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
-    }
-
-    const data = await response.json();
     return data.documentNo;
   } catch (err) {
     console.error("[SMRITI] Failed to allocate voucher number via python-core:", err);
@@ -273,8 +266,7 @@ export async function recordStockMovement(productId: any, productCode: any, prod
 
   // Dispatch stock movement to FastAPI backend
   try {
-    const pythonCoreHost = FASTAPI_BASE_URL;
-    const payload = {
+    const smPayload = {
       product_id: productId,
       product_name: productName,
       sku: productCode,
@@ -294,23 +286,16 @@ export async function recordStockMovement(productId: any, productCode: any, prod
       source_module: entry.sourceModule,
       approval: entry.approval,
       id: eventId,
-      company_id: extraArgs.company_id || extraArgs.companyId || "comp-02250f90",
-      branch_id: extraArgs.branch_id || extraArgs.branchId || "br-02250f90"
+      company_id: extraArgs.company_id || extraArgs.companyId || null,
+      branch_id: extraArgs.branch_id || extraArgs.branchId || null,
     };
-
-    const res = await fetch(`${pythonCoreHost}/api/v1/inventory/stock-movements`, {
+    await apiFetchV1(`/inventory/stock-movements`, {
       method: "POST",
+      body: JSON.stringify(smPayload),
       headers: {
-        "Content-Type": "application/json",
-        "X-Internal-Service-Key": process.env.INTERNAL_SERVICE_KEY || ""
-      },
-      body: JSON.stringify(payload)
+        "X-Internal-Service-Key": (typeof process !== "undefined" && process.env?.INTERNAL_SERVICE_KEY) || "",
+      }
     });
-    
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`[SMRITI] FastAPI stock movement registration failed with status ${res.status}: ${errText}`);
-    }
   } catch (err) {
     console.error("[SMRITI] Failed to dispatch stock movement to python-core:", err);
   }

@@ -11,6 +11,19 @@ License      : Proprietary Commercial Software
 """
 
 import sys, os
+from pathlib import Path
+
+backend_dir = Path(__file__).resolve().parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from dotenv import dotenv_values
+env_file = backend_dir.parent / ".env"
+if env_file.exists():
+    for k, v in dotenv_values(env_file).items():
+        if v is not None and k not in os.environ:
+            os.environ[k] = v
+
 import pytest
 import psycopg2
 import uuid
@@ -343,6 +356,18 @@ def seed_control_plane_test_assignments():
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER DEFAULT 1;
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_scope VARCHAR(50) DEFAULT 'GLOBAL';
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_snapshot JSONB;
+            ALTER TABLE IF EXISTS master_values ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);
+            ALTER TABLE IF EXISTS master_values ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);
+            CREATE TABLE IF NOT EXISTS customer_credit_ledger_entries (
+                id VARCHAR(50) PRIMARY KEY, uuid UUID, company_id VARCHAR(50), branch_id VARCHAR(50),
+                created_at TIMESTAMPTZ, modified_at TIMESTAMPTZ, created_by VARCHAR(50), updated_by VARCHAR(50),
+                is_active BOOLEAN DEFAULT TRUE, is_deleted BOOLEAN DEFAULT FALSE, deleted_at TIMESTAMPTZ,
+                deleted_by VARCHAR(50), version INTEGER DEFAULT 1, customer_id VARCHAR(50) NOT NULL,
+                entry_date TIMESTAMPTZ NOT NULL, entry_type VARCHAR(20) NOT NULL, amount NUMERIC(15, 2) NOT NULL,
+                balance_after NUMERIC(15, 2) NOT NULL, reference_type VARCHAR(50) NOT NULL,
+                reference_id VARCHAR(100) NOT NULL, due_date DATE, notes TEXT,
+                UNIQUE (reference_type, reference_id)
+            );
         """)
 
         # Seed sample products for integration tests in Company DB

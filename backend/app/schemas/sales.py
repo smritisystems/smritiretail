@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.0
+Version      : 3.19.0
 Created      : 2026-07-11
-Modified     : 2026-08-24
+Modified     : 2026-09-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -21,23 +21,28 @@ from pydantic import BaseModel, ConfigDict, Field, AliasChoices
 
 class SalesInvoiceItemBase(BaseModel):
     product_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("product_id", "productId"))
+    item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
+    variant_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("variant_id", "variantId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     batch_no: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("batch_no", "batchNo"))
-    quantity: Decimal = Decimal("1.0000")
-    price: Decimal = Field(..., ge=0)
+    quantity: Decimal = Field(Decimal("1.0000"), gt=Decimal("0.0000"))
+    price: Decimal = Field(..., ge=Decimal("0.00"))
     hsn_code: Optional[str] = Field(None, max_length=15, validation_alias=AliasChoices("hsn_code", "hsnCode"))
-    gst_rate: Optional[Decimal] = Field(Decimal("18.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
+    gst_rate: Optional[Decimal] = Field(Decimal("18.00"), ge=Decimal("0.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
     tax_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_amount", "taxAmount"))
     total_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("total_amount", "totalAmount"))
-    mrp: Optional[Decimal] = None
-    disc_pct: Optional[Decimal] = Field(None, validation_alias=AliasChoices("disc_pct", "discPct", "discountPct"))
+    mrp: Optional[Decimal] = Field(None, ge=Decimal("0.00"))
+    disc_pct: Optional[Decimal] = Field(None, ge=Decimal("0.00"), le=Decimal("100.00"), validation_alias=AliasChoices("disc_pct", "discPct", "discountPct"))
     taxable_value: Optional[Decimal] = Field(None, validation_alias=AliasChoices("taxable_value", "taxableValue"))
     cgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("cgst_amount", "cgstAmount"))
     sgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("sgst_amount", "sgstAmount"))
     igst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("igst_amount", "igstAmount"))
     is_tax_inclusive: Optional[bool] = Field(None, validation_alias=AliasChoices("is_tax_inclusive", "isTaxInclusive"))
     line_no: Optional[int] = Field(None, validation_alias=AliasChoices("line_no", "lineNo"))
+    customer_po_line_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("customer_po_line_id", "customerPoLineId"))
+    source_line_type: Optional[str] = Field(None, max_length=30, validation_alias=AliasChoices("source_line_type", "sourceLineType"))
+    source_line_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_line_id", "sourceLineId"))
 
 class SalesInvoiceItemCreate(SalesInvoiceItemBase):
     pass
@@ -78,15 +83,51 @@ class SalesInvoiceBase(BaseModel):
     net_amount:       Optional[Decimal] = Field(Decimal("0.00"),       validation_alias=AliasChoices("net_amount",       "netAmount"))
     rule_snapshots:   Optional[dict]    = Field(default_factory=dict, validation_alias=AliasChoices("rule_snapshots", "ruleSnapshots", "metadata"))
     remarks:          Optional[str]     = Field(None,                  validation_alias=AliasChoices("remarks", "notes", "importValidationNotes"))
+    # ── Legacy store/site snapshot (retained for historical invoice immutability) ──
+    sis_code:         Optional[str]     = Field(None, max_length=50,  validation_alias=AliasChoices("sis_code", "sisCode"))
+    site_name:        Optional[str]     = Field(None,                  validation_alias=AliasChoices("site_name", "siteName"))
+    # ── Corporate B2B fields (Phase 1 additions — all nullable, backward-safe) ──
+    # FK to the CustomerDeliveryLocation that was active at invoice creation time.
+    # SET NULL on location soft-delete; snapshot fields below preserve immutability.
+    delivery_location_id:     Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("delivery_location_id",     "deliveryLocationId"))
+    # Snapshot of the store code at invoice creation time (immutable after save)
+    delivery_store_code:      Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("delivery_store_code",      "deliveryStoreCode"))
+    # Ship-to GSTIN — separate from customer_gstin (billed-party GSTIN)
+    delivery_gstin:           Optional[str]  = Field(None, max_length=15,  validation_alias=AliasChoices("delivery_gstin",           "deliveryGstin"))
+    # FK to the CustomerGSTRegistration used as the billed-party GSTIN on this invoice
+    billed_party_gstin_id:    Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("billed_party_gstin_id",    "billedPartyGstinId"))
+    # FK to the CustomerBillingLocation used on this invoice
+    billing_location_id:      Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("billing_location_id",     "billingLocationId"))
+    # Snapshot of the billing store code at invoice creation time
+    billing_store_code:       Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("billing_store_code",      "billingStoreCode"))
+    # Full JSONB snapshot of the delivery location at invoice creation time
+    delivery_location_snapshot: Optional[dict] = Field(None,              validation_alias=AliasChoices("delivery_location_snapshot", "deliveryLocationSnapshot"))
+    # Transaction-level Place of Supply state code (e.g. '27', '06') — stored explicitly
+    # so it remains correct even when customer GSTIN differs from delivery GSTIN.
+    place_of_supply_code:     Optional[str]  = Field(None, max_length=2,   validation_alias=AliasChoices("place_of_supply_code",     "placeOfSupplyCode"))
+    po_reference:             Optional[str]  = Field(None, max_length=100, validation_alias=AliasChoices("po_reference",            "poReference", "po_number", "poNumber"))
+    customer_po_id:           Optional[str]  = Field(None, max_length=50, validation_alias=AliasChoices("customer_po_id", "customerPoId"))
+    customer_po_number_snapshot: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("customer_po_number_snapshot", "customerPoNumberSnapshot"))
+    customer_po_date_snapshot: Optional[datetime_date] = Field(None, validation_alias=AliasChoices("customer_po_date_snapshot", "customerPoDateSnapshot"))
+    source_document_type:     Optional[str] = Field("DIRECT", max_length=30, validation_alias=AliasChoices("source_document_type", "sourceDocumentType"))
+    source_document_id:       Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_document_id", "sourceDocumentId"))
+    source_document_line_id:  Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_document_line_id", "sourceDocumentLineId"))
+    psv_party_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_party_id", "psvPartyId"))
+    psv_store_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_store_id", "psvStoreId"))
+    # Statutory GST Physical Origin / Dispatch From
+    dispatch_from_location_id: Optional[str] = Field(None, max_length=50,  validation_alias=AliasChoices("dispatch_from_location_id", "dispatchFromLocationId"))
+    dispatch_from_snapshot:    Optional[dict] = Field(None,                validation_alias=AliasChoices("dispatch_from_snapshot", "dispatchFromSnapshot"))
 
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50)
-    items: List[SalesInvoiceItemCreate] = []
+    items: List[SalesInvoiceItemCreate] = Field(..., min_length=1)
 
 class SalesInvoiceUpdate(BaseModel):
     invoice_no: Optional[str] = None
     date: Optional[datetime_date] = None
     customer_id: Optional[str] = None
+    dispatch_from_location_id: Optional[str] = None
+    dispatch_from_snapshot: Optional[dict] = None
     tax_total: Optional[Decimal] = None
     grand_total: Optional[Decimal] = None
     is_interstate: Optional[bool] = None
@@ -117,6 +158,7 @@ class SalesInvoiceResponse(SalesInvoiceBase):
 
 class SalesQuotationItemBase(BaseModel):
     product_id: str = Field(..., max_length=50)
+    item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")
@@ -178,6 +220,15 @@ class SalesQuotationResponse(SalesQuotationBase):
 
 class SalesOrderItemBase(BaseModel):
     product_id: str = Field(..., max_length=50, validation_alias=AliasChoices("product_id", "productId"))
+    item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
+    variant_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("variant_id", "variantId"))
+    billed_quantity: Decimal = Field(Decimal("0.0000"), validation_alias=AliasChoices("billed_quantity", "billedQuantity"))
+    pending_quantity: Decimal = Field(Decimal("0.0000"), validation_alias=AliasChoices("pending_quantity", "pendingQuantity"))
+    overbilled_quantity: Decimal = Field(Decimal("0.0000"), validation_alias=AliasChoices("overbilled_quantity", "overbilledQuantity"))
+    line_status: str = Field("OPEN", validation_alias=AliasChoices("line_status", "lineStatus"))
+    closure_reason: Optional[str] = Field(None, validation_alias=AliasChoices("closure_reason", "closureReason"))
+    closed_at: Optional[datetime] = Field(None, validation_alias=AliasChoices("closed_at", "closedAt"))
+    closed_by: Optional[str] = Field(None, validation_alias=AliasChoices("closed_by", "closedBy"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")
@@ -296,6 +347,9 @@ class SalesOrderUpdate(BaseModel):
     po_metadata: Optional[dict] = None
     items: Optional[List[SalesOrderItemCreate]] = None
 
+class SalesOrderLineActionRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
+
 class SalesOrderResponse(SalesOrderBase):
     id: str
     uuid: Optional[str] = None
@@ -316,6 +370,7 @@ class SalesOrderResponse(SalesOrderBase):
 
 class SalesReturnItemBase(BaseModel):
     product_id: str = Field(..., max_length=50)
+    item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")

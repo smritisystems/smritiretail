@@ -918,6 +918,8 @@ async def test_update_sales_invoice_status(db_session):
     customer = await _make_customer(db_session, s, comp.id, br.id)
     mgr = await _make_manager(db_session, s, comp.id, br.id)
     invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    invoice.status = "Draft"
+    await db_session.commit()
     _set_tenant(comp.id, br.id)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         res = await c.put(
@@ -940,6 +942,8 @@ async def test_update_sales_invoice_replaces_items(db_session):
     customer = await _make_customer(db_session, s, comp.id, br.id)
     mgr = await _make_manager(db_session, s, comp.id, br.id)
     invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    invoice.status = "Draft"
+    await db_session.commit()
     _set_tenant(comp.id, br.id)
     new_items = [{"product_id": product.id, "code": product.code, "name": product.name,
                   "quantity": "3", "price": "200.00", "gst_rate": "0.00",
@@ -954,6 +958,33 @@ async def test_update_sales_invoice_replaces_items(db_session):
     data = res.json()
     assert len(data["items"]) == 1
     assert Decimal(data["grand_total"]) == Decimal("600.00")
+
+
+async def test_posted_sales_invoice_is_immutable(db_session):
+    import uuid
+    from httpx import AsyncClient, ASGITransport
+    from app.main import app
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    invoice.status = "Completed"
+    original_invoice_no = invoice.invoice_no
+    await db_session.commit()
+    _set_tenant(comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        res = await c.put(
+            f"/api/v1/sales/{invoice.id}",
+            json={"customer_gstin": "09AABCR1718E1ZN", "delivery_store_code": "GK01-SHIP", "po_reference": "PO-NEW"},
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert res.status_code == 409, res.text
+    await db_session.refresh(invoice)
+    assert invoice.invoice_no == original_invoice_no
+    assert invoice.customer_gstin is None
+    assert invoice.delivery_store_code is None
 
 
 async def test_cancel_sales_invoice(db_session):
@@ -1231,3 +1262,41 @@ async def test_convert_quotation_to_invoice(db_session):
     data = r.json()
     assert "id" in data
     assert data["status"] == "Draft"
+
+
+async def test_sales_invoice_rejects_rate_exceeding_mrp(db_session):
+    """POST /sales/invoices rejects selling price exceeding statutory MRP."""
+    import uuid as _u
+    s = _u.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"imrp{s}")
+    cashier = await _make_cashier(db_session, f"imrp{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"imrp{s}", comp.id, br.id)
+    _set_tenant(comp.id, br.id)
+
+    payload = {
+        "invoice_no": f"INV-MRP-{s}",
+        "customer_name": "Walk-in Customer",
+        "payment_mode": "CASH",
+        "grand_total": "1500.00",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1",
+            "price": "1500.00",
+            "mrp": "1000.00",
+            "gst_rate": "0.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            "/api/v1/sales/invoices",
+            json=payload,
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+
+    assert r.status_code == 400, r.text
+    assert "Selling price" in r.text
+    assert "cannot exceed statutory MRP" in r.text
+

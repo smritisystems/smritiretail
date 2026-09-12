@@ -139,36 +139,48 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Fallback to default company/branch assignments if unassigned
-        if user.role != UserRole.SYSADMIN:
-            if not user.company_id:
-                default_comp_res = await self.db.execute(
-                    select(UserCompanyAssignment).where(
-                        UserCompanyAssignment.user_id == user.id,
-                        UserCompanyAssignment.is_default == True,
-                        UserCompanyAssignment.is_deleted == False,
-                        UserCompanyAssignment.is_active == True,
-                    )
-                )
-                default_comp = default_comp_res.scalars().first()
-                if default_comp:
-                    user.company_id = default_comp.company_id
+        # Resolve default company/branch from user_company_assignments for ALL roles.
+        # SYSADMIN users have company_id=NULL on the User record by design (they are global),
+        # but are assigned a default working company via user_company_assignments.
+        # NOTE: The UserCompanyAssignment ORM model does not map branch_id (it exists in the
+        # DB table but not in the SQLAlchemy model). We use a raw SQL query to retrieve both
+        # company_id and branch_id in one shot to avoid silent None from unmapped attributes.
+        resolved_company_id = user.company_id
+        resolved_branch_id = user.branch_id
 
-            if not user.branch_id and user.company_id:
-                default_br_res = await self.db.execute(
-                    select(UserBranchAssignment).where(
-                        UserBranchAssignment.user_id == user.id,
-                        UserBranchAssignment.company_id == user.company_id,
-                        UserBranchAssignment.is_default == True,
-                        UserBranchAssignment.is_deleted == False,
-                        UserBranchAssignment.is_active == True,
-                    )
-                )
-                default_br = default_br_res.scalars().first()
-                if default_br:
-                    user.branch_id = default_br.branch_id
+        if not resolved_company_id:
+            from sqlalchemy import text as sa_text
+            raw_res = await self.db.execute(
+                sa_text(
+                    "SELECT company_id, branch_id FROM user_company_assignments "
+                    "WHERE user_id = :uid AND is_default = true "
+                    "AND is_deleted = false AND is_active = true LIMIT 1"
+                ),
+                {"uid": user.id},
+            )
+            row = raw_res.fetchone()
+            if row:
+                resolved_company_id = row[0]
+                if row[1]:
+                    resolved_branch_id = row[1]
 
-        if user.role != UserRole.SYSADMIN and (not user.company_id or not user.branch_id):
+        if not resolved_branch_id and resolved_company_id:
+            default_br_res = await self.db.execute(
+                select(UserBranchAssignment).where(
+                    UserBranchAssignment.user_id == user.id,
+                    UserBranchAssignment.company_id == resolved_company_id,
+                    UserBranchAssignment.is_default == True,
+                    UserBranchAssignment.is_deleted == False,
+                    UserBranchAssignment.is_active == True,
+                )
+            )
+            default_br = default_br_res.scalars().first()
+            if default_br:
+                resolved_branch_id = default_br.branch_id
+
+        # For non-SYSADMIN users, company+branch must be resolved or login is rejected.
+        # SYSADMIN users may operate without a company (global admin access).
+        if user.role != UserRole.SYSADMIN and (not resolved_company_id or not resolved_branch_id):
             raise HTTPException(
                 status_code=403,
                 detail=(
@@ -177,14 +189,20 @@ class AuthService:
                 ),
             )
 
-        payload = _build_token_payload(user)
+
+        if resolved_company_id and not user.company_id:
+            user.company_id = resolved_company_id
+        if resolved_branch_id and not user.branch_id:
+            user.branch_id = resolved_branch_id
+
+        payload = _build_token_payload(user, company_id=resolved_company_id, branch_id=resolved_branch_id)
         return {
             "access_token":  create_access_token(payload),
             "refresh_token": create_refresh_token(payload),
             "token_type":    "bearer",
             "role":          user.role,
-            "company_id":    user.company_id,
-            "branch_id":     user.branch_id,
+            "company_id":    resolved_company_id,
+            "branch_id":     resolved_branch_id,
             "password_reset_required": user.status == "PendingPasswordChange",
             "user":          user,
         }

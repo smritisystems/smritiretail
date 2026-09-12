@@ -18,7 +18,7 @@ Founders
 
 * Version    : 1.0.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-09-09
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -27,6 +27,7 @@ import json
 import os
 import re
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -52,7 +53,7 @@ MODULES_MAP = {
     "item-master": {
         "name": "Item Master",
         "category": "Inventory & Sourcing",
-        "frontend": "ItemMasterTab.tsx",
+        "frontend": "ItemMasterWs.tsx",
         "routes": ["inventory", "items", "attributes", "variants"],
         "tables": ["items", "products", "attributes", "variants"],
         "tests": ["item", "inventory", "barcode", "product"],
@@ -129,6 +130,15 @@ MODULES_MAP = {
         "tables": [],
         "tests": ["about", "changelog"],
         "docs": ["about", "changelog", "readme"]
+    },
+    "billing-workspace": {
+        "name": "Billing Workspace",
+        "category": "Sales & POS",
+        "frontend": "BillingWorkspace.tsx",
+        "routes": ["billing", "pos", "sales", "payments", "invoices"],
+        "tables": ["sales_invoices", "pos_transactions", "shift_cash_transactions", "payment_transactions", "shifts"],
+        "tests": ["canonical_sales_writer", "pos", "payments", "billing", "invoice"],
+        "docs": ["billing", "pos", "sales", "walkthrough"]
     }
 }
 
@@ -180,7 +190,21 @@ def get_module_resource_mapping(module_id: str, module_name: str) -> dict[str, A
     }
 
 def scan_codebase() -> dict[str, Any]:
-    root_dir = Path(__file__).resolve().parent.parent.parent.parent
+    configured_root = os.environ.get("SDIC_REPOSITORY_ROOT")
+    if configured_root:
+        root_dir = Path(configured_root).expanduser().resolve()
+    else:
+        candidates = [
+            Path(__file__).resolve().parent.parent.parent.parent,
+            Path.cwd(),
+        ]
+        root_dir = next(
+            (candidate for candidate in candidates if (candidate / "package.json").exists() and (candidate / "src").is_dir()),
+            candidates[0],
+        )
+
+    if not root_dir.is_dir():
+        raise RuntimeError(f"SDIC repository root does not exist: {root_dir}")
     
     # 1. Recurse and gather files
     files_list = []
@@ -440,16 +464,13 @@ def scan_codebase() -> dict[str, Any]:
     avg_security = int(total_security / module_count)
 
     dhi = int(
-        (avg_frontend * 0.15) +
-        (avg_backend * 0.15) +
-        (avg_db * 0.10) +
-        (avg_api * 0.10) +
-        (avg_tests * 0.15) +
-        (avg_docs * 0.10) +
-        (avg_security * 0.10) +
-        (90 * 0.05) + # BASELINE_ASSUMPTION: performance score benchmark constant (90%)
-        (95 * 0.05) + # BASELINE_ASSUMPTION: technical debt baseline constant (95%)
-        (88 * 0.05)   # BASELINE_ASSUMPTION: release readiness baseline constant (88%)
+        (avg_frontend * 0.18) +
+        (avg_backend * 0.18) +
+        (avg_db * 0.12) +
+        (avg_api * 0.12) +
+        (avg_tests * 0.16) +
+        (avg_docs * 0.12) +
+        (avg_security * 0.12)
     )
 
     grade = "D"
@@ -474,13 +495,14 @@ def scan_codebase() -> dict[str, Any]:
     }
 
     try:
-        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True).strip()
-        git_info["lastCommitHash"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%h"], text=True).strip()
-        git_info["lastCommitMessage"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%s"], text=True).strip()
-        git_info["lastCommitAuthor"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%an"], text=True).strip()
-        git_info["lastCommitDate"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%ad", "--date=short"], text=True).strip()
-        git_info["commitCount"] = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], text=True).strip())
-        status_out = subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()
+        git_kwargs = {"text": True, "cwd": str(root_dir)}
+        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], **git_kwargs).strip()
+        git_info["lastCommitHash"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%h"], **git_kwargs).strip()
+        git_info["lastCommitMessage"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%s"], **git_kwargs).strip()
+        git_info["lastCommitAuthor"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%an"], **git_kwargs).strip()
+        git_info["lastCommitDate"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%ad", "--date=short"], **git_kwargs).strip()
+        git_info["commitCount"] = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], **git_kwargs).strip())
+        status_out = subprocess.check_output(["git", "status", "--porcelain"], **git_kwargs).strip()
         if status_out:
             git_info["pendingFiles"] = [line[3:].strip() for line in status_out.splitlines()]
             git_info["pendingChangesCount"] = len(git_info["pendingFiles"])
@@ -521,14 +543,26 @@ def scan_codebase() -> dict[str, Any]:
         except Exception as e:
             print(f"[SDIC Python] Failed to load history.json: {e}")
 
+    quality_penalty = min(35, int((todos_count + (fixmes_count * 2) + (hacks_count * 3)) / 100))
+    large_component_penalty = min(25, len(large_components))
+    quality_score = max(0, 100 - quality_penalty - large_component_penalty)
+    release_score = int(round(
+        (dhi * 0.40)
+        + (quality_score * 0.20)
+        + (avg_tests * 0.15)
+        + (avg_docs * 0.10)
+        + (avg_security * 0.15)
+    ))
+
     return {
-        "timestamp": subprocess.check_output(["date", "/T"], shell=True, text=True).strip() if os.name == "nt" else "2026-07-11",
+        "repositoryRoot": str(root_dir),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "gitInfo": git_info,
         "releaseScores": {
             "dhi": dhi,
             "developmentScore": int((avg_frontend + avg_backend + avg_db + avg_api) / 4),
-            "qualityScore": max(0, 100 - int(todos_count / 10) - (len(large_components) * 2)),
-            "releaseScore": int((dhi + 95 + avg_tests) / 3),
+            "qualityScore": quality_score,
+            "releaseScore": release_score,
             "securityScore": avg_security,
             "testCoverage": avg_tests,
             "documentation": avg_docs,

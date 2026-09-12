@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.1
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-09-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -116,21 +116,15 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Operations",
     },
     {
-      id: "pos",
-      label: "Billing Desk",
-      icon: "point_of_sale",
+      id: "billing-workspace",
+      label: "Billing Workspace",
+      icon: "receipt_long",
       category: "Sales & POS",
     },
     {
       id: "sales",
       label: "Sales Studio",
       icon: "receipt_long",
-      category: "Sales & POS",
-    },
-    {
-      id: "create-tax-invoice",
-      label: "Create Tax Invoice (B2B)",
-      icon: "post_add",
       category: "Sales & POS",
     },
     {
@@ -166,7 +160,13 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     },
     {
       id: "supplier-mgmt",
-      label: "Supplier Dashboard",
+      label: "Vendor 360 Workspace",
+      icon: "local_shipping",
+      category: "Inventory & Sourcing",
+    },
+    {
+      id: "vendor-360",
+      label: "Vendor 360 Workspace",
       icon: "local_shipping",
       category: "Inventory & Sourcing",
     },

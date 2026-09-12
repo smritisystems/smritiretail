@@ -1,12 +1,42 @@
 [
   {
-    "timestamp": "Sun 08/30/2026",
-    "dhi": 84,
+    "timestamp": "Thu 09/10/2026",
+    "dhi": 85,
     "developmentScore": 77,
     "qualityScore": 0,
-    "releaseScore": 88,
+    "releaseScore": 89,
     "securityScore": 100,
-    "testCoverage": 85,
+    "testCoverage": 88,
     "documentation": 85
+  },
+  {
+    "timestamp": "2026-09-12T11:00:42.716910+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-12T11:01:36.386862+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-12T11:02:41.665770+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
   }
 ]

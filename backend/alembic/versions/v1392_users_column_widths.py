@@ -10,6 +10,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Current revision identifiers exceed Alembic's historical VARCHAR(32) default.
+    op.execute(
+        "ALTER TABLE IF EXISTS alembic_version ALTER COLUMN version_num TYPE VARCHAR(100);"
+    )
     op.execute(
         "ALTER TABLE IF EXISTS users ALTER COLUMN uuid TYPE VARCHAR(36) USING uuid::VARCHAR(36);"
     )

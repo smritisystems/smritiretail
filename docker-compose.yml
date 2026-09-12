@@ -75,11 +75,13 @@ services:
       JWT_SECRET_KEY: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env — see .env.example}"
       INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY in .env — see .env.example}"
       SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:?Set SGIP_VAULT_MASTER_KEY in .env — see .env.example}"
+      SDIC_REPOSITORY_ROOT: "/workspace"
       # When true, the container will skip running Alembic migrations on startup.
       # Recommended long-term: run migrations as a one-off job from CI or an init container.
       SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-true}"
     volumes:
       - ./backend/app:/app/app
+      - ./:/workspace
       - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:
       db:

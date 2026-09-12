@@ -7,7 +7,7 @@
  * Version      : 3.119.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -40,13 +40,13 @@ const BUCKET_STYLE: Record<AgingBucket, string> = {
 
 const BUCKET_LABELS: Record<AgingBucket, string> = {
   CURRENT:    "Current",
-  OVERDUE_30: "1â€“30d",
-  OVERDUE_60: "31â€“60d",
-  OVERDUE_90: "61â€“90d",
+  OVERDUE_30: "1?30d",
+  OVERDUE_60: "31?60d",
+  OVERDUE_90: "61?90d",
   CRITICAL:   ">90d",
 };
 
-const fmt = (n: number) => `â‚¹${n.toLocaleString("en-IN")}`;
+const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const asOf = new Date("2026-08-28T00:00:00.000Z");
 
 function buildSampleAccounts(): CreditAccount[] {
@@ -116,7 +116,7 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-2xl">ðŸ’³</div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Customer Credit Limit & Outstanding Engine</h2>
-              <p className="text-xs text-slate-400">Credit Limit Â· FIFO Payment Â· Aging Â· Hold / Release</p>
+              <p className="text-xs text-slate-400">Credit Limit · FIFO Payment · Aging · Hold / Release</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -163,8 +163,8 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <p className="text-lg font-bold text-slate-100">{selected.customerName}</p>
-                  <p className="text-xs text-slate-400">{selected.customerId} Â· {selected.paymentTermDays}d terms{selected.graceDays ? ` + ${selected.graceDays}d grace` : ""}</p>
-                  {selected.holdReason && <p className="text-[10px] text-amber-400">âš  Hold: {selected.holdReason}</p>}
+                  <p className="text-xs text-slate-400">{selected.customerId} · {selected.paymentTermDays}d terms{selected.graceDays ? ` + ${selected.graceDays}d grace` : ""}</p>
+                  {selected.holdReason && <p className="text-[10px] text-amber-400">? Hold: {selected.holdReason}</p>}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-xs font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[selected.status]}`}>{selected.status}</span>
@@ -238,7 +238,7 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div>
                           <p className="text-xs font-bold text-slate-200">{r.customerName}</p>
-                          <p className="text-[10px] text-slate-500">Limit: {fmt(r.creditLimit)} Â· Outstanding: {fmt(r.outstanding)} Â· {r.utilisationPct}%</p>
+                          <p className="text-[10px] text-slate-500">Limit: {fmt(r.creditLimit)} · Outstanding: {fmt(r.outstanding)} · {r.utilisationPct}%</p>
                         </div>
                         <div className="flex gap-2">
                           <span className={`text-xs font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[r.status]}`}>{r.status}</span>
@@ -266,13 +266,13 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
                     <div key={p.paymentId} className="bg-slate-800/20 border border-slate-700/60 rounded-xl p-4 space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <p className="font-bold text-slate-200 font-mono">{fmt(p.paidAmt)}</p>
-                        <p className="text-slate-500">{p.paidOn} Â· {p.reference}</p>
+                        <p className="text-slate-500">{p.paidOn} · {p.reference}</p>
                       </div>
                       <div className="space-y-1">
                         {p.allocations.map((al) => (
                           <div key={al.invoiceId} className="flex items-center justify-between text-[10px] px-2 py-1 bg-slate-900/30 rounded-lg">
                             <span className="font-mono text-slate-400">{al.invoiceNo}</span>
-                            <span className="text-indigo-400">âˆ’{fmt(al.allocatedAmt)}</span>
+                            <span className="text-indigo-400">?{fmt(al.allocatedAmt)}</span>
                             <span className="text-slate-500">bal: {fmt(al.balanceAfter)}</span>
                           </div>
                         ))}

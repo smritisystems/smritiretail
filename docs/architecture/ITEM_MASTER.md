@@ -37,10 +37,10 @@ This gate document establishes the architectural baseline, canonical ID bindings
 
 | Level / Component | Canonical ID | Route / Switch Binding | Target Component |
 | :--- | :--- | :--- | :--- |
-| **Launchpad Tile** | `item-master` | `FioriLaunchpad` $\rightarrow$ `onSelectModule("item-master")` | `ItemMasterTab` (Registry View) |
-| **Launchpad Tile (Grid)** | `item-create-grid` | Contextual Menu $\rightarrow$ `onSelectModule("item-create-grid")` | `ItemMasterTab` (Excel Grid View) |
-| **App.tsx Dispatch** | `item-master` | `case "item-master":` | `<ItemMasterTab initialSubTab="registry" />` |
-| **App.tsx Dispatch** | `item-create-grid` | `case "item-create-grid":` | `<ItemMasterTab initialSubTab="excel-grid" />` |
+| **Launchpad Tile** | `item-master` | `FioriLaunchpad` $\rightarrow$ `onSelectModule("item-master")` | `ItemMasterWs` (Registry View) |
+| **Launchpad Tile (Grid)** | `item-create-grid` | Contextual Menu $\rightarrow$ `onSelectModule("item-create-grid")` | `ItemMasterWs` (Excel Grid View) |
+| **App.tsx Dispatch** | `item-master` | `case "item-master":` | `<ItemMasterWs initialSubTab="registry" />` |
+| **App.tsx Dispatch** | `item-create-grid` | `case "item-create-grid":` | `<ItemMasterWs initialSubTab="excel-grid" />` |
 | **Layout Store** | `item-master` | `registeredWorkspaces` $\rightarrow$ `category: "Inventory & Sourcing"` | Sidebar & Workspace Director |
 | **Navigation Resolver**| `item-master` | `masters` & `inventory` business contexts | Contextual Action Item |
 | **FastAPI REST Endpoint** | `/api/v1/products/` | `apiFetchV1("/products/?page=1&page_size=25")` | `backend/app/api/v1/inventory.py` |
@@ -52,7 +52,7 @@ This gate document establishes the architectural baseline, canonical ID bindings
 
 ```mermaid
 graph TD
-    UI[ItemMasterTab.tsx] --> MasterList[MasterListScreen / Server-Side Pagination]
+    UI[ItemMasterWs.tsx] --> MasterList[MasterListScreen / Server-Side Pagination]
     UI --> ExcelGrid[ExcelGridEntrySection / Multi-Variant Bulk Entry]
     UI --> BarcodeSection[BarcodeMappingSection / Primary & Secondary EAN-128]
     UI --> ProductIdentity[ProductIdentityEngine / Style-Color-Size Matrix]

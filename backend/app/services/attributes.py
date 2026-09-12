@@ -117,12 +117,18 @@ class AttributesService:
 
     async def create_group(self, data, creator: str) -> AttributeGroup:
         new_id = f"grp-{data.name.lower().replace(' ', '')}-{uuid.uuid4().hex[:4]}"
+        size_grp_id = data.sizeGroupId or (
+            "FOOTWEAR_EU" if ("footwear" in data.name.lower() or "shoe" in data.name.lower()) else "APPAREL_ALPHA"
+        )
+        color_grp_id = data.colorGroupId or "COLOR_BASIC"
         group = AttributeGroup(
             id=new_id,
             name=data.name,
             attribute_ids=json.dumps(data.attributeIds),
             grid_column_attribute_id=data.gridColumnAttributeId,
             grid_row_attribute_id=data.gridRowAttributeId,
+            size_group_id=size_grp_id,
+            color_group_id=color_grp_id,
             created_by=creator,
             updated_by=creator
         )
@@ -140,6 +146,8 @@ class AttributesService:
         if data.attributeIds is not None: group.attribute_ids = json.dumps(data.attributeIds)
         if data.gridColumnAttributeId is not None: group.grid_column_attribute_id = data.gridColumnAttributeId
         if data.gridRowAttributeId is not None: group.grid_row_attribute_id = data.gridRowAttributeId
+        if data.sizeGroupId is not None: group.size_group_id = data.sizeGroupId
+        if data.colorGroupId is not None: group.color_group_id = data.colorGroupId
         group.updated_by = updater
         group.modified_at = datetime.now(timezone.utc)
 
@@ -176,12 +184,15 @@ class AttributesService:
         template = VariantTemplate(
             id=new_id,
             style_code=data.styleCode,
+            vendor_code=data.vendorCode,
+            master_value_id=data.masterValueId,
             name=data.name,
             brand=data.brand or "SMRITI",
             category=data.category or "General",
             hsn_code=data.hsnCode or "61091000",
             base_price=int(data.basePrice or 0),
             base_mrp=int(data.baseMrp or 0),
+            base_cost_price=float(data.baseCostPrice or 0),
             gst_percentage=int(data.gstPercentage or 18),
             attribute_group_id=data.attributeGroupId,
             pricing_mode=data.pricingMode or "Fixed",
@@ -200,12 +211,15 @@ class AttributesService:
             raise HTTPException(status_code=404, detail="Variant template not found")
 
         if data.styleCode is not None: template.style_code = data.styleCode
+        if data.vendorCode is not None and not template.vendor_code: template.vendor_code = data.vendorCode
+        if data.masterValueId is not None and not template.master_value_id: template.master_value_id = data.masterValueId
         if data.name is not None: template.name = data.name
         if data.brand is not None: template.brand = data.brand
         if data.category is not None: template.category = data.category
         if data.hsnCode is not None: template.hsn_code = data.hsnCode
         if data.basePrice is not None: template.base_price = int(data.basePrice)
         if data.baseMrp is not None: template.base_mrp = int(data.baseMrp)
+        if data.baseCostPrice is not None: template.base_cost_price = float(data.baseCostPrice)
         if data.gstPercentage is not None: template.gst_percentage = int(data.gstPercentage)
         if data.attributeGroupId is not None: template.attribute_group_id = data.attributeGroupId
         if data.pricingMode is not None: template.pricing_mode = data.pricingMode
@@ -274,7 +288,9 @@ class AttributesService:
                     {"name": "sole_type", "label": "Sole Type", "data_type": "select", "valid_values": ["Rubber", "PU", "PVC", "Leather"], "display_order": 5}
                 ],
                 "grid_col": "size",
-                "grid_row": "color"
+                "grid_row": "color",
+                "size_group_id": "FOOTWEAR_EU",
+                "color_group_id": "COLOR_BASIC"
             },
             "apparel": {
                 "group_name": "Apparel Basic",
@@ -288,7 +304,9 @@ class AttributesService:
                     {"name": "fabric", "label": "Fabric", "data_type": "select", "valid_values": ["Cotton", "Polyester", "Wool", "Linen"], "display_order": 6}
                 ],
                 "grid_col": "size",
-                "grid_row": "color"
+                "grid_row": "color",
+                "size_group_id": "APPAREL_ALPHA",
+                "color_group_id": "COLOR_BASIC"
             },
             "grocery": {
                 "group_name": "Grocery Pack",
@@ -403,6 +421,8 @@ class AttributesService:
                 attribute_ids=json.dumps(attr_ids),
                 grid_column_attribute_id=grid_col_id,
                 grid_row_attribute_id=grid_row_id,
+                size_group_id=data.get("size_group_id"),
+                color_group_id=data.get("color_group_id"),
                 created_by=operator,
                 updated_by=operator
             )
@@ -413,6 +433,10 @@ class AttributesService:
             group.attribute_ids = json.dumps(attr_ids)
             group.grid_column_attribute_id = grid_col_id
             group.grid_row_attribute_id = grid_row_id
+            if data.get("size_group_id") and not group.size_group_id:
+                group.size_group_id = data.get("size_group_id")
+            if data.get("color_group_id") and not group.color_group_id:
+                group.color_group_id = data.get("color_group_id")
             group.updated_by = operator
             group.modified_at = datetime.now(timezone.utc)
             await self.db.commit()

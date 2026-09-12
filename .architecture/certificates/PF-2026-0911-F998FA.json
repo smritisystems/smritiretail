@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-F998FA",
+  "entity": "vendor",
+  "capability": "vendor.address",
+  "asset_type": "component",
+  "proposed_name": "VendorAddressTab.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/tabs/VendorAddressTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "5cd3218ebf6931f4d5a81332ed919c9de83379283d903ee5b06cddf531118901",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:58.830954+00:00",
+  "expires_at": "2026-09-18T05:21:58.830954+00:00",
+  "status": "ISSUED"
+}

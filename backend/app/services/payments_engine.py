@@ -49,6 +49,7 @@ class PaymentsEngine:
         company_id: str,
         req: ProcessPaymentRequest,
         created_by: Optional[str] = None,
+        commit: bool = True,
     ) -> MultiTenderPaymentResponse:
         """
         Records multi-tender payment allocations atomically with strict idempotency gating.
@@ -163,7 +164,10 @@ class PaymentsEngine:
 
             created_txs.append(tx)
 
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
 
         # Re-fetch created transactions with allocations loaded
         tx_ids = [t.id for t in created_txs]
@@ -222,6 +226,7 @@ class PaymentsEngine:
         company_id: str,
         req: PaymentRefundRequest,
         created_by: Optional[str] = None,
+        commit: bool = True,
     ) -> PaymentRefundResponse:
         """
         Executes a full or partial refund against an existing payment transaction
@@ -288,7 +293,10 @@ class PaymentsEngine:
         else:
             orig_tx.status = "PARTIALLY_REFUNDED"
 
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
 
         remaining_balance = orig_amt - new_total_refunded
 
@@ -310,6 +318,7 @@ class PaymentsEngine:
         payment_id: str,
         req: PaymentAllocationRequest,
         created_by: Optional[str] = None,
+        commit: bool = True,
     ) -> PaymentAllocationDetail:
         """
         Distributes unallocated balance of a payment across an invoice.
@@ -353,7 +362,11 @@ class PaymentsEngine:
             created_by=created_by,
         )
         session.add(alloc)
-        await session.commit()
+
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
 
         return PaymentAllocationDetail(
             id=alloc.id,

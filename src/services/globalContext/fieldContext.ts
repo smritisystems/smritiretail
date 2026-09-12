@@ -287,7 +287,7 @@ const customerContext: FieldContextDescriptor = {
     }
     // 2. Fallback to API
     try {
-      const data = await apiFetchV1("/customers");
+      const data = await apiFetchV1("/crm/customers");
       if (!Array.isArray(data)) return [];
       if (!query.trim()) return data.slice(0, 50);
       const q = query.toLowerCase();

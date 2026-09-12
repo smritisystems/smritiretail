@@ -29,6 +29,7 @@ export interface TaxInvoiceItemRow {
   salesStaff: string;
   hsnCode?: string;
   gstRate?: number;
+  stockQty?: number;
 }
 
 export interface TransporterDetailEntry {
@@ -77,4 +78,21 @@ export interface TaxInvoiceDocumentState {
   addonsAndDeductions: AddonDeductionEntry[];
   documentRemarks: string;
   ewayBillNo?: string;
+  // B2B Enterprise Distributor Fields & Locations (Parity with BillingTerm)
+  billingLocationId?: string | null;
+  billingStoreCode?: string | null;
+  billingAddress?: string | null;
+  deliveryLocationId?: string | null;
+  deliveryStoreCode?: string | null;
+  deliveryGstin?: string | null;
+  deliveryLocationSnapshot?: any | null;
+  shippingAddress?: string | null;
+  billedPartyGstinId?: string | null;
+  placeOfSupplyCode?: string | null;
+  poReference?: string | null;
+  // Canonical Physical Origin / Dispatch From
+  dispatchFromLocationId?: string | null;
+  dispatchFromSnapshot?: any | null;
+  dispatchFromAddress?: string | null;
+  dispatchFromName?: string | null;
 }

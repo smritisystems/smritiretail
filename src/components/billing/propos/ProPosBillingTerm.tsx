@@ -1,28 +1,19 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.17.0
+ * Version      : 6.18.1
  * Created      : 2026-08-21
- * Modified     : 2026-08-25
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-09-02
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { 
-  ProPosCartItem, 
-  ProPosCustomer, 
-  ProPosTenderSplit, 
-  SuspendedBill, 
-  CancelledBillRecord,
-  ReturnItem,
-  POSZReportData,
-  ShiftCashMovementRecord
-} from "./types.ts";
+import { ProPosCartItem, ProPosCustomer, ProPosTenderSplit, SuspendedBill, CancelledBillRecord, ReturnItem, POSZReportData, ShiftCashMovementRecord } from "./types.ts";
 import { SmritiPosSettlement } from "./ProPosSettlementDl.tsx";
 import { SmritiProPosRecallDlg } from "./ProPosRecallDlg.tsx";
 import { SmritiProPosCancelDlg } from "./ProPosCancellation.tsx";
@@ -35,22 +26,21 @@ import { SmritiProPosHotkeysDlg } from "./ProPosHotkeysDlg.tsx";
 import { SmritiProPosReprintDlg } from "./ProPosReprintDlg.tsx";
 import { SmritiProPosCashMovementsModal } from "./ProPosCashMovesDlg.tsx";
 import { SmritiProPosShiftCloseModal } from "./ProPosShiftCloseDl.tsx";
-import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../../utils/gstEngine.ts";
 import { searchBackendProducts, AutoPopulateProductResult } from "../../../services/autoPopulateService.ts";
 import { SmritiItemTypeaheadDropdown } from "../../common/ItemTypeaheadDrop.tsx";
-import { 
-  Barcode, 
-  Search, 
-  History, 
-  Award, 
-  Trash2, 
-  Plus, 
-  Minus, 
-  Printer, 
-  CheckCircle, 
-  AlertCircle, 
-  User, 
+import {
+  Barcode,
+  Search,
+  History,
+  Award,
+  Trash2,
+  Plus,
+  Minus,
+  Printer,
+  CheckCircle,
+  AlertCircle,
+  User,
   X,
   RotateCcw,
   ShieldAlert,
@@ -62,20 +52,28 @@ import {
   Calendar,
   Clock,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   FilePlus,
   HelpCircle,
   Calculator,
   RefreshCw,
   Vault,
-  Lock
+  Lock,
+  MoreVertical
 } from "lucide-react";
+import type { CustomerBillingLocationDTO, CustomerDeliveryLocationDTO } from "../types.ts";
+import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { useF2Screen } from "../../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../../context/F2DispatcherContext.tsx";
 
-interface SmritiProPosBillinginalProps {
+interface SmritiProPosBillingTerminalProps {
   onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
+  shiftId?: string;
 }
-
-export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = ({
-  onNotification
+export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalProps> = ({
+  onNotification,
+  shiftId,
 }) => {
   // --- POS Mode & Activity State ---
   const [activeActivity, setActiveActivity] = useState<"BILLING" | "RETURN" | "RETURN_BLIND">("BILLING");
@@ -99,6 +97,215 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
     loyaltyTier: "Gold",
     creditLimit: 50000,
     currentBalance: 0
+  });
+  const [customerBillingLocations, setCustomerBillingLocations] = useState<CustomerBillingLocationDTO[]>([]);
+  const [customerDeliveryLocations, setCustomerDeliveryLocations] = useState<CustomerDeliveryLocationDTO[]>([]);
+  const [selectedBillingLocationId, setSelectedBillingLocationId] = useState<string>("");
+  const [selectedDeliveryLocationId, setSelectedDeliveryLocationId] = useState<string>("");
+  const [isLoadingCustomerLocations, setIsLoadingCustomerLocations] = useState<boolean>(false);
+  const [customerLocationError, setCustomerLocationError] = useState<string>("");
+  const [billingLocationFilter, setBillingLocationFilter] = useState<string>("");
+  const [shippingLocationFilter, setShippingLocationFilter] = useState<string>("");
+  const [showBillingAddressDetails, setShowBillingAddressDetails] = useState<boolean>(false);
+  const [showShippingAddressDetails, setShowShippingAddressDetails] = useState<boolean>(false);
+  const [showBillingAddressSuggestions, setShowBillingAddressSuggestions] = useState<boolean>(false);
+  const [showShippingAddressSuggestions, setShowShippingAddressSuggestions] = useState<boolean>(false);
+  const [currentRegisterCode, setCurrentRegisterCode] = useState<string>("");
+  const activeCustomerLocationFetchIdRef = useRef<string | null>(null);
+  const isWalkInCustomer = customer.code === "C01" && customer.name.includes("Walk-in");
+  const normalizedBillingLocationFilter = billingLocationFilter.trim().toLowerCase();
+  const normalizedShippingLocationFilter = shippingLocationFilter.trim().toLowerCase();
+  const filteredBillingLocations = customerBillingLocations.filter(location => [
+    location.billing_store_code,
+    location.name,
+    location.city,
+    location.state,
+    location.pincode,
+  ].some(value => String(value || "").toLowerCase().includes(normalizedBillingLocationFilter)));
+  const filteredDeliveryLocations = customerDeliveryLocations.filter(location => [
+    location.store_code,
+    location.location_name,
+    location.city,
+    location.state_name,
+    location.pin_code,
+  ].some(value => String(value || "").toLowerCase().includes(normalizedShippingLocationFilter)));
+  const selectedBillingLocation = customerBillingLocations.find(location => location.id === selectedBillingLocationId);
+  const selectedDeliveryLocation = customerDeliveryLocations.find(location => location.id === selectedDeliveryLocationId);
+  const formatLocationTail = (city?: string | null, state?: string | null) => [city, state].filter(Boolean).join(", ");
+  const formatBillingAddress = (location: CustomerBillingLocationDTO) => [
+    location.address_line1,
+    location.address_line2,
+    location.city,
+    location.state && location.pincode ? `${location.state} - ${location.pincode}` : location.state || location.pincode,
+  ].filter(Boolean).join(", ");
+  const formatDeliveryAddress = (location: CustomerDeliveryLocationDTO) => [
+    location.address_line1,
+    location.address_line2,
+    location.city,
+    location.state_name && location.pin_code ? `${location.state_name} - ${location.pin_code}` : location.state_name || location.pin_code,
+  ].filter(Boolean).join(", ");
+  const billingLocationLabel = selectedBillingLocation
+    ? `[${selectedBillingLocation.billing_store_code || ""}] ${selectedBillingLocation.name || "Billing location"} - ${formatLocationTail(selectedBillingLocation.city, selectedBillingLocation.state)}`
+    : "";
+  const shippingLocationLabel = selectedDeliveryLocation
+    ? `[${selectedDeliveryLocation.store_code || ""}] ${selectedDeliveryLocation.location_name || "Shipping location"} - ${formatLocationTail(selectedDeliveryLocation.city, selectedDeliveryLocation.state_name)}`
+    : "";
+  const billingFieldValue = billingLocationFilter || (selectedBillingLocation
+    ? showBillingAddressDetails ? [billingLocationLabel, formatBillingAddress(selectedBillingLocation)].filter(Boolean).join("\n") : billingLocationLabel
+    : "");
+  const shippingFieldValue = shippingLocationFilter || (selectedDeliveryLocation
+    ? showShippingAddressDetails ? [shippingLocationLabel, formatDeliveryAddress(selectedDeliveryLocation)].filter(Boolean).join("\n") : shippingLocationLabel
+    : "");
+
+  const loadCustomerLocations = async (customerId: string, walkIn = false) => {
+    activeCustomerLocationFetchIdRef.current = customerId || null;
+    if (!customerId || walkIn) {
+      setCustomerBillingLocations([]);
+      setCustomerDeliveryLocations([]);
+      setSelectedBillingLocationId("");
+      setSelectedDeliveryLocationId("");
+      setCustomerLocationError("");
+      setBillingLocationFilter("");
+      setShippingLocationFilter("");
+      setShowBillingAddressDetails(false);
+      setShowShippingAddressDetails(false);
+      setShowBillingAddressSuggestions(false);
+      setShowShippingAddressSuggestions(false);
+      return;
+    }
+
+    setIsLoadingCustomerLocations(true);
+    setCustomerLocationError("");
+    setBillingLocationFilter("");
+    setShippingLocationFilter("");
+    setShowBillingAddressSuggestions(false);
+    setShowShippingAddressSuggestions(false);
+
+    try {
+      const [billingResponse, deliveryResponse] = await Promise.all([
+        apiFetchV1(`/crm/customers/${customerId}/billing-locations`),
+        apiFetchV1(`/crm/customers/${customerId}/delivery-locations`),
+      ]);
+      if (activeCustomerLocationFetchIdRef.current !== customerId) return;
+      const billingLocations = (Array.isArray(billingResponse) ? billingResponse : billingResponse?.items || []).map((location: any) => ({
+        ...location,
+        billing_store_code: location.billing_store_code ?? location.billingStoreCode,
+        name: location.name ?? location.locationName,
+        address_line1: location.address_line1 ?? location.addressLine1,
+        address_line2: location.address_line2 ?? location.addressLine2,
+        state_code: location.state_code ?? location.stateCode,
+        pincode: location.pincode ?? location.pinCode,
+        is_default: location.is_default ?? location.isDefault,
+      })) as CustomerBillingLocationDTO[];
+      const deliveryLocations = (Array.isArray(deliveryResponse) ? deliveryResponse : deliveryResponse?.items || []).map((location: any) => ({
+        ...location,
+        store_code: location.store_code ?? location.storeCode,
+        location_name: location.location_name ?? location.locationName,
+        address_line1: location.address_line1 ?? location.addressLine1,
+        address_line2: location.address_line2 ?? location.addressLine2,
+        state_code: location.state_code ?? location.stateCode,
+        state_name: location.state_name ?? location.stateName ?? location.state ?? "",
+        pin_code: location.pin_code ?? location.pincode ?? location.pinCode ?? "",
+        is_default: location.is_default ?? location.isDefault,
+      })) as CustomerDeliveryLocationDTO[];
+      setCustomerBillingLocations(billingLocations);
+      setCustomerDeliveryLocations(deliveryLocations);
+      setSelectedBillingLocationId(billingLocations.find(location => location.is_default)?.id || (billingLocations.length === 1 ? billingLocations[0].id : ""));
+      setSelectedDeliveryLocationId(deliveryLocations.find(location => location.is_default)?.id || (deliveryLocations.length === 1 ? deliveryLocations[0].id : ""));
+    } catch (error) {
+      setCustomerBillingLocations([]);
+      setCustomerDeliveryLocations([]);
+      setSelectedBillingLocationId("");
+      setSelectedDeliveryLocationId("");
+      setBillingLocationFilter("");
+      setShippingLocationFilter("");
+      setShowBillingAddressDetails(false);
+      setShowShippingAddressDetails(false);
+      setShowBillingAddressSuggestions(false);
+      setShowShippingAddressSuggestions(false);
+      setCustomerLocationError(error instanceof Error ? error.message : "Customer address lookup failed.");
+    } finally {
+      if (activeCustomerLocationFetchIdRef.current === customerId) setIsLoadingCustomerLocations(false);
+    }
+  };
+
+  const handleCustomerSelection = (nextCustomer: ProPosCustomer) => {
+    setCustomer(nextCustomer);
+    void (async () => {
+      let resolvedCustomer = nextCustomer;
+      try {
+        const lookupTerms = [nextCustomer.code, nextCustomer.name].filter(Boolean);
+        const responses = await Promise.all(
+          lookupTerms.map(term => apiFetchV1<any[]>(`/crm/customers/search?q=${encodeURIComponent(term)}&limit=20`).catch(() => []))
+        );
+        const candidates = responses.flatMap(response => Array.isArray(response) ? response : []);
+        const match = candidates.find(candidate =>
+          candidate.code === nextCustomer.code || candidate.name === nextCustomer.name
+        );
+        if (match?.id) {
+          resolvedCustomer = { ...nextCustomer, id: match.id };
+          setCustomer(resolvedCustomer);
+        }
+      } catch {
+      }
+      void loadCustomerLocations(
+        resolvedCustomer.id,
+        resolvedCustomer.code === "C01" && resolvedCustomer.name.includes("Walk-in")
+      );
+    })();
+  };
+
+  const openCustomerMaster = () => {
+    window.dispatchEvent(new CustomEvent("smriti_navigate_module", { detail: { moduleId: "customer-master" } }));
+  };
+
+  useEffect(() => {
+    if (!currentRegisterCode) return;
+    const normalizedRegisterCode = currentRegisterCode.trim().toLowerCase();
+    const billingMatch = customerBillingLocations.find(location => location.billing_store_code?.trim().toLowerCase() === normalizedRegisterCode);
+    const deliveryMatch = customerDeliveryLocations.find(location => location.store_code?.trim().toLowerCase() === normalizedRegisterCode);
+    if (billingMatch) setSelectedBillingLocationId(previous => previous || billingMatch.id);
+    if (deliveryMatch) setSelectedDeliveryLocationId(previous => previous || deliveryMatch.id);
+  }, [currentRegisterCode, customerBillingLocations, customerDeliveryLocations]);
+
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase B Batch 1) ──
+  // Migration status: DONE (verified 2026-09-02).
+  // All three legacy screen-level F2 useEffect handlers that existed before
+  // Phase A were removed in a prior session. No e.key === "F2" handler exists
+  // anywhere in this component.
+  //
+  // F2 resolution for this screen:
+  //   Tier 1 — data-f2-entity="customer" on posCustomerCode + posCustomerName inputs
+  //   Tier 3 — defaultEntity: "customer" (fallback for focus outside tagged fields)
+  //
+  // FieldAdapter: maps LookupResult → ProPosCustomer and calls setCustomer().
+  // SmritiCustomerBrowseModal (onClick button) is preserved as a non-F2 consumer.
+  useF2Screen({
+    screenId: "ProPosBillingTerm",
+    defaultEntity: "customer",
+    adapter: (result: LookupResult) => {
+      if (result.entity !== "customer") {
+        // Development-only guard: only customer lookups are expected from this screen.
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[ProPosBillingTerm][F2] FieldAdapter received unexpected entity:",
+            result.entity
+          );
+        }
+        return;
+      }
+      handleCustomerSelection({
+        ...customer,
+        id: result.id ?? customer.id,
+        code: result.returnValue || customer.code,
+        name: result.displayValue || customer.name,
+        phone: (result.record?.phone as string) ?? customer.phone,
+        loyaltyPoints: (result.record?.loyalty_points as number) ?? customer.loyaltyPoints,
+        loyaltyTier: ((result.record?.loyalty_tier as string) as ProPosCustomer["loyaltyTier"]) ?? customer.loyaltyTier,
+        creditLimit: (result.record?.credit_limit as number) ?? customer.creditLimit,
+        currentBalance: (result.record?.current_balance as number) ?? customer.currentBalance,
+      });
+    }
   });
 
   const storeStateCode = "27"; // Maharashtra store default
@@ -316,6 +523,8 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
   const [showReprintModal, setShowReprintModal] = useState<boolean>(false);
   const [showCashMovementsModal, setShowCashMovementsModal] = useState<boolean>(false);
   const [showShiftCloseModal, setShowShiftCloseModal] = useState<boolean>(false);
+  const [showOverflowMenu, setShowOverflowMenu] = useState<boolean>(false);
+  const overflowMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeShiftId, setActiveShiftId] = useState<string>("shift-01");
   const [activeShiftCode, setActiveShiftCode] = useState<string>("REG-01 / SHIFT-CURRENT");
 
@@ -324,11 +533,16 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
     let isMounted = true;
     const fetchActiveShift = async () => {
       try {
-        const shifts = await apiFetchV1<any[]>("/pos/shifts/");
+        const [shifts, profiles] = await Promise.all([
+          apiFetchV1<any[]>("/pos/shifts/"),
+          apiFetchV1<any[]>("/pos/profiles/").catch(() => []),
+        ]);
         if (isMounted && shifts && shifts.length > 0) {
           const openShift = shifts.find((s: any) => s.status === "OPEN") || shifts[0];
           setActiveShiftId(openShift.id);
           setActiveShiftCode(openShift.shift_code || `REG-01 / SHIFT-${openShift.id.slice(-6).toUpperCase()}`);
+          const register = profiles.find((profile: any) => profile.id === openShift.register_id);
+          setCurrentRegisterCode(register?.code || openShift.register_id || "");
         }
       } catch (e) {
         // Fallback default shift ID
@@ -339,6 +553,19 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!showOverflowMenu) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!overflowMenuRef.current?.contains(event.target as Node)) {
+        setShowOverflowMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showOverflowMenu]);
 
   // Last Completed Invoice for Tax Printing
   const [lastCompletedBill, setLastCompletedBill] = useState<{
@@ -415,6 +642,10 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
       creditLimit: 50000,
       currentBalance: 0
     });
+    setCustomerBillingLocations([]);
+    setCustomerDeliveryLocations([]);
+    setSelectedBillingLocationId("");
+    setSelectedDeliveryLocationId("");
     setDirectStockNo("");
     setDirectDescription("");
     setDirectQty("1.00");
@@ -563,6 +794,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
     } else {
       const newItem: ProPosCartItem = {
         id: `item-${Date.now()}`,
+        productId: selectedProductMeta?.id,
         itemNo: cartItems.length + 1,
         sku: stockCode,
         barcode: barcodeCode,
@@ -590,7 +822,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
 
       setCartItems(prev => [...prev, newItem]);
       setSelectedRowIndex(cartItems.length);
-      onNotification?.("Item Accepted", `${desc} (${stockCode}) accepted (${effDiscQ.toFixed(2)} Disc Qty, â‚¹${discAmt.toFixed(2)} Disc Amt).`, "success");
+      onNotification?.("Item Accepted", `${desc} (${stockCode}) accepted (${effDiscQ.toFixed(2)} Disc Qty, ₹${discAmt.toFixed(2)} Disc Amt).`, "success");
     }
 
     setDirectStockNo("");
@@ -670,35 +902,107 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
   // Recall Bill
   const handleRecallBill = (bill: SuspendedBill) => {
     setCartItems(bill.items);
-    setCustomer(bill.customer);
+    handleCustomerSelection(bill.customer);
     setSalesStaff(bill.salesStaff);
     setSuspendedBills(prev => prev.filter(b => b.id !== bill.id));
     onNotification?.("Bill Restored", `Restored bill ${bill.billNo} to terminal.`, "success");
   };
 
   // Settlement Success
-  const handleSettlementSuccess = (tenders: ProPosTenderSplit, changeDue: number) => {
+  const handleSettlementSuccess = async (tenders: ProPosTenderSplit, changeDue: number) => {
     const generatedBillNo = `${billDocPrefix}-${billDocNumber}`;
-    const billRecord = {
-      billNo: generatedBillNo,
-      billDate: new Date().toISOString().slice(0, 10),
-      customer,
-      salesStaff,
-      items: cartItems,
-      subTotal: grossSalesValue,
-      discountTotal: itemDiscountsTotal,
-      taxTotal: totalTaxAmount,
-      netPayable: netPayableAmount,
-      tenders,
-      changeDue
-    };
+    if (!shiftId) {
+      onNotification?.("Checkout Blocked", "Open a register shift before finalizing a bill.", "error");
+      return;
+    }
+    if (cartItems.some((item) => !item.productId)) {
+      onNotification?.("Checkout Blocked", "Refresh the product selection before finalizing this bill so stock can be tracked.", "error");
+      return;
+    }
 
-    setLastCompletedBill(billRecord);
-    setShowSettlementModal(false);
-    setShowReceiptModal(true);
-    setCartItems([]);
-    setBillDocNumber((prev) => (parseInt(prev) + 1).toString());
-    onNotification?.("Invoice Finalized", `Invoice ${generatedBillNo} generated successfully!`, "success");
+    const paymentMode = tenders.credit > 0
+      ? "CREDIT"
+      : tenders.card >= tenders.cash && tenders.card >= tenders.upi
+        ? "CARD"
+        : tenders.upi > tenders.cash
+          ? "UPI"
+          : "CASH";
+
+    try {
+      const response = await apiFetchV1<{
+        invoice_no: string;
+        invoice_id: string;
+        grand_total: number;
+        tax_total: number;
+      }>("/pos/checkout", {
+        method: "POST",
+        headers: { "Idempotency-Key": generatedBillNo },
+        body: JSON.stringify({
+          invoice_no: generatedBillNo,
+          shift_id: shiftId,
+          payment_mode: paymentMode,
+          grand_total: netPayableAmount,
+          customer_id: customer.id.startsWith("cust-") ? undefined : customer.id,
+          customer_name: customer.name,
+          billing_location_id: selectedBillingLocation?.id,
+          billing_store_code: selectedBillingLocation?.billing_store_code,
+          billing_address: selectedBillingLocation ? formatBillingAddress(selectedBillingLocation) : undefined,
+          delivery_location_id: selectedDeliveryLocation?.id,
+          delivery_store_code: selectedDeliveryLocation?.store_code,
+          delivery_gstin: selectedDeliveryLocation?.delivery_gstin,
+          delivery_location_snapshot: selectedDeliveryLocation ? {
+            id: selectedDeliveryLocation.id,
+            store_code: selectedDeliveryLocation.store_code,
+            location_name: selectedDeliveryLocation.location_name,
+            site_type: selectedDeliveryLocation.site_type,
+            address_line1: selectedDeliveryLocation.address_line1,
+            address_line2: selectedDeliveryLocation.address_line2,
+            city: selectedDeliveryLocation.city,
+            district: selectedDeliveryLocation.district,
+            state_code: selectedDeliveryLocation.state_code,
+            state_name: selectedDeliveryLocation.state_name,
+            pin_code: selectedDeliveryLocation.pin_code,
+            delivery_gstin: selectedDeliveryLocation.delivery_gstin,
+            contact_person: selectedDeliveryLocation.contact_person,
+            contact_phone: selectedDeliveryLocation.contact_phone,
+          } : undefined,
+          shipping_address: selectedDeliveryLocation ? formatDeliveryAddress(selectedDeliveryLocation) : undefined,
+          place_of_supply_code: selectedDeliveryLocation?.state_code || selectedBillingLocation?.state_code,
+          items: cartItems.map((item) => ({
+            product_id: item.productId as string,
+            code: item.sku,
+            name: item.name,
+            quantity: item.qty,
+            price: (item.taxableValue ?? Math.max(item.lineTotal - item.taxAmt, 0)) / item.qty,
+            hsn_code: item.hsnCode,
+            gst_rate: item.taxPct,
+          })),
+        }),
+      });
+
+      const billRecord = {
+        billNo: response.invoice_no,
+        billDate: new Date().toISOString().slice(0, 10),
+        customer,
+        salesStaff,
+        items: cartItems,
+        subTotal: grossSalesValue,
+        discountTotal: itemDiscountsTotal,
+        taxTotal: response.tax_total,
+        netPayable: response.grand_total,
+        tenders,
+        changeDue,
+      };
+
+      setLastCompletedBill(billRecord);
+      setShowSettlementModal(false);
+      setShowReceiptModal(true);
+      setCartItems([]);
+      setBillDocNumber((prev) => (parseInt(prev) + 1).toString());
+      onNotification?.("Invoice Finalized", `Invoice ${response.invoice_no} generated successfully!`, "success");
+    } catch (error) {
+      onNotification?.("Checkout Failed", error instanceof Error ? error.message : "The bill could not be posted.", "error");
+    }
   };
 
   // --- Complete Global POS Keyboard Shortcuts ---
@@ -718,6 +1022,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
         setShowLoyaltyModal(false);
         setShowCashMovementsModal(false);
         setShowShiftCloseModal(false);
+        setShowOverflowMenu(false);
         return;
       }
 
@@ -756,9 +1061,8 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
       } else if (e.altKey && (e.key === "i" || e.key === "I")) {
         e.preventDefault();
         setShowPdtImportModal(true);
-      } else if (e.key === "F2") {
-        e.preventDefault();
-        setShowCustomerBrowseModal(true);
+      // F2 handled by F2DispatcherProvider (F2 Universal Lookup Architecture v2).
+      // This screen registers via useF2Screen() above. No screen-level F2 handler.
       } else if (e.key === "F7") {
         e.preventDefault();
         if (cartItems.length > 0) {
@@ -766,6 +1070,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
             cash: netPayableAmount,
             card: 0,
             upi: 0,
+            credit: 0,
             giftVoucher: 0,
             loyaltyPointsRedeemed: 0,
             loyaltyAmount: 0,
@@ -807,7 +1112,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
       {/* ========================================================================= */}
       {/* 0. POS ACTIVITIES TOOLBAR RIBBON (Alt+1, Alt+2, Alt+3, Alt+5, Alt+6, etc.) */}
       {/* ========================================================================= */}
-      <div className="bg-[#edeae1] dark:bg-[#131b2e] px-4 py-1.5 border-b border-[#c4c5d5] dark:border-[#444653] flex flex-wrap items-center justify-between gap-2 shrink-0">
+      <div className={`bg-[#edeae1] dark:bg-[#131b2e] px-4 py-1.5 border-b border-[#c4c5d5] dark:border-[#444653] flex flex-wrap items-center justify-between gap-2 shrink-0 ${showOverflowMenu ? "pb-32" : ""}`}>
         
         {/* Left: Standard POS Activities Buttons */}
         <div className="flex items-center gap-1.5">
@@ -905,6 +1210,66 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
             <span>Shift Close</span>
             <kbd className="text-[10px] opacity-80 font-mono text-[#991b1b] dark:text-[#fca5a5]">[Alt+Z]</kbd>
           </button>
+
+          <div ref={overflowMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setShowOverflowMenu(prev => !prev)}
+              aria-label="More POS actions"
+              aria-haspopup="menu"
+              aria-expanded={showOverflowMenu}
+              className="h-8 w-8 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#2d3133] hover:bg-[#f3f4f5] transition flex items-center justify-center shadow-2xs"
+              title="More POS actions"
+            >
+              <MoreVertical size={15} />
+            </button>
+
+            {showOverflowMenu && (
+              <div
+                role="menu"
+                aria-label="More POS actions"
+                className="absolute top-full right-0 mt-1 z-40 w-44 rounded-lg border border-[#c4c5d5] dark:border-[#444653] bg-white dark:bg-[#191c1e] p-1 shadow-xl"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowPdtImportModal(true);
+                    setShowOverflowMenu(false);
+                  }}
+                  className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3"
+                >
+                  <span className="flex items-center gap-2"><UploadCloud size={13} />Import</span>
+                  <kbd className="text-[10px] font-mono opacity-70">Alt+I</kbd>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowRecallModal(true);
+                    setShowOverflowMenu(false);
+                  }}
+                  className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3"
+                >
+                  <span className="flex items-center gap-2"><History size={13} />Recall ({suspendedBills.length})</span>
+                  <kbd className="text-[10px] font-mono opacity-70">Alt+R</kbd>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={cartItems.length === 0}
+                  onClick={() => {
+                    handleHoldBill();
+                    setShowOverflowMenu(false);
+                  }}
+                  className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3 disabled:opacity-40"
+                >
+                  <span className="flex items-center gap-2"><Pause size={13} />Hold</span>
+                  <kbd className="text-[10px] font-mono opacity-70">Alt+S</kbd>
+                </button>
+              </div>
+            )}
+          </div>
 
         </div>
 
@@ -1033,15 +1398,9 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
               type="text"
               name="posCustomerCode"
               aria-label="Customer Code"
-              data-f2-browse="customer"
+              data-f2-entity="customer"
               value={customer.code}
               onChange={e => setCustomer(prev => ({ ...prev, code: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === "F2") {
-                  e.preventDefault();
-                  setShowCustomerBrowseModal(true);
-                }
-              }}
               placeholder="Code..."
               className="w-20 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-mono font-bold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
             />
@@ -1049,38 +1408,12 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
               type="text"
               name="posCustomerName"
               aria-label="Customer Name"
-              data-f2-browse="customer"
+              data-f2-entity="customer"
               value={customer.name}
               onChange={e => setCustomer(prev => ({ ...prev, name: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === "F2") {
-                  e.preventDefault();
-                  setShowCustomerBrowseModal(true);
-                }
-              }}
               placeholder="Customer Name..."
               className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2.5 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
             />
-          </div>
-        </div>
-
-        {/* Live Tax Classification Badge */}
-        <div className="flex flex-col gap-1 w-44">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
-            Tax Jurisdiction
-          </label>
-          <div className={`h-8 px-2 rounded-lg border flex items-center justify-between text-[11px] font-bold ${
-            isB2B
-              ? "bg-[#dde1ff] border-[#00288e] text-[#00288e] dark:bg-[#1e293b] dark:border-[#3b82f6] dark:text-[#93c5fd]"
-              : "bg-[#dcfce7] border-[#16a34a] text-[#15803d] dark:bg-[#064e3b] dark:border-[#10b981] dark:text-[#6ee7b7]"
-          }`}>
-            <span className="flex items-center gap-1">
-              <span className={`w-1.5 h-1.5 rounded-full ${isB2B ? "bg-[#00288e] dark:bg-[#60a5fa]" : "bg-[#16a34a] dark:bg-[#34d399]"}`} />
-              {isB2B ? "B2B" : "B2C"}
-            </span>
-            <span className="font-mono text-[10px]">
-              {isInterstate ? `IGST (${posStateCode})` : `CGST+SGST (${posStateCode})`}
-            </span>
           </div>
         </div>
 
@@ -1103,38 +1436,169 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
           </select>
         </div>
 
-        {/* Header Action Buttons (PDT Import, Recall, Hold) */}
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setShowPdtImportModal(true)}
-            className="h-8 px-2.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#2d3133] hover:bg-[#f3f4f5] transition text-xs font-bold flex items-center gap-1 shadow-2xs"
-            title="Import PDT File or Transaction"
-          >
-            <UploadCloud size={13} />
-            <span>Import</span>
-          </button>
+        {(!isWalkInCustomer || isLoadingCustomerLocations) && (
+          <div className="basis-full grid grid-cols-1 md:grid-cols-2 gap-2 border-t border-[#c4c5d5] dark:border-[#444653] pt-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0] whitespace-nowrap">
+                Bill To
+              </label>
+              <div className="relative min-w-0 flex-1 flex items-center gap-1">
+                {!isLoadingCustomerLocations && customerBillingLocations.length > 0 ? (
+                  <>
+                    <textarea
+                      rows={showBillingAddressDetails ? 2 : 1}
+                      aria-label="Bill To address lookup"
+                      value={billingFieldValue}
+                      onChange={event => {
+                        const value = event.target.value;
+                        setBillingLocationFilter(value);
+                        const normalizedValue = value.trim().toLowerCase();
+                        const exactMatch = customerBillingLocations.find(location => [location.billing_store_code, location.name].some(candidate => String(candidate || "").trim().toLowerCase() === normalizedValue));
+                        if (exactMatch) {
+                          setSelectedBillingLocationId(exactMatch.id);
+                          setBillingLocationFilter("");
+                        }
+                      }}
+                      placeholder="Type store code or billing location..."
+                      onFocus={event => {
+                        setShowBillingAddressDetails(true);
+                        setShowBillingAddressSuggestions(true);
+                        if (!billingLocationFilter && selectedBillingLocation) event.currentTarget.select();
+                      }}
+                      onKeyDown={event => {
+                        if (event.key === "F2") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setShowBillingAddressDetails(true);
+                          setShowBillingAddressSuggestions(true);
+                        }
+                      }}
+                      className="min-w-0 flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 py-1 min-h-8 h-auto text-[11px] leading-4 bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e] whitespace-normal break-words"
+                    />
+                    {showBillingAddressSuggestions && filteredBillingLocations.length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 top-full mt-1 max-h-40 overflow-auto rounded-lg border border-[#c4c5d5] bg-white p-1 shadow-lg dark:border-[#444653] dark:bg-[#191c1e]">
+                        {filteredBillingLocations.map(location => (
+                          <button
+                            key={location.id}
+                            type="button"
+                            className="block w-full rounded px-2 py-1.5 text-left text-[10px] hover:bg-[#eef3ff] dark:hover:bg-[#252a3b]"
+                            onMouseDown={event => event.preventDefault()}
+                            onClick={() => {
+                              setSelectedBillingLocationId(location.id);
+                              setBillingLocationFilter("");
+                              setShowBillingAddressSuggestions(false);
+                            }}
+                          >
+                            <span className="font-bold">[{location.billing_store_code}]</span> {location.name || "Billing location"} - {formatLocationTail(location.city, location.state)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      aria-label={showBillingAddressDetails ? "Hide Bill To address details" : "Show Bill To address details"}
+                      title={showBillingAddressDetails ? "Hide Bill To address details" : "Show Bill To address details"}
+                      onClick={() => setShowBillingAddressDetails(previous => !previous)}
+                      className="h-8 w-7 shrink-0 inline-flex items-center justify-center rounded-lg text-[#565e74] hover:text-[#00288e]"
+                    >
+                      {showBillingAddressDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                  </>
+                ) : (
+                  <span title={customerLocationError || undefined} className="min-w-0 flex-1 truncate text-[11px] text-[#565e74] dark:text-[#bec6e0]">
+                    {isLoadingCustomerLocations ? "Loading billing addresses..." : customerLocationError ? "Address lookup unavailable" : "No billing address registered"}
+                  </span>
+                )}
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setShowRecallModal(true)}
-            className="h-8 px-2.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white hover:brightness-105 transition text-xs font-bold flex items-center gap-1 shadow-2xs"
-          >
-            <History size={13} />
-            <span>Recall ({suspendedBills.length})</span>
-          </button>
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0] whitespace-nowrap">
+                Ship To
+              </label>
+              <div className="relative min-w-0 flex-1 flex items-center gap-1">
+                {!isLoadingCustomerLocations && customerDeliveryLocations.length > 0 ? (
+                  <>
+                    <textarea
+                      rows={showShippingAddressDetails ? 2 : 1}
+                      aria-label="Ship To address lookup"
+                      value={shippingFieldValue}
+                      onChange={event => {
+                        const value = event.target.value;
+                        setShippingLocationFilter(value);
+                        const normalizedValue = value.trim().toLowerCase();
+                        const exactMatch = customerDeliveryLocations.find(location => [location.store_code, location.location_name].some(candidate => String(candidate || "").trim().toLowerCase() === normalizedValue));
+                        if (exactMatch) {
+                          setSelectedDeliveryLocationId(exactMatch.id);
+                          setShippingLocationFilter("");
+                        }
+                      }}
+                      placeholder="Type store code or shipping location..."
+                      onFocus={event => {
+                        setShowShippingAddressDetails(true);
+                        setShowShippingAddressSuggestions(true);
+                        if (!shippingLocationFilter && selectedDeliveryLocation) event.currentTarget.select();
+                      }}
+                      onKeyDown={event => {
+                        if (event.key === "F2") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setShowShippingAddressDetails(true);
+                          setShowShippingAddressSuggestions(true);
+                        }
+                      }}
+                      className="min-w-0 flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 py-1 min-h-8 h-auto text-[11px] leading-4 bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e] whitespace-normal break-words"
+                    />
+                    {showShippingAddressSuggestions && filteredDeliveryLocations.length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 top-full mt-1 max-h-40 overflow-auto rounded-lg border border-[#c4c5d5] bg-white p-1 shadow-lg dark:border-[#444653] dark:bg-[#191c1e]">
+                        {filteredDeliveryLocations.map(location => (
+                          <button
+                            key={location.id}
+                            type="button"
+                            className="block w-full rounded px-2 py-1.5 text-left text-[10px] hover:bg-[#eef3ff] dark:hover:bg-[#252a3b]"
+                            onMouseDown={event => event.preventDefault()}
+                            onClick={() => {
+                              setSelectedDeliveryLocationId(location.id);
+                              setShippingLocationFilter("");
+                              setShowShippingAddressSuggestions(false);
+                            }}
+                          >
+                            <span className="font-bold">[{location.store_code}]</span> {location.location_name || "Shipping location"} - {formatLocationTail(location.city, location.state_name)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      aria-label={showShippingAddressDetails ? "Hide Ship To address details" : "Show Ship To address details"}
+                      title={showShippingAddressDetails ? "Hide Ship To address details" : "Show Ship To address details"}
+                      onClick={() => setShowShippingAddressDetails(previous => !previous)}
+                      className="h-8 w-7 shrink-0 inline-flex items-center justify-center rounded-lg text-[#565e74] hover:text-[#00288e]"
+                    >
+                      {showShippingAddressDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                  </>
+                ) : (
+                  <span title={customerLocationError || undefined} className="min-w-0 flex-1 truncate text-[11px] text-[#565e74] dark:text-[#bec6e0]">
+                    {isLoadingCustomerLocations ? "Loading shipping addresses..." : customerLocationError ? "Address lookup unavailable" : "No shipping address registered"}
+                  </span>
+                )}
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={handleHoldBill}
-            disabled={cartItems.length === 0}
-            className="h-8 px-2.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#2d3133] hover:bg-[#f3f4f5] transition text-xs font-bold flex items-center gap-1 shadow-2xs disabled:opacity-40"
-          >
-            <Pause size={13} />
-            <span>Hold</span>
-          </button>
-
-        </div>
+            {!isLoadingCustomerLocations && (customerBillingLocations.length === 0 || customerDeliveryLocations.length === 0 || customerBillingLocations.length > 1 || customerDeliveryLocations.length > 1) && (
+              <div className="md:col-span-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={openCustomerMaster}
+                  className="text-[10px] font-bold text-[#00288e] dark:text-[#a8b8ff] hover:underline"
+                >
+                  Manage customer addresses
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
       </section>
 
@@ -1259,19 +1723,19 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   <span className="font-bold flex items-center gap-1">
                     <Barcode size={13} /> {selectedProductMeta.barcode}
                   </span>
-                  <span>â€¢</span>
+                  <span>?</span>
                   <span><strong>Stock/SKU:</strong> {selectedProductMeta.stockNo || selectedProductMeta.sku}</span>
-                  <span>â€¢</span>
+                  <span>?</span>
                   <span><strong>Stock:</strong> <span className="font-bold font-mono">{selectedProductMeta.stockQty} {selectedProductMeta.uom}</span></span>
-                  <span>â€¢</span>
-                  <span><strong>MRP:</strong> â‚¹{selectedProductMeta.mrp.toFixed(2)}</span>
-                  <span>â€¢</span>
-                  <span><strong>Cost:</strong> â‚¹{selectedProductMeta.costPrice.toFixed(2)}</span>
-                  <span>â€¢</span>
+                  <span>?</span>
+                  <span><strong>MRP:</strong> ₹{selectedProductMeta.mrp.toFixed(2)}</span>
+                  <span>?</span>
+                  <span><strong>Cost:</strong> ₹{selectedProductMeta.costPrice.toFixed(2)}</span>
+                  <span>?</span>
                   <span><strong>Size/Color:</strong> {selectedProductMeta.size}/{selectedProductMeta.color}</span>
-                  <span>â€¢</span>
+                  <span>?</span>
                   <span><strong>Brand:</strong> {selectedProductMeta.brand}</span>
-                  <span>â€¢</span>
+                  <span>?</span>
                   <span><strong>HSN:</strong> {selectedProductMeta.hsnCode} ({selectedProductMeta.gstPercentage}%)</span>
                 </div>
                 <button 
@@ -1280,7 +1744,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs px-1"
                   title="Dismiss inspector"
                 >
-                  âœ•
+                  ?
                 </button>
               </div>
             )}
@@ -1447,7 +1911,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   value={directDiscAmtInput}
                   onChange={e => handleDiscAmtChange(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
-                  placeholder="â‚¹ Amt"
+                  placeholder="₹ Amt"
                   className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#00288e] rounded text-xs font-mono font-bold text-right text-[#ba1a1a] outline-none focus:ring-1 focus:ring-[#00288e]"
                 />
               </div>
@@ -1499,7 +1963,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Sales
                 </span>
                 <span className="font-bold text-[#191c1d] dark:text-white">
-                  â‚¹{grossSalesValue.toFixed(2)}
+                  ₹{grossSalesValue.toFixed(2)}
                 </span>
               </div>
 
@@ -1508,7 +1972,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Discounts
                 </span>
                 <span className="font-bold text-[#ba1a1a]">
-                  -â‚¹{itemDiscountsTotal.toFixed(2)}
+                  -₹{itemDiscountsTotal.toFixed(2)}
                 </span>
               </div>
 
@@ -1517,7 +1981,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Sales Tax
                 </span>
                 <span className="font-bold text-[#191c1d] dark:text-white">
-                  â‚¹{totalTaxAmount.toFixed(2)}
+                  ₹{totalTaxAmount.toFixed(2)}
                 </span>
               </div>
 
@@ -1526,7 +1990,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Addon-Gen
                 </span>
                 <span className="font-bold text-[#191c1d] dark:text-white">
-                  â‚¹0.00
+                  ₹0.00
                 </span>
               </div>
 
@@ -1535,13 +1999,13 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   Dedns-Gen
                 </span>
                 <span className="font-bold text-[#ba1a1a]">
-                  -â‚¹0.00
+                  -₹0.00
                 </span>
               </div>
 
               <div className="flex justify-between items-center pt-1 text-sm font-bold text-[#00288e] dark:text-[#a8b8ff]">
                 <span>Net Payable</span>
-                <span className="text-base font-bold">â‚¹{netPayableAmount.toFixed(2)}</span>
+                <span className="text-base font-bold">₹{netPayableAmount.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -1569,27 +2033,27 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
 
           <div className="flex flex-col p-1.5 bg-white dark:bg-[#2d3133] col-span-2 text-right px-4 justify-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Sales Value</span>
-            <span className="text-lg font-mono font-bold text-[#191c1d] dark:text-white">â‚¹{grossSalesValue.toFixed(2)}</span>
+            <span className="text-lg font-mono font-bold text-[#191c1d] dark:text-white">₹{grossSalesValue.toFixed(2)}</span>
           </div>
 
           <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#ba1a1a]">Item Disc</span>
-            <span className="text-sm font-mono font-bold text-[#ba1a1a]">-â‚¹{itemDiscountsTotal.toFixed(2)}</span>
+            <span className="text-sm font-mono font-bold text-[#ba1a1a]">-₹{itemDiscountsTotal.toFixed(2)}</span>
           </div>
 
           <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Total Tax</span>
-            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">â‚¹{totalTaxAmount.toFixed(2)}</span>
+            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">₹{totalTaxAmount.toFixed(2)}</span>
           </div>
 
           <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Addons</span>
-            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">â‚¹0.00</span>
+            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">₹0.00</span>
           </div>
 
           <div className="flex flex-col p-1.5 bg-[#00288e] text-white col-span-2 text-right px-5 justify-center border-l-4 border-[#1e40af] shadow-inner">
             <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Net Amount</span>
-            <span className="text-2xl font-mono font-bold tracking-tight">â‚¹{netPayableAmount.toFixed(2)}</span>
+            <span className="text-2xl font-mono font-bold tracking-tight">₹{netPayableAmount.toFixed(2)}</span>
           </div>
 
         </div>
@@ -1609,6 +2073,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
                   cash: netPayableAmount,
                   card: 0,
                   upi: 0,
+                  credit: 0,
                   giftVoucher: 0,
                   loyaltyPointsRedeemed: 0,
                   loyaltyAmount: 0,
@@ -1667,7 +2132,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
       {showCustomerBrowseModal && (
         <SmritiCustomerBrowseModal
           onSelectCustomer={(c) => {
-            setCustomer(c);
+            handleCustomerSelection(c);
             onNotification?.("Customer Selected", `${c.name} (${c.code}) loaded.`, "success");
           }}
           onClose={() => setShowCustomerBrowseModal(false)}
@@ -1711,9 +2176,9 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
       {showLoyaltyModal && (
         <SmritiLoyaltyLookupDlgpModal
           currentCustomer={customer}
-          onSelectCustomer={(c) => setCustomer(c)}
+          onSelectCustomer={(c) => handleCustomerSelection(c)}
           onApplyLoyaltyPoints={(pts, amt) => {
-            onNotification?.("Loyalty Redeemed", `${pts} points (â‚¹${amt}) applied to transaction.`, "success");
+            onNotification?.("Loyalty Redeemed", `${pts} points (₹${amt}) applied to transaction.`, "success");
           }}
           onClose={() => setShowLoyaltyModal(false)}
         />
@@ -1722,7 +2187,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
       {showReturnModal && (
         <SmritiProPosSalesReturnModal
           onProcessReturn={(ret) => {
-            onNotification?.("Return Processed", `Credit Note for â‚¹${ret.totalRefund.toFixed(2)} generated.`, "success");
+            onNotification?.("Return Processed", `Credit Note for ₹${ret.totalRefund.toFixed(2)} generated.`, "success");
           }}
           onClose={() => setShowReturnModal(false)}
         />
@@ -1751,7 +2216,7 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
           onSuccess={(mov) => {
             onNotification?.(
               "Movement Recorded",
-              `${mov.type === "CASH_DROP" ? "Cash Drop" : "Till Expense"} of â‚¹${mov.amount.toFixed(2)} posted.`,
+              `${mov.type === "CASH_DROP" ? "Cash Drop" : "Till Expense"} of ₹${mov.amount.toFixed(2)} posted.`,
               "success"
             );
           }}
@@ -1779,5 +2244,5 @@ export const SmritiProPosBillinginal: React.FC<SmritiProPosBillinginalProps> = (
   );
 };
 
-export default SmritiProPosBillinginal;
+export default SmritiProPosBillingTerminal;
 

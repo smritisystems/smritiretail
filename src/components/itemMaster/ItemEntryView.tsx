@@ -27,6 +27,7 @@ import { ItemDetailsGridTab } from "./tabs/ItemDetailsGridTab.tsx";
 import { ItemMasterStudio } from "./ItemMasterStudio.tsx";
 import { ItemSaveWarnDlg } from "./modals/ItemSaveWarnDlg.tsx";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { validateItemMasterLookupOptions } from "../../services/itemMasterLookupGate.ts";
 import { Product, AttributeDefinition } from "../../types.ts";
 
 const STORAGE_KEY_SELECTED_FIELDS = "smriti_item_master_selected_fields_v1";
@@ -156,6 +157,19 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
     let failureCount = 0;
     const errors: string[] = [];
 
+    try {
+      const lookupErrors = await validateItemMasterLookupOptions(itemsToSave);
+      if (lookupErrors.length > 0) {
+        setIsSaving(false);
+        onNotification?.("System Lookup Required", lookupErrors.slice(0, 5).join(" "), "error");
+        return;
+      }
+    } catch (err: any) {
+      setIsSaving(false);
+      onNotification?.("System Lookup Unavailable", err.message || "Could not verify governed Item Master options.", "error");
+      return;
+    }
+
     const dynamicFields = allAvailableFields.filter(f => f.isDynamic);
 
     for (let idx = 0; idx < itemsToSave.length; idx++) {
@@ -223,6 +237,7 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
           cost_price: !isNaN(costPrice) && costPrice > 0 ? costPrice : null,
           stock: 100,
           brand: item.brand || commonFieldValues.brand || null,
+          vendor_code: item.vendorCode || null,
           category: item.category || commonFieldValues.category || "General",
           color: item.shade || null,
           size: item.size || null,

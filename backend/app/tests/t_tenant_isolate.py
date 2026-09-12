@@ -264,8 +264,8 @@ async def test_service_layer_isolation(db_session):
     with pytest.raises(HTTPException) as exc_info:
         await sales_service_a.create_sales_invoice(invoice_in)
     
-    # Validation will fail on stock check (product lookup returns 404 Product Not Found)
-    assert exc_info.value.status_code == 404
+    # Cross-company customer access is rejected before stock processing.
+    assert exc_info.value.status_code == 403
 
 async def test_cross_tenant_branch_validation(db_session):
     """

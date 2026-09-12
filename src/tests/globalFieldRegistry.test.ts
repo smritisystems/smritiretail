@@ -11,7 +11,7 @@ describe("Global Field Registry", () => {
     const itemCode = getFieldMetadata("item_code");
     expect(itemCode).toBeTruthy();
     expect(itemCode?.entity).toBe("item");
-    expect(itemCode?.lookupGroup).toBe("product");
+    expect(itemCode?.lookupGroup).toBe("item");
     expect(itemCode?.aliases).toContain("sku");
     expect(itemCode?.displayWidthPct).toBeGreaterThanOrEqual(10);
   });
@@ -37,9 +37,36 @@ describe("Global Field Registry", () => {
     const productLookup = getLookupMetadata("product");
     const customerLookup = getLookupMetadata("customer");
 
-    expect(productLookup?.endpoint).toContain("/universal/items");
-    expect(productLookup?.insertValueKeys).toContain("item_code");
+    expect(productLookup?.endpoint).toContain("/masters/lookup/product/values");
+    expect(productLookup?.insertValueKeys).toContain("name");
     expect(customerLookup?.endpoint).toContain("/customers");
     expect(customerLookup?.insertValueKeys).toContain("customer_name");
+  });
+
+  it("should route Item Master catalog fields to governed lookup types", () => {
+    expect(getFieldMetadata("brand")?.lookupGroup).toBe("brand");
+    expect(getFieldMetadata("style_article")?.lookupGroup).toBe("style_article");
+    expect(getFieldMetadata("size")?.lookupGroup).toBe("size");
+    expect(getFieldMetadata("color")?.lookupGroup).toBe("color");
+    expect(getFieldMetadata("vendor_code")?.lookupGroup).toBe("vendor_code");
+    expect(getLookupMetadata("brand")?.endpoint).toBe("/masters/lookup/brand/values");
+    expect(getLookupMetadata("style_article")?.insertValueKeys).toContain("name");
+  });
+
+  it("should resolve organization lookups from their scoped master APIs", () => {
+    expect(getFieldMetadata("branch_code")?.lookupGroup).toBe("branch");
+    expect(getFieldMetadata("branch_code")?.sourceTable).toBe("branches");
+    expect(getLookupMetadata("branch")?.endpoint).toBe("/masters/branch");
+    expect(getLookupMetadata("store")?.endpoint).toBe("/masters/store");
+    expect(getLookupMetadata("warehouse")?.endpoint).toBe("/masters/warehouse");
+  });
+
+  it("should resolve statutory catalog references from authoritative APIs", () => {
+    expect(getLookupMetadata("uom")?.endpoint).toBe("/localization/uoms");
+    expect(getLookupMetadata("hsn")?.endpoint).toBe("/localization/hsn-sac");
+  });
+
+  it("should resolve warehouse locations from the scoped WMS master", () => {
+    expect(getLookupMetadata("location")?.endpoint).toBe("/wms/locations");
   });
 });

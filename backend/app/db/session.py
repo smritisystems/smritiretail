@@ -26,8 +26,9 @@ Founders
 
 import os
 import re
+import time
 import psycopg2
-from typing import Dict, Optional, AsyncGenerator
+from typing import Dict, Optional, AsyncGenerator, Tuple
 from urllib.parse import urlparse
 from fastapi import Request, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncEngine
@@ -105,6 +106,16 @@ def _verify_database_is_registered(db_clean: str) -> bool:
     return False
 
 
+def validate_company_database_name(database_name: str) -> bool:
+    """Return True only for registered company database name shapes."""
+    if not database_name:
+        return False
+    clean_name = str(database_name).strip().lower()
+    if clean_name == "smritisys":
+        return False
+    return bool(re.fullmatch(r"smriti(?!000$|sys$)[a-z0-9]{3,12}", clean_name))
+
+
 def get_company_async_engine(database_name: str, host: str = "localhost", port: int = 5432) -> AsyncEngine:
     """
     Retrieves or creates a cached AsyncEngine for a specific company database.
@@ -164,10 +175,38 @@ def get_company_sessionmaker(database_name: str) -> async_sessionmaker:
     return _company_sessionmakers[db_clean]
 
 
+_company_database_name_cache: Dict[str, Tuple[str, float]] = {}
+ROUTING_CACHE_TTL_SECONDS: int = 300  # 5-minute deterministic TTL
+
+
+def invalidate_company_database_cache(company_id_or_code: Optional[str] = None) -> int:
+    """
+    Explicitly invalidates the tenant routing cache.
+    If company_id_or_code is provided, clears that tenant only.
+    Otherwise, flushes the entire routing cache. Returns count of invalidated keys.
+    """
+    global _company_database_name_cache
+    if company_id_or_code:
+        cid = str(company_id_or_code).strip()
+        removed = 0
+        if cid in _company_database_name_cache:
+            del _company_database_name_cache[cid]
+            removed += 1
+        comp_code = f"COMP-{cid}" if len(cid) == 3 and cid.isalnum() else cid
+        if comp_code in _company_database_name_cache:
+            del _company_database_name_cache[comp_code]
+            removed += 1
+        return removed
+    else:
+        count = len(_company_database_name_cache)
+        _company_database_name_cache.clear()
+        return count
+
+
 async def resolve_company_database_name(company_id_or_code: Optional[str]) -> str:
     """
     Resolves the target company database name from company_id, company_code, or defaults.
-    Queries company_database_registries in smritisys for authoritative routing.
+    Queries company_database_registries in smritisys for authoritative routing with deterministic TTL caching.
     Fails closed if the company context is missing, unverified, unregistered, or not in READY status.
     """
     if not company_id_or_code or not str(company_id_or_code).strip():
@@ -177,6 +216,13 @@ async def resolve_company_database_name(company_id_or_code: Optional[str]) -> st
         )
 
     candidate = str(company_id_or_code).strip()
+    now = time.time()
+
+    # Fast in-memory cache hit with TTL expiration check
+    if candidate in _company_database_name_cache:
+        db_name, cached_at = _company_database_name_cache[candidate]
+        if (now - cached_at) < ROUTING_CACHE_TTL_SECONDS:
+            return db_name
 
     # Query authoritative registry in smritisys
     async with async_session() as ctrl_session:
@@ -199,12 +245,12 @@ async def resolve_company_database_name(company_id_or_code: Optional[str]) -> st
                     detail=f"Company Database for '{candidate}' is in status '{db_status}'. Access denied."
                 )
             clean_db = str(db_name).strip().lower()
-            pattern = r"^smriti(?!(?:000|sys)$)[a-z0-9]{3}$|^smriti(?!0000$)(?!sys0$)[a-z0-9]{4}$"
-            if not re.match(pattern, clean_db):
+            if not validate_company_database_name(clean_db):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid database name '{clean_db}' resolved. Violates official naming standard."
                 )
+            _company_database_name_cache[candidate] = (clean_db, now)
             return clean_db
 
     raise HTTPException(

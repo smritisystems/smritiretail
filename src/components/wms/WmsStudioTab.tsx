@@ -13,6 +13,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from "react";
+import { ENTERPRISE_BILLING_SUITE_VERSION_LABEL } from "../../config/version.ts";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import { 
   Warehouse, 
@@ -482,7 +483,7 @@ export const WmsStudioTab: React.FC<{
             <h2 className="text-base font-bold text-theme-text-primary tracking-wide flex items-center gap-2">
               Distributor & Warehouse Management System (WMS)
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20">
-                v6.16.0 Production Ready
+                {ENTERPRISE_BILLING_SUITE_VERSION_LABEL} Production Ready
               </span>
             </h2>
             <p className="text-xs text-theme-muted mt-0.5">

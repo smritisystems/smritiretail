@@ -52,4 +52,5 @@ from . import (
     supplier_payment,
     terms,
     users,
+    vendor,
 )

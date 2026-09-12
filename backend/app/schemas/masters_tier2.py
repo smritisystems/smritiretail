@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class CompanyCreate(BaseModel):
@@ -49,11 +49,29 @@ class BranchCreate(BaseModel):
     name: str
     code: str
 
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("Branch code is required.")
+        return normalized
+
 
 class BranchUpdate(BaseModel):
     company: str | None = None
     name: str | None = None
     code: str | None = None
+
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("Branch code cannot be blank.")
+        return normalized
 
 
 class BranchResponse(BaseModel):
@@ -112,31 +130,23 @@ class StoreResponse(BaseModel):
         )
 
 
-class WarehouseCreate(BaseModel):
+from .wms import WarehouseBase, WarehouseUpdate as WmsWarehouseUpdate
+
+
+class WarehouseCreate(WarehouseBase):
     branch: str | None = None  # Maps to branch_id
-    code: str
-    name: str
-    is_transit: bool | None = False
-    address: str | None = None
     status: str | None = "Active"
 
 
-class WarehouseUpdate(BaseModel):
+class WarehouseUpdate(WmsWarehouseUpdate):
     branch: str | None = None
     code: str | None = None
-    name: str | None = None
-    is_transit: bool | None = None
-    address: str | None = None
     status: str | None = None
 
 
-class WarehouseResponse(BaseModel):
+class WarehouseResponse(WarehouseBase):
     id: str
-    code: str
-    name: str
     branch: str | None = None  # Maps to branch_id
-    is_transit: bool
-    address: str | None = None
     status: str
 
     @classmethod
@@ -147,6 +157,12 @@ class WarehouseResponse(BaseModel):
             name=obj.name,
             branch=obj.branch_id,
             is_transit=obj.is_transit or False,
+            is_central_godown=getattr(obj, "is_central_godown", False) or False,
             address=obj.address,
+            city=getattr(obj, "city", None),
+            state=getattr(obj, "state", None),
+            pincode=getattr(obj, "pincode", None),
+            contact_person=getattr(obj, "contact_person", None),
+            phone=getattr(obj, "phone", None),
             status="Active" if obj.is_active else "Inactive"
         )

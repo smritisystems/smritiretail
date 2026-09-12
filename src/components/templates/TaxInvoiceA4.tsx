@@ -192,6 +192,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
   let totalSGST = 0;
   let totalIGST = 0;
   let grandTotal = 0;
+  const declaredInterstate = data.supplyType === "Interstate";
 
   const hsnBreakdown: Record<string, {
     taxable: number;
@@ -204,20 +205,23 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
     const qty = Number(item.quantity ?? item.qty ?? 0);
     const unitPrice = Number(item.unit_price ?? item.price ?? item.rate ?? 0);
 
-    // Exact Taxable Value (GST-exclusive net base value)
-    const taxableValue = item.line_total !== undefined && item.line_total !== null
-      ? Number(item.line_total)
-      : unitPrice * qty;
+    // Prefer the persisted GST-exclusive taxable value. `line_total` is the
+    // post-tax total in imported invoices and must not be taxed a second time.
+    const taxableValue = item.taxable_value !== undefined && item.taxable_value !== null
+      ? Number(item.taxable_value)
+      : item.line_total !== undefined && item.line_total !== null
+        ? Number(item.line_total)
+        : unitPrice * qty;
 
     const gstRate = Number(item.gst_rate ?? item.gstRate ?? (item.tax_rate ?? 5));
-    const isInter = isInterstate;
+    const isInter = declaredInterstate;
 
     // Dynamic tax calculations based on line gst_rate and jurisdiction
-    const totalTax = taxableValue * (gstRate / 100);
-    const igst = isInter ? totalTax : 0;
-    const cgst = isInter ? 0 : totalTax / 2;
-    const sgst = isInter ? 0 : totalTax / 2;
-    const itemTotal = taxableValue + totalTax;
+    const calculatedTax = taxableValue * (gstRate / 100);
+    const igst = isInter ? Number(item.igst_amount ?? calculatedTax) : 0;
+    const cgst = isInter ? 0 : Number(item.cgst_amount ?? calculatedTax / 2);
+    const sgst = isInter ? 0 : Number(item.sgst_amount ?? calculatedTax / 2);
+    const itemTotal = taxableValue + igst + cgst + sgst;
 
     const unitBaseCost = qty > 0 ? (taxableValue / qty) : unitPrice;
 
@@ -226,9 +230,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
     const mrp = isNaN(rawMrp) ? 0 : rawMrp;
 
     // Exact Discount % (Honors item.discount_percent or defaults to exact 43.76%)
-    const discPercent = Number(item.discount_percent ?? item.discountPercent ?? (
-      mrp > 0 && unitBaseCost > 0 ? (((mrp - unitBaseCost) / mrp) * 100) : 43.76
-    ));
+    const discPercent = Number(item.discount_percent ?? item.discountPercent ?? 0);
 
     const hsn = item.hsn || item.hsn_code || "64041990";
 
@@ -284,7 +286,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
       data.shippingCountry
     ].filter(Boolean).join(", ") || "No Shipping Address Listed";
 
-  const isInterstate = data.supplyType === "Interstate" || totalIGST > 0;
+  const isInterstate = declaredInterstate || totalIGST > 0;
 
   const cleanItemName = (name: string): string => {
     if (!name) return "";
@@ -379,6 +381,17 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
             <p className="text-gray-950 font-extrabold mt-1.5 font-mono text-[12.5px] tracking-wide">
               GSTIN: <span className="text-blue-900 font-black tracking-wider">{data.companyGst || "27AAXFT2508H1ZR"}</span>
             </p>
+            {((data as any).dispatchFromSnapshot || (data as any).dispatch_from_snapshot || (data as any).dispatchFromAddress) && (
+              <div className="mt-2 pt-1.5 border-t border-dashed border-gray-300">
+                <div className="text-blue-800 font-bold uppercase text-[9px] tracking-wider mb-0.5">DISPATCH FROM</div>
+                <p className="font-bold text-gray-900 text-xs">{((data as any).dispatchFromSnapshot?.name || (data as any).dispatch_from_snapshot?.name || "Tattly Threads")}</p>
+                <p className="text-gray-700 text-[10.5px] leading-relaxed font-medium">
+                  {((data as any).dispatchFromSnapshot?.address_line1 || (data as any).dispatch_from_snapshot?.address_line1 || (data as any).dispatchFromAddress || "Om Sai Nagar, Kalamana")}
+                  <br />
+                  {((data as any).dispatchFromSnapshot?.city || (data as any).dispatch_from_snapshot?.city || "Nagpur")}, {((data as any).dispatchFromSnapshot?.state || (data as any).dispatch_from_snapshot?.state || "Maharashtra")} - {((data as any).dispatchFromSnapshot?.pincode || (data as any).dispatch_from_snapshot?.pincode || "440029")}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

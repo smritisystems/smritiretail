@@ -23,7 +23,9 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
+import json
 import os
+from datetime import date
 from pathlib import Path
 from typing import Dict, Any
 
@@ -32,12 +34,12 @@ def draw_progress_bar(percentage: int) -> str:
     empty = 10 - filled
     return "█" * filled + "░" * empty + f" {percentage}%"
 
-def write_reports(res: Dict[str, Any]) -> None:
-    root_dir = Path(__file__).resolve().parent.parent.parent.parent
+def write_reports(res: Dict[str, Any], repository_root: str | Path | None = None) -> None:
+    configured_root = repository_root or os.environ.get("SDIC_REPOSITORY_ROOT")
+    root_dir = Path(configured_root).expanduser().resolve() if configured_root else Path(__file__).resolve().parent.parent.parent.parent
     
     # 1. Resolve date and paths
-    import datetime
-    date_str = datetime.date.today().isoformat()
+    date_str = date.today().isoformat()
     reports_dir = root_dir / "docs" / "reports" / date_str
     reports_dir.mkdir(parents=True, exist_ok=True)
     
@@ -48,11 +50,10 @@ def write_reports(res: Dict[str, Any]) -> None:
     if history_file_path.exists():
         try:
             with open(history_file_path, "r", encoding="utf-8") as h_file:
-                history = json.loads(h_file.read())
+                history = json.load(h_file)
         except Exception:
             pass
 
-    import json
     new_entry = {
         "timestamp": res["timestamp"],
         "dhi": res["releaseScores"]["dhi"],

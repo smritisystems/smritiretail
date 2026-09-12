@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>SMRITI Retail OS - New Order</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-background": "#0d1c2e",
+              "on-surface-variant": "#434656",
+              "surface-container": "#e6eeff",
+              "surface-tint": "#004ced",
+              "on-primary-fixed-variant": "#0038b6",
+              "surface-container-high": "#dce9ff",
+              "secondary-fixed": "#85f8c4",
+              "inverse-surface": "#233144",
+              "inverse-primary": "#b7c4ff",
+              "tertiary-container": "#bf3003",
+              "inverse-on-surface": "#eaf1ff",
+              "on-tertiary": "#ffffff",
+              "background": "#f8f9ff",
+              "on-tertiary-fixed": "#3c0800",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary": "#ffffff",
+              "on-secondary-container": "#00714e",
+              "primary-fixed": "#dde1ff",
+              "secondary": "#006c4a",
+              "outline-variant": "#c3c5d9",
+              "surface": "#f8f9ff",
+              "tertiary": "#952200",
+              "on-primary-fixed": "#001452",
+              "error": "#ba1a1a",
+              "secondary-container": "#82f5c1",
+              "tertiary-fixed": "#ffdbd2",
+              "on-secondary-fixed-variant": "#005137",
+              "on-primary-container": "#dfe3ff",
+              "on-error": "#ffffff",
+              "on-tertiary-fixed-variant": "#891e00",
+              "primary-container": "#0052ff",
+              "on-surface": "#0d1c2e",
+              "tertiary-fixed-dim": "#ffb4a1",
+              "primary-fixed-dim": "#b7c4ff",
+              "surface-bright": "#ffffff",
+              "surface-dim": "#ccdbf3",
+              "on-primary": "#ffffff",
+              "surface-variant": "#d5e3fc",
+              "primary": "#003ec7",
+              "error-container": "#ffdad6",
+              "outline": "#737688",
+              "on-secondary-fixed": "#002114",
+              "surface-container-low": "#eff4ff",
+              "surface-container-highest": "#d5e3fc",
+              "on-error-container": "#93000a",
+              "on-tertiary-container": "#ffddd5"
+            },
+            borderRadius: {
+              DEFAULT: "0.25rem",
+              lg: "0.75rem",
+              xl: "1rem",
+              full: "9999px"
+            },
+            spacing: {
+              unit: "4px",
+              "stack-lg": "32px",
+              gutter: "16px",
+              "stack-sm": "8px",
+              "stack-md": "16px",
+              "container-padding": "24px"
+            },
+            fontFamily: {
+              "body-md": ["Inter"],
+              "headline-md": ["Inter"],
+              "display-lg": ["Inter"],
+              "mono-md": ["JetBrains Mono"],
+              "body-lg": ["Inter"],
+              "headline-lg": ["Inter"],
+              "label-md": ["Inter"],
+              "body-sm": ["Inter"]
+            },
+            fontSize: {
+              "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+              "headline-md": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+              "display-lg": ["36px", { lineHeight: "44px", letterSpacing: "-0.02em", fontWeight: "700" }],
+              "mono-md": ["13px", { lineHeight: "20px", fontWeight: "400" }],
+              "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+              "headline-lg": ["28px", { lineHeight: "36px", letterSpacing: "-0.01em", fontWeight: "600" }],
+              "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "600" }],
+              "body-sm": ["13px", { lineHeight: "18px", fontWeight: "400" }]
+            }
+          }
+        }
+      };
+    </script>
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      }
+    </style>
+  </head>
+  <body class="bg-background text-on-background font-body-sm antialiased overflow-hidden flex h-screen">
+    <aside class="bg-surface-container dark:bg-surface-container-high text-primary dark:text-inverse-primary font-label-md text-label-md border-r border-outline-variant dark:border-outline fixed left-0 top-0 h-full w-56 flex flex-col py-2 px-2 z-20">
+      <div class="mb-4 px-2 mt-2">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center shrink-0">
+            <img alt="Store Logo" class="w-5 h-5 object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC08PufJg8YVZni7PYPeZ7qTfxpWQxR4yOg1ObdBEp3eTPZsq3lWQwL7qgQTGL4sSFBh9b5Zeq647V7gGSJt_YZDe5nzj_1DG38lv89KFnXThDtlkDkm097HNBmmlj4qtzcfSJOQVgYatbuqfSRPMnOEnmGSsvjmLgdYpgFq-kByN3AthoWvHiMxRfoE0RvXM8RuI1d2Mhiw0HycZxf2w5hYlf-HNsa-rR4ijYL5jC1hos7_yDrq-bK" />
+          </div>
+          <div>
+            <h2 class="font-body-md text-body-md font-black text-on-surface dark:text-inverse-on-surface truncate">Main Branch</h2>
+            <p class="font-label-md text-label-md text-on-surface-variant truncate">Enterprise ID: 8821</p>
+          </div>
+        </div>
+      </div>
+      <button class="bg-primary text-on-primary hover:bg-on-primary-fixed-variant transition-colors rounded-lg py-1.5 px-3 mb-4 font-label-md text-label-md flex items-center justify-center gap-1.5 mx-2 shadow-sm">
+        <span class="material-symbols-outlined text-[16px]">add</span>
+        New Sale
+      </button>
+      <nav class="flex-1 space-y-0.5">
+        <a class="bg-primary-fixed dark:bg-primary text-on-primary-fixed dark:text-on-primary font-bold rounded-md flex items-center gap-2 px-2.5 py-1.5 active:scale-95 transition-transform group" href="#">
+          <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+          Orders
+        </a>
+        <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors flex items-center gap-2 px-2.5 py-1.5 rounded-md active:scale-95 transition-transform group" href="#">
+          <span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">inventory_2</span>
+          Products
+        </a>
+        <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors flex items-center gap-2 px-2.5 py-1.5 rounded-md active:scale-95 transition-transform group" href="#">
+          <span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">monitoring</span>
+          Analytics
+        </a>
+        <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors flex items-center gap-2 px-2.5 py-1.5 rounded-md active:scale-95 transition-transform group" href="#">
+          <span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">badge</span>
+          Staff
+        </a>
+        <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors flex items-center gap-2 px-2.5 py-1.5 rounded-md active:scale-95 transition-transform group" href="#">
+          <span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">settings_applications</span>
+          Setup
+        </a>
+      </nav>
+      <div class="mt-auto pt-2 border-t border-outline-variant/30 space-y-0.5">
+        <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors flex items-center gap-2 px-2.5 py-1.5 rounded-md active:scale-95 transition-transform group" href="#">
+          <span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">help_outline</span>
+          Help
+        </a>
+        <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors flex items-center gap-2 px-2.5 py-1.5 rounded-md active:scale-95 transition-transform group" href="#">
+          <span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">logout</span>
+          Logout
+        </a>
+      </div>
+    </aside>
+
+    <div class="flex-1 ml-56 flex flex-col h-full bg-surface-bright">
+      <header class="bg-surface-container-lowest text-primary font-body-sm text-body-sm border-b border-outline-variant flex justify-between items-center w-full px-4 h-12 shrink-0 z-10">
+        <div class="flex items-center gap-4">
+          <h1 class="text-body-lg font-headline-md font-bold text-primary tracking-tight">SMRITI Retail OS</h1>
+          <nav class="hidden md:flex items-center h-full gap-4 ml-4">
+            <a class="text-on-surface-variant hover:text-primary transition-colors active:opacity-80 h-full flex items-center border-b-2 border-transparent hover:border-outline-variant" href="#">Dashboard</a>
+            <a class="text-on-surface-variant hover:text-primary transition-colors active:opacity-80 h-full flex items-center border-b-2 border-transparent hover:border-outline-variant" href="#">Inventory</a>
+            <a class="text-on-surface-variant hover:text-primary transition-colors active:opacity-80 h-full flex items-center border-b-2 border-transparent hover:border-outline-variant" href="#">Customers</a>
+            <a class="text-on-surface-variant hover:text-primary transition-colors active:opacity-80 h-full flex items-center border-b-2 border-transparent hover:border-outline-variant" href="#">Reports</a>
+          </nav>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="relative hidden lg:block">
+            <span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-outline text-[16px]">search</span>
+            <input class="bg-surface-container-low border border-outline-variant rounded-lg pl-7 pr-2 py-1 text-body-sm font-body-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none w-56 transition-all" placeholder="Search items..." type="text" />
+          </div>
+          <div class="flex items-center gap-1 border-r border-outline-variant pr-3 mr-1">
+            <button class="w-7 h-7 rounded hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant transition-colors">
+              <span class="material-symbols-outlined text-[18px]">history</span>
+            </button>
+            <button class="w-7 h-7 rounded hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant transition-colors">
+              <span class="material-symbols-outlined text-[18px]">settings</span>
+            </button>
+          </div>
+          <button class="border border-outline bg-surface-container-lowest hover:bg-surface-container text-on-surface font-label-md text-label-md px-2.5 py-1 rounded-lg transition-colors active:opacity-80">
+            Print
+          </button>
+          <button class="bg-primary hover:bg-on-primary-fixed-variant text-on-primary font-label-md text-label-md px-3 py-1 rounded-lg transition-colors active:opacity-80 shadow-sm">
+            Save
+          </button>
+          <div class="w-7 h-7 rounded-full bg-surface-container overflow-hidden ml-1 border border-outline-variant">
+            <img alt="User profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDw7iKSsa2xjaRxfnIAq48U_FGEaD_STHEXy6nS31QBwugUVfrqR5mWwm93xABCH8WY8chvsxBSSYsrmmAVpzAW4N2yBTBUP_HXA7rXJFCi09PJXok6TrBjS41nRPaY4RnnTarS5rl4xcjeADJPAU25oVZYc8NNJaE7326dOV7BCZNXkQN8l4oAlIq58Sb40o-e9eynWDAJDoWgUewUdut1Cg13DvFlrenniM5suR7s2O54d4OW70XIB" />
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-auto p-4 flex flex-col gap-4 bg-surface-bright">
+        <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-sm shrink-0 flex flex-col gap-4">
+          <div class="flex items-center justify-between w-full">
+            <div class="flex items-center gap-6">
+              <div class="flex items-center gap-2">
+                <label class="font-label-md text-label-md text-on-surface-variant w-20">Doc Prefix</label>
+                <input class="w-32 bg-surface-container-low border border-outline-variant rounded-lg px-2 py-1.5 font-body-sm text-body-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm" type="text" value="R8" />
+              </div>
+              <div class="flex items-center gap-2">
+                <label class="font-label-md text-label-md text-on-surface-variant w-12">Date</label>
+                <input class="w-48 bg-surface-container-low border border-outline-variant rounded-lg px-2 py-1.5 font-body-sm text-body-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm" type="text" value="10/27/2023 14:32" />
+              </div>
+            </div>
+            <button class="bg-surface-container-lowest hover:bg-surface-container text-primary font-label-md text-label-md px-3 py-1.5 rounded-lg border border-outline-variant transition-colors flex items-center gap-1 font-bold shadow-sm">
+              <span class="material-symbols-outlined text-[16px]">file_upload</span>
+              Import
+            </button>
+          </div>
+
+          <div class="flex items-center gap-6 w-full">
+            <div class="flex items-center gap-2 flex-1">
+              <label class="font-label-md text-label-md text-on-surface-variant w-20">Customer</label>
+              <div class="relative flex-1">
+                <span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-outline text-[16px]">person_search</span>
+                <input class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-7 pr-2 py-1.5 font-body-sm text-body-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm" placeholder="Search customer..." type="text" value="100 ACME APPARELS LTD" />
+              </div>
+            </div>
+            <div class="flex items-center gap-2 w-1/3">
+              <label class="font-label-md text-label-md text-on-surface-variant w-24">Sales Staff</label>
+              <select class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-2 py-1.5 font-body-sm text-body-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-on-surface shadow-sm appearance-none">
+                <option>SM</option>
+                <option>JD</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex-1 flex flex-col shadow-sm overflow-hidden min-h-[200px]">
+          <div class="flex-1 overflow-auto bg-surface-container-lowest">
+            <table class="w-full text-left border-collapse min-w-[800px]">
+              <thead class="sticky top-0 bg-surface-container font-label-md text-label-md text-on-surface-variant border-b border-outline-variant z-10">
+                <tr>
+                  <th class="py-2 px-3 w-10 text-center font-semibold">S No.</th>
+                  <th class="py-2 px-3 w-40 font-semibold">Stock No</th>
+                  <th class="py-2 px-3 font-semibold">Item Description</th>
+                  <th class="py-2 px-3 w-24 text-right font-semibold">Rate</th>
+                  <th class="py-2 px-3 w-20 text-right font-semibold">Qty</th>
+                  <th class="py-2 px-3 w-28 text-right font-semibold">Value</th>
+                  <th class="py-2 px-3 w-20 font-semibold">Disc Code</th>
+                  <th class="py-2 px-3 w-20 text-right font-semibold">Disc Qty</th>
+                  <th class="py-2 px-3 w-20 text-right font-semibold">Disc %</th>
+                  <th class="py-2 px-3 w-24 text-right font-semibold">Disc Amt</th>
+                  <th class="py-2 px-3 w-28 text-right font-semibold">Total</th>
+                  <th class="py-2 px-3 w-28 font-semibold">SalesStaff</th>
+                </tr>
+              </thead>
+              <tbody class="font-mono-md text-mono-md text-on-surface divide-y divide-outline-variant/30">
+                <tr class="hover:bg-surface-container-low transition-colors group">
+                  <td class="py-1.5 px-3 text-center text-on-surface-variant font-body-sm">1</td>
+                  <td class="py-1.5 px-3">108509937</td>
+                  <td class="py-1.5 px-3 font-body-sm">102MENSH/STWLLLIGHTPE</td>
+                  <td class="py-1.5 px-3 text-right">489.30</td>
+                  <td class="py-1.5 px-3 text-right">2.00</td>
+                  <td class="py-1.5 px-3 text-right">978.60</td>
+                  <td class="py-1.5 px-3"></td>
+                  <td class="py-1.5 px-3 text-right"></td>
+                  <td class="py-1.5 px-3 text-right"></td>
+                  <td class="py-1.5 px-3 text-right"></td>
+                  <td class="py-1.5 px-3 text-right font-medium">978.60</td>
+                  <td class="py-1.5 px-3">SM</td>
+                </tr>
+                <tr class="hover:bg-surface-container-low transition-colors group">
+                  <td class="py-1.5 px-3 text-center text-on-surface-variant font-body-sm">2</td>
+                  <td class="py-1.5 px-3">108051780</td>
+                  <td class="py-1.5 px-3 font-body-sm">CAMP SHIRTS HS</td>
+                  <td class="py-1.5 px-3 text-right">700.00</td>
+                  <td class="py-1.5 px-3 text-right">1.00</td>
+                  <td class="py-1.5 px-3 text-right">700.00</td>
+                  <td class="py-1.5 px-3"></td>
+                  <td class="py-1.5 px-3 text-right"></td>
+                  <td class="py-1.5 px-3 text-right"></td>
+                  <td class="py-1.5 px-3 text-right"></td>
+                  <td class="py-1.5 px-3 text-right font-medium">700.00</td>
+                  <td class="py-1.5 px-3">SM</td>
+                </tr>
+                <tr class="hover:bg-surface-container-low transition-colors group">
+                  <td class="py-1.5 px-3 text-center text-on-surface-variant font-body-sm">3</td>
+                  <td class="py-1.5 px-3">108509939</td>
+                  <td class="py-1.5 px-3 font-body-sm">102MENSH/STWLLLIGHTPE</td>
+                  <td class="py-1.5 px-3 text-right">489.30</td>
+                  <td class="py-1.5 px-3 text-right">2.00</td>
+                  <td class="py-1.5 px-3 text-right">978.60</td>
+                  <td class="py-1.5 px-3"></td>
+                  <td class="py-1.5 px-3 text-right"></td>
+                  <td class="py-1.5 px-3 text-right"></td>
+                  <td class="py-1.5 px-3 text-right"></td>
+                  <td class="py-1.5 px-3 text-right font-medium">978.60</td>
+                  <td class="py-1.5 px-3">SM</td>
+                </tr>
+                <tr class="h-8"><td class="py-1.5 px-3 text-center text-on-surface-variant font-body-sm">4</td><td colspan="11"></td></tr>
+                <tr class="h-8"><td class="py-1.5 px-3 text-center text-on-surface-variant font-body-sm">5</td><td colspan="11"></td></tr>
+                <tr class="h-8"><td class="py-1.5 px-3 text-center text-on-surface-variant font-body-sm">6</td><td colspan="11"></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm shrink-0 flex flex-col overflow-hidden">
+          <div class="p-4 flex gap-6">
+            <div class="flex-1 grid grid-cols-2 gap-x-8 gap-y-4">
+              <div class="flex items-center gap-2">
+                <label class="font-label-md text-label-md text-on-surface-variant w-28">Import from</label>
+                <select class="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-2 py-1 font-body-sm text-body-sm outline-none shadow-sm appearance-none"><option></option></select>
+              </div>
+              <div class="flex items-center gap-2">
+                <label class="font-label-md text-label-md text-on-surface-variant w-16">Path</label>
+                <input class="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-2 py-1 font-body-sm text-body-sm outline-none shadow-sm" type="text" />
+              </div>
+              <div class="flex items-center gap-2">
+                <label class="font-label-md text-label-md text-on-surface-variant w-28">Field Template</label>
+                <select class="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-2 py-1 font-body-sm text-body-sm outline-none shadow-sm appearance-none"><option></option></select>
+              </div>
+              <div class="flex items-center gap-2"></div>
+              <fieldset class="col-span-2 border border-outline-variant rounded-lg p-3 pt-4 relative mt-2 flex items-center gap-6">
+                <legend class="absolute -top-2 left-2 bg-surface-container-lowest px-1 font-label-md text-label-md text-on-surface-variant">Transaction</legend>
+                <div class="flex items-center gap-2 w-1/3">
+                  <label class="font-label-md text-label-md text-on-surface-variant w-12">Type</label>
+                  <select class="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-2 py-1 font-body-sm text-body-sm outline-none shadow-sm appearance-none"><option></option></select>
+                </div>
+                <div class="flex items-center gap-2 flex-1">
+                  <label class="font-label-md text-label-md text-on-surface-variant w-20">Bill Prefix</label>
+                  <input class="w-24 bg-surface-container-low border border-outline-variant rounded-lg px-2 py-1 font-body-sm text-body-sm outline-none shadow-sm" type="text" />
+                  <label class="font-label-md text-label-md text-on-surface-variant w-16 ml-4">Bill No.</label>
+                  <input class="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-2 py-1 font-body-sm text-body-sm outline-none shadow-sm" type="text" />
+                </div>
+              </fieldset>
+            </div>
+
+            <div class="w-64 flex flex-col justify-end gap-2 border-l border-outline-variant pl-6">
+              <div class="flex gap-2">
+                <button class="flex-1 bg-surface-container-lowest hover:bg-surface-container border border-outline-variant text-on-surface font-label-md text-label-md py-1.5 rounded-lg transition-colors font-bold shadow-sm">Clear</button>
+                <button class="flex-1 bg-primary hover:bg-primary-fixed-dim text-on-primary font-label-md text-label-md py-1.5 rounded-lg transition-colors font-bold shadow-sm">OK</button>
+              </div>
+              <button class="w-full bg-secondary hover:bg-secondary-fixed-dim text-on-secondary font-label-md text-[13px] py-2 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-1.5 font-bold mt-2 tracking-wide">
+                <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                Confirm Order
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-surface-container border-t border-outline-variant p-2 grid grid-cols-9 gap-1 text-center divide-x divide-outline-variant rounded-b-xl">
+            <div class="px-2 flex flex-col justify-center">
+              <div class="text-[10px] font-bold text-on-surface-variant uppercase mb-0.5">Total No. of Items</div>
+              <div class="font-mono-md text-body-lg font-bold text-on-surface">3</div>
+            </div>
+            <div class="px-2 flex flex-col justify-center">
+              <div class="text-[10px] font-bold text-on-surface-variant uppercase mb-0.5">Total Qty.</div>
+              <div class="font-mono-md text-body-lg font-bold text-on-surface">5.00</div>
+            </div>
+            <div class="px-2 flex flex-col justify-center">
+              <div class="text-[10px] font-bold text-on-surface-variant uppercase mb-0.5">Sales Value</div>
+              <div class="font-mono-md text-body-lg font-bold text-on-surface">2555.00</div>
+            </div>
+            <div class="px-2 flex flex-col justify-center">
+              <div class="text-[10px] font-bold text-on-surface-variant uppercase mb-0.5">Item Level Discount</div>
+              <div class="font-mono-md text-body-lg font-bold text-on-surface">0.00</div>
+            </div>
+            <div class="px-2 flex flex-col justify-center">
+              <div class="text-[10px] font-bold text-on-surface-variant uppercase mb-0.5">Bill Discount</div>
+              <div class="font-mono-md text-body-lg font-bold text-on-surface">0.00</div>
+            </div>
+            <div class="px-2 flex flex-col justify-center">
+              <div class="text-[10px] font-bold text-on-surface-variant uppercase mb-0.5">Total Tax</div>
+              <div class="font-mono-md text-body-lg font-bold text-on-surface">102.20</div>
+            </div>
+            <div class="px-2 flex flex-col justify-center">
+              <div class="text-[10px] font-bold text-on-surface-variant uppercase mb-0.5">Total Addons</div>
+              <div class="font-mono-md text-body-lg font-bold text-on-surface">0.00</div>
+            </div>
+            <div class="px-2 flex flex-col justify-center">
+              <div class="text-[10px] font-bold text-on-surface-variant uppercase mb-0.5">Total Deductions</div>
+              <div class="font-mono-md text-body-lg font-bold text-on-surface">0.00</div>
+            </div>
+            <div class="bg-primary-fixed-dim/30 -my-2 py-2 px-2 flex flex-col justify-center border-l-2 border-primary/20">
+              <div class="text-[11px] font-black text-primary uppercase mb-0.5">Net Amount</div>
+              <div class="font-mono-md text-headline-md font-black text-primary">2657.20</div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

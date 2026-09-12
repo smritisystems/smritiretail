@@ -1,0 +1,252 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Goods Outwards Configuration</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+tr.hcp2 { x-cell-content-align:top; }
+td.hcp3 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp4 { border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp5 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp6 { border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+-->
+</style>
+</head>
+<body>
+<h1>Configuration</h1>
+
+<h2><a name=PermittedOpsforGoodsOutwards>Permitted Operations for Goods 
+ Outwards</a></h2>
+
+<p class=Body-Text
+	style="font-weight: normal;">To enable a functionality, set the parameter 
+ <span class="hcp1">Permitted Operations for Goods Outwards</span> 
+ under the category <span class="hcp1">Outwards</span> accordingly.</p>
+
+<h2><a name=TransactionType>Transaction Types</a></h2>
+
+<p class=Body-Text>To add values to the transaction types list, set the 
+ system parameter <span class="hcp1">Valid Transactions in 
+ Goods Outwards</span> under <span class="hcp1">Outwards</span>.</p>
+
+<h2><a name=ReasonCode>Reason Code</a></h2>
+
+<p class=Body-Text>To add values under reason code, insert values under 
+ the category <span class="hcp1">Reason for Misc Issues</span> 
+ in <span class="hcp1">General Lookup</span>.</p>
+
+<h2><a name=LoadFromPDTFile>Load From PDT File</a></h2>
+
+<p class=Body-Text>To enable loading from PDT file and to specify the format 
+ of PDT files, set the system parameter <span class="hcp1">Allow 
+ PDT File Loading in Goods Inwards/Goods Outwards/Physical Verification</span> 
+ under <span class="hcp1">Inwards</span>.</p>
+
+<p class=Body-Text>The following configurations are available under the 
+ <span class="hcp1">Goods Outwards</span> option:</p>
+
+<table x-use-null-cells
+		style="x-cell-content-align: top;
+				width: 82.773%;
+				margin-left: 80px;
+				border-spacing: 0px;
+				border-spacing: 0px;"
+		cellspacing=0
+		width=82.773%>
+<col style="width: 37.354%;">
+<col style="width: 13.237%;">
+<col style="width: 49.409%;">
+
+<tr valign="top" class="hcp2">
+<td style="width:37.354%;" width="37.354%" class="hcp3">
+<p class=TableCellCaption
+	style="font-weight: bold;">Option</td>
+<td style="width:13.237%;" width="13.237%" class="hcp4">
+<p class=TableCellCaption
+	style="font-weight: bold;">Value</td>
+<td style="width:49.409%;" width="49.409%" class="hcp4">
+<p class=TableCellCaption
+	style="font-weight: bold;">Effect</td></tr>
+
+<tr valign="top" class="hcp2">
+<td rowspan="2" colspan="1" style="width:37.354%;" width="37.354%" class="hcp5">
+<p class=TableCell>PDT Loading Applicable</td>
+<td style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>Y</td>
+<td style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Allows PDT file loading</td></tr>
+
+<tr valign="top" class="hcp2">
+<td style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>N</td>
+<td style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Disallow PDT file loading</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="2" style="width:37.354%;" width="37.354%" class="hcp5">
+<p class=TableCell>Default Format Applicable</td>
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>Y</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Allows to specify a constant file format under the option, 
+ Default File Format</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>N</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Need to choose the file format at the time of loading 
+ the file</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="5" style="width:37.354%;" width="37.354%" class="hcp5">
+<p class=TableCell>Default File Format (applicable only if Default Format 
+ Applicable is set to Y)</td>
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>1</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Stock No</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>2</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Stock No and ActQty</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>3</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Stock No, Rate and ActQty</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>4</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Stock No, DocQty and ActQty</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>5</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Stock No, Rate, DocQty and ActQty</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="3" style="width:37.354%;" width="37.354%" class="hcp5">
+<p class=TableCell>Loading Order</td>
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>1</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Ascending</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>2</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>Descending</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="1" style="width:13.237%;" width="13.237%" class="hcp6">
+<p class=TableCell>3</td>
+<td colspan="1" rowspan="1" style="width:49.409%;" width="49.409%" class="hcp6">
+<p class=TableCell>As in the PDT file</td></tr>
+</table>
+
+<h2><a name=LoadInwardToOutward>Load Inward to Outward</a></h2>
+
+<p class=Body-Text>To enable loading details from inwards document to outward 
+ documents, set the system parameter <span class="hcp1">Import 
+ Goods Inwards into Goods Outwards</span> under the category <span class="hcp1">Outwards</span>.</p>
+
+<h2><a name=EnablingLSQ>Enabling LSQ</a></h2>
+
+<p class=Body-Text>To enable LSQ, set these parameters under the category 
+ <span class="hcp1">Outwards</span>:</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Least Saleable Quantity on 
+ Item Selection - Misc. Issue</p></li>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Least Saleable Quantity on 
+ Item Selection in Purchase Returns</p></li>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Least Saleable Quantity on 
+ Item Selection in Transfer Out</p></li>
+</ul>
+
+<h2><a name=ValidationofTranQty>Validation of Transaction Quantity</a></h2>
+
+<p class=Body-Text
+	style="margin-left: 7px;">To validate stock during goods outwards, 
+ set these parameters under the category <span class="hcp1">Outwards</span>:</p>
+
+<p class=Body-Text
+	style="font-weight: bold; margin-left: 7px;">Stock check in Goods Outwards 
+ - Misc. Issue</p>
+
+<p class=Body-Text
+	style="font-weight: bold; margin-left: 7px;">Stock check in Goods Outwards 
+ - Purchase Returns</p>
+
+<p class=Body-Text
+	style="font-weight: bold; margin-left: 7px;">Stock check in Goods Outwards 
+ - Transfer Out</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">Configurations allowed are:</p>
+
+<table x-use-null-cells
+		style="x-cell-content-align: top;
+				width: 81.484%;
+				border-spacing: 0px;
+				border-spacing: 0px;"
+		cellspacing=0
+		width=81.484%>
+<col style="width: 14.055%;">
+<col style="width: 89.087%;">
+
+<tr valign="top" class="hcp2">
+<td style="width:14.055%;" width="14.055%" class="hcp3">
+<p class=TableCellCaption
+	style="font-weight: bold;">Value</td>
+<td style="width:89.087%;" width="89.087%" class="hcp4">
+<p class=TableCellCaption
+	style="font-weight: bold;">Effect</td></tr>
+
+<tr valign="top" class="hcp2">
+<td style="width:14.055%;" width="14.055%" class="hcp5">
+<p class=TableCell>0</td>
+<td style="width:89.087%;" width="89.087%" class="hcp6">
+<p class=TableCell>Never check stock</td></tr>
+
+<tr valign="top" class="hcp2">
+<td style="width:14.055%;" width="14.055%" class="hcp5">
+<p class=TableCell>1</td>
+<td style="width:89.087%;" width="89.087%" class="hcp6">
+<p class=TableCell>Allow outward with warning</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="1" style="width:14.055%;" width="14.055%" class="hcp5">
+<p class=TableCell>2</td>
+<td colspan="1" rowspan="1" style="width:89.087%;" width="89.087%" class="hcp6">
+<p class=TableCell>Disallow outward</td></tr>
+
+<tr valign="top" class="hcp2">
+<td colspan="1" rowspan="1" style="width:14.055%;" width="14.055%" class="hcp5">
+<p class=TableCell>3</td>
+<td colspan="1" rowspan="1" style="width:89.087%;" width="89.087%" class="hcp6">
+<p class=TableCell>Stop outward update, if multiple users are simultaneously 
+ doing outward and some of them do not find sufficient quantity for transaction</td></tr>
+</table>
+
+<p class=Body-Text
+	style="margin-left: 7px;">&nbsp;</p>
+
+</body>
+</html>

@@ -132,6 +132,12 @@ class ScreenDefinition(Base):
     icon_key = Column(String(100), nullable=True)
     status = Column(String(30), nullable=False, default="ACTIVE")
 
+    # Architecture Governance SSOT Extensions
+    screen_key = Column(String(100), nullable=True)
+    entity_key = Column(String(50), nullable=True)
+    canonical_route = Column(String(255), nullable=True)
+    canonical_component = Column(String(255), nullable=True)
+
 
 class FieldDefinition(Base):
     """
@@ -178,6 +184,14 @@ class FieldDefinition(Base):
     max_value = Column(Numeric(precision=18, scale=4), nullable=True)
     format_mask = Column(String(100), nullable=True)
     status = Column(String(30), nullable=False, default="ACTIVE")
+
+    # Architecture Governance SSOT Extensions
+    entity_key = Column(String(50), nullable=True)
+    canonical_table = Column(String(100), nullable=True)
+    canonical_column = Column(String(100), nullable=True)
+    api_alias = Column(String(100), nullable=True)
+    ui_aliases = Column(JSONB, nullable=False, default=list)
+    semantic_definition = Column(Text, nullable=True)
 
 
 class ActionDefinition(Base):

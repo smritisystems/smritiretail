@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0902-EC041F",
+  "entity": "customer",
+  "capability": "customer.lookup",
+  "asset_type": "component",
+  "proposed_name": "UniversalBrowseEngine.tsx",
+  "target_file_path": null,
+  "decision": "REUSE_EXISTING",
+  "canonical_owner": "src/components/drilldown/UniversalBrowseEngine.tsx",
+  "content_hash": "2057a751f744f0872062b4bc82b87192250dbc035979122525898a248c01ce7c",
+  "git_commit": "206bdcc1785492345ce22f0fccf8094847ad0157",
+  "issued_at": "2026-09-02T20:11:37.627884+00:00",
+  "expires_at": "2026-09-09T20:11:37.627884+00:00",
+  "status": "ISSUED"
+}

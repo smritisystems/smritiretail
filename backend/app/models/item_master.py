@@ -22,30 +22,34 @@ class Item(BaseEntity):
     """
     Universal Item Master in SMRITI Tenant Data Plane (smritiXXX).
     Canonical catalog entity across POS, B2B Sales, Procurement, WMS, and Distribution.
+    NOTE: Pricing is authoritatively governed by the Pricing Domain (price_books / price_book_entries).
     """
     __tablename__ = "items"
+    __table_args__ = (
+        UniqueConstraint("company_id", "item_code", name="uq_items_company_item_code"),
+    )
 
-    item_code = Column(String(50), nullable=False, unique=True, index=True)
+    item_code = Column(String(50), nullable=False, index=True)
     item_name = Column(String(255), nullable=False)
     item_type = Column(String(30), nullable=False, default="FINISHED_GOOD")  # FINISHED_GOOD, RAW_MATERIAL, SERVICE, PACKAGING, CONSUMABLE
-    category = Column(String(100), nullable=False, index=True)
+    category = Column(String(100), nullable=True, index=True)
     category_code = Column(String(50), nullable=True)
     brand = Column(String(100), nullable=True)
     hsn_code = Column(String(15), nullable=True)
-    tax_rate = Column(Numeric(5, 2), nullable=False, default=18.00)
-    primary_uom = Column(String(20), nullable=False, default="PCS")
+    tax_rate = Column(Numeric(5, 2), nullable=True)
+    primary_uom = Column(String(20), nullable=True)
     
-    # Standard pricing baseline
-    mrp = Column(Numeric(15, 2), nullable=False, default=0.00)
-    selling_price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    # Non-authoritative legacy baseline fields (Pricing Domain is sole system-of-record)
+    mrp = Column(Numeric(15, 2), nullable=True, default=0.00)
+    selling_price = Column(Numeric(15, 2), nullable=True, default=0.00)
     buying_price = Column(Numeric(15, 2), nullable=True)
-    cost_price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    cost_price = Column(Numeric(15, 2), nullable=True, default=0.00)
     
     # Inventory tracking configuration
     is_batch_tracked = Column(Boolean, nullable=False, default=False)
     is_serial_tracked = Column(Boolean, nullable=False, default=False)
     is_favorite = Column(Boolean, nullable=False, default=False)
-    status = Column(String(30), nullable=False, default="ACTIVE")  # ACTIVE, INACTIVE, DISCONTINUED
+    status = Column(String(30), nullable=False, default="ACTIVE")  # ACTIVE, INACTIVE, DISCONTINUED, REQUIRES_REVIEW
     
     # Extended attributes & assets
     attributes_json = Column(JSONB, server_default=text("'{}'"), default=dict)
@@ -63,16 +67,25 @@ class Item(BaseEntity):
 class ItemVariant(BaseEntity):
     """
     Item Variant entity representing SKU dimensions (e.g. Size, Color, Fit, Pack).
+    NOTE: Pricing is authoritatively governed by the Pricing Domain (price_books / price_book_entries).
     """
     __tablename__ = "item_variants"
+    __table_args__ = (
+        UniqueConstraint("company_id", "variant_sku", name="uq_variants_company_sku"),
+    )
 
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
-    variant_sku = Column(String(100), nullable=False, unique=True, index=True)
+    variant_sku = Column(String(100), nullable=False, index=True)
     variant_name = Column(String(255), nullable=False)
     attributes_json = Column(JSONB, server_default=text("'{}'"), default=dict)  # {"size": "XL", "color": "Navy"}
-    mrp = Column(Numeric(15, 2), nullable=False, default=0.00)
-    selling_price = Column(Numeric(15, 2), nullable=False, default=0.00)
-    cost_price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    
+    # Explicit Statutory / Compliance Overrides (First-Class Schema Columns)
+    hsn_code = Column(String(15), nullable=True)
+    tax_rate = Column(Numeric(5, 2), nullable=True)
+    
+    mrp = Column(Numeric(15, 2), nullable=True, default=0.00)
+    selling_price = Column(Numeric(15, 2), nullable=True, default=0.00)
+    cost_price = Column(Numeric(15, 2), nullable=True, default=0.00)
     is_active = Column(Boolean, nullable=False, default=True)
 
     # Relationships
@@ -88,7 +101,7 @@ class ItemBarcode(BaseEntity):
     """
     __tablename__ = "item_barcodes"
     __table_args__ = (
-        UniqueConstraint("barcode", name="uq_item_barcode_value"),
+        UniqueConstraint("company_id", "barcode", name="uq_barcodes_company_barcode"),
     )
 
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -163,3 +176,27 @@ class ItemWarehouseLocation(BaseEntity):
 
     # Relationships
     item = relationship("Item", back_populates="locations")
+
+
+class LegacyIdMapping(BaseEntity):
+    """
+    Immutable Permanent Lineage Mapping Table.
+    Preserves audit trails, historical transactions, and cross-model references
+    between legacy tables (e.g. products) and canonical models (items, item_variants).
+    """
+    __tablename__ = "legacy_id_mappings"
+    __table_args__ = (
+        UniqueConstraint("legacy_table", "legacy_id", name="uq_legacy_mapping_source"),
+    )
+
+    migration_run_id = Column(String(50), nullable=False, index=True)
+    legacy_table = Column(String(50), nullable=False, index=True)
+    legacy_id = Column(String(50), nullable=False, index=True)
+    legacy_uuid = Column(String(36), nullable=True)
+    canonical_table = Column(String(50), nullable=False, index=True)
+    canonical_id = Column(String(50), nullable=False, index=True)
+    canonical_uuid = Column(String(36), nullable=True)
+    disposition = Column(String(50), nullable=False, default="MIGRATED")  # MIGRATED, CONFLICT_REVIEW, MERGED, RETIRED
+    conflict_reason = Column(Text, nullable=True)
+    audit_checksum = Column(String(64), nullable=True)
+

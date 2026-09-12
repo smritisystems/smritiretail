@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.62.0
+  * Version    : 3.30.0
   * Created    : 2026-07-11
-  * Modified   : 2026-08-25
+  * Modified   : 2026-09-09
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,121 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [4.0.0] - 2026-09-11
+
+#### Vendor 360 Workspace & Universal Party Master Canonical Architecture
+
+**Walkthrough:** [Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md](docs/walkthrough/purchase/Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md)  
+**Implementation Plan:** [Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md](docs/implementation/purchase/Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md)
+
+- **Universal Party as Single Source of Truth:** Reconciled dual data models by establishing `Party` + `PartyRole(SUPPLIER)` + `SupplierProfile` as canonical master.
+- **Alembic Migration v1421:** Added `party_bank_accounts` (`SupplierBankAccount`) and `vendor_identity_migrations` (`VendorIdentityMigration`); enhanced `supplier_profiles` with MSME categories, commercial classification, TDS section/rate, and verification flags; enhanced `party_contacts` with `contact_category`.
+- **Atomic Application Service (`VendorService`):** Orchestrated multi-table atomic creation, duplicate prevention guards, and non-destructive dual-write projection to legacy `suppliers` table with `sup-<code.lower()>`.
+- **Canonical DTO & REST API Router:** Created contract-first DTO layer and mounted REST endpoints under `/api/v1/purchase/vendors` and `/api/v1/vendors`.
+- **Vendor 360 Workspace (`VendorMasterWs`):** Delivered responsive 9-tab workspace covering Overview, Identity & Statutory, Addresses, Contacts, Commercial, Banking, Procurement, Payables Aging, and Scorecard, plus Vendor Merge Modal.
+- **Canonical RTV Engine (`CanonicalRTVDomainEngine`):** Standardized on 6-stage procurement return lifecycle (Request → Approval → Dispatch → Vendor Receipt → Debit Note → Settle) and converted `PRTVModal` into a backward-compatible adapter.
+- **Verification:** 4/4 backend tests green, 10/10 vitest tests green, TypeScript 0 errors.
+
+### [3.30.0-security] - 2026-09-09
+
+#### Production Readiness Sprint — Secret Hygiene, Version SSOT, TS Closure, Bundle Splitting
+
+**Walkthrough:** [ProductionReadiness_Sprint_v3.30.0.md](docs/walkthrough/foundation/ProductionReadiness_Sprint_v3.30.0.md)
+
+**Track 1 — Secret Hygiene (CRITICAL)**
+- Replaced 3 hardcoded weak development secrets in root `.env` with 256-bit (64 hex char) cryptographically random values: `JWT_SECRET_KEY`, `INTERNAL_SERVICE_KEY`, `SGIP_VAULT_MASTER_KEY`.
+- Added `⚠️ LOCAL DEV ONLY` warning comment block with procedure reference.
+- Created `SECRETS_NOTICE.md` — documents rotation procedure, minimum key lengths, deployment patterns, and audit trail.
+- Confirmed: `.env` never committed to git (`git log -- .env` = 0 commits). `backend/.env` already uses `${VAR}` substitution (safe).
+
+**Track 2 — Version SSOT**
+- Unified all 4 runtime version locations to `3.30.0` (canonical = `package.json`):
+  - `src/config/version.ts`: `APP_VERSION` bumped from `3.29.0` → `3.30.0`
+  - `backend/app/core/config.py`: `VERSION` bumped from `3.16.0` → `3.30.0` (runtime setting + file header)
+  - `vite.config.ts`: file header updated from `3.17.0` → `3.30.0`
+- Note: `db_provisioner.py` `schema_version: "6.16.0"` is the highest Alembic revision — intentionally not changed.
+
+**Track 3 — TypeScript Zero-Error Audit Closure**
+- Confirmed `npx tsc --noEmit` = 0 errors, 0 output lines (2026-09-09).
+- Confirmed `loyaltyTierEngine.ts` (10,917 bytes) and `rmaEngine.ts` (7,622 bytes) exist in `src/utils/`.
+- Formally closed findings in `docs/_audit/07_version_status.md` with evidence stamp.
+
+**Track 4 — Bundle Splitting Enhancement**
+- Added `vendor-react` chunk (React/ReactDOM/scheduler isolated — fixes circular chunk warning).
+- Added `vendor-query` chunk (@tanstack/react-query isolated).
+- Added `smriti-engines` chunk (all `*Engine.ts` files in `src/utils/`).
+- Added `smriti-billing` chunk (BillingWorkspace + billing components).
+- Added per-tab chunks: `smriti-crm`, `smriti-inventory`, `smriti-accounts`, `smriti-settings`.
+- Circular chunk warning eliminated. Build: 3523 modules, 0 errors, ✓ in 27s.
+
+### [4.13.0] - 2026-09-09
+
+
+#### Universal Item Master 5-Tier Product Resolution Engine & Duplicate Retirement
+
+- **5-Tier Resolution Hierarchy**: Real-time multi-level resolution across Barcode (GS1/EAN), SKU, Customer Article Mapping (Buyer Article Code), Supplier/Vendor Code, and Substring Search.
+- **Adopted 5-Bucket Enterprise Inventory & ATP Engine**: Real-time aggregation of `physical_on_hand`, `in_transit_qty`, `reserved_qty`, `committed_qty` (from sales order reservations), and `quarantine_qty`, implementing the adopted enterprise formula: `ATP = max(0.0, round((physical_on_hand + in_transit_qty) - (reserved_qty + committed_qty + quarantine_qty), 4))`.
+- **Temporal & Customer Contract Pricing with Negative Suite**: Customer active verification, customer-group validation against `cam.metadata_json["eligible_customer_groups"]`, transaction currency matching, effective date window checks (`effective_from <= as_of_date <= effective_to`), invalid date range detection (`effective_from > effective_to`), statutory GST slab calculations (0, 5, 12, 18, 28%) with intra/inter-state splits, and immutable `pricing_audit` metadata.
+- **Rule 12 Schema Parity & Live Migration Execution**: Tenant database migration `v1418_customer_article_mappings.py` applied and verified across tenant databases (`smriti001`, `smriti002`) with 100% column parity (38 columns), foreign key constraints, and partial unique indexes. Proved live DDL execution, DML read/write, foreign key rejection, and partial unique constraint rejection on `smriti002`.
+- **Legacy Duplicate Retirement**: Decommissioned `ItemMasterTab.tsx`, `SalesOrderForm.tsx`, `item_master_service.py`, and `party_service.py`; eliminated all stale code and registry references.
+- **Empirical Benchmarking**: Verified developer baseline latency metrics on `smriti001`: cold cache 501.5ms, warm cache p50 19.7ms, p95 28.4ms, p99 49.1ms, 10-worker concurrency burst 100% success at 14.0 req/sec baseline.
+
+---
+
+### [3.30.0] - 2026-09-02
+
+#### P0 Fix: Customer Master B2B Re-hydration + API Routing Blockers
+
+**Commit:** `6aac3be8`
+
+**Bug Fixes**
+- **CustMasterWs.tsx** (v5.6.0 → v5.7.0): `mapBackendCustomerToRecord()` — replaced `environment: bCust.environment || "Retail"` fallback with deterministic derivation from `customer_group_id` and `tags`. Eliminates B2B → Retail regression on every PostgreSQL round-trip re-hydration.
+- **CustMasterWs.tsx**: Cleared hardcoded `DEFAULT_MAILING_ADDRESS.mobilePhone: "9876543210"` to empty string. Prevents 400 Bad Request duplicate mobile errors on new customer records.
+- **CustMasterWs.tsx**: Added HREP-compliant human-readable error translation for duplicate mobile number backend rejections.
+- **CustMasterWs.tsx**: Synchronised `customer_group_id`, `tags`, `customerType`, `environment`, `price_group`, and `priceGroup` in localStorage cache on every save, preventing stale Retail classification after page reload.
+- **CustFormTab.tsx** (v3.0.0 → v3.1.0): Bidirectional Price Group ↔ Customer Type cascade. Selecting CORP price group auto-sets Corporate type + environment. Selecting Corporate customer type auto-applies CORP price group fields.
+- **inventory.py**: Added `@router.get("")` and `@router.post("")` empty-path decorators alongside `"/"` variants. Raised `page_size` max limit from 100 to 500. Eliminates 307 temporary redirect to internal Docker hostname (`smriti-api:8000`) causing `net::ERR_NAME_NOT_RESOLVED`.
+- **main.py**: Mounted `inventory.router` at `/api/v1/variants` prefix. Resolves 404 Not Found on `GET /api/v1/variants?page_size=200` used by Gate-11E F2 universal browse.
+
+**Tests**
+- Added `src/tests/customerRehydration.test.ts` — 5-scenario unit suite (TEST A–E) covering Corporate, Wholesale, Retail, VIP, and empty-payload re-hydration.
+- Full Vitest suite: 617/617 tests green, 0 failures.
+- Production build: 3526 modules, 0 errors.
+- Docker rebuild: all 4 containers healthy.
+- Headless Playwright UAT: 8/8 steps pass (exit code 0).
+
+**Documentation**
+- Created `docs/walkthrough/customer/Customer_B2B_Rehydration_Fix_v3.30.0.md`
+- Created `docs/implementation/customer/Customer_B2B_Rehydration_Fix_Plan_v3.30.0.md`
+
+---
+
+### [3.123.0] - 2026-09-02
+
+#### F2 Universal Lookup Architecture v2 — Phase C Complete
+
+**Batch 1 — Screen Migrations** (commit `cade22ac`)
+- **TagLabelPrintingTa.tsx** (v6.8.0 → v6.9.0): Replaced local `e.key==='F2'` handler with `useF2Screen` + `FieldAdapter`. `stockNoFrom` and `stockNoTo` tagged with `id` + `data-f2-entity="variant"`. Adapter routes deterministically via `dispatcher.originElementRef.current.id`. `PurchBrowseDlg` (button-triggered), F11, F8 preserved.
+- **CustMasterWs.tsx** (v5.5.0 → v5.6.0): Removed F2 keyboard branch. Registered `useF2Screen(entity=customer)`. Adapter resolves by canonical `id` → `code`. `Alt+S` and `SmritiAdvancedCustomerSearchModal` preserved entirely.
+- **f2PhaseC_Batch1.test.ts**: 17 new regression tests; 59/59 total suite passes.
+
+**Batch 2A — Legacy Infrastructure Decommission** (commit `4398d6a5`)
+- **DELETED** `src/components/drilldown/GlobalF2BrowseDlg.tsx` — 1,118-line dead-render component permanently removed; was rendering `null` on every cycle (isF2ModalOpen permanently false). Bundle: 3527 → 3526 modules.
+- **App.tsx**: Removed `GlobalF2BrowseModal` static import and JSX mount.
+- **ActiveFieldContext.tsx** (v7.0.0 → v7.1.0): Removed `isF2ModalOpen`, `openF2Modal`, `closeF2Modal`, `insertValueIntoActiveField` (no-op stub). Focus/input tracking and HUD support preserved.
+- **GlobalSearch.tsx** (v3.32.0 → v3.33.0): Removed `insertValueIntoActiveField` destructure and call (was already a no-op since Phase A). Ctrl+K, `openPanel`, `pushContext`, drill-down preserved.
+
+**Verification**: TSC 0 errors · 59/59 Vitest · build clean · 0 executable legacy symbol references · `ItemDetailsGrid` F2 untouched.
+
+**Batch 3 — Documentation** (commit `958beb2a`)
+- Created `docs/walkthrough/foundation/F2_Universal_Lookup_Architecture_v2_Phase_C_v1.0.0.md` (13 sections)
+- Updated `docs/walkthrough/README.md` (Phase C row added)
+- Note: `src/components/sales/SalesOrderTab.tsx` (sales order audit-view enhancement, 32 lines) was inadvertently included in `958beb2a` due to pre-existing staging. The change is unrelated to Phase C documentation; it is a valid SalesOrderTab working-tree change and is not rolled back.
+
+**Known limitation (pre-existing, disclosed):** `GlobalSearch.tsx` Ctrl+K field-injection into the previously focused input had been a no-op since Phase A (function body: `console.warn` + return). Batch 2A removal did not introduce new degradation. Classified as pre-existing degraded behaviour identified during legacy cleanup.
+
+---
 
 ### [3.122.1] - 2026-09-01
 

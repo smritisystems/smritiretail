@@ -23,7 +23,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
   title: "Customer Master Data",
   subtitle: "Manage retail & wholesale customer directory, GSTIN profiles, and credit ledgers",
   icon: <Users size={20} />,
-  apiEndpoint: "/api/v1/customers",
+  apiEndpoint: "/api/v1/crm/customers",
   idKey: "id",
   searchPlaceholder: "Search by customer name, mobile, email, or GSTIN...",
   searchFields: ["name", "mobile", "email", "gst_number", "gstNumber", "code"],
