@@ -191,7 +191,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
             }`}
           >
             <Layers size={15} />
-            <span>Variant Templates</span>
+            <span>Article / Style Matrix</span>
           </button>
         </div>
 

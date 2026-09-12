@@ -125,6 +125,7 @@ class AttributeGroupResponse(BaseModel):
 
 class VariantTemplateCreate(BaseModel):
     styleCode: str = Field(..., alias="styleCode")
+    vendorCode: str = Field(..., alias="vendorCode")
     name: str
     brand: Optional[str] = "SMRITI"
     category: Optional[str] = "General"
@@ -141,6 +142,7 @@ class VariantTemplateCreate(BaseModel):
 
 class VariantTemplateUpdate(BaseModel):
     styleCode: Optional[str] = Field(None, alias="styleCode")
+    vendorCode: Optional[str] = Field(None, alias="vendorCode")
     name: Optional[str] = None
     brand: Optional[str] = None
     category: Optional[str] = None
@@ -158,6 +160,7 @@ class VariantTemplateUpdate(BaseModel):
 class VariantTemplateResponse(BaseModel):
     id: str
     styleCode: str = Field(..., serialization_alias="styleCode")
+    vendorCode: Optional[str] = Field(None, serialization_alias="vendorCode")
     name: str
     brand: str
     category: str

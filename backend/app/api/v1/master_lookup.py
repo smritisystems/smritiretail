@@ -35,6 +35,36 @@ router = APIRouter()
 validator_cache = {}
 
 
+def _is_sysadmin(current_user: User) -> bool:
+    return current_user.role == UserRole.SYSADMIN
+
+
+def _require_company_context(current_user: User) -> str:
+    company_id = getattr(current_user, "company_id", None)
+    if not company_id:
+        raise HTTPException(status_code=403, detail="Active company context is required for lookup administration.")
+    return company_id
+
+
+def _scope_value_query(query, current_user: User, *, for_mutation: bool = False):
+    if _is_sysadmin(current_user):
+        return query
+
+    company_id = _require_company_context(current_user)
+    query = query.where(MasterValue.company_id == company_id)
+
+    branch_id = getattr(current_user, "branch_id", None)
+    if for_mutation and branch_id:
+        query = query.where(
+            (MasterValue.branch_id.is_(None)) | (MasterValue.branch_id == branch_id)
+        )
+    elif branch_id:
+        query = query.where(
+            (MasterValue.branch_id.is_(None)) | (MasterValue.branch_id == branch_id)
+        )
+    return query
+
+
 def get_validator(master_type_id: str, schema: dict, version: int):
     cache_key = f"{master_type_id}:{version}"
     if cache_key not in validator_cache:
@@ -207,10 +237,15 @@ async def create_lookup_value(
     )
     company_id = getattr(current_user, "company_id", None)
     branch_id = getattr(current_user, "branch_id", None)
-    if company_id:
+    if not _is_sysadmin(current_user):
+        company_id = _require_company_context(current_user)
         q_val = q_val.where(MasterValue.company_id == company_id)
+        q_val = q_val.where(
+            (MasterValue.branch_id.is_(None)) | (MasterValue.branch_id == branch_id)
+        )
     else:
-        q_val = q_val.where(MasterValue.company_id.is_(None))
+        q_val = q_val.where(MasterValue.company_id == company_id)
+        q_val = q_val.where(MasterValue.branch_id == branch_id)
     res_val = await db.execute(q_val)
     if res_val.scalar_one_or_none():
         raise HTTPException(
@@ -265,9 +300,7 @@ async def update_lookup_value(
         MasterValue.master_type_id == master_type.id,
         MasterValue.is_deleted.is_(False),
     )
-    company_id = getattr(current_user, "company_id", None)
-    if company_id:
-        q_val = q_val.where((MasterValue.company_id == company_id) | MasterValue.company_id.is_(None))
+    q_val = _scope_value_query(q_val, current_user, for_mutation=True)
     res_val = await db.execute(q_val)
     item = res_val.scalar_one_or_none()
     if not item:
@@ -293,8 +326,11 @@ async def update_lookup_value(
             ) from err
         setattr(item, "data", data)
 
-    if payload.code is not None:
-        setattr(item, "code", payload.code)
+    if payload.code is not None and payload.code != item.code:
+        raise HTTPException(
+            status_code=400,
+            detail="Lookup codes are immutable after creation. Retire the existing value and create a new code.",
+        )
     if payload.name is not None:
         setattr(item, "name", payload.name)
     if payload.parent_value_id is not None:
@@ -337,9 +373,7 @@ async def delete_lookup_value(
         MasterValue.master_type_id == master_type.id,
         MasterValue.is_deleted.is_(False),
     )
-    company_id = getattr(current_user, "company_id", None)
-    if company_id:
-        q_val = q_val.where((MasterValue.company_id == company_id) | MasterValue.company_id.is_(None))
+    q_val = _scope_value_query(q_val, current_user, for_mutation=True)
     res_val = await db.execute(q_val)
     item = res_val.scalar_one_or_none()
     if not item:

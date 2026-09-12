@@ -68,6 +68,24 @@ class WarehouseBase(BaseModel):
                 return state_names[name_part]
         raise ValueError(f"Invalid Indian State/UT '{cleaned}'. Must match a valid Indian state or 2-digit GST state code.")
 
+
+class WarehouseLocationCreate(BaseModel):
+    warehouse_id: str
+    code: str
+    name: str
+    aisle: Optional[str] = None
+    rack: Optional[str] = None
+    shelf: Optional[str] = None
+    bin_code: Optional[str] = None
+
+
+class WarehouseLocationResponse(WarehouseLocationCreate):
+    id: str
+    company_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    is_active: bool = True
+    model_config = ConfigDict(from_attributes=True)
+
 class WarehouseCreate(WarehouseBase):
     pass
 

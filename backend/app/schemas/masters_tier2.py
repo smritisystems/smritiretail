@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class CompanyCreate(BaseModel):
@@ -49,11 +49,29 @@ class BranchCreate(BaseModel):
     name: str
     code: str
 
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("Branch code is required.")
+        return normalized
+
 
 class BranchUpdate(BaseModel):
     company: str | None = None
     name: str | None = None
     code: str | None = None
+
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("Branch code cannot be blank.")
+        return normalized
 
 
 class BranchResponse(BaseModel):

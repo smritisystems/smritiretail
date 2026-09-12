@@ -64,6 +64,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     <MasterListScreen<MasterLookupItem>
       config={dynamicConfig}
       currentUser={currentUser}
+      initialSubTab={selectedType}
       onSubTabChange={setSelectedType}
       onNotification={(t, m, type) => {
         if (onNotification) onNotification(t, m, type === "warning" || type === "info" ? "success" : type);

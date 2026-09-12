@@ -185,6 +185,21 @@ export const AttrMgmtStudio: React.FC<SmritiAttributeManagementStudioProps> = ({
         group_id: formState.groupId || null
       };
 
+      const governedAttributes = await apiFetchV1(
+        "/masters/lookup/item_attribute/values?activeOnly=true"
+      );
+      const governedAttribute = Array.isArray(governedAttributes)
+        ? governedAttributes.find((item: any) =>
+            String(item.code || "").trim().toLowerCase() === payload.name.toLowerCase() &&
+            String(item.name || "").trim().toLowerCase() === payload.label.toLowerCase()
+          )
+        : undefined;
+      if (!governedAttribute) {
+        throw new Error(
+          `Create the attribute "${payload.label}" in System Lookups & Core Master Directory first.`
+        );
+      }
+
       await apiFetchV1("/attributes/definitions", {
         method: "POST",
         body: JSON.stringify(payload)

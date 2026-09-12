@@ -76,16 +76,6 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
       )
     },
     {
-      key: "type_code",
-      label: "Lookup Type",
-      width: "150px",
-      render: (val, item) => (
-        <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-theme-surface-2 border border-theme-divider text-theme-primary">
-          {val || item.type || "General"}
-        </span>
-      )
-    },
-    {
       key: "description",
       label: "Description / Notes",
       render: (val) => (

@@ -13,11 +13,13 @@ Classification: Internal
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from ..deps import get_company_db, get_tenant_context, require_role, TenantContext
+from ..deps import get_company_db, get_db, get_tenant_context, require_role, TenantContext
 from ...models.auth import UserRole
+from ...models.master_lookup import MasterType, MasterValue
 from ...schemas.vendor import (
     VendorSummary,
     VendorDetail,
@@ -53,6 +55,8 @@ async def list_vendors(
     db: AsyncSession = Depends(get_company_db),
 ):
     """Lists vendor summaries with operational statuses, classifications, and payables."""
+    # VendorService also enforces Party.party_code uniqueness at the company DB
+    # boundary; the control-plane check above ensures the code is governed.
     service = VendorService(db, tenant)
     return await service.list_vendors(
         search=search,
@@ -73,12 +77,37 @@ async def create_vendor(
     req: VendorCreateRequest,
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
 ):
     """
     Atomically creates a Vendor with Universal Party identity, SUPPLIER role,
     statutory compliance, addresses, categorized contacts, and bank accounts.
     Maintains backward-compatible non-destructive projection into legacy suppliers.
     """
+    vendor_code = (req.code or "").strip().upper()
+    if not vendor_code:
+        raise HTTPException(status_code=400, detail="Vendor Code must be selected from System Lookups.")
+
+    lookup_type = await control_db.scalar(
+        select(MasterType).where(MasterType.code == "vendor_code")
+    )
+    governed_code = None
+    if lookup_type:
+        governed_code = await control_db.scalar(
+            select(MasterValue).where(
+                MasterValue.master_type_id == lookup_type.id,
+                MasterValue.code == vendor_code,
+                MasterValue.active.is_(True),
+                MasterValue.is_deleted.is_(False),
+            )
+        )
+    if not governed_code:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.",
+        )
+
+    req.code = vendor_code
     service = VendorService(db, tenant)
     return await service.create_vendor(req)
 
