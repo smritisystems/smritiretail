@@ -24,8 +24,14 @@ def upgrade() -> None:
 
     bind.execute(
         sa.text(
+            "UPDATE attribute_groups SET size_group_id = 'FOOTWEAR_EU' "
+            "WHERE (lower(name) LIKE '%footwear%' OR lower(name) LIKE '%shoe%') AND (size_group_id IS NULL OR size_group_id = '')"
+        )
+    )
+    bind.execute(
+        sa.text(
             "UPDATE attribute_groups SET size_group_id = 'APPAREL_ALPHA' "
-            "WHERE lower(name) = 'apparel basic' AND (size_group_id IS NULL OR size_group_id = '')"
+            "WHERE (size_group_id IS NULL OR size_group_id = '')"
         )
     )
 

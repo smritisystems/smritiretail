@@ -20,14 +20,17 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.master_lookup import MasterType, MasterValue
+from ...models.size_groups import SizeGroup, SizeGroupValue
 from ...schemas.master_lookup import (
     MasterTypeCreate, MasterTypeResponse,
     MasterValueCreate, MasterValueUpdate, MasterValueResponse
 )
+from ...services.size_groups import normalize_size_group_payload
 
 router = APIRouter()
 
@@ -74,6 +77,24 @@ def _assign_single_vendor_owner(item: MasterValue, vendor_code: str) -> None:
             detail="Article / Style is already assigned to another vendor and cannot be reassigned.",
         )
     item.vendor_code = normalized_code
+
+
+def _serialize_size_group(group: SizeGroup) -> dict:
+    values = []
+    for value in sorted(group.values, key=lambda item: (item.sort_order or 0, item.value or "")):
+        if not value.is_deleted and value.is_active:
+            values.append(value.value)
+    return {
+        "id": group.id,
+        "code": group.code,
+        "name": group.name,
+        "category": group.category or "GENERAL",
+        "dimension": group.dimension or "size",
+        "values": values,
+        "is_active": group.is_active,
+        "company_id": group.company_id,
+        "branch_id": group.branch_id,
+    }
 
 
 def get_validator(master_type_id: str, schema: dict, version: int):
@@ -204,6 +225,173 @@ async def list_lookup_values(
     return list(res.scalars().all())
 
 
+@router.get(
+    "/size-groups",
+)
+async def list_size_groups(
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List canonical size groups and their ordered values."""
+    q = select(SizeGroup).options(selectinload(SizeGroup.values)).where(SizeGroup.is_deleted.is_(False))
+    company_id = getattr(current_user, "company_id", None)
+    branch_id = getattr(current_user, "branch_id", None)
+    if company_id:
+        q = q.where((SizeGroup.company_id == company_id) | SizeGroup.company_id.is_(None))
+    if branch_id:
+        q = q.where((SizeGroup.branch_id == branch_id) | SizeGroup.branch_id.is_(None))
+    q = q.order_by(SizeGroup.name.asc())
+    result = await db.execute(q)
+    return [_serialize_size_group(group) for group in result.scalars().all()]
+
+
+@router.post(
+    "/size-groups",
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def create_size_group(
+    payload: dict,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a dedicated size group and its ordered values."""
+    normalized = normalize_size_group_payload(payload)
+    if not normalized["code"] or not normalized["name"]:
+        raise HTTPException(status_code=400, detail="Size group code and name are required.")
+
+    existing = await db.scalar(
+        select(SizeGroup).where(
+            SizeGroup.code == normalized["code"],
+            SizeGroup.is_deleted.is_(False),
+        )
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Size group '{normalized['code']}' already exists.")
+
+    timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+    group = SizeGroup(
+        id=f"sg-{timestamp}",
+        code=normalized["code"],
+        name=normalized["name"],
+        category=normalized["category"],
+        dimension=normalized["dimension"],
+        company_id=getattr(current_user, "company_id", None),
+        branch_id=getattr(current_user, "branch_id", None),
+        is_active=normalized["active"],
+        is_deleted=False,
+        created_by=current_user.username,
+        updated_by=current_user.username,
+    )
+    db.add(group)
+    await db.flush()
+
+    for idx, value in enumerate(normalized["values"]):
+        db.add(
+            SizeGroupValue(
+                id=f"sgv-{timestamp}-{idx}",
+                size_group_id=group.id,
+                value=value,
+                sort_order=idx,
+                is_active=True,
+                is_deleted=False,
+                company_id=getattr(current_user, "company_id", None),
+                branch_id=getattr(current_user, "branch_id", None),
+                created_by=current_user.username,
+                updated_by=current_user.username,
+            )
+        )
+
+    await db.commit()
+    await db.refresh(group)
+    return _serialize_size_group(group)
+
+
+@router.put(
+    "/size-groups/{group_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def update_size_group(
+    group_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update a size group and replace its ordered values."""
+    group = await db.scalar(
+        select(SizeGroup).options(selectinload(SizeGroup.values)).where(
+            SizeGroup.id == group_id,
+            SizeGroup.is_deleted.is_(False),
+        )
+    )
+    if not group:
+        raise HTTPException(status_code=404, detail="Size group not found.")
+
+    normalized = normalize_size_group_payload(payload)
+    group.code = normalized["code"] or group.code
+    group.name = normalized["name"] or group.name
+    group.category = normalized["category"]
+    group.dimension = normalized["dimension"]
+    group.is_active = normalized["active"]
+    group.updated_by = current_user.username
+
+    for value in list(group.values):
+        value.is_deleted = True
+        value.is_active = False
+        value.updated_by = current_user.username
+
+    for idx, value in enumerate(normalized["values"]):
+        db.add(
+            SizeGroupValue(
+                id=f"sgv-{group.id}-{idx}",
+                size_group_id=group.id,
+                value=value,
+                sort_order=idx,
+                is_active=True,
+                is_deleted=False,
+                company_id=group.company_id,
+                branch_id=group.branch_id,
+                created_by=current_user.username,
+                updated_by=current_user.username,
+            )
+        )
+
+    await db.commit()
+    await db.refresh(group)
+    return _serialize_size_group(group)
+
+
+@router.delete(
+    "/size-groups/{group_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def delete_size_group(
+    group_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Soft-delete a size group and its values."""
+    group = await db.scalar(
+        select(SizeGroup).options(selectinload(SizeGroup.values)).where(
+            SizeGroup.id == group_id,
+            SizeGroup.is_deleted.is_(False),
+        )
+    )
+    if not group:
+        raise HTTPException(status_code=404, detail="Size group not found.")
+
+    group.is_deleted = True
+    group.is_active = False
+    group.deleted_by = current_user.username
+    for value in group.values:
+        value.is_deleted = True
+        value.is_active = False
+        value.deleted_by = current_user.username
+
+    await db.commit()
+    return {"success": True, "deletedId": group_id}
+
+
 @router.post(
     "/lookup/{type_code}/values",
     response_model=MasterValueResponse,
@@ -230,6 +418,25 @@ async def create_lookup_value(
 
     # Validate JSON Data Payload
     data = payload.data or {}
+    if type_code == "size_group":
+        normalized = normalize_size_group_payload({
+            "code": payload.code,
+            "name": payload.name,
+            "data": data,
+            "active": payload.active,
+            "values": data.get("values"),
+            "category": data.get("category"),
+            "dimension": data.get("dimension"),
+            "description": data.get("description"),
+        })
+        data = {
+            **data,
+            "category": normalized["category"],
+            "dimension": normalized["dimension"],
+            "values": normalized["values"],
+        }
+        if normalized["description"]:
+            data["description"] = normalized["description"]
     try:
         validator = get_validator(
             str(master_type.id),
@@ -342,6 +549,25 @@ async def update_lookup_value(
     # Validate JSON Data Payload if updated
     if payload.data is not None:
         data = payload.data
+        if type_code == "size_group":
+            normalized = normalize_size_group_payload({
+                "code": item.code,
+                "name": item.name,
+                "data": data,
+                "active": item.active,
+                "values": data.get("values"),
+                "category": data.get("category"),
+                "dimension": data.get("dimension"),
+                "description": data.get("description"),
+            })
+            data = {
+                **data,
+                "category": normalized["category"],
+                "dimension": normalized["dimension"],
+                "values": normalized["values"],
+            }
+            if normalized["description"]:
+                data["description"] = normalized["description"]
         try:
             validator = get_validator(
                 str(master_type.id),

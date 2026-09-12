@@ -98,6 +98,7 @@ class AttributeGroupCreate(BaseModel):
     gridColumnAttributeId: Optional[str] = Field(None, alias="gridColumnAttributeId")
     gridRowAttributeId: Optional[str] = Field(None, alias="gridRowAttributeId")
     sizeGroupId: Optional[str] = Field(None, alias="sizeGroupId")
+    colorGroupId: Optional[str] = Field(None, alias="colorGroupId")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -108,6 +109,7 @@ class AttributeGroupUpdate(BaseModel):
     gridColumnAttributeId: Optional[str] = Field(None, alias="gridColumnAttributeId")
     gridRowAttributeId: Optional[str] = Field(None, alias="gridRowAttributeId")
     sizeGroupId: Optional[str] = Field(None, alias="sizeGroupId")
+    colorGroupId: Optional[str] = Field(None, alias="colorGroupId")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -119,6 +121,7 @@ class AttributeGroupResponse(BaseModel):
     gridColumnAttributeId: Optional[str] = Field(None, serialization_alias="gridColumnAttributeId")
     gridRowAttributeId: Optional[str] = Field(None, serialization_alias="gridRowAttributeId")
     sizeGroupId: Optional[str] = Field(None, serialization_alias="sizeGroupId")
+    colorGroupId: Optional[str] = Field(None, serialization_alias="colorGroupId")
 
     model_config = {
         "from_attributes": True,
@@ -136,6 +139,7 @@ class VariantTemplateCreate(BaseModel):
     hsnCode: Optional[str] = "61091000"
     basePrice: Optional[float] = Field(0.0, alias="basePrice")
     baseMrp: Optional[float] = Field(0.0, alias="baseMrp")
+    baseCostPrice: Optional[float] = Field(0.0, alias="baseCostPrice")
     gstPercentage: Optional[float] = Field(18.0, alias="gstPercentage")
     attributeGroupId: str = Field(..., alias="attributeGroupId")
     pricingMode: Optional[str] = Field("Fixed", alias="pricingMode")
@@ -154,6 +158,7 @@ class VariantTemplateUpdate(BaseModel):
     hsnCode: Optional[str] = None
     basePrice: Optional[float] = Field(None, alias="basePrice")
     baseMrp: Optional[float] = Field(None, alias="baseMrp")
+    baseCostPrice: Optional[float] = Field(None, alias="baseCostPrice")
     gstPercentage: Optional[float] = Field(None, alias="gstPercentage")
     attributeGroupId: Optional[str] = Field(None, alias="attributeGroupId")
     pricingMode: Optional[str] = Field(None, alias="pricingMode")
@@ -173,6 +178,7 @@ class VariantTemplateResponse(BaseModel):
     hsnCode: str = Field(..., serialization_alias="hsnCode")
     basePrice: float = Field(..., serialization_alias="basePrice")
     baseMrp: float = Field(..., serialization_alias="baseMrp")
+    baseCostPrice: float = Field(..., serialization_alias="baseCostPrice")
     gstPercentage: float = Field(..., serialization_alias="gstPercentage")
     attributeGroupId: str = Field(..., serialization_alias="attributeGroupId")
     pricingMode: str = Field(..., serialization_alias="pricingMode")

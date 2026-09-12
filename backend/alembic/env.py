@@ -71,6 +71,7 @@ from app.compliance.models import (
 from app.models.numbering import DocumentSeries, NumberingAuditLog
 from app.models.terms import TermsClause, TermsDefault, TermsSnapshot, ApprovalWorkflowLog
 from app.models.attributes import AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
+from app.models.size_groups import SizeGroup, SizeGroupValue
 from app.models.barcode import BarcodeLayout, PrintTemplate, PrintProfile
 from app.models.exchange import DataExchangeTask, DataExchangeFieldMapping
 from app.models.product_identity import BarcodeProvider, IdentityRule, ProductIdentity
@@ -146,6 +147,8 @@ def include_object(object, name, type_, reflected, compare_to):
             "attribute_groups",
             "variant_templates",
             "category_attribute_group_mappings",
+            "size_groups",
+            "size_group_values",
             "barcode_layouts",
             "print_templates",
             "print_profiles",
