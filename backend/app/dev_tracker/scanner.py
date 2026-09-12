@@ -189,7 +189,21 @@ def get_module_resource_mapping(module_id: str, module_name: str) -> dict[str, A
     }
 
 def scan_codebase() -> dict[str, Any]:
-    root_dir = Path(__file__).resolve().parent.parent.parent.parent
+    configured_root = os.environ.get("SDIC_REPOSITORY_ROOT")
+    if configured_root:
+        root_dir = Path(configured_root).expanduser().resolve()
+    else:
+        candidates = [
+            Path(__file__).resolve().parent.parent.parent.parent,
+            Path.cwd(),
+        ]
+        root_dir = next(
+            (candidate for candidate in candidates if (candidate / "package.json").exists() and (candidate / "src").is_dir()),
+            candidates[0],
+        )
+
+    if not root_dir.is_dir():
+        raise RuntimeError(f"SDIC repository root does not exist: {root_dir}")
     
     # 1. Recurse and gather files
     files_list = []
@@ -483,13 +497,14 @@ def scan_codebase() -> dict[str, Any]:
     }
 
     try:
-        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True).strip()
-        git_info["lastCommitHash"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%h"], text=True).strip()
-        git_info["lastCommitMessage"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%s"], text=True).strip()
-        git_info["lastCommitAuthor"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%an"], text=True).strip()
-        git_info["lastCommitDate"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%ad", "--date=short"], text=True).strip()
-        git_info["commitCount"] = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], text=True).strip())
-        status_out = subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()
+        git_kwargs = {"text": True, "cwd": str(root_dir)}
+        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], **git_kwargs).strip()
+        git_info["lastCommitHash"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%h"], **git_kwargs).strip()
+        git_info["lastCommitMessage"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%s"], **git_kwargs).strip()
+        git_info["lastCommitAuthor"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%an"], **git_kwargs).strip()
+        git_info["lastCommitDate"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%ad", "--date=short"], **git_kwargs).strip()
+        git_info["commitCount"] = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], **git_kwargs).strip())
+        status_out = subprocess.check_output(["git", "status", "--porcelain"], **git_kwargs).strip()
         if status_out:
             git_info["pendingFiles"] = [line[3:].strip() for line in status_out.splitlines()]
             git_info["pendingChangesCount"] = len(git_info["pendingFiles"])
@@ -530,14 +545,25 @@ def scan_codebase() -> dict[str, Any]:
         except Exception as e:
             print(f"[SDIC Python] Failed to load history.json: {e}")
 
+    quality_penalty = min(35, int((todos_count + (fixmes_count * 2) + (hacks_count * 3)) / 100))
+    large_component_penalty = min(25, len(large_components))
+    quality_score = max(0, 100 - quality_penalty - large_component_penalty)
+    release_score = int(round(
+        (dhi * 0.40)
+        + (quality_score * 0.20)
+        + (avg_tests * 0.15)
+        + (avg_docs * 0.10)
+        + (avg_security * 0.15)
+    ))
+
     return {
         "timestamp": subprocess.check_output(["date", "/T"], shell=True, text=True).strip() if os.name == "nt" else "2026-07-11",
         "gitInfo": git_info,
         "releaseScores": {
             "dhi": dhi,
             "developmentScore": int((avg_frontend + avg_backend + avg_db + avg_api) / 4),
-            "qualityScore": max(0, 100 - int(todos_count / 10) - (len(large_components) * 2)),
-            "releaseScore": int((dhi + 95 + avg_tests) / 3),
+            "qualityScore": quality_score,
+            "releaseScore": release_score,
             "securityScore": avg_security,
             "testCoverage": avg_tests,
             "documentation": avg_docs,

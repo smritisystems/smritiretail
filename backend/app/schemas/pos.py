@@ -264,11 +264,11 @@ class POSCheckoutItem(BaseModel):
     variant_id: Optional[str] = None
     code:       str
     name:       str
-    quantity:   Decimal
-    price:      Decimal
+    quantity:   Decimal           = Field(..., gt=Decimal("0.00"))
+    price:      Decimal           = Field(..., ge=Decimal("0.00"))
     hsn_code:   Optional[str]     = None
-    gst_rate:   Decimal           = Decimal("0.00")
-    mrp:        Optional[Decimal] = None
+    gst_rate:   Decimal           = Field(Decimal("0.00"), ge=Decimal("0.00"))
+    mrp:        Optional[Decimal] = Field(None, ge=Decimal("0.00"))
 
 
 class POSCheckoutRequest(BaseModel):
@@ -281,7 +281,7 @@ class POSCheckoutRequest(BaseModel):
     """
     invoice_no:           str
     shift_id:             str
-    items:                List[POSCheckoutItem]
+    items:                List[POSCheckoutItem] = Field(..., min_length=1)
     payment_mode:         str                  = "CASH"   # CASH | CARD | UPI | CREDIT
     grand_total:          Decimal                          # client display total; server re-computes
     customer_id:          Optional[str]        = None

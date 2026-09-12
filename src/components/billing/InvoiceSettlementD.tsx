@@ -54,6 +54,7 @@ export const SmritiInvoiceSettlementModal: React.FC<SmritiInvoiceSettlementModal
 }) => {
   // Payment rows list
   const [payments, setPayments] = useState<SettlementPaymentRow[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // Denomination counters
   const [denominations, setDenominations] = useState<CashDenominationState>({
@@ -197,10 +198,16 @@ export const SmritiInvoiceSettlementModal: React.FC<SmritiInvoiceSettlementModal
   };
 
   const handlePaymentChange = (id: string, field: keyof SettlementPaymentRow, val: any) => {
+    setErrorMessage(null);
     setPayments(prev =>
       prev.map(p => {
         if (p.id === id) {
-          return { ...p, [field]: val };
+          let updatedVal = val;
+          if (field === "amount") {
+            const parsed = parseFloat(val);
+            updatedVal = isNaN(parsed) ? 0 : Math.max(0, parsed);
+          }
+          return { ...p, [field]: updatedVal };
         }
         return p;
       })
@@ -231,7 +238,19 @@ export const SmritiInvoiceSettlementModal: React.FC<SmritiInvoiceSettlementModal
   };
 
   const handleFinishSettlement = () => {
+    setErrorMessage(null);
     if (isCredit) {
+      if (!customer) {
+        setErrorMessage("A customer account is required for B2B credit sales.");
+        return;
+      }
+      if (creditLimit !== null && projectedOutstanding > creditLimit) {
+        const excess = projectedOutstanding - creditLimit;
+        setErrorMessage(
+          `Customer credit limit exceeded! Sanctioned limit is ₹${creditLimit.toFixed(2)}, current outstanding is ₹${currentOutstanding.toFixed(2)}. This invoice of ₹${netAmount.toFixed(2)} exceeds available credit by ₹${excess.toFixed(2)}.`
+        );
+        return;
+      }
       onCompleteSettlement(
         [{ id: "pay-credit", mode: "Credit", refNo: "ON_ACCOUNT", amount: 0, bankDetails: "B2B Credit Facility" }],
         0,
@@ -240,10 +259,53 @@ export const SmritiInvoiceSettlementModal: React.FC<SmritiInvoiceSettlementModal
       );
       return;
     }
-    if (totalTendered < netAmount) {
-      alert(`Payment is incomplete. Remaining balance: ₹${(netAmount - totalTendered).toFixed(2)}`);
+
+    if (payments.length === 0) {
+      setErrorMessage("At least one payment tender must be specified.");
       return;
     }
+
+    // Check for negative or zero amounts and Section 269ST Cash limit
+    for (const p of payments) {
+      if (isNaN(p.amount) || p.amount <= 0) {
+        setErrorMessage(`Tender amount for '${p.mode}' must be greater than 0.`);
+        return;
+      }
+      if (p.mode.toLowerCase() === "cash" && p.amount >= 200000) {
+        setErrorMessage(
+          "Statutory Violation (Section 269ST of Income Tax Act): Cash receipt of ₹2,00,000 or more in a single transaction is prohibited by law. Please collect payment via Card, UPI, NetBanking, or Cheque."
+        );
+        return;
+      }
+    }
+
+    // Digital / Non-cash tenders: require reference/auth code
+    for (const p of payments) {
+      if (["Credit Card", "Debit Card", "UPI", "Cheque", "Credit Note"].includes(p.mode)) {
+        if (!p.refNo || !p.refNo.trim()) {
+          setErrorMessage(`Reference / Transaction / Auth number is required for ${p.mode} payments.`);
+          return;
+        }
+      }
+    }
+
+    // Non-cash overpayment rule: Card/UPI/Cheque cannot exceed net amount (cash change cannot be refunded on digital/card payments)
+    const nonCashTendered = payments
+      .filter(p => p.mode !== "Cash")
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    if (nonCashTendered > netAmount) {
+      setErrorMessage(
+        `Non-cash tenders (₹${nonCashTendered.toFixed(2)}) cannot exceed the invoice net total (₹${netAmount.toFixed(2)}). Cash change cannot be refunded on digital or card payments.`
+      );
+      return;
+    }
+
+    if (totalTendered < netAmount) {
+      setErrorMessage(`Payment is incomplete. Remaining balance to tender: ₹${(netAmount - totalTendered).toFixed(2)}.`);
+      return;
+    }
+
     onCompleteSettlement(payments, totalTendered, changeDue, denominations);
   };
 
@@ -271,6 +333,22 @@ export const SmritiInvoiceSettlementModal: React.FC<SmritiInvoiceSettlementModal
             <X size={18} />
           </button>
         </div>
+
+        {/* Validation / Error Banner */}
+        {errorMessage && (
+          <div className="mx-6 mt-3 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-md flex items-center gap-3 text-red-800 dark:text-red-200 text-xs font-semibold animate-in fade-in shrink-0">
+            <AlertCircle size={18} className="shrink-0 text-red-600 dark:text-red-400" />
+            <div className="flex-1">{errorMessage}</div>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="text-red-500 hover:text-red-700 cursor-pointer p-0.5 rounded"
+              title="Dismiss error"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Modal Body: Split View */}
         <div className="flex-1 flex flex-col md:flex-row gap-gutter p-margin-page overflow-y-auto bg-surface-container-low">
@@ -435,6 +513,7 @@ export const SmritiInvoiceSettlementModal: React.FC<SmritiInvoiceSettlementModal
                             <input
                               type="number"
                               step="0.01"
+                              min="0"
                               value={p.amount}
                               onChange={e => handlePaymentChange(p.id, "amount", parseFloat(e.target.value) || 0)}
                               className="w-full border border-outline-variant rounded bg-surface px-2 py-1 text-right font-code-md text-xs font-bold text-primary focus:border-secondary focus:ring-1 focus:ring-secondary outline-none"

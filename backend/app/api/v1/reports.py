@@ -18,7 +18,7 @@ Founders
 
 from datetime import date
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status, Response
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, update
 
@@ -49,12 +49,17 @@ from ...schemas.reports import (
     InvoiceAllocationReportModel,
     SalesOrderDetailReport,
     InvoiceReconciliationReport,
+    UniversalReportEnvelope,
+    PreparedReportEnqueueRequest,
+    PreparedReportStatusResponse,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
 from ...services.reports import ReportsService
-from ...models.reporting import ReportDefinition, ReportSavedView, Dashboard, DashboardWidget
+from ...services.prepared_report_service import PreparedReportService
+from ...models.reporting import ReportDefinition, ReportSavedView, Dashboard, DashboardWidget, PreparedReport
 
 router = APIRouter(prefix="/reports")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Studios Catalog — System metadata; stored as Python dict per approved design.
@@ -737,3 +742,99 @@ async def delete_report_schedule(
     if current_user.role not in ("SYSADMIN", "ADMIN", "MANAGER"):
         raise HTTPException(status_code=403, detail="Access Denied: MANAGER role or above required.")
     await ReportsService(db, tenant).delete_schedule(schedule_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Universal Standard 5-Tuple Report Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/universal/{report_id}", response_model=UniversalReportEnvelope)
+async def get_universal_report(
+    report_id: str,
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date: Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    branch_id: Optional[str] = Query(default=None, description="Branch/Store filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Standardized 5-tuple report contract:
+    Returns (columns, rows, summary_cards, chart_config, system_message)
+    Bridging CANONICAL_REPORT_REGISTRY and ReportsService.
+    """
+    return await ReportsService(db, tenant).get_universal_report_envelope(
+        report_id=report_id,
+        from_date=from_date,
+        to_date=to_date,
+        branch_id=branch_id,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Asynchronous Prepared Reports Engine (Frappe/ERPNext Pattern)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/prepared/enqueue", response_model=PreparedReportStatusResponse)
+async def enqueue_prepared_report(
+    payload: PreparedReportEnqueueRequest,
+    background_tasks: BackgroundTasks,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Enqueues heavy report for asynchronous execution in background worker pool.
+    Returns immediately with task_id or cached hit if identical parameters were run within TTL.
+    """
+    user_id = current_user.id if hasattr(current_user, "id") else None
+    task, is_cached = await PreparedReportService.enqueue_prepared_report(
+        db=db,
+        tenant_ctx=tenant,
+        payload=payload,
+        requested_by_id=user_id,
+    )
+
+    if not is_cached:
+        # Enqueue background execution task
+        background_tasks.add_task(PreparedReportService.execute_task_background, task.id, db, tenant)
+
+    status_res = await PreparedReportService.get_task_status(db, task.id)
+    if not status_res:
+        raise HTTPException(status_code=500, detail="Failed to retrieve task status.")
+    status_res.is_cached_hit = is_cached
+    return status_res
+
+
+@router.get("/prepared/{task_id}/status", response_model=PreparedReportStatusResponse)
+async def get_prepared_report_status(
+    task_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Polls status, progress, row counts, and forensic SHA-256 hash for a prepared report task."""
+    res = await PreparedReportService.get_task_status(db, task_id)
+    if not res:
+        raise HTTPException(status_code=404, detail=f"Prepared report task '{task_id}' not found.")
+    return res
+
+
+@router.get("/prepared/{task_id}/download")
+async def download_prepared_report(
+    task_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Streams the completed binary artifact (.xlsx, .csv, .pdf) sealed in the Statutory Vault."""
+    try:
+        content, filename, media_type = await PreparedReportService.get_artifact_stream(db, task_id)
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except FileNotFoundError as fe:
+        raise HTTPException(status_code=404, detail=str(fe))
+

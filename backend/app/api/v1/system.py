@@ -350,6 +350,12 @@ async def list_psv_parties(
     for party in parties:
         result.append({
             "id": party.id,
+            "company_id": party.company_id,
+            "host_customer_id": party.host_customer_id,
+            "delivery_location_id": party.delivery_location_id,
+            "store_code": party.store_code,
+            "store_name_snapshot": party.store_name_snapshot,
+            "stock_model": party.stock_model or "OUTRIGHT_SALE",
             "name": party.name,
             "location": party.location,
             "stock_count": int(party.stock_count or 0),

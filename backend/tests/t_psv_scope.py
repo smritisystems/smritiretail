@@ -21,7 +21,8 @@ from sqlalchemy import select
 
 from app.main import app
 from app.core.security import create_access_token
-from app.models.auth import UserRole
+from app.models.auth import User, UserRole
+from app.api.deps import TenantContext, get_company_db, get_current_user, get_tenant_context
 from app.db.session import get_company_sessionmaker
 from app.models.psv import PSVParty, PSVStockBalance
 from app.services.psv_projection import PSVProjectionService
@@ -151,6 +152,47 @@ async def test_psv_projection_idempotency_and_balance_accumulation():
 
 
 @pytest.mark.asyncio
+async def test_psv_pending_sell_through_does_not_change_approved_balance_until_approval():
+    """Partner-reported sales remain pending until explicitly approved."""
+    sessionmaker = get_company_sessionmaker("smriti001")
+    suffix = uuid.uuid4().hex[:6]
+    party_id = f"pty_pending_{suffix}"
+    sku = f"SKU-PENDING-{suffix.upper()}"
+
+    async with sessionmaker() as session:
+        base = {
+            "company_code": "001",
+            "source_document_type": "PARTNER_REPORT",
+            "psv_party_id": party_id,
+            "sku": sku,
+            "source_event_created_at": datetime.now(timezone.utc),
+            "event_date": datetime.now(timezone.utc),
+        }
+        billed = await PSVProjectionService.project_psv_stock_event(
+            psv_session=session,
+            event_payload={**base, "source_event_id": f"EVT-BILL-{suffix}", "source_document_id": f"INV-{suffix}", "movement_type": "BILLED_TO_PARTNER", "quantity": Decimal("10")},
+        )
+        assert billed["current_balance"] == 10.0
+
+        pending = await PSVProjectionService.project_psv_stock_event(
+            psv_session=session,
+            event_payload={**base, "source_event_id": f"EVT-SELL-{suffix}", "source_document_id": f"REPORT-{suffix}", "movement_type": "SOLD_THROUGH", "quantity": Decimal("10"), "approval_status": "PENDING", "store_code_snapshot": "REL-001"},
+        )
+        assert pending["status"] == "RECORDED_PENDING_APPROVAL"
+        assert pending["current_balance"] == 10.0
+
+        approved = await PSVProjectionService.project_psv_stock_event(
+            psv_session=session,
+            event_payload={**base, "source_event_id": f"EVT-SELL-APPROVED-{suffix}", "source_document_id": f"REPORT-{suffix}", "movement_type": "SOLD_THROUGH", "quantity": Decimal("10"), "approval_status": "APPROVED", "store_code_snapshot": "REL-001"},
+        )
+        assert approved["status"] == "PROJECTED_SUCCESSFULLY"
+        assert approved["current_balance"] == 0.0
+
+        view = await PSVProjectionService.get_scoped_party_visibility(session, "001", party_id)
+        assert view.balances[0].stock_status == "SOLD_OUT"
+
+
+@pytest.mark.asyncio
 async def test_psv_multi_party_scoped_isolation():
     """Verify strict multi-party projection isolation (Party A cannot see Party B's inventory)."""
     sessionmaker = get_company_sessionmaker("smriti001")
@@ -223,26 +265,46 @@ async def test_api_psv_endpoints():
     transport = ASGITransport(app=app)
     suffix = uuid.uuid4().hex[:6]
 
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # 1. Create Policy
-        p_res = await client.post(
-            "/api/v1/psv/policies",
-            json={
-                "policy_code": f"POL_API_{suffix.upper()}",
-                "name": f"API Policy {suffix}",
-                "allowed_sku_patterns": ["SKU-*"],
-                "max_lookback_days": 30,
-            },
-            headers=headers,
-        )
-        assert p_res.status_code == 200
-        assert p_res.json()["status"] == "SUCCESS"
+    async def _test_db():
+        sessionmaker = get_company_sessionmaker("smriti001")
+        async with sessionmaker() as session:
+            yield session
 
-        # 2. Get Scoped Balances
-        b_res = await client.get(
-            f"/api/v1/psv/scoped-balances/pty_unknown_{suffix}",
-            headers=headers,
-        )
-        assert b_res.status_code == 200
-        assert b_res.json()["is_scoped"] == True
-        assert b_res.json()["total_skus_tracked"] == 0
+    async def _test_user():
+        return User(id="usr-super", username="usr_super", role=UserRole.SYSADMIN, is_active=True, is_deleted=False)
+
+    async def _test_tenant():
+        return TenantContext(company_id="COMP-001", branch_id="BR-001")
+
+    app.dependency_overrides[get_company_db] = _test_db
+    app.dependency_overrides[get_current_user] = _test_user
+    app.dependency_overrides[get_tenant_context] = _test_tenant
+
+    try:
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            # 1. Create Policy
+            p_res = await client.post(
+                "/api/v1/psv/policies",
+                json={
+                    "policy_code": f"POL_API_{suffix.upper()}",
+                    "name": f"API Policy {suffix}",
+                    "allowed_sku_patterns": ["SKU-*"],
+                    "max_lookback_days": 30,
+                },
+                headers=headers,
+            )
+            assert p_res.status_code == 200
+            assert p_res.json()["status"] == "SUCCESS"
+
+            # 2. Get Scoped Balances
+            b_res = await client.get(
+                f"/api/v1/psv/scoped-balances/pty_unknown_{suffix}",
+                headers=headers,
+            )
+            assert b_res.status_code == 200
+            assert b_res.json()["is_scoped"] is True
+            assert b_res.json()["total_skus_tracked"] == 0
+    finally:
+        app.dependency_overrides.pop(get_company_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_tenant_context, None)

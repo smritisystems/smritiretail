@@ -59,10 +59,6 @@ class Product(BaseEntity):
     tenant_id = Column(String(50))
     workflow_status = Column(String(30), default="Approved")
 
-    @property
-    def historical_invoice_qty(self):
-        return (self.attributes or {}).get("historical_invoice_qty", 0)
-
     __table_args__ = (
         Index("idx_products_attributes", "attributes", postgresql_using="gin"),
         Index("idx_products_variant_id", "variant_id"),

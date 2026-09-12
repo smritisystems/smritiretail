@@ -34,6 +34,10 @@ from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment
 from .report_schedule import ReportSchedule, ReportDispatchLog
 from .role import Role
+from .hr import AttendanceRecord, LeaveBalance, LeaveRequest
+from .staff_profile import StaffProfile
+from .staff_profile_history import StaffProfileHistory
+from .staff_placement import StaffPlacementAssignment
 
 
 # CRM, Loyalty Program & Universal Incentive Commission Engine (SICE)

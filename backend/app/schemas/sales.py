@@ -26,14 +26,14 @@ class SalesInvoiceItemBase(BaseModel):
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     batch_no: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("batch_no", "batchNo"))
-    quantity: Decimal = Decimal("1.0000")
-    price: Decimal = Field(..., ge=0)
+    quantity: Decimal = Field(Decimal("1.0000"), gt=Decimal("0.0000"))
+    price: Decimal = Field(..., ge=Decimal("0.00"))
     hsn_code: Optional[str] = Field(None, max_length=15, validation_alias=AliasChoices("hsn_code", "hsnCode"))
-    gst_rate: Optional[Decimal] = Field(Decimal("18.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
+    gst_rate: Optional[Decimal] = Field(Decimal("18.00"), ge=Decimal("0.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
     tax_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_amount", "taxAmount"))
     total_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("total_amount", "totalAmount"))
-    mrp: Optional[Decimal] = None
-    disc_pct: Optional[Decimal] = Field(None, validation_alias=AliasChoices("disc_pct", "discPct", "discountPct"))
+    mrp: Optional[Decimal] = Field(None, ge=Decimal("0.00"))
+    disc_pct: Optional[Decimal] = Field(None, ge=Decimal("0.00"), le=Decimal("100.00"), validation_alias=AliasChoices("disc_pct", "discPct", "discountPct"))
     taxable_value: Optional[Decimal] = Field(None, validation_alias=AliasChoices("taxable_value", "taxableValue"))
     cgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("cgst_amount", "cgstAmount"))
     sgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("sgst_amount", "sgstAmount"))
@@ -120,7 +120,7 @@ class SalesInvoiceBase(BaseModel):
 
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50)
-    items: List[SalesInvoiceItemCreate] = []
+    items: List[SalesInvoiceItemCreate] = Field(..., min_length=1)
 
 class SalesInvoiceUpdate(BaseModel):
     invoice_no: Optional[str] = None

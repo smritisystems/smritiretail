@@ -25,7 +25,7 @@ Founders
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 from ...core.config import settings
 
 router = APIRouter()
@@ -45,6 +45,7 @@ class AuthorMetadata(BaseModel):
     organization: str
     product: str
     website: str
+    officialSites: List[str]
     supportEmail: str
     copyright: str
     license: str
@@ -63,7 +64,7 @@ async def get_metadata():
             "productName": settings.PROJECT_NAME,
             "version": settings.VERSION,
             "edition": settings.EDITION,
-            "organization": settings.ORGANIZATION,
+            "organization": "SMRITI SYSTEMS | AITDL NETWORKS",
             "buildNumber": getattr(settings, "BUILD_NUMBER", None),
             "buildDate": getattr(settings, "BUILD_DATE", None),
             "uiVersion": getattr(settings, "UI_VERSION", None),
@@ -71,9 +72,10 @@ async def get_metadata():
         "author": {
             "authorName": "Jawahar Ramkripal Mallah",
             "role": "Chief Systems Architect & Creator",
-            "organization": settings.ORGANIZATION,
+            "organization": "SMRITI SYSTEMS | AITDL NETWORKS",
             "product": settings.PROJECT_NAME,
             "website": "smritibooks.com",
+            "officialSites": ["aitdl.com", "SMRITISYS.com", "smritibooks.com"],
             "supportEmail": "support@smritibooks.com",
             "copyright": f"© AITDL.com and SMRITIBooks.com. All Rights Reserved.",
             "license": "Proprietary Commercial Software",

@@ -1308,6 +1308,13 @@ class UnifiedAccountingLedgerService:
                 if not invoice_id:
                     logger.warning("[UnifiedLedger] Missing invoice_id for SALES_INVOICE_POSTED event: %s", payload)
                     return None
+                from .psv_projection import PSVProjectionService
+                await PSVProjectionService.project_posted_invoice(
+                    session=target_session,
+                    invoice_id=str(invoice_id),
+                    company_id=str(company_id),
+                    branch_id=branch_id,
+                )
                 return await cls.post_sales_invoice_to_gl(
                     session=target_session,
                     company_id=company_id,

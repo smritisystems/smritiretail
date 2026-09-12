@@ -37,18 +37,23 @@ import {
   Calculator,
   Sigma,
   Save,
-  PanelRight
+  PanelRight,
+  Clock,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters";
 import { GlobalExportService } from "../../services/globalExportService";
+import { apiFetchV1 } from "../../lib/apiFetchV1";
 
 export interface ReportColumnDef {
   key: string;
   label: string;
-  datatype: "currency" | "number" | "date" | "badge" | "text";
+  datatype: "currency" | "number" | "date" | "badge" | "text" | "link";
   isSummary?: boolean;
   width?: number;
   align?: "left" | "right" | "center";
+  entityLink?: "invoice" | "sales_order" | "item" | "customer" | string;
 }
 
 export interface SmritiReportEngineProps {
@@ -56,13 +61,16 @@ export interface SmritiReportEngineProps {
   reportTitle: string;
   reportCategory?: string;
   description?: string;
-  data: any[];
+  data?: any[];
   columns?: ReportColumnDef[];
   summaryMetrics?: Record<string, any>;
+  chartConfig?: any;
+  systemMessage?: string;
   onRefresh?: () => void;
   isLoading?: boolean;
   activeRole?: string;
   onNotification?: (type: "success" | "error" | "info", message: string) => void;
+  onEntityClick?: (entityType: string, entityId: string) => void;
 }
 
 type DatePreset = "today" | "yesterday" | "this_week" | "mtd" | "qtd" | "fytd" | "custom";
@@ -76,11 +84,15 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
   data = [],
   columns: propColumns,
   summaryMetrics,
+  chartConfig,
+  systemMessage,
   onRefresh,
   isLoading = false,
   activeRole = "Store Manager",
   onNotification,
+  onEntityClick,
 }) => {
+
   // Date Preset & Range State
   const [activePreset, setActivePreset] = useState<DatePreset>("mtd");
   const [startDate, setStartDate] = useState<string>(() => {
@@ -112,6 +124,13 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<Record<string, boolean>>({});
   const [showInspector, setShowInspector] = useState<boolean>(true);
   const [isViewSaved, setIsViewSaved] = useState<boolean>(false);
+
+  // Asynchronous Prepared Report State (Frappe / ERPNext Pattern)
+  const [preparedTaskId, setPreparedTaskId] = useState<string | null>(null);
+  const [preparedStatus, setPreparedStatus] = useState<string | null>(null);
+  const [preparedProgress, setPreparedProgress] = useState<number>(0);
+  const [isPreparing, setIsPreparing] = useState<boolean>(false);
+
 
   // Auto-detect columns if not provided
   const columns: ReportColumnDef[] = useMemo(() => {
@@ -385,7 +404,14 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       moduleName: reportTitle.replace(/[^a-zA-Z0-9_-]/g, "_"),
       format,
       scope: "all",
-      columns: activeColumns,
+      columns: activeColumns.map(({ key, label, datatype, isSummary, width, align }) => ({
+        key,
+        label,
+        datatype,
+        isSummary,
+        width,
+        align,
+      })),
       data: exportRows,
       metadata: {
         moduleTitle: reportTitle,
@@ -401,6 +427,112 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       onNotification?.("error", result.errorMessage || "Failed to generate report file.");
     }
   };
+
+  const handlePreparedExport = async (format: "XLSX" | "CSV" = "XLSX") => {
+    setIsPreparing(true);
+    onNotification?.("info", `Enqueuing prepared report #${reportId} for background execution...`);
+    try {
+      const res: any = await apiFetchV1("/reports/prepared/enqueue", {
+        method: "POST",
+        body: JSON.stringify({
+          report_code: reportId,
+          parameters: {
+            from_date: startDate,
+            to_date: endDate,
+            store: selectedStore,
+            status: selectedStatus,
+            search: searchTerm || undefined,
+          },
+          export_format: format,
+        }),
+      });
+
+      if (res?.is_cached_hit && res?.download_url) {
+        onNotification?.("success", `Snapshot Cache Hit! Downloading sealed report artifact...`);
+        window.location.href = res.download_url;
+        setIsPreparing(false);
+        return;
+      }
+
+      setPreparedTaskId(res.task_id);
+      setPreparedStatus(res.status);
+      setPreparedProgress(res.progress_percent || 10);
+      onNotification?.("success", `Prepared report enqueued as Task ${res.task_id}. Background worker running.`);
+
+      // Poll status every 2 seconds
+      const interval = setInterval(async () => {
+        try {
+          const pollRes: any = await apiFetchV1(`/reports/prepared/${res.task_id}/status`);
+          setPreparedStatus(pollRes.status);
+          setPreparedProgress(pollRes.progress_percent);
+          if (pollRes.status === "COMPLETED") {
+            clearInterval(interval);
+            setIsPreparing(false);
+            onNotification?.("success", `Prepared Report completed! Sealed hash: ${pollRes.forensic_hash?.substring(0, 16)}...`);
+            if (pollRes.download_url) {
+              window.location.href = pollRes.download_url;
+            }
+          } else if (pollRes.status === "FAILED") {
+            clearInterval(interval);
+            setIsPreparing(false);
+            onNotification?.("error", `Prepared Report failed: ${pollRes.error_message || "Unknown error"}`);
+          }
+        } catch (pollErr) {
+          clearInterval(interval);
+          setIsPreparing(false);
+        }
+      }, 2000);
+    } catch (err: any) {
+      setIsPreparing(false);
+      onNotification?.("error", err?.message || "Failed to enqueue prepared report.");
+    }
+  };
+
+  const renderCellContent = (col: ReportColumnDef, val: any, _row: any) => {
+    if (val === null || val === undefined) return <span className="text-slate-500">—</span>;
+
+    const isLink = col.datatype === "link" || col.entityLink || ["invoice_no", "order_no", "item_code", "doc_no", "bill_no"].includes(col.key);
+    if (isLink) {
+      const entityType = col.entityLink || (col.key.includes("invoice") || col.key.includes("bill") ? "invoice" : col.key.includes("order") ? "sales_order" : "item");
+      return (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onEntityClick) {
+              onEntityClick(entityType, String(val));
+            } else {
+              onNotification?.("info", `Document ${val} clicked (${entityType})`);
+            }
+          }}
+          className="inline-flex items-center gap-1 font-mono font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer group"
+          title={`Click to preview ${entityType}: ${val}`}
+        >
+          <span>{String(val)}</span>
+          <ExternalLink size={10} className="opacity-60 group-hover:opacity-100" />
+        </button>
+      );
+    }
+
+    if (col.datatype === "currency") {
+      return <span className="font-semibold text-emerald-400">{formatCurrency(val)}</span>;
+    }
+    if (col.datatype === "number") {
+      return <span className="font-semibold text-slate-200">{formatNumber(val)}</span>;
+    }
+    if (col.datatype === "date") {
+      return <span className="text-slate-400 font-mono">{formatDate(val)}</span>;
+    }
+    if (col.datatype === "badge") {
+      return (
+        <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-indigo-950 text-indigo-300 border border-indigo-800">
+          {String(val || "ACTIVE")}
+        </span>
+      );
+    }
+    return <span className="text-slate-300">{String(val)}</span>;
+  };
+
 
   const toggleSort = (key: string) => {
     if (sortColumn === key) {
@@ -480,6 +612,19 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
               <TableProperties size={13} /> Excel (.xlsx)
             </button>
 
+            {/* Frappe-Inspired Asynchronous Prepared Report Exporter */}
+            <button
+              type="button"
+              onClick={() => handlePreparedExport("XLSX")}
+              disabled={isPreparing}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              title="Asynchronous background report generation with deterministic caching and statutory sealing"
+            >
+              <Clock size={13} className={isPreparing ? "animate-spin" : ""} />
+              <span>{isPreparing ? `Preparing (${preparedProgress}%)` : "Prepared Export"}</span>
+            </button>
+
+
             {/* PDF / Print */}
             <button
               type="button"
@@ -553,7 +698,56 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
         </div>
       </div>
 
+      {/* System Message / Audit Guidance Banner */}
+      {systemMessage && (
+        <div className="px-4 py-2 bg-theme-surface-1 border border-theme-border rounded-xl text-xs font-mono text-theme-muted flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles size={13} className="text-indigo-400" />
+            <span>{systemMessage}</span>
+          </div>
+          <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+            Governed Contract
+          </span>
+        </div>
+      )}
+
+      {/* Asynchronous Prepared Report Notification & Download Banner */}
+      {preparedTaskId && (
+        <div className="p-3 bg-indigo-950/40 border border-indigo-800/60 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2">
+            {preparedStatus === "COMPLETED" ? (
+              <CheckCircle2 size={16} className="text-emerald-400" />
+            ) : preparedStatus === "FAILED" ? (
+              <AlertCircle size={16} className="text-rose-400" />
+            ) : (
+              <Clock size={16} className="animate-spin text-indigo-400" />
+            )}
+            <div>
+              <span className="text-indigo-200">
+                Prepared Task <strong>{preparedTaskId}</strong>: Status is{" "}
+                <span className={preparedStatus === "COMPLETED" ? "text-emerald-400 font-bold" : "text-amber-300"}>
+                  {preparedStatus}
+                </span>{" "}
+                ({preparedProgress}%)
+              </span>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Background execution generated in Statutory Vault with deterministic caching and SHA-256 seal.
+              </p>
+            </div>
+          </div>
+          {preparedStatus === "COMPLETED" && (
+            <a
+              href={`/api/v1/reports/prepared/${preparedTaskId}/download`}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <Download size={13} /> Download Sealed Artifact (.xlsx)
+            </a>
+          )}
+        </div>
+      )}
+
       {/* 2. UNIVERSAL FILTER & SUMMARY CONFIGURATION BAR */}
+
       <div className="bg-theme-surface-1 border border-theme-border p-4 rounded-xl shadow-xs space-y-3">
         {/* Preset Date Buttons Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-theme-divider">
@@ -843,19 +1037,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                                   const val = row[col.key];
                                   return (
                                     <td key={col.key} className={`p-2.5 ${col.align === "right" ? "text-right font-mono" : ""}`}>
-                                      {col.datatype === "currency" ? (
-                                        <span className="font-semibold text-emerald-400">{formatCurrency(val)}</span>
-                                      ) : col.datatype === "number" ? (
-                                        <span className="font-semibold text-slate-200">{formatNumber(val)}</span>
-                                      ) : col.datatype === "date" ? (
-                                        <span className="text-slate-400 font-mono">{formatDate(val)}</span>
-                                      ) : col.datatype === "badge" ? (
-                                        <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-indigo-950 text-indigo-300 border border-indigo-800">
-                                          {String(val || "ACTIVE")}
-                                        </span>
-                                      ) : (
-                                        <span className="text-slate-300">{val !== null && val !== undefined ? String(val) : "—"}</span>
-                                      )}
+                                      {renderCellContent(col, val, row)}
                                     </td>
                                   );
                                 })}
@@ -942,19 +1124,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                         const val = row[col.key];
                         return (
                           <td key={col.key} className={`p-3 ${col.align === "right" ? "text-right font-mono" : ""}`}>
-                            {col.datatype === "currency" ? (
-                              <span className="font-semibold text-emerald-400">{formatCurrency(val)}</span>
-                            ) : col.datatype === "number" ? (
-                              <span className="font-semibold text-slate-200">{formatNumber(val)}</span>
-                            ) : col.datatype === "date" ? (
-                              <span className="text-slate-400 font-mono">{formatDate(val)}</span>
-                            ) : col.datatype === "badge" ? (
-                              <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-indigo-950 text-indigo-300 border border-indigo-800">
-                                {String(val || "ACTIVE")}
-                              </span>
-                            ) : (
-                              <span className="text-slate-300">{val !== null && val !== undefined ? String(val) : "—"}</span>
-                            )}
+                            {renderCellContent(col, val, row)}
                           </td>
                         );
                       })}

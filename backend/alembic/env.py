@@ -77,6 +77,8 @@ from app.models.product_identity import BarcodeProvider, IdentityRule, ProductId
 from app.models.role import Role
 from app.models.master_lookup import MasterType, MasterValue
 from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
+from app.models.staff_profile import StaffProfile
+from app.models.staff_profile_history import StaffProfileHistory
 # v1368: UI/Experience Engine (smritisys Control Plane)
 from app.models.ui_control_plane import (
     SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile,
