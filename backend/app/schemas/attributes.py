@@ -97,6 +97,7 @@ class AttributeGroupCreate(BaseModel):
     attributeIds: List[str] = Field(..., alias="attributeIds")
     gridColumnAttributeId: Optional[str] = Field(None, alias="gridColumnAttributeId")
     gridRowAttributeId: Optional[str] = Field(None, alias="gridRowAttributeId")
+    sizeGroupId: Optional[str] = Field(None, alias="sizeGroupId")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -106,6 +107,7 @@ class AttributeGroupUpdate(BaseModel):
     attributeIds: Optional[List[str]] = Field(None, alias="attributeIds")
     gridColumnAttributeId: Optional[str] = Field(None, alias="gridColumnAttributeId")
     gridRowAttributeId: Optional[str] = Field(None, alias="gridRowAttributeId")
+    sizeGroupId: Optional[str] = Field(None, alias="sizeGroupId")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -116,6 +118,7 @@ class AttributeGroupResponse(BaseModel):
     attributeIds: List[str] = Field(..., serialization_alias="attributeIds")
     gridColumnAttributeId: Optional[str] = Field(None, serialization_alias="gridColumnAttributeId")
     gridRowAttributeId: Optional[str] = Field(None, serialization_alias="gridRowAttributeId")
+    sizeGroupId: Optional[str] = Field(None, serialization_alias="sizeGroupId")
 
     model_config = {
         "from_attributes": True,
@@ -126,6 +129,7 @@ class AttributeGroupResponse(BaseModel):
 class VariantTemplateCreate(BaseModel):
     styleCode: str = Field(..., alias="styleCode")
     vendorCode: str = Field(..., alias="vendorCode")
+    masterValueId: Optional[str] = Field(None, alias="masterValueId")
     name: str
     brand: Optional[str] = "SMRITI"
     category: Optional[str] = "General"
@@ -143,6 +147,7 @@ class VariantTemplateCreate(BaseModel):
 class VariantTemplateUpdate(BaseModel):
     styleCode: Optional[str] = Field(None, alias="styleCode")
     vendorCode: Optional[str] = Field(None, alias="vendorCode")
+    masterValueId: Optional[str] = Field(None, alias="masterValueId")
     name: Optional[str] = None
     brand: Optional[str] = None
     category: Optional[str] = None
@@ -161,6 +166,7 @@ class VariantTemplateResponse(BaseModel):
     id: str
     styleCode: str = Field(..., serialization_alias="styleCode")
     vendorCode: Optional[str] = Field(None, serialization_alias="vendorCode")
+    masterValueId: Optional[str] = Field(None, serialization_alias="masterValueId")
     name: str
     brand: str
     category: str

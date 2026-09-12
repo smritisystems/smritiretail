@@ -39,6 +39,16 @@ from ...services.attributes import AttributesService
 router = APIRouter()
 
 
+def _scope_master_value_query(query, current_user: User):
+    company_id = getattr(current_user, "company_id", None)
+    branch_id = getattr(current_user, "branch_id", None)
+    if company_id:
+        query = query.where((MasterValue.company_id == company_id) | MasterValue.company_id.is_(None))
+    if branch_id:
+        query = query.where((MasterValue.branch_id == branch_id) | MasterValue.branch_id.is_(None))
+    return query
+
+
 # --- Attribute Definitions CRUD ---
 
 @router.get(
@@ -195,7 +205,8 @@ async def list_groups(
             name=g.name,
             attributeIds=json.loads(g.attribute_ids) if g.attribute_ids else [],
             gridColumnAttributeId=g.grid_column_attribute_id,
-            gridRowAttributeId=g.grid_row_attribute_id
+            gridRowAttributeId=g.grid_row_attribute_id,
+            sizeGroupId=g.size_group_id
         ))
     return res
 
@@ -221,7 +232,8 @@ async def create_group(
         name=g.name,
         attributeIds=json.loads(g.attribute_ids) if g.attribute_ids else [],
         gridColumnAttributeId=g.grid_column_attribute_id,
-        gridRowAttributeId=g.grid_row_attribute_id
+        gridRowAttributeId=g.grid_row_attribute_id,
+        sizeGroupId=g.size_group_id
     )
 
 
@@ -246,7 +258,8 @@ async def update_group(
         name=g.name,
         attributeIds=json.loads(g.attribute_ids) if g.attribute_ids else [],
         gridColumnAttributeId=g.grid_column_attribute_id,
-        gridRowAttributeId=g.grid_row_attribute_id
+        gridRowAttributeId=g.grid_row_attribute_id,
+        sizeGroupId=g.size_group_id
     )
 
 
@@ -288,6 +301,7 @@ async def list_templates(
             id=t.id,
             styleCode=t.style_code,
             vendorCode=t.vendor_code,
+            masterValueId=str(t.master_value_id) if t.master_value_id else None,
             name=t.name,
             brand=t.brand or "SMRITI",
             category=t.category or "General",
@@ -319,19 +333,37 @@ async def create_template(
     service = AttributesService(db)
     vendor_code = req.vendorCode.strip().upper()
     lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
-    governed_code = await db.scalar(select(MasterValue).where(
+    vendor_query = select(MasterValue).where(
         MasterValue.master_type_id == lookup_type.id if lookup_type else False,
         MasterValue.code == vendor_code,
         MasterValue.active.is_(True),
         MasterValue.is_deleted.is_(False),
-    )) if lookup_type else None
+    ) if lookup_type else None
+    governed_code = await db.scalar(_scope_master_value_query(vendor_query, current_user)) if vendor_query is not None else None
     if not governed_code:
         raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
+    if req.masterValueId:
+        article_type = await db.scalar(select(MasterType).where(MasterType.code == "style_article"))
+        article_query = select(MasterValue).where(
+            MasterValue.id == req.masterValueId,
+            MasterValue.master_type_id == article_type.id if article_type else False,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        ) if article_type else None
+        article = await db.scalar(_scope_master_value_query(article_query, current_user)) if article_query is not None else None
+        if not article:
+            raise HTTPException(status_code=400, detail="Article / Style must be selected from the active Master Registry.")
+        if article.vendor_code != vendor_code:
+            raise HTTPException(status_code=409, detail="Article / Style is not assigned to this vendor.")
+        if article.code != req.styleCode.strip().upper():
+            raise HTTPException(status_code=400, detail="Article / Style code does not match the selected Master Registry value.")
+        req.styleCode = article.code
     t = await service.create_template(req, current_user.username)
     return VariantTemplateResponse(
         id=t.id,
         styleCode=t.style_code,
         vendorCode=t.vendor_code,
+        masterValueId=str(t.master_value_id) if t.master_value_id else None,
         name=t.name,
         brand=t.brand or "SMRITI",
         category=t.category or "General",
@@ -366,20 +398,42 @@ async def update_template(
         if template and template.vendor_code and template.vendor_code != vendor_code:
             raise HTTPException(status_code=400, detail="Vendor Code is immutable after Article/Style assignment.")
         lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
-        governed_code = await db.scalar(select(MasterValue).where(
+        vendor_query = select(MasterValue).where(
             MasterValue.master_type_id == lookup_type.id if lookup_type else False,
             MasterValue.code == vendor_code,
             MasterValue.active.is_(True),
             MasterValue.is_deleted.is_(False),
-        )) if lookup_type else None
+        ) if lookup_type else None
+        governed_code = await db.scalar(_scope_master_value_query(vendor_query, current_user)) if vendor_query is not None else None
         if not governed_code:
             raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
         req.vendorCode = vendor_code
+    if req.masterValueId:
+        article_type = await db.scalar(select(MasterType).where(MasterType.code == "style_article"))
+        article_query = select(MasterValue).where(
+            MasterValue.id == req.masterValueId,
+            MasterValue.master_type_id == article_type.id if article_type else False,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        ) if article_type else None
+        article = await db.scalar(_scope_master_value_query(article_query, current_user)) if article_query is not None else None
+        if not article:
+            raise HTTPException(status_code=400, detail="Article / Style must be selected from the active Master Registry.")
+        template = await db.get(VariantTemplate, id)
+        if template and template.master_value_id and str(template.master_value_id) != str(req.masterValueId):
+            raise HTTPException(status_code=409, detail="Article / Style cannot be changed after template assignment.")
+        effective_vendor_code = (template.vendor_code if template else None) or req.vendorCode
+        if article.vendor_code != effective_vendor_code:
+            raise HTTPException(status_code=409, detail="Article / Style is not assigned to this vendor.")
+        if req.styleCode is not None and article.code != req.styleCode.strip().upper():
+            raise HTTPException(status_code=400, detail="Article / Style code does not match the selected Master Registry value.")
+        req.styleCode = article.code
     t = await service.update_template(id, req, current_user.username)
     return VariantTemplateResponse(
         id=t.id,
         styleCode=t.style_code,
         vendorCode=t.vendor_code,
+        masterValueId=str(t.master_value_id) if t.master_value_id else None,
         name=t.name,
         brand=t.brand or "SMRITI",
         category=t.category or "General",

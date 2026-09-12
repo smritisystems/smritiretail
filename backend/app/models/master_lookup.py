@@ -47,6 +47,8 @@ class MasterValue(Base):
     branch_id = Column(String(50), nullable=True, index=True)
     code = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
+    # Single-owner assignment for vendor-owned registry values such as style_article.
+    vendor_code = Column(String(100), nullable=True, index=True)
     parent_value_id = Column(UUID(as_uuid=True), ForeignKey("master_values.id"), nullable=True)
     data = Column(JSONB, default=dict, nullable=False)
     active = Column(Boolean, default=True, nullable=False)

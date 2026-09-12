@@ -13,7 +13,6 @@ depends_on = None
 
 
 LOOKUP_TYPES = (
-    ("product", "Product"),
     ("brand", "Brand"),
     ("style_article", "Style / Article"),
     ("size", "Size"),

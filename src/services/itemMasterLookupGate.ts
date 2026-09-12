@@ -1,7 +1,31 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
+ * Organization : AITDL NETWORKS
+ *
+ * Founders
+ *
+ * * Pushpa Devi Jawahar Mallah
+ *   * Founder & Chairperson
+ *   * Phone: +91 9324117007
+ *   * Email: founder@aitdl.com
+ *
+ * * Jawahar Ramkripal Mallah
+ *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
+ *   * Email: founder@aitdl.com
+ *
+ * * Websites: aitdl.com | erpnbook.com | smritibooks.com
+ *
+ * * Version    : 4.0.0
+ * * Created    : 2026-09-12
+ * * Modified   : 2026-09-12
+ * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * * License    : Proprietary Commercial Software
+ */
+
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 
 const GOVERNED_LOOKUP_TYPES = [
-  "product",
   "brand",
   "style_article",
   "size",
@@ -14,7 +38,6 @@ const GOVERNED_LOOKUP_TYPES = [
 type LookupType = typeof GOVERNED_LOOKUP_TYPES[number];
 
 const FIELD_LOOKUP_MAP: Record<LookupType, string[]> = {
-  product: ["product", "product_name", "name"],
   brand: ["brand"],
   style_article: ["style", "styleCode", "style_code"],
   size: ["size"],

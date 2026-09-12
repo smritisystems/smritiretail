@@ -71,6 +71,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
+        entryFileNames: "assets/[name]-[hash].js",
+        chunkFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash].[ext]",
         manualChunks(id) {
           // ── Vendor: React core (must be first to prevent circular chunk) ─
           if (

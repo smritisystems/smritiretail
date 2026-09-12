@@ -55,7 +55,7 @@ class MockTenant:
 @pytest.fixture(autouse=True)
 async def cleanup_vendor_test_data():
     """Clean up test vendor records before and after each test."""
-    test_phones = ["9820011223", "9876543210", "9811122233", "9800011111", "9800022222"]
+    test_phones = ["9920011223", "9876543210", "9811122233", "9800011111", "9800022222"]
     test_gstins = ["27AAACA1234A1Z5", "27AAACC9999Z1Z8"]
 
     session_factory = get_company_sessionmaker("smriti001")
@@ -147,7 +147,7 @@ async def test_create_vendor_atomic_party_and_legacy_projection():
             gstin="27AAACA1234A1Z5",
             pan="AAACA1234A",
             email="accounts@apextextiles.com",
-            mobile="9820011223",
+            mobile="9920011223",
             phone="02228490001",
             address_line1="Plot 42, Textile Industrial Area",
             city="Mumbai",

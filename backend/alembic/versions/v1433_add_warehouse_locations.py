@@ -31,6 +31,10 @@ def upgrade() -> None:
         sa.Column("rack", sa.String(50), nullable=True),
         sa.Column("shelf", sa.String(50), nullable=True),
         sa.Column("bin_code", sa.String(50), nullable=True),
+        sa.Column("created_by", sa.String(100), nullable=True),
+        sa.Column("updated_by", sa.String(100), nullable=True),
+        sa.Column("deleted_by", sa.String(100), nullable=True),
+        sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
         sa.UniqueConstraint("warehouse_id", "code", name="uq_warehouse_location_code"),
     )
 

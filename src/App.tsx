@@ -4,13 +4,13 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.18.0
+ * Version      : 3.18.1
  * Created      : 2026-07-10
- * Modified     : 2026-09-11
+ * Modified     : 2026-09-12
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
-import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
 import { apiFetch, apiFetchV1 } from "./lib/apiFetch.ts";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -1673,7 +1673,7 @@ const AppContent: React.FC = () => {
   // Notifications State
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
-  const addNotification = (
+  const addNotification = useCallback((
     title: string,
     message: string,
     type: "success" | "error" | "info" | "warning" = "success",
@@ -1694,7 +1694,7 @@ const AppContent: React.FC = () => {
       type: "activity",
       priority: "low",
     });
-  };
+  }, []);
 
   useEffect(() => {
     registerAllDefaultActions((n: any) => {

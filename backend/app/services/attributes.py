@@ -123,6 +123,7 @@ class AttributesService:
             attribute_ids=json.dumps(data.attributeIds),
             grid_column_attribute_id=data.gridColumnAttributeId,
             grid_row_attribute_id=data.gridRowAttributeId,
+            size_group_id=data.sizeGroupId,
             created_by=creator,
             updated_by=creator
         )
@@ -140,6 +141,7 @@ class AttributesService:
         if data.attributeIds is not None: group.attribute_ids = json.dumps(data.attributeIds)
         if data.gridColumnAttributeId is not None: group.grid_column_attribute_id = data.gridColumnAttributeId
         if data.gridRowAttributeId is not None: group.grid_row_attribute_id = data.gridRowAttributeId
+        if data.sizeGroupId is not None: group.size_group_id = data.sizeGroupId
         group.updated_by = updater
         group.modified_at = datetime.now(timezone.utc)
 
@@ -177,6 +179,7 @@ class AttributesService:
             id=new_id,
             style_code=data.styleCode,
             vendor_code=data.vendorCode,
+            master_value_id=data.masterValueId,
             name=data.name,
             brand=data.brand or "SMRITI",
             category=data.category or "General",
@@ -202,6 +205,7 @@ class AttributesService:
 
         if data.styleCode is not None: template.style_code = data.styleCode
         if data.vendorCode is not None and not template.vendor_code: template.vendor_code = data.vendorCode
+        if data.masterValueId is not None and not template.master_value_id: template.master_value_id = data.masterValueId
         if data.name is not None: template.name = data.name
         if data.brand is not None: template.brand = data.brand
         if data.category is not None: template.category = data.category
