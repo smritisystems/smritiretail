@@ -78,12 +78,14 @@ export interface AttributeGroup {
   attributeIds: string[]; // Ordered attribute IDs
   gridColumnAttributeId?: string; // E.g. "Size"
   gridRowAttributeId?: string; // E.g. "Color"
+  sizeGroupId?: string; // Master Registry size_group code
 }
 
 export interface VariantTemplate {
   id: string;
   styleCode: string; // Parent template style code prefix
   vendorCode?: string; // Governed Vendor Code assigned to the style
+  masterValueId?: string; // Canonical Master Registry Article / Style value
   name: string; // Base name of the product line
   brand: string;
   category: string;

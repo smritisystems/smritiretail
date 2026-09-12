@@ -11,8 +11,9 @@
  * License      : Proprietary Commercial Software
  """
 
-from sqlalchemy import Column, String, Boolean, Text, Integer, text
+from sqlalchemy import Column, String, Boolean, Text, Integer, text, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from ..db.base import BaseEntity
 
 
@@ -54,6 +55,7 @@ class AttributeGroup(BaseEntity):
     attribute_ids            = Column(Text, nullable=False)  # JSON array of Attribute IDs
     grid_column_attribute_id = Column(String(50), nullable=True)
     grid_row_attribute_id    = Column(String(50), nullable=True)
+    size_group_id            = Column(String(100), nullable=True, index=True)
 
 
 class VariantTemplate(BaseEntity):
@@ -64,6 +66,7 @@ class VariantTemplate(BaseEntity):
 
     style_code         = Column(String(100), nullable=False, unique=True)
     vendor_code        = Column(String(100), nullable=True, index=True)
+    master_value_id    = Column(UUID(as_uuid=True), ForeignKey("master_values.id"), nullable=True, index=True)
     name               = Column(String(200), nullable=False)
     brand              = Column(String(100), default="SMRITI")
     category           = Column(String(100), default="General")

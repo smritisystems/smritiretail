@@ -65,6 +65,17 @@ def _scope_value_query(query, current_user: User, *, for_mutation: bool = False)
     return query
 
 
+def _assign_single_vendor_owner(item: MasterValue, vendor_code: str) -> None:
+    """Assign an Article / Style once; ownership cannot be transferred implicitly."""
+    normalized_code = vendor_code.strip().upper()
+    if item.vendor_code and item.vendor_code != normalized_code:
+        raise HTTPException(
+            status_code=409,
+            detail="Article / Style is already assigned to another vendor and cannot be reassigned.",
+        )
+    item.vendor_code = normalized_code
+
+
 def get_validator(master_type_id: str, schema: dict, version: int):
     cache_key = f"{master_type_id}:{version}"
     if cache_key not in validator_cache:
@@ -157,6 +168,7 @@ async def create_lookup_type(
 async def list_lookup_values(
     type_code: str,
     activeOnly: bool = False,  # noqa: N803
+    vendorCode: str | None = None,  # noqa: N803
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> List[MasterValue]:
@@ -184,6 +196,8 @@ async def list_lookup_values(
         q = q.where((MasterValue.branch_id == branch_id) | MasterValue.branch_id.is_(None))
     if activeOnly:
         q = q.where(MasterValue.active.is_(True))
+    if vendorCode:
+        q = q.where(MasterValue.vendor_code == vendorCode.strip().upper())
 
     q = q.order_by(MasterValue.sort_order.asc(), MasterValue.name.asc())
     res = await db.execute(q)
@@ -229,6 +243,21 @@ async def create_lookup_value(
             detail=f"Validation failed: {err.message}"
         ) from err
 
+    vendor_code = payload.vendorCode.strip().upper() if payload.vendorCode else None
+    if vendor_code and type_code != "style_article":
+        raise HTTPException(status_code=400, detail="Vendor ownership is supported only for Style / Article values.")
+    if vendor_code:
+        vendor_lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
+        vendor_query = select(MasterValue).where(
+            MasterValue.master_type_id == vendor_lookup_type.id if vendor_lookup_type else False,
+            MasterValue.code == vendor_code,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        )
+        vendor_query = _scope_value_query(vendor_query, current_user)
+        if not (await db.execute(vendor_query)).scalar_one_or_none():
+            raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
+
     # Uniqueness check for code
     q_val = select(MasterValue).where(
         MasterValue.master_type_id == master_type.id,
@@ -259,6 +288,7 @@ async def create_lookup_value(
         branch_id=branch_id,
         code=payload.code,
         name=payload.name,
+        vendor_code=vendor_code,
         parent_value_id=payload.parent_value_id,
         data=data,
         active=payload.active if payload.active is not None else True,
@@ -299,7 +329,7 @@ async def update_lookup_value(
         MasterValue.id == id,
         MasterValue.master_type_id == master_type.id,
         MasterValue.is_deleted.is_(False),
-    )
+    ).with_for_update()
     q_val = _scope_value_query(q_val, current_user, for_mutation=True)
     res_val = await db.execute(q_val)
     item = res_val.scalar_one_or_none()
@@ -333,6 +363,21 @@ async def update_lookup_value(
         )
     if payload.name is not None:
         setattr(item, "name", payload.name)
+    if payload.vendorCode is not None:
+        if type_code != "style_article":
+            raise HTTPException(status_code=400, detail="Vendor ownership is supported only for Style / Article values.")
+        vendor_code = payload.vendorCode.strip().upper()
+        vendor_lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
+        vendor_query = select(MasterValue).where(
+            MasterValue.master_type_id == vendor_lookup_type.id if vendor_lookup_type else False,
+            MasterValue.code == vendor_code,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        )
+        vendor_query = _scope_value_query(vendor_query, current_user)
+        if not (await db.execute(vendor_query)).scalar_one_or_none():
+            raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
+        _assign_single_vendor_owner(item, vendor_code)
     if payload.parent_value_id is not None:
         setattr(item, "parent_value_id", payload.parent_value_id)
     if payload.active is not None:

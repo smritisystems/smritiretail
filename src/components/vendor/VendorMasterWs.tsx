@@ -5,15 +5,15 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.16.1
  * Created      : 2026-09-11
- * Modified     : 2026-09-11
+ * Modified     : 2026-09-12
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Vendor 360 Workspace (Universal Party System of Record)
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { 
   Building2, 
   Search, 
@@ -60,6 +60,7 @@ import { VendorPayablesTab } from "./tabs/VendorPayablesTab";
 import { VendorScorecardTab } from "./tabs/VendorScorecardTab";
 import { VendorMergeModal } from "./tabs/VendorMergeModal";
 import { VendorPrintModal } from "./VendorPrintModal";
+import { VariantTplSec } from "../VariantTemplateSec";
 
 export interface VendorMasterWsProps {
   currentUser?: { role: string; name: string } | null;
@@ -75,7 +76,8 @@ type TabKey =
   | "banking" 
   | "procurement" 
   | "payables" 
-  | "scorecard";
+  | "scorecard"
+  | "articles";
 
 const STATUS_CHIPS: Record<VendorStatus, { bg: string; text: string; border: string }> = {
   ACTIVE:               { bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-500/30" },
@@ -207,11 +209,147 @@ function normalizeVendorDetail(v: any): VendorDetail {
   };
 }
 
+interface VendorArticleRegistryValue {
+  id: string;
+  code: string;
+  name: string;
+  vendorCode?: string | null;
+  active: boolean;
+}
+
+function normalizeVendorArticle(value: any): VendorArticleRegistryValue {
+  return {
+    id: String(value?.id || ""),
+    code: String(value?.code || "").trim().toUpperCase(),
+    name: String(value?.name || value?.code || "").trim(),
+    vendorCode: value?.vendorCode || value?.vendor_code || null,
+    active: value?.active !== false,
+  };
+}
+
+const VendorArticleStyleTab: React.FC<{
+  vendor: VendorDetail | null;
+  onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
+}> = ({ vendor, onNotification }) => {
+  const [articles, setArticles] = useState<VendorArticleRegistryValue[]>([]);
+  const [loadingArticles, setLoadingArticles] = useState(false);
+  const [assigningArticleId, setAssigningArticleId] = useState<string | null>(null);
+
+  const loadArticles = useCallback(async () => {
+    if (!vendor) return;
+    setLoadingArticles(true);
+    try {
+      const values = await apiFetchV1("/masters/lookup/style_article/values?activeOnly=true");
+      setArticles(Array.isArray(values) ? values.map(normalizeVendorArticle).filter((article) => article.id && article.code) : []);
+    } catch (error: any) {
+      onNotification?.("Article Registry Error", error?.message || "Could not load Master Registry articles.", "error");
+    } finally {
+      setLoadingArticles(false);
+    }
+  }, [vendor, onNotification]);
+
+  useEffect(() => {
+    loadArticles();
+  }, [loadArticles]);
+
+  const assignArticle = async (article: VendorArticleRegistryValue) => {
+    if (!vendor || article.vendorCode) return;
+    setAssigningArticleId(article.id);
+    try {
+      const updated = await apiFetchV1(`/masters/lookup/style_article/values/${article.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ vendorCode: vendor.code })
+      });
+      setArticles((current) => current.map((item) => item.id === article.id ? normalizeVendorArticle(updated) : item));
+      onNotification?.("Article Assigned", `${article.code} is now owned by ${vendor.code}.`, "success");
+    } catch (error: any) {
+      onNotification?.("Assignment Blocked", error?.message || "Article / Style could not be assigned.", "error");
+    } finally {
+      setAssigningArticleId(null);
+    }
+  };
+
+  if (!vendor) return null;
+
+  const assignedArticles = articles.filter((article) => article.vendorCode?.toUpperCase() === vendor.code.toUpperCase());
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-[11px] text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
+        Register and maintain Article / Style definitions owned by {vendor.code} for this vendor directory entry.
+      </div>
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Master Registry Articles / Styles</h3>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              One vendor can own many articles. An assigned article cannot be transferred to another vendor.
+            </p>
+          </div>
+          <span className="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-mono font-bold text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
+            {assignedArticles.length} assigned
+          </span>
+        </div>
+        {loadingArticles ? (
+          <div className="py-8 text-center text-xs text-slate-400">Loading Master Registry articles...</div>
+        ) : articles.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-400">No active Article / Style values found in Master Registry.</div>
+        ) : (
+          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+            {articles.map((article) => {
+              const isOwnedByCurrentVendor = article.vendorCode?.toUpperCase() === vendor.code.toUpperCase();
+              const isOwnedByAnotherVendor = Boolean(article.vendorCode) && !isOwnedByCurrentVendor;
+              return (
+                <div key={article.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-xs font-bold text-slate-900 dark:text-white">{article.name}</span>
+                      <span className="font-mono text-[10px] text-slate-500">{article.code}</span>
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-slate-400">
+                      {isOwnedByCurrentVendor ? `Owned by ${vendor.code}` : isOwnedByAnotherVendor ? `Owned by ${article.vendorCode}` : "Unassigned"}
+                    </div>
+                  </div>
+                  {isOwnedByCurrentVendor ? (
+                    <span className="shrink-0 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">Assigned</span>
+                  ) : isOwnedByAnotherVendor ? (
+                    <span className="shrink-0 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">Locked</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => assignArticle(article)}
+                      disabled={assigningArticleId === article.id}
+                      className="shrink-0 rounded bg-indigo-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
+                    >
+                      {assigningArticleId === article.id ? "Assigning..." : "Assign"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <VariantTplSec
+        products={[]}
+        onRefreshProducts={async () => undefined}
+        onNotification={(title, message, type) => {
+          onNotification?.(title, message, type === "error" ? "error" : "success");
+        }}
+        defaultVendorCode={vendor.code}
+        vendorFilterCode={vendor.code}
+        articleOptions={articles}
+      />
+    </div>
+  );
+};
+
 const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNotification }) => {
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<VendorDetail | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [showVendorDirectory, setShowVendorDirectory] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -223,6 +361,27 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   const [printWithData, setPrintWithData] = useState(true);
   const [showPrintDropdown, setShowPrintDropdown] = useState(false);
   const [vendorCodeOptions, setVendorCodeOptions] = useState<{ code: string; name: string }[]>([]);
+
+  // Stable notification callback via ref to prevent effect cascading
+  const onNotificationRef = useRef(onNotification);
+  useEffect(() => {
+    onNotificationRef.current = onNotification;
+  }, [onNotification]);
+
+  const notify = useCallback(
+    (title: string, message: string, type: "success" | "error" | "info" | "warning") => {
+      onNotificationRef.current?.(title, message, type);
+    },
+    []
+  );
+
+  const lastFetchedVendorIdRef = useRef<string | null>(null);
+  const failedVendorIdsRef = useRef<Set<string>>(new Set());
+
+  const handleSelectVendor = useCallback((id: string) => {
+    failedVendorIdsRef.current.delete(id);
+    setSelectedVendorId(id);
+  }, []);
 
   // New Vendor Form State
   const [newForm, setNewForm] = useState({
@@ -268,37 +427,73 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
       const rawList = Array.isArray(res) ? res : [];
       const list = rawList.map(normalizeVendorSummary);
       setVendors(list);
-      if (list.length > 0 && !selectedVendorId) {
-        setSelectedVendorId(list[0].id);
-      }
+      setSelectedVendorId((currentId) => {
+        if (list.length === 0) return null;
+        if (!currentId || !list.some((v) => v.id === currentId)) {
+          return list[0].id;
+        }
+        return currentId;
+      });
     } catch (err: any) {
-      onNotification?.("Failed to Load", err?.message || "Could not retrieve vendor directory.", "error");
+      notify("Failed to Load", err?.message || "Could not retrieve vendor directory.", "error");
     } finally {
       setLoading(false);
     }
-  }, [selectedVendorId, onNotification]);
+  }, [notify]);
 
   useEffect(() => {
     loadVendors();
-  }, []);
+  }, [loadVendors]);
 
   // Load Selected Vendor Detail
   useEffect(() => {
-    if (!selectedVendorId) return;
+    if (!selectedVendorId) {
+      setSelectedVendor(null);
+      lastFetchedVendorIdRef.current = null;
+      return;
+    }
+    // Prevent refetching if already failed or currently loaded
+    if (failedVendorIdsRef.current.has(selectedVendorId)) {
+      return;
+    }
+
+    let isCancelled = false;
     const fetchDetail = async () => {
       setDetailLoading(true);
       try {
         const detail = await apiFetchV1(`/purchase/vendors/${selectedVendorId}`);
+        if (isCancelled) return;
+        lastFetchedVendorIdRef.current = selectedVendorId;
         setSelectedVendor(normalizeVendorDetail(detail));
         setIsEditing(false);
       } catch (err: any) {
-        onNotification?.("Error", err?.message || "Failed to load vendor details.", "error");
+        if (isCancelled) return;
+        failedVendorIdsRef.current.add(selectedVendorId);
+        setSelectedVendor(null);
+        notify("Error", err?.message || "Failed to load vendor details.", "error");
+        // Fallback: if selectedVendorId is 404/invalid, fallback to first available valid vendor
+        setVendors((currentVendors) => {
+          const fallback = currentVendors.find(
+            (v) => v.id !== selectedVendorId && !failedVendorIdsRef.current.has(v.id)
+          );
+          if (fallback) {
+            setSelectedVendorId(fallback.id);
+          } else {
+            setSelectedVendorId(null);
+          }
+          return currentVendors;
+        });
       } finally {
-        setDetailLoading(false);
+        if (!isCancelled) {
+          setDetailLoading(false);
+        }
       }
     };
     fetchDetail();
-  }, [selectedVendorId, onNotification]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedVendorId, notify]);
 
   // Handle Local Field Change
   const handleFieldChange = (field: string, value: any) => {
@@ -349,10 +544,11 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
       const normUpdated = normalizeVendorDetail(updated);
       setSelectedVendor(normUpdated);
       setIsEditing(false);
-      onNotification?.("Vendor Updated", `Successfully saved changes for ${normUpdated.legalName}.`, "success");
+      notify("Vendor Updated", `Successfully saved changes for ${normUpdated.legalName}.`, "success");
+      failedVendorIdsRef.current.delete(normUpdated.id);
       loadVendors();
     } catch (err: any) {
-      onNotification?.("Save Error", err?.message || "Failed to update vendor.", "error");
+      notify("Save Error", err?.message || "Failed to update vendor.", "error");
     } finally {
       setSaving(false);
     }
@@ -361,7 +557,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   // Rapid Vendor Creation
   const handleCreateVendor = async () => {
     if (!newForm.code.trim() || !newForm.legalName.trim()) {
-      onNotification?.("Required Field", "Select a Vendor Code from System Lookups and enter a legal vendor name.", "error");
+      notify("Required Field", "Select a Vendor Code from System Lookups and enter a legal vendor name.", "error");
       return;
     }
     setSaving(true);
@@ -386,7 +582,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
       });
 
       const normCreated = normalizeVendorDetail(created);
-      onNotification?.("Vendor Created", `Added ${normCreated.legalName} to Universal Party Master.`, "success");
+      notify("Vendor Created", `Added ${normCreated.legalName} to Universal Party Master.`, "success");
       setShowNewModal(false);
       setNewForm({
         code: "",
@@ -401,10 +597,11 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
         supplierType: "DISTRIBUTOR",
         paymentTermsDays: 30,
       });
+      failedVendorIdsRef.current.delete(normCreated.id);
       await loadVendors();
       setSelectedVendorId(normCreated.id);
     } catch (err: any) {
-      onNotification?.("Creation Failed", err?.message || "Could not create vendor.", "error");
+      notify("Creation Failed", err?.message || "Could not create vendor.", "error");
     } finally {
       setSaving(false);
     }
@@ -425,6 +622,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
       {/* ─────────────────── LEFT: VENDOR DIRECTORY LIST ─────────────────── */}
+      {showVendorDirectory ? (
       <div className="w-80 border-r border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/50 flex flex-col shrink-0">
         {/* Header & Search */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
@@ -480,7 +678,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
               return (
                 <div
                   key={v.id}
-                  onClick={() => setSelectedVendorId(v.id)}
+                  onClick={() => handleSelectVendor(v.id)}
                   className={`p-3.5 cursor-pointer transition flex flex-col space-y-1.5 ${
                     isSelected ? "bg-indigo-50/80 dark:bg-indigo-600/10 border-l-4 border-indigo-600" : "hover:bg-slate-50 dark:hover:bg-slate-800/30"
                   }`}
@@ -513,6 +711,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
           )}
         </div>
       </div>
+      ) : null}
 
       {/* ─────────────────── RIGHT: VENDOR 360 WORKSPACE ─────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -549,6 +748,14 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
 
               {/* Action Buttons */}
               <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowVendorDirectory((prev) => !prev)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition shadow-xs"
+                  title={showVendorDirectory ? "Hide vendor directory" : "Show vendor directory"}
+                >
+                  <FileText size={14} className="text-indigo-600 dark:text-indigo-400" />
+                  <span>{showVendorDirectory ? "Hide Directory" : "Show Directory"}</span>
+                </button>
                 {/* Print Form Dropdown Menu */}
                 <div className="relative">
                   <button
@@ -654,6 +861,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                 { id: "contacts", label: "Key Contacts", icon: <Users size={13} /> },
                 { id: "commercial", label: "Commercial Terms", icon: <Clock size={13} /> },
                 { id: "banking", label: "Disbursement Banks", icon: <CreditCard size={13} /> },
+                { id: "articles", label: "Article / Style", icon: <Package size={13} /> },
                 { id: "procurement", label: "Purchase Orders", icon: <Package size={13} /> },
                 { id: "payables", label: "Payables & Aging", icon: <DollarSign size={13} /> },
                 { id: "scorecard", label: "SLA & Scorecard", icon: <Award size={13} /> },
@@ -683,6 +891,12 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                     <VendorOverviewTab
                       vendor={selectedVendor}
                       onNavigateTab={(tab) => setActiveTab(tab as TabKey)}
+                    />
+                  )}
+                  {activeTab === "articles" && (
+                    <VendorArticleStyleTab
+                      vendor={selectedVendor}
+                      onNotification={notify}
                     />
                   )}
                   {activeTab === "identity" && (
@@ -751,7 +965,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
             loadVendors();
             setSelectedVendorId(selectedVendor.id);
           }}
-          onNotification={onNotification}
+          onNotification={notify}
         />
       )}
 
