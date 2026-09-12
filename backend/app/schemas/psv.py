@@ -29,6 +29,12 @@ class PSVSkuTrackingResponse(BaseModel):
 
 class PSVPartyResponse(BaseModel):
     id: str
+    company_id: Optional[str] = None
+    host_customer_id: Optional[str] = None
+    delivery_location_id: Optional[str] = None
+    store_code: Optional[str] = None
+    store_name_snapshot: Optional[str] = None
+    stock_model: str = "OUTRIGHT_SALE"
     name: str
     location: str
     stock_count: int = 0
@@ -50,6 +56,15 @@ class PSVEventProjectionReq(BaseModel):
     source_document_id: str
     source_document_line_id: Optional[str] = None
     psv_party_id: str
+    host_customer_id: Optional[str] = None
+    delivery_location_id: Optional[str] = None
+    store_code_snapshot: Optional[str] = None
+    invoice_id: Optional[str] = None
+    invoice_line_id: Optional[str] = None
+    staff_placement_id: Optional[str] = None
+    approval_status: str = "APPROVED"
+    reported_by: Optional[str] = None
+    approval_reason: Optional[str] = None
     destination_type: str = "RETAIL_STORE"
     destination_id: Optional[str] = None
     psv_store_id: Optional[str] = None
@@ -81,6 +96,9 @@ class PSVScopedBalanceItem(BaseModel):
     sold_qty: Decimal
     returned_qty: Decimal
     current_balance: Decimal
+    store_code: Optional[str] = None
+    reconciliation_status: str = "AUTO_MATCHED"
+    stock_status: str = "IN_STOCK"
     status: str = "SYNCHRONIZED"
 
 

@@ -22,6 +22,9 @@ from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
 from app.models.tenant import Branch, Company
+from app.models.crm import Customer, CustomerDeliveryLocation
+from app.models.inventory import Store
+from app.models.staff_placement import StaffPlacementAssignment
 from app.tests.conftest import clear_db
 
 @pytest.fixture(autouse=True)
@@ -271,3 +274,339 @@ async def test_staff_creation_requires_explicit_password(db_session):
 
     assert response.status_code == 400
     assert "temporary password is required" in response.json()["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_attendance_is_tenant_scoped_and_duplicate_dates_are_rejected(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    company_a, branch_a = await _make_tenant(db_session, f"a-{suffix}")
+    company_b, branch_b = await _make_tenant(db_session, f"b-{suffix}")
+    manager = await _make_user(db_session, f"manager-{suffix}", company_a.id, branch_a.id, UserRole.MANAGER)
+    staff_a = await _make_user(db_session, f"staff-a-{suffix}", company_a.id, branch_a.id, UserRole.CASHIER)
+    staff_b = await _make_user(db_session, f"staff-b-{suffix}", company_b.id, branch_b.id, UserRole.CASHIER)
+    _set_tenant(db_session, company_a.id, branch_a.id)
+    headers = _bearer(manager, company_a.id, branch_a.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await client.post(
+            "/api/v1/staff/attendance",
+            json={"user_id": staff_a.id, "attendance_date": "2026-09-11", "status": "PRESENT"},
+            headers=headers,
+        )
+        duplicate = await client.post(
+            "/api/v1/staff/attendance",
+            json={"user_id": staff_a.id, "attendance_date": "2026-09-11", "status": "LATE"},
+            headers=headers,
+        )
+        foreign = await client.post(
+            "/api/v1/staff/attendance",
+            json={"user_id": staff_b.id, "attendance_date": "2026-09-11", "status": "PRESENT"},
+            headers=headers,
+        )
+
+        # 2nd date record for date filtering verification
+        created_day2 = await client.post(
+            "/api/v1/staff/attendance",
+            json={"user_id": staff_a.id, "attendance_date": "2026-09-12", "status": "PRESENT"},
+            headers=headers,
+        )
+
+        # Date-range queries
+        filter_single = await client.get(
+            f"/api/v1/staff/attendance?user_id={staff_a.id}&from_date=2026-09-12",
+            headers=headers,
+        )
+        filter_range = await client.get(
+            f"/api/v1/staff/attendance?user_id={staff_a.id}&from_date=2026-09-11&to_date=2026-09-12",
+            headers=headers,
+        )
+
+        # Non-manager authorization checks
+        staff_headers = _bearer(staff_a, company_a.id, branch_a.id)
+        forbidden_other = await client.post(
+            "/api/v1/staff/attendance",
+            json={"user_id": manager.id, "attendance_date": "2026-09-11", "status": "PRESENT"},
+            headers=staff_headers,
+        )
+        self_attendance = await client.post(
+            "/api/v1/staff/attendance",
+            json={"user_id": staff_a.id, "attendance_date": "2026-09-13", "status": "PRESENT"},
+            headers=staff_headers,
+        )
+
+    assert created.status_code == 201
+    assert duplicate.status_code == 409
+    assert foreign.status_code == 404
+    assert created_day2.status_code == 201
+    assert filter_single.status_code == 200
+    assert len(filter_single.json()["records"]) == 1
+    assert filter_single.json()["records"][0]["attendance_date"] == "2026-09-12"
+    assert filter_range.status_code == 200
+    assert len(filter_range.json()["records"]) == 2
+    assert forbidden_other.status_code == 403
+    assert self_attendance.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_leave_requires_valid_dates_and_manager_decision(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    company, branch = await _make_tenant(db_session, suffix)
+    manager = await _make_user(db_session, f"manager-{suffix}", company.id, branch.id, UserRole.MANAGER)
+    cashier = await _make_user(db_session, f"cashier-{suffix}", company.id, branch.id, UserRole.CASHIER)
+    _set_tenant(db_session, company.id, branch.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        invalid = await client.post(
+            "/api/v1/staff/leave/requests",
+            json={"user_id": cashier.id, "leave_type": "CASUAL", "start_date": "2026-09-12", "end_date": "2026-09-11"},
+            headers=_bearer(cashier, company.id, branch.id),
+        )
+        created = await client.post(
+            "/api/v1/staff/leave/requests",
+            json={"user_id": cashier.id, "leave_type": "CASUAL", "start_date": "2026-09-12", "end_date": "2026-09-13"},
+            headers=_bearer(cashier, company.id, branch.id),
+        )
+        denied = await client.patch(
+            f"/api/v1/staff/leave/requests/{created.json()['id']}/decision",
+            json={"status": "APPROVED"},
+            headers=_bearer(cashier, company.id, branch.id),
+        )
+        approved = await client.patch(
+            f"/api/v1/staff/leave/requests/{created.json()['id']}/decision",
+            json={"status": "APPROVED", "decision_reason": "Coverage confirmed"},
+            headers=_bearer(manager, company.id, branch.id),
+        )
+
+    assert invalid.status_code == 422
+    assert created.status_code == 201
+    assert created.json()["total_days"] == 2
+    assert denied.status_code == 403
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "APPROVED"
+
+
+@pytest.mark.asyncio
+async def test_partner_staff_placement_validates_store_code_and_approval(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    company, branch = await _make_tenant(db_session, suffix)
+    manager = await _make_user(db_session, f"manager-{suffix}", company.id, branch.id, UserRole.MANAGER)
+    staff = await _make_user(db_session, f"staff-{suffix}", company.id, branch.id, UserRole.CASHIER)
+    customer = Customer(id=f"cust-place-{suffix}", company_id=company.id, code=f"REL-{suffix}", name="Reliance Retail", status="Active")
+    location = CustomerDeliveryLocation(
+        id=f"loc-place-{suffix}", company_id=company.id, customer_id=customer.id,
+        store_code=f"REL-{suffix}", location_name="Reliance Partner Store", status="ACTIVE",
+    )
+    db_session.add_all([customer, location])
+    await db_session.commit()
+    _set_tenant(db_session, company.id, branch.id)
+    headers = _bearer(manager, company.id, branch.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        invalid = await client.post(
+            f"/api/v1/staff/users/{staff.id}/placements",
+            json={"placement_type": "CUSTOMER_STORE", "host_customer_id": customer.id, "host_delivery_location_id": "missing", "effective_from": "2026-09-11"},
+            headers=headers,
+        )
+        created = await client.post(
+            f"/api/v1/staff/users/{staff.id}/placements",
+            json={"placement_type": "CUSTOMER_STORE", "host_customer_id": customer.id, "host_delivery_location_id": location.id, "role_at_location": "Brand Promoter", "stock_model": "OUTRIGHT_SALE", "effective_from": "2026-09-11"},
+            headers=headers,
+        )
+        duplicate = await client.post(
+            f"/api/v1/staff/users/{staff.id}/placements",
+            json={"placement_type": "CUSTOMER_STORE", "host_customer_id": customer.id, "host_delivery_location_id": location.id, "role_at_location": "Cashier", "stock_model": "OUTRIGHT_SALE", "effective_from": "2026-09-12"},
+            headers=headers,
+        )
+        approved = await client.patch(
+            f"/api/v1/staff/placements/{created.json()['id']}/decision",
+            json={"status": "ACTIVE", "approval_reason": "Partner deployment approved"},
+            headers=headers,
+        )
+        listed = await client.get(
+            f"/api/v1/staff/placements?user_id={staff.id}",
+            headers=headers,
+        )
+
+    assert invalid.status_code == 404
+    assert created.status_code == 201
+    assert duplicate.status_code == 409
+    assert created.json()["host_store_code"] == location.store_code
+    assert created.json()["status"] == "PENDING"
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "ACTIVE"
+    assert listed.status_code == 200
+    assert listed.json()["placements"][0]["host_store_name"] == location.location_name
+
+
+@pytest.mark.asyncio
+async def test_internal_staff_placement_uses_target_branch_and_store_scope(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    company, home_branch = await _make_tenant(db_session, suffix)
+    target_branch = Branch(
+        id=f"br-target-{suffix}", company_id=company.id,
+        name="Target Branch", code=f"BR-TARGET-{suffix}", is_active=True,
+    )
+    store = Store(
+        id=f"store-target-{suffix}", company_id=company.id,
+        branch_id=target_branch.id, code=f"ST-{suffix}", name="Target Store",
+        is_active=True,
+    )
+    manager = await _make_user(db_session, f"manager-{suffix}", company.id, home_branch.id, UserRole.MANAGER)
+    staff = await _make_user(db_session, f"staff-{suffix}", company.id, home_branch.id, UserRole.CASHIER)
+    db_session.add(target_branch)
+    await db_session.flush()
+    db_session.add(store)
+    await db_session.commit()
+    _set_tenant(db_session, company.id, home_branch.id)
+    headers = _bearer(manager, company.id, home_branch.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        options = await client.get("/api/v1/staff/placement-options", headers=headers)
+        created = await client.post(
+            f"/api/v1/staff/users/{staff.id}/placements",
+            json={
+                "placement_type": "INTERNAL_BRANCH",
+                "internal_branch_id": target_branch.id,
+                "internal_store_id": store.id,
+                "role_at_location": "Sales Executive",
+                "effective_from": "2026-09-12",
+            },
+            headers=headers,
+        )
+        listed = await client.get(f"/api/v1/staff/placements?user_id={staff.id}", headers=headers)
+
+    assert options.status_code == 200
+    assert any(item["code"] == target_branch.code for item in options.json()["branches"])
+    assert any(item["code"] == store.code and item["branch_id"] == target_branch.id for item in options.json()["stores"])
+    assert created.status_code == 201
+    assert created.json()["branch_id"] == target_branch.id
+    assert listed.status_code == 200
+    assert listed.json()["placements"][0]["internal_store_code"] == store.code
+    assert listed.json()["placements"][0]["internal_store_name"] == store.name
+
+
+@pytest.mark.asyncio
+async def test_internal_staff_placement_rejects_store_under_wrong_branch(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    company, home_branch = await _make_tenant(db_session, suffix)
+    target_branch = Branch(id=f"br-target-{suffix}", company_id=company.id, name="Target", code=f"TARGET-{suffix}", is_active=True)
+    wrong_store = Store(id=f"store-wrong-{suffix}", company_id=company.id, branch_id=home_branch.id, code=f"WRONG-{suffix}", name="Wrong Branch Store", is_active=True)
+    manager = await _make_user(db_session, f"manager-{suffix}", company.id, home_branch.id, UserRole.MANAGER)
+    staff = await _make_user(db_session, f"staff-{suffix}", company.id, home_branch.id, UserRole.CASHIER)
+    db_session.add_all([target_branch, wrong_store])
+    await db_session.commit()
+    _set_tenant(db_session, company.id, home_branch.id)
+
+    async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:
+        response = await client.post(
+            f"/api/v1/staff/users/{staff.id}/placements",
+            json={"placement_type": "INTERNAL_BRANCH", "internal_branch_id": target_branch.id, "internal_store_id": wrong_store.id, "effective_from": "2026-09-12"},
+            headers=_bearer(manager, company.id, home_branch.id),
+        )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_staff_placement_reassign_flow(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    company, branch = await _make_tenant(db_session, suffix)
+    customer = Customer(id=f"cust-{suffix}", company_id=company.id, name=f"Customer {suffix}", is_deleted=False)
+    loc1 = CustomerDeliveryLocation(
+        id=f"loc1-{suffix}", customer_id=customer.id, company_id=company.id,
+        store_code=f"STR-{suffix}-1", location_name=f"Store One {suffix}", status="ACTIVE", is_deleted=False,
+    )
+    loc2 = CustomerDeliveryLocation(
+        id=f"loc2-{suffix}", customer_id=customer.id, company_id=company.id,
+        store_code=f"STR-{suffix}-2", location_name=f"Store Two {suffix}", status="ACTIVE", is_deleted=False,
+    )
+    manager = await _make_user(db_session, f"manager-{suffix}", company.id, branch.id, UserRole.MANAGER)
+    staff = await _make_user(db_session, f"staff-{suffix}", company.id, branch.id, UserRole.CASHIER)
+    db_session.add_all([customer, loc1, loc2])
+    await db_session.commit()
+    _set_tenant(db_session, company.id, branch.id)
+    headers = _bearer(manager, company.id, branch.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Create initial placement
+        created = await client.post(
+            f"/api/v1/staff/users/{staff.id}/placements",
+            json={
+                "placement_type": "CUSTOMER_STORE",
+                "host_customer_id": customer.id,
+                "host_delivery_location_id": loc1.id,
+                "role_at_location": "Sales Executive",
+                "stock_model": "OUTRIGHT_SALE",
+                "effective_from": "2026-09-12",
+            },
+            headers=headers,
+        )
+        assert created.status_code == 201
+        placement_id = created.json()["id"]
+
+        # 2. Approve initial placement so it is ACTIVE
+        approved = await client.patch(
+            f"/api/v1/staff/placements/{placement_id}/decision",
+            json={"status": "ACTIVE", "approval_reason": "Approved initial placement"},
+            headers=headers,
+        )
+        assert approved.status_code == 200
+        assert approved.json()["status"] == "ACTIVE"
+
+        # 3. Attempt reassignment with effective_from <= current effective_from (rejected 422)
+        invalid_reassign = await client.post(
+            f"/api/v1/staff/users/{staff.id}/placements/reassign",
+            json={
+                "current_placement_id": placement_id,
+                "placement_type": "CUSTOMER_STORE",
+                "host_customer_id": customer.id,
+                "host_delivery_location_id": loc2.id,
+                "role_at_location": "Store Manager",
+                "stock_model": "OUTRIGHT_SALE",
+                "effective_from": "2026-09-12",
+            },
+            headers=headers,
+        )
+        assert invalid_reassign.status_code == 422
+        assert "must start after the current placement starts" in invalid_reassign.json()["detail"]
+
+        # 4. Valid reassignment with effective_from > current effective_from
+        valid_reassign = await client.post(
+            f"/api/v1/staff/users/{staff.id}/placements/reassign",
+            json={
+                "current_placement_id": placement_id,
+                "placement_type": "CUSTOMER_STORE",
+                "host_customer_id": customer.id,
+                "host_delivery_location_id": loc2.id,
+                "role_at_location": "Store Manager",
+                "stock_model": "OUTRIGHT_SALE",
+                "effective_from": "2026-09-13",
+            },
+            headers=headers,
+        )
+        assert valid_reassign.status_code == 201
+        body = valid_reassign.json()
+        assert body["previous"]["status"] == "EXPIRED"
+        assert body["previous"]["effective_to"] == "2026-09-12"
+        assert body["replacement"]["status"] == "PENDING"
+        assert body["replacement"]["host_store_code"] == loc2.store_code
+        assert body["replacement"]["effective_from"] == "2026-09-13"
+
+        replacement_id = body["replacement"]["id"]
+
+        # 5. Approve replacement placement
+        decision = await client.patch(
+            f"/api/v1/staff/placements/{replacement_id}/decision",
+            json={"status": "ACTIVE", "approval_reason": "Store transfer approved"},
+            headers=headers,
+        )
+        assert decision.status_code == 200
+        assert decision.json()["status"] == "ACTIVE"
+
+        # 6. Verify list shows both placements (one EXPIRED, one ACTIVE)
+        listed = await client.get(f"/api/v1/staff/placements?user_id={staff.id}", headers=headers)
+        assert listed.status_code == 200
+        placements = listed.json()["placements"]
+        assert len(placements) == 2
+        statuses = {p["status"] for p in placements}
+        assert statuses == {"EXPIRED", "ACTIVE"}

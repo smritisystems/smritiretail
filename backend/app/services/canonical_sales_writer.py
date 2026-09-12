@@ -82,6 +82,25 @@ class CanonicalSalesPostingWriter:
         shift_id = req.context.shift_id
         idempotency_key = req.context.idempotency_key
 
+        # 0. Authoritative Input Validations
+        if not req.items:
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-VAL-001: Sales transaction must contain at least one line item.",
+            )
+
+        for t in req.tenders:
+            if Decimal(str(t.amount)) <= Decimal("0.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-VAL-004: Tender amount for mode '{t.tender_type}' must be greater than zero.",
+                )
+            if t.tender_type.upper() == "CASH" and Decimal(str(t.amount)) >= Decimal("200000.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="SMRITI-TAX-269ST: Cash receipt of ₹2,00,000 or more in a single transaction is prohibited under Section 269ST of the Income Tax Act.",
+                )
+
         # 1. POS Shift row lock & validation (if shift_id provided)
         shift_obj: Optional[Shift] = None
         if shift_id:
@@ -282,6 +301,22 @@ class CanonicalSalesPostingWriter:
 
         for idx, item in enumerate(req.items):
             line_no = idx + 1
+            if Decimal(str(item.quantity)) <= Decimal("0.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-VAL-002: Line item '{item.code}' has non-positive quantity ({item.quantity}). Quantity must be greater than zero.",
+                )
+            if Decimal(str(item.unit_price)) < Decimal("0.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-VAL-003: Line item '{item.code}' has negative unit price ({item.unit_price}). Unit price cannot be negative.",
+                )
+            if item.mrp and Decimal(str(item.mrp)) > Decimal("0.00") and Decimal(str(item.unit_price)) > Decimal(str(item.mrp)):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-PRICE-001: Selling price (₹{Decimal(str(item.unit_price)):,.2f}) cannot exceed statutory MRP (₹{Decimal(str(item.mrp)):,.2f}) for item '{item.name or item.code}'.",
+                )
+
             # Dual-Key Resolution
             identity = await CanonicalTransactionWriter.resolve_dual_key_for_line(
                 session=session,

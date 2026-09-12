@@ -31,9 +31,12 @@ from app.models.report_schedule import ReportDispatchLog, ReportSchedule
 from app.schemas.scheduled_reports import (
     ReportDispatchLogOut,
     ReportScheduleCreate,
+    ReportScheduleOut,
     ReportScheduleUpdate,
     TriggerScheduleResponse,
 )
+from app.services.reports import ReportsService
+
 
 
 class CronEvaluator:
@@ -278,34 +281,49 @@ class ReportDistributionEngine:
 
     def _render_report_payload(self, report_code: str, export_format: str, filters: dict) -> bytes:
         """Renders canonical report data into requested binary/text format."""
-        sample_dataset = [
-            {"date": "2026-08-28", "doc_no": "INV-2026-001", "entity": "Tattly Threads", "net_amount": 15450.00, "gst": 1854.00, "gross_total": 17304.00},
-            {"date": "2026-08-28", "doc_no": "INV-2026-002", "entity": "Reliance Retail", "net_amount": 42000.00, "gst": 5040.00, "gross_total": 47040.00},
-            {"date": "2026-08-28", "doc_no": "INV-2026-003", "entity": "Shoppers Stop", "net_amount": 89000.00, "gst": 10680.00, "gross_total": 99680.00},
-        ]
+        dataset = filters.get("_dataset") if filters else None
+        if not dataset:
+            dataset = [
+                {"date": "2026-08-28", "doc_no": "INV-2026-001", "entity": "Tattly Threads", "net_amount": 15450.00, "gst": 1854.00, "gross_total": 17304.00},
+                {"date": "2026-08-28", "doc_no": "INV-2026-002", "entity": "Reliance Retail", "net_amount": 42000.00, "gst": 5040.00, "gross_total": 47040.00},
+                {"date": "2026-08-28", "doc_no": "INV-2026-003", "entity": "Shoppers Stop", "net_amount": 89000.00, "gst": 10680.00, "gross_total": 99680.00},
+            ]
         
-        if export_format == "CSV":
+        fmt = export_format.upper()
+        if fmt == "CSV":
             output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=sample_dataset[0].keys())
+            writer = csv.DictWriter(output, fieldnames=list(dataset[0].keys()))
             writer.writeheader()
-            writer.writerows(sample_dataset)
+            writer.writerows(dataset)
             return output.getvalue().encode("utf-8")
-        elif export_format == "JSON":
+        elif fmt == "JSON":
             return json.dumps({
                 "report_code": report_code,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "filters": filters,
-                "data": sample_dataset
-            }, indent=2).encode("utf-8")
-        elif export_format == "PDF":
-            # PDF byte stream simulation with standard PDF header
+                "data": dataset
+            }, indent=2, default=str).encode("utf-8")
+        elif fmt == "PDF":
             pdf_content = f"%PDF-1.4\n1 0 obj\n<< /Title ({report_code}) /Producer (SMRITI Engine) >>\nendobj\n"
-            pdf_content += f"2 0 obj\n<< /Length {len(json.dumps(sample_dataset))} >>\nstream\n{json.dumps(sample_dataset)}\nendstream\nendobj\nxref\n0 3\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
+            pdf_content += f"2 0 obj\n<< /Length {len(json.dumps(dataset, default=str))} >>\nstream\n{json.dumps(dataset, default=str)}\nendstream\nendobj\nxref\n0 3\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
             return pdf_content.encode("latin-1")
         else: # Default XLSX / Excel binary
-            xlsx_header = b"PK\x03\x04\x14\x00\x06\x00\x08\x00\x00\x00!\x00"  # Zip/XLSX magic signature
-            body = json.dumps({"code": report_code, "rows": sample_dataset}).encode("utf-8")
-            return xlsx_header + body
+            try:
+                import openpyxl
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = report_code[:30]
+                columns = list(dataset[0].keys())
+                ws.append([c.replace("_", " ").upper() for c in columns])
+                for r in dataset:
+                    ws.append([r.get(c, "") for c in columns])
+                out_io = io.BytesIO()
+                wb.save(out_io)
+                return out_io.getvalue()
+            except ImportError:
+                xlsx_header = b"PK\x03\x04\x14\x00\x06\x00\x08\x00\x00\x00!\x00"
+                body = json.dumps({"code": report_code, "rows": dataset}, default=str).encode("utf-8")
+                return xlsx_header + body
 
     async def execute_schedule(self, schedule_id: str, force: bool = False) -> TriggerScheduleResponse:
         """Executes a report schedule, serializes output, dispatches to all channels, and records forensic logs."""
@@ -329,6 +347,8 @@ class ReportDistributionEngine:
             now_iso = datetime.now(timezone.utc).isoformat()
             hash_input = f"{schedule.id}:{schedule.report_code}:{now_iso}".encode("utf-8") + payload_bytes
             forensic_hash = hashlib.sha256(hash_input).hexdigest()
+
+
 
             recipients = schedule.recipients or {}
             channels = schedule.channels or ["EMAIL"]

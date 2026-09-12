@@ -116,6 +116,11 @@ class InventoryService:
         bid = self.tenant_ctx.branch_id
 
         prod_data = product_in.model_dump()
+        historical_invoice_qty = prod_data.pop("historical_invoice_qty", None)
+        if historical_invoice_qty is not None:
+            attributes = dict(prod_data.get("attributes") or {})
+            attributes["historical_invoice_qty"] = float(historical_invoice_qty)
+            prod_data["attributes"] = attributes
         if not prod_data.get("id"):
             prod_data["id"] = f"PROD-{uuid.uuid4().hex[:8]}"
 
@@ -124,8 +129,6 @@ class InventoryService:
             company_id=cid,
             branch_id=bid
         )
-        self.db.add(db_product)
-
         # Dual-Write Canonical Staging (Gate 5 Dual-Read/Write Compatibility)
         # Deterministic Parent Style Identity (Blocker 4)
         style = (db_product.style_code or "").strip()
@@ -165,6 +168,7 @@ class InventoryService:
                 is_deleted=False
             )
             self.db.add(canonical_item)
+            await self.db.flush()
 
         # Create Canonical Variant (Physical identity only — Blocker 1)
         var_id = f"var_{uuid.uuid4().hex[:12]}"
@@ -182,10 +186,12 @@ class InventoryService:
             is_deleted=False
         )
         self.db.add(canonical_variant)
+        await self.db.flush()
 
         # Keep the legacy product directly linked to its canonical ItemMaster records.
         db_product.item_id = canonical_item.id
         db_product.item_variant_id = canonical_variant.id
+        self.db.add(db_product)
 
         # Authoritative Pricing Domain: Insert PriceBookEntry (Blocker 1)
         res_pb = await self.db.execute(

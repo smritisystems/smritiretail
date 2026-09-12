@@ -1017,7 +1017,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const billDiscount = 0;
     const totalAddons = transporterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0) + addonRows.filter(a => a.type === "Addon").reduce((s, a) => s + (Number(a.amount) || 0), 0);
     const totalDeductions = addonRows.filter(a => a.type === "Deduction").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-    const netAmount = Math.max(0, Math.round((recomputed.netAmount + totalAddons - totalDeductions) * 100) / 100);
+    const unroundedNet = Math.max(0, recomputed.netAmount + totalAddons - totalDeductions);
+    const roundedNet = Math.round(unroundedNet);
+    const roundOff = Math.round((roundedNet - unroundedNet) * 100) / 100;
+    const netAmount = roundedNet;
 
     return {
       itemCount,
@@ -1028,7 +1031,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       totalTax: recomputed.taxTotal,
       totalAddons,
       totalDeductions,
-      roundOff: 0,
+      roundOff,
       netAmount
     };
   }, [items, transporterRows, addonRows, headerState, liveTime]);
@@ -1137,6 +1140,26 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const handleCommitDirectEntry = () => {
     if (!directEntry.stockNo && !directEntry.barcode && !directEntry.itemDescription) return;
 
+    // Strict Quantity Validation
+    if (isNaN(directQtyNum) || directQtyNum <= 0) {
+      onNotification?.("Validation Error", "Quantity must be a positive number greater than 0.", "error");
+      return;
+    }
+    if (directQtyNum > 99999) {
+      onNotification?.("Validation Error", "Quantity exceeds maximum limit of 99,999 units.", "error");
+      return;
+    }
+
+    // Strict Rate Validation
+    if (isNaN(directRateNum) || directRateNum < 0) {
+      onNotification?.("Validation Error", "Selling rate cannot be negative.", "error");
+      return;
+    }
+    if (directRateNum > 9999999.99) {
+      onNotification?.("Validation Error", "Selling rate exceeds maximum limit of ₹9,999,999.99.", "error");
+      return;
+    }
+
     const matched = products.find(p => 
       p.code === directEntry.stockNo || 
       p.barcode === directEntry.barcode || 
@@ -1144,7 +1167,49 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     ) || selectedItemProductMeta;
 
     const rate = directRateNum > 0 ? directRateNum : Number((matched as any)?.sellingPrice || (matched as any)?.mrp || 0);
-    const qty = directQtyNum > 0 ? directQtyNum : 1;
+    const qty = directQtyNum;
+
+    // Statutory MRP Ceiling Check: Selling price cannot exceed declared MRP
+    const effectiveMrp = Number((matched as any)?.mrp || 0);
+    if (effectiveMrp > 0 && rate > effectiveMrp) {
+      onNotification?.(
+        "Statutory Price Violation",
+        `Selling price (₹${rate.toFixed(2)}) cannot exceed statutory MRP (₹${effectiveMrp.toFixed(2)}) for item '${directEntry.itemDescription || (matched as any)?.name || directEntry.stockNo}'.`,
+        "error"
+      );
+      return;
+    }
+
+    // Discount Bounding Validations
+    if (directDiscPctNum < 0 || directDiscPctNum > 100) {
+      onNotification?.("Validation Error", "Discount percentage must be between 0% and 100%.", "error");
+      return;
+    }
+    if (directDiscAmt < 0) {
+      onNotification?.("Validation Error", "Discount amount cannot be negative.", "error");
+      return;
+    }
+    const lineGrossValue = rate * qty;
+    if (directDiscAmt > lineGrossValue) {
+      onNotification?.(
+        "Validation Error",
+        `Discount amount (₹${directDiscAmt.toFixed(2)}) cannot exceed line item gross value (₹${lineGrossValue.toFixed(2)}).`,
+        "error"
+      );
+      return;
+    }
+    // Discrete UoM Check: PCS/NOS/PAIR cannot have fractional decimals
+    const itemUom = (matched as any)?.uom || (matched as any)?.unit || "PCS";
+    const discreteUoms = ["PCS", "PC", "NOS", "NO", "PAIR", "PRS", "BOX", "SET", "UNIT", "DOZ"];
+    if (discreteUoms.includes(itemUom.toUpperCase()) && qty % 1 !== 0) {
+      onNotification?.(
+        "Validation Error",
+        `Fractional quantity (${qty}) is not permitted for discrete unit '${itemUom}'. Please enter a whole integer quantity.`,
+        "error"
+      );
+      return;
+    }
+
     const lineItem: SalesLineItem = {
       id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       productId: (matched as any)?.id,
@@ -1162,30 +1227,68 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     };
 
     const computedLine = calculateLineTotal(lineItem);
-    const newLine: BillingLineItem = {
-      id: computedLine.id,
-      sNo: items.length + 1,
-      stockNo: computedLine.stockNo || "SKU-GEN",
-      barcode: computedLine.barcode || "",
-      itemDescription: computedLine.itemDescription,
-      rate: computedLine.rate,
-      qty: computedLine.qty,
-      value: computedLine.value,
-      discCode: directEntry.discCode,
-      discQty: parseFloat(directEntry.discQty) || 0,
-      discPercent: Number(computedLine.discPercent ?? 0),
-      discAmt: Number(computedLine.discAmt ?? 0),
-      total: computedLine.total,
-      salesStaff: directEntry.staff,
-      productId: (matched as any)?.id,
-      hsnCode: (matched as any)?.hsnCode,
-      gstPercentage: Number(computedLine.taxPercent ?? 18),
-      taxAmount: Number(computedLine.taxAmount ?? 0),
-      brand: (matched as any)?.brand,
-      size: (matched as any)?.size
-    };
 
-    setItems(prev => [...prev, newLine]);
+    // Duplicate scan aggregation: if identical item exists at same rate/discount, increment its quantity
+    const existingIndex = items.findIndex(it =>
+      ((it.barcode && computedLine.barcode && it.barcode === computedLine.barcode) ||
+       (it.stockNo && computedLine.stockNo && it.stockNo === computedLine.stockNo)) &&
+      it.rate === computedLine.rate &&
+      (it.discPercent || 0) === (computedLine.discPercent || 0) &&
+      it.discCode === directEntry.discCode
+    );
+
+    if (existingIndex !== -1) {
+      const existing = items[existingIndex];
+      const updatedQty = existing.qty + qty;
+      const recomputed = calculateLineTotal({
+        ...existing,
+        qty: updatedQty,
+        value: existing.rate * updatedQty,
+        discPercent: existing.discPercent || 0,
+        taxPercent: existing.gstPercentage || 18,
+      });
+
+      setItems(prev => prev.map((it, idx) => {
+        if (idx === existingIndex) {
+          return {
+            ...it,
+            qty: updatedQty,
+            value: recomputed.value,
+            discAmt: Number(recomputed.discAmt ?? 0),
+            total: recomputed.total,
+            taxAmount: Number(recomputed.taxAmount ?? 0),
+          };
+        }
+        return it;
+      }));
+      onNotification?.("Item Quantity Updated", `Incremented quantity of '${computedLine.itemDescription}' to ${updatedQty} units.`, "success");
+    } else {
+      const newLine: BillingLineItem = {
+        id: computedLine.id,
+        sNo: items.length + 1,
+        stockNo: computedLine.stockNo || "SKU-GEN",
+        barcode: computedLine.barcode || "",
+        itemDescription: computedLine.itemDescription,
+        rate: computedLine.rate,
+        qty: computedLine.qty,
+        value: computedLine.value,
+        discCode: directEntry.discCode,
+        discQty: parseFloat(directEntry.discQty) || 0,
+        discPercent: Number(computedLine.discPercent ?? 0),
+        discAmt: Number(computedLine.discAmt ?? 0),
+        total: computedLine.total,
+        salesStaff: directEntry.staff,
+        productId: (matched as any)?.id,
+        hsnCode: (matched as any)?.hsnCode,
+        gstPercentage: Number(computedLine.taxPercent ?? 18),
+        taxAmount: Number(computedLine.taxAmount ?? 0),
+        brand: (matched as any)?.brand,
+        size: (matched as any)?.size
+      };
+
+      setItems(prev => [...prev, newLine]);
+      onNotification?.("Item Added", `${newLine.itemDescription} added to invoice.`, "success");
+    }
 
     // Reset direct entry row
     setDirectEntry({
@@ -1207,7 +1310,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     } else {
       directStockNoRef.current?.focus();
     }
-    onNotification?.("Item Added", `${newLine.itemDescription} added to invoice.`, "success");
   };
 
   // Remove Item
@@ -1605,19 +1707,66 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     } catch (err: any) {
       const message = err?.message || "Failed to commit transaction.";
       console.error("[BillingTerm] Invoice settlement failed:", err);
-      alert(`Bill could not be saved.\n\n${message}\n\nYour invoice items are still preserved in the cart. Correct the indicated data and retry.`);
+      onNotification?.(
+        "Settlement Error",
+        `Bill could not be saved: ${message}. Your invoice items are preserved in the cart. Correct the indicated data and retry.`,
+        "error"
+      );
     }
   };
 
   // Add Quick Customer
   const handleCreateCustomer = async () => {
-    if (!newCustName.trim()) return;
+    const trimmedName = newCustName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      onNotification?.("Validation Error", "Customer name must be at least 2 characters long.", "error");
+      return;
+    }
+
+    const trimmedMobile = newCustMobile.trim();
+    if (trimmedMobile) {
+      const mobileRegex = /^[6-9]\d{9}$/;
+      const intlMobileRegex = /^\+[1-9]\d{7,14}$/;
+      if (!mobileRegex.test(trimmedMobile) && !intlMobileRegex.test(trimmedMobile)) {
+        onNotification?.("Validation Error", "Please enter a valid 10-digit mobile number.", "error");
+        return;
+      }
+    }
+
+    const trimmedGstin = newCustGstin.trim().toUpperCase();
+    if (trimmedGstin) {
+      const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+      if (!gstinRegex.test(trimmedGstin)) {
+        onNotification?.(
+          "Validation Error",
+          "Invalid GSTIN format. Statutory GSTIN must be 15 alphanumeric characters (e.g. 27AAAAA0000A1Z5).",
+          "error"
+        );
+        return;
+      }
+      const validStates = new Set([
+        "01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
+        "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+        "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
+        "31", "32", "33", "34", "35", "36", "37", "38", "97"
+      ]);
+      const stateCode = trimmedGstin.substring(0, 2);
+      if (!validStates.has(stateCode)) {
+        onNotification?.(
+          "Validation Error",
+          `Invalid GSTIN state code '${stateCode}'. State code must be between 01 and 38 or 97.`,
+          "error"
+        );
+        return;
+      }
+    }
+
     const newCust: Customer = {
       id: "CUST-" + Date.now().toString().slice(-4),
       customerGroupId: "CG-Retail",
-      name: newCustName.trim(),
-      mobile: newCustMobile.trim() || "0000000000",
-      gstNumber: newCustGstin.trim() || undefined,
+      name: trimmedName,
+      mobile: trimmedMobile || "0000000000",
+      gstNumber: trimmedGstin || undefined,
       status: "Active",
       outstanding: 0,
       createdDate: new Date().toISOString().split("T")[0]
@@ -2463,6 +2612,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <input
                 type="number"
                 step="0.01"
+                min="0"
+                max="9999999.99"
                 value={directEntry.rate}
                 onChange={e => setDirectEntry({ ...directEntry, rate: e.target.value })}
                 onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
@@ -2473,7 +2624,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {/* Qty */}
               <input
                 type="number"
-                min="1"
+                min="0.001"
+                max="99999"
+                step="any"
                 value={directEntry.qty}
                 onChange={e => setDirectEntry({ ...directEntry, qty: e.target.value })}
                 onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
@@ -2502,6 +2655,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {/* Disc Qty */}
               <input
                 type="number"
+                min="0"
                 value={directEntry.discQty}
                 onChange={e => setDirectEntry({ ...directEntry, discQty: e.target.value })}
                 placeholder="Disc Qty"
@@ -2511,6 +2665,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {/* Disc % */}
               <input
                 type="number"
+                min="0"
+                max="100"
+                step="0.01"
                 value={directEntry.discPercent}
                 onChange={e => setDirectEntry({ ...directEntry, discPercent: e.target.value })}
                 placeholder="Disc %"

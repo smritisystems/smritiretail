@@ -168,13 +168,19 @@ export interface PSVPartySkuTracking {
 
 export interface PSVParty {
   id: string;
+  companyId?: string;
+  hostCustomerId?: string;
+  deliveryLocationId?: string;
+  storeCode?: string;
+  storeNameSnapshot?: string;
+  stockModel?: "OUTRIGHT_SALE" | "CONSIGNMENT" | "STOCK_ON_APPROVAL";
   name: string;
   location: string;
   stockCount: number;
   sellThrough: number; // percentage
   weeksOfCover: number;
   capitalLocked: number; // in INR
-  status: "Healthy" | "Monitor" | "Critical";
+  status: "Healthy" | "Monitor" | "Critical" | "SOLD_OUT" | "Reconciliation Required";
   history: { date: string; sales: number; stock: number }[];
   skuTracking?: PSVPartySkuTracking[]; // per-SKU tracking
 }
@@ -789,6 +795,7 @@ export interface UserPreferences {
 export interface User {
   id: string; // Keep for Staff-compatibility
   userId: string;
+  companyId?: string;
   employeeId: string;
   username: string;
   passwordHash: string; // Plain password or bcrypt hash

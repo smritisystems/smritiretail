@@ -447,6 +447,9 @@ class SalesService:
             warehouse_id = warehouse.id
 
         # 1. Validate items and calculate totals
+        if not invoice_in.items:
+            raise HTTPException(status_code=400, detail="SMRITI-VAL-001: Sales invoice must contain at least one line item.")
+
         calculated_taxable_total = Decimal("0.00")
         calculated_tax_total = Decimal("0.00")
         calculated_grand_total = Decimal("0.00")
@@ -454,6 +457,24 @@ class SalesService:
         batch_deductions = []
 
         for idx, item in enumerate(invoice_in.items, start=1):
+            quantity = Decimal(str(item.quantity))
+            unit_price = Decimal(str(item.price))
+            if quantity <= Decimal("0.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-VAL-002: Line item '{item.code}' has non-positive quantity ({quantity}). Quantity must be greater than zero.",
+                )
+            if unit_price < Decimal("0.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-VAL-003: Line item '{item.code}' has negative unit price ({unit_price}). Unit price cannot be negative.",
+                )
+            if item.mrp is not None and Decimal(str(item.mrp)) > Decimal("0.00") and unit_price > Decimal(str(item.mrp)):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-PRICE-001: Selling price (₹{unit_price:,.2f}) cannot exceed statutory MRP (₹{Decimal(str(item.mrp)):,.2f}) for item '{item.name}'.",
+                )
+
             product_stmt = select(Product).filter(
                 (Product.id == item.product_id) | (Product.code == item.product_id) | (Product.code == item.code),
                 Product.is_deleted == False,
@@ -465,8 +486,6 @@ class SalesService:
             if not product and not is_customer_po_service_line:
                 raise HTTPException(status_code=404, detail=f"Product not found: {item.product_id or item.code}")
 
-            quantity = Decimal(str(item.quantity))
-            unit_price = Decimal(str(item.price))
             gst_rate = Decimal(str(item.gst_rate if item.gst_rate is not None else "18.00"))
 
             # Determine batch allocation

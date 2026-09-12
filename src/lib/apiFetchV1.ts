@@ -146,7 +146,7 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   const branchId = localStorage.getItem("smriti_branch_id") || "MAIN";
   if (branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", branchId);
   if (branchId && !headers.has("X-Branch-Code")) headers.set("X-Branch-Code", branchId);
-  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+  if (!headers.has("Content-Type") && options.body !== undefined && options.body !== null && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   return headers;

@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Index, Boolean
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Index, Boolean, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 from ..db.base import Base, BaseEntity
@@ -22,6 +22,13 @@ class PSVParty(Base):
     __tablename__ = "psv_parties"
 
     id = Column(String(50), primary_key=True)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True, index=True)
+    host_customer_id = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True, index=True)
+    delivery_location_id = Column(String(50), ForeignKey("customer_delivery_locations.id", ondelete="RESTRICT"), nullable=True, index=True)
+    store_code = Column(String(50), nullable=True, index=True)
+    store_name_snapshot = Column(String(255), nullable=True)
+    stock_model = Column(String(30), nullable=False, default="OUTRIGHT_SALE")
     name = Column(String(255), nullable=False)
     location = Column(String(255), nullable=False)
     stock_count = Column(Integer, default=0)
@@ -67,6 +74,15 @@ class PSVStockEvent(Base):
     source_document_id = Column(String(50), nullable=False)
     source_document_line_id = Column(String(50), nullable=True)
     psv_party_id = Column(String(50), nullable=False)
+    host_customer_id = Column(String(50), nullable=True, index=True)
+    delivery_location_id = Column(String(50), nullable=True, index=True)
+    store_code_snapshot = Column(String(50), nullable=True, index=True)
+    invoice_id = Column(String(50), nullable=True, index=True)
+    invoice_line_id = Column(String(50), nullable=True, index=True)
+    staff_placement_id = Column(String(50), nullable=True, index=True)
+    approval_status = Column(String(20), nullable=False, default="APPROVED")
+    reported_by = Column(String(50), nullable=True)
+    approval_reason = Column(Text, nullable=True)
     destination_type = Column(String(30), default="RETAIL_STORE")
     destination_id = Column(String(50), nullable=True)
     psv_store_id = Column(String(50), nullable=True)
@@ -93,6 +109,8 @@ class PSVStockBalance(Base):
     company_code = Column(String(50), nullable=False, index=True)
     psv_party_id = Column(String(50), nullable=False, index=True)
     psv_store_id = Column(String(50), nullable=True)
+    delivery_location_id = Column(String(50), nullable=True, index=True)
+    store_code_snapshot = Column(String(50), nullable=True, index=True)
     sku = Column(String(100), nullable=False, index=True)
     billed_qty = Column(Numeric(12, 4), nullable=False, default=0.0000)
     received_qty = Column(Numeric(12, 4), nullable=False, default=0.0000)
@@ -100,6 +118,8 @@ class PSVStockBalance(Base):
     returned_qty = Column(Numeric(12, 4), nullable=False, default=0.0000)
     transferred_qty = Column(Numeric(12, 4), nullable=False, default=0.0000)
     current_balance = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    last_reported_at = Column(DateTime(timezone=True), nullable=True)
+    reconciliation_status = Column(String(30), nullable=False, default="AUTO_MATCHED")
 
 
 class PSVVisibilityPolicy(BaseEntity):
