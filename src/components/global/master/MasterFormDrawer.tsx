@@ -212,7 +212,8 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
                 if (field.showWhen && !field.showWhen(formData)) return null;
                 const fieldId = `field-${field.name}`;
                 const val = formData[field.name] ?? "";
-                const isFieldDisabled = typeof field.disabled === "function" ? field.disabled(formData, isEdit) : Boolean(field.disabled);
+                const isCodeField = field.name === "code" && isEdit;
+                const isFieldDisabled = isCodeField || (typeof field.disabled === "function" ? field.disabled(formData, isEdit) : Boolean(field.disabled));
 
                 return (
                   <div
@@ -221,6 +222,7 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
                   >
                     <label htmlFor={fieldId} className="block text-[11px] font-bold uppercase tracking-wider text-theme-muted font-mono">
                       {field.label} {field.required && <span className="text-rose-400">*</span>}
+                      {isCodeField && <span className="ml-1 normal-case tracking-normal text-theme-muted">(immutable)</span>}
                     </label>
 
                     {/* TEXT / EMAIL / PASSWORD / NUMBER */}

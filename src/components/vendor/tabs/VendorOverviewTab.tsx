@@ -134,6 +134,12 @@ const VendorOverviewTabBase: React.FC<VendorOverviewTabProps> = ({ vendor, onNav
 
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
+              <span className="text-slate-500 dark:text-slate-400 block">Vendor Code</span>
+              <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded inline-block mt-0.5 border border-indigo-200 dark:border-indigo-500/30">
+                {vendor.code || "—"}
+              </span>
+            </div>
+            <div>
               <span className="text-slate-500 dark:text-slate-400 block">Legal Entity Name</span>
               <span className="text-slate-900 dark:text-slate-200 font-semibold">{vendor.legalName}</span>
             </div>

@@ -176,6 +176,7 @@ class AttributesService:
         template = VariantTemplate(
             id=new_id,
             style_code=data.styleCode,
+            vendor_code=data.vendorCode,
             name=data.name,
             brand=data.brand or "SMRITI",
             category=data.category or "General",
@@ -200,6 +201,7 @@ class AttributesService:
             raise HTTPException(status_code=404, detail="Variant template not found")
 
         if data.styleCode is not None: template.style_code = data.styleCode
+        if data.vendorCode is not None and not template.vendor_code: template.vendor_code = data.vendorCode
         if data.name is not None: template.name = data.name
         if data.brand is not None: template.brand = data.brand
         if data.category is not None: template.category = data.category

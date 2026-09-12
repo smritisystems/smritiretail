@@ -1,3 +1,5 @@
+from ...models.attributes import AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
+from ...models.master_lookup import MasterType, MasterValue
 """
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
@@ -24,6 +26,7 @@ from ...models.auth import User, UserRole
 from ...models.attributes import (
     AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
 )
+from ...models.master_lookup import MasterType, MasterValue
 from ...models.inventory import Product
 from ...schemas.attributes import (
     AttributeDefinitionCreate, AttributeDefinitionUpdate, AttributeDefinitionResponse,
@@ -284,6 +287,7 @@ async def list_templates(
         res.append(VariantTemplateResponse(
             id=t.id,
             styleCode=t.style_code,
+            vendorCode=t.vendor_code,
             name=t.name,
             brand=t.brand or "SMRITI",
             category=t.category or "General",
@@ -313,10 +317,21 @@ async def create_template(
     Create a new variant template.
     """
     service = AttributesService(db)
+    vendor_code = req.vendorCode.strip().upper()
+    lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
+    governed_code = await db.scalar(select(MasterValue).where(
+        MasterValue.master_type_id == lookup_type.id if lookup_type else False,
+        MasterValue.code == vendor_code,
+        MasterValue.active.is_(True),
+        MasterValue.is_deleted.is_(False),
+    )) if lookup_type else None
+    if not governed_code:
+        raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
     t = await service.create_template(req, current_user.username)
     return VariantTemplateResponse(
         id=t.id,
         styleCode=t.style_code,
+        vendorCode=t.vendor_code,
         name=t.name,
         brand=t.brand or "SMRITI",
         category=t.category or "General",
@@ -345,10 +360,26 @@ async def update_template(
     Update variant template.
     """
     service = AttributesService(db)
+    if req.vendorCode is not None:
+        vendor_code = req.vendorCode.strip().upper()
+        template = await db.get(VariantTemplate, id)
+        if template and template.vendor_code and template.vendor_code != vendor_code:
+            raise HTTPException(status_code=400, detail="Vendor Code is immutable after Article/Style assignment.")
+        lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
+        governed_code = await db.scalar(select(MasterValue).where(
+            MasterValue.master_type_id == lookup_type.id if lookup_type else False,
+            MasterValue.code == vendor_code,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        )) if lookup_type else None
+        if not governed_code:
+            raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
+        req.vendorCode = vendor_code
     t = await service.update_template(id, req, current_user.username)
     return VariantTemplateResponse(
         id=t.id,
         styleCode=t.style_code,
+        vendorCode=t.vendor_code,
         name=t.name,
         brand=t.brand or "SMRITI",
         category=t.category or "General",
@@ -430,6 +461,7 @@ async def generate_variants(
         existing = res.scalars().first()
 
         if existing:
+            existing.vendor_code = template.vendor_code
             existing.stock = int(v.get("stock", 0))
             existing.price = float(v.get("price", template.base_price))
             existing.mrp = float(v.get("mrp", template.base_mrp))
@@ -452,6 +484,7 @@ async def generate_variants(
                 category=template.category,
                 barcode=barcode,
                 style_code=template.style_code,
+                vendor_code=template.vendor_code,
                 gst_percentage=template.gst_percentage,
                 attributes=v.get("attributes", {}),
                 pricing_mode=template.pricing_mode,

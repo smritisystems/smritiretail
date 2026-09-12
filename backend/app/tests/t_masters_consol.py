@@ -251,3 +251,71 @@ async def test_lookups_validation_and_soft_delete(db_session):
         # 7. Verify soft deleted item is filtered out from active list
         res_list_after = await client.get(f"/api/v1/masters/lookup/{dept_code}/values", headers=headers)
         assert not any(x["id"] == val_id for x in res_list_after.json())
+
+    async def test_manager_cannot_cross_company_organizational_scope(db_session):
+        suffix = uuid.uuid4().hex[:6]
+        company_a = Company(id=f"comp-a-{suffix}", name=f"Company A {suffix}", is_active=True)
+        branch_a = Branch(id=f"branch-a-{suffix}", company_id=company_a.id, name="Branch A", code=f"A-{suffix}", is_active=True)
+        company_b = Company(id=f"comp-b-{suffix}", name=f"Company B {suffix}", is_active=True)
+        branch_b = Branch(id=f"branch-b-{suffix}", company_id=company_b.id, name="Branch B", code=f"B-{suffix}", is_active=True)
+        manager = User(
+            id=f"manager-{suffix}", username=f"manager_{suffix}", email=f"manager_{suffix}@smriti.test",
+            hashed_password=hash_password("Manager@1234"), role=UserRole.MANAGER,
+            is_active=True, is_deleted=False, company_id=company_a.id, branch_id=branch_a.id,
+        )
+        db_session.add_all([company_a, branch_a, company_b, branch_b, manager])
+        await db_session.commit()
+        token = create_access_token(data={
+            "sub": manager.id, "username": manager.username, "role": manager.role.value,
+            "company_id": company_a.id, "branch_id": branch_a.id, "jti": str(uuid.uuid4()), "type": "access",
+        })
+        headers = {"Authorization": f"Bearer {token}"}
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            listed = await client.get("/api/v1/masters/branches", headers=headers)
+            foreign_update = await client.put(
+                f"/api/v1/masters/branches/{branch_b.id}", headers=headers,
+                json={"name": "Should Not Update"},
+            )
+
+        assert listed.status_code == 200
+        assert {row["id"] for row in listed.json()} == {branch_a.id}
+        assert foreign_update.status_code == 404
+
+
+    async def test_manager_cannot_mutate_global_lookup_value(db_session):
+        company, branch, _, _ = await _setup_admin_and_auth_headers(db_session)
+        manager = User(
+            id=f"manager-global-{uuid.uuid4().hex[:6]}", username=f"manager_global_{uuid.uuid4().hex[:6]}",
+            email=f"manager_global_{uuid.uuid4().hex[:6]}@smriti.test", hashed_password=hash_password("Manager@1234"),
+            role=UserRole.MANAGER, is_active=True, is_deleted=False, company_id=company.id, branch_id=branch.id,
+        )
+        master_type = MasterType(
+            code=f"global_type_{uuid.uuid4().hex[:6]}", label="Global Type",
+            field_schema={"type": "object"}, version=1,
+        )
+        db_session.add_all([manager, master_type])
+        await db_session.commit()
+        global_value = MasterValue(
+            master_type_id=master_type.id, company_id=None, branch_id=None,
+            code="GLOBAL", name="Global Value", data={}, active=True, is_deleted=False,
+        )
+        db_session.add(global_value)
+        await db_session.commit()
+        token = create_access_token(data={
+            "sub": manager.id, "username": manager.username, "role": manager.role.value,
+            "company_id": company.id, "branch_id": branch.id, "jti": str(uuid.uuid4()), "type": "access",
+        })
+        headers = {"Authorization": f"Bearer {token}"}
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            update = await client.put(
+                f"/api/v1/masters/lookup/{master_type.code}/values/{global_value.id}",
+                headers=headers, json={"name": "Must Stay Global"},
+            )
+            delete = await client.delete(
+                f"/api/v1/masters/lookup/{master_type.code}/values/{global_value.id}", headers=headers,
+            )
+
+        assert update.status_code == 404
+        assert delete.status_code == 404

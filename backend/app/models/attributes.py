@@ -63,6 +63,7 @@ class VariantTemplate(BaseEntity):
     __tablename__ = "variant_templates"
 
     style_code         = Column(String(100), nullable=False, unique=True)
+    vendor_code        = Column(String(100), nullable=True, index=True)
     name               = Column(String(200), nullable=False)
     brand              = Column(String(100), default="SMRITI")
     category           = Column(String(100), default="General")

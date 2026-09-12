@@ -12,7 +12,7 @@
  """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
 
@@ -32,6 +32,7 @@ class Product(BaseEntity):
     barcode = Column(String(100), nullable=False, index=True)
     secondary_barcodes = Column(ARRAY(String), server_default="{}")
     brand = Column(String(100))
+    vendor_code = Column(String(100))
     color = Column(String(50))
     size = Column(String(50))
     mrp = Column(Numeric(15, 2), default=0.00, server_default="0.00")
@@ -176,6 +177,23 @@ class Warehouse(BaseEntity):
             unique=True,
             postgresql_where=text("is_deleted = false"),
         ),
+    )
+
+
+class WarehouseLocation(BaseEntity):
+    """Reusable warehouse location master for governed bin assignments."""
+    __tablename__ = "warehouse_locations"
+
+    warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(50), nullable=False)
+    name = Column(String(100), nullable=False)
+    aisle = Column(String(50), nullable=True)
+    rack = Column(String(50), nullable=True)
+    shelf = Column(String(50), nullable=True)
+    bin_code = Column(String(50), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_warehouse_location_code"),
     )
 
 

@@ -83,6 +83,7 @@ export interface AttributeGroup {
 export interface VariantTemplate {
   id: string;
   styleCode: string; // Parent template style code prefix
+  vendorCode?: string; // Governed Vendor Code assigned to the style
   name: string; // Base name of the product line
   brand: string;
   category: string;

@@ -28,6 +28,7 @@ class ProductBase(BaseModel):
     barcode: str = Field(..., max_length=100, description="Barcode")
     secondary_barcodes: Optional[List[str]] = Field(default_factory=list)
     brand: Optional[str] = Field(None, max_length=100)
+    vendor_code: Optional[str] = Field(None, max_length=100)
     color: Optional[str] = Field(None, max_length=50)
     size: Optional[str] = Field(None, max_length=50)
     mrp: Decimal = Field(..., ge=0, description="MRP")
@@ -151,6 +152,7 @@ class ProductUpdate(BaseModel):
     barcode: Optional[str] = None
     secondary_barcodes: Optional[List[str]] = None
     brand: Optional[str] = None
+    vendor_code: Optional[str] = None
     color: Optional[str] = None
     size: Optional[str] = None
     mrp: Optional[Decimal] = None

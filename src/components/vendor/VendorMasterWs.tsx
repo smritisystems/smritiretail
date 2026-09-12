@@ -13,7 +13,7 @@
  * Target UI    : Vendor 360 Workspace (Universal Party System of Record)
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Building2, 
   Search, 
@@ -222,9 +222,11 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printWithData, setPrintWithData] = useState(true);
   const [showPrintDropdown, setShowPrintDropdown] = useState(false);
+  const [vendorCodeOptions, setVendorCodeOptions] = useState<{ code: string; name: string }[]>([]);
 
   // New Vendor Form State
   const [newForm, setNewForm] = useState({
+    code: "",
     legalName: "",
     tradeName: "",
     gstin: "",
@@ -236,6 +238,27 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
     supplierType: "DISTRIBUTOR",
     paymentTermsDays: 30,
   });
+
+  const availableVendorCodeOptions = useMemo(() => {
+    const assignedCodes = new Set(vendors.map((vendor) => vendor.code.trim().toUpperCase()).filter(Boolean));
+    return vendorCodeOptions.filter((option) => !assignedCodes.has(option.code.toUpperCase()));
+  }, [vendorCodeOptions, vendors]);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiFetchV1("/masters/lookup/vendor_code/values?activeOnly=true")
+      .then((values) => {
+        if (!isMounted || !Array.isArray(values)) return;
+        setVendorCodeOptions(values.map((value: any) => ({
+          code: String(value.code || "").trim(),
+          name: String(value.name || value.code || "").trim()
+        })).filter((value) => value.code));
+      })
+      .catch(() => {
+        if (isMounted) setVendorCodeOptions([]);
+      });
+    return () => { isMounted = false; };
+  }, []);
 
   // Load Vendor Directory
   const loadVendors = useCallback(async () => {
@@ -337,8 +360,8 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
 
   // Rapid Vendor Creation
   const handleCreateVendor = async () => {
-    if (!newForm.legalName) {
-      onNotification?.("Required Field", "Please enter a legal vendor name.", "error");
+    if (!newForm.code.trim() || !newForm.legalName.trim()) {
+      onNotification?.("Required Field", "Select a Vendor Code from System Lookups and enter a legal vendor name.", "error");
       return;
     }
     setSaving(true);
@@ -346,6 +369,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
       const created = await apiFetchV1("/purchase/vendors/", {
         method: "POST",
         body: JSON.stringify({
+          code: newForm.code.trim().toUpperCase(),
           legal_name: newForm.legalName,
           trade_name: newForm.tradeName || newForm.legalName,
           gstin: newForm.gstin || null,
@@ -365,6 +389,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
       onNotification?.("Vendor Created", `Added ${normCreated.legalName} to Universal Party Master.`, "success");
       setShowNewModal(false);
       setNewForm({
+        code: "",
         legalName: "",
         tradeName: "",
         gstin: "",
@@ -749,6 +774,20 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
 
             <div className="space-y-3 text-xs">
               <div>
+                <label className="block text-slate-700 dark:text-slate-400 mb-1">Vendor Code *</label>
+                <select
+                  value={newForm.code}
+                  onChange={(e) => setNewForm({ ...newForm, code: e.target.value.toUpperCase() })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono uppercase focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
+                >
+                  <option value="">Select an active Master Registry code</option>
+                  {availableVendorCodeOptions.map((option) => (
+                    <option key={option.code} value={option.code}>{option.code} - {option.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] text-slate-500">Selected from System Lookups; immutable after creation.</p>
+              </div>
+              <div>
                 <label className="block text-slate-700 dark:text-slate-400 mb-1">Legal Company Name *</label>
                 <input
                   type="text"
@@ -850,7 +889,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
               </button>
               <button
                 onClick={handleCreateVendor}
-                disabled={saving}
+                disabled={saving || availableVendorCodeOptions.length === 0 || !newForm.code}
                 className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow"
               >
                 {saving ? "Creating..." : "Create Vendor"}

@@ -25,6 +25,7 @@ import {
 import { generateSkuCode } from "../../../services/skuGenerationEngine.ts";
 import { HeaderMappingEngine } from "../../../lib/headerMapping/HeaderMappingEngine";
 import { ColumnMappingResult } from "../../../lib/headerMapping/types";
+import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 
 // Singleton engine for item master column detection
 const _itemMasterEngine = new HeaderMappingEngine();
@@ -65,8 +66,41 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
   const [detectedMappings, setDetectedMappings] = useState<ColumnMappingResult[]>([]);
   // Override map: sourceIndex → target fieldKey (user can change per column)
   const [mappingOverrides, setMappingOverrides] = useState<Record<number, string>>({});
+  const [productOptions, setProductOptions] = useState<{ code: string; name: string }[]>([]);
+  const [uomOptions, setUomOptions] = useState<string[]>([]);
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    apiFetchV1("/masters/lookup/product/values?activeOnly=true")
+      .then((values) => {
+        if (mounted && Array.isArray(values)) {
+          setProductOptions(values.map((value: any) => ({
+            code: String(value.code || ""),
+            name: String(value.name || value.code || "")
+          })));
+        }
+      })
+      .catch(() => {
+        if (mounted) setProductOptions([]);
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    apiFetchV1("/localization/uoms?active_only=true")
+      .then((values) => {
+        if (mounted && Array.isArray(values)) {
+          setUomOptions(values.map((value: any) => String(value.code || value.name || "")).filter(Boolean));
+        }
+      })
+      .catch(() => {
+        if (mounted) setUomOptions([]);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   const fieldMap = useMemo(() => {
     const map = new Map<string, ItemMasterFieldDefinition>();
@@ -464,7 +498,29 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
                             : ""
                         }`}
                       >
-                        {col.type === "select" ? (
+                        {col.key === "product" ? (
+                          <select
+                            value={cellValue}
+                            onChange={e => handleCellChange(rIdx, col.key, e.target.value)}
+                            className="w-full bg-transparent border-none p-1 text-xs text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-800 focus:ring-1 focus:ring-blue-500 rounded cursor-pointer"
+                          >
+                            <option value="">Select Product</option>
+                            {productOptions.map((option) => (
+                              <option key={option.code} value={option.name}>
+                                {option.name} ({option.code})
+                              </option>
+                            ))}
+                          </select>
+                        ) : col.key === "uom" ? (
+                          <select
+                            value={cellValue}
+                            onChange={e => handleCellChange(rIdx, col.key, e.target.value)}
+                            className="w-full bg-transparent border-none p-1 text-xs text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-800 focus:ring-1 focus:ring-blue-500 rounded cursor-pointer"
+                          >
+                            <option value="">Select UOM</option>
+                            {uomOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                          </select>
+                        ) : col.type === "select" ? (
                           <select
                             value={cellValue}
                             onChange={e => handleCellChange(rIdx, col.key, e.target.value)}

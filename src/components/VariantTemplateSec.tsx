@@ -50,6 +50,8 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
   // Form states for Templates
   const [styleCode, setStyleCode] = useState("");
+  const [vendorCode, setVendorCode] = useState("");
+  const [vendorCodeOptions, setVendorCodeOptions] = useState<{ code: string; name: string }[]>([]);
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("SMRITI");
   const [category, setCategory] = useState("Apparel");
@@ -68,14 +70,19 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [res1, res2, res3] = await Promise.all([
+      const [res1, res2, res3, vendorCodes] = await Promise.all([
         apiFetchV1("/attributes/templates"),
         apiFetchV1("/attributes/groups"),
-        apiFetchV1("/attributes/definitions")
+        apiFetchV1("/attributes/definitions"),
+        apiFetchV1("/masters/lookup/vendor_code/values?activeOnly=true")
       ]);
       setTemplates(res1);
       setGroups(res2);
       setDefinitions(res3);
+      setVendorCodeOptions(Array.isArray(vendorCodes) ? vendorCodes.map((value: any) => ({
+        code: String(value.code || "").trim(),
+        name: String(value.name || value.code || "").trim()
+      })).filter((value) => value.code) : []);
     } catch (e) {
       console.error(e);
       onNotification("Fetch Error", "Failed to load variant templates.", "error");
@@ -125,13 +132,14 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
   const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!styleCode.trim() || !name.trim() || !groupId) {
-      onNotification("Missing Fields", "Style Code, Name, and Attribute Group are required.", "error");
+    if (!styleCode.trim() || !name.trim() || !groupId || !vendorCode) {
+      onNotification("Missing Fields", "Style Code, Vendor Code, Name, and Attribute Group are required.", "error");
       return;
     }
 
     const payload = {
       styleCode: styleCode.trim().toUpperCase(),
+      vendorCode: vendorCode.trim().toUpperCase(),
       name: name.trim(),
       brand: brand.trim(),
       category,
@@ -157,6 +165,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
       onNotification("Saved", `Template "${name}" committed.`, "success");
       setStyleCode("");
+      setVendorCode("");
       setName("");
       setGroupId("");
       setEditingTemplateId(null);
@@ -181,6 +190,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
   const handleEditTemplate = (t: VariantTemplate) => {
     setEditingTemplateId(t.id);
     setStyleCode(t.styleCode);
+    setVendorCode(t.vendorCode || "");
     setName(t.name);
     setBrand(t.brand);
     setCategory(t.category);
@@ -280,7 +290,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                   <div>
                     <span className="text-xs font-bold text-theme-body block">{t.name}</span>
                     <span className="text-[10px] text-theme-muted font-mono block mt-0.5">
-                      Code base: <span className="text-indigo-300">{t.styleCode}</span> • Group: <span className="text-violet-400">{groups.find(g => g.id === t.attributeGroupId)?.name || t.attributeGroupId}</span>
+                      Code base: <span className="text-indigo-300">{t.styleCode}</span> • Vendor: <span className="text-emerald-300">{t.vendorCode || "Unassigned"}</span> • Group: <span className="text-violet-400">{groups.find(g => g.id === t.attributeGroupId)?.name || t.attributeGroupId}</span>
                     </span>
                     <div className="flex items-center space-x-1.5 mt-1">
                       <span className="text-[9px] font-mono px-1 bg-emerald-950 text-emerald-400 border border-emerald-900 rounded uppercase font-bold">
@@ -320,6 +330,20 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                     placeholder="e.g. SNE-LTH"
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body placeholder-[#8892a4] font-mono uppercase"
                   />
+                </div>
+                <div>
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Vendor Code *</label>
+                  <select
+                    required
+                    disabled={Boolean(editingTemplateId && vendorCode)}
+                    value={vendorCode}
+                    onChange={(e) => setVendorCode(e.target.value)}
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body font-mono disabled:opacity-60"
+                  >
+                    <option value="">Select active Master Registry code</option>
+                    {vendorCodeOptions.map((option) => <option key={option.code} value={option.code}>{option.code} - {option.name}</option>)}
+                  </select>
+                  <span className="text-[9px] text-theme-muted">One Vendor Code owns this Article/Style.</span>
                 </div>
                 <div>
                   <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Base Name *</label>
@@ -442,6 +466,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                     onClick={() => {
                       setEditingTemplateId(null);
                       setStyleCode("");
+                      setVendorCode("");
                       setName("");
                       setGroupId("");
                     }}
