@@ -79,6 +79,7 @@ export interface AttributeGroup {
   gridColumnAttributeId?: string; // E.g. "Size"
   gridRowAttributeId?: string; // E.g. "Color"
   sizeGroupId?: string; // Master Registry size_group code
+  colorGroupId?: string; // Master Registry color_group code
 }
 
 export interface VariantTemplate {
@@ -92,6 +93,7 @@ export interface VariantTemplate {
   hsnCode: string;
   basePrice: number;
   baseMrp: number;
+  baseCostPrice: number;
   gstPercentage: number;
   attributeGroupId: string;
   pricingMode: "Fixed" | "Weight-based" | "Negotiated" | "Service";

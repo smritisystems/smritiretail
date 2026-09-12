@@ -29,6 +29,8 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
   const [definitions, setDefinitions] = useState<AttributeDefinition[]>([]);
   const [groups, setGroups] = useState<AttributeGroup[]>([]);
   const [categoryMappings, setCategoryMappings] = useState<any[]>([]);
+  const [sizeGroupOptions, setSizeGroupOptions] = useState<{ code: string; name: string }[]>([]);
+  const [colorGroupOptions, setColorGroupOptions] = useState<{ code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Form states for Definitions
@@ -56,6 +58,8 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
   const [grpSelectedAttrs, setGrpSelectedAttrs] = useState<string[]>([]);
   const [grpGridCol, setGrpGridCol] = useState("");
   const [grpGridRow, setGrpGridRow] = useState("");
+  const [grpSizeGroup, setGrpSizeGroup] = useState("");
+  const [grpColorGroup, setGrpColorGroup] = useState("");
   const [editingGrpId, setEditingGrpId] = useState<string | null>(null);
 
   // Form states for Mappings
@@ -65,14 +69,22 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [res1, res2, res3] = await Promise.all([
+      const [res1, res2, res3, sizeGroups, colorGroups] = await Promise.all([
         apiFetchV1("/attributes/definitions"),
         apiFetchV1("/attributes/groups"),
-        apiFetchV1("/attributes/category-mappings")
+        apiFetchV1("/attributes/category-mappings"),
+        apiFetchV1("/masters/lookup/size_group/values?activeOnly=true").catch(() => []),
+        apiFetchV1("/masters/lookup/color_group/values?activeOnly=true").catch(() => [])
       ]);
       setDefinitions(res1);
       setGroups(res2);
       setCategoryMappings(res3);
+      const mapGroupOptions = (items: any) => Array.isArray(items) ? items.map((item: any) => ({
+        code: String(item.code || "").trim(),
+        name: String(item.name || item.code || "").trim(),
+      })).filter((item) => item.code) : [];
+      setSizeGroupOptions(mapGroupOptions(sizeGroups));
+      setColorGroupOptions(mapGroupOptions(colorGroups));
     } catch (e) {
       console.error(e);
       onNotification("Fetch Error", "Failed to load attribute configurations.", "error");
@@ -200,7 +212,9 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
       name: grpName.trim(),
       attributeIds: grpSelectedAttrs,
       gridColumnAttributeId: grpGridCol || undefined,
-      gridRowAttributeId: grpGridRow || undefined
+      gridRowAttributeId: grpGridRow || undefined,
+      sizeGroupId: grpSizeGroup || undefined,
+      colorGroupId: grpColorGroup || undefined,
     };
 
     try {
@@ -219,6 +233,8 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
       setGrpSelectedAttrs([]);
       setGrpGridCol("");
       setGrpGridRow("");
+      setGrpSizeGroup("");
+      setGrpColorGroup("");
       setEditingGrpId(null);
       fetchAll();
     } catch (err: any) {
@@ -243,6 +259,8 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
     setGrpSelectedAttrs(g.attributeIds);
     setGrpGridCol(g.gridColumnAttributeId || "");
     setGrpGridRow(g.gridRowAttributeId || "");
+    setGrpSizeGroup(g.sizeGroupId || "");
+    setGrpColorGroup(g.colorGroupId || "");
   };
 
   const handleSaveMapping = async (e: React.FormEvent) => {
@@ -523,6 +541,8 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
                       Contains {g.attributeIds.length} attributes
                       {g.gridColumnAttributeId && ` • Col: ${definitions.find(d => d.id === g.gridColumnAttributeId)?.label}`}
                       {g.gridRowAttributeId && ` • Row: ${definitions.find(d => d.id === g.gridRowAttributeId)?.label}`}
+                      {g.sizeGroupId && ` • Size Group: ${g.sizeGroupId}`}
+                      {g.colorGroupId && ` • Color Group: ${g.colorGroupId}`}
                     </span>
                   </div>
                   <div className="flex items-center space-x-1">
@@ -609,6 +629,31 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Master Lookup Size Group</label>
+                  <select
+                    value={grpSizeGroup}
+                    onChange={(e) => setGrpSizeGroup(e.target.value)}
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body"
+                  >
+                    <option value="">-- Select Size Group --</option>
+                    {sizeGroupOptions.map((option) => <option key={option.code} value={option.code}>{option.code} - {option.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] font-mono text-theme-muted uppercase block mb-1">Master Lookup Color Group</label>
+                  <select
+                    value={grpColorGroup}
+                    onChange={(e) => setGrpColorGroup(e.target.value)}
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body"
+                  >
+                    <option value="">-- Select Color Group --</option>
+                    {colorGroupOptions.map((option) => <option key={option.code} value={option.code}>{option.code} - {option.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-2 pt-1">
                 {editingGrpId && (
                   <button
@@ -619,6 +664,8 @@ export const AttributeManagerSection: React.FC<AttributeManagerSectionProps> = (
                       setGrpSelectedAttrs([]);
                       setGrpGridCol("");
                       setGrpGridRow("");
+                      setGrpSizeGroup("");
+                      setGrpColorGroup("");
                     }}
                     className="px-3 py-1.5 bg-theme-surface-3 text-theme-muted hover:text-white rounded text-xs"
                   >

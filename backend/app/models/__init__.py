@@ -36,6 +36,7 @@ from .report_schedule import ReportSchedule, ReportDispatchLog
 from .role import Role
 from .hr import AttendanceRecord, LeaveBalance, LeaveRequest
 from .staff_profile import StaffProfile
+from .size_groups import SizeGroup, SizeGroupValue
 from .staff_profile_history import StaffProfileHistory
 from .staff_placement import StaffPlacementAssignment
 

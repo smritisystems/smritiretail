@@ -206,7 +206,8 @@ async def list_groups(
             attributeIds=json.loads(g.attribute_ids) if g.attribute_ids else [],
             gridColumnAttributeId=g.grid_column_attribute_id,
             gridRowAttributeId=g.grid_row_attribute_id,
-            sizeGroupId=g.size_group_id
+            sizeGroupId=g.size_group_id,
+            colorGroupId=g.color_group_id
         ))
     return res
 
@@ -233,7 +234,8 @@ async def create_group(
         attributeIds=json.loads(g.attribute_ids) if g.attribute_ids else [],
         gridColumnAttributeId=g.grid_column_attribute_id,
         gridRowAttributeId=g.grid_row_attribute_id,
-        sizeGroupId=g.size_group_id
+        sizeGroupId=g.size_group_id,
+        colorGroupId=g.color_group_id
     )
 
 
@@ -259,7 +261,8 @@ async def update_group(
         attributeIds=json.loads(g.attribute_ids) if g.attribute_ids else [],
         gridColumnAttributeId=g.grid_column_attribute_id,
         gridRowAttributeId=g.grid_row_attribute_id,
-        sizeGroupId=g.size_group_id
+        sizeGroupId=g.size_group_id,
+        colorGroupId=g.color_group_id
     )
 
 
@@ -308,6 +311,7 @@ async def list_templates(
             hsnCode=t.hsn_code or "61091000",
             basePrice=float(t.base_price or 0),
             baseMrp=float(t.base_mrp or 0),
+            baseCostPrice=float(t.base_cost_price or 0),
             gstPercentage=float(t.gst_percentage or 18),
             attributeGroupId=t.attribute_group_id,
             pricingMode=t.pricing_mode,
@@ -370,6 +374,7 @@ async def create_template(
         hsnCode=t.hsn_code or "61091000",
         basePrice=float(t.base_price or 0),
         baseMrp=float(t.base_mrp or 0),
+        baseCostPrice=float(t.base_cost_price or 0),
         gstPercentage=float(t.gst_percentage or 18),
         attributeGroupId=t.attribute_group_id,
         pricingMode=t.pricing_mode,
@@ -440,6 +445,7 @@ async def update_template(
         hsnCode=t.hsn_code or "61091000",
         basePrice=float(t.base_price or 0),
         baseMrp=float(t.base_mrp or 0),
+        baseCostPrice=float(t.base_cost_price or 0),
         gstPercentage=float(t.gst_percentage or 18),
         attributeGroupId=t.attribute_group_id,
         pricingMode=t.pricing_mode,
@@ -514,12 +520,20 @@ async def generate_variants(
         res = await db.execute(q)
         existing = res.scalars().first()
 
+        cost_val = v.get("costPrice")
+        if cost_val is not None and str(cost_val).strip() != "":
+            resolved_cost = float(cost_val)
+        elif template.base_cost_price is not None:
+            resolved_cost = float(template.base_cost_price)
+        else:
+            resolved_cost = 0.0
+
         if existing:
             existing.vendor_code = template.vendor_code
             existing.stock = int(v.get("stock", 0))
             existing.price = float(v.get("price", template.base_price))
             existing.mrp = float(v.get("mrp", template.base_mrp))
-            existing.cost_price = float(v.get("costPrice", float(existing.price) * 0.6))
+            existing.cost_price = resolved_cost
             existing.sku = v.get("sku") or existing.sku
             existing.barcode = v.get("barcode") or existing.barcode
             existing.attributes = {**existing.attributes, **v.get("attributes", {})}
@@ -533,7 +547,7 @@ async def generate_variants(
                 name=template.name,
                 price=float(v.get("price", template.base_price)),
                 mrp=float(v.get("mrp", template.base_mrp or v.get("price", template.base_price))),
-                cost_price=float(v.get("costPrice", float(v.get("price", template.base_price)) * 0.6)),
+                cost_price=resolved_cost,
                 stock=int(v.get("stock", 0)),
                 category=template.category,
                 barcode=barcode,

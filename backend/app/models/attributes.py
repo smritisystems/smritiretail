@@ -11,7 +11,7 @@
  * License      : Proprietary Commercial Software
  """
 
-from sqlalchemy import Column, String, Boolean, Text, Integer, text, ForeignKey
+from sqlalchemy import Column, String, Boolean, Text, Integer, Numeric, text, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID
 from ..db.base import BaseEntity
@@ -56,6 +56,7 @@ class AttributeGroup(BaseEntity):
     grid_column_attribute_id = Column(String(50), nullable=True)
     grid_row_attribute_id    = Column(String(50), nullable=True)
     size_group_id            = Column(String(100), nullable=True, index=True)
+    color_group_id           = Column(String(100), nullable=True, index=True)
 
 
 class VariantTemplate(BaseEntity):
@@ -73,6 +74,7 @@ class VariantTemplate(BaseEntity):
     hsn_code           = Column(String(20), default="61091000")
     base_price         = Column(Integer, default=0)
     base_mrp           = Column(Integer, default=0)
+    base_cost_price    = Column(Numeric(15, 2), default=0.00)
     gst_percentage     = Column(Integer, default=18)
     attribute_group_id = Column(String(50), nullable=False)
     pricing_mode       = Column(String(50), default="Fixed")     # Fixed, Weight-based

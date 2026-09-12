@@ -33,6 +33,7 @@ export const mapLookupResponse = (items: any, typeCode: string) => (
       ...item,
       type_code: typeCode,
       description: item.data?.description || item.data?.notes || "",
+      values: Array.isArray(item.data?.values) ? item.data.values.join(", ") : "",
       is_active: item.active !== false
     }))
     : []

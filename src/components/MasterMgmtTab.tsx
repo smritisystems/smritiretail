@@ -17,6 +17,7 @@
 import React, { useState, useEffect } from "react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
 import { mapLookupResponse, masterLookupConfig, MasterLookupItem } from "./global/configs/masterLookup.confi.tsx";
+import { getMasterRegistryTypeConfig } from "./masterRegistry/sizeManagement.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 
 export interface MasterManagementTabProps {
@@ -36,7 +37,17 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
       try {
         const types = await apiFetchV1("/masters/lookup-types");
         if (Array.isArray(types)) {
-          setLookupTypes(types.map((t: any) => ({ code: t.code, label: t.label || t.name })));
+          const configuredTypes = types.map((t: any) => ({ code: t.code, label: t.label || t.name }));
+          if (!configuredTypes.some((type) => type.code === "size_group")) {
+            configuredTypes.push({ code: "size_group", label: "Size Group" });
+          }
+          if (!configuredTypes.some((type) => type.code === "size_group_registry")) {
+            configuredTypes.push({ code: "size_group_registry", label: "Size Group Master Registry" });
+          }
+          if (!configuredTypes.some((type) => type.code === "color_group")) {
+            configuredTypes.push({ code: "color_group", label: "Color Group" });
+          }
+          setLookupTypes(configuredTypes);
         }
       } catch (e) {
         console.warn("Failed to load lookup types:", e);
@@ -49,20 +60,49 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     ...masterLookupConfig,
     apiEndpoint: `/masters/lookup/${selectedType}/values`,
     responseTransform: (items: any) => mapLookupResponse(items, selectedType),
+    payloadTransform: (formData: any) => ({
+      code: String(formData.code || "").trim(),
+      name: String(formData.name || "").trim(),
+      active: formData.is_active !== false,
+      data: {
+        description: String(formData.description || "").trim(),
+        ...(selectedType === "color_group" ? {
+          dimension: "color",
+          values: String(formData.values || "")
+            .split(",")
+            .map((value) => value.trim().toUpperCase())
+            .filter(Boolean),
+        } : {}),
+      },
+    }),
     fields: masterLookupConfig.fields.map((field) =>
       field.name === "type_code"
         ? { ...field, defaultValue: selectedType, disabled: true }
         : field
-    ),
+    ).concat(selectedType === "color_group" ? [{
+      name: "values",
+      label: "Ordered Color Values",
+      type: "textarea",
+      required: true,
+      placeholder: "BLACK, WHITE, RED, BLUE",
+      description: "These values will be used to generate Color variants.",
+      colSpan: 2,
+    }] : []),
     subTabs: lookupTypes.length > 0 ? lookupTypes.map((t) => ({
       id: t.code,
-      label: t.label
+      label: t.code === "size_group" ? "Size Management" : t.label
     })) : undefined
   };
 
+  const registryConfig: any = selectedType === "size_group"
+    ? getMasterRegistryTypeConfig("size_group", "select")
+    : selectedType === "size_group_registry"
+      ? getMasterRegistryTypeConfig("size_group_registry", "manage")
+    : dynamicConfig;
+
   return (
-    <MasterListScreen<MasterLookupItem>
-      config={dynamicConfig}
+    <MasterListScreen<any>
+      config={registryConfig}
       currentUser={currentUser}
       initialSubTab={selectedType}
       onSubTabChange={setSelectedType}
