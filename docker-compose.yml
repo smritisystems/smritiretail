@@ -81,7 +81,7 @@ services:
       SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-true}"
     volumes:
       - ./backend/app:/app/app
-      - ./:/workspace:ro
+      - ./:/workspace
       - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:
       db:

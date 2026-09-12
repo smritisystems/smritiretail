@@ -27,6 +27,7 @@ import json
 import os
 import re
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -463,16 +464,13 @@ def scan_codebase() -> dict[str, Any]:
     avg_security = int(total_security / module_count)
 
     dhi = int(
-        (avg_frontend * 0.15) +
-        (avg_backend * 0.15) +
-        (avg_db * 0.10) +
-        (avg_api * 0.10) +
-        (avg_tests * 0.15) +
-        (avg_docs * 0.10) +
-        (avg_security * 0.10) +
-        (90 * 0.05) + # BASELINE_ASSUMPTION: performance score benchmark constant (90%)
-        (95 * 0.05) + # BASELINE_ASSUMPTION: technical debt baseline constant (95%)
-        (88 * 0.05)   # BASELINE_ASSUMPTION: release readiness baseline constant (88%)
+        (avg_frontend * 0.18) +
+        (avg_backend * 0.18) +
+        (avg_db * 0.12) +
+        (avg_api * 0.12) +
+        (avg_tests * 0.16) +
+        (avg_docs * 0.12) +
+        (avg_security * 0.12)
     )
 
     grade = "D"
@@ -557,7 +555,8 @@ def scan_codebase() -> dict[str, Any]:
     ))
 
     return {
-        "timestamp": subprocess.check_output(["date", "/T"], shell=True, text=True).strip() if os.name == "nt" else "2026-07-11",
+        "repositoryRoot": str(root_dir),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "gitInfo": git_info,
         "releaseScores": {
             "dhi": dhi,

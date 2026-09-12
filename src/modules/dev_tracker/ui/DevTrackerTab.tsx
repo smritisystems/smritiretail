@@ -537,11 +537,11 @@ export const DevTrackerTab: React.FC = () => {
                   <div className="p-4 bg-theme-surface-2 rounded-lg border border-theme-divider flex items-center justify-between gap-4">
                     <div>
                       <h4 className="font-bold text-sm text-theme-body font-display">Target Version Profile: v{data.gitInfo.releaseVersion}</h4>
-                      <p className="text-xs text-theme-muted mt-1 font-mono">Calculated DHI health limits are evaluated against standard release rules.</p>
+                      <p className="text-xs text-theme-muted mt-1 font-mono">Heuristic assessment only. Release decisions require CI, security, migration, and smoke-test evidence.</p>
                     </div>
                     
-                    <span className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg font-bold font-mono uppercase text-xs">
-                      🚀 Approved for staging
+                    <span className="px-3 py-1.5 bg-theme-warning-bg border border-theme-warning/20 text-theme-warning rounded-lg font-bold font-mono uppercase text-xs">
+                      Assessment only
                     </span>
                   </div>
                 </div>
