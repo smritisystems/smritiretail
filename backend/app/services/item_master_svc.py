@@ -130,7 +130,13 @@ class UniversalItemMasterService:
                         f"Barcode '{barcode}' is already attached to an SKU and cannot be reused"
                     )
 
-            item_id = f"itm_{uuid.uuid4().hex[:12]}"
+            normalized_brand = req.brand
+            if req.brand and str(req.brand).strip():
+                from .catalog_validation import CatalogDimensionValidator
+                normalized_brand = await CatalogDimensionValidator.validate_and_normalize_brand(
+                    brand_val=req.brand,
+                    strict=True,
+                )
 
             item = Item(
                 id=item_id,
@@ -139,7 +145,7 @@ class UniversalItemMasterService:
                 item_type=req.item_type,
                 category=req.category,
                 category_code=req.category_code,
-                brand=req.brand,
+                brand=normalized_brand,
                 hsn_code=req.hsn_code or "0000",
                 tax_rate=Decimal(str(req.tax_rate)),
                 primary_uom=req.primary_uom,
