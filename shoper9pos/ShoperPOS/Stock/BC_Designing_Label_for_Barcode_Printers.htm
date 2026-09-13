@@ -1,0 +1,128 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Designing Label for Barcode Printers</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { x-text-underline:normal; font-weight:bold; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Designing Label for Barcode Printers</h1>
+
+<p class=Body-Text>This option is to create a basic template for barcode 
+ printing and specify the parameters to be considered while generating 
+ a barcode. Design is done collectively by Shoper support personnel, retailer 
+ and barcode printer vendor. The Barcode vendor will prepare a barcode 
+ parameter based on customer specifications like the length and width of 
+ label, number of labels to be printed in a row, etc. These parameters 
+ will be interfaced with Shoper fields which are originally in a coded 
+ form.</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Stock 
+ &gt;</span> <span class="hcp1">Barcode &gt; Design Label 
+ for Barcode Printers</span></p>
+
+<p class=Body-Text>The <span class="hcp1">Barcode Script 
+ Generation</span> window is displayed. Click <span class="hcp1">Load</span> 
+ to open the barcode script, given by the barcode vendor. Enter the script 
+ file name or browse and select the same.</p>
+
+<p class=Body-Text>Barcode script, in a text file format, is displayed 
+ in the window and can be modified by linking with Shoper database. A few 
+ rows displayed in the window specifies the field values to be replaced 
+ by fields from Shoper database. Barcode vendor will help to identify which 
+ row represents which field.</p>
+
+<p class=Note><span class="hcp1">Note:</span> Script file 
+ varies depending on the barcode printers.</p>
+
+<p class=Body-Text>A sample of the window is as shown.</p>
+
+<p class=Body-Text><img src="Barcode_Thermal_DesignLabel_Filled.gif"
+						x-maintain-ratio=TRUE
+						style="border: none;
+								width: 550px;
+								height: 335px;
+								float: none;"
+						width=550
+						height=335
+						border=0> </p>
+
+<p class=Body-Text><span class="hcp1">Identification</span>: 
+ Place the cursor on the line, in the display area, representing the field 
+ required to be replaced by the value from the database. Select a field 
+ from the list. For example, Stock Number or Retail Price.</p>
+
+<p class=Body-Text><span class="hcp1">String to be taken</span>: 
+ To specify the position to be taken for printing the barcode. </p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">From Right</span>: 
+ Select to print the value from the right. This option is selected when 
+ the field to be mapped is generated. For example, if generated stock number 
+ is 0000013, then barcode prints from right of the Stock No., i.e., from 
+ 3.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">From Left</span>: 
+ Select to print the value from the left. This option is selected when 
+ the field is user assigned. For example, if user assigned Stock No. is 
+ AB0011234, then barcode prints from left, i.e., starting from A.</p>
+
+<p class=Body-Text>If you have selected a numeric field in <span class="hcp1">Identification</span>, 
+ the following fields are activated.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Enter the 
+ Integer Part</span>: The length of the integer part to be printed.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Enter No. 
+ of Decimals</span>: The number of decimals to be printed.</p>
+
+<p class=Body-Text>If you have selected a string type field in <span class="hcp1">Identification</span>, 
+ the following fields are activated.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Enter the 
+ Starting Position</span>: The starting position of the field from where 
+ the value has to be picked for printing.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Enter No. 
+ of Digits</span>: The length or number of digits to be taken from the 
+ starting position for printing.</p>
+
+<p class=Body-Text><span class="hcp1">Enter Text Value</span>: 
+ Enter the value to be added to barcode, if the field selected in <span class="hcp1">Identification</span> is <span class="hcp1">Text</span>.</p>
+
+<p class=Navigation><span class="hcp2">O</span><span class="hcp1">k</span>: To add the selected identification 
+ field value to barcode parameter displayed in the window. Delete the default 
+ values displayed from the script file.</p>
+
+<p class=Navigation><span class="hcp2">C</span><span class="hcp1">lear</span>: To cancel the details specified.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note><span class="hcp1">Note:</span> Repeat the 
+ steps to replace all given barcode parameters with appropriate fields.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Navigation><span class="hcp2">S</span><span class="hcp1">ave</span>: To save all the changes made to 
+ barcode script.</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp2">x</span><span class="hcp1">it</span>: To close the Barcode Script Generation 
+ window. </p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

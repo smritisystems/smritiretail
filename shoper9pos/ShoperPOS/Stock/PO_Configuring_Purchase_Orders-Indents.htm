@@ -1,0 +1,106 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Configuring Purchase Orders/ Indents</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { x-text-underline:normal; font-weight:bold; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Configuring Purchase Orders/ Indents</h1>
+
+<p class=Body-Text>This option is used to configure the data entry columns 
+ for Purchase Order generation. You can select the data entry mode, columns 
+ to be entered, mandatory columns and tax types. Once you configure the 
+ columns to be entered, you may sort the order of appearance of these columns 
+ while generating a Purchase Order.</p>
+
+<p class=Note><span class="hcp1">Note:</span> This configuration 
+ can be modified during <a href="PO_Purchase_Order-Indent_Generation.htm">Purchase 
+ Order generation</a> if the system parameter <span class="hcp1">Allow 
+ PO/Indent Configuration</span> under the category <span class="hcp1">Purchase 
+ Order</span> is enabled. Otherwise, only sorting of columns is permitted.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Stock 
+ &gt; Purchase Order &gt; Purchase Order Configuration</span></p>
+
+<p class=Body-Text>The <span class="hcp1">Purchase Order/Indent 
+ Configuration</span> window is displayed.</p>
+
+<p class=Body-Text><img src="PO_Configuration.gif"
+						x-maintain-ratio=TRUE
+						style="border: none;
+								width: 500px;
+								height: 301px;
+								float: none;
+								border-style: none;
+								border-style: none;"
+						width=500
+						height=301
+						border=0> </p>
+
+<p class=Body-Text><span class="hcp1">Normal Entry</span>: 
+ Click to generate purchase order based on <span class="hcp1">Class1</span>, 
+ <span class="hcp1">Class2</span>, <span class="hcp1">SubClass1</span>, 
+ <span class="hcp1">SubClass2</span>, <span class="hcp1">Size</span>, 
+ <span class="hcp1">ItemAnalysis code</span> or a combination 
+ of any of these attributes.</p>
+
+<p class=Body-Text><span class="hcp1">Size wise Entry</span>: 
+ Click to generate purchase order based on size. <span class="hcp1">Class1</span>, 
+ <span class="hcp1">Class2</span> and <span class="hcp1">Size</span> 
+ are selected by default and you cannot change this.</p>
+
+<p class=Body-Text><span class="hcp1">Standard Browse for 
+ Stock Number</span>: Choose to open the <span class="hcp1">Advanced 
+ Item Search</span> window instead of <span class="hcp1">Browse 
+ - Stock Number</span> window on pressing <span class="hcp1">F2</span> 
+ while generating a purchase order. <span class="hcp1">Advanced 
+ Item Search</span> window allows specification of item selection criteria 
+ based on multiple attributes whereas <span class="hcp1">Browse 
+ - Stock Number</span> window allows item selection only based on code 
+ and description.</p>
+
+<p class=Body-Text><span class="hcp1">Columns</span>: Displays 
+ the list of attributes for which the values can be provided while preparing 
+ a PO.</p>
+
+<p class=Body-Text><span class="hcp1">Code</span>: Select 
+ the attributes for which the code will be provided while preparing a PO. 
+ All the selected columns will appear enabled during PO generation. However, 
+ it is not mandatory to enter data for all the columns. </p>
+
+<p class=Body-Text><span class="hcp1">Desc.</span>: Select 
+ the attributes for which the description will be displayed while preparing 
+ a PO. All the selected columns will appear grayed in the grid.</p>
+
+<p class=Body-Text><span class="hcp1">Mandatory</span>: Select 
+ the subset of chosen attributes that are mandatory for preparing a PO.</p>
+
+<p class=Note><span class="hcp1">Note:</span> If you have 
+ selected the option Size wise Entry, then Class1, Class2 and Size are 
+ deactivated. Also, the Stock Number cannot be selected.</p>
+
+<p class=Body-Text><span class="hcp1">Tax Columns</span>: 
+ Select the appropriate taxation parameters from the list. The values selected 
+ will be considered for tax computation, depending on whether it is before 
+ tax or after tax.</p>
+
+<p class=Navigation><span class="hcp2">A</span><span class="hcp1">pply</span>: To set the PO configuration as 
+ per the selections made </p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp2">x</span><span class="hcp1">it</span>: To close the window</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Physical Stock Management - Import</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><script language="javascript" src="../ehlpdhtm.js"></script>
+<style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+img.hcp2 { border:none; float:none; border-style:none; }
+span.hcp3 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Import</h1>
+
+<p class=Body-Text>This facility is available for the <span class="hcp1">Entry 
+ Types – Stock No.</span> and <span class="hcp1">Item Class</span>.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Import option is used 
+ when pre-recorded physical stock entries are brought into Shoper 9.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>This option is used primarily 
+ when you deploy a hand-held Data Capture unit (DCU) with a bar-code scanner 
+ to take the physical stocks. &nbsp;The 
+ data that is recorded in the DCU is first down loaded to the computer. 
+ &nbsp;The down-loading 
+ process (provided by the DCU vendor) creates an ASCII flat file containing 
+ the physical stock entries. </p></li>
+</ul>
+
+<p class=Body-Text>The <span class="hcp1">Import</span> button 
+ is deactivated by default when the Manual screen or Scan screen is first 
+ opened. It gets <span class="hcp1">activated</span> only 
+ when a new batch reference number is entered.</p>
+
+<p class=Body-Text>Item details can also be imported from the text file.</p>
+
+<p class=Body-Text>Click <span class="hcp1">Import</span> 
+ to display the window as shown.</p>
+
+<p class=Body-Text><img src="PST_Import.gif" x-maintain-ratio="TRUE" style="width:500px; height:362px;" width="500" height="362" border="0" class="hcp2"></p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Select the drive, directory, 
+ and file name of the text file to be imported.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Any number of files can be 
+ imported, one after the other, into a single batch reference number. </p></li>
+</ul>
+
+<p class=Navigation><span class="hcp3">I</span><span class="hcp1">mport</span>: To import the data into the Grid</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp3">x</span><span class="hcp1">it</span>: To close the Physical Stock Import 
+ option</p>
+
+<h2>Creation of Log files for imported file</h2>
+
+<p class=Body-Text>Since <span class="hcp1">Import</span> 
+ option allows to record stock by reading a flat file created either by 
+ scanning the bar codes using an external scanning device or by simply 
+ entering the stock numbers using a keyboard, the stock numbers present 
+ in such files need not necessarily find a match in the Items Master maintained 
+ by Shoper 9. Hence, to make sure that all the records are considered by 
+ the Stock Taking process, a facility to display <span class="hcp1">Import 
+ Log View</span> is provided with three filters namely, <span class="hcp1">Valid</span>, 
+ <span class="hcp1">Invalid</span>, <span class="hcp1">Qty 
+ not in multiples of LSQ</span> and <span class="hcp1">All</span>. 
+ The invalid stock numbers are displayed in <span class="hcp1">Red</span> 
+ colour to easily draw the attention of the user, so that such records 
+ are rectified in the flat file and re-imported.</p>
+
+<p class=Body-Text>If there are any invalid items in the imported file, 
+ an error message “<span class="hcp1">Import file contains 
+ invalid stock numbers, please view import log</span>” is displayed and 
+ the <span class="hcp1">Preview</span> button, which by default 
+ will be in disabled state, gets enabled.</p>
+
+<p class=Body-Text><span class="hcp1">Preview</span> option 
+ helps in identifying the invalid stock numbers in the imported file and 
+ taking corrective actions before recording the physical stock.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Click <span class="hcp1">Preview</span> 
+ to display <span class="hcp1"><a name=ImportLogView>Import 
+ Log View</a></span> window. All stock numbers imported from file, whether 
+ valid or invalid, are listed. By default, the invalid items are shown 
+ in the preview.<span style="color: #ff00ff;"> </span></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Displays all invalid numbers 
+ in red. &nbsp;</p></li>
+	
+	<li style="/*begin!kadov{{*/ color: #000000; /*}}end!kadov*/ "
+		class=kadov-p-Cbullet><p class=bullet
+								style="color: #000000;">The combo box <span class="hcp1">List</span> filters the list into <span class="hcp1">valid 
+ items</span>, <span class="hcp1">invalid items</span>, items 
+ whose <span class="hcp1">quantity is not in multiples of 
+ LSQ</span> or <span class="hcp1">all</span>.</p></li>
+</ul>
+
+<p class=Body-Text><img src="Physical%20Stock_Import_2.gif" x-maintain-ratio="TRUE" style="width:565px; height:409px;" width="565" height="409" border="0" class="hcp2"> </p>
+
+<p class=Navigation><span class="hcp3">E</span><span class="hcp1">xport</span>: To export the data</p>
+
+<p class=Navigation><span class="hcp3">A</span><span class="hcp1">pply</span>: To filter the log as per your 
+ choice</p>
+
+<p class=Navigation><span class="hcp1">Close</span>: To close 
+ the Import Log View screen</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Importing Price Revision</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Importing Price Revision </h1>
+
+<p class=Body-Text>When you have a POS installation which is a part of 
+ a business chain and the Head Office (HO) makes a price revision which 
+ is usually automated as per the schedule set at HO. In case you wish to 
+ update the price revision out of the set schedule, at the POS location 
+ you can run this option.</p>
+
+<p class=Body-Text>The process explained is for manual loading of Price 
+ Revision. Auto loading is performed through a synch process defined at 
+ HO for the POS as per a schedule.</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Housekeeping 
+ &gt; Data Import &gt; Price Revision</span></p>
+
+<p class=Body-Text>The Price Revision Import window is as shown.</p>
+
+<p class=Body-Text>&nbsp;<img 
+ src="Importing_Price_Revision.gif"
+	x-maintain-ratio=TRUE
+	style="border: none;
+			width: 400px;
+			height: 113px;
+			float: none;"
+	width=400
+	height=113
+	border=0></p>
+
+<p class=Body-Text>The price master file imported into POS Primary DB is 
+ of the format SHPR_xxx_scc_nnnnnn.txt and should be present in the Shoper-In 
+ folder.</p>
+
+<p class=Body-Text>The details of the file components are: &nbsp;</p>
+
+<p class=Body-Text>SHPR: Enables you to identify the file type as Primary/ 
+ Secondary, </p>
+
+<p class=Body-Text>xxx: Shoper company code of the source of price master, 
+ i.e., file source/ Head Office,</p>
+
+<p class=Body-Text>scc: Your Shoper Company code/ destination, i.e., POS/ 
+ Distributor,</p>
+
+<p class=Body-Text>6 digit number: Sequence number,</p>
+
+<p class=Body-Text>.txt: File extension</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">File Name Validation</p>
+
+<p class=Body-Text>The Item Master is validated before import into its 
+ Primary DB. The System </p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>checks for the correctness 
+ of the POS Company code in the file name as well as its contents before 
+ import. </p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>checks for the sequence number 
+ of the file being imported. The system will not import files of lower 
+ sequence numbers. In other words the sequence numbers of the files being 
+ imported should be increasing progressively.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>If there is any change in 
+ the item master’s file name and its contents, the system will abort the 
+ import of item masters.</p></li>
+</ul>
+
+<p class=Body-Text>The <span class="hcp1">Price Revision</span> 
+ file is deleted after import into POS Primary DB. If an error is detected 
+ during import, the file is renamed as <span class="hcp1">Error 
+ &lt;file name&gt;</span> and the error file details are recorded in a 
+ Log file.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;"><span class="hcp1">POS Activity 
+ Log</span></p>
+
+<p class=Body-Text>This contains details of all imports and specific action 
+ such as backup, restore, etc. carried out in the POS Company. </p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Factors for effecting price revisions</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Price revisions of items 
+ are made on the basis of three factors, Retail Price, Dealer Price and 
+ Effective Date.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Price variations, up/down 
+ or fixed is either on an amount or percentage basis on Retail or Dealer 
+ Price. &nbsp;</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The <span class="hcp1">Effective 
+ Date</span> is the date on which the revision takes effect in POS. &nbsp;</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The price revision defined 
+ is effected during the <span class="hcp1">Day Open</span> 
+ option for all those price revisions whose <span class="hcp1">Effective 
+ Date</span> is equal to Shoper date.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When the price revision with 
+ the Effective Date lesser than the Shoper date is received at POS, it 
+ gets affected as part of the Data Sync./ Loading. But the revised price 
+ will be applicable only for transactions to be performed after price revision 
+ and the transaction done before will carry the old price.</p></li>
+</ul>
+
+<p class=Navigation><span class="hcp2">I</span><span class="hcp1">mport</span>: To import price revision</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp2">x</span><span class="hcp1">it</span>: To quit this option</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

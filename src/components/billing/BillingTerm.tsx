@@ -42,8 +42,7 @@ import {
   CustomerDeliveryLocationDTO,
   CustomerBillingLocationDTO
 } from "./types.ts";
-import { ProductSearchBrowserModal } from "./ProductSearchBrows.tsx";
-import { ItemBrowseOverlayModal } from "./ItemBrowseOverlayD.tsx";
+import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "./SmritiF2AdvancedItemSearch.tsx";
 import { PdtImportModal } from "./PdtImportModal.tsx";
 import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
@@ -456,8 +455,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [newCustGstin, setNewCustGstin] = useState<string>("");
 
   // Modals State
-  const [showProductSearchModal, setShowProductSearchModal] = useState<boolean>(false);
-  const [showItemBrowseModal, setShowItemBrowseModal] = useState<boolean>(false);
+  const [showSmritiItemSearchModal, setShowSmritiItemSearchModal] = useState<boolean>(false);
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
@@ -1904,9 +1902,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setShowItemBrowseModal(true)}
+                onClick={() => setShowSmritiItemSearchModal(true)}
                 className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="Settings / Item Master (F3)"
+                title="Item Search (F2)"
               >
                 <Settings size={17} />
               </button>
@@ -3067,21 +3065,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         onClose={() => setShowPdtImportModal(false)}
       />
 
-      {/* 3. Product Search / Catalog F2 Browser */}
-      <ProductSearchBrowserModal
-        isOpen={showProductSearchModal}
+      {/* 3. SMRITI F2 Advanced Item Search & Invoicing Browser */}
+      <SmritiF2AdvancedItemSearch
+        isOpen={showSmritiItemSearchModal}
         products={liveProducts}
-        onSelectProduct={product => {
+        initialSearchQuery={directEntry.stockNo || directEntry.itemDescription}
+        onSelectProduct={(item: SmritiF2SelectedItem) => {
           setDirectEntry({
             ...directEntry,
-            stockNo: product.code,
-            itemDescription: product.name,
-            rate: String((product as any).sellingPrice || product.price || product.mrp || 0)
+            stockNo: item.stockNo,
+            barcode: item.barcode || item.stockNo,
+            itemDescription: item.name,
+            rate: String(item.rate || item.mrp || 0)
           });
-          setShowProductSearchModal(false);
+          setShowSmritiItemSearchModal(false);
           directStockNoRef.current?.focus();
         }}
-        onClose={() => setShowProductSearchModal(false)}
+        onClose={() => setShowSmritiItemSearchModal(false)}
       />
 
       {/* 4. Recall Suspended Invoices Modal */}
