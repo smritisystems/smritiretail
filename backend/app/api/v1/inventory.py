@@ -439,6 +439,13 @@ async def update_product(
             tenant_ctx.company_id,
         )
 
+    if "brand" in update_data and update_data["brand"] and str(update_data["brand"]).strip():
+        from ...services.catalog_validation import CatalogDimensionValidator
+        update_data["brand"] = await CatalogDimensionValidator.validate_and_normalize_brand(
+            brand_val=update_data["brand"],
+            strict=True,
+        )
+
     immutable_fields = {"code", "sku", "barcode"}.intersection(update_data)
     if immutable_fields:
         fields = ", ".join(sorted(immutable_fields))
