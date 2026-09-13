@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-09-11
-Modified     : 2026-09-11
+Modified     : 2026-09-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -49,7 +49,7 @@ smriti_capability(
 )
 async def list_vendors(
     search: Optional[str] = Query(None, description="Search by name, code, GSTIN, PAN, or mobile"),
-    status: Optional[str] = Query(None, description="Filter by vendor status"),
+    status: Optional[str] = Query(None, description="Filter by vendor status (e.g. ACTIVE, INACTIVE, BLOCKED, ON_HOLD, PENDING_VERIFICATION, ARCHIVED, MERGED, or ALL). Defaults to active/operational vendors (excludes ARCHIVED and MERGED)."),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     tenant: TenantContext = Depends(get_tenant_context),

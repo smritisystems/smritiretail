@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.31.0
-Created      : 2026-07-14
-Modified     : 2026-09-13
+ * Version      : 3.32.0
+ * Created      : 2026-07-14
+ * Modified     : 2026-09-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -413,6 +413,7 @@ async def list_lookup_values(
     type_code: str,
     activeOnly: bool = False,  # noqa: N803
     vendorCode: str | None = None,  # noqa: N803
+    includeUnassigned: bool = False,  # noqa: N803
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> List[MasterValue]:
@@ -441,7 +442,11 @@ async def list_lookup_values(
     if activeOnly:
         q = q.where(MasterValue.active.is_(True))
     if vendorCode:
-        q = q.where(MasterValue.vendor_code == vendorCode.strip().upper())
+        vc = vendorCode.strip().upper()
+        if includeUnassigned:
+            q = q.where(or_(MasterValue.vendor_code == vc, MasterValue.vendor_code.is_(None)))
+        else:
+            q = q.where(MasterValue.vendor_code == vc)
 
     q = q.order_by(MasterValue.sort_order.asc(), MasterValue.name.asc())
     res = await db.execute(q)
