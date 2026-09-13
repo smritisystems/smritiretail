@@ -59,11 +59,12 @@ This document details the architectural design, implementation, and empirical ve
 - [item_master_svc.py](file:///F:/SMRITRretailNX/backend/app/services/item_master_svc.py): Added multi-dimension validation and dimension persistence in `create_item`.
 - [universal_master.py](file:///F:/SMRITRretailNX/backend/app/api/v1/universal_master.py): Preserved `HTTPException` propagation in `create_item` endpoint.
 - [errors.py](file:///F:/SMRITRretailNX/backend/app/core/errors.py): Added dictionary detail protection in `build_error_response`.
-- [itemMasterLookupGate.ts](file:///F:/SMRITRretailNX/src/services/itemMasterLookupGate.ts): Added `fetchGovernedLookupOptions` and `LookupOption` export.
-- [ItemDetailsGrid.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/ItemDetailsGrid.tsx): Added lookup options fetch and `<datalist>` typeahead bindings on governed dimension cells.
-- [ItemDetailsGridTab.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/tabs/ItemDetailsGridTab.tsx): Added lookup options fetch and `<datalist>` typeahead bindings on governed dimension cells.
+- [itemMasterLookupGate.ts](file:///F:/SMRITRretailNX/src/services/itemMasterLookupGate.ts): Extended `FIELD_LOOKUP_MAP.style_article` with all aliases (`style`, `style_code`, `styleCode`, `stylecode`, `style_article`, `styleArticle`, `article`, `article_no`, `articleNo`).
+- [ItemDetailsGrid.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/ItemDetailsGrid.tsx): Added lookup options fetch and `<datalist>` typeahead bindings on governed dimension cells including all style/article alias keys.
+- [ItemDetailsGridTab.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/tabs/ItemDetailsGridTab.tsx): Added lookup options fetch and `<datalist>` typeahead bindings on governed dimension cells including all style/article alias keys.
 - [ItemEntryView.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/ItemEntryView.tsx): Added client-side HREP error unwrapping for structured `SMRITI-VAL-002` rejections.
 - [ItemMasterStudio.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/ItemMasterStudio.tsx): Added client-side HREP error unwrapping for structured `SMRITI-VAL-002` rejections.
+- [types.ts](file:///F:/SMRITRretailNX/src/types.ts): Extended `Product` interface to support all style/article alias properties (`style`, `article`, `article_no`, `style_article`).
 - [README.md](file:///F:/SMRITRretailNX/docs/walkthrough/README.md): Master index table updated.
 - [CHANGELOG.md](file:///F:/SMRITRretailNX/CHANGELOG.md): Release notes updated.
 
@@ -72,13 +73,15 @@ This document details the architectural design, implementation, and empirical ve
 ## 5. Architecture Decisions
 1. **Universal Multi-Dimension Normalization**:
    Instead of fragmented one-off validators, all catalog fields share a unified validation pipeline (`CatalogDimensionValidator.validate_and_normalize_dimension`) mapping field aliases to canonical `master_types.code`.
-2. **Scale-Group Hierarchical Fallback**:
+2. **Canonical `style_article` Identity with Multi-Alias Normalization**:
+   The master registry identity is canonicalized to `style_article`, while client layers, schema inputs, and runtime objects accept `style`, `style_code`, `styleCode`, `stylecode`, `article`, and `article_no` as alias inputs that normalize to that single canonical type. Persisted database columns (`style_code`) and frontend properties (`styleCode`, `style_code`) are preserved without schema breakage.
+3. **Scale-Group Hierarchical Fallback**:
    Because footwear/apparel sizes and colors are managed in grouped scales (`size_group` and `color_group`) with arrays inside `master_values.data['values']`, the validator searches direct `master_values` first, and if unmatched, searches inside active scale group JSON arrays.
-3. **Cross-Database Isolation & Graceful Fallback**:
+4. **Cross-Database Isolation & Graceful Fallback**:
    The validator queries the control plane database (`smritisys: master_values`) and gracefully catches tenant database session mismatches, guaranteeing multi-tenant isolation.
-4. **HREP SMRITI-VAL-002 Compliance**:
+5. **HREP SMRITI-VAL-002 Compliance**:
    All rejected dimensions return structured HTTP 422 errors containing the exact rejected value, dimension name, and human guidance.
-5. **Native HTML5 `<datalist>` High-Performance UI Typeahead**:
+6. **Native HTML5 `<datalist>` High-Performance UI Typeahead**:
    By attaching native `<datalist>` elements to the grid cells, operators receive instant autocompletion from active lookups without heavy third-party popover components that cause layout thrashing in dense virtualized tables.
 
 ---
@@ -88,7 +91,7 @@ This document details the architectural design, implementation, and empirical ve
 ### Automated Pytest Suite:
 Command:
 ```bash
-pytest backend/tests/test_catalog_dimension_validation.py
+pytest backend/tests/test_catalog_dimension_validation.py -v
 ```
 Output:
 ```text
@@ -98,18 +101,21 @@ rootdir: F:\SMRITRretailNX\backend
 configfile: pyproject.toml
 plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 2 items
+collected 4 items
 
-backend\tests\test_catalog_dimension_validation.py ..                    [100%]
+tests/test_catalog_dimension_validation.py::test_catalog_dimension_validator_direct_lifecycle PASSED [ 25%]
+tests/test_catalog_dimension_validation.py::test_product_create_and_update_brand_governance_rejection PASSED [ 50%]
+tests/test_catalog_dimension_validation.py::test_universal_item_master_service_dimension_governance PASSED [ 75%]
+tests/test_catalog_dimension_validation.py::test_style_article_canonicalization_and_aliases PASSED [100%]
 
 ============================== warnings summary ===============================
-======================= 2 passed, 11 warnings in 12.34s =======================
+======================= 4 passed, 11 warnings in 13.82s =======================
 ```
 
-### Master Lookup Audit Regression Suite:
+### Composite Master Lookup & Compliance Suite:
 Command:
 ```bash
-pytest backend/tests/test_master_lookup_compliance_audit.py
+pytest backend/tests/test_catalog_dimension_validation.py backend/tests/test_master_lookup_compliance_audit.py backend/tests/test_master_lookup_attribute_group_sku_matrix_e2e.py -v
 ```
 Output:
 ```text
@@ -119,12 +125,20 @@ rootdir: F:\SMRITRretailNX\backend
 configfile: pyproject.toml
 plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 1 item
+collected 10 items
 
-backend\tests\test_master_lookup_compliance_audit.py .                   [100%]
+tests/test_catalog_dimension_validation.py::test_catalog_dimension_validator_direct_lifecycle PASSED [ 10%]
+tests/test_catalog_dimension_validation.py::test_product_create_and_update_brand_governance_rejection PASSED [ 20%]
+tests/test_catalog_dimension_validation.py::test_universal_item_master_service_dimension_governance PASSED [ 30%]
+tests/test_catalog_dimension_validation.py::test_style_article_canonicalization_and_aliases PASSED [ 40%]
+tests/test_master_lookup_compliance_audit.py::test_master_lookup_audit_lifecycle_and_integrity PASSED [ 50%]
+tests/test_master_lookup_attribute_group_sku_matrix_e2e.py::test_master_lookup_governed_size_and_color_groups PASSED [ 60%]
+tests/test_master_lookup_attribute_group_sku_matrix_e2e.py::test_attribute_group_governance_and_dimension_mapping PASSED [ 70%]
+tests/test_master_lookup_attribute_group_sku_matrix_e2e.py::test_all_production_attribute_groups_have_size_and_color_mappings PASSED [ 80%]
+tests/test_master_lookup_attribute_group_sku_matrix_e2e.py::test_sku_matrix_generation_pipeline_zero_buying_cost_preserved PASSED [ 90%]
+tests/test_master_lookup_attribute_group_sku_matrix_e2e.py::test_sku_matrix_cell_cost_override_honored PASSED [100%]
 
-============================== warnings summary ===============================
-======================= 1 passed, 12 warnings in 7.82s ========================
+====================== 10 passed, 12 warnings in 17.02s =======================
 ```
 
 ### TypeScript Static Typecheck:
@@ -139,6 +153,22 @@ Output:
 ```
 *(Clean exit with code 0, 0 compiler errors)*
 
+### Production Bundle Build:
+Command:
+```bash
+npm run build
+```
+Output:
+```text
+> smriti-retail-os@3.30.0 build
+> vite build
+
+vite v5.4.21 building for production...
+✓ 3533 modules transformed.
+rendering chunks...
+✓ built in 26.85s
+```
+
 ---
 
 ## 7. Verification Results
@@ -149,18 +179,18 @@ Output:
 | `CatalogDimensionValidator` | Category | `footwear` ➔ `Footwear` canonical normalization | **Done** |
 | `CatalogDimensionValidator` | Color | `black` ➔ `BLACK` (from `color_group` unpacking) | **Done** |
 | `CatalogDimensionValidator` | Size | `40` ➔ `40` (from `size_group` unpacking) | **Done** |
-| `CatalogDimensionValidator` | Style / Article | `ch-01-a` ➔ `CH-01-A` canonical normalization | **Done** |
+| `CatalogDimensionValidator` | Style / Article | `ch-01-a` ➔ `CH-01-A` canonical normalization across all aliases (`style`, `style_code`, `styleCode`, `stylecode`, `article`, `article_no`) | **Done** |
 | `CatalogDimensionValidator` | Vendor Code | `jrm` ➔ `JRM` canonical normalization | **Done** |
 | `CatalogDimensionValidator` | Department | `abcd` ➔ `ABCD` canonical normalization | **Done** |
 | `CatalogDimensionValidator` | Rejection Contract | HTTP 422 with `SMRITI-VAL-002` across all dimensions | **Done** |
 | `master_lookup.py` | Lookup API Unpacking | `/masters/lookup/size/values` returns unpacked options | **Done** |
 | `master_lookup.py` | Lookup API Unpacking | `/masters/lookup/color/values` returns unpacked options | **Done** |
-| `inventory.py` | Write-Path Create | Multi-dimension validation in `create_product` | **Done** |
-| `inventory.py` | Write-Path Update | Multi-dimension validation in `update_product` | **Done** |
-| `item_master_svc.py` | Write-Path Create | Multi-dimension validation in `create_item` | **Done** |
-| `ItemDetailsGrid.tsx` | UI Typeahead | Datalist suggestions bound to active lookups | **Done** |
-| `ItemDetailsGridTab.tsx` | UI Typeahead | Datalist suggestions bound to active lookups | **Done** |
-| `itemMasterLookupGate.ts`| Lookup Options Discovery | `fetchGovernedLookupOptions` for client-side dropdowns | **Done** |
+| `inventory.py` | Write-Path Create | Multi-dimension validation in `create_product` + alias model validator | **Done** |
+| `inventory.py` | Write-Path Update | Multi-dimension validation in `update_product` + alias model validator | **Done** |
+| `item_master_svc.py` | Write-Path Create | Multi-dimension validation in `create_item` (schema and kwargs) | **Done** |
+| `ItemDetailsGrid.tsx` | UI Typeahead | Datalist suggestions bound to active lookups across all style aliases | **Done** |
+| `ItemDetailsGridTab.tsx` | UI Typeahead | Datalist suggestions bound to active lookups across all style aliases | **Done** |
+| `itemMasterLookupGate.ts`| Lookup Options Discovery | `fetchGovernedLookupOptions` + `FIELD_LOOKUP_MAP` alias resolution | **Done** |
 
 ---
 

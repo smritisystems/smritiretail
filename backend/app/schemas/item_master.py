@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ItemBarcodeItem(BaseModel):
@@ -94,6 +94,24 @@ class ItemCreateRequest(BaseModel):
     batches: List[ItemBatchItem] = Field(default_factory=list)
     locations: List[ItemLocationItem] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
+
 
 class ItemUpdateRequest(BaseModel):
     item_name: Optional[str] = None
@@ -114,6 +132,24 @@ class ItemUpdateRequest(BaseModel):
     is_favorite: Optional[bool] = None
     tags: Optional[List[str]] = None
     attributes_json: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
 
 
 class ItemResponse(BaseModel):

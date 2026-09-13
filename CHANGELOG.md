@@ -36,13 +36,15 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 **Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
 
 - **Universal Multi-Dimension Governance Engine:** Generalized `CatalogDimensionValidator` in `backend/app/services/catalog_validation.py` to validate and normalize all catalog dimensions: `brand`, `department`, `category`, `subcategory`, `style_article`, `color`, `size`, `vendor_code`, and `product`.
+- **Canonical `style_article` Identity & Multi-Alias Normalization:** Standardized the Master Registry identity to `style_article` while accepting `style`, `style_code`, `styleCode`, `stylecode`, `article`, and `article_no` as alias inputs across runtime code, schemas, and UI grids; preserved storage compatibility on `style_code` database columns and `styleCode` / `style_code` frontend properties.
+- **Pydantic Ingestion Aliasing:** Added `@model_validator(mode="before")` across `ProductBase`, `ProductUpdate`, `ItemCreateRequest`, and `ItemUpdateRequest` to map all style/article alias inputs to `style_code`.
 - **Hierarchical Scale-Group Auto-Unpacking:** Added automatic group inspection for `color` (active `color_group` values) and `size` (active `size_group` values) in both `CatalogDimensionValidator` and `/api/v1/masters/lookup/{type}/values`.
 - **Standard Brand Seeding Migration (v1450):** Seeded standard catalog brands (`SMRITI`, `BEANSTALK`, `Tattly Threads`, `Heritage`, `Swift`, `Generic`) with asyncpg-safe type casting.
 - **Write-Path Ingestion Hardening:** Enforced multi-dimension canonical normalization across `InventoryService.create_product`, `/api/v1/inventory.py` `update_product`, and `UniversalItemMasterService.create_item`.
 - **HREP SMRITI-VAL-002 Compliance:** Standardized error contracts emitting HTTP 422 with structured dimension code, friendly guidance, and rejected value.
-- **Lookup-Backed Frontend Typeahead Datalists:** Exported `fetchGovernedLookupOptions` in `itemMasterLookupGate.ts` and integrated native HTML5 `<datalist>` auto-completion in `ItemDetailsGrid.tsx` and `ItemDetailsGridTab.tsx` for all governed dimension cells.
+- **Lookup-Backed Frontend Typeahead Datalists:** Exported `fetchGovernedLookupOptions` in `itemMasterLookupGate.ts` and integrated native HTML5 `<datalist>` auto-completion in `ItemDetailsGrid.tsx` and `ItemDetailsGridTab.tsx` for all governed dimension cells including all style/article alias variations.
 - **Item Master Governed Dimension Columns (v1451):** Added indexed columns (`department`, `style_code`, `color`, `size`, `vendor_code`) to the `items` table and wired full dimension validation to `UniversalItemMasterService.create_item` and `/api/v1/universal_master/items`.
-- **Verification:** 3/3 multi-dimension pytest green in 12.87s, 1/1 master lookup audit regression green in 7.71s, 5/5 attribute group SKU matrix e2e green in 6.81s, 0 TypeScript compiler errors (`tsc --noEmit`), and clean production build (3,533 modules).
+- **Verification:** 4/4 multi-dimension pytest green in 13.82s (`test_catalog_dimension_validation.py`), composite 10/10 suite green in 17.02s (`test_catalog_dimension_validation.py`, `test_master_lookup_compliance_audit.py`, `test_master_lookup_attribute_group_sku_matrix_e2e.py`), 0 TypeScript compiler errors (`tsc --noEmit`), and clean production build (3,533 modules in 26.85s).
 
 ### [3.31.0] - 2026-09-13
 

@@ -551,7 +551,7 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
                               col.key === "category" ? "tab-lookup-category-list" :
                               col.key === "shade" || col.key === "color" ? "tab-lookup-color-list" :
                               col.key === "size" ? "tab-lookup-size-list" :
-                              col.key === "style" ? "tab-lookup-style-list" : undefined
+                              ["style", "styleCode", "style_code", "stylecode", "article", "article_no", "style_article"].includes(col.key) ? "tab-lookup-style-list" : undefined
                             }
                             value={cellValue}
                             onChange={e => handleCellChange(rIdx, col.key, e.target.value)}
