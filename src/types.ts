@@ -47,6 +47,9 @@ export interface Product {
   mrp?: number;
   gstPercentage?: number;
   styleCode?: string;
+  style_code?: string;
+  department?: string;
+  vendor_code?: string;
   costPrice?: number; // Added for variant cost price support
   sku?: string; // Added for variant SKU support
   hsnCode?: string; // Added for HSN Code support
