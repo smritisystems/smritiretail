@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 3.31.0
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-09-13
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -13,6 +13,7 @@
 import React from "react";
 import { Database, Layers, Tag, CheckCircle2, Sliders } from "lucide-react";
 import { MasterConfig } from "../master/types.ts";
+import { MasterLookupDetailDrawer } from "../master/MasterLookupDetailDrawer.tsx";
 
 export interface MasterLookupItem {
   id: string;
@@ -176,5 +177,16 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
       compute: (items) => items.filter((i) => i.is_active !== false).length,
       color: "emerald"
     }
-  ]
+  ],
+
+  slots: {
+    detailDrawer: (item, onClose, refetch) => (
+      <MasterLookupDetailDrawer
+        item={item}
+        typeCode={item?.type_code || item?.type || "lookup"}
+        onClose={onClose}
+        onRefetch={refetch}
+      />
+    )
+  }
 };

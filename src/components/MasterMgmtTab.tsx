@@ -6,17 +6,19 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 4.1.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-19
+ * Modified     : 2026-09-13
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : System Master Management (Global Master Screen Refactor)
  */
 
 import React, { useState, useEffect } from "react";
+import { History } from "lucide-react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
 import { mapLookupResponse, masterLookupConfig, MasterLookupItem } from "./global/configs/masterLookup.confi.tsx";
+import { MasterLookupDetailDrawer } from "./global/master/MasterLookupDetailDrawer.tsx";
 import { getMasterRegistryTypeConfig } from "./masterRegistry/sizeManagement.tsx";
 import { getColorManagementTypeConfig } from "./masterRegistry/colorManagement.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
@@ -32,6 +34,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
 }) => {
   const [selectedType, setSelectedType] = useState<string>("department");
   const [lookupTypes, setLookupTypes] = useState<{ code: string; label: string }[]>([]);
+  const [showTypeAudit, setShowTypeAudit] = useState<boolean>(false);
 
   useEffect(() => {
     const loadTypes = async () => {
@@ -89,6 +92,20 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
       description: "These values will be used to generate Color variants.",
       colSpan: 2,
     }] : []),
+    slots: {
+      ...masterLookupConfig.slots,
+      extraHeaderActions: () => (
+        <button
+          type="button"
+          onClick={() => setShowTypeAudit(true)}
+          className="px-3 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-primary font-bold text-xs border border-theme-divider transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+          title={`View ${selectedType} Compliance Audit Trail`}
+        >
+          <History size={14} className="text-blue-400" />
+          <span>Audit Trail</span>
+        </button>
+      ),
+    },
     subTabs: lookupTypes.length > 0 ? lookupTypes.map((t) => ({
       id: t.code,
       label: t.code === "size_group" ? "Size Management" : t.code === "color_group" ? "Color Management" : t.label
@@ -104,14 +121,31 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     : dynamicConfig;
 
   return (
-    <MasterListScreen<any>
-      config={registryConfig}
-      currentUser={currentUser}
-      initialSubTab={selectedType}
-      onSubTabChange={setSelectedType}
-      onNotification={(t, m, type) => {
-        if (onNotification) onNotification(t, m, type === "warning" || type === "info" ? "success" : type);
-      }}
-    />
+    <>
+      <MasterListScreen<any>
+        config={registryConfig}
+        currentUser={currentUser}
+        initialSubTab={selectedType}
+        onSubTabChange={setSelectedType}
+        detailDrawer={(item, onClose, refetch) => (
+          <MasterLookupDetailDrawer
+            item={item}
+            typeCode={selectedType}
+            onClose={onClose}
+            onRefetch={refetch}
+          />
+        )}
+        onNotification={(t, m, type) => {
+          if (onNotification) onNotification(t, m, type === "warning" || type === "info" ? "success" : type);
+        }}
+      />
+      {showTypeAudit && (
+        <MasterLookupDetailDrawer
+          item={{ id: "", code: selectedType, name: `${selectedType} Master Registry`, type_code: selectedType }}
+          typeCode={selectedType}
+          onClose={() => setShowTypeAudit(false)}
+        />
+      )}
+    </>
   );
 };

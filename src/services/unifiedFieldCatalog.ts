@@ -13,6 +13,7 @@
  */
 
 import { AttributeDefinition } from "../types.ts";
+import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 import { SmritiFieldDefinition } from "../lib/headerMapping/types.ts";
 import { ItemMasterFieldDefinition } from "../components/itemMaster/types.ts";
 import { getCustomAliases, getRemovedAliases } from "../lib/headerMapping/HeaderAliasRegistry.ts";
@@ -445,13 +446,78 @@ const GLOBAL_FIELD_VISIBILITY_KEY = "smriti_global_field_visibility";
  */
 export function saveGlobalFieldVisibility(visibleKeys: string[]): void {
   try {
-    localStorage.setItem(GLOBAL_FIELD_VISIBILITY_KEY, JSON.stringify(visibleKeys));
-    localStorage.setItem(GLOBAL_COLUMN_ORDER_KEY, JSON.stringify(visibleKeys));
+    const normalizedKeys = Array.from(new Set(visibleKeys));
+    localStorage.setItem(GLOBAL_FIELD_VISIBILITY_KEY, JSON.stringify(normalizedKeys));
+    localStorage.setItem(GLOBAL_COLUMN_ORDER_KEY, JSON.stringify(normalizedKeys));
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("smriti_field_visibility_updated", { detail: { visibleKeys } }));
+      window.dispatchEvent(new CustomEvent("smriti_field_visibility_updated", { detail: { visibleKeys: normalizedKeys } }));
     }
+    void persistGlobalFieldVisibility(normalizedKeys);
   } catch (err) {
     console.error("Failed to save global field visibility:", err);
+  }
+}
+
+/** Hydrate the cached global ItemMaster order from the authenticated user's server preferences. */
+export async function hydrateGlobalFieldVisibility(): Promise<string[] | null> {
+  try {
+    const response = await apiFetchV1<{ itemMaster?: { visibleFields?: unknown } }>('/system/layout/preferences');
+    const fields = response?.itemMaster?.visibleFields;
+    if (!Array.isArray(fields) || !fields.every(value => typeof value === 'string')) return getGlobalFieldVisibility();
+    const visibleKeys = Array.from(new Set(fields));
+    localStorage.setItem(GLOBAL_FIELD_VISIBILITY_KEY, JSON.stringify(visibleKeys));
+    localStorage.setItem(GLOBAL_COLUMN_ORDER_KEY, JSON.stringify(visibleKeys));
+    window.dispatchEvent(new CustomEvent("smriti_field_visibility_updated", { detail: { visibleKeys } }));
+    return visibleKeys;
+  } catch {
+    return getGlobalFieldVisibility();
+  }
+}
+
+/** Hydrate the shared company/role ItemMaster profile before the user profile/cache. */
+export async function hydrateRoleGlobalFieldVisibility(role?: string | null): Promise<string[] | null> {
+  try {
+    const response = await apiFetchV1<{ visibleFields?: unknown }>("/system/layout/item-master-profile");
+    const fields = response?.visibleFields;
+    if (!Array.isArray(fields) || !fields.every(value => typeof value === "string") || fields.length === 0) {
+      return hydrateGlobalFieldVisibility();
+    }
+    const visibleKeys = Array.from(new Set(fields));
+    localStorage.setItem(GLOBAL_FIELD_VISIBILITY_KEY, JSON.stringify(visibleKeys));
+    localStorage.setItem(GLOBAL_COLUMN_ORDER_KEY, JSON.stringify(visibleKeys));
+    window.dispatchEvent(new CustomEvent("smriti_field_visibility_updated", { detail: { visibleKeys, role } }));
+    return visibleKeys;
+  } catch {
+    return hydrateGlobalFieldVisibility();
+  }
+}
+
+/** Persist global ItemMaster order/visibility for the authenticated user. */
+export async function persistGlobalFieldVisibility(visibleKeys: string[]): Promise<void> {
+  try {
+    await apiFetchV1('/system/layout/preferences', {
+      method: 'POST',
+      body: JSON.stringify({
+        itemMaster: {
+          visibleFields: Array.from(new Set(visibleKeys)),
+          updatedAt: new Date().toISOString(),
+        },
+      }),
+    });
+  } catch (error) {
+    console.warn('[FieldCatalog] Server preference persistence unavailable:', error);
+  }
+}
+
+/** Persist the active company/role ItemMaster profile when the operator is authorized. */
+export async function persistRoleGlobalFieldVisibility(visibleKeys: string[], role?: string | null): Promise<void> {
+  try {
+    await apiFetchV1("/system/layout/item-master-profile", {
+      method: "POST",
+      body: JSON.stringify({ visibleFields: Array.from(new Set(visibleKeys)), role: role || undefined }),
+    });
+  } catch (error) {
+    console.warn("[FieldCatalog] Role profile persistence unavailable:", error);
   }
 }
 

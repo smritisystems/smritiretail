@@ -70,6 +70,18 @@ export interface AttributeDefinition {
   isVariantDimension: boolean; // If true, contributes to variant SKU and grid structure
   isMandatory: boolean;
   validValues: string[]; // Set of allowed values, e.g., ["Rubber", "PU", "PVC"]
+  groupId?: string;
+  displayOrder?: number;
+  isEnabled?: boolean;
+  isDynamic?: boolean;
+  isSearchable?: boolean;
+  isFilterable?: boolean;
+  isPrintable?: boolean;
+  isBarcodeEnabled?: boolean;
+  defaultValue?: string | null;
+  tooltip?: string | null;
+  validationRules?: string | null;
+  multiLangLabels?: Record<string, string>;
 }
 
 export interface AttributeGroup {

@@ -30,6 +30,7 @@ import { ItemMasterStudio } from "./ItemMasterStudio.tsx";
 import { AttrMgmtStudio } from "./AttrMgmtStudio.tsx";
 import { ImgPathStudio } from "./ImgPathStudio.tsx";
 import { VariantTplSec } from "../VariantTemplateSec.tsx";
+import { hydrateRoleGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 
 interface SmritiItemMasterWorkspaceProps {
   products?: Product[];
@@ -66,6 +67,10 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   const handleRefresh = onRefreshProducts || (async () => {});
 
   // Global Alt+1, Alt+2, Alt+3 tab switching
+  useEffect(() => {
+    void hydrateRoleGlobalFieldVisibility(currentUser?.role);
+  }, [currentUser?.role]);
+
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.altKey && e.key === "1") {
@@ -256,6 +261,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
           {activeNav === "view_config" && (
             <ItemViewConfig
               currentConfig={viewConfig}
+              userRole={currentUser?.role}
               onSaveConfig={(cfg) => {
                 setItemViewConfig(cfg);
                 setActiveNav("item_details");

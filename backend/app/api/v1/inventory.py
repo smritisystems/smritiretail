@@ -40,6 +40,7 @@ from ...schemas.inventory import (
     StockLedgerPageResponse,
 )
 from ...services.inventory import InventoryService
+from ...services.attributes import AttributesService
 from ...services.spif import SpifService
 
 router = APIRouter()
@@ -431,6 +432,12 @@ async def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
     
     update_data = product_in.model_dump(exclude_unset=True)
+
+    if "attributes" in update_data:
+        await AttributesService(db).validate_product_attributes(
+            update_data.get("attributes"),
+            tenant_ctx.company_id,
+        )
 
     immutable_fields = {"code", "sku", "barcode"}.intersection(update_data)
     if immutable_fields:
