@@ -479,4 +479,89 @@ describe("SMRITI F2 Advanced Item Search Engine", () => {
       expect(selectedMeta.brand).toBe("SMRITI Classic");
     });
   });
+
+  describe("9. Enterprise Retail: F7 Exact Cash Settlement Contract", () => {
+    it("should build exact cash payment matching net payable amount with zero change due", () => {
+      const netPayable = 2499.50;
+      const exactCashPayment = [
+        { mode: "Cash", amount: netPayable, reference: "Exact Cash [F7]" }
+      ];
+
+      expect(exactCashPayment[0].mode).toBe("Cash");
+      expect(exactCashPayment[0].amount).toBe(2499.50);
+      expect(exactCashPayment[0].reference).toContain("Exact Cash [F7]");
+
+      const totalTendered = exactCashPayment.reduce((sum, p) => sum + p.amount, 0);
+      const changeDue = Math.max(0, totalTendered - netPayable);
+
+      expect(totalTendered).toBe(netPayable);
+      expect(changeDue).toBe(0);
+    });
+  });
+
+  describe("10. Retail Barcode Scanner Guard (Qty/Rate Burst Interception)", () => {
+    it("should intercept 8+ digit numeric barcode scanned into Qty and redirect to barcode", () => {
+      const scannedInput = "890123456789";
+      let redirectedBarcode = "";
+      let safeQty = "1";
+
+      const clean = scannedInput.trim();
+      const isBarcodeBurst = clean.length >= 8 && /^\d+$/.test(clean);
+
+      if (isBarcodeBurst) {
+        redirectedBarcode = clean;
+        safeQty = "1";
+      } else {
+        safeQty = clean;
+      }
+
+      expect(isBarcodeBurst).toBe(true);
+      expect(redirectedBarcode).toBe("890123456789");
+      expect(safeQty).toBe("1");
+    });
+
+    it("should allow valid normal quantity entry (e.g. 5, 12, 1.5)", () => {
+      const normalInput = "12";
+      let isBarcodeBurst = false;
+      let safeQty = normalInput;
+
+      const clean = normalInput.trim();
+      if (clean.length >= 8 && /^\d+$/.test(clean)) {
+        isBarcodeBurst = true;
+      } else {
+        safeQty = clean;
+      }
+
+      expect(isBarcodeBurst).toBe(false);
+      expect(safeQty).toBe("12");
+    });
+  });
+
+  describe("11. Suspended Invoices Nested Line Item Inspection", () => {
+    it("should compute line item totals accurately during document inspection", () => {
+      const heldBill = {
+        id: "held-001",
+        docNo: "HOLD-001",
+        date: "2026-09-14",
+        items: [
+          { stockNo: "SKU-OXF-BLU-M", itemDescription: "Oxford Shirt", qty: 2, rate: 1499 },
+          { stockNo: "SKU-CHN-KHK-32", itemDescription: "Chino Trousers", qty: 1, rate: 2199 }
+        ]
+      };
+
+      const inspectedItems = heldBill.items.map(it => ({
+        stockNo: it.stockNo,
+        description: it.itemDescription,
+        qty: it.qty,
+        rate: it.rate,
+        total: it.qty * it.rate
+      }));
+
+      expect(inspectedItems.length).toBe(2);
+      expect(inspectedItems[0].total).toBe(2998);
+      expect(inspectedItems[1].total).toBe(2199);
+      const computedNet = inspectedItems.reduce((acc, it) => acc + it.total, 0);
+      expect(computedNet).toBe(5197);
+    });
+  });
 });

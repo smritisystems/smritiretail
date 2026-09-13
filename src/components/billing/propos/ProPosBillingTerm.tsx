@@ -1140,6 +1140,9 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         } else {
           onNotification?.("Empty Bill", "Please add items to bill before print & pay [F10].", "error");
         }
+      } else if (e.key === "F11" || e.key === "F1") {
+        e.preventDefault();
+        directBarcodeRef.current?.focus();
       }
     };
 
@@ -1905,19 +1908,39 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 <input
                   type="text"
                   value={directRate}
-                  onChange={e => handleRateOrQtyChange(e.target.value, directQty)}
+                  onChange={e => {
+                    const clean = e.target.value.trim();
+                    if (clean.length >= 8 && /^\d+$/.test(clean)) {
+                      setDirectBarcode(clean);
+                      handleItemLiveSearch(clean, "barcode");
+                      onNotification?.("Barcode Intercepted", `Barcode ${clean} scanned into Rate was redirected to Barcode field.`, "info");
+                      directBarcodeRef.current?.focus();
+                      return;
+                    }
+                    handleRateOrQtyChange(e.target.value, directQty);
+                  }}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
                   className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
                 />
               </div>
 
-              {/* Qty Input */}
+              {/* Qty Input with Retail Barcode Scanner Guard */}
               <div className="col-span-1">
                 <input
                   ref={directQtyRef}
                   type="text"
                   value={directQty}
-                  onChange={e => handleRateOrQtyChange(directRate, e.target.value)}
+                  onChange={e => {
+                    const clean = e.target.value.trim();
+                    if (clean.length >= 8 && /^\d+$/.test(clean)) {
+                      setDirectBarcode(clean);
+                      handleItemLiveSearch(clean, "barcode");
+                      onNotification?.("Barcode Intercepted", `Barcode ${clean} scanned into Qty was redirected to Barcode field.`, "info");
+                      directBarcodeRef.current?.focus();
+                      return;
+                    }
+                    handleRateOrQtyChange(directRate, e.target.value);
+                  }}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
                   className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
                 />

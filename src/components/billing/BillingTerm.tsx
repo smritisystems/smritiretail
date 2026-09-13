@@ -71,7 +71,10 @@ import {
   Maximize2,
   Minimize2,
   ExternalLink,
-  Paperclip
+  Paperclip,
+  Banknote,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 interface SmritiBillingTerminalProps {
@@ -459,6 +462,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
+  const [expandedHeldBillId, setExpandedHeldBillId] = useState<string | null>(null);
   const [showTransactionBrowserModal, setShowTransactionBrowserModal] = useState<boolean>(false);
   const [isReadOnlyView, setIsReadOnlyView] = useState<boolean>(false);
   const [loadedDocMetadata, setLoadedDocMetadata] = useState<{
@@ -487,6 +491,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return;
     }
     setShowSettlementModal(true);
+  };
+
+  // Enterprise Retail: F7 Exact Cash Instant Checkout
+  const handleExactCashSettlement = () => {
+    if (items.length === 0) {
+      onNotification?.("Settlement", "Add items to invoice before exact cash settlement [F7].", "error");
+      return;
+    }
+    if (!hasGstProfile) {
+      onNotification?.("GST profile pending", "Add a customer GSTIN before exact cash settlement [F7].", "error");
+      return;
+    }
+    const exactPayment: SettlementPaymentRow[] = [
+      { mode: "Cash", amount: summaryTotals.netAmount, reference: "Exact Cash [F7]" }
+    ];
+    handleSaveSettlement(exactPayment, [], [], []);
   };
 
   // Fullscreen State & Terminal Ref
@@ -814,6 +834,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       } else if (e.key === "F4" || (e.altKey && e.key === "6")) {
         e.preventDefault();
         setShowTransactionBrowserModal(true);
+      } else if (e.key === "F7") {
+        e.preventDefault();
+        handleExactCashSettlement();
       } else if (e.key === "F8") {
         e.preventDefault();
         openSettlement();
@@ -840,7 +863,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [items, headerState, lastCompletedInvoice, activeItemSearchField]);
+  }, [items, headerState, lastCompletedInvoice, activeItemSearchField, summaryTotals, hasGstProfile]);
 
   const handleSelectCustomer = (c: Customer | null) => {
     setHeaderState(prev => ({
@@ -1955,16 +1978,28 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 <span>Print Document</span>
               </button>
             ) : (
-              <button
-                type="button"
-                disabled={items.length === 0 || !hasGstProfile}
-                onClick={openSettlement}
-                className="h-9 px-4 bg-primary hover:bg-primary-container text-on-primary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
-                title="Settlement (F8)"
-              >
-                <CreditCard size={15} />
-                <span>Settle &amp; Save (F8)</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={items.length === 0 || !hasGstProfile}
+                  onClick={handleExactCashSettlement}
+                  className="h-9 px-3 bg-secondary hover:bg-secondary-container text-on-secondary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Exact Cash Checkout (F7)"
+                >
+                  <Banknote size={15} />
+                  <span>Exact Cash (F7)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={items.length === 0 || !hasGstProfile}
+                  onClick={openSettlement}
+                  className="h-9 px-4 bg-primary hover:bg-primary-container text-on-primary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Settlement (F8)"
+                >
+                  <CreditCard size={15} />
+                  <span>Settle &amp; Save (F8)</span>
+                </button>
+              </div>
             )}
 
           </div>
@@ -2619,14 +2654,26 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest font-bold focus:border-secondary outline-none border"
               />
 
-              {/* Qty */}
+              {/* Qty with Retail Barcode Scanner Guard */}
               <input
-                type="number"
-                min="0.001"
-                max="99999"
-                step="any"
+                type="text"
                 value={directEntry.qty}
-                onChange={e => setDirectEntry({ ...directEntry, qty: e.target.value })}
+                onChange={e => {
+                  const clean = e.target.value.trim();
+                  // Retail Scanner Guard: if barcode scanner fires into quantity field (8+ digits)
+                  if (clean.length >= 8 && /^\d+$/.test(clean)) {
+                    setDirectEntry(prev => ({
+                      ...prev,
+                      barcode: clean,
+                      stockNo: prev.stockNo || clean,
+                      qty: "1"
+                    }));
+                    onNotification?.("Barcode Intercepted", `Barcode ${clean} scanned into Qty was redirected to Barcode field.`, "info");
+                    directBarcodeRef.current?.focus();
+                    return;
+                  }
+                  setDirectEntry(prev => ({ ...prev, qty: e.target.value }));
+                }}
                 onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
                 placeholder="Qty"
                 className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest font-bold focus:border-secondary outline-none border"
@@ -3037,7 +3084,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       {/* Persistent Bottom Shortcut Footer */}
       <footer className="bg-surface-container-highest border-t border-outline-variant mt-auto w-full flex justify-between items-center px-margin-page py-2 shrink-0 z-30 font-label-caps text-label-caps">
         <span className="text-on-surface-variant font-medium">
-          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">F7/F8:</strong> Settlement | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
+          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">F7:</strong> Exact Cash | <strong className="text-primary">F8:</strong> Settle | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
         </span>
         <span className="text-primary font-bold">© 2026 smritisys.com</span>
       </footer>
@@ -3110,26 +3157,65 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   {suspendedBills.map((bill, idx) => (
                     <div
                       key={bill.id}
-                      className="bg-surface-container-low border border-outline-variant p-3 rounded flex justify-between items-center hover:bg-secondary-fixed/30 transition"
+                      className="bg-surface-container-low border border-outline-variant p-3 rounded flex flex-col hover:bg-secondary-fixed/30 transition"
                     >
-                      <div>
-                        <p className="font-code-md text-xs font-bold text-primary">
-                          {bill.header.docPrefix}-{bill.header.docNo}
-                        </p>
-                        <p className="text-[11px] text-on-surface-variant">
-                          {bill.header.customer?.name || "Counter Cash"} • {bill.items.length} items • Held at {bill.date}
-                        </p>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-code-md text-xs font-bold text-primary">
+                            {bill.header.docPrefix}-{bill.header.docNo}
+                          </p>
+                          <p className="text-[11px] text-on-surface-variant">
+                            {bill.header.customer?.name || "Counter Cash"} • {bill.items.length} items • Held at {bill.date}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-code-md text-xs font-bold text-primary">₹{bill.netAmount.toFixed(2)}</span>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedHeldBillId(prev => prev === bill.id ? null : bill.id)}
+                            className="p-1 border border-outline-variant hover:bg-surface-container rounded text-on-surface-variant text-[11px] flex items-center gap-1 font-semibold"
+                            title="Inspect items [F2]"
+                          >
+                            <span>Inspect</span>
+                            {expandedHeldBillId === bill.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRecallInvoice(bill)}
+                            className="bg-primary hover:bg-primary-container text-on-primary px-3 py-1 rounded text-xs font-bold transition"
+                          >
+                            Recall
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-code-md text-xs font-bold text-primary">₹{bill.netAmount.toFixed(2)}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRecallInvoice(bill)}
-                          className="bg-primary hover:bg-primary-container text-on-primary px-3 py-1 rounded text-xs font-bold transition"
-                        >
-                          Recall
-                        </button>
-                      </div>
+
+                      {/* Nested Document Line Item Inspection */}
+                      {expandedHeldBillId === bill.id && (
+                        <div className="mt-2 pt-2 border-t border-outline-variant bg-surface-container-lowest/60 rounded p-2">
+                          <table className="w-full text-[11px] font-mono">
+                            <thead>
+                              <tr className="text-on-surface-variant border-b border-outline-variant text-left">
+                                <th className="pb-1">Stock No</th>
+                                <th className="pb-1">Description</th>
+                                <th className="pb-1 text-right">Qty</th>
+                                <th className="pb-1 text-right">Rate</th>
+                                <th className="pb-1 text-right">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bill.items.map((it, itemIdx) => (
+                                <tr key={itemIdx} className="border-b border-outline-variant/30">
+                                  <td className="py-0.5 font-bold text-primary">{it.stockNo}</td>
+                                  <td className="py-0.5 truncate max-w-[160px]">{it.itemDescription}</td>
+                                  <td className="py-0.5 text-right">{it.qty}</td>
+                                  <td className="py-0.5 text-right">₹{Number(it.rate).toFixed(2)}</td>
+                                  <td className="py-0.5 text-right font-bold">₹{(Number(it.qty) * Number(it.rate)).toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
