@@ -254,3 +254,59 @@ async def test_product_create_and_update_brand_governance_rejection():
         async with session_factory() as session:
             await session.execute(delete(Product).where(Product.code.like("PROD-TEST-%")))
             await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_universal_item_master_service_dimension_governance():
+    """
+    Verifies that UniversalItemMasterService.create_item normalizes governed dimensions
+    (brand, category, style_code, color, size, vendor_code) and rejects unapproved values.
+    """
+    from decimal import Decimal
+    from app.schemas.item_master import ItemCreateRequest
+    from app.services.item_master_svc import UniversalItemMasterService
+    from app.models.item_master import Item
+
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        await session.execute(delete(Item).where(Item.item_code.like("ITEM-TEST-%")))
+        await session.commit()
+
+        req = ItemCreateRequest(
+            item_code=f"ITEM-TEST-{uuid.uuid4().hex[:6]}",
+            item_name="Governed Test Item",
+            category="footwear",
+            brand="smriti",
+            style_code="ch-01-a",
+            color="black",
+            size="40",
+            vendor_code="jrm",
+            tax_rate=18.0,
+            primary_uom="PCS",
+        )
+        try:
+            created_item = await UniversalItemMasterService.create_item(session, req=req, company_id="COMP-001")
+            assert created_item.category == "Footwear"
+            assert created_item.brand == "SMRITI"
+            assert created_item.style_code == "CH-01-A"
+            assert created_item.color == "BLACK"
+            assert created_item.size == "40"
+            assert created_item.vendor_code == "JRM"
+
+            # Verify unapproved color rejection
+            unapproved_req = ItemCreateRequest(
+                item_code=f"ITEM-TEST-FAIL-{uuid.uuid4().hex[:6]}",
+                item_name="Unapproved Color Item",
+                category="footwear",
+                color="NEON_REJECT_ME",
+                tax_rate=18.0,
+                primary_uom="PCS",
+            )
+            with pytest.raises(HTTPException) as exc_info:
+                await UniversalItemMasterService.create_item(session, req=unapproved_req, company_id="COMP-001")
+            assert exc_info.value.status_code == 422
+            assert exc_info.value.detail.get("code") == "SMRITI-VAL-002"
+        finally:
+            await session.execute(delete(Item).where(Item.item_code.like("ITEM-TEST-%")))
+            await session.commit()
+

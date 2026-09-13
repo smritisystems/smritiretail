@@ -103,6 +103,7 @@ class UniversalItemMasterService:
         """
         if req is not None:
             sku = req.item_code or f"ITM-{uuid.uuid4().hex[:8].upper()}"
+            item_id = f"itm_{uuid.uuid4().hex[:12]}"
             if await cls.get_item_by_code(session, sku):
                 raise ValueError(
                     f"Item code '{sku}' already exists; item identity and details are immutable after creation"
@@ -132,6 +133,11 @@ class UniversalItemMasterService:
 
             normalized_brand = req.brand
             normalized_category = req.category
+            normalized_department = req.department
+            normalized_style_code = req.style_code
+            normalized_color = req.color
+            normalized_size = req.size
+            normalized_vendor_code = req.vendor_code
             from .catalog_validation import CatalogDimensionValidator
             if req.brand and str(req.brand).strip():
                 normalized_brand = await CatalogDimensionValidator.validate_and_normalize_dimension(
@@ -145,6 +151,36 @@ class UniversalItemMasterService:
                     value=req.category,
                     strict=True,
                 )
+            if req.department and str(req.department).strip():
+                normalized_department = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field="department",
+                    value=req.department,
+                    strict=True,
+                )
+            if req.style_code and str(req.style_code).strip():
+                normalized_style_code = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field="style_code",
+                    value=req.style_code,
+                    strict=True,
+                )
+            if req.color and str(req.color).strip():
+                normalized_color = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field="color",
+                    value=req.color,
+                    strict=True,
+                )
+            if req.size and str(req.size).strip():
+                normalized_size = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field="size",
+                    value=req.size,
+                    strict=True,
+                )
+            if req.vendor_code and str(req.vendor_code).strip():
+                normalized_vendor_code = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field="vendor_code",
+                    value=req.vendor_code,
+                    strict=True,
+                )
 
             item = Item(
                 id=item_id,
@@ -153,7 +189,12 @@ class UniversalItemMasterService:
                 item_type=req.item_type,
                 category=normalized_category,
                 category_code=req.category_code,
+                department=normalized_department,
                 brand=normalized_brand,
+                style_code=normalized_style_code,
+                color=normalized_color,
+                size=normalized_size,
+                vendor_code=normalized_vendor_code,
                 hsn_code=req.hsn_code or "0000",
                 tax_rate=Decimal(str(req.tax_rate)),
                 primary_uom=req.primary_uom,

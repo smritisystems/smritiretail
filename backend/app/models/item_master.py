@@ -34,7 +34,12 @@ class Item(BaseEntity):
     item_type = Column(String(30), nullable=False, default="FINISHED_GOOD")  # FINISHED_GOOD, RAW_MATERIAL, SERVICE, PACKAGING, CONSUMABLE
     category = Column(String(100), nullable=True, index=True)
     category_code = Column(String(50), nullable=True)
+    department = Column(String(100), nullable=True, index=True)
     brand = Column(String(100), nullable=True)
+    style_code = Column(String(100), nullable=True, index=True)
+    color = Column(String(50), nullable=True, index=True)
+    size = Column(String(50), nullable=True, index=True)
+    vendor_code = Column(String(100), nullable=True, index=True)
     hsn_code = Column(String(15), nullable=True)
     tax_rate = Column(Numeric(5, 2), nullable=True)
     primary_uom = Column(String(20), nullable=True)
