@@ -299,7 +299,7 @@ export const VisualLabelDesigner: React.FC<VisualLabelDesignerProps> = ({
         val = activeProduct.name || "Item Description";
         break;
       case "style_code":
-        val = activeProduct.styleCode || activeProduct.code || "";
+        val = (activeProduct as any).style_code || activeProduct.styleCode || activeProduct.code || "";
         break;
       case "barcode":
         val = activeProduct.barcode || activeProduct.code || "8901234567890";
