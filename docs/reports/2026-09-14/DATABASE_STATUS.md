@@ -1,6 +1,6 @@
 # Database Entities Registry
 
-*Generated: 2026-09-13T22:36:57.236973+00:00*
+*Generated: 2026-09-13T22:52:49.952724+00:00*
 
 | Module | Database Setup | Checked Status |
 | :--- | :---: | :--- |
@@ -24,7 +24,7 @@
 | Stock Ledger | ✅ | Schema tables fully validated |
 | Master Framework | ✅ | Schema tables fully validated |
 | Field Explorer (UFE) | ❌ | Missing or incomplete DB tables mapping |
-| KPI Registry | ❌ | Missing or incomplete DB tables mapping |
+| KPI Registry | ✅ | Schema tables fully validated |
 | Channel Visibility | ✅ | Schema tables fully validated |
 | Numbering Engine | ✅ | Schema tables fully validated |
 | Approval Matrix | ❌ | Missing or incomplete DB tables mapping |
@@ -32,7 +32,7 @@
 | My Profile Dashboard | ✅ | Schema tables fully validated |
 | Print Studio | ✅ | Schema tables fully validated |
 | Print History Logs | ❌ | Missing or incomplete DB tables mapping |
-| Terms & Conditions | ❌ | Missing or incomplete DB tables mapping |
+| Terms & Conditions | ✅ | Schema tables fully validated |
 | Data Exchange Hub | ❌ | Missing or incomplete DB tables mapping |
 | Company Setup Wizard | ✅ | Schema tables fully validated |
 | About SMRITI | ✅ | Schema tables fully validated |

@@ -1,6 +1,6 @@
 # Module Progress Details
 
-*Generated: 2026-09-13T22:36:57.236973+00:00*
+*Generated: 2026-09-13T22:52:49.952724+00:00*
 
 | Module | Category | Progress | Risk Rating |
 | :--- | :--- | :---: | :---: |
@@ -20,21 +20,21 @@
 | Item Master | Inventory & Sourcing | 72% | Low |
 | Barcode Studio | Inventory & Sourcing | 76% | Low |
 | Warehouse & Batch Hub | Inventory & Sourcing | 84% | Low |
-| Inter-Godown Transfers | Inventory & Sourcing | 72% | Medium |
+| Inter-Godown Transfers | Inventory & Sourcing | 84% | Low |
 | Stock Ledger | Inventory & Sourcing | 68% | Low |
 | Master Framework | Data & Config | 72% | Low |
-| Field Explorer (UFE) | Data & Config | 64% | Medium |
-| KPI Registry | Data & Config | 60% | Medium |
+| Field Explorer (UFE) | Data & Config | 72% | Low |
+| KPI Registry | Data & Config | 80% | Low |
 | Channel Visibility | Data & Config | 72% | Low |
-| Numbering Engine | Data & Config | 56% | Medium |
+| Numbering Engine | Data & Config | 80% | Low |
 | Approval Matrix | Data & Config | 64% | Low |
 | Staff Management | Operations | 68% | Low |
 | My Profile Dashboard | Operations | 76% | Low |
 | Print Studio | Documents & Print | 76% | Low |
 | Print History Logs | Documents & Print | 72% | Low |
-| Terms & Conditions | Data & Config | 52% | Medium |
-| Data Exchange Hub | Data & Config | 64% | Medium |
+| Terms & Conditions | Data & Config | 80% | Low |
+| Data Exchange Hub | Data & Config | 72% | Low |
 | Company Setup Wizard | Operations | 80% | Low |
 | About SMRITI | System | 84% | Low |
-| Dev Intelligence Center | System | 64% | Medium |
+| Dev Intelligence Center | System | 76% | Low |
 | Audit Logs | System | 60% | Low |

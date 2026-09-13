@@ -1,6 +1,6 @@
 # Release Readiness Review
 
-*Generated: 2026-09-13T22:36:57.236973+00:00*
+*Generated: 2026-09-13T22:52:49.952724+00:00*
 
 | Module | Production Ready | Missing Dependencies |
 | :--- | :---: | :--- |
@@ -20,21 +20,21 @@
 | Item Master | ✅ YES | None |
 | Barcode Studio | ✅ YES | None |
 | Warehouse & Batch Hub | ✅ YES | None |
-| Inter-Godown Transfers | ❌ NO | Unit tests missing |
+| Inter-Godown Transfers | ✅ YES | None |
 | Stock Ledger | ✅ YES | None |
 | Master Framework | ✅ YES | None |
-| Field Explorer (UFE) | ❌ NO | Unit tests missing |
-| KPI Registry | ❌ NO | None |
+| Field Explorer (UFE) | ❌ NO | None |
+| KPI Registry | ✅ YES | None |
 | Channel Visibility | ✅ YES | None |
-| Numbering Engine | ❌ NO | Unit tests missing |
+| Numbering Engine | ✅ YES | None |
 | Approval Matrix | ❌ NO | None |
 | Staff Management | ✅ YES | None |
 | My Profile Dashboard | ✅ YES | None |
 | Print Studio | ✅ YES | None |
 | Print History Logs | ❌ NO | None |
-| Terms & Conditions | ❌ NO | Unit tests missing |
-| Data Exchange Hub | ❌ NO | Unit tests missing |
+| Terms & Conditions | ✅ YES | None |
+| Data Exchange Hub | ❌ NO | None |
 | Company Setup Wizard | ✅ YES | None |
 | About SMRITI | ✅ YES | None |
-| Dev Intelligence Center | ❌ NO | Unit tests missing |
+| Dev Intelligence Center | ✅ YES | None |
 | Audit Logs | ❌ NO | None |
