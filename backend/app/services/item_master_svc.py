@@ -131,10 +131,18 @@ class UniversalItemMasterService:
                     )
 
             normalized_brand = req.brand
+            normalized_category = req.category
+            from .catalog_validation import CatalogDimensionValidator
             if req.brand and str(req.brand).strip():
-                from .catalog_validation import CatalogDimensionValidator
-                normalized_brand = await CatalogDimensionValidator.validate_and_normalize_brand(
-                    brand_val=req.brand,
+                normalized_brand = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field="brand",
+                    value=req.brand,
+                    strict=True,
+                )
+            if req.category and str(req.category).strip():
+                normalized_category = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field="category",
+                    value=req.category,
                     strict=True,
                 )
 
@@ -143,7 +151,7 @@ class UniversalItemMasterService:
                 item_code=sku,
                 item_name=req.item_name,
                 item_type=req.item_type,
-                category=req.category,
+                category=normalized_category,
                 category_code=req.category_code,
                 brand=normalized_brand,
                 hsn_code=req.hsn_code or "0000",

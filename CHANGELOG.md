@@ -30,17 +30,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### [3.32.0] - 2026-09-13
 
-#### Catalog Dimension Brand Master Lookup Governance & Ingestion Validation
+#### Universal Catalog Dimension Master Lookup Governance & Ingestion Validation
 
 **Walkthrough:** [Catalog_Dimension_Brand_Master_Lookup_Governance_v3.32.0.md](docs/walkthrough/catalog/Catalog_Dimension_Brand_Master_Lookup_Governance_v3.32.0.md)  
 **Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
 
-- **Master Lookup as Single Source of Truth:** Formally established `master_lookup:brand` as the canonical source of truth for item/product brands, eliminating free-text dirty master data across inventory and catalog domains.
-- **Control Plane Brand Seeding (v1450):** Created migration `v1450_seed_standard_brands.py` registering core standard brands (`SMRITI`, `BEANSTALK`, `Tattly Threads`, `Heritage`, `Swift`, `Generic`) with explicit `CAST(:code AS varchar)` asyncpg type safety.
-- **Catalog Dimension Validation Service:** Built `CatalogDimensionValidator` in `backend/app/services/catalog_validation.py` with cross-database fallback (`smritisys: master_values`), case-insensitive canonical mapping, and HREP-compliant strict rejection (`SMRITI-VAL-002`).
-- **Write-Path Integration:** Connected brand validation into `InventoryService.create_product`, `/api/v1/inventory.py` `update_product`, and `UniversalItemMasterService.create_item`.
-- **Core Error Handling Hardening:** Fixed `backend/app/core/errors.py` (`build_error_response`) to safely handle dictionary and structured error payloads, preventing `AttributeError` on validation rejections.
-- **Verification:** 2/2 pytest green (`test_catalog_dimension_validation.py` in 9.93s), 1/1 master lookup audit test green (`test_master_lookup_compliance_audit.py` in 8.55s), 0 TypeScript errors (`tsc --noEmit`), and clean production build (3,533 modules built).
+- **Universal Multi-Dimension Governance Engine:** Generalized `CatalogDimensionValidator` in `backend/app/services/catalog_validation.py` to validate and normalize all catalog dimensions: `brand`, `department`, `category`, `subcategory`, `style_article`, `color`, `size`, `vendor_code`, and `product`.
+- **Hierarchical Scale-Group Auto-Unpacking:** Added automatic group inspection for `color` (active `color_group` values) and `size` (active `size_group` values) in both `CatalogDimensionValidator` and `/api/v1/masters/lookup/{type}/values`.
+- **Standard Brand Seeding Migration (v1450):** Seeded standard catalog brands (`SMRITI`, `BEANSTALK`, `Tattly Threads`, `Heritage`, `Swift`, `Generic`) with asyncpg-safe type casting.
+- **Write-Path Ingestion Hardening:** Enforced multi-dimension canonical normalization across `InventoryService.create_product`, `/api/v1/inventory.py` `update_product`, and `UniversalItemMasterService.create_item`.
+- **HREP SMRITI-VAL-002 Compliance:** Standardized error contracts emitting HTTP 422 with structured dimension code, friendly guidance, and rejected value.
+- **Lookup-Backed Frontend Typeahead Datalists:** Exported `fetchGovernedLookupOptions` in `itemMasterLookupGate.ts` and integrated native HTML5 `<datalist>` auto-completion in `ItemDetailsGrid.tsx` and `ItemDetailsGridTab.tsx` for all governed dimension cells.
+- **Verification:** 2/2 multi-dimension pytest green in 12.34s, 1/1 master lookup audit regression green in 7.82s, 0 TypeScript compiler errors (`tsc --noEmit`), and clean production build (3,533 modules).
 
 ### [3.31.0] - 2026-09-13
 

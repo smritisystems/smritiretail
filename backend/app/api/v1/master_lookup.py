@@ -337,7 +337,66 @@ async def list_lookup_values(
 
     q = q.order_by(MasterValue.sort_order.asc(), MasterValue.name.asc())
     res = await db.execute(q)
-    return list(res.scalars().all())
+    direct_values = list(res.scalars().all())
+    if direct_values:
+        return direct_values
+
+    # Fallback to scale group unpacking if direct values are empty
+    group_type_code = None
+    if type_code == "color":
+        group_type_code = "color_group"
+    elif type_code == "size":
+        group_type_code = "size_group"
+
+    if group_type_code:
+        import uuid as _uuid_mod
+        q_grp_type = select(MasterType).where(MasterType.code == group_type_code)
+        res_grp_type = await db.execute(q_grp_type)
+        grp_type = res_grp_type.scalar_one_or_none()
+        if grp_type:
+            q_grp = select(MasterValue).where(
+                MasterValue.master_type_id == grp_type.id,
+                MasterValue.is_deleted.is_(False),
+                MasterValue.active.is_(True),
+            )
+            if company_id:
+                q_grp = q_grp.where((MasterValue.company_id == company_id) | MasterValue.company_id.is_(None))
+            if branch_id:
+                q_grp = q_grp.where((MasterValue.branch_id == branch_id) | MasterValue.branch_id.is_(None))
+            q_grp = q_grp.order_by(MasterValue.sort_order.asc(), MasterValue.name.asc())
+            res_grp = await db.execute(q_grp)
+            grp_rows = res_grp.scalars().all()
+
+            seen_codes = set()
+            synthetic_values: List[MasterValue] = []
+            sort_idx = 1
+            for grp in grp_rows:
+                if isinstance(grp.data, dict) and "values" in grp.data and isinstance(grp.data["values"], list):
+                    for v in grp.data["values"]:
+                        v_str = str(v).strip()
+                        if v_str and v_str.lower() not in seen_codes:
+                            seen_codes.add(v_str.lower())
+                            synthetic_id = _uuid_mod.uuid5(_uuid_mod.NAMESPACE_DNS, f"{master_type.id}:{v_str}")
+                            synthetic_values.append(
+                                MasterValue(
+                                    id=synthetic_id,
+                                    master_type_id=master_type.id,
+                                    code=v_str,
+                                    name=v_str,
+                                    company_id=grp.company_id,
+                                    branch_id=grp.branch_id,
+                                    vendor_code=grp.vendor_code,
+                                    data={},
+                                    active=True,
+                                    sort_order=sort_idx,
+                                    updated_at=grp.updated_at,
+                                )
+                            )
+                            sort_idx += 1
+            if synthetic_values:
+                return synthetic_values
+
+    return []
 
 
 @router.get(

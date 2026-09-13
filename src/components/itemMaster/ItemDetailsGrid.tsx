@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { Product, AttributeDefinition } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
-import { validateItemMasterLookupOptions } from "../../services/itemMasterLookupGate.ts";
+import { validateItemMasterLookupOptions, fetchGovernedLookupOptions, LookupOption } from "../../services/itemMasterLookupGate.ts";
 import { getUnifiedItemMasterFields, getGloballyVisibleFields, getGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 import { getCustomFieldLabels } from "../../lib/headerMapping/HeaderAliasRegistry.ts";
 import { resolveProductImageUrl, getImagePathConfig } from "../../services/imagePathConfig.ts";
@@ -288,6 +288,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
   const [warehouseOptions, setWarehouseOptions] = useState<{ id: string; code: string; name: string }[]>([]);
   const [locationOptions, setLocationOptions] = useState<{ id: string; warehouseId: string; code: string; name: string }[]>([]);
+  const [governedLookups, setGovernedLookups] = useState<Record<string, LookupOption[]>>({});
 
   useF2Screen({
     screenId: "ItemDetailsGrid",
@@ -394,6 +395,15 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       if (isMounted && Array.isArray(defs)) {
         setDynamicDefinitions(defs);
       }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  // Load governed lookup options for dropdown / datalist typeahead
+  useEffect(() => {
+    let isMounted = true;
+    fetchGovernedLookupOptions().then(options => {
+      if (isMounted) setGovernedLookups(options);
     }).catch(() => {});
     return () => { isMounted = false; };
   }, []);
@@ -1561,38 +1571,48 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                           <option key={option.id} value={option.id}>{option.code} - {option.name}</option>
                                         ))}
                                     </select>
-                                  ) : (<input
-                                    type="text"
-                                    data-f2-entity={
-                                      isCode ? "variant" :
-                                      isBarcode ? "item_barcode" :
-                                      col.key === "styleCode" || col.key === "style_code" ? "article" :
-                                      col.key === "colour" || col.key === "color" ? "color" :
-                                      col.key === "size" ? "size" : undefined
-                                    }
-                                    data-f2-row-index={sourceIndex}
-                                    data-f2-field={col.key}
-                                    readOnly={isNonEditableInEditMode || activeMode === "delete"}
-                                    title={
-                                      isNonEditableInEditMode
-                                        ? "SKU and Barcode are permanent identifiers and cannot be edited for existing items."
-                                        : isBlankValue
-                                        ? `${col.label} is required and cannot be blank.`
-                                        : undefined
-                                    }
-                                    value={val}
-                                    onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
-                                    onBlur={e => handleCellBlur(sourceIndex, col.key, e.target.value)}
-                                    className={`w-full px-1.5 py-1 rounded-none outline-none text-xs font-semibold border-0 focus:ring-1 focus:ring-inset focus:ring-[#0052cc] ${
-                                      isDuplicate
-                                        ? "text-[#ba1a1a] dark:text-[#ffb4ab] font-bold border border-[#ba1a1a]"
-                                        : isBlankValue
-                                        ? "border border-[#ba1a1a] bg-[#ffdad6]/40 text-[#ba1a1a] dark:text-[#ffb4ab] placeholder:text-[#ba1a1a]"
-                                        : isNonEditableInEditMode
-                                        ? "bg-transparent text-[#515f74] dark:text-[#bec6e0] cursor-not-allowed font-mono font-bold"
-                                        : "bg-transparent hover:bg-white dark:hover:bg-[#191c1e] focus:bg-white dark:focus:bg-[#191c1e] border border-transparent focus:border-[#0052cc]"
-                                    }`}
-                                  />)}
+                                  ) : (
+                                    <input
+                                      type="text"
+                                      list={
+                                        col.key === "brand" ? "grid-lookup-brand-list" :
+                                        col.key === "category" ? "grid-lookup-category-list" :
+                                        col.key === "colour" || col.key === "color" ? "grid-lookup-color-list" :
+                                        col.key === "size" ? "grid-lookup-size-list" :
+                                        col.key === "styleCode" || col.key === "style_code" ? "grid-lookup-style-list" :
+                                        col.key === "vendorCode" || col.key === "vendor_code" ? "grid-lookup-vendor-list" : undefined
+                                      }
+                                      data-f2-entity={
+                                        isCode ? "variant" :
+                                        isBarcode ? "item_barcode" :
+                                        col.key === "styleCode" || col.key === "style_code" ? "article" :
+                                        col.key === "colour" || col.key === "color" ? "color" :
+                                        col.key === "size" ? "size" : undefined
+                                      }
+                                      data-f2-row-index={sourceIndex}
+                                      data-f2-field={col.key}
+                                      readOnly={isNonEditableInEditMode || activeMode === "delete"}
+                                      title={
+                                        isNonEditableInEditMode
+                                          ? "SKU and Barcode are permanent identifiers and cannot be edited for existing items."
+                                          : isBlankValue
+                                          ? `${col.label} is required and cannot be blank.`
+                                          : undefined
+                                      }
+                                      value={val}
+                                      onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
+                                      onBlur={e => handleCellBlur(sourceIndex, col.key, e.target.value)}
+                                      className={`w-full px-1.5 py-1 rounded-none outline-none text-xs font-semibold border-0 focus:ring-1 focus:ring-inset focus:ring-[#0052cc] ${
+                                        isDuplicate
+                                          ? "text-[#ba1a1a] dark:text-[#ffb4ab] font-bold border border-[#ba1a1a]"
+                                          : isBlankValue
+                                          ? "border border-[#ba1a1a] bg-[#ffdad6]/40 text-[#ba1a1a] dark:text-[#ffb4ab] placeholder:text-[#ba1a1a]"
+                                          : isNonEditableInEditMode
+                                          ? "bg-transparent text-[#515f74] dark:text-[#bec6e0] cursor-not-allowed font-mono font-bold"
+                                          : "bg-transparent hover:bg-white dark:hover:bg-[#191c1e] focus:bg-white dark:focus:bg-[#191c1e] border border-transparent focus:border-[#0052cc]"
+                                      }`}
+                                    />
+                                  )}
                                   {isDuplicate && (
                                     <span
                                       title={
@@ -2130,6 +2150,38 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         totalRecordsCount={products.length}
         onConfirm={handleConfirmDataLoading}
       />
+
+      {/* Governed Lookup Datalists for Auto-completion */}
+      <datalist id="grid-lookup-brand-list">
+        {(governedLookups.brand || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-category-list">
+        {(governedLookups.category || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-color-list">
+        {(governedLookups.color || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-size-list">
+        {(governedLookups.size || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-style-list">
+        {(governedLookups.style_article || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-vendor-list">
+        {(governedLookups.vendor_code || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
 
     </div>
   );

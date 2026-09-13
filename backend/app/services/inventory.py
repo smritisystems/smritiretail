@@ -88,13 +88,24 @@ class InventoryService:
             self.tenant_ctx.company_id,
         )
 
-        # Validate brand against Master Lookup in control plane
-        if product_in.brand and str(product_in.brand).strip():
-            from .catalog_validation import CatalogDimensionValidator
-            product_in.brand = await CatalogDimensionValidator.validate_and_normalize_brand(
-                brand_val=product_in.brand,
-                strict=True,
-            )
+        # Validate catalog dimensions against Master Lookup in control plane
+        from .catalog_validation import CatalogDimensionValidator
+        dim_map = {
+            "brand": product_in.brand,
+            "category": product_in.category,
+            "color": product_in.color,
+            "size": product_in.size,
+            "style_code": product_in.style_code,
+            "vendor_code": product_in.vendor_code,
+        }
+        for field_name, field_val in dim_map.items():
+            if field_val and str(field_val).strip():
+                normalized = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field=field_name,
+                    value=field_val,
+                    strict=True,
+                )
+                setattr(product_in, field_name, normalized)
 
         # Check for duplicate code
         existing_code = await self.db.execute(

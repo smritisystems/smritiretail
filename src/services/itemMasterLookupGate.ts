@@ -49,6 +49,30 @@ const FIELD_LOOKUP_MAP: Record<LookupType, string[]> = {
 
 const normalize = (value: unknown) => String(value ?? "").trim().toLowerCase();
 
+export interface LookupOption {
+  code: string;
+  name: string;
+}
+
+export async function fetchGovernedLookupOptions(): Promise<Record<LookupType, LookupOption[]>> {
+  const result: Partial<Record<LookupType, LookupOption[]>> = {};
+
+  await Promise.all(
+    GOVERNED_LOOKUP_TYPES.map(async (typeCode) => {
+      try {
+        const values = await apiFetchV1(`/masters/lookup/${typeCode}/values?activeOnly=true`);
+        result[typeCode] = Array.isArray(values)
+          ? values.map((value: any) => ({ code: String(value.code), name: String(value.name) }))
+          : [];
+      } catch {
+        result[typeCode] = [];
+      }
+    })
+  );
+
+  return result as Record<LookupType, LookupOption[]>;
+}
+
 export async function validateItemMasterLookupOptions(
   rows: Record<string, unknown>[]
 ): Promise<string[]> {
