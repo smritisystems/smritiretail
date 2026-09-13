@@ -102,6 +102,7 @@ from .item_master import (
     Item,
     ItemVariant,
     ItemBarcode,
+    BarcodeRegistryAudit,
 )
 
 # Canonical Pricing, Payment Ledger & Document Sequence Models (Slice 4)

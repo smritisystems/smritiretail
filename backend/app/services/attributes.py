@@ -172,13 +172,34 @@ class AttributesService:
 
     async def create_template(self, data, creator: str) -> VariantTemplate:
         # Check if style code exists
-        q = select(VariantTemplate).where(
-            VariantTemplate.style_code == data.styleCode,
-            VariantTemplate.is_deleted == False
-        )
+        q = select(VariantTemplate).where(VariantTemplate.style_code == data.styleCode)
         existing = (await self.db.execute(q)).scalars().first()
         if existing:
-            raise HTTPException(status_code=400, detail=f"Template Style Code '{data.styleCode}' already exists.")
+            if not existing.is_deleted:
+                raise HTTPException(status_code=409, detail=f"Template Style Code '{data.styleCode}' already exists. Select the existing Article / Style template or use a different code.")
+
+            existing.vendor_code = data.vendorCode
+            existing.master_value_id = data.masterValueId
+            existing.name = data.name
+            existing.brand = data.brand or "SMRITI"
+            existing.category = data.category or "General"
+            existing.hsn_code = data.hsnCode or "61091000"
+            existing.base_price = int(data.basePrice or 0)
+            existing.base_mrp = int(data.baseMrp or 0)
+            existing.base_cost_price = float(data.baseCostPrice or 0)
+            existing.gst_percentage = int(data.gstPercentage or 18)
+            existing.attribute_group_id = data.attributeGroupId
+            existing.pricing_mode = data.pricingMode or "Fixed"
+            existing.tracking_mode = data.trackingMode or "Standard"
+            existing.is_deleted = False
+            existing.is_active = True
+            existing.deleted_at = None
+            existing.deleted_by = None
+            existing.updated_by = creator
+            existing.modified_at = datetime.now(timezone.utc)
+            await self.db.commit()
+            await self.db.refresh(existing)
+            return existing
 
         new_id = f"vt-{uuid.uuid4().hex[:8]}"
         template = VariantTemplate(

@@ -18,6 +18,7 @@ import React, { useState, useEffect } from "react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
 import { mapLookupResponse, masterLookupConfig, MasterLookupItem } from "./global/configs/masterLookup.confi.tsx";
 import { getMasterRegistryTypeConfig } from "./masterRegistry/sizeManagement.tsx";
+import { getColorManagementTypeConfig } from "./masterRegistry/colorManagement.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 
 export interface MasterManagementTabProps {
@@ -90,7 +91,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     }] : []),
     subTabs: lookupTypes.length > 0 ? lookupTypes.map((t) => ({
       id: t.code,
-      label: t.code === "size_group" ? "Size Management" : t.label
+      label: t.code === "size_group" ? "Size Management" : t.code === "color_group" ? "Color Management" : t.label
     })) : undefined
   };
 
@@ -98,6 +99,8 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     ? getMasterRegistryTypeConfig("size_group", "select")
     : selectedType === "size_group_registry"
       ? getMasterRegistryTypeConfig("size_group_registry", "manage")
+      : selectedType === "color_group"
+        ? getColorManagementTypeConfig()
     : dynamicConfig;
 
   return (

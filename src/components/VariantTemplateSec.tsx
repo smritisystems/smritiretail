@@ -137,10 +137,11 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
   }, []);
 
   useEffect(() => {
-    if (defaultVendorCode) {
-      setVendorCode(defaultVendorCode);
+    const resolvedVendorCode = (defaultVendorCode || vendorFilterCode || "").trim().toUpperCase();
+    if (resolvedVendorCode) {
+      setVendorCode(resolvedVendorCode);
     }
-  }, [defaultVendorCode]);
+  }, [defaultVendorCode, vendorFilterCode]);
 
   const resolveDimensionValues = (attribute: AttributeDefinition, group: AttributeGroup) => {
     if (attribute.name.toLowerCase() === "size" && group.sizeGroupId) {
@@ -200,7 +201,8 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
   const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!styleCode.trim() || (vendorFilterCode && !masterValueId)) || !name.trim() || !groupId || !vendorCode) {
+    const effectiveVendorCode = (vendorCode || defaultVendorCode || vendorFilterCode || "").trim().toUpperCase();
+    if ((!styleCode.trim() || (vendorFilterCode && !masterValueId)) || !name.trim() || !groupId || !effectiveVendorCode) {
       onNotification("Missing Fields", "Select a Master Registry Article / Style, enter a name, and choose an Attribute Group.", "error");
       return;
     }
@@ -219,7 +221,7 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
     const payload = {
       styleCode: styleCode.trim().toUpperCase(),
-      vendorCode: vendorCode.trim().toUpperCase(),
+      vendorCode: effectiveVendorCode,
       masterValueId: masterValueId || undefined,
       name: name.trim(),
       brand: brand.trim(),
@@ -328,6 +330,39 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
     if (variantsToSubmit.length === 0) {
       onNotification("Empty Matrix", "Please active at least one grid cell first.", "error");
       return;
+    }
+
+    const seenSkus = new Set<string>();
+    const seenBarcodes = new Set<string>();
+    for (const [index, variant] of variantsToSubmit.entries()) {
+      const sku = String(variant.sku || "").trim().toUpperCase();
+      const barcode = String(variant.barcode || "").trim();
+      const price = Number(variant.price);
+      const mrp = Number(variant.mrp);
+      const cost = Number(variant.costPrice);
+      const stock = Number(variant.stock);
+      if (!sku || !barcode) {
+        onNotification("Incomplete Variant", `Variant ${index + 1} needs both SKU and barcode.`, "error");
+        return;
+      }
+      if (seenSkus.has(sku)) {
+        onNotification("Duplicate SKU", `SKU ${sku} is used more than once.`, "error");
+        return;
+      }
+      if (seenBarcodes.has(barcode)) {
+        onNotification("Duplicate Barcode", `Barcode ${barcode} is used more than once.`, "error");
+        return;
+      }
+      if (![price, mrp, cost, stock].every(Number.isFinite) || [price, mrp, cost, stock].some((value) => value < 0)) {
+        onNotification("Invalid Variant Values", `Variant ${index + 1} contains an invalid or negative number.`, "error");
+        return;
+      }
+      if (mrp < price) {
+        onNotification("Invalid MRP", `Variant ${sku} has an MRP below its selling price.`, "error");
+        return;
+      }
+      seenSkus.add(sku);
+      seenBarcodes.add(barcode);
     }
 
     setLoading(true);

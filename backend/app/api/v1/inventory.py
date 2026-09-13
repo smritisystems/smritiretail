@@ -432,33 +432,13 @@ async def update_product(
     
     update_data = product_in.model_dump(exclude_unset=True)
 
-    # Enforce Stock No / Code uniqueness across other products
-    if update_data.get("code") and update_data["code"] != product.code:
-        existing_code = await db.execute(
-            select(Product).filter(
-                Product.code == update_data["code"],
-                Product.id != product_id,
-                Product.is_deleted == False,
-                Product.company_id == tenant_ctx.company_id,
-                Product.branch_id == tenant_ctx.branch_id
-            )
+    immutable_fields = {"code", "sku", "barcode"}.intersection(update_data)
+    if immutable_fields:
+        fields = ", ".join(sorted(immutable_fields))
+        raise HTTPException(
+            status_code=409,
+            detail=f"Immutable product identity cannot be changed after creation: {fields}",
         )
-        if existing_code.scalars().first():
-            raise HTTPException(status_code=400, detail=f"Stock No / SKU '{update_data['code']}' is already in use by another product")
-
-    # Enforce Barcode uniqueness across other products
-    if update_data.get("barcode") and update_data["barcode"] != product.barcode:
-        existing_barcode = await db.execute(
-            select(Product).filter(
-                Product.barcode == update_data["barcode"],
-                Product.id != product_id,
-                Product.is_deleted == False,
-                Product.company_id == tenant_ctx.company_id,
-                Product.branch_id == tenant_ctx.branch_id
-            )
-        )
-        if existing_barcode.scalars().first():
-            raise HTTPException(status_code=400, detail=f"Barcode '{update_data['barcode']}' is already in use by another product")
 
     return await repo.update(product, update_data)
 
@@ -504,10 +484,16 @@ async def add_secondary_barcode(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
         
-    # Check if duplicate barcode exists globally
-    existing = await repo.get_by_barcode(value)
+    # A barcode is a permanent identity once attached, including secondary aliases.
+    existing = await db.execute(
+        select(Product).where(
+            Product.is_deleted == False,
+            or_(Product.barcode == value, Product.secondary_barcodes.any(value)),
+        )
+    )
+    existing = existing.scalars().first()
     if existing:
-        raise HTTPException(status_code=400, detail="Barcode already exists globally")
+        raise HTTPException(status_code=409, detail="Barcode is already attached to an SKU and cannot be reused")
         
     current_secondary = list(product.secondary_barcodes or [])
     if value not in current_secondary:
@@ -527,17 +513,11 @@ async def delete_secondary_barcode(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Delete a secondary barcode from a product."""
-    repo = ProductRepository(db, tenant_ctx)
-    product = await repo.get(product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-        
-    current_secondary = list(product.secondary_barcodes or [])
-    if value in current_secondary:
-        current_secondary.remove(value)
-        
-    return await repo.update(product, {"secondary_barcodes": current_secondary})
+    """Deprecated: attached barcodes are permanent identity records."""
+    raise HTTPException(
+        status_code=409,
+        detail="Attached barcodes are immutable and cannot be deleted or reassigned",
+    )
 
 
 @router.post(

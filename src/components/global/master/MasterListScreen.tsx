@@ -889,7 +889,7 @@ export function MasterListScreen<T extends Record<string, any>>({
                   Confirm Deletion
                 </h3>
                 <p className="text-xs text-theme-muted leading-relaxed">
-                  Are you sure you want to permanently delete this {config.entityName.toLowerCase()} record? This action cannot be undone.
+                  Delete this {config.entityName.toLowerCase()} only if it has no live references. The server will validate linked templates, products, orders, and child values before retiring it.
                 </p>
               </div>
             </div>

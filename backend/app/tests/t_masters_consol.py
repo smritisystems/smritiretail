@@ -15,11 +15,13 @@ Classification: Internal
 import uuid
 import pytest
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
 
 from app.main import app
 from app.models.auth import User, UserRole
 from app.models.tenant import Company, Branch
 from app.models.master_lookup import MasterType, MasterValue
+from app.models.attributes import VariantTemplate
 from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context
 from app.core.security import hash_password, create_access_token
 from app.tests.conftest import clear_db
@@ -251,6 +253,78 @@ async def test_lookups_validation_and_soft_delete(db_session):
         # 7. Verify soft deleted item is filtered out from active list
         res_list_after = await client.get(f"/api/v1/masters/lookup/{dept_code}/values", headers=headers)
         assert not any(x["id"] == val_id for x in res_list_after.json())
+
+
+async def test_lookup_delete_requires_no_live_vendor_style_article_links(db_session):
+    """Linked vendor/style values are protected; unlinked values remain deletable."""
+    company, branch, user, headers = await _setup_admin_and_auth_headers(db_session)
+    suffix = uuid.uuid4().hex[:6].upper()
+    vendor_type = await db_session.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
+    style_type = await db_session.scalar(select(MasterType).where(MasterType.code == "style_article"))
+    assert vendor_type is not None
+    assert style_type is not None
+
+    vendor = MasterValue(
+        master_type_id=vendor_type.id,
+        company_id=company.id,
+        code=f"VENDOR-{suffix}",
+        name="Linked Vendor",
+        data={},
+        is_deleted=False,
+    )
+    style = MasterValue(
+        master_type_id=style_type.id,
+        company_id=company.id,
+        code=f"STYLE-{suffix}",
+        name="Linked Style",
+        vendor_code=f"VENDOR-{suffix}",
+        data={},
+        is_deleted=False,
+    )
+    unlinked = MasterValue(
+        master_type_id=vendor_type.id,
+        company_id=company.id,
+        code=f"UNLINKED-{suffix}",
+        name="Unlinked Vendor",
+        data={},
+        is_deleted=False,
+    )
+    db_session.add_all([vendor, style, unlinked])
+    await db_session.flush()
+    template = VariantTemplate(
+        id=f"vt-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        style_code=style.code,
+        vendor_code=vendor.code,
+        master_value_id=style.id,
+        name="Linked Style Template",
+        attribute_group_id=f"ag-{suffix}",
+    )
+    db_session.add(template)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        style_delete = await client.delete(
+            f"/api/v1/masters/lookup/{style_type.code}/values/{style.id}",
+            headers=headers,
+        )
+        vendor_delete = await client.delete(
+            f"/api/v1/masters/lookup/{vendor_type.code}/values/{vendor.id}",
+            headers=headers,
+        )
+        unlinked_delete = await client.delete(
+            f"/api/v1/masters/lookup/{vendor_type.code}/values/{unlinked.id}",
+            headers=headers,
+        )
+
+    assert style_delete.status_code == 409
+    assert vendor_delete.status_code == 409
+    assert unlinked_delete.status_code == 200
+    await db_session.refresh(style)
+    await db_session.refresh(vendor)
+    assert style.is_deleted is False
+    assert vendor.is_deleted is False
 
     async def test_manager_cannot_cross_company_organizational_scope(db_session):
         suffix = uuid.uuid4().hex[:6]
