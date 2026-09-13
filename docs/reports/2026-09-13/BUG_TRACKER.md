@@ -1,11 +1,11 @@
 # Bug Tracker Log
 
-*Generated: 2026-09-13T22:59:28.176648+00:00*
+*Generated: 2026-09-13T23:12:12.301607+00:00*
 
 | Module | Risk Rating | Critical Issues / Recommendations |
 | :--- | :---: | :--- |
 | Executive Hub | Low | No active recommendations |
-| SMRITI Gyan Kendra | Medium | Write automated unit tests. |
+| SMRITI Gyan Kendra | Low | No active recommendations |
 | Billing Workspace | Low | No active recommendations |
 | Sales Studio | Low | No active recommendations |
 | Customer Master | Low | No active recommendations |
@@ -20,10 +20,10 @@
 | Item Master | Low | No active recommendations |
 | Barcode Studio | Low | No active recommendations |
 | Warehouse & Batch Hub | Low | No active recommendations |
-| Inter-Godown Transfers | Medium | Write automated unit tests. |
+| Inter-Godown Transfers | Low | No active recommendations |
 | Stock Ledger | Low | No active recommendations |
 | Master Framework | Low | No active recommendations |
-| Field Explorer (UFE) | Medium | Write automated unit tests. |
+| Field Explorer (UFE) | Low | No active recommendations |
 | KPI Registry | Low | No active recommendations |
 | Channel Visibility | Low | No active recommendations |
 | Numbering Engine | Low | No active recommendations |
@@ -32,9 +32,9 @@
 | My Profile Dashboard | Low | No active recommendations |
 | Print Studio | Low | No active recommendations |
 | Print History Logs | Low | No active recommendations |
-| Terms & Conditions | Medium | Write automated unit tests. |
-| Data Exchange Hub | Medium | Write automated unit tests. |
+| Terms & Conditions | Low | No active recommendations |
+| Data Exchange Hub | Low | No active recommendations |
 | Company Setup Wizard | Low | No active recommendations |
 | About SMRITI | Low | No active recommendations |
-| Dev Intelligence Center | Medium | Write automated unit tests. |
+| Dev Intelligence Center | Low | No active recommendations |
 | Audit Logs | Low | No active recommendations |
