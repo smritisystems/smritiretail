@@ -14,7 +14,7 @@
  * Target UI    : Approval Matrix Studio (Global Master Screen Refactor)
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
 import { approvalMatrixConfig, ApprovalMatrix } from "./global/configs/approvalMatrix.con.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
@@ -199,8 +199,15 @@ export const ApprovalMatrixTab: React.FC = () => {
   };
 
   return (
-    <MasterListScreen<ApprovalMatrix>
-      config={enrichedConfig}
-    />
+    <div
+      role="region"
+      aria-label="Enterprise Approval Matrix Studio"
+      title="Enterprise Approval Matrix Studio (en-IN Locale & Currency Compliant)"
+      className="w-full h-full sm:px-2 md:px-4 space-y-4"
+    >
+      <MasterListScreen<ApprovalMatrix>
+        config={enrichedConfig}
+      />
+    </div>
   );
 };

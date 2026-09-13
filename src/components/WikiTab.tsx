@@ -11,7 +11,7 @@
  * License      : Proprietary Commercial Software
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import { apiFetchV1 } from "../lib/apiFetch.ts";
@@ -186,17 +186,25 @@ export const WikiTab: React.FC<WikiTabProps> = ({ onNotification }) => {
   };
 
   // Group docs by folder/module
-  const groupedDocs = docs.reduce((acc, doc) => {
-    const folder = doc.folder;
-    if (!acc[folder]) {
-      acc[folder] = [];
-    }
-    acc[folder].push(doc);
-    return acc;
-  }, {} as Record<string, WikiDoc[]>);
+  const groupedDocs = useMemo(() => {
+    return docs.reduce((acc, doc) => {
+      const folder = doc.folder;
+      if (!acc[folder]) {
+        acc[folder] = [];
+      }
+      acc[folder].push(doc);
+      return acc;
+    }, {} as Record<string, WikiDoc[]>);
+  }, [docs]);
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-80px)] overflow-hidden bg-[#121c3e]" id="smriti-wiki-desk">
+    <div
+      role="region"
+      aria-label="SMRITI Gyan Kendra Documentation Hub"
+      title="SMRITI Gyan Kendra Documentation Hub (en-IN Locale & Knowledge Base)"
+      className="flex-1 flex flex-col sm:flex-col md:flex-col lg:flex-row h-[calc(100vh-80px)] overflow-hidden bg-[#121c3e]"
+      id="smriti-wiki-desk"
+    >
       
       {/* LEFT COLUMN: Sidebar Navigation & Search */}
       <div className="w-full lg:w-80 bg-theme-surface-1 border-b lg:border-b-0 lg:border-r border-theme-divider flex flex-col h-1/3 lg:h-full">

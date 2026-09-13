@@ -1,6 +1,6 @@
 # Bug Tracker Log
 
-*Generated: 2026-09-13T22:46:10.823660+00:00*
+*Generated: 2026-09-13T22:59:28.176648+00:00*
 
 | Module | Risk Rating | Critical Issues / Recommendations |
 | :--- | :---: | :--- |
@@ -24,9 +24,9 @@
 | Stock Ledger | Low | No active recommendations |
 | Master Framework | Low | No active recommendations |
 | Field Explorer (UFE) | Medium | Write automated unit tests. |
-| KPI Registry | Medium | No active recommendations |
+| KPI Registry | Low | No active recommendations |
 | Channel Visibility | Low | No active recommendations |
-| Numbering Engine | Medium | Write automated unit tests. |
+| Numbering Engine | Low | No active recommendations |
 | Approval Matrix | Low | No active recommendations |
 | Staff Management | Low | No active recommendations |
 | My Profile Dashboard | Low | No active recommendations |

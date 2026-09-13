@@ -11,8 +11,8 @@
  * License      : Proprietary Commercial Software
  */
 
-import { ParsedCodebase } from "./parser.ts";
-import { ModuleStatus, CodeHealth, GitInfo, RiskAnalysis, ReleaseScores, ScanResult, ScanHistoryEntry } from "../models/interfaces.ts";
+import type { ParsedCodebase } from "./parser.ts";
+import type { ModuleStatus, CodeHealth, GitInfo, RiskAnalysis, ReleaseScores, ScanResult, ScanHistoryEntry } from "../models/interfaces.ts";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -162,7 +162,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       frontendKeyword: "WikiTab.tsx",
       routeKeywords: ["wiki", "metadata"],
       tableKeywords: [],
-      testKeywords: ["wiki", "readme"],
+      testKeywords: ["wikiGyanKendra", "wiki", "readme"],
       docKeywords: ["wiki", "architecture", "readme"]
     },
     "profiles": {
@@ -224,7 +224,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
     "ufe": {
       frontendKeyword: "FieldExplorerTab.tsx",
       routeKeywords: ["ufe", "fields", "universal-fields"],
-      tableKeywords: ["user_field_definitions", "custom_fields", "fields"],
+      tableKeywords: ["field_definitions", "custom_fields", "metadata_fields"],
       testKeywords: ["fieldSearch", "globalFieldRegistry"],
       docKeywords: ["ufe", "field"]
     },
@@ -252,7 +252,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
     "approval-matrix": {
       frontendKeyword: "ApprovalMatrixTab.tsx",
       routeKeywords: ["approval-matrix", "approvals"],
-      tableKeywords: ["approval_matrices", "approval_tiers"],
+      tableKeywords: ["approval_policies", "approval_requests", "approval_actions", "approval_workflow_logs"],
       testKeywords: ["approval", "matrix"],
       docKeywords: ["approval"]
     },
@@ -294,7 +294,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
     "data-exchange": {
       frontendKeyword: "DataExchangeTab.tsx",
       routeKeywords: ["data-exchange", "exchange", "import", "export"],
-      tableKeywords: ["data_exchange_jobs"],
+      tableKeywords: ["data_exchange_tasks", "data_exchange_field_mappings"],
       testKeywords: ["universalImportEngine", "globalExport"],
       docKeywords: ["exchange", "import", "export"]
     },
@@ -315,7 +315,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
     "audit-logs": {
       frontendKeyword: "AuditLogsTab.tsx",
       routeKeywords: ["audit", "audit-logs", "logs"],
-      tableKeywords: ["audit_logs", "system_events"],
+      tableKeywords: ["compliance_immutable_audit_logs", "module_audit_logs", "smriti_audit_log"],
       testKeywords: ["audit"],
       docKeywords: ["audit"]
     }
@@ -426,7 +426,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     // 5. Tests
     const testFile = parsed.testFiles.find(t => map.testKeywords.some(k => t.toLowerCase().includes(k.toLowerCase())));
     const unitTestsComplete = !!testFile;
-    const integrationTestsComplete = unitTestsComplete && (parsed.fileContentsMap.get(testFile!) || "").includes("assert");
+    const integrationTestsComplete = unitTestsComplete && ((parsed.fileContentsMap.get(testFile!) || "").includes("assert") || (parsed.fileContentsMap.get(testFile!) || "").includes("expect") || (parsed.fileContentsMap.get(testFile!) || "").includes("def test_"));
 
     // 6. Docs
     const docFile = parsed.docFiles.find(d => map.docKeywords.some(k => d.toLowerCase().includes(k.toLowerCase())));
