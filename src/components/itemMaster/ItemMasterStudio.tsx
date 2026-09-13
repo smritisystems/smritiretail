@@ -361,9 +361,13 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
           failCount++;
           const rawMsg = err?.message || "Validation Error";
           let friendlyMsg = rawMsg;
-          if (rawMsg.includes("code already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("code")) {
+          try {
+            const parsed = JSON.parse(rawMsg);
+            if (parsed?.message) friendlyMsg = parsed.message;
+          } catch {}
+          if (rawMsg.includes("code already exists") || (rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("code"))) {
             friendlyMsg = `Stock No "${productPayload.code}" already exists in the database.`;
-          } else if (rawMsg.includes("barcode already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("barcode")) {
+          } else if (rawMsg.includes("barcode already exists") || (rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("barcode"))) {
             friendlyMsg = `Barcode "${productPayload.barcode}" is already registered in the database for another item.`;
           } else if (rawMsg.includes("401") || rawMsg.includes("Token") || rawMsg.includes("Unauthorized")) {
             friendlyMsg = "Your session has expired. Please log in again.";
