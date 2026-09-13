@@ -1,40 +1,40 @@
 # Module Progress Details
 
-*Generated: 2026-09-13T22:41:04.537178+00:00*
+*Generated: 2026-09-13T22:46:10.823660+00:00*
 
 | Module | Category | Progress | Risk Rating |
 | :--- | :--- | :---: | :---: |
 | Executive Hub | Operations | 84% | Low |
-| SMRITI Gyan Kendra | Workspace | 64% | Low |
+| SMRITI Gyan Kendra | Operations | 60% | Medium |
 | Billing Workspace | Sales & POS | 76% | Low |
 | Sales Studio | Sales & POS | 88% | Low |
 | Customer Master | Sales & POS | 68% | Low |
 | CRM & Loyalty | Sales & POS | 80% | Low |
 | Loyalty Studio | Sales & POS | 72% | Low |
-| POS Terminals | Workspace | 60% | Low |
+| POS Terminals | Sales & POS | 68% | Low |
 | Purchase Studio | Inventory & Sourcing | 68% | Low |
-| Vendor 360 Workspace | Workspace | 44% | High |
-| Business Ledger | Workspace | 60% | Medium |
-| Accounting Sync | Workspace | 64% | Low |
-| Report Designer | Workspace | 72% | Low |
+| Vendor 360 Workspace | Inventory & Sourcing | 84% | Low |
+| Business Ledger | Accounts Sync | 76% | Low |
+| Accounting Sync | Accounts Sync | 72% | Low |
+| Report Designer | Data & Config | 72% | Low |
 | Item Master | Inventory & Sourcing | 72% | Low |
-| Barcode Studio | Workspace | 44% | High |
-| Warehouse & Batch Hub | Workspace | 44% | High |
-| Inter-Godown Transfers | Workspace | 36% | High |
+| Barcode Studio | Inventory & Sourcing | 76% | Low |
+| Warehouse & Batch Hub | Inventory & Sourcing | 84% | Low |
+| Inter-Godown Transfers | Inventory & Sourcing | 72% | Medium |
 | Stock Ledger | Inventory & Sourcing | 68% | Low |
-| Master Framework | Workspace | 44% | High |
-| Field Explorer (UFE) | Workspace | 44% | High |
-| KPI Registry | Workspace | 40% | High |
-| Channel Visibility | Workspace | 64% | Low |
-| Numbering Engine | Workspace | 60% | Medium |
-| Approval Matrix | Workspace | 64% | Low |
-| Staff Management | Workspace | 60% | Low |
-| My Profile Dashboard | Workspace | 60% | Medium |
-| Print Studio | Workspace | 68% | Low |
-| Print History Logs | Workspace | 72% | Low |
-| Terms & Conditions | Workspace | 48% | Medium |
-| Data Exchange Hub | Workspace | 72% | Low |
-| Company Setup Wizard | Workspace | 44% | High |
+| Master Framework | Data & Config | 72% | Low |
+| Field Explorer (UFE) | Data & Config | 64% | Medium |
+| KPI Registry | Data & Config | 60% | Medium |
+| Channel Visibility | Data & Config | 72% | Low |
+| Numbering Engine | Data & Config | 56% | Medium |
+| Approval Matrix | Data & Config | 64% | Low |
+| Staff Management | Operations | 68% | Low |
+| My Profile Dashboard | Operations | 76% | Low |
+| Print Studio | Documents & Print | 76% | Low |
+| Print History Logs | Documents & Print | 72% | Low |
+| Terms & Conditions | Data & Config | 52% | Medium |
+| Data Exchange Hub | Data & Config | 64% | Medium |
+| Company Setup Wizard | Operations | 80% | Low |
 | About SMRITI | System | 84% | Low |
-| Dev Intelligence Center | Workspace | 68% | Low |
-| Audit Logs | Workspace | 60% | Low |
+| Dev Intelligence Center | System | 64% | Medium |
+| Audit Logs | System | 60% | Low |
