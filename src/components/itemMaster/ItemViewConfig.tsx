@@ -61,7 +61,7 @@ const PRESET_ESSENTIAL = [
 
 const PRESET_STANDARD = [
   "code", "barcode", "name", "brand", "styleCode", "colour", "size",
-  "category", "subCategory", "mrp", "price", "costPrice", "gst_percentage", "hsn_code"
+  "category", "subCategory", "buyingPrice", "mrp", "price", "costPrice", "gst_percentage", "hsn_code"
 ];
 
 export const ItemViewConfig: React.FC<SmritiItemViewConfigurationProps> = ({

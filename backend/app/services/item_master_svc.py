@@ -49,6 +49,35 @@ class UniversalItemMasterService:
     """
 
     @classmethod
+    def generate_placeholder_barcode(
+        cls,
+        prefix: Optional[str] = "S",
+        allow_no_prefix: bool = True,
+    ) -> str:
+        """Return a system-generated placeholder barcode.
+
+        Policy rules:
+        - Default prefix is 'S' (e.g. S8A7F3D1B2C4E).
+        - If prefix is provided (e.g. GEN, SMRITI, SKU, VX, BRC), it is sanitized,
+          converted to uppercase, and prepended to a 12-char hex token.
+        - If prefix is None or empty (""):
+            - If allow_no_prefix is True: emits the bare 12-char uppercase hex token (e.g. 8A7F3D1B2C4E).
+            - If allow_no_prefix is False: defaults back to the canonical 'S' prefix.
+        - Only alphanumeric prefixes (and underscores/hyphens) are permitted; unsafe characters are stripped.
+        """
+        import re
+        raw_token = uuid.uuid4().hex[:12].upper()
+        if prefix is None or (isinstance(prefix, str) and not prefix.strip()):
+            if allow_no_prefix:
+                return raw_token
+            return f"S{raw_token}"
+
+        clean_pfx = re.sub(r"[^A-Za-z0-9_-]", "", str(prefix).strip()).upper()
+        if not clean_pfx:
+            return raw_token if allow_no_prefix else f"S{raw_token}"
+        return f"{clean_pfx}{raw_token}"
+
+    @classmethod
     async def get_item_by_code(
         cls,
         session: AsyncSession,
@@ -276,7 +305,7 @@ class UniversalItemMasterService:
                             id=f"bc_{uuid.uuid4().hex[:12]}",
                             item_id=item.id,
                             variant_id=variant.id,
-                            barcode=sku,
+                            barcode=cls.generate_placeholder_barcode(),
                             barcode_type="CUSTOM",
                             is_primary=True,
                         )
@@ -451,6 +480,29 @@ class UniversalItemMasterService:
                     is_deleted=False,
                 )
                 session.add(bc_obj)
+        else:
+            # Direct parameter callers also need a consistent provisional identity
+            # when no human-supplied barcode was provided.
+            placeholder_barcode = cls.generate_placeholder_barcode()
+            placeholder_stmt = select(ItemBarcode).where(
+                ItemBarcode.barcode == placeholder_barcode,
+                ItemBarcode.is_deleted == False,
+            )
+            placeholder_obj = (await session.execute(placeholder_stmt)).scalar_one_or_none()
+            if not placeholder_obj:
+                placeholder_obj = ItemBarcode(
+                    id=f"ibc_{uuid.uuid4().hex[:12]}",
+                    company_id=company_id or "COMP-001",
+                    branch_id=branch_id,
+                    item_id=item.id,
+                    variant_id=None,
+                    barcode=placeholder_barcode,
+                    barcode_type="CUSTOM",
+                    is_primary=True,
+                    is_active=True,
+                    is_deleted=False,
+                )
+                session.add(placeholder_obj)
 
         if commit:
             await session.commit()
@@ -1167,14 +1219,14 @@ class UniversalItemMasterService:
                 await session.flush()
 
                 if req.auto_generate_barcodes:
-                    bc_val = f"890{uuid.uuid4().int % 10000000000:010d}"
+                    bc_val = cls.generate_placeholder_barcode()
                     session.add(
                         ItemBarcode(
                             id=f"bc_{uuid.uuid4().hex[:12]}",
                             item_id=item.id,
                             variant_id=var.id,
                             barcode=bc_val,
-                            barcode_type="EAN13",
+                            barcode_type="CUSTOM",
                             is_primary=True,
                         )
                     )

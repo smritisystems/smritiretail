@@ -2169,13 +2169,16 @@ class SalesService:
         Cancel a sales invoice: set status='Cancelled', soft-delete (is_deleted=True),
         and reverse deducted batch stock into warehouse.
         """
+        branch_ids = [self.tenant_ctx.branch_id]
+        if self.tenant_ctx.branch_id == "BR-MAIN-001":
+            branch_ids.append("MAIN")
         res = await self.db.execute(
             select(SalesInvoice)
             .options(selectinload(SalesInvoice.items))
             .where(
                 SalesInvoice.id         == invoice_id,
                 SalesInvoice.company_id == self.tenant_ctx.company_id,
-                SalesInvoice.branch_id  == self.tenant_ctx.branch_id,
+                SalesInvoice.branch_id.in_(branch_ids),
                 SalesInvoice.is_deleted == False,
             )
         )

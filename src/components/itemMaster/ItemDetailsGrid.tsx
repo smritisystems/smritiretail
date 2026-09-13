@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 5.4.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-09-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -48,6 +48,7 @@ import { ReplaceDataDlg } from "./ReplaceDataDlg.tsx";
 import { CodeSelectDlg } from "./CodeSelectDlg.tsx";
 import { ItemShortcuts } from "./ItemShortcuts.tsx";
 import { DataLoadConfirm } from "./DataLoadConfirm.tsx";
+import { generatePlaceholderBarcode } from "../../services/barcodePlaceholderService.ts";
 import { ItemViewConfigState } from "./ItemViewConfig.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
@@ -900,6 +901,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       subCategory: commonFields?.subCategory || "",
       mrp: "",
       price: "",
+      buyingPrice: "",
       costPrice: "",
       gst_percentage: "",
       hsn_code: "",
@@ -950,7 +952,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       ...r,
       _id: `dup-${Date.now()}-${Math.random()}`,
       code: `${r.code}-COPY`,
-      barcode: `890${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+      barcode: generatePlaceholderBarcode("S"),
       hasTransactions: false
     }));
     setGridRows(prev => [...prev, ...toDuplicate]);

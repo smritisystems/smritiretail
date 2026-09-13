@@ -57,7 +57,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
     viewMode: "grid",
     visibleColumns: [
       "code", "barcode", "name", "brand", "styleCode", "colour", "size",
-      "mrp", "price", "gst_percentage", "hsn_code",
+      "buyingPrice", "mrp", "price", "costPrice", "gst_percentage", "hsn_code",
       "a1", "a2", "a3", "a4", "a5"
     ],
     frozenColumns: 2

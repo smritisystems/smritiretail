@@ -63,6 +63,32 @@ async def generate_barcode(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/placeholder", summary="Generate System-Governed Placeholder Barcode")
+async def get_placeholder_barcode(
+    prefix: Optional[str] = Query("S", description="Barcode prefix (e.g. S, GEN, SMRITI, SKU, or empty for bare token)"),
+    allow_no_prefix: bool = Query(True, description="Whether an empty prefix emits a bare hex token"),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Returns an authoritative service-governed placeholder barcode.
+    Policy rules:
+    - Default prefix is 'S' (e.g. S8A7F3D1B2C4E).
+    - Operators can override with explicit prefixes (GEN, SMRITI, SKU, VX, BRC).
+    - Setting prefix to empty string with allow_no_prefix=True returns a bare hex token.
+    """
+    from ...services.item_master_svc import UniversalItemMasterService
+    barcode_val = UniversalItemMasterService.generate_placeholder_barcode(
+        prefix=prefix,
+        allow_no_prefix=allow_no_prefix,
+    )
+    return {
+        "barcode": barcode_val,
+        "prefix": prefix,
+        "is_placeholder": True,
+        "policy_default": "S",
+    }
+
+
 @router.post("/validate", response_model=BarcodeValidateResponse, summary="Validate Barcode Checksum")
 async def validate_barcode(
     req: BarcodeValidateRequest,

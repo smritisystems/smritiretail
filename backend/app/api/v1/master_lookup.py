@@ -16,7 +16,7 @@ from typing import List, Any, cast
 from uuid import UUID
 from datetime import datetime, timezone
 import jsonschema  # type: ignore
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -37,8 +37,116 @@ from ...schemas.master_lookup import (
 )
 from ...services.size_groups import normalize_size_group_payload
 from ...services.compliance_audit import ComplianceAuditService
+from ...services.master_lookup_import_service import (
+    extract_vendor_article_codes_from_po_pdf_bytes,
+)
 
 router = APIRouter()
+
+
+@router.post(
+    "/lookup/style_article/import-from-po-pdf",
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def import_style_article_from_po_pdf(
+    file: UploadFile = File(...),
+    vendorCode: str | None = Form(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a PO PDF, parse article/style tokens from text, and persist them as style_article lookup values."""
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Please upload a PDF purchase order file.")
+
+    raw = await file.read()
+    try:
+        codes = extract_vendor_article_codes_from_po_pdf_bytes(raw)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Unable to parse the purchase-order PDF text.") from exc
+
+    if not codes:
+        raise HTTPException(status_code=400, detail="No vendor article/style codes were detected in the purchase-order PDF.")
+
+    type_code = "style_article"
+    q_type = select(MasterType).where(MasterType.code == type_code)
+    res_type = await db.execute(q_type)
+    master_type = res_type.scalar_one_or_none()
+    if not master_type:
+        raise HTTPException(status_code=404, detail=f"Master type with code '{type_code}' not found.")
+
+    if vendorCode:
+        vendor_code = vendorCode.strip().upper()
+        vendor_lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
+        vendor_query = select(MasterValue).where(
+            MasterValue.master_type_id == vendor_lookup_type.id if vendor_lookup_type else False,
+            MasterValue.code == vendor_code,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        )
+        vendor_query = _scope_value_query(vendor_query, current_user)
+        if not (await db.execute(vendor_query)).scalar_one_or_none():
+            raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
+    else:
+        vendor_code = None
+
+    company_id = getattr(current_user, "company_id", None)
+    branch_id = getattr(current_user, "branch_id", None)
+    created = []
+    for code in codes:
+        # Uniqueness is scoped like the existing create endpoint.
+        q_val = select(MasterValue).where(
+            MasterValue.master_type_id == master_type.id,
+            MasterValue.code == code,
+            MasterValue.is_deleted.is_(False),
+        )
+        if not _is_sysadmin(current_user):
+            company_id_ctx = _require_company_context(current_user)
+            q_val = q_val.where(MasterValue.company_id == company_id_ctx)
+            q_val = q_val.where((MasterValue.branch_id.is_(None)) | (MasterValue.branch_id == branch_id))
+        else:
+            q_val = q_val.where(MasterValue.company_id == company_id)
+            q_val = q_val.where(MasterValue.branch_id == branch_id)
+
+        existing = await db.execute(q_val)
+        if existing.scalar_one_or_none():
+            continue
+
+        item = MasterValue(
+            master_type_id=master_type.id,
+            company_id=company_id,
+            branch_id=branch_id,
+            code=code,
+            name=code,
+            vendor_code=vendor_code,
+            parent_value_id=None,
+            data={},
+            active=True,
+            sort_order=0,
+            is_deleted=False,
+        )
+        db.add(item)
+        await db.flush()
+        await _audit_master_value_change(
+            db,
+            current_user,
+            "CREATE",
+            type_code,
+            str(item.id),
+            f"Imported {type_code} lookup value '{item.code}' from PO PDF.",
+            after={
+                "code": item.code,
+                "name": item.name,
+                "active": item.active,
+                "sort_order": item.sort_order,
+                "vendor_code": item.vendor_code,
+                "data": item.data,
+            },
+        )
+        created.append(item.code)
+
+    await db.commit()
+    return {"created": created, "source": file.filename, "vendorCode": vendor_code}
 
 
 async def _audit_master_value_change(
@@ -183,10 +291,10 @@ def _scope_value_query(query, current_user: User, *, for_mutation: bool = False)
     return query
 
 
-def _assign_single_vendor_owner(item: MasterValue, vendor_code: str) -> None:
+def _assign_single_vendor_owner(item: MasterValue, vendor_code: str, *, allow_reassign: bool = False) -> None:
     """Assign an Article / Style once; ownership cannot be transferred implicitly."""
     normalized_code = vendor_code.strip().upper()
-    if item.vendor_code and item.vendor_code != normalized_code:
+    if item.vendor_code and item.vendor_code != normalized_code and not allow_reassign:
         raise HTTPException(
             status_code=409,
             detail="Article / Style is already assigned to another vendor and cannot be reassigned.",
@@ -803,7 +911,11 @@ async def update_lookup_value(
         vendor_query = _scope_value_query(vendor_query, current_user)
         if not (await db.execute(vendor_query)).scalar_one_or_none():
             raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
-        _assign_single_vendor_owner(item, vendor_code)
+        _assign_single_vendor_owner(
+            item,
+            vendor_code,
+            allow_reassign=_is_sysadmin(current_user),
+        )
     if payload.parent_value_id is not None:
         setattr(item, "parent_value_id", payload.parent_value_id)
     if payload.active is not None:

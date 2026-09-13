@@ -28,7 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
-### [3.32.0] - 2026-09-13
+### [3.33.0] - 2026-09-14
+
+#### Policy-Aware Provisional Barcode Generation & UI Alignment
+
+**Walkthrough:** [Inventory_Provisional_Barcode_Policy_Engine_v3.31.0.md](docs/walkthrough/inventory/Inventory_Provisional_Barcode_Policy_Engine_v3.31.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Policy-Aware Placeholder Generator:** Evolved `UniversalItemMasterService.generate_placeholder_barcode(prefix="S", allow_no_prefix=True)` in `backend/app/services/item_master_svc.py` to support canonical uppercase `'S'` default prefix (yielding 13-character `S...` barcodes), configurable explicit prefixes (`GEN`, `SKU`, `SMRITI`, `VX`, `BRC`), case normalization, character sanitization, and explicit bare 12-character hex token emission.
+- **Direct Parameter Pathway Symmetry:** Wired automatic provisional barcode creation in `UniversalItemMasterService.create_item` direct-parameter calls when `primary_barcode` is not supplied, ensuring parity with `ItemCreateRequest`.
+- **FastAPI Endpoint (`/api/v1/barcodes/placeholder`):** Exposed authoritative service-governed placeholder barcode generator via `GET /api/v1/barcodes/placeholder` accepting `prefix` and `allow_no_prefix` parameters.
+- **Frontend Service Client (`barcodePlaceholderService.ts`):** Implemented client-side policy contract with default prefix `'S'`, suggested presets, synchronous fallback generator, and async authoritative fetch via `apiFetchV1`.
+- **UI Dialog Alignment (`CodeSelectDlg.tsx`):** Retired rogue browser pseudo-EAN `890...` generation; updated preview label to `"Placeholder Barcode (Provisional)"` with `"Service Policy"` badge; added operator presets (`S`, `GEN`, `SKU`, `SMRITI`, `VX`, `BRC`, `None (Bare)`) and bare token checkbox.
+- **Grid Row Duplication Alignment (`ItemDetailsGrid.tsx`):** Replaced fake `890...` number generation on row duplication with `generatePlaceholderBarcode("S")`.
+- **Automated Testing & Verification:** Added 2 backend pytest unit tests in `t_item_master.py` (2/2 green in 8.44s) and 10 Vitest frontend tests in `barcodePlaceholderService.test.ts` (10/10 green in 16ms); verified 0 TypeScript compiler errors and clean production build (3,534 modules in 35.47s).
+
 
 #### Universal Catalog Dimension Master Lookup Governance & Ingestion Validation
 

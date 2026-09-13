@@ -235,6 +235,8 @@ class VendorService:
 
         if status_filter:
             stmt = stmt.where(Party.status == status_filter.upper())
+        else:
+            stmt = stmt.where(Party.status.notin_(["ARCHIVED", "MERGED"]))
 
         if search and search.strip():
             q = f"%{search.strip().upper()}%"
