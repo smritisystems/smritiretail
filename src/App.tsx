@@ -105,6 +105,7 @@ const ReportDesignerTab = lazy(() => import("./components/ReportDesignerTab.tsx"
 const PurchaseStudioTab = lazy(() => import("./components/PurchaseStudioTab.tsx").then(m => ({ default: m.PurchaseStudioTab })));
 const ItemMasterWs = lazy(() => import("./components/itemMaster/ItemMasterWs.tsx").then(m => ({ default: m.ItemMasterWs })));
 const BarcodeStudioTab = lazy(() => import("./components/BarcodeStudioTab.tsx").then(m => ({ default: m.BarcodeStudioTab })));
+const BarcodeManagementTab = lazy(() => import("./components/BarcodeManagementTab.tsx").then(m => ({ default: m.BarcodeManagementTab })));
 const MasterManagementTab = lazy(() => import("./components/MasterMgmtTab.tsx").then(m => ({ default: m.MasterManagementTab })));
 const CrmStudioTab = lazy(() => import("./components/CrmStudioTab.tsx").then(m => ({ default: m.CrmStudioTab })));
 const LoyaltyStudioTab = lazy(() => import("./components/LoyaltyStudioTab.tsx").then(m => ({ default: m.LoyaltyStudioTab })));
@@ -1457,6 +1458,8 @@ const mapModuleId = (id: string): string => {
     "menu-inventory": "inventory",
     "menu-item-master": "item-master",
     "menu-barcode": "barcode",
+    "menu-barcode-management": "barcode-management",
+    "barcode-management": "barcode-management",
     "menu-stock-ledger": "stock-ledger",
     "menu-purchase": "purchase",
     "menu-supplier-mgmt": "vendor-360",
@@ -1956,6 +1959,8 @@ const AppContent: React.FC = () => {
             onNotification={addNotification}
           />
         );
+      case "barcode-management":
+        return <BarcodeManagementTab />;
       case "masters":
         return <MasterManagementTab onNotification={addNotification} />;
       case "document-series":

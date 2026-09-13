@@ -98,11 +98,38 @@ class UniversalItemMasterService:
         **kwargs: Any,
     ) -> Item:
         """
-        Atomically creates or updates a Universal Item with default or custom variants, barcodes, batches, and warehouse locations.
+        Atomically creates a Universal Item with default or custom variants, barcodes, batches, and warehouse locations.
         Supports both schema-based (ItemCreateRequest) and direct parameter invocations.
         """
         if req is not None:
             sku = req.item_code or f"ITM-{uuid.uuid4().hex[:8].upper()}"
+            if await cls.get_item_by_code(session, sku):
+                raise ValueError(
+                    f"Item code '{sku}' already exists; item identity and details are immutable after creation"
+                )
+
+            requested_barcodes = [bc.barcode.strip().upper() for bc in req.barcodes]
+            requested_barcodes.extend(
+                bc.barcode.strip().upper()
+                for variant in req.variants
+                for bc in variant.barcodes
+            )
+            if not req.variants and not requested_barcodes:
+                requested_barcodes.append(sku.strip().upper())
+            for barcode in requested_barcodes:
+                barcode_owner = (
+                    await session.execute(
+                        select(ItemBarcode).where(
+                            ItemBarcode.barcode == barcode,
+                            ItemBarcode.is_deleted == False,
+                        )
+                    )
+                ).scalars().first()
+                if barcode_owner:
+                    raise ValueError(
+                        f"Barcode '{barcode}' is already attached to an SKU and cannot be reused"
+                    )
+
             item_id = f"itm_{uuid.uuid4().hex[:12]}"
 
             item = Item(
@@ -236,50 +263,34 @@ class UniversalItemMasterService:
         clean_hsn = (hsn_code or "64041990").strip()
         existing = await cls.get_item_by_code(session, clean_code) if clean_code else None
 
-        if not existing:
-            item = Item(
-                id=f"itm_{uuid.uuid4().hex[:12]}",
-                company_id=company_id or "COMP-001",
-                branch_id=branch_id,
-                item_code=clean_code,
-                item_name=item_name or clean_code,
-                item_type=item_type,
-                category=category,
-                brand=brand,
-                hsn_code=clean_hsn,
-                tax_rate=Decimal(str(tax_rate)),
-                primary_uom=primary_uom,
-                mrp=Decimal(str(mrp)),
-                selling_price=Decimal(str(selling_price)),
-                buying_price=Decimal(str(buying_price)) if buying_price is not None else None,
-                cost_price=Decimal(str(cost_price)),
-                is_batch_tracked=is_batch_tracked,
-                status="ACTIVE",
-                is_active=True,
-                is_deleted=False,
+        if existing:
+            raise ValueError(
+                f"Item code '{clean_code}' already exists; item identity and details are immutable after creation"
             )
-            session.add(item)
-            await session.flush()
-        else:
-            item = existing
-            if item_name:
-                item.item_name = item_name
-            if category:
-                item.category = category
-            if tax_rate is not None:
-                item.tax_rate = Decimal(str(tax_rate))
-            if mrp is not None:
-                item.mrp = Decimal(str(mrp))
-            if selling_price is not None:
-                item.selling_price = Decimal(str(selling_price))
-            if buying_price is not None:
-                item.buying_price = Decimal(str(buying_price))
-            if cost_price is not None:
-                item.cost_price = Decimal(str(cost_price))
-            if hsn_code:
-                item.hsn_code = hsn_code
-            if brand:
-                item.brand = brand
+
+        item = Item(
+            id=f"itm_{uuid.uuid4().hex[:12]}",
+            company_id=company_id or "COMP-001",
+            branch_id=branch_id,
+            item_code=clean_code,
+            item_name=item_name or clean_code,
+            item_type=item_type,
+            category=category,
+            brand=brand,
+            hsn_code=clean_hsn,
+            tax_rate=Decimal(str(tax_rate)),
+            primary_uom=primary_uom,
+            mrp=Decimal(str(mrp)),
+            selling_price=Decimal(str(selling_price)),
+            buying_price=Decimal(str(buying_price)) if buying_price is not None else None,
+            cost_price=Decimal(str(cost_price)),
+            is_batch_tracked=is_batch_tracked,
+            status="ACTIVE",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(item)
+        await session.flush()
 
         # Process Variants
         if variants_data:

@@ -14,6 +14,7 @@ License      : Proprietary Commercial Software
 """
 
 import json
+import math
 import random
 from typing import List, Dict, Any
 from datetime import datetime, timezone
@@ -474,6 +475,7 @@ async def delete_template(
 
 @router.post(
     "/templates/{id}/generate-variants",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def generate_variants(
     id: str,
@@ -493,6 +495,9 @@ async def generate_variants(
         raise HTTPException(status_code=400, detail="Linked Attribute Group not found.")
 
     variants_list = body.get("variants", [])
+    if not isinstance(variants_list, list) or not variants_list:
+        raise HTTPException(status_code=400, detail="Select at least one variant cell before generating SKUs.")
+
     created_variants = []
 
     # Get group attribute definitions
@@ -503,6 +508,92 @@ async def generate_variants(
         if defn and not defn.is_deleted:
             attr_def_list.append(defn)
 
+    variant_dimensions = {
+        defn.name.strip().lower(): defn
+        for defn in attr_def_list
+        if defn.is_variant_dimension
+    }
+
+    async def master_group_values(group_code: str, expected_dimension: str) -> set[str]:
+        if not group_code:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Attribute Group '{group.name}' has no governed {expected_dimension.title()} Group mapping.",
+            )
+        group_type = await db.scalar(select(MasterType).where(MasterType.code == f"{expected_dimension}_group"))
+        if not group_type:
+            raise HTTPException(status_code=409, detail=f"Master Lookup type '{expected_dimension}_group' is not configured.")
+        value_query = select(MasterValue).where(
+            MasterValue.master_type_id == group_type.id,
+            MasterValue.code == group_code,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        )
+        value = await db.scalar(_scope_master_value_query(value_query, current_user))
+        if not value:
+            raise HTTPException(status_code=400, detail=f"{expected_dimension.title()} Group '{group_code}' is not an active Master Lookup value.")
+        values = value.data.get("values", []) if isinstance(value.data, dict) else []
+        normalized_values = {str(item).strip().upper() for item in values if str(item).strip()}
+        if not normalized_values:
+            raise HTTPException(status_code=400, detail=f"{expected_dimension.title()} Group '{group_code}' has no configured values.")
+        return normalized_values
+
+    governed_values: dict[str, set[str]] = {}
+    if "size" in variant_dimensions:
+        governed_values["size"] = await master_group_values(group.size_group_id, "size")
+    if "color" in variant_dimensions:
+        governed_values["color"] = await master_group_values(group.color_group_id, "color")
+
+    request_skus: set[str] = set()
+    request_barcodes: set[str] = set()
+    normalized_variants: list[dict[str, Any]] = []
+    for index, variant in enumerate(variants_list, start=1):
+        if not isinstance(variant, dict):
+            raise HTTPException(status_code=400, detail=f"Variant {index} must be an object.")
+        attributes = variant.get("attributes")
+        if not isinstance(attributes, dict):
+            raise HTTPException(status_code=400, detail=f"Variant {index} is missing its attributes.")
+
+        normalized_attributes = {str(key).strip().lower(): str(value).strip() for key, value in attributes.items()}
+        for dimension, allowed_values in governed_values.items():
+            value = normalized_attributes.get(dimension, "")
+            if not value:
+                raise HTTPException(status_code=400, detail=f"Variant {index} is missing governed {dimension}.")
+            if value.upper() not in allowed_values:
+                raise HTTPException(status_code=400, detail=f"Variant {index} has invalid {dimension} '{value}'. Select a value from the mapped Master Lookup group.")
+
+        sku = str(variant.get("sku") or "").strip().upper()
+        if not sku:
+            sku = "-".join([template.style_code] + [normalized_attributes[name].upper().replace(" ", "") for name in variant_dimensions if normalized_attributes.get(name)])
+        if not sku:
+            raise HTTPException(status_code=400, detail=f"Variant {index} could not produce a SKU.")
+        if sku in request_skus:
+            raise HTTPException(status_code=409, detail=f"Duplicate SKU '{sku}' appears more than once in this generation request.")
+        request_skus.add(sku)
+
+        barcode = str(variant.get("barcode") or "").strip()
+        if not barcode:
+            raise HTTPException(status_code=400, detail=f"Variant {index} is missing a barcode.")
+        if barcode in request_barcodes:
+            raise HTTPException(status_code=409, detail=f"Duplicate barcode '{barcode}' appears more than once in this generation request.")
+        request_barcodes.add(barcode)
+
+        try:
+            price = float(variant.get("price"))
+            mrp = float(variant.get("mrp"))
+            cost = float(variant.get("costPrice"))
+            stock = int(variant.get("stock"))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"Variant {index} has invalid price, MRP, cost, or stock values.")
+        if not all(math.isfinite(value) for value in (price, mrp, cost)) or min(price, mrp, cost, stock) < 0:
+            raise HTTPException(status_code=400, detail=f"Variant {index} cannot contain negative or non-finite numeric values.")
+        if mrp < price:
+            raise HTTPException(status_code=400, detail=f"Variant {index} MRP cannot be lower than its selling price.")
+
+        normalized_variants.append({**variant, "attributes": normalized_attributes, "sku": sku, "barcode": barcode, "price": price, "mrp": mrp, "costPrice": cost, "stock": stock})
+
+    variants_list = normalized_variants
+
     for index, v in enumerate(variants_list):
         code_parts = [template.style_code]
         for defn in attr_def_list:
@@ -512,13 +603,26 @@ async def generate_variants(
                     code_val = str(val).upper().strip().replace(" ", "")
                     code_parts.append(code_val)
 
-        constructed_code = v.get("sku") or "-".join(code_parts)
-        barcode = v.get("barcode") or f"SMR-B{random.randint(100000, 999999)}"
+        constructed_code = v["sku"]
+        barcode = v["barcode"]
 
         # Check existing product code
         q = select(Product).where(Product.code == constructed_code, Product.is_deleted == False)
         res = await db.execute(q)
         existing = res.scalars().first()
+        if existing and existing.variant_template_id not in (None, template.id) and existing.style_code != template.style_code:
+            raise HTTPException(
+                status_code=409,
+                detail=f"SKU '{constructed_code}' already belongs to another style or variant template.",
+            )
+
+        barcode_query = select(Product).where(
+            Product.barcode == barcode,
+            Product.is_deleted == False,
+        )
+        barcode_owner = await db.scalar(barcode_query)
+        if barcode_owner and barcode_owner.sku != constructed_code:
+            raise HTTPException(status_code=409, detail=f"Barcode '{barcode}' is already assigned to SKU '{barcode_owner.sku}'.")
 
         cost_val = v.get("costPrice")
         if cost_val is not None and str(cost_val).strip() != "":
@@ -529,18 +633,13 @@ async def generate_variants(
             resolved_cost = 0.0
 
         if existing:
-            existing.vendor_code = template.vendor_code
-            existing.stock = int(v.get("stock", 0))
-            existing.price = float(v.get("price", template.base_price))
-            existing.mrp = float(v.get("mrp", template.base_mrp))
-            existing.cost_price = resolved_cost
-            existing.sku = v.get("sku") or existing.sku
-            existing.barcode = v.get("barcode") or existing.barcode
-            existing.attributes = {**existing.attributes, **v.get("attributes", {})}
-            created_variants.append(existing)
-        else:
-            # Create new product item
-            new_prod = Product(
+            raise HTTPException(
+                status_code=409,
+                detail=f"SKU '{constructed_code}' already exists and cannot be overwritten.",
+            )
+
+        # Create new product item
+        new_prod = Product(
                 id=f"p-var-{int(datetime.now(timezone.utc).timestamp())}-{index}",
                 code=constructed_code,
                 sku=v.get("sku") or constructed_code,
@@ -561,8 +660,8 @@ async def generate_variants(
                 created_by=current_user.username,
                 updated_by=current_user.username
             )
-            db.add(new_prod)
-            created_variants.append(new_prod)
+        db.add(new_prod)
+        created_variants.append(new_prod)
 
     await db.commit()
     
@@ -797,13 +896,12 @@ async def import_commit(
         existing = res_prod.scalars().first()
 
         if existing:
-            existing.stock = int(row.get("Stock") or 0)
-            existing.price = float(row.get("Price") or template.base_price)
-            existing.mrp = float(row.get("MRP") or template.base_mrp)
-            existing.attributes = {**existing.attributes, **attrs}
-            created_products.append(existing)
-        else:
-            new_prod = Product(
+            raise HTTPException(
+                status_code=409,
+                detail=f"SKU '{constructed_code}' already exists and cannot be overwritten.",
+            )
+
+        new_prod = Product(
                 id=f"p-import-{int(datetime.now(timezone.utc).timestamp())}-{index}",
                 code=constructed_code,
                 sku=constructed_code,
@@ -822,8 +920,8 @@ async def import_commit(
                 created_by=current_user.username,
                 updated_by=current_user.username
             )
-            db.add(new_prod)
-            created_products.append(new_prod)
+        db.add(new_prod)
+        created_products.append(new_prod)
 
     await db.commit()
     return {"success": True, "count": len(created_products)}

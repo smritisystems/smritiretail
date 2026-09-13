@@ -39,7 +39,7 @@ def _get_auth_headers(role: str = "SYSADMIN") -> dict:
             "username": "usr_super",
             "role": role,
             "company_id": "COMP-001",
-            "branch_id": "BR-001",
+            "branch_id": "BR-MAIN-001",
             "tenant_id": "smriti001",
             "db_name": "smriti001",
             "is_active": True,
@@ -111,6 +111,60 @@ async def test_create_item_with_variants_and_barcodes():
         assert item.variants[0].barcodes[0].barcode == barcode_val
         assert len(item.locations) == 1
         assert item.locations[0].location_bin == "AISLE-3-SHELF-2"
+
+
+@pytest.mark.asyncio
+async def test_duplicate_item_code_cannot_overwrite_original_details():
+    """A generated item identity is one-time and duplicate creation is rejected."""
+    sessionmaker = get_company_sessionmaker("smriti001")
+    unique_suffix = uuid.uuid4().hex[:6].upper()
+    sku = f"IMMUTABLE-{unique_suffix}"
+
+    first_req = ItemCreateRequest(
+        item_code=sku,
+        item_name="Original Item",
+        category="TEST",
+        selling_price=100.0,
+    )
+    replacement_req = first_req.model_copy(
+        update={"item_name": "Replacement Item", "selling_price": 999.0}
+    )
+
+    async with sessionmaker() as session:
+        original = await UniversalItemMasterService.create_item(session, first_req)
+        with pytest.raises(ValueError, match="immutable after creation"):
+            await UniversalItemMasterService.create_item(session, replacement_req)
+
+        unchanged = await UniversalItemMasterService.get_item_by_id(session, original.id)
+        assert unchanged.item_code == sku
+        assert unchanged.item_name == "Original Item"
+        assert float(unchanged.selling_price) == 100.0
+
+
+@pytest.mark.asyncio
+async def test_barcode_cannot_be_reused_for_another_item():
+    """A barcode remains permanently bound to its original item identity."""
+    sessionmaker = get_company_sessionmaker("smriti001")
+    unique_suffix = uuid.uuid4().hex[:6].upper()
+    barcode = f"BC-IMMUTABLE-{unique_suffix}"
+
+    first_req = ItemCreateRequest(
+        item_code=f"BARCODE-A-{unique_suffix}",
+        item_name="Barcode Owner",
+        category="TEST",
+        barcodes=[ItemBarcodeItem(barcode=barcode, barcode_type="CUSTOM", is_primary=True)],
+    )
+    second_req = ItemCreateRequest(
+        item_code=f"BARCODE-B-{unique_suffix}",
+        item_name="Barcode Reuse Attempt",
+        category="TEST",
+        barcodes=[ItemBarcodeItem(barcode=barcode, barcode_type="CUSTOM", is_primary=True)],
+    )
+
+    async with sessionmaker() as session:
+        await UniversalItemMasterService.create_item(session, first_req)
+        with pytest.raises(ValueError, match="already attached"):
+            await UniversalItemMasterService.create_item(session, second_req)
 
 
 @pytest.mark.asyncio

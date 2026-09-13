@@ -104,15 +104,40 @@ class ItemBarcode(BaseEntity):
         UniqueConstraint("company_id", "barcode", name="uq_barcodes_company_barcode"),
     )
 
-    item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=True, index=True)
     variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), nullable=True, index=True)
     barcode = Column(String(100), nullable=False, index=True)
+    barcode_normalized = Column(String(100), nullable=True, index=True)
     barcode_type = Column(String(30), nullable=False, default="EAN13")  # EAN13, CODE128, UPC, QR, CUSTOM
+    barcode_purpose = Column(String(20), nullable=False, default="RETAIL")
+    encoding_standard = Column(String(20), nullable=False, default="NONE")
     is_primary = Column(Boolean, nullable=False, default=False)
+    status = Column(String(20), nullable=False, default="ASSIGNED")
+    source = Column(String(30), nullable=False, default="MANUAL")
+    source_reference = Column(String(100), nullable=True)
+    assigned_at = Column(Date, nullable=True)
+    assigned_by = Column(String(100), nullable=True)
+    retired_at = Column(Date, nullable=True)
+    retirement_reason = Column(Text, nullable=True)
 
     # Relationships
     item = relationship("Item", back_populates="barcodes")
     variant = relationship("ItemVariant", back_populates="barcodes")
+    audit_events = relationship("BarcodeRegistryAudit", back_populates="barcode_record", cascade="all, delete-orphan")
+
+
+class BarcodeRegistryAudit(BaseEntity):
+    """Immutable audit event for barcode intake and assignment."""
+    __tablename__ = "barcode_registry_audit"
+
+    barcode_id = Column(String(50), ForeignKey("item_barcodes.id", ondelete="CASCADE"), nullable=False, index=True)
+    action = Column(String(30), nullable=False)
+    previous_status = Column(String(20), nullable=True)
+    next_status = Column(String(20), nullable=False)
+    details_json = Column(JSONB, server_default=text("'{}'"), default=dict)
+    reason = Column(Text, nullable=True)
+
+    barcode_record = relationship("ItemBarcode", back_populates="audit_events")
 
 
 class ItemBatch(BaseEntity):

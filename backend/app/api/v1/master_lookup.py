@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 import jsonschema  # type: ignore
 from fastapi import APIRouter, Depends, HTTPException
 
+from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -25,6 +27,9 @@ from sqlalchemy.orm import selectinload
 from ...api.deps import get_company_db, get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.master_lookup import MasterType, MasterValue
+from ...models.attributes import VariantTemplate
+from ...models.inventory import Product
+from ...models.sales import SalesOrder, SalesOrderItem
 from ...models.size_groups import SizeGroup, SizeGroupValue
 from ...schemas.master_lookup import (
     MasterTypeCreate, MasterTypeResponse,
@@ -36,6 +41,87 @@ router = APIRouter()
 
 # Schema validation cache
 validator_cache = {}
+
+async def _master_value_reference_reason(
+    db: AsyncSession,
+    item: MasterValue,
+    type_code: str,
+) -> str | None:
+    """Return a deletion blocker when a lookup value is referenced by live data."""
+    child = await db.scalar(
+        select(MasterValue.id).where(
+            MasterValue.parent_value_id == item.id,
+            MasterValue.is_deleted.is_(False),
+        ).limit(1)
+    )
+    if child:
+        return "child lookup values"
+
+    if type_code == "style_article":
+        template = await db.scalar(
+            select(VariantTemplate.id).where(
+                VariantTemplate.master_value_id == item.id,
+                VariantTemplate.is_deleted.is_(False),
+            ).limit(1)
+        )
+        if template:
+            return "variant templates"
+
+        product = await db.scalar(
+            select(Product.id).where(
+                Product.style_code == item.code,
+                Product.is_deleted.is_(False),
+            ).limit(1)
+        )
+        if product:
+            return "products"
+
+        sales_item = await db.scalar(
+            select(SalesOrderItem.id).where(
+                or_(
+                    SalesOrderItem.article_no == item.code,
+                    SalesOrderItem.vendor_style == item.code,
+                )
+            ).limit(1)
+        )
+        if sales_item:
+            return "sales order items"
+
+    if type_code == "vendor_code":
+        template = await db.scalar(
+            select(VariantTemplate.id).where(
+                VariantTemplate.vendor_code == item.code,
+                VariantTemplate.is_deleted.is_(False),
+            ).limit(1)
+        )
+        if template:
+            return "variant templates"
+
+        product = await db.scalar(
+            select(Product.id).where(
+                Product.vendor_code == item.code,
+                Product.is_deleted.is_(False),
+            ).limit(1)
+        )
+        if product:
+            return "products"
+
+        article = await db.scalar(
+            select(MasterValue.id).where(
+                MasterValue.vendor_code == item.code,
+                MasterValue.is_deleted.is_(False),
+            ).limit(1)
+        )
+        if article:
+            return "style/article values"
+
+        sales_order = await db.scalar(
+            select(SalesOrder.id).where(SalesOrder.vendor_code == item.code).limit(1)
+        )
+        if sales_order:
+            return "sales orders"
+
+    return None
 
 
 def _is_sysadmin(current_user: User) -> bool:
@@ -653,8 +739,30 @@ async def delete_lookup_value(
             detail="Master value not found or matched."
         )
 
+    reference_reason = await _master_value_reference_reason(db, item, type_code)
+    if reference_reason:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot delete {type_code} '{item.code}': it is linked to live "
+                f"{reference_reason}. Remove or retire those links first."
+            ),
+        )
+
     setattr(item, "is_deleted", True)
     setattr(item, "deleted_at", datetime.now(timezone.utc))
     setattr(item, "deleted_by", current_user.username)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        if "master value" in str(exc).lower() or "master_value" in str(exc).lower():
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Cannot delete {type_code} '{item.code}': it is linked to live records. "
+                    "Remove or retire those links first."
+                ),
+            ) from exc
+        raise
     return {"success": True, "deletedId": str(id)}
