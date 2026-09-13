@@ -1760,6 +1760,36 @@ const AppContent: React.FC = () => {
             weightGrams: p.weight_grams ? parseFloat(p.weight_grams) : 0
           };
         });
+
+        if (mappedProducts.length === 0) {
+          mappedProducts.push({
+            id: "dummy-master-0001",
+            code: "DUMMY-001",
+            name: "Dummy Master Sample",
+            price: 299,
+            stock: 10,
+            category: "Footwear",
+            isFavorite: false,
+            barcode: "8900000000001",
+            secondaryBarcodes: [],
+            barcodes: [{ type: "Code128", value: "8900000000001", isPrimary: true }],
+            brand: "SMRITI",
+            color: "Navy",
+            size: "M",
+            mrp: 399,
+            gstPercentage: 18,
+            styleCode: "STY-DUMMY-01",
+            costPrice: 180,
+            sku: "DUMMY-001",
+            hsnCode: "6404",
+            attributes: { a1: "Demo", a2: "Dummy", a3: "Sample", a4: "Retail", a5: "Item" },
+            pricingMode: "Fixed",
+            trackingMode: "Standard",
+            variantTemplateId: "",
+            weightGrams: 0
+          } as Product);
+        }
+
         setProducts(mappedProducts);
       } catch (err) {
         console.error("Failed to load products from FastAPI:", err);

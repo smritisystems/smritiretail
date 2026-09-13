@@ -20,6 +20,8 @@ from app.main import app
 from app.db.session import get_company_sessionmaker
 from app.core.security import create_access_token
 from app.services.item_master_svc import UniversalItemMasterService
+from app.services.master_lookup_import_service import extract_vendor_article_codes_from_po_text
+from app.services.vendor_code_allocator import allocate_next_vendor_code
 from app.schemas.item_master import (
     ItemCreateRequest,
     ItemVariantItem,
@@ -30,6 +32,75 @@ from app.schemas.item_master import (
     MatrixVariantGenRequest,
     MatrixVariantDimension,
 )
+
+
+def test_generated_placeholder_barcode_prefix_is_uppercase_s():
+    """Generated placeholder barcodes must start with the capital S prefix policy by default."""
+    barcode = UniversalItemMasterService.generate_placeholder_barcode()
+    assert barcode.startswith("S")
+    assert barcode[:1] == "S"
+    assert len(barcode) == 13  # 'S' + 12-char hex
+
+
+def test_extract_vendor_article_codes_from_po_text_splits_style_and_article_tokens():
+    """PO PDFs should yield vendor-owned style/article tokens that can be persisted into style_article master lookup."""
+    text = '''
+    Purchase Order PO-1001
+    Vendor Article: SMR-2001-A
+    Article No: SMR-2001-A
+    Style / Article: SMR-2001-A
+    Vendor Code V-001
+    '''
+
+    codes = extract_vendor_article_codes_from_po_text(text)
+    assert sorted(codes) == sorted(["SMR-2001-A"])
+
+
+def test_vendor_code_allocator_stays_within_five_characters():
+    assert allocate_next_vendor_code([]) == "V-00A"
+    assert allocate_next_vendor_code(["V-00A"]) == "V-00B"
+    assert allocate_next_vendor_code(["V-00A", "V-00B", "V-00C"]) == "V-00D"
+    used_first_block = [f"V-00{chr(code)}" for code in range(ord("A"), ord("Z") + 1)]
+    assert allocate_next_vendor_code(used_first_block) == "V-0AA"
+    assert allocate_next_vendor_code(used_first_block + [f"V-0{letter}{letter}" for letter in "A"]) == "V-0BB"
+
+
+def test_generated_placeholder_barcode_configurable_policy():
+    """
+    Verifies the policy-aware placeholder barcode contract:
+    - Default prefix is 'S'
+    - Configurable explicit prefixes (GEN, SMRITI, SKU, VX, BRC)
+    - Bare token when prefix is empty or None and allow_no_prefix=True
+    - Canonical fallback to 'S' when prefix is empty and allow_no_prefix=False
+    - Sanitization of non-alphanumeric characters and uppercase normalization
+    """
+    # 1. Explicit prefixes
+    for pfx in ["GEN", "SMRITI", "SKU", "VX", "BRC"]:
+        bc = UniversalItemMasterService.generate_placeholder_barcode(prefix=pfx)
+        assert bc.startswith(pfx)
+        token_part = bc[len(pfx):]
+        assert len(token_part) == 12
+        assert token_part.isupper() or token_part.isalnum()
+
+    # 2. Case normalization
+    bc_lower = UniversalItemMasterService.generate_placeholder_barcode(prefix="gen")
+    assert bc_lower.startswith("GEN")
+
+    # 3. Unsafe character sanitation
+    bc_unsafe = UniversalItemMasterService.generate_placeholder_barcode(prefix="vx!@#$")
+    assert bc_unsafe.startswith("VX")
+
+    # 4. Bare token when prefix is empty/None and allow_no_prefix=True
+    bare_empty = UniversalItemMasterService.generate_placeholder_barcode(prefix="", allow_no_prefix=True)
+    assert len(bare_empty) == 12
+
+    bare_none = UniversalItemMasterService.generate_placeholder_barcode(prefix=None, allow_no_prefix=True)
+    assert len(bare_none) == 12
+
+    # 5. Canonical fallback to 'S' when prefix is empty and allow_no_prefix=False
+    fallback = UniversalItemMasterService.generate_placeholder_barcode(prefix="", allow_no_prefix=False)
+    assert fallback.startswith("S")
+    assert len(fallback) == 13
 
 
 def _get_auth_headers(role: str = "SYSADMIN") -> dict:
@@ -65,7 +136,7 @@ async def test_create_item_with_variants_and_barcodes():
         item_name=f"Premium Linen Shirt {unique_suffix}",
         item_type="FINISHED_GOOD",
         category="APPAREL",
-        brand="Smriti Classic",
+        brand="SMRITI",
         hsn_code="6205",
         tax_rate=12.0,
         primary_uom="PCS",
@@ -123,7 +194,8 @@ async def test_duplicate_item_code_cannot_overwrite_original_details():
     first_req = ItemCreateRequest(
         item_code=sku,
         item_name="Original Item",
-        category="TEST",
+        category="APPAREL",
+        brand="SMRITI",
         selling_price=100.0,
     )
     replacement_req = first_req.model_copy(
@@ -151,13 +223,15 @@ async def test_barcode_cannot_be_reused_for_another_item():
     first_req = ItemCreateRequest(
         item_code=f"BARCODE-A-{unique_suffix}",
         item_name="Barcode Owner",
-        category="TEST",
+        category="APPAREL",
+        brand="SMRITI",
         barcodes=[ItemBarcodeItem(barcode=barcode, barcode_type="CUSTOM", is_primary=True)],
     )
     second_req = ItemCreateRequest(
         item_code=f"BARCODE-B-{unique_suffix}",
         item_name="Barcode Reuse Attempt",
-        category="TEST",
+        category="APPAREL",
+        brand="SMRITI",
         barcodes=[ItemBarcodeItem(barcode=barcode, barcode_type="CUSTOM", is_primary=True)],
     )
 
@@ -179,7 +253,7 @@ async def test_matrix_variant_generator_cartesian():
         item_code=sku,
         item_name=f"Polo T-Shirt {unique_suffix}",
         category="APPAREL",
-        brand="Smriti Sport",
+        brand="SMRITI",
         tax_rate=18.0,
         mrp=999.0,
         selling_price=799.0,
@@ -227,7 +301,7 @@ async def test_fast_4_tier_scanner_resolver():
         item_code=sku,
         item_name=f"Smartphone X {unique_suffix}",
         category="ELECTRONICS",
-        brand="TechPro",
+        brand="SMRITI",
         tax_rate=18.0,
         mrp=49999.0,
         selling_price=44999.0,
@@ -303,8 +377,8 @@ async def test_batch_registration_and_tracking():
     req = ItemCreateRequest(
         item_code=sku,
         item_name=f"Paracetamol 650mg {unique_suffix}",
-        category="PHARMA",
-        brand="HealthCare",
+        category="ELECTRONICS",
+        brand="BEANSTALK",
         tax_rate=12.0,
         mrp=45.0,
         selling_price=40.0,
@@ -343,8 +417,8 @@ async def test_legacy_product_adapter():
     req = ItemCreateRequest(
         item_code=sku,
         item_name=f"Organic Tea Leaves {unique_suffix}",
-        category="GROCERY",
-        brand="NatureHarvest",
+        category="Footwear",
+        brand="BEANSTALK",
         hsn_code="0902",
         tax_rate=5.0,
         primary_uom="KG",
@@ -383,7 +457,7 @@ async def test_api_item_endpoints():
                 "item_code": sku,
                 "item_name": f"API Test Cotton Polo {unique_suffix}",
                 "category": "APPAREL",
-                "brand": "Smriti API",
+                "brand": "SMRITI",
                 "hsn_code": "6105",
                 "tax_rate": 12.0,
                 "primary_uom": "PCS",

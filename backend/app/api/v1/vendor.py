@@ -29,6 +29,7 @@ from ...schemas.vendor import (
     VendorMergeResponse,
 )
 from ...services.vendor_svc import VendorService
+from ...services.vendor_code_allocator import allocate_next_vendor_code
 from ...core.governance import smriti_capability
 
 router = APIRouter(prefix="/vendors", tags=["Vendor 360 & Universal Party"])
@@ -84,23 +85,45 @@ async def create_vendor(
     statutory compliance, addresses, categorized contacts, and bank accounts.
     Maintains backward-compatible non-destructive projection into legacy suppliers.
     """
-    vendor_code = (req.code or "").strip().upper()
-    if not vendor_code:
-        raise HTTPException(status_code=400, detail="Vendor Code must be selected from System Lookups.")
-
     lookup_type = await control_db.scalar(
         select(MasterType).where(MasterType.code == "vendor_code")
     )
-    governed_code = None
-    if lookup_type:
-        governed_code = await control_db.scalar(
-            select(MasterValue).where(
+    if not lookup_type:
+        raise HTTPException(status_code=404, detail="Vendor Code master lookup is not configured.")
+
+    vendor_code = (req.code or "").strip().upper()
+    if not vendor_code:
+        existing_codes = await control_db.scalars(
+            select(MasterValue.code).where(
                 MasterValue.master_type_id == lookup_type.id,
-                MasterValue.code == vendor_code,
-                MasterValue.active.is_(True),
                 MasterValue.is_deleted.is_(False),
             )
         )
+        vendor_code = allocate_next_vendor_code(existing_codes.all())
+        control_db.add(
+            MasterValue(
+                master_type_id=lookup_type.id,
+                company_id=getattr(tenant, "company_id", None),
+                branch_id=getattr(tenant, "branch_id", None),
+                code=vendor_code,
+                name=vendor_code,
+                data={"allocation": "AUTO", "format": "V-[0-9A-Z]{3}"},
+                active=True,
+                sort_order=0,
+                is_deleted=False,
+            )
+        )
+        await control_db.commit()
+
+    governed_code = None
+    governed_code = await control_db.scalar(
+        select(MasterValue).where(
+            MasterValue.master_type_id == lookup_type.id,
+            MasterValue.code == vendor_code,
+            MasterValue.active.is_(True),
+            MasterValue.is_deleted.is_(False),
+        )
+    )
     if not governed_code:
         raise HTTPException(
             status_code=400,
