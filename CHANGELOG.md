@@ -28,6 +28,24 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.16.4] - 2026-09-14
+
+#### Terms & Conditions, Numbering Engine, and KPI Registry Low Risk Elevation
+
+**Walkthrough:** [Terms_Numbering_And_KPI_Registry_Low_Risk_Elevation_v6.16.4.md](docs/walkthrough/governance/Terms_Numbering_And_KPI_Registry_Low_Risk_Elevation_v6.16.4.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Reconciled PostgreSQL Schema Dictionaries:** Aligned `MODULES_MAP` in `backend/app/dev_tracker/scanner.py` and `specificMappings` in `src/modules/dev_tracker/scanner/metrics.ts` to map `terms-engine`, `document-series`, and `formulas` to actual SQLAlchemy model tables (`terms_clauses`, `terms_defaults`, `terms_snapshots`, `document_series`, `formula_definitions`, `business_rule_definitions`, `commission_rules`).
+- **Fixed Scanner Case-Sensitivity Matching Bug:** Updated test and documentation keyword resolution in `scanner.py` from `k in t.lower()` to `k.lower() in t.lower()` and `k.lower() in d.lower()`, eliminating false negatives caused by camelCase keywords.
+- **Created Dedicated Vitest Test Suites:**
+  - `src/tests/termsEngine.test.ts` (11 tests): Verifies master configuration schema, field definitions, clause validation rules, dynamic template variable resolution (`{{company_name}}`, `{{payment_terms_days}}`), and approval workflow lifecycle.
+  - `src/tests/documentSeries.test.ts` (9 tests): Verifies numbering engine preview formatting, zero-padded token interpolation (`INV/{FY}/{Branch}/00043`), reset rules, numbering modes, and non-mutating sequence calculation.
+  - `src/tests/kpiRegistry.test.ts` (7 tests): Verifies DOC-01 explainability compliance, standard retail mathematical formulas (GMROI, Sell-Through %, Weeks of Cover, Footfall Conversion %, Average Transaction Value, Shrinkage Rate), and health evaluation threshold bands.
+- **Enhanced Target Components:** Added accessible containers (`role="region"`, `aria-label`, `title`), responsive grid layouts (`sm:px-2 md:px-4`), `useMemo` performance memoization, and `en-IN` localization indicators to `TermsEngineTab.tsx`, `DocumentSeriesTab.tsx`, and `FormulaRegistryTab.tsx`.
+- **Elevated Target Module Completeness & Risk:** Raised completeness scores for `Terms & Conditions` (52% -> 80%), `Numbering Engine` (56% -> 80%), and `KPI Registry` (60% -> 80%), transitioning all 3 modules to **Low Risk**.
+- **Elevated Overall Development Health Index (DHI):** Codebase DHI elevated to **97% (Grade A)**; non-low risk modules across the entire repository reduced from 8 to 1.
+- **Full Verification Green:** 123/123 Vitest suites (778/778 tests green in 22.51s), 6/6 Pytest vendor tests green, 0 TypeScript compiler errors, and clean Vite production bundle build (3,534 modules in 29.80s).
+
 ### [6.16.3] - 2026-09-14
 
 #### Codebase Static Scanner Vendor 360 Convergence & Duplicate Elimination
