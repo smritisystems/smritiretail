@@ -26,6 +26,7 @@ import { SmritiProPosHotkeysDlg } from "./ProPosHotkeysDlg.tsx";
 import { SmritiProPosReprintDlg } from "./ProPosReprintDlg.tsx";
 import { SmritiProPosCashMovementsModal } from "./ProPosCashMovesDlg.tsx";
 import { SmritiProPosShiftCloseModal } from "./ProPosShiftCloseDl.tsx";
+import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "../SmritiF2AdvancedItemSearch.tsx";
 import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../../utils/gstEngine.ts";
 import { searchBackendProducts, AutoPopulateProductResult } from "../../../services/autoPopulateService.ts";
 import { SmritiItemTypeaheadDropdown } from "../../common/ItemTypeaheadDrop.tsx";
@@ -283,28 +284,68 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   useF2Screen({
     screenId: "ProPosBillingTerm",
     defaultEntity: "customer",
+    fieldOverrides: new Map([
+      ["posCustomerCode", "customer"],
+      ["posCustomerName", "customer"],
+      ["directStockNo", "variant"],
+      ["directBarcode", "item_barcode"]
+    ]),
     adapter: (result: LookupResult) => {
-      if (result.entity !== "customer") {
-        // Development-only guard: only customer lookups are expected from this screen.
-        if (process.env.NODE_ENV !== "production") {
-          console.warn(
-            "[ProPosBillingTerm][F2] FieldAdapter received unexpected entity:",
-            result.entity
-          );
-        }
+      if (result.entity === "customer") {
+        handleCustomerSelection({
+          ...customer,
+          id: result.id ?? customer.id,
+          code: result.returnValue || customer.code,
+          name: result.displayValue || customer.name,
+          phone: (result.record?.phone as string) ?? customer.phone,
+          loyaltyPoints: (result.record?.loyalty_points as number) ?? customer.loyaltyPoints,
+          loyaltyTier: ((result.record?.loyalty_tier as string) as ProPosCustomer["loyaltyTier"]) ?? customer.loyaltyTier,
+          creditLimit: (result.record?.credit_limit as number) ?? customer.creditLimit,
+          currentBalance: (result.record?.current_balance as number) ?? customer.currentBalance,
+        });
         return;
       }
-      handleCustomerSelection({
-        ...customer,
-        id: result.id ?? customer.id,
-        code: result.returnValue || customer.code,
-        name: result.displayValue || customer.name,
-        phone: (result.record?.phone as string) ?? customer.phone,
-        loyaltyPoints: (result.record?.loyalty_points as number) ?? customer.loyaltyPoints,
-        loyaltyTier: ((result.record?.loyalty_tier as string) as ProPosCustomer["loyaltyTier"]) ?? customer.loyaltyTier,
-        creditLimit: (result.record?.credit_limit as number) ?? customer.creditLimit,
-        currentBalance: (result.record?.current_balance as number) ?? customer.currentBalance,
-      });
+      if (result.entity === "variant" || result.entity === "item_barcode" || result.entity === "item") {
+        const rec = (result.record || {}) as Record<string, any>;
+        const stockCode = String(result.returnValue || result.displayValue || rec.code || rec.stockNo || "");
+        const rate = Number(rec.rate ?? rec.sellingPrice ?? rec.mrp ?? 0);
+        setDirectStockNo(stockCode);
+        if (rec.barcode) {
+          setDirectBarcode(String(rec.barcode));
+        }
+        if (rec.name || result.displayValue) {
+          setDirectDescription(String(rec.name || result.displayValue));
+        }
+        if (rate) {
+          handleRateOrQtyChange(String(rate), directQty);
+        }
+        setSelectedProductMeta({
+          id: String(result.id || rec.id || stockCode),
+          name: String(rec.name || result.displayValue || stockCode),
+          code: stockCode,
+          stockNo: stockCode,
+          sku: stockCode,
+          barcode: String(rec.barcode || stockCode),
+          description: String(rec.description || rec.name || result.displayValue || ""),
+          sellingPrice: rate,
+          mrp: Number(rec.mrp || rate),
+          costPrice: Number(rec.costPrice || 0),
+          stockQty: Number(rec.stockQty ?? rec.stockQuantity ?? rec.stock ?? 1),
+          category: String(rec.category || ""),
+          brand: rec.brand ? String(rec.brand) : undefined,
+          gstPercentage: Number(rec.gstPercentage ?? rec.gstRate ?? 0),
+          hsnCode: String(rec.hsnCode || ""),
+          uom: String(rec.uom || "PCS")
+        });
+        directQtyRef.current?.focus();
+        return;
+      }
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[ProPosBillingTerm][F2] FieldAdapter received unexpected entity:",
+          result.entity
+        );
+      }
     }
   });
 
@@ -391,6 +432,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
   const directStockNoRef = useRef<HTMLInputElement | null>(null);
   const directBarcodeRef = useRef<HTMLInputElement | null>(null);
+  const directQtyRef = useRef<HTMLInputElement | null>(null);
   const searchDebounceTimer = useRef<any>(null);
 
   // Debounced Universal Product Lookup from Barcode or Stock No
@@ -519,6 +561,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showCustomerBrowseModal, setShowCustomerBrowseModal] = useState<boolean>(false);
+  const [showSmritiItemSearchModal, setShowSmritiItemSearchModal] = useState<boolean>(false);
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [showReprintModal, setShowReprintModal] = useState<boolean>(false);
   const [showCashMovementsModal, setShowCashMovementsModal] = useState<boolean>(false);
@@ -1751,8 +1794,28 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
             {/* Direct Entry Header Row (Exact Column Headers) */}
             <div className="grid grid-cols-12 text-[11px] font-bold text-[#444653] dark:text-[#bec6e0] border-b border-[#c4c5d5] dark:border-[#444653] py-1 px-1 bg-[#e4e1d7] dark:bg-[#1d202d] min-w-[1020px]">
-              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Barcode / Scan</div>
-              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Stock No / SKU</div>
+              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653] flex items-center justify-between">
+                <span>Barcode / Scan [F2]</span>
+                <button
+                  type="button"
+                  onClick={() => setShowSmritiItemSearchModal(true)}
+                  className="p-0.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 cursor-pointer inline-flex items-center"
+                  title="SMRITI F2 Advanced Item Search"
+                >
+                  <Search size={11} />
+                </button>
+              </div>
+              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653] flex items-center justify-between">
+                <span>Stock No / SKU [F2]</span>
+                <button
+                  type="button"
+                  onClick={() => setShowSmritiItemSearchModal(true)}
+                  className="p-0.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 cursor-pointer inline-flex items-center"
+                  title="SMRITI F2 Advanced Item Search"
+                >
+                  <Search size={11} />
+                </button>
+              </div>
               <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Rate</div>
               <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Qty</div>
@@ -1769,6 +1832,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               <div className="col-span-2 relative">
                 <input
                   ref={directBarcodeRef}
+                  id="directBarcode"
+                  data-f2-entity="item_barcode"
                   type="text"
                   value={directBarcode}
                   onChange={e => {
@@ -1797,6 +1862,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               <div className="col-span-2 relative">
                 <input
                   ref={directStockNoRef}
+                  id="directStockNo"
+                  data-f2-entity="variant"
                   type="text"
                   value={directStockNo}
                   onChange={e => {
@@ -1847,6 +1914,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               {/* Qty Input */}
               <div className="col-span-1">
                 <input
+                  ref={directQtyRef}
                   type="text"
                   value={directQty}
                   onChange={e => handleRateOrQtyChange(directRate, e.target.value)}
@@ -2239,6 +2307,38 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           onNotification={onNotification}
         />
       )}
+      {/* SMRITI F2 Advanced Item Search Modal */}
+      <SmritiF2AdvancedItemSearch
+        isOpen={showSmritiItemSearchModal}
+        initialSearchQuery={directStockNo || directDescription || directBarcode}
+        onSelectProduct={(item: SmritiF2SelectedItem) => {
+          setDirectStockNo(item.stockNo);
+          setDirectBarcode(item.barcode || item.stockNo);
+          setDirectDescription(item.name);
+          handleRateOrQtyChange(String(item.rate || item.mrp || 0), directQty);
+          setSelectedProductMeta({
+            id: item.stockNo,
+            name: item.name,
+            code: item.stockNo,
+            stockNo: item.stockNo,
+            sku: item.stockNo,
+            barcode: item.barcode || item.stockNo,
+            description: item.name,
+            sellingPrice: item.rate,
+            mrp: item.mrp,
+            costPrice: 0,
+            stockQty: item.stock || 1,
+            category: item.category || "",
+            brand: item.brand || undefined,
+            gstPercentage: item.gstRate || 0,
+            hsnCode: "",
+            uom: "PCS"
+          });
+          setShowSmritiItemSearchModal(false);
+          directQtyRef.current?.focus();
+        }}
+        onClose={() => setShowSmritiItemSearchModal(false)}
+      />
 
     </div>
   );
