@@ -8,7 +8,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 4.0.0
 Created      : 2026-09-11
-Modified     : 2026-09-11
+Modified     : 2026-09-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -366,3 +366,202 @@ async def test_vendor_merge_lifecycle():
         merge_log = (await session.execute(mig_stmt)).scalars().first()
         assert merge_log is not None
         assert merge_log.migration_status == "COMPLETED"
+
+
+@pytest.mark.asyncio
+async def test_vendor_default_query_hides_archived_and_merged():
+    """Verify that default list_vendors query hides ARCHIVED and MERGED records, while explicit filter reveals them."""
+    session_factory = get_company_sessionmaker("smriti001")
+    tenant = MockTenant()
+
+    async with session_factory() as session:
+        svc = VendorService(session, tenant)
+
+        # 1. Create Active Vendor
+        active_v = await svc.create_vendor(
+            VendorCreateRequest(
+                code="VTEST-ACT",
+                legal_name="Active Testing Supplier",
+                mobile="9800011111",
+            )
+        )
+
+        # 2. Create and Archive Vendor
+        arc_v = await svc.create_vendor(
+            VendorCreateRequest(
+                code="VTEST-ARC",
+                legal_name="Archived Testing Supplier",
+                mobile="9800022222",
+            )
+        )
+        arc_party = (await session.execute(select(Party).where(Party.id == arc_v.id))).scalars().first()
+        arc_party.status = "ARCHIVED"
+
+        # 3. Create and Merge Vendor
+        mrg_v = await svc.create_vendor(
+            VendorCreateRequest(
+                code="VTEST-MRG",
+                legal_name="Merged Testing Supplier",
+                mobile="9800033333",
+            )
+        )
+        mrg_party = (await session.execute(select(Party).where(Party.id == mrg_v.id))).scalars().first()
+        mrg_party.status = "MERGED"
+        await session.commit()
+
+        # 4. Default query: must hide ARCHIVED and MERGED
+        default_list = await svc.list_vendors(search="VTEST-")
+        default_codes = [v.code for v in default_list]
+        assert "VTEST-ACT" in default_codes
+        assert "VTEST-ARC" not in default_codes
+        assert "VTEST-MRG" not in default_codes
+
+        # 5. Explicit ARCHIVED query: must return only ARCHIVED
+        archived_list = await svc.list_vendors(search="VTEST-", status_filter="ARCHIVED")
+        archived_codes = [v.code for v in archived_list]
+        assert "VTEST-ARC" in archived_codes
+        assert "VTEST-ACT" not in archived_codes
+        assert "VTEST-MRG" not in archived_codes
+
+        # 6. Explicit MERGED query: must return only MERGED
+        merged_list = await svc.list_vendors(search="VTEST-", status_filter="MERGED")
+        merged_codes = [v.code for v in merged_list]
+        assert "VTEST-MRG" in merged_codes
+        assert "VTEST-ACT" not in merged_codes
+        assert "VTEST-ARC" not in merged_codes
+
+        # 7. Explicit ALL query: must return all three
+        all_list = await svc.list_vendors(search="VTEST-", status_filter="ALL")
+        all_codes = [v.code for v in all_list]
+        assert "VTEST-ACT" in all_codes
+        assert "VTEST-ARC" in all_codes
+        assert "VTEST-MRG" in all_codes
+
+
+@pytest.mark.asyncio
+async def test_vendor_article_ownership_and_cross_vendor_isolation():
+    """
+    Verify cross-vendor article isolation:
+    1. Vendor V-00C can only retrieve articles owned by V-00C (plus unassigned when requested).
+    2. Articles owned by other vendors (e.g. V-00A, V-00B) are strictly excluded.
+    3. Vendor V-00A cannot see V-00C articles.
+    """
+    from app.models.master_lookup import MasterType, MasterValue
+    import uuid
+
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        # Find or create style_article master type
+        res = await session.execute(select(MasterType).where(MasterType.code == "style_article"))
+        m_type = res.scalar_one_or_none()
+        if not m_type:
+            m_type = MasterType(
+                id=uuid.uuid4(),
+                code="style_article",
+                label="Style / Article",
+                field_schema={"type": "object"},
+            )
+            session.add(m_type)
+            await session.flush()
+
+        test_val_prefix = f"TART-{uuid.uuid4().hex[:6].upper()}"
+
+        # 1. Create articles for V-00C
+        val_c1 = MasterValue(
+            master_type_id=m_type.id,
+            code=f"{test_val_prefix}-C1",
+            name="V00C Shoe",
+            vendor_code="V-00C",
+            active=True,
+            is_deleted=False,
+        )
+        val_c2 = MasterValue(
+            master_type_id=m_type.id,
+            code=f"{test_val_prefix}-C2",
+            name="V00C Boot",
+            vendor_code="V-00C",
+            active=True,
+            is_deleted=False,
+        )
+        # 2. Create article for V-00A
+        val_a1 = MasterValue(
+            master_type_id=m_type.id,
+            code=f"{test_val_prefix}-A1",
+            name="V00A Denim",
+            vendor_code="V-00A",
+            active=True,
+            is_deleted=False,
+        )
+        # 3. Create unassigned article
+        val_unassigned = MasterValue(
+            master_type_id=m_type.id,
+            code=f"{test_val_prefix}-UN",
+            name="Unassigned Article",
+            vendor_code=None,
+            active=True,
+            is_deleted=False,
+        )
+
+        session.add_all([val_c1, val_c2, val_a1, val_unassigned])
+        await session.commit()
+
+        try:
+            # Query simulating list_lookup_values with vendorCode="V-00C" & includeUnassigned=False
+            q_c_strict = (
+                select(MasterValue)
+                .where(
+                    MasterValue.master_type_id == m_type.id,
+                    MasterValue.is_deleted.is_(False),
+                    MasterValue.code.like(f"{test_val_prefix}%"),
+                    MasterValue.vendor_code == "V-00C",
+                )
+            )
+            res_c_strict = (await session.execute(q_c_strict)).scalars().all()
+            codes_c_strict = [item.code for item in res_c_strict]
+            assert f"{test_val_prefix}-C1" in codes_c_strict
+            assert f"{test_val_prefix}-C2" in codes_c_strict
+            assert f"{test_val_prefix}-A1" not in codes_c_strict
+            assert f"{test_val_prefix}-UN" not in codes_c_strict
+
+            # Query simulating list_lookup_values with vendorCode="V-00C" & includeUnassigned=True
+            q_c_unassigned = (
+                select(MasterValue)
+                .where(
+                    MasterValue.master_type_id == m_type.id,
+                    MasterValue.is_deleted.is_(False),
+                    MasterValue.code.like(f"{test_val_prefix}%"),
+                    or_(MasterValue.vendor_code == "V-00C", MasterValue.vendor_code.is_(None)),
+                )
+            )
+            res_c_unassigned = (await session.execute(q_c_unassigned)).scalars().all()
+            codes_c_unassigned = [item.code for item in res_c_unassigned]
+            assert f"{test_val_prefix}-C1" in codes_c_unassigned
+            assert f"{test_val_prefix}-C2" in codes_c_unassigned
+            assert f"{test_val_prefix}-UN" in codes_c_unassigned
+            # V-00A must NEVER appear in V-00C's lookup
+            assert f"{test_val_prefix}-A1" not in codes_c_unassigned
+
+            # Query simulating V-00A's view: V-00C must NEVER appear
+            q_a = (
+                select(MasterValue)
+                .where(
+                    MasterValue.master_type_id == m_type.id,
+                    MasterValue.is_deleted.is_(False),
+                    MasterValue.code.like(f"{test_val_prefix}%"),
+                    MasterValue.vendor_code == "V-00A",
+                )
+            )
+            res_a = (await session.execute(q_a)).scalars().all()
+            codes_a = [item.code for item in res_a]
+            assert f"{test_val_prefix}-A1" in codes_a
+            assert f"{test_val_prefix}-C1" not in codes_a
+            assert f"{test_val_prefix}-C2" not in codes_a
+
+        finally:
+            # Cleanup test master values
+            await session.execute(
+                delete(MasterValue).where(MasterValue.code.like(f"{test_val_prefix}%"))
+            )
+            await session.commit()
+
+

@@ -5,9 +5,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.1
+ * Version      : 6.16.2
  * Created      : 2026-09-11
- * Modified     : 2026-09-12
+ * Modified     : 2026-09-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Vendor 360 Workspace (Universal Party System of Record)
@@ -239,7 +239,9 @@ const VendorArticleStyleTab: React.FC<{
     if (!vendor) return;
     setLoadingArticles(true);
     try {
-      const values = await apiFetchV1("/masters/lookup/style_article/values?activeOnly=true");
+      const values = await apiFetchV1(
+        `/masters/lookup/style_article/values?activeOnly=true&vendorCode=${encodeURIComponent(vendor.code)}&includeUnassigned=true`
+      );
       setArticles(Array.isArray(values) ? values.map(normalizeVendorArticle).filter((article) => article.id && article.code) : []);
     } catch (error: any) {
       onNotification?.("Article Registry Error", error?.message || "Could not load Master Registry articles.", "error");
@@ -271,7 +273,11 @@ const VendorArticleStyleTab: React.FC<{
 
   if (!vendor) return null;
 
-  const assignedArticles = articles.filter((article) => article.vendorCode?.toUpperCase() === vendor.code.toUpperCase());
+  const vendorCodeUpper = (vendor.code || "").toUpperCase();
+  // Strict Vendor Isolation: Only articles owned by this vendor are assigned
+  const assignedArticles = articles.filter((article) => article.vendorCode?.toUpperCase() === vendorCodeUpper);
+  // Unassigned pool: articles not owned by any vendor available to be claimed
+  const unassignedArticles = articles.filter((article) => !article.vendorCode);
 
   return (
     <div className="space-y-4">
@@ -283,7 +289,7 @@ const VendorArticleStyleTab: React.FC<{
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">Master Registry Articles / Styles</h3>
             <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              One vendor can own many articles. An assigned article cannot be transferred to another vendor.
+              Articles owned by {vendor.code}. Only {vendor.code} can view and use these articles.
             </p>
           </div>
           <span className="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-mono font-bold text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
@@ -292,41 +298,55 @@ const VendorArticleStyleTab: React.FC<{
         </div>
         {loadingArticles ? (
           <div className="py-8 text-center text-xs text-slate-400">Loading Master Registry articles...</div>
-        ) : articles.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400">No active Article / Style values found in Master Registry.</div>
+        ) : assignedArticles.length === 0 && unassignedArticles.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-400">No active Article / Style values found for {vendor.code}.</div>
         ) : (
           <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-            {articles.map((article) => {
-              const isOwnedByCurrentVendor = article.vendorCode?.toUpperCase() === vendor.code.toUpperCase();
-              const isOwnedByAnotherVendor = Boolean(article.vendorCode) && !isOwnedByCurrentVendor;
-              return (
-                <div key={article.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-xs font-bold text-slate-900 dark:text-white">{article.name}</span>
-                      <span className="font-mono text-[10px] text-slate-500">{article.code}</span>
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-slate-400">
-                      {isOwnedByCurrentVendor ? `Owned by ${vendor.code}` : isOwnedByAnotherVendor ? `Owned by ${article.vendorCode}` : "Unassigned"}
-                    </div>
+            {assignedArticles.map((article) => (
+              <div key={article.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-xs font-bold text-slate-900 dark:text-white">{article.name}</span>
+                    <span className="font-mono text-[10px] text-slate-500">{article.code}</span>
                   </div>
-                  {isOwnedByCurrentVendor ? (
-                    <span className="shrink-0 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">Assigned</span>
-                  ) : isOwnedByAnotherVendor ? (
-                    <span className="shrink-0 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">Locked</span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => assignArticle(article)}
-                      disabled={assigningArticleId === article.id}
-                      className="shrink-0 rounded bg-indigo-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
-                    >
-                      {assigningArticleId === article.id ? "Assigning..." : "Assign"}
-                    </button>
-                  )}
+                  <div className="mt-0.5 text-[10px] text-slate-400">
+                    Owned by {vendor.code}
+                  </div>
                 </div>
-              );
-            })}
+                <span className="shrink-0 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">Assigned</span>
+              </div>
+            ))}
+
+            {unassignedArticles.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
+                <div className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
+                  Unassigned Articles (Available to Claim)
+                </div>
+                <div className="space-y-2">
+                  {unassignedArticles.map((article) => (
+                    <div key={article.id} className="flex items-center justify-between rounded-lg border border-dashed border-slate-200 px-3 py-2 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-xs font-bold text-slate-900 dark:text-white">{article.name}</span>
+                          <span className="font-mono text-[10px] text-slate-500">{article.code}</span>
+                        </div>
+                        <div className="mt-0.5 text-[10px] text-slate-400">
+                          Unassigned
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => assignArticle(article)}
+                        disabled={assigningArticleId === article.id}
+                        className="shrink-0 rounded bg-indigo-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
+                      >
+                        {assigningArticleId === article.id ? "Assigning..." : `Assign to ${vendor.code}`}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -338,7 +358,7 @@ const VendorArticleStyleTab: React.FC<{
         }}
         defaultVendorCode={vendor.code}
         vendorFilterCode={vendor.code}
-        articleOptions={articles}
+        articleOptions={assignedArticles}
       />
     </div>
   );
@@ -351,6 +371,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [showVendorDirectory, setShowVendorDirectory] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ACTIVE_ONLY");
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -420,10 +441,12 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   }, []);
 
   // Load Vendor Directory
-  const loadVendors = useCallback(async () => {
+  const loadVendors = useCallback(async (targetStatus?: string) => {
     setLoading(true);
     try {
-      const res = await apiFetchV1("/purchase/vendors/");
+      const activeFilter = targetStatus !== undefined ? targetStatus : statusFilter;
+      const queryParam = activeFilter && activeFilter !== "ACTIVE_ONLY" ? `?status=${encodeURIComponent(activeFilter)}` : "";
+      const res = await apiFetchV1(`/purchase/vendors/${queryParam}`);
       const rawList = Array.isArray(res) ? res : [];
       const list = rawList.map(normalizeVendorSummary);
       setVendors(list);
@@ -439,7 +462,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
     } finally {
       setLoading(false);
     }
-  }, [notify]);
+  }, [notify, statusFilter]);
 
   useEffect(() => {
     loadVendors();
@@ -608,6 +631,12 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   };
 
   const filteredVendors = vendors.filter((v) => {
+    if (statusFilter === "ACTIVE_ONLY" && (v.status === "ARCHIVED" || v.status === "MERGED")) {
+      return false;
+    }
+    if (statusFilter !== "ACTIVE_ONLY" && statusFilter !== "ALL" && v.status !== statusFilter) {
+      return false;
+    }
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -662,6 +691,29 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
             />
+          </div>
+
+          <div className="flex items-center space-x-1.5">
+            <Filter size={12} className="text-slate-400 dark:text-slate-500 shrink-0" />
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                const val = e.target.value;
+                setStatusFilter(val);
+                loadVendors(val);
+              }}
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500"
+              title="Filter directory by vendor status"
+            >
+              <option value="ACTIVE_ONLY">Active / Operational (Default)</option>
+              <option value="ALL">All Statuses (Incl. Archived/Merged)</option>
+              <option value="ARCHIVED">Archived Only</option>
+              <option value="MERGED">Merged Only</option>
+              <option value="INACTIVE">Inactive Only</option>
+              <option value="BLOCKED">Blocked Only</option>
+              <option value="ON_HOLD">On Hold Only</option>
+              <option value="PENDING_VERIFICATION">Pending Verification Only</option>
+            </select>
           </div>
         </div>
 
@@ -851,6 +903,27 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                 )}
               </div>
             </div>
+
+            {/* Archived / Merged Status Notice Banner */}
+            {(selectedVendor.status === "ARCHIVED" || selectedVendor.status === "MERGED") && (
+              <div className={`px-5 py-2.5 border-b flex items-center justify-between text-xs font-medium ${
+                selectedVendor.status === "ARCHIVED"
+                  ? "bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                  : "bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800/50 text-purple-800 dark:text-purple-300"
+              }`}>
+                <div className="flex items-center space-x-2">
+                  <AlertCircle size={15} className={selectedVendor.status === "ARCHIVED" ? "text-slate-500" : "text-purple-600 dark:text-purple-400"} />
+                  <span>
+                    <strong>Notice:</strong> This vendor is currently <strong>{selectedVendor.status}</strong>.
+                    {selectedVendor.status === "ARCHIVED" && " It is hidden from standard procurement workflows and active lookups."}
+                    {selectedVendor.status === "MERGED" && selectedVendor.mergedIntoPartyId && ` Merged into party ID ${selectedVendor.mergedIntoPartyId}.`}
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/80 dark:bg-slate-900/60 border border-current">
+                  READ-ONLY HISTORICAL RECORD
+                </span>
+              </div>
+            )}
 
             {/* 9-Tab Navigation Bar */}
             <div className="flex items-center space-x-1 px-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/20 overflow-x-auto text-xs font-semibold">

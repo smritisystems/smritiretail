@@ -28,6 +28,27 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.16.2] - 2026-09-14
+
+#### Vendor 360 Workspace Status Filtering, Archive Exclusion & Article Isolation Contract
+
+**Walkthrough:** [Procurement_Vendor_Status_Filter_And_Archive_Exclusion_v6.16.2.md](docs/walkthrough/procurement/Procurement_Vendor_Status_Filter_And_Archive_Exclusion_v6.16.2.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Default Exclusion of Defunct Vendors:** Fixed default queries in `VendorService.list_vendors` (`backend/app/services/vendor_svc.py`) and `UniversalPartyMasterService.list_parties` (`backend/app/services/party_master_svc.py`) to exclude `ARCHIVED` and `MERGED` parties by default (`Party.status.notin_(["ARCHIVED", "MERGED"])`).
+- **Support for Explicit Status Query & `ALL` Token:** Added clean handling for `status="ALL"` (bypassing status filters to retrieve all records) as well as specific status values (`ARCHIVED`, `MERGED`, `ACTIVE`, `INACTIVE`, `BLOCKED`, `ON_HOLD`, `PENDING_VERIFICATION`).
+- **Directory Column Status Dropdown:** Added status selector dropdown in `VendorMasterWs.tsx` below the search input, defaulting to `Active / Operational (Default)` with explicit options for `All Statuses (Incl. Archived/Merged)`, `Archived Only`, `Merged Only`, `Inactive`, etc.
+- **Client-Side Defense-in-Depth:** Gated `filteredVendors` so `statusFilter === "ACTIVE_ONLY"` unconditionally hides `ARCHIVED` and `MERGED` vendors.
+- **Historical Record Notice Banner:** Added visual notice banner above tabs in `VendorMasterWs.tsx` when inspecting an archived or merged record, alerting the operator that it is a historical read-only record hidden from active workflows.
+- **Strict Cross-Vendor Article Ownership Isolation:** 
+  - Enhanced `GET /api/v1/masters/lookup/{type_code}/values` with `includeUnassigned: bool = False` so queries with `vendorCode={code}&includeUnassigned=true` only return articles owned by that vendor and unassigned articles, strictly excluding all other vendors at the database query level.
+  - Refactored `VendorArticleStyleTab` in `VendorMasterWs.tsx` to partition fetched articles into `assignedArticles` (owned by inspected vendor) and `unassignedArticles` (available to claim); passed exclusively `assignedArticles` to `VariantTplSec`.
+  - Enforced dropdown containment in `VariantTemplateSec.tsx` via `vendorOwnedArticles` memo so the "Add Article / Style" dropdown strictly renders only the active vendor's articles, completely hiding foreign vendor articles.
+- **Automated Testing & Parity Verification:** 
+  - Added `test_vendor_default_query_hides_archived_and_merged` and `test_vendor_article_ownership_and_cross_vendor_isolation` to `backend/tests/test_vendor_service.py` (6/6 passed in 6.41s).
+  - Created frontend unit test suites `src/tests/vendorStatusFilter.test.ts` (6/6 passed) and `src/tests/vendorArticleIsolation.test.ts` (4/4 passed).
+  - Zero TypeScript compiler errors and clean production build (3,534 modules in 27.44s).
+
 ### [3.33.0] - 2026-09-14
 
 #### Policy-Aware Provisional Barcode Generation & UI Alignment

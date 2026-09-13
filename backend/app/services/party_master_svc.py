@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-09-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -236,10 +236,12 @@ class UniversalPartyMasterService:
             )
             .execution_options(populate_existing=True)
         )
-        if status:
-            stmt = stmt.where(Party.status == status.upper())
+        if status and status.strip():
+            clean_status = status.strip().upper()
+            if clean_status != "ALL":
+                stmt = stmt.where(Party.status == clean_status)
         else:
-            stmt = stmt.where(Party.status != "MERGED")
+            stmt = stmt.where(Party.status.notin_(["ARCHIVED", "MERGED"]))
 
         if query:
             q = f"%{query.strip()}%"

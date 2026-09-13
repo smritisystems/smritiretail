@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-09-11
-Modified     : 2026-09-11
+Modified     : 2026-09-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -233,8 +233,10 @@ class VendorService:
             )
         )
 
-        if status_filter:
-            stmt = stmt.where(Party.status == status_filter.upper())
+        if status_filter and status_filter.strip():
+            clean_status = status_filter.strip().upper()
+            if clean_status != "ALL":
+                stmt = stmt.where(Party.status == clean_status)
         else:
             stmt = stmt.where(Party.status.notin_(["ARCHIVED", "MERGED"]))
 

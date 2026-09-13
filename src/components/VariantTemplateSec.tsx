@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.1
+ * * Version    : 2.1.2
  * * Created    : 2026-07-10
- * * Modified   : 2026-08-19
+ * * Modified   : 2026-09-14
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -397,7 +397,17 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
 
   const currentVendorCode = (defaultVendorCode || vendorFilterCode || "").trim().toUpperCase();
   const hasCurrentVendorOption = vendorCodeOptions.some((option) => option.code.toUpperCase() === currentVendorCode);
-  const hasSelectableArticle = articleOptions.some((option) => option.vendorCode?.toUpperCase() === currentVendorCode);
+
+  // Strict Vendor Isolation: In "Add Article / Style", only articles owned by the current vendor are selectable
+  const vendorOwnedArticles = useMemo(() => {
+    if (!currentVendorCode) return articleOptions;
+    return articleOptions.filter((option) => {
+      const owner = (option.vendorCode || "").trim().toUpperCase();
+      return owner === currentVendorCode;
+    });
+  }, [articleOptions, currentVendorCode]);
+
+  const hasSelectableArticle = vendorOwnedArticles.length > 0;
   const selectedGroup = groups.find((group) => group.id === groupId);
   const selectedGroupColumn = definitions.find((definition) => definition.id === selectedGroup?.gridColumnAttributeId);
   const selectedGroupRow = definitions.find((definition) => definition.id === selectedGroup?.gridRowAttributeId);
@@ -471,27 +481,29 @@ export const VariantTplSec: React.FC<VariantTplSectionProps> = ({
                         required
                         value={masterValueId}
                         onChange={(e) => {
-                          const selected = articleOptions.find((option) => option.id === e.target.value);
+                          const selected = vendorOwnedArticles.find((option) => option.id === e.target.value);
                           setMasterValueId(e.target.value);
                           setStyleCode(selected?.code || "");
                           if (selected?.name && !name.trim()) setName(selected.name);
                         }}
                         className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body font-mono"
                       >
-                        <option value="">{articleOptions.length > 0 ? "Select Article / Style" : "No Article / Style in Master Registry"}</option>
-                        {articleOptions.map((option) => (
-                          <option
-                            key={option.id}
-                            value={option.id}
-                            disabled={!option.vendorCode || (vendorFilterCode ? option.vendorCode.toUpperCase() !== vendorFilterCode.toUpperCase() : false)}
-                          >
-                            {option.code} - {option.name} [{option.vendorCode ? `Owner: ${option.vendorCode}` : "Unassigned"}]
+                        <option value="">
+                          {vendorOwnedArticles.length > 0
+                            ? "Select Article / Style"
+                            : currentVendorCode
+                            ? `No Article / Style assigned to ${currentVendorCode}`
+                            : "No Article / Style in Master Registry"}
+                        </option>
+                        {vendorOwnedArticles.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.code} - {option.name}
                           </option>
                         ))}
                       </select>
-                      {vendorFilterCode && articleOptions.length > 0 && !hasSelectableArticle && (
+                      {vendorFilterCode && !hasSelectableArticle && (
                         <p className="mt-1 text-[9px] leading-tight text-amber-300">
-                          No unassigned Article / Style is available for {vendorFilterCode}. The listed article is owned by another vendor and is locked.
+                          No Article / Style is assigned to {vendorFilterCode}. Please assign an article in the Article / Style tab first.
                         </p>
                       )}
                     </>
