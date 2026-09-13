@@ -1919,6 +1919,7 @@ const AppContent: React.FC = () => {
       case "vendors":
       case "supplier":
         return <VendorMasterWs currentUser={currentUser} onNotification={addNotification} />;
+      case "reports":
       case "report-designer":
         return <ReportDesignerTab currentUser={currentUser} />;
       case "item-master":
@@ -1984,6 +1985,7 @@ const AppContent: React.FC = () => {
         return <AccountingSyncTab />;
       case "business-ledger":
         return <BusinessLedgerTab currentUser={currentUser} />;
+      case "inventory":
       case "stock-ledger":
         return <StockLedgerTab currentUser={currentUser} />;
       case "audit-logs":
@@ -2141,7 +2143,8 @@ const AppContent: React.FC = () => {
   const getTabLabel = (id: string): string => {
     const tabMeta = registeredWorkspaces.find((w) => w.id === id);
     if (tabMeta) return tabMeta.label;
-    if (id === "dashboard" || id === "launchpad") return "Fiori Launchpad";
+    if (id === "dashboard") return "Executive Hub";
+    if (id === "launchpad") return "Fiori Launchpad";
     return id.replace(/-/g, " ").toUpperCase();
   };
 
@@ -2151,8 +2154,8 @@ const AppContent: React.FC = () => {
       activeModuleTitle={getTabLabel(activeTab)}
       onSelectModule={(id) => setActiveTab(mapModuleId(id))}
       onNavigateHome={() => {
-        addToRecentlyUsed("dashboard");
-        setActiveTab("dashboard");
+        addToRecentlyUsed("launchpad");
+        setActiveTab("launchpad");
       }}
       onLogout={handleLogout}
       userName={currentUser?.name || "Operator"}
@@ -2192,6 +2195,9 @@ const AppContent: React.FC = () => {
       </div>
 
       <StandaloneWindowView registeredWorkspaces={registeredWorkspaces} renderTabSafe={renderTabSafe} />
+
+      {/* UniversalBrowseEngine v2 — canonical F2 lookup dialog */}
+      <UniversalBrowseEngine userRole={currentUser?.role} />
 
       {/* Authoritative Single Application Workspace Canvas */}
       <div className="flex-1 flex flex-col h-full w-full min-w-0 max-w-full overflow-hidden relative">
@@ -2259,8 +2265,6 @@ const App: React.FC = () => {
                       <AppContent />
                       <ContextRenderer />
                       <GlobalSearch />
-                      {/* UniversalBrowseEngine v2 — canonical F2 lookup dialog */}
-                      <UniversalBrowseEngine />
                       <ContextualInspectorHUD />
                       <DrillDownSidePanel />
                       <ShortcutPalette />

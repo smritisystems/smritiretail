@@ -115,6 +115,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     accentColor: "amber",
   },
   {
+    id: "barcode-management",
+    title: "Barcode Management",
+    subtitle: "GS1 intake, bulk barcode import, permanent stock assignment & registry audit",
+    icon: "fact_check",
+    tag: "Registry",
+    badgeType: "warning",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
     id: "stock-ledger",
     title: "Stock Movement Ledger",
     subtitle: "Real-time stock ledger movements, inward/outward logs & batch valuations",
@@ -126,6 +136,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     isQuickAction: true,
     shortcut: "F6",
     accentColor: "blue",
+  },
+  {
+    id: "wms-dashboard",
+    title: "Warehouse & Batch Hub",
+    subtitle: "Warehouse operations, stock transfers, batch controls & fulfillment workflows",
+    icon: "warehouse",
+    tag: "Warehouse",
+    badgeType: "primary",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "supplier-mgmt",

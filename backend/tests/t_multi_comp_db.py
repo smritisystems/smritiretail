@@ -51,14 +51,14 @@ def test_company_isolation_company_a_vs_b():
         CompanyDatabaseResolver.resolve_company_database("usr_store_manager_a", "COMP-UNAUTHORIZED-B")
     assert exc_info.value.status_code == 403
 
-def test_menu_governance_34_immutable_ids():
-    """Verify 34 immutable menu IDs remain intact in smritisys."""
+def test_menu_governance_36_immutable_ids():
+    """Verify 36 immutable menu IDs remain intact in smritisys."""
     conn = psycopg2.connect(CONTROL_PLANE_URL)
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM smriti_menus;")
     count = cur.fetchone()[0]
     conn.close()
-    assert count == 34
+    assert count == 36
 
 def test_enterprise_audit_log_integrity():
     """Verify smriti_audit_log entries remain intact with 0 mutations."""

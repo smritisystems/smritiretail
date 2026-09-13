@@ -37,6 +37,7 @@ import {
 import type { LookupEntity } from "../context/F2DispatcherContext.tsx";
 import {
   LEGACY_CATEGORY_TO_ENTITY,
+  resolveExplicitLookupEntity,
 } from "../context/F2DispatcherContext.tsx";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,6 +221,14 @@ describe("F2 v2 — hasLookupPermission", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("F2 v2 — LEGACY_CATEGORY_TO_ENTITY legacy alias map", () => {
+  it("normalizes canonical and legacy explicit entities", () => {
+    expect(resolveExplicitLookupEntity("variant")).toBe("variant");
+    expect(resolveExplicitLookupEntity("item")).toBe("item");
+    expect(resolveExplicitLookupEntity("item_barcode")).toBe("item_barcode");
+    expect(resolveExplicitLookupEntity("product")).toBe("variant");
+    expect(resolveExplicitLookupEntity(" UNKNOWN ")).toBeNull();
+  });
+
 
   it("5.1 Legacy 'product' maps to canonical 'variant'", () => {
     expect(LEGACY_CATEGORY_TO_ENTITY["product"]).toBe("variant");

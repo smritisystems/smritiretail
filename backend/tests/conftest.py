@@ -193,7 +193,7 @@ def seed_control_plane_test_assignments():
                 DO UPDATE SET is_active = true, is_deleted = false;
             """, (uca_id, str(uuid.uuid4()), actual_user_id, cid))
 
-        # 3. Seed smriti_menus (Control Plane — exactly 34 canonical immutable menus)
+        # 3. Seed smriti_menus (Control Plane — exactly 36 canonical immutable menus)
         canonical_menus = [
             ("menu-dashboard", "Dashboard & Executive Hub", "/dashboard", "Dashboard & Operations", None, 10, "DASHBOARD.ACCESS"),
             ("menu-user-profile", "My Profile Dashboard", "/user-profile", "Dashboard & Operations", None, 20, "PROFILE.ACCESS"),
@@ -229,6 +229,8 @@ def seed_control_plane_test_assignments():
             ("menu-approval-matrix", "Approval Matrix Governance", "/approval-matrix", "Administration", None, 320, "APPROVAL.MANAGE"),
             ("menu-company-setup", "Company Setup & Branch Config", "/company-setup", "Administration", None, 330, "COMPANY.SETUP.ACCESS"),
             ("menu-audit-logs", "System Audit Trail & Security Logs", "/audit-logs", "Administration", None, 340, "AUDIT.WORKSPACE.ACCESS"),
+            ("menu-manager", "Menu Manager & Navigation Studio", "/menu-manager", "Administration", None, 350, "NAVIGATION.MANAGE"),
+            ("menu-security", "Security Management & Menu Access", "/security-management", "Administration", None, 360, "SECURITY.MENU.ACCESS"),
         ]
 
         # Insert parents first

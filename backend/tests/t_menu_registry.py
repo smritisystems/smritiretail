@@ -28,7 +28,7 @@ def client():
     return TestClient(app)
 
 
-def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:
+def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-MAIN-001") -> dict:
     """Helper to generate JWT auth headers with tenant claims."""
     user_map = {
         "SYSADMIN": ("usr-super", "usr_super", UserRole.SYSADMIN.value),
@@ -107,12 +107,12 @@ def test_my_workspace_profile_persona_resolution(client):
 
 
 def test_resolved_menus_sysadmin_full_access(client):
-    """Verify SYSADMIN receives full 34 canonical menus in navigation tree."""
+    """Verify SYSADMIN receives full 36 canonical menus in navigation tree."""
     sys_hdr = get_auth_headers("SYSADMIN")
     res = client.get("/api/v1/menus/resolved", headers=sys_hdr)
     assert res.status_code == 200
     menus = res.json()
-    assert len(menus) == 34
+    assert len(menus) == 36
 
     menu_ids = {m["id"] for m in menus}
     assert "menu-pos" in menu_ids
@@ -120,6 +120,8 @@ def test_resolved_menus_sysadmin_full_access(client):
     assert "menu-reports" in menu_ids
     assert "menu-masters" in menu_ids
     assert "menu-company-setup" in menu_ids
+    assert "menu-manager" in menu_ids
+    assert "menu-security" in menu_ids
 
 
 def test_resolved_menus_cashier_pruning_and_security(client):

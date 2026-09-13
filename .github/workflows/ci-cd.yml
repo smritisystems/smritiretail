@@ -28,6 +28,9 @@ jobs:
 
       - name: Registry usage validation
         run: npm run validate-registry
+
+      - name: Launchpad coverage validation
+        run: npm run validate-launchpad
       
       - name: Run ESLint
         run: npm run lint
