@@ -39,7 +39,17 @@ type LookupType = typeof GOVERNED_LOOKUP_TYPES[number];
 
 const FIELD_LOOKUP_MAP: Record<LookupType, string[]> = {
   brand: ["brand"],
-  style_article: ["style", "styleCode", "style_code"],
+  style_article: [
+    "style",
+    "style_code",
+    "styleCode",
+    "stylecode",
+    "style_article",
+    "styleArticle",
+    "article",
+    "article_no",
+    "articleNo"
+  ],
   size: ["size"],
   color: ["shade", "color", "colour"],
   category: ["category"],

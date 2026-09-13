@@ -310,3 +310,116 @@ async def test_universal_item_master_service_dimension_governance():
             await session.execute(delete(Item).where(Item.item_code.like("ITEM-TEST-%")))
             await session.commit()
 
+
+@pytest.mark.asyncio
+async def test_style_article_canonicalization_and_aliases():
+    """
+    Verifies that 'style_article' is the sole canonical governance identity in the Master Registry,
+    while 'style', 'style_code', 'styleCode', 'stylecode', 'article', and 'article_no' are accepted aliases:
+    1. CatalogDimensionValidator.resolve_type_code normalizes all alias spellings to 'style_article'.
+    2. CatalogDimensionValidator.validate_and_normalize_dimension accepts each alias and returns canonical casing.
+    3. ProductCreate schema normalizes alias input keys (e.g. styleCode, article) to style_code.
+    4. ItemCreateRequest schema normalizes alias input keys (e.g. styleCode, article_no) to style_code.
+    5. Direct parameter creation via UniversalItemMasterService.create_item accepts styleCode alias.
+    """
+    from app.schemas.inventory import ProductCreate
+    from app.schemas.item_master import ItemCreateRequest
+    from app.services.item_master_svc import UniversalItemMasterService
+    from app.models.item_master import Item
+
+    # 1. Test validator type_code resolution
+    aliases = [
+        "style",
+        "style_code",
+        "styleCode",
+        "stylecode",
+        "article",
+        "article_no",
+        "articleno",
+        "style_article",
+        "style article",
+        "style-code",
+        "style-article",
+    ]
+    for alias in aliases:
+        resolved = CatalogDimensionValidator.resolve_type_code(alias)
+        assert resolved == "style_article", f"Alias '{alias}' resolved to '{resolved}', expected 'style_article'"
+
+    # 2. Test validator normalization across all aliases against control plane
+    async with async_session() as session:
+        for alias in ["style", "style_code", "styleCode", "article", "article_no"]:
+            normalized = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                dimension_field=alias,
+                value="ch-01-a",
+                strict=True,
+                control_db=session,
+            )
+            assert normalized == "CH-01-A", f"Expected 'CH-01-A' for field '{alias}', got '{normalized}'"
+
+    # 3. Test ProductCreate schema alias normalization
+    prod_alias_payload = {
+        "code": f"PROD-ALIAS-{uuid.uuid4().hex[:6]}",
+        "name": "Alias Test Product",
+        "price": 100.0,
+        "mrp": 150.0,
+        "gst_percentage": 18.0,
+        "barcode": f"BAR-ALIAS-{uuid.uuid4().hex[:6]}",
+        "hsn_code": "6403",
+        "styleCode": "CH-01-A",
+    }
+    prod_schema = ProductCreate(**prod_alias_payload)
+    assert prod_schema.style_code == "CH-01-A"
+
+    prod_alias_payload2 = {
+        "code": f"PROD-ALIAS2-{uuid.uuid4().hex[:6]}",
+        "name": "Alias Test Product 2",
+        "price": 100.0,
+        "mrp": 150.0,
+        "gst_percentage": 18.0,
+        "barcode": f"BAR-ALIAS2-{uuid.uuid4().hex[:6]}",
+        "hsn_code": "6403",
+        "article": "CH-01-A",
+    }
+    prod_schema2 = ProductCreate(**prod_alias_payload2)
+    assert prod_schema2.style_code == "CH-01-A"
+
+    # 4. Test ItemCreateRequest schema alias normalization
+    item_alias_payload = {
+        "item_code": f"ITM-ALIAS-{uuid.uuid4().hex[:6]}",
+        "item_name": "Alias Test Item",
+        "category": "footwear",
+        "styleCode": "CH-01-A",
+    }
+    item_req = ItemCreateRequest(**item_alias_payload)
+    assert item_req.style_code == "CH-01-A"
+
+    item_alias_payload2 = {
+        "item_code": f"ITM-ALIAS2-{uuid.uuid4().hex[:6]}",
+        "item_name": "Alias Test Item 2",
+        "category": "footwear",
+        "article_no": "CH-01-A",
+    }
+    item_req2 = ItemCreateRequest(**item_alias_payload2)
+    assert item_req2.style_code == "CH-01-A"
+
+    # 5. Direct parameter call with styleCode alias into UniversalItemMasterService
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        await session.execute(delete(Item).where(Item.item_code.like("ITEM-ALIAS-%")))
+        await session.commit()
+
+        try:
+            created = await UniversalItemMasterService.create_item(
+                session,
+                item_code=f"ITEM-ALIAS-{uuid.uuid4().hex[:6]}",
+                item_name="Direct Kwarg Alias Item",
+                category="footwear",
+                styleCode="ch-01-a",
+                company_id="COMP-001",
+            )
+            assert created.style_code == "CH-01-A"
+        finally:
+            await session.execute(delete(Item).where(Item.item_code.like("ITEM-ALIAS-%")))
+            await session.commit()
+
+

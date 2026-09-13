@@ -99,6 +99,24 @@ class ProductBase(BaseModel):
                 raise ValueError(f"{info.field_name} must be a valid number.")
         return dec
 
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
+
     @model_validator(mode="after")
     def validate_pricing_hierarchy(self) -> "ProductBase":
         # Check if item is an exempt non-stock/service/sample/free item
@@ -199,6 +217,24 @@ class ProductUpdate(BaseModel):
             except Exception:
                 raise ValueError(f"{info.field_name} must be a valid number.")
         return dec
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_update_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
 
     @model_validator(mode="after")
     def validate_update_pricing_hierarchy(self) -> "ProductUpdate":

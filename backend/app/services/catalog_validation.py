@@ -46,8 +46,11 @@ class CatalogDimensionValidator:
         "style_code": "style_article",
         "stylecode": "style_article",
         "style_article": "style_article",
+        "stylearticle": "style_article",
+        "style/article": "style_article",
         "article": "style_article",
         "article_no": "style_article",
+        "articleno": "style_article",
         "color": "color",
         "colour": "color",
         "shade": "color",
@@ -71,7 +74,7 @@ class CatalogDimensionValidator:
 
     @classmethod
     def resolve_type_code(cls, field_name: str) -> str:
-        cleaned = str(field_name).strip().lower()
+        cleaned = str(field_name).strip().lower().replace("-", "_").replace(" ", "_")
         return cls.DIMENSION_FIELD_MAP.get(cleaned, cleaned)
 
     @classmethod

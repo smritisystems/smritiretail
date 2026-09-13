@@ -1579,13 +1579,13 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                         col.key === "category" ? "grid-lookup-category-list" :
                                         col.key === "colour" || col.key === "color" ? "grid-lookup-color-list" :
                                         col.key === "size" ? "grid-lookup-size-list" :
-                                        col.key === "styleCode" || col.key === "style_code" ? "grid-lookup-style-list" :
+                                        ["styleCode", "style_code", "style", "stylecode", "article", "article_no", "style_article"].includes(col.key) ? "grid-lookup-style-list" :
                                         col.key === "vendorCode" || col.key === "vendor_code" ? "grid-lookup-vendor-list" : undefined
                                       }
                                       data-f2-entity={
                                         isCode ? "variant" :
                                         isBarcode ? "item_barcode" :
-                                        col.key === "styleCode" || col.key === "style_code" ? "article" :
+                                        ["styleCode", "style_code", "style", "stylecode", "article", "article_no", "style_article"].includes(col.key) ? "article" :
                                         col.key === "colour" || col.key === "color" ? "color" :
                                         col.key === "size" ? "size" : undefined
                                       }

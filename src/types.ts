@@ -48,6 +48,10 @@ export interface Product {
   gstPercentage?: number;
   styleCode?: string;
   style_code?: string;
+  style?: string;
+  article?: string;
+  article_no?: string;
+  style_article?: string;
   department?: string;
   vendor_code?: string;
   costPrice?: number; // Added for variant cost price support
