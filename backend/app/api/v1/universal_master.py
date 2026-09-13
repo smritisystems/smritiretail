@@ -210,6 +210,8 @@ async def create_item(
     try:
         item = await UniversalItemMasterService.create_item(session=db, req=req)
         return item
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

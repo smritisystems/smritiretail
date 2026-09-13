@@ -70,7 +70,12 @@ class ItemCreateRequest(BaseModel):
     item_type: str = "FINISHED_GOOD"
     category: str
     category_code: Optional[str] = None
+    department: Optional[str] = None
     brand: Optional[str] = None
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    vendor_code: Optional[str] = None
     hsn_code: Optional[str] = "0000"
     tax_rate: float = 18.0
     primary_uom: str = "PCS"
@@ -93,7 +98,12 @@ class ItemCreateRequest(BaseModel):
 class ItemUpdateRequest(BaseModel):
     item_name: Optional[str] = None
     category: Optional[str] = None
+    department: Optional[str] = None
     brand: Optional[str] = None
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    vendor_code: Optional[str] = None
     hsn_code: Optional[str] = None
     tax_rate: Optional[float] = None
     primary_uom: Optional[str] = None
@@ -115,7 +125,12 @@ class ItemResponse(BaseModel):
     item_type: str
     category: str
     category_code: Optional[str] = None
+    department: Optional[str] = None
     brand: Optional[str] = None
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    vendor_code: Optional[str] = None
     hsn_code: Optional[str] = None
     tax_rate: float
     primary_uom: str

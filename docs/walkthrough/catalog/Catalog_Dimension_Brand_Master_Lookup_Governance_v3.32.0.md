@@ -43,21 +43,27 @@ This document details the architectural design, implementation, and empirical ve
 
 ## 3. Files Created
 - [v1450_seed_standard_brands.py](file:///F:/SMRITRretailNX/backend/alembic/versions/v1450_seed_standard_brands.py): Alembic migration seeding standard catalog brands into control plane `master_values`.
+- [v1451_add_item_governed_dimension_columns.py](file:///F:/SMRITRretailNX/backend/alembic/versions/v1451_add_item_governed_dimension_columns.py): Alembic migration adding governed catalog dimension columns (`department`, `style_code`, `color`, `size`, `vendor_code`) to the `items` table.
 - [catalog_validation.py](file:///F:/SMRITRretailNX/backend/app/services/catalog_validation.py): Universal `CatalogDimensionValidator` engine with scale-group unpacking and multi-dimension validation.
-- [test_catalog_dimension_validation.py](file:///F:/SMRITRretailNX/backend/tests/test_catalog_dimension_validation.py): Automated test suite covering direct validator lifecycle, group unpacking, strict rejection, and live REST endpoint creation and update.
+- [test_catalog_dimension_validation.py](file:///F:/SMRITRretailNX/backend/tests/test_catalog_dimension_validation.py): Automated test suite covering direct validator lifecycle, group unpacking, strict rejection, Universal Item Master creation, and live REST endpoint creation and update.
 - [Catalog_Dimension_Brand_Master_Lookup_Governance_v3.32.0.md](file:///F:/SMRITRretailNX/docs/walkthrough/catalog/Catalog_Dimension_Brand_Master_Lookup_Governance_v3.32.0.md): This walkthrough document.
 
 ---
 
 ## 4. Files Modified
+- [item_master.py (Model)](file:///F:/SMRITRretailNX/backend/app/models/item_master.py): Added `department`, `style_code`, `color`, `size`, `vendor_code` indexed columns to `Item`.
+- [item_master.py (Schemas)](file:///F:/SMRITRretailNX/backend/app/schemas/item_master.py): Extended `ItemCreateRequest`, `ItemUpdateRequest`, and `ItemResponse` with governed dimensions.
 - [master_lookup.py](file:///F:/SMRITRretailNX/backend/app/api/v1/master_lookup.py): Added scale-group unpacking in `list_lookup_values` for `size` and `color`.
 - [inventory.py (Service)](file:///F:/SMRITRretailNX/backend/app/services/inventory.py): Added multi-dimension validation in `create_product`.
 - [inventory.py (Router)](file:///F:/SMRITRretailNX/backend/app/api/v1/inventory.py): Added multi-dimension validation in `update_product`.
-- [item_master_svc.py](file:///F:/SMRITRretailNX/backend/app/services/item_master_svc.py): Added multi-dimension validation in `create_item`.
+- [item_master_svc.py](file:///F:/SMRITRretailNX/backend/app/services/item_master_svc.py): Added multi-dimension validation and dimension persistence in `create_item`.
+- [universal_master.py](file:///F:/SMRITRretailNX/backend/app/api/v1/universal_master.py): Preserved `HTTPException` propagation in `create_item` endpoint.
 - [errors.py](file:///F:/SMRITRretailNX/backend/app/core/errors.py): Added dictionary detail protection in `build_error_response`.
 - [itemMasterLookupGate.ts](file:///F:/SMRITRretailNX/src/services/itemMasterLookupGate.ts): Added `fetchGovernedLookupOptions` and `LookupOption` export.
 - [ItemDetailsGrid.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/ItemDetailsGrid.tsx): Added lookup options fetch and `<datalist>` typeahead bindings on governed dimension cells.
 - [ItemDetailsGridTab.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/tabs/ItemDetailsGridTab.tsx): Added lookup options fetch and `<datalist>` typeahead bindings on governed dimension cells.
+- [ItemEntryView.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/ItemEntryView.tsx): Added client-side HREP error unwrapping for structured `SMRITI-VAL-002` rejections.
+- [ItemMasterStudio.tsx](file:///F:/SMRITRretailNX/src/components/itemMaster/ItemMasterStudio.tsx): Added client-side HREP error unwrapping for structured `SMRITI-VAL-002` rejections.
 - [README.md](file:///F:/SMRITRretailNX/docs/walkthrough/README.md): Master index table updated.
 - [CHANGELOG.md](file:///F:/SMRITRretailNX/CHANGELOG.md): Release notes updated.
 
