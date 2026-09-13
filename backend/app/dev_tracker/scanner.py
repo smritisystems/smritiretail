@@ -253,9 +253,9 @@ MODULES_MAP = {
         "category": "Data & Config",
         "frontend": "FormulaRegistryTab.tsx",
         "routes": ["formulas", "kpi", "formula"],
-        "tables": ["kpi_definitions", "formulas"],
-        "tests": ["formula", "kpi", "commissionEngine"],
-        "docs": ["kpi", "formula"]
+        "tables": ["formula_definitions", "business_rule_definitions", "commission_rules"],
+        "tests": ["kpiRegistry", "formula", "kpi", "commissionEngine"],
+        "docs": ["kpi", "formula", "financial_policy"]
     },
     "psv": {
         "name": "Channel Visibility",
@@ -271,9 +271,9 @@ MODULES_MAP = {
         "category": "Data & Config",
         "frontend": "DocumentSeriesTab.tsx",
         "routes": ["document-series", "series", "sequences"],
-        "tables": ["document_series", "document_sequences"],
-        "tests": ["numberWords", "series"],
-        "docs": ["document", "series"]
+        "tables": ["document_series"],
+        "tests": ["documentSeries", "numbering", "numberWords", "series"],
+        "docs": ["document", "series", "naming"]
     },
     "approval-matrix": {
         "name": "Approval Matrix",
@@ -325,8 +325,8 @@ MODULES_MAP = {
         "category": "Data & Config",
         "frontend": "TermsEngineTab.tsx",
         "routes": ["terms", "store-policies", "policies"],
-        "tables": ["terms_conditions", "store_policies"],
-        "tests": ["billingTerm", "custPolicy"],
+        "tables": ["terms_clauses", "terms_defaults", "terms_snapshots"],
+        "tests": ["termsEngine", "billingTerm", "custPolicy", "terms"],
         "docs": ["terms", "policy"]
     },
     "data-exchange": {
@@ -588,13 +588,13 @@ def scan_codebase() -> dict[str, Any]:
 
         # Tests
         test_keywords = m_cfg.get("tests", [m_id])
-        test_file = next((t for t in test_files if any(k in t.lower() for k in test_keywords)), None)
+        test_file = next((t for t in test_files if any(k.lower() in t.lower() for k in test_keywords)), None)
         unit_tests_complete = bool(test_file)
         integration_tests_complete = unit_tests_complete and ("assert" in file_contents.get(test_file, "") or "expect" in file_contents.get(test_file, "") or "def test_" in file_contents.get(test_file, ""))
 
         # Docs
         doc_keywords = m_cfg.get("docs", [m_id])
-        doc_file = next((d for d in doc_files if any(k in d.lower() for k in doc_keywords)), None)
+        doc_file = next((d for d in doc_files if any(k.lower() in d.lower() for k in doc_keywords)), None)
         documentation_complete = bool(doc_file)
 
         qa_complete = unit_tests_complete and "TODO" not in all_backend_content

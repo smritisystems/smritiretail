@@ -231,9 +231,9 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
     "formulas": {
       frontendKeyword: "FormulaRegistryTab.tsx",
       routeKeywords: ["formulas", "kpi", "formula"],
-      tableKeywords: ["kpi_definitions", "formulas"],
-      testKeywords: ["formula", "kpi", "commissionEngine"],
-      docKeywords: ["kpi", "formula"]
+      tableKeywords: ["formula_definitions", "business_rule_definitions", "commission_rules"],
+      testKeywords: ["kpiRegistry", "formula", "kpi", "commissionEngine"],
+      docKeywords: ["kpi", "formula", "financial_policy"]
     },
     "psv": {
       frontendKeyword: "PsvTab.tsx",
@@ -245,9 +245,9 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
     "document-series": {
       frontendKeyword: "DocumentSeriesTab.tsx",
       routeKeywords: ["document-series", "series", "sequences"],
-      tableKeywords: ["document_series", "document_sequences"],
-      testKeywords: ["numberWords", "series"],
-      docKeywords: ["document", "series"]
+      tableKeywords: ["document_series"],
+      testKeywords: ["documentSeries", "numbering", "numberWords", "series"],
+      docKeywords: ["document", "series", "naming"]
     },
     "approval-matrix": {
       frontendKeyword: "ApprovalMatrixTab.tsx",
@@ -287,8 +287,8 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
     "terms-engine": {
       frontendKeyword: "TermsEngineTab.tsx",
       routeKeywords: ["terms", "store-policies", "policies"],
-      tableKeywords: ["terms_conditions", "store_policies"],
-      testKeywords: ["billingTerm", "custPolicy"],
+      tableKeywords: ["terms_clauses", "terms_defaults", "terms_snapshots"],
+      testKeywords: ["termsEngine", "billingTerm", "custPolicy", "terms"],
       docKeywords: ["terms", "policy"]
     },
     "data-exchange": {
