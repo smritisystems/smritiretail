@@ -1,6 +1,6 @@
 # Documentation Status Sheet
 
-*Generated: 2026-09-13T22:46:10.823660+00:00*
+*Generated: 2026-09-13T22:59:28.176648+00:00*
 
 | Module | Docs Present | Recommendation |
 | :--- | :---: | :--- |
@@ -24,9 +24,9 @@
 | Stock Ledger | ✅ | Documentation is up to date |
 | Master Framework | ✅ | Documentation is up to date |
 | Field Explorer (UFE) | ✅ | Write automated unit tests. |
-| KPI Registry | ❌ | Documentation is up to date |
+| KPI Registry | ✅ | Documentation is up to date |
 | Channel Visibility | ✅ | Documentation is up to date |
-| Numbering Engine | ✅ | Write automated unit tests. |
+| Numbering Engine | ✅ | Documentation is up to date |
 | Approval Matrix | ✅ | Documentation is up to date |
 | Staff Management | ✅ | Documentation is up to date |
 | My Profile Dashboard | ✅ | Documentation is up to date |

@@ -164,7 +164,7 @@ MODULES_MAP = {
         "frontend": "WikiTab.tsx",
         "routes": ["wiki", "metadata"],
         "tables": [],
-        "tests": ["wiki", "readme"],
+        "tests": ["wikiGyanKendra", "wiki", "readme"],
         "docs": ["wiki", "architecture", "readme"]
     },
     "profiles": {
@@ -244,7 +244,7 @@ MODULES_MAP = {
         "category": "Data & Config",
         "frontend": "FieldExplorerTab.tsx",
         "routes": ["ufe", "fields", "universal-fields"],
-        "tables": ["user_field_definitions", "custom_fields", "fields"],
+        "tables": ["field_definitions", "custom_fields", "metadata_fields"],
         "tests": ["fieldSearch", "globalFieldRegistry"],
         "docs": ["ufe", "field"]
     },
@@ -280,7 +280,7 @@ MODULES_MAP = {
         "category": "Data & Config",
         "frontend": "ApprovalMatrixTab.tsx",
         "routes": ["approval-matrix", "approvals"],
-        "tables": ["approval_matrices", "approval_tiers"],
+        "tables": ["approval_policies", "approval_requests", "approval_actions", "approval_workflow_logs"],
         "tests": ["approval", "matrix"],
         "docs": ["approval"]
     },
@@ -334,7 +334,7 @@ MODULES_MAP = {
         "category": "Data & Config",
         "frontend": "DataExchangeTab.tsx",
         "routes": ["data-exchange", "exchange", "import", "export"],
-        "tables": ["data_exchange_jobs"],
+        "tables": ["data_exchange_tasks", "data_exchange_field_mappings"],
         "tests": ["universalImportEngine", "globalExport"],
         "docs": ["exchange", "import", "export"]
     },
@@ -361,7 +361,7 @@ MODULES_MAP = {
         "category": "System",
         "frontend": "AuditLogsTab.tsx",
         "routes": ["audit", "audit-logs", "logs"],
-        "tables": ["audit_logs", "system_events"],
+        "tables": ["compliance_immutable_audit_logs", "module_audit_logs", "smriti_audit_log"],
         "tests": ["audit"],
         "docs": ["audit"]
     }
@@ -598,7 +598,7 @@ def scan_codebase() -> dict[str, Any]:
         documentation_complete = bool(doc_file)
 
         qa_complete = unit_tests_complete and "TODO" not in all_backend_content
-        performance_complete = "debounce" in file_contents.get(frontend_file, "") if frontend_file else False
+        performance_complete = ("debounce" in file_contents.get(frontend_file, "") or "useMemo" in file_contents.get(frontend_file, "")) if frontend_file else False
         production_ready = frontend_complete and backend_complete and database_complete and unit_tests_complete and documentation_complete
 
         # Compute overall %

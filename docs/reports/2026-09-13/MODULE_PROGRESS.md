@@ -1,6 +1,6 @@
 # Module Progress Details
 
-*Generated: 2026-09-13T22:46:10.823660+00:00*
+*Generated: 2026-09-13T22:59:28.176648+00:00*
 
 | Module | Category | Progress | Risk Rating |
 | :--- | :--- | :---: | :---: |
@@ -24,15 +24,15 @@
 | Stock Ledger | Inventory & Sourcing | 68% | Low |
 | Master Framework | Data & Config | 72% | Low |
 | Field Explorer (UFE) | Data & Config | 64% | Medium |
-| KPI Registry | Data & Config | 60% | Medium |
+| KPI Registry | Data & Config | 72% | Low |
 | Channel Visibility | Data & Config | 72% | Low |
-| Numbering Engine | Data & Config | 56% | Medium |
+| Numbering Engine | Data & Config | 80% | Low |
 | Approval Matrix | Data & Config | 64% | Low |
 | Staff Management | Operations | 68% | Low |
 | My Profile Dashboard | Operations | 76% | Low |
 | Print Studio | Documents & Print | 76% | Low |
 | Print History Logs | Documents & Print | 72% | Low |
-| Terms & Conditions | Data & Config | 52% | Medium |
+| Terms & Conditions | Data & Config | 64% | Medium |
 | Data Exchange Hub | Data & Config | 64% | Medium |
 | Company Setup Wizard | Operations | 80% | Low |
 | About SMRITI | System | 84% | Low |
