@@ -89,24 +89,29 @@ This document details the architecture and implementation for exposing Master Lo
 ---
 
 ## 9. Verification Results
-| Check | Requirement | Result | Evidence |
+| Check | Requirement | Result | Evidence & Boundaries |
 | :--- | :--- | :--- | :--- |
-| **Backend Service** | `search_audit_logs` returns before/after state & username | **Done** | Unit test `test_master_lookup_compliance_audit.py` passed |
-| **Search Path** | `/api/v1/integration/audit/logs` serves lookup history | **Done** | Live HTTP 200 with 2 audit logs |
-| **Direct Endpoint** | `/api/v1/masters/lookup/{type}/values/{id}/audit` | **Done** | Live HTTP 200 with 2 audit logs |
-| **Frontend UI** | `MasterLookupDetailDrawer` in `MasterListScreen` | **Done** | `npm run lint` 0 errors, `npm run build` green |
-| **Docker Stack** | Multi-container stack recompiled & healthy | **Done** | All 4 containers healthy (`smriti-api`, `smriti-web`, `smriti-db`, `smriti-mssql`) |
+| **Backend Service** | `search_audit_logs` returns before/after state & username | **Partially Verified** | Verified for `dept` lookup and test mocks in `test_master_lookup_compliance_audit.py`. Full cross-type matrix remains unexercised. |
+| **Search Path** | `/api/v1/integration/audit/logs` serves lookup history | **Partially Verified** | Live HTTP 200 characterization verified with 2 audit logs for single-user (`manager`) flow on port 8000. Multi-tenant fallback tested conceptually. |
+| **Direct Endpoint** | `/api/v1/masters/lookup/{type}/values/{id}/audit` | **Partially Verified** | Live HTTP 200 verified on `dept` item ID. Other lookup types share the same handler but lack dedicated integration assertions. |
+| **Frontend UI** | `MasterLookupDetailDrawer` in `MasterListScreen` | **Partially Verified** | Static compile passed (`tsc --noEmit` exit 0, Vite build green). Interactive browser verification across all tenant roles is pending. |
+| **Docker Stack** | Multi-container stack recompiled & healthy | **Done** | All 4 containers healthy (`smriti-api`, `smriti-web`, `smriti-db`, `smriti-mssql`). |
 
 ---
 
-## 10. Known Limitations
-- Master Lookup audit history prior to v3.31.0 only exists if mutations occurred after the introduction of `_audit_master_value_change`.
+## 10. Known Limitations & Proof Boundaries
+1. **Scope of Proof**: Live characterization was conducted against a single tenant context (`GLOBAL` / `manager` user) on the `dept` lookup type. While the backend serialization and drawer components are generic, full end-to-end matrix proof across all lookup types (`brand`, `category`, `size_group`, `color_group`) and multi-tenant schemas remains unmeasured.
+2. **Cross-Database Fallback Mechanics**: In `/api/v1/integration/audit/logs`, the search endpoint queries `control_db` first and cascades to company database fallback only if `control_db` yields 0 records and `company_id != "GLOBAL"`. This is sequential fallback rather than a federated union merge; if records exist in both control-plane and tenant database for the same entity, only control-plane records are returned.
+3. **Historical Audit Coverage**: Master Lookup audit history prior to v3.31.0 only exists if mutations occurred after the introduction of `_audit_master_value_change`.
+4. **Static vs. Runtime UI Verification**: `tsc --noEmit` and `npm run build` verify static type compliance and bundling integrity, but do not replace automated Cypress/Playwright browser interaction testing across user roles (e.g. verifying role-based access gates for `CASHIER` vs `MANAGER`).
 
 ---
 
 ## 11. Future Work
+- Implement deterministic multi-tenant test suites validating fallback across discrete tenant PostgreSQL databases (`comp_001`, `smriti001`) vs control plane (`smritisys`).
+- Add federated union querying in `integration.py` if an entity spans both control and tenant ledgers.
 - Add batch export of compliance audit logs directly to PDF with statutory watermarks.
-- Support multi-field historical timeline comparison for nested JSON schemas.
+- Add automated Playwright E2E browser tests exercising the `MasterLookupDetailDrawer` across different lookup types.
 
 ---
 
