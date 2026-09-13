@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.30.0
+  * Version    : 3.31.0
   * Created    : 2026-07-11
-  * Modified   : 2026-09-09
+  * Modified   : 2026-09-13
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,20 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [3.31.0] - 2026-09-13
+
+#### Master Lookup Compliance Audit Exposure & Operational Visibility
+
+**Walkthrough:** [Master_Lookup_Compliance_Audit_Exposure_v3.31.0.md](docs/walkthrough/master/Master_Lookup_Compliance_Audit_Exposure_v3.31.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Unified Compliance Audit Search Path:** Enhanced `/api/v1/integration/audit/logs` to query control plane database (`smritisys`) with company database fallback, allowing managers to query master lookup and platform audits alongside tenant transactions.
+- **Enhanced Search Capabilities:** Extended `ComplianceAuditService.search_audit_logs` to support `GLOBAL` company fallback, `entity_name` prefix searches (e.g. `master_lookup:dept`), and user ID-to-username batch resolution from the `User` table.
+- **Dedicated Master Lookup Audit Endpoints:** Added `GET /api/v1/masters/lookup/{type_code}/values/{id}/audit` and `GET /api/v1/masters/lookup/{type_code}/audit` for item-level and type-level compliance querying.
+- **Operational UI Detail Drawer (`MasterLookupDetailDrawer.tsx`):** Slide-over drawer component with item overview, chronological audit timeline, visual field-by-field diffs (code, name, description, active status, sort order), and copyable SHA-256 validation pill.
+- **Master Management Integration:** Configured `slots.detailDrawer` in `masterLookup.confi.tsx` and wired both row-level "View Details" drawers and header "Audit Trail" action in `MasterMgmtTab.tsx`.
+- **Verification:** 1/1 pytest green (`test_master_lookup_compliance_audit.py`), 0 TypeScript compiler errors (`npm run lint`), `npm run build` green, live Docker container validation verified.
 
 ### [4.0.0] - 2026-09-11
 
