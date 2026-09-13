@@ -17,10 +17,12 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from sqlalchemy import delete
 from app.main import app
 from app.core.security import create_access_token
 from app.models.auth import User, UserRole
-from app.db.session import async_session
+from app.db.session import async_session, get_company_sessionmaker
+from app.models.inventory import Product
 from app.services.catalog_validation import CatalogDimensionValidator
 
 
@@ -181,63 +183,74 @@ async def test_product_create_and_update_brand_governance_rejection():
         "X-Branch-ID": "BR-MAIN-001",
     }
 
-    # 1. Attempt with unapproved brand
-    payload = {
-        "code": f"PROD-TEST-UNAPP-{uuid.uuid4().hex[:6]}",
-        "name": "Unapproved Brand Test Product",
-        "category": "Footwear",
-        "brand": "UNAPPROVED_BRAND_REJECT_ME",
-        "price": 999.0,
-        "mrp": 1299.0,
-        "gst_percentage": 18.0,
-        "barcode": f"BAR-{uuid.uuid4().hex[:8]}",
-        "hsn_code": "6403",
-        "attributes": {"style_no": "STYLE-101", "article_no": "ART-101"},
-    }
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        await session.execute(delete(Product).where(Product.code.like("PROD-TEST-%")))
+        await session.commit()
 
-    res = client.post("/api/v1/products/", json=payload, headers=headers)
-    assert res.status_code == 422, f"Expected 422 but got {res.status_code}: {res.text}"
-    assert "UNAPPROVED_BRAND_REJECT_ME" in res.text
-    assert "not registered in the Master Lookup registry" in res.text
+    prod_id = None
+    try:
+        # 1. Attempt with unapproved brand
+        payload = {
+            "code": f"PROD-TEST-UNAPP-{uuid.uuid4().hex[:6]}",
+            "name": "Unapproved Brand Test Product",
+            "category": "Footwear",
+            "brand": "UNAPPROVED_BRAND_REJECT_ME",
+            "price": 999.0,
+            "mrp": 1299.0,
+            "gst_percentage": 18.0,
+            "barcode": f"BAR-{uuid.uuid4().hex[:8]}",
+            "hsn_code": "6403",
+            "attributes": {"style_no": "STYLE-101", "article_no": "ART-101"},
+        }
 
-    # 2. Attempt with unapproved color
-    payload["brand"] = "smriti"
-    payload["color"] = "NEON_UNKNOWN_COLOR"
-    res_col = client.post("/api/v1/products/", json=payload, headers=headers)
-    assert res_col.status_code == 422
-    assert "NEON_UNKNOWN_COLOR" in res_col.text
+        res = client.post("/api/v1/products/", json=payload, headers=headers)
+        assert res.status_code == 422, f"Expected 422 but got {res.status_code}: {res.text}"
+        assert "UNAPPROVED_BRAND_REJECT_ME" in res.text
+        assert "not registered in the Master Lookup registry" in res.text
 
-    # 3. Attempt with unapproved size
-    payload["color"] = "black"
-    payload["size"] = "SIZE_9999"
-    res_sz = client.post("/api/v1/products/", json=payload, headers=headers)
-    assert res_sz.status_code == 422
-    assert "SIZE_9999" in res_sz.text
+        # 2. Attempt with unapproved color
+        payload["brand"] = "smriti"
+        payload["color"] = "NEON_UNKNOWN_COLOR"
+        res_col = client.post("/api/v1/products/", json=payload, headers=headers)
+        assert res_col.status_code == 422
+        assert "NEON_UNKNOWN_COLOR" in res_col.text
 
-    # 4. Success creation with all valid canonical dimensions
-    payload["code"] = f"PROD-TEST-APP-{uuid.uuid4().hex[:6]}"
-    payload["barcode"] = f"BAR-{uuid.uuid4().hex[:8]}"
-    payload["size"] = "40"
-    payload["color"] = "black"
-    payload["style_code"] = "ch-01-a"
-    payload["vendor_code"] = "jrm"
+        # 3. Attempt with unapproved size
+        payload["color"] = "black"
+        payload["size"] = "SIZE_9999"
+        res_sz = client.post("/api/v1/products/", json=payload, headers=headers)
+        assert res_sz.status_code == 422
+        assert "SIZE_9999" in res_sz.text
 
-    success_res = client.post("/api/v1/products/", json=payload, headers=headers)
-    assert success_res.status_code == 201, f"Expected 201 but got {success_res.status_code}: {success_res.text}"
-    prod_data = success_res.json()
-    assert prod_data.get("brand") == "SMRITI"
-    assert prod_data.get("color") == "BLACK"
-    assert prod_data.get("size") == "40"
-    assert prod_data.get("style_code") == "CH-01-A"
-    assert prod_data.get("vendor_code") == "JRM"
+        # 4. Success creation with all valid canonical dimensions
+        payload["code"] = f"PROD-TEST-APP-{uuid.uuid4().hex[:6]}"
+        payload["barcode"] = f"BAR-{uuid.uuid4().hex[:8]}"
+        payload["size"] = "40"
+        payload["color"] = "black"
+        payload["style_code"] = "ch-01-a"
+        payload["vendor_code"] = "jrm"
 
-    # 5. Test update_product rejection with unapproved color
-    prod_id = prod_data["id"]
-    update_res = client.put(f"/api/v1/products/{prod_id}", json={"color": "FAKE_COLOR_999"}, headers=headers)
-    assert update_res.status_code == 422
-    assert "not registered in the Master Lookup registry" in update_res.text
+        success_res = client.post("/api/v1/products/", json=payload, headers=headers)
+        assert success_res.status_code == 201, f"Expected 201 but got {success_res.status_code}: {success_res.text}"
+        prod_data = success_res.json()
+        assert prod_data.get("brand") == "SMRITI"
+        assert prod_data.get("color") == "BLACK"
+        assert prod_data.get("size") == "40"
+        assert prod_data.get("style_code") == "CH-01-A"
+        assert prod_data.get("vendor_code") == "JRM"
 
-    # 6. Test update_product success with approved color "white"
-    update_ok = client.put(f"/api/v1/products/{prod_id}", json={"color": "white"}, headers=headers)
-    assert update_ok.status_code == 200
-    assert update_ok.json().get("color") == "WHITE"
+        # 5. Test update_product rejection with unapproved color
+        prod_id = prod_data["id"]
+        update_res = client.put(f"/api/v1/products/{prod_id}", json={"color": "FAKE_COLOR_999"}, headers=headers)
+        assert update_res.status_code == 422
+        assert "not registered in the Master Lookup registry" in update_res.text
+
+        # 6. Test update_product success with approved color "white"
+        update_ok = client.put(f"/api/v1/products/{prod_id}", json={"color": "white"}, headers=headers)
+        assert update_ok.status_code == 200
+        assert update_ok.json().get("color") == "WHITE"
+    finally:
+        async with session_factory() as session:
+            await session.execute(delete(Product).where(Product.code.like("PROD-TEST-%")))
+            await session.commit()
