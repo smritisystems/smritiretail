@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.23.0
+Version      : 3.31.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-09-13
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -17,7 +17,7 @@ import uuid
 import hashlib
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.audit import ComplianceImmutableAuditLog
@@ -28,6 +28,43 @@ class ComplianceAuditService:
     SMRITI Compliance & Immutable Regulatory Audit Service (Section 12).
     Records cryptographic, tamper-evident audit trails with SHA-256 integrity verification.
     """
+
+    @classmethod
+    def serialize_audit_log(
+        cls,
+        log: ComplianceImmutableAuditLog,
+        actor_username: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Return an operationally visible audit record shape for managers and search screens."""
+
+        def parse_json(value: Optional[str]) -> Optional[Any]:
+            if not value:
+                return None
+            try:
+                parsed = json.loads(value)
+                return parsed
+            except Exception:
+                return None
+
+        return {
+            "id": log.id,
+            "uuid": str(getattr(log, "uuid", "")),
+            "company_id": log.company_id,
+            "branch_id": log.branch_id,
+            "event_type": log.event_type,
+            "entity_name": log.entity_name,
+            "entity_id": log.entity_id,
+            "actor_user_id": log.actor_user_id,
+            "actor_username": actor_username or log.actor_user_id,
+            "actor_role": log.actor_role,
+            "ip_address": log.ip_address,
+            "before_state": parse_json(log.before_state_json),
+            "after_state": parse_json(log.after_state_json),
+            "action_summary": log.action_summary,
+            "payload_hash": log.payload_hash,
+            "timestamp": log.timestamp.isoformat() if log.timestamp else None,
+        }
+
 
     @classmethod
     def compute_payload_hash(
@@ -128,34 +165,47 @@ class ComplianceAuditService:
         entity_name: Optional[str] = None,
         entity_id: Optional[str] = None,
         event_type: Optional[str] = None,
-        limit: int = 50
+        limit: int = 50,
+        include_all_companies: bool = False,
     ) -> List[Dict[str, Any]]:
-        """Searches immutable audit logs for regulatory and compliance review."""
+        """Search immutable audit logs for compliance review while surfacing the full
+        before/after operational payload as part of the standard audit record envelope.
+        """
         stmt = select(ComplianceImmutableAuditLog).where(
-            ComplianceImmutableAuditLog.company_id == company_id,
-            ComplianceImmutableAuditLog.is_deleted == False
+            ComplianceImmutableAuditLog.is_deleted == False,
+            ComplianceImmutableAuditLog.is_active == True,
         ).order_by(ComplianceImmutableAuditLog.timestamp.desc()).limit(limit)
 
+        if not include_all_companies:
+            if company_id:
+                stmt = stmt.where(ComplianceImmutableAuditLog.company_id.in_([company_id, "GLOBAL"]))
+            else:
+                stmt = stmt.where(ComplianceImmutableAuditLog.company_id == "GLOBAL")
+
         if entity_name:
-            stmt = stmt.where(ComplianceImmutableAuditLog.entity_name == entity_name)
+            stmt = stmt.where(
+                or_(
+                    ComplianceImmutableAuditLog.entity_name == entity_name,
+                    ComplianceImmutableAuditLog.entity_name.like(f"{entity_name}:%"),
+                )
+            )
         if entity_id:
             stmt = stmt.where(ComplianceImmutableAuditLog.entity_id == entity_id)
         if event_type:
             stmt = stmt.where(ComplianceImmutableAuditLog.event_type == event_type)
 
         logs = (await session.execute(stmt)).scalars().all()
-        return [
-            {
-                "id": l.id,
-                "event_type": l.event_type,
-                "entity_name": l.entity_name,
-                "entity_id": l.entity_id,
-                "actor_user_id": l.actor_user_id,
-                "actor_role": l.actor_role,
-                "ip_address": l.ip_address,
-                "action_summary": l.action_summary,
-                "payload_hash": l.payload_hash,
-                "timestamp": l.timestamp.isoformat() if l.timestamp else None
-            }
-            for l in logs
-        ]
+        user_ids = {l.actor_user_id for l in logs if l.actor_user_id}
+        user_map: Dict[str, str] = {}
+        if user_ids:
+            try:
+                from ..models.auth import User
+                res = await session.execute(
+                    select(User.id, User.username).where(User.id.in_(user_ids))
+                )
+                for row in res.all():
+                    user_map[str(row[0])] = str(row[1])
+            except Exception:
+                pass
+
+        return [cls.serialize_audit_log(log, user_map.get(log.actor_user_id)) for log in logs]

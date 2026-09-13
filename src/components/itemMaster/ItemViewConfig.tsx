@@ -15,6 +15,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   saveGlobalColumnOrder, 
+  persistRoleGlobalFieldVisibility,
   getGlobalFieldVisibility, 
   getUnifiedItemMasterFields 
 } from "../../services/unifiedFieldCatalog.ts";
@@ -51,6 +52,7 @@ interface SmritiItemViewConfigurationProps {
   currentConfig: ItemViewConfigState;
   onSaveConfig: (config: ItemViewConfigState) => void;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
+  userRole?: string | null;
 }
 
 const PRESET_ESSENTIAL = [
@@ -66,7 +68,8 @@ export const ItemViewConfig: React.FC<SmritiItemViewConfigurationProps> = ({
   availableFields: propAvailableFields,
   currentConfig,
   onSaveConfig,
-  onNotification
+  onNotification,
+  userRole
 }) => {
   const [dynamicDefinitions, setDynamicDefinitions] = useState<AttributeDefinition[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "classic">(currentConfig.viewMode || "grid");
@@ -235,6 +238,7 @@ export const ItemViewConfig: React.FC<SmritiItemViewConfigurationProps> = ({
 
   const handleSave = () => {
     saveGlobalColumnOrder(selectedColumns);
+    void persistRoleGlobalFieldVisibility(selectedColumns, userRole);
     onSaveConfig({
       viewMode,
       visibleColumns: selectedColumns,

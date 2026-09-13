@@ -13,6 +13,7 @@ License      : Proprietary Commercial Software
 
 import uuid
 import json
+from datetime import date
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -29,8 +30,66 @@ class AttributesService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def validate_product_attributes(self, values: dict | None, company_id: str | None = None) -> None:
+        """Validate governed dynamic attributes while preserving legacy unknown keys."""
+        provided = values or {}
+        filters = [
+            AttributeDefinition.is_deleted == False,
+            AttributeDefinition.is_enabled == True,
+        ]
+        if company_id:
+            filters.append(
+                (AttributeDefinition.company_id == company_id) |
+                AttributeDefinition.company_id.is_(None)
+            )
+        result = await self.db.execute(select(AttributeDefinition).where(*filters))
+        definitions = list(result.scalars().all())
+        errors: list[str] = []
+        for definition in definitions:
+            raw_value = provided.get(definition.name)
+            is_blank = raw_value is None or (isinstance(raw_value, str) and not raw_value.strip())
+            if definition.is_mandatory and is_blank:
+                errors.append(f"{definition.label} is required")
+                continue
+            if is_blank:
+                continue
+
+            data_type = (definition.data_type or "Text").strip().lower()
+            if data_type in {"number", "numeric", "decimal", "integer"}:
+                try:
+                    float(raw_value)
+                except (TypeError, ValueError):
+                    errors.append(f"{definition.label} must be numeric")
+            elif data_type == "date":
+                try:
+                    date.fromisoformat(str(raw_value).strip())
+                except ValueError:
+                    errors.append(f"{definition.label} must use YYYY-MM-DD format")
+            elif data_type in {"boolean", "bool"} and not isinstance(raw_value, bool):
+                if str(raw_value).strip().lower() not in {"true", "false", "1", "0", "yes", "no"}:
+                    errors.append(f"{definition.label} must be boolean")
+            elif data_type in {"select", "dropdown", "multi_select", "multiselect"}:
+                try:
+                    allowed = json.loads(definition.valid_values or "[]")
+                except json.JSONDecodeError:
+                    allowed = []
+                allowed_values = {str(value).strip().casefold() for value in allowed}
+                submitted = raw_value if isinstance(raw_value, list) else [raw_value]
+                invalid = [str(value) for value in submitted if str(value).strip().casefold() not in allowed_values]
+                if invalid:
+                    errors.append(f"{definition.label} contains invalid value(s): {', '.join(invalid)}")
+
+        if errors:
+            raise HTTPException(status_code=422, detail={"message": "Dynamic attribute validation failed", "errors": errors})
+
     async def list_definitions(self) -> list[AttributeDefinition]:
-        q = select(AttributeDefinition).where(AttributeDefinition.is_deleted == False)
+        q = select(AttributeDefinition).where(
+            AttributeDefinition.is_deleted == False
+        ).order_by(
+            AttributeDefinition.display_order.asc(),
+            AttributeDefinition.created_at.asc(),
+            AttributeDefinition.id.asc(),
+        )
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
@@ -104,6 +163,33 @@ class AttributesService:
         defn = await self.db.get(AttributeDefinition, id)
         if not defn or defn.is_deleted:
             raise HTTPException(status_code=404, detail="Attribute definition not found")
+
+        groups = await self.db.execute(
+            select(AttributeGroup).where(AttributeGroup.is_deleted == False)
+        )
+        for group in groups.scalars().all():
+            try:
+                member_ids = json.loads(group.attribute_ids or "[]")
+            except json.JSONDecodeError:
+                member_ids = []
+            if id in member_ids:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Attribute '{defn.label}' is used by group '{group.name}'. Remove it from the group before deactivation.",
+                )
+
+        product = await self.db.scalar(
+            select(Product.id).where(
+                Product.is_deleted == False,
+                Product.attributes.has_key(defn.name),
+            ).limit(1)
+        )
+        if product:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Attribute '{defn.label}' has stored product values. Deactivate it only after a data-retention review.",
+            )
+
         defn.is_deleted = True
         defn.is_active = False
         defn.deleted_at = datetime.now(timezone.utc)
@@ -111,7 +197,12 @@ class AttributesService:
         await self.db.commit()
 
     async def list_groups(self) -> list[AttributeGroup]:
-        q = select(AttributeGroup).where(AttributeGroup.is_deleted == False)
+        q = select(AttributeGroup).where(
+            AttributeGroup.is_deleted == False
+        ).order_by(
+            AttributeGroup.name.asc(),
+            AttributeGroup.id.asc(),
+        )
         res = await self.db.execute(q)
         return list(res.scalars().all())
 

@@ -55,7 +55,6 @@ import {
   Scale,
   FileText,
   Check,
-  Sparkles,
 } from "lucide-react";
 import { useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult, LookupEntity } from "../../context/F2DispatcherContext.tsx";
@@ -183,8 +182,6 @@ export const UniversalBrowseEngine: React.FC<UniversalBrowseEngineProps> = ({ us
   // Data fetched for the active entity
   const [entityData, setEntityData] = useState<Record<string, Record<string, unknown>[]>>({});
   const [loading, setLoading] = useState(false);
-  const [aiBusy, setAiBusy] = useState(false);
-  const [aiReply, setAiReply] = useState<string | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -478,33 +475,6 @@ export const UniversalBrowseEngine: React.FC<UniversalBrowseEngineProps> = ({ us
     setActiveFilterKey(null);
   };
 
-  const askAiAboutLookup = async () => {
-    setAiBusy(true);
-    setAiReply(null);
-    try {
-      const response = await apiFetchV1<{ reply?: string }>("/ai/chat", {
-        method: "POST",
-        body: JSON.stringify({
-          message: `Explain the ${activeTab} lookup and suggest how to find the correct record for this query: ${initialSearchValue || "(no initial query)"}.`,
-          context: {
-            source: "F2_LOOKUP",
-            entity: activeTab,
-            initialSearchValue: initialSearchValue || null,
-            activeFilters: Object.entries(columnFilters)
-              .filter(([, filter]) => filter.value.trim())
-              .map(([key, filter]) => ({ key, condition: filter.condition, value: filter.value })),
-            resultCount: filteredRecords.length,
-          },
-        }),
-      });
-      setAiReply(response?.reply || "The AI assistant returned no guidance.");
-    } catch (error) {
-      setAiReply(error instanceof Error ? error.message : "AI lookup guidance is unavailable.");
-    } finally {
-      setAiBusy(false);
-    }
-  };
-
   // ── Keyboard navigation (scoped to the dialog) ─────────────────────────────
   const handleKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
@@ -676,16 +646,6 @@ export const UniversalBrowseEngine: React.FC<UniversalBrowseEngineProps> = ({ us
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => void askAiAboutLookup()}
-              disabled={aiBusy}
-              className="px-2 py-1.5 rounded-lg border border-[#a8b8ff] text-[#00288e] dark:text-[#c8d2ff] hover:bg-[#dfe5ff] dark:hover:bg-[#26345d] disabled:opacity-50 text-[10px] font-bold flex items-center gap-1.5 transition cursor-pointer"
-              title="Ask AI about this F2 lookup"
-            >
-              <Sparkles size={13} />
-              <span>{aiBusy ? "Thinking..." : "Ask AI"}</span>
-            </button>
-            <button
-              type="button"
               onClick={closeLookup}
               className="text-[#565e74] hover:bg-[#f3f4f5] p-1.5 rounded-lg transition cursor-pointer"
               title="Close [Esc]"
@@ -694,18 +654,6 @@ export const UniversalBrowseEngine: React.FC<UniversalBrowseEngineProps> = ({ us
             </button>
           </div>
         </header>
-
-        {aiReply && (
-          <div className="px-4 py-2 bg-[#eef2ff] dark:bg-[#1d2a4a] border-b border-[#c4c5d5] dark:border-[#444653] text-[11px] text-[#26345d] dark:text-[#dbe3ff]">
-            <div className="flex items-start gap-2">
-              <Sparkles size={14} className="mt-0.5 shrink-0" />
-              <p className="whitespace-pre-wrap">{aiReply}</p>
-              <button type="button" onClick={() => setAiReply(null)} className="ml-auto text-xs opacity-70 hover:opacity-100" aria-label="Dismiss AI guidance">
-                <X size={14} />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* ====================================================================
             2. SPLIT WORKSPACE

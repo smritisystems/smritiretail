@@ -23,6 +23,7 @@ from ..models.item_master import Item, ItemVariant, ItemBarcode, LegacyIdMapping
 from ..models.pricing import PriceBook, PriceBookEntry
 from ..schemas.inventory import ProductCreate
 from ..api.deps import TenantContext
+from .attributes import AttributesService
 
 class InventoryService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
@@ -81,6 +82,11 @@ class InventoryService:
         self.db.add(movement)
 
     async def create_product(self, product_in: ProductCreate) -> Product:
+
+        await AttributesService(self.db).validate_product_attributes(
+            product_in.attributes,
+            self.tenant_ctx.company_id,
+        )
 
         # Check for duplicate code
         existing_code = await self.db.execute(

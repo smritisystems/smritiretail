@@ -64,6 +64,7 @@ LICENSE_STATUS_KEY = "license_status"
 LICENSE_TYPE_KEY = "license_type"
 LICENSE_MODE_KEY = "license_mode"
 LICENSE_EXPIRES_KEY = "license_expires_at"
+ITEM_MASTER_PROFILE_PREFIX = "item_master_profile"
 
 layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
 
@@ -485,6 +486,19 @@ async def save_layout_preferences(
         "favorites": payload.get("favorites", current_layout.get("favorites", ["pos", "sales"])) or ["pos", "sales"],
     }
 
+    item_master = payload.get("itemMaster")
+    if isinstance(item_master, dict):
+        current_item_master = current_layout.get("itemMaster", {})
+        if not isinstance(current_item_master, dict):
+            current_item_master = {}
+        visible_fields = item_master.get("visibleFields", current_item_master.get("visibleFields", []))
+        if not isinstance(visible_fields, list) or not all(isinstance(value, str) for value in visible_fields):
+            raise HTTPException(status_code=400, detail="itemMaster.visibleFields must be a list of field keys.")
+        new_layout["itemMaster"] = {
+            "visibleFields": list(dict.fromkeys(visible_fields)),
+            "updatedAt": item_master.get("updatedAt", current_item_master.get("updatedAt")),
+        }
+
     existing_prefs["layout"] = new_layout
     current_user.preferences_json = json.dumps(existing_prefs)
     db.add(current_user)
@@ -492,6 +506,56 @@ async def save_layout_preferences(
     await db.refresh(current_user)
 
     return {"success": True, "prefs": new_layout}
+
+
+@router.get("/layout/item-master-profile")
+async def get_item_master_profile(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the shared ItemMaster field profile for the active company and role."""
+    company_id = getattr(current_user, "company_id", None) or "GLOBAL"
+    role = str(getattr(current_user, "role", "OPERATOR")).upper()
+    config = await get_system_config(db, f"{ITEM_MASTER_PROFILE_PREFIX}:{company_id}:{role}")
+    if not config:
+        return {"visibleFields": [], "scope": {"companyId": company_id, "role": role}}
+    try:
+        payload = json.loads(config.value)
+    except (TypeError, json.JSONDecodeError):
+        payload = {}
+    visible_fields = payload.get("visibleFields", []) if isinstance(payload, dict) else []
+    if not isinstance(visible_fields, list) or not all(isinstance(value, str) for value in visible_fields):
+        visible_fields = []
+    return {
+        "visibleFields": list(dict.fromkeys(visible_fields)),
+        "scope": {"companyId": company_id, "role": role},
+    }
+
+
+@router.post(
+    "/layout/item-master-profile",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def save_item_master_profile(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Save a shared ItemMaster field profile for the active company and role."""
+    visible_fields = payload.get("visibleFields")
+    if not isinstance(visible_fields, list) or not all(isinstance(value, str) for value in visible_fields):
+        raise HTTPException(status_code=400, detail="visibleFields must be a list of field keys.")
+    company_id = getattr(current_user, "company_id", None) or "GLOBAL"
+    role = str(payload.get("role") or getattr(current_user, "role", "OPERATOR")).upper()
+    if current_user.role != UserRole.SYSADMIN and role != str(current_user.role).upper():
+        raise HTTPException(status_code=403, detail="You may only update the active role profile.")
+    config = await set_system_config(
+        db,
+        f"{ITEM_MASTER_PROFILE_PREFIX}:{company_id}:{role}",
+        json.dumps({"visibleFields": list(dict.fromkeys(visible_fields))}),
+        current_user,
+    )
+    return {"success": True, "visibleFields": list(dict.fromkeys(visible_fields)), "configId": config.id}
 
 
 @router.get(

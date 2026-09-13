@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.17.0
+Version      : 3.31.0
 Created      : 2026-07-14
-Modified     : 2026-07-14
+Modified     : 2026-09-13
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -36,8 +36,37 @@ from ...schemas.master_lookup import (
     MasterValueCreate, MasterValueUpdate, MasterValueResponse
 )
 from ...services.size_groups import normalize_size_group_payload
+from ...services.compliance_audit import ComplianceAuditService
 
 router = APIRouter()
+
+
+async def _audit_master_value_change(
+    db: AsyncSession,
+    current_user: User,
+    action: str,
+    type_code: str,
+    value_id: str,
+    summary: str,
+    before: dict | None = None,
+    after: dict | None = None,
+) -> None:
+    company_id = str(getattr(current_user, "company_id", None) or "GLOBAL")
+    branch_id = str(getattr(current_user, "branch_id", None) or "BR-001")
+    role = getattr(current_user.role, "value", current_user.role)
+    await ComplianceAuditService.record_audit_event(
+        session=db,
+        company_id=company_id,
+        branch_id=branch_id,
+        event_type=f"MASTER_LOOKUP_{action}",
+        entity_name=f"master_lookup:{type_code}",
+        entity_id=str(value_id),
+        action_summary=summary,
+        actor_user_id=str(current_user.id),
+        actor_role=str(role),
+        before_state=before,
+        after_state=after,
+    )
 
 # Schema validation cache
 validator_cache = {}
@@ -589,6 +618,23 @@ async def create_lookup_value(
         is_deleted=False
     )
     db.add(item)
+    await db.flush()
+    await _audit_master_value_change(
+        db,
+        current_user,
+        "CREATE",
+        type_code,
+        str(item.id),
+        f"Created {type_code} lookup value '{item.code}'.",
+        after={
+            "code": item.code,
+            "name": item.name,
+            "active": item.active,
+            "sort_order": item.sort_order,
+            "vendor_code": item.vendor_code,
+            "data": item.data,
+        },
+    )
     await db.commit()
     await db.refresh(item)
     return item
@@ -631,6 +677,15 @@ async def update_lookup_value(
             status_code=404,
             detail="Master value not found or matched."
         )
+
+    before_state = {
+        "code": item.code,
+        "name": item.name,
+        "active": item.active,
+        "sort_order": item.sort_order,
+        "vendor_code": item.vendor_code,
+        "data": item.data,
+    }
 
     # Validate JSON Data Payload if updated
     if payload.data is not None:
@@ -698,6 +753,23 @@ async def update_lookup_value(
         setattr(item, "sort_order", payload.sort_order)
 
     setattr(item, "updated_at", datetime.now(timezone.utc))
+    await _audit_master_value_change(
+        db,
+        current_user,
+        "UPDATE",
+        type_code,
+        str(item.id),
+        f"Updated {type_code} lookup value '{item.code}'.",
+        before=before_state,
+        after={
+            "code": item.code,
+            "name": item.name,
+            "active": item.active,
+            "sort_order": item.sort_order,
+            "vendor_code": item.vendor_code,
+            "data": item.data,
+        },
+    )
     await db.commit()
     await db.refresh(item)
     return item
@@ -739,6 +811,15 @@ async def delete_lookup_value(
             detail="Master value not found or matched."
         )
 
+    before_state = {
+        "code": item.code,
+        "name": item.name,
+        "active": item.active,
+        "sort_order": item.sort_order,
+        "vendor_code": item.vendor_code,
+        "data": item.data,
+    }
+
     reference_reason = await _master_value_reference_reason(db, item, type_code)
     if reference_reason:
         raise HTTPException(
@@ -752,6 +833,16 @@ async def delete_lookup_value(
     setattr(item, "is_deleted", True)
     setattr(item, "deleted_at", datetime.now(timezone.utc))
     setattr(item, "deleted_by", current_user.username)
+    await _audit_master_value_change(
+        db,
+        current_user,
+        "DELETE",
+        type_code,
+        str(item.id),
+        f"Retired {type_code} lookup value '{item.code}'.",
+        before=before_state,
+        after={"is_deleted": True, "active": False},
+    )
     try:
         await db.commit()
     except IntegrityError as exc:
@@ -766,3 +857,69 @@ async def delete_lookup_value(
             ) from exc
         raise
     return {"success": True, "deletedId": str(id)}
+
+
+@router.get(
+    "/lookup/{type_code}/values/{id}/audit",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Get Master Lookup Item Audit History",
+)
+async def get_lookup_value_audit(
+    type_code: str,
+    id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    """
+    Returns the immutable compliance audit history for a specific master lookup item.
+    Enables managers to verify who changed code, name, description, active status, or sort order.
+    """
+    company_id = getattr(current_user, "company_id", None)
+    include_all = company_id is None or company_id == "GLOBAL"
+    logs = await ComplianceAuditService.search_audit_logs(
+        session=db,
+        company_id=company_id or "GLOBAL",
+        entity_name=f"master_lookup:{type_code}",
+        entity_id=str(id),
+        limit=50,
+        include_all_companies=include_all,
+    )
+    return {
+        "company_id": company_id or "GLOBAL",
+        "entity_name": f"master_lookup:{type_code}",
+        "entity_id": str(id),
+        "count": len(logs),
+        "logs": logs,
+    }
+
+
+@router.get(
+    "/lookup/{type_code}/audit",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Get Master Lookup Type Audit History",
+)
+async def get_lookup_type_audit(
+    type_code: str,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    """
+    Returns the immutable compliance audit history for all items under a master lookup type.
+    """
+    company_id = getattr(current_user, "company_id", None)
+    include_all = company_id is None or company_id == "GLOBAL"
+    logs = await ComplianceAuditService.search_audit_logs(
+        session=db,
+        company_id=company_id or "GLOBAL",
+        entity_name=f"master_lookup:{type_code}",
+        limit=min(limit, 200),
+        include_all_companies=include_all,
+    )
+    return {
+        "company_id": company_id or "GLOBAL",
+        "entity_name": f"master_lookup:{type_code}",
+        "count": len(logs),
+        "logs": logs,
+    }
+

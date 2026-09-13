@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.25.0
+Version      : 3.31.0
 Created      : 2026-08-23
-Modified     : 2026-08-24
+Modified     : 2026-09-13
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -86,16 +86,18 @@ async def search_compliance_audit_logs(
     """
     Searches tamper-evident regulatory compliance audit logs.
     """
+    include_all = tenant_ctx.company_id is None or tenant_ctx.company_id == "GLOBAL"
     logs = await ComplianceAuditService.search_audit_logs(
         session=db,
-        company_id=tenant_ctx.company_id,
+        company_id=tenant_ctx.company_id or "GLOBAL",
         entity_name=entity_name,
         entity_id=entity_id,
         event_type=event_type,
-        limit=limit
+        limit=limit,
+        include_all_companies=include_all,
     )
     return {
-        "company_id": tenant_ctx.company_id,
+        "company_id": tenant_ctx.company_id or "GLOBAL",
         "count": len(logs),
         "logs": logs
     }
