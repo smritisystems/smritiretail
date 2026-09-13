@@ -26,6 +26,7 @@ import { generateSkuCode } from "../../../services/skuGenerationEngine.ts";
 import { HeaderMappingEngine } from "../../../lib/headerMapping/HeaderMappingEngine";
 import { ColumnMappingResult } from "../../../lib/headerMapping/types";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { fetchGovernedLookupOptions, LookupOption } from "../../../services/itemMasterLookupGate.ts";
 
 // Singleton engine for item master column detection
 const _itemMasterEngine = new HeaderMappingEngine();
@@ -68,6 +69,7 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
   const [mappingOverrides, setMappingOverrides] = useState<Record<number, string>>({});
   const [productOptions, setProductOptions] = useState<{ code: string; name: string }[]>([]);
   const [uomOptions, setUomOptions] = useState<string[]>([]);
+  const [governedLookups, setGovernedLookups] = useState<Record<string, LookupOption[]>>({});
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -99,6 +101,14 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
       .catch(() => {
         if (mounted) setUomOptions([]);
       });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchGovernedLookupOptions().then(options => {
+      if (mounted) setGovernedLookups(options);
+    }).catch(() => {});
     return () => { mounted = false; };
   }, []);
 
@@ -536,6 +546,13 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
                         ) : (
                           <input
                             type={col.type === "number" || col.type === "currency" ? "text" : "text"}
+                            list={
+                              col.key === "brand" ? "tab-lookup-brand-list" :
+                              col.key === "category" ? "tab-lookup-category-list" :
+                              col.key === "shade" || col.key === "color" ? "tab-lookup-color-list" :
+                              col.key === "size" ? "tab-lookup-size-list" :
+                              col.key === "style" ? "tab-lookup-style-list" : undefined
+                            }
                             value={cellValue}
                             onChange={e => handleCellChange(rIdx, col.key, e.target.value)}
                             placeholder={col.key === "stockNo" ? "[Auto]" : ""}
@@ -796,6 +813,33 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
         </div>
       )}
 
+
+      {/* Governed Lookup Datalists for Auto-completion */}
+      <datalist id="tab-lookup-brand-list">
+        {(governedLookups.brand || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="tab-lookup-category-list">
+        {(governedLookups.category || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="tab-lookup-color-list">
+        {(governedLookups.color || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="tab-lookup-size-list">
+        {(governedLookups.size || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="tab-lookup-style-list">
+        {(governedLookups.style_article || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
 
     </div>
   );
