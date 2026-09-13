@@ -599,5 +599,15 @@ export function hasLookupPermission(entity: LookupEntity, userRole: string): boo
   const entry = resolveLookupEntry(entity);
   if (!entry) return false;
   if (entry.permissions.length === 0) return true;
-  return entry.permissions.includes(userRole);
+  const normalizedRole = userRole.trim().toUpperCase();
+  if (normalizedRole === "SYSADMIN" || normalizedRole === "ADMIN" || normalizedRole === "SYSTEM ADMIN") {
+    return entry.permissions.some((permission) => permission.toUpperCase() === "ADMIN");
+  }
+  if (normalizedRole === "MANAGER" || normalizedRole === "STORE MANAGER" || normalizedRole === "STORE_MANAGER") {
+    return entry.permissions.some((permission) => permission.toUpperCase() === "STORE MANAGER");
+  }
+  if (normalizedRole === "CASHIER") {
+    return entry.permissions.some((permission) => permission.toUpperCase() === "CASHIER");
+  }
+  return entry.permissions.some((permission) => permission.toUpperCase() === normalizedRole);
 }

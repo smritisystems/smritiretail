@@ -32,7 +32,8 @@ type DetectionHint = {
 type CsvRow = {
   barcode: string;
   sku: string;
-  state: "READY" | "INVALID" | "IMPORTED" | "ERROR";
+  state: "READY" | "INVALID" | "DUPLICATE" | "UNKNOWN_SKU" | "IMPORTED" | "ERROR";
+  message?: string;
 };
 
 const statusStyles: Record<BarcodeRecord["status"], string> = {
@@ -68,6 +69,7 @@ export const BarcodeManagementTab: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [detectionHint, setDetectionHint] = useState<DetectionHint | null>(null);
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
+  const [approvalReason, setApprovalReason] = useState("Approved GS1 registry import");
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadRecords = async () => {
@@ -126,35 +128,73 @@ export const BarcodeManagementTab: React.FC = () => {
       setNotice({ kind: "error", text: "CSV must contain a barcode column. The sku column is optional." });
       return;
     }
-    setCsvRows(lines.map((line) => {
+    const parsedRows = lines.map((line) => {
       const values = line.split(",").map((value) => value.trim());
       const nextBarcode = values[barcodeIndex] || "";
       const nextSku = values[skuIndex] || "";
       return { barcode: nextBarcode, sku: nextSku, state: nextBarcode ? "READY" : "INVALID" };
-    }));
+    });
+    if (!parsedRows.length) {
+      setCsvRows([]);
+      setNotice({ kind: "error", text: "CSV contains no data rows." });
+      return;
+    }
+    setBusy(true);
+    try {
+      const preview = await apiFetchV1("/barcode-registry/bulk/preview", {
+        method: "POST",
+        body: JSON.stringify({ rows: parsedRows.map((row) => ({
+          barcode: row.barcode,
+          sku: row.sku || undefined,
+          barcode_type: "EAN13",
+          barcode_purpose: "RETAIL",
+          encoding_standard: "NONE",
+          source: "GS1_IMPORT",
+        })) }),
+      });
+      const previewRows = Array.isArray(preview?.rows) ? preview.rows : [];
+      setCsvRows(previewRows.map((row: { barcode: string; sku?: string | null; state: CsvRow["state"]; message?: string }) => ({
+        barcode: row.barcode,
+        sku: row.sku || "",
+        state: row.state,
+        message: row.message,
+      })));
+      setNotice({ kind: "success", text: `${preview?.ready || 0} row${preview?.ready === 1 ? "" : "s"} ready; review rejected rows before committing.` });
+    } catch (error) {
+      setCsvRows([]);
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "CSV preview failed" });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const importCsv = async () => {
     const readyRows = csvRows.filter((row) => row.state === "READY");
-    if (!readyRows.length) return;
+    if (!readyRows.length || !approvalReason.trim()) return;
     setBusy(true);
-    let imported = 0;
-    for (const row of readyRows) {
-      try {
-        await apiFetchV1("/barcode-registry/intake", {
-          method: "POST",
-          body: JSON.stringify({ barcode: row.barcode, barcode_type: "EAN13", barcode_purpose: "RETAIL", encoding_standard: "NONE", source: "GS1_IMPORT", source_reference: "CSV_IMPORT" }),
-        });
-        row.state = "IMPORTED";
-        imported += 1;
-      } catch {
-        row.state = "ERROR";
-      }
+    try {
+      const result = await apiFetchV1("/barcode-registry/bulk/commit", {
+        method: "POST",
+        body: JSON.stringify({
+          rows: readyRows.map((row) => ({
+            barcode: row.barcode,
+            sku: row.sku || undefined,
+            barcode_type: "EAN13",
+            barcode_purpose: "RETAIL",
+            encoding_standard: "NONE",
+            source: "GS1_IMPORT",
+          })),
+          approval_reason: approvalReason.trim(),
+        }),
+      });
+      setCsvRows(csvRows.map((row) => row.state === "READY" ? { ...row, state: "IMPORTED", message: "Imported successfully" } : row));
+      setNotice({ kind: "success", text: `${result?.imported || readyRows.length} barcode${readyRows.length === 1 ? "" : "s"} committed after approval.` });
+      await loadRecords();
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Bulk barcode commit failed" });
+    } finally {
+      setBusy(false);
     }
-    setCsvRows([...csvRows]);
-    setNotice({ kind: imported ? "success" : "error", text: `${imported} barcode${imported === 1 ? "" : "s"} added; review any rejected rows.` });
-    await loadRecords();
-    setBusy(false);
   };
 
   const handleBarcodeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {

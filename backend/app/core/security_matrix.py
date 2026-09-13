@@ -22,8 +22,8 @@ from ..models.role import Role
 from ..models.security import SmritiPermission
 from ..api.deps import TenantContext
 
-# Canonical 34-Menu Contract Mapping
-CANONICAL_34_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
+# Canonical 36-Menu Contract Mapping
+CANONICAL_36_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
     # 1. Dashboard & Operations
     "menu-dashboard": {"resource": "dashboard", "view_perm": "DASHBOARD.ACCESS", "parent_id": None},
     "menu-user-profile": {"resource": "user_profile", "view_perm": "PROFILE.ACCESS", "parent_id": None},
@@ -73,7 +73,12 @@ CANONICAL_34_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
     "menu-approval-matrix": {"resource": "approval_matrix", "view_perm": "APPROVAL.MANAGE", "parent_id": None},
     "menu-company-setup": {"resource": "company_setup", "view_perm": "COMPANY.SETUP.ACCESS", "parent_id": None},
     "menu-audit-logs": {"resource": "audit_logs", "view_perm": "AUDIT.WORKSPACE.ACCESS", "parent_id": None},
+    "menu-manager": {"resource": "menu_manager", "view_perm": "NAVIGATION.MANAGE", "parent_id": None},
+    "menu-security": {"resource": "security_management", "view_perm": "SECURITY.MENU.ACCESS", "parent_id": None},
 }
+
+# Backward-compatible import name for callers that still reference the old contract label.
+CANONICAL_34_MENU_MATRIX = CANONICAL_36_MENU_MATRIX
 
 # Standard operational modules allowed by default for Cashier / Store User
 CASHIER_DEFAULT_VIEW_ALLOWLIST: Set[str] = {

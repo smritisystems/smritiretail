@@ -55,10 +55,11 @@ import {
   Scale,
   FileText,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult, LookupEntity } from "../../context/F2DispatcherContext.tsx";
-import { LOOKUP_REGISTRY, resolveLookupEntry } from "../../services/f2LookupRegistry.ts";
+import { hasLookupPermission, LOOKUP_REGISTRY, resolveLookupEntry } from "../../services/f2LookupRegistry.ts";
 import type { LookupColumnDef } from "../../services/f2LookupRegistry.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { getCustomers } from "../../services/customerStore.ts";
@@ -68,6 +69,8 @@ import { getCustomers } from "../../services/customerStore.ts";
 // ─────────────────────────────────────────────────────────────────────────────
 
 type FilterCondition = "Contains" | "Equal" | "Starts With" | "Greater Than" | "Less Than";
+
+const FILTER_CONDITIONS: FilterCondition[] = ["Contains", "Equal", "Starts With", "Greater Than", "Less Than"];
 
 interface ColumnFilterCriteria {
   condition: FilterCondition;
@@ -142,7 +145,11 @@ function buildLookupResult(entity: LookupEntity, row: Record<string, unknown>): 
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const UniversalBrowseEngine: React.FC = () => {
+interface UniversalBrowseEngineProps {
+  userRole?: string | null;
+}
+
+export const UniversalBrowseEngine: React.FC<UniversalBrowseEngineProps> = ({ userRole }) => {
   const { isOpen, resolvedEntity, initialSearchValue, commitResult, closeLookup } =
     useF2Dispatcher();
 
@@ -170,24 +177,51 @@ export const UniversalBrowseEngine: React.FC = () => {
   const [anyColumnFilter, setAnyColumnFilter] = useState("");
   const [bottomSearchCol, setBottomSearchCol] = useState("all");
   const [bottomSearchVal, setBottomSearchVal] = useState("");
+  const [activeFilterKey, setActiveFilterKey] = useState<string | null>(null);
+  const anyColumnFilterRef = useRef<HTMLInputElement>(null);
 
   // Data fetched for the active entity
   const [entityData, setEntityData] = useState<Record<string, Record<string, unknown>[]>>({});
   const [loading, setLoading] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiReply, setAiReply] = useState<string | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
+  const [remotePage, setRemotePage] = useState(1);
+  const [hasRemoteNext, setHasRemoteNext] = useState(false);
   const pageSize = 12;
 
   // ── Sync tab and initial search when the dialog opens ──────────────────────
   useEffect(() => {
     if (isOpen && resolvedEntity) {
+      const savedFilters = localStorage.getItem(`smriti_f2_v2_filters_${resolvedEntity}`);
+      let restoredFilters: {
+        anyColumnFilter?: string;
+        bottomSearchCol?: string;
+        bottomSearchVal?: string;
+        columnFilters?: Record<string, ColumnFilterCriteria>;
+      } | null = null;
+      try {
+        restoredFilters = savedFilters ? JSON.parse(savedFilters) : null;
+      } catch {
+        restoredFilters = null;
+      }
       setActiveTab(resolvedEntity);
       setSelectedRowIndex(0);
       setPage(1);
-      setAnyColumnFilter(initialSearchValue || "");
-      setBottomSearchVal("");
-      setColumnFilters({});
+      setRemotePage(1);
+      setHasRemoteNext(false);
+      setAnyColumnFilter(initialSearchValue || restoredFilters?.anyColumnFilter || "");
+      setBottomSearchCol(restoredFilters?.bottomSearchCol || "all");
+      setBottomSearchVal(restoredFilters?.bottomSearchVal || "");
+      setColumnFilters(restoredFilters?.columnFilters || {});
+      setActiveFilterKey(null);
+      const previousRows = entityData[resolvedEntity];
+      if (previousRows?.length) {
+        sessionStorage.setItem(`smriti_f2_previous_results_${resolvedEntity}`, JSON.stringify(previousRows));
+      }
+      setEntityData({});
     }
   }, [isOpen, resolvedEntity, initialSearchValue]);
 
@@ -198,7 +232,7 @@ export const UniversalBrowseEngine: React.FC = () => {
       localStorage.getItem("smriti_jwt_token") ||
       localStorage.getItem("smriti_session_token");
     if (!token) return;
-    if (entityData[activeTab]?.length) return; // already loaded
+    if (entityData[activeTab]?.length) return; // already loaded for this lookup session
 
     const entry = resolveLookupEntry(activeTab);
     if (!entry) return;
@@ -209,7 +243,10 @@ export const UniversalBrowseEngine: React.FC = () => {
         if (activeTab === "customer") {
           // Customer Master is live data; use the local cache only offline.
           try {
-            const response = await apiFetchV1<unknown>("/crm/customers?limit=100");
+            const customerEndpoint = initialSearchValue.trim()
+              ? `/crm/customers/search?q=${encodeURIComponent(initialSearchValue.trim())}&limit=100`
+              : "/crm/customers?limit=100";
+            const response = await apiFetchV1<unknown>(customerEndpoint);
             const liveCustomers = Array.isArray(response)
               ? response
               : ((response as Record<string, unknown>)?.items as Record<string, unknown>[] ?? []);
@@ -228,11 +265,33 @@ export const UniversalBrowseEngine: React.FC = () => {
           return;
         }
 
-        // Canonical API fetch
-        const resp = await apiFetchV1<unknown>(`${entry.endpoint}?page_size=${entry.defaultLimit}`);
+        // Canonical API fetch. Preserve the originating F2 value as a server-side
+        // search hint before applying the local browse filters.
+        const params = new URLSearchParams();
+        if (activeTab === "variant") {
+          params.set("page", "1");
+          params.set("page_size", String(entry.defaultLimit));
+          if (initialSearchValue.trim()) params.set("q", initialSearchValue.trim());
+        } else if (activeTab === "item") {
+          params.set("limit", String(entry.defaultLimit));
+          params.set("offset", "0");
+          if (initialSearchValue.trim()) params.set("query", initialSearchValue.trim());
+        } else {
+          params.set("page_size", String(entry.defaultLimit));
+          if (initialSearchValue.trim()) params.set("q", initialSearchValue.trim());
+        }
+        const resp = await apiFetchV1<unknown>(`${entry.endpoint}?${params.toString()}`);
+        const responseObject = resp && typeof resp === "object" && !Array.isArray(resp)
+          ? resp as Record<string, unknown>
+          : null;
         const rows: Record<string, unknown>[] = Array.isArray(resp)
           ? resp
-          : ((resp as Record<string, unknown>)?.items as Record<string, unknown>[] ?? []);
+          : (responseObject?.items as Record<string, unknown>[] ?? []);
+
+        if (activeTab === "variant") {
+          setRemotePage(Number(responseObject?.page ?? 1));
+          setHasRemoteNext(Boolean(responseObject?.has_next));
+        }
 
         setEntityData(prev => ({ ...prev, [activeTab]: rows }));
       } catch (e) {
@@ -245,7 +304,7 @@ export const UniversalBrowseEngine: React.FC = () => {
     };
 
     fetchData();
-  }, [isOpen, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, activeTab, initialSearchValue]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Current columns for active tab ────────────────────────────────────────
   const currentColumns = useMemo((): LookupColumnDef[] => {
@@ -315,6 +374,54 @@ export const UniversalBrowseEngine: React.FC = () => {
     [paginatedRecords, selectedRowIndex]
   );
 
+  const loadNextRemotePage = async () => {
+    if (activeTab !== "variant" || !hasRemoteNext || loading) return false;
+    const entry = resolveLookupEntry(activeTab);
+    if (!entry) return false;
+
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(remotePage + 1),
+        page_size: String(entry.defaultLimit),
+      });
+      const searchQuery = anyColumnFilter.trim() || initialSearchValue.trim();
+      if (searchQuery) params.set("q", searchQuery);
+      const response = await apiFetchV1<unknown>(`${entry.endpoint}?${params.toString()}`);
+      const responseObject = response && typeof response === "object" && !Array.isArray(response)
+        ? response as Record<string, unknown>
+        : null;
+      const nextRows = Array.isArray(response)
+        ? response as Record<string, unknown>[]
+        : (responseObject?.items as Record<string, unknown>[] ?? []);
+      setEntityData(previous => ({
+        ...previous,
+        [activeTab]: [...(previous[activeTab] ?? []), ...nextRows],
+      }));
+      setRemotePage(Number(responseObject?.page ?? remotePage + 1));
+      setHasRemoteNext(Boolean(responseObject?.has_next));
+      return nextRows.length > 0;
+    } catch (error) {
+      console.warn(`[UniversalBrowseEngine] remote page fetch failed for ${activeTab}:`, error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNextPage = async () => {
+    if (page < totalPages) {
+      setPage(currentPage => currentPage + 1);
+      setSelectedRowIndex(0);
+      return;
+    }
+    const loaded = await loadNextRemotePage();
+    if (loaded) {
+      setPage(currentPage => currentPage + 1);
+      setSelectedRowIndex(0);
+    }
+  };
+
   // ── Commit selection via FieldAdapter ──────────────────────────────────────
   const handleCommitSelection = (rawRow?: Record<string, unknown>) => {
     const row = rawRow ?? activeSelectedItem;
@@ -343,7 +450,15 @@ export const UniversalBrowseEngine: React.FC = () => {
   };
 
   const handleSaveSettings = () => {
-    try { localStorage.setItem("smriti_f2_v2_columns", JSON.stringify(columns)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("smriti_f2_v2_columns", JSON.stringify(columns));
+      localStorage.setItem(`smriti_f2_v2_filters_${activeTab}`, JSON.stringify({
+        anyColumnFilter,
+        bottomSearchCol,
+        bottomSearchVal,
+        columnFilters,
+      }));
+    } catch { /* ignore */ }
   };
 
   const handleApplyDefault = () => {
@@ -351,13 +466,43 @@ export const UniversalBrowseEngine: React.FC = () => {
     setColumns(prev => ({ ...prev, [activeTab]: [...defaults] }));
     setColumnFilters({});
     setAnyColumnFilter("");
+    setBottomSearchCol("all");
     setBottomSearchVal("");
+    try { localStorage.removeItem(`smriti_f2_v2_filters_${activeTab}`); } catch { /* ignore */ }
   };
 
   const handleClearFilters = () => {
     setColumnFilters({});
     setAnyColumnFilter("");
     setBottomSearchVal("");
+    setActiveFilterKey(null);
+  };
+
+  const askAiAboutLookup = async () => {
+    setAiBusy(true);
+    setAiReply(null);
+    try {
+      const response = await apiFetchV1<{ reply?: string }>("/ai/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          message: `Explain the ${activeTab} lookup and suggest how to find the correct record for this query: ${initialSearchValue || "(no initial query)"}.`,
+          context: {
+            source: "F2_LOOKUP",
+            entity: activeTab,
+            initialSearchValue: initialSearchValue || null,
+            activeFilters: Object.entries(columnFilters)
+              .filter(([, filter]) => filter.value.trim())
+              .map(([key, filter]) => ({ key, condition: filter.condition, value: filter.value })),
+            resultCount: filteredRecords.length,
+          },
+        }),
+      });
+      setAiReply(response?.reply || "The AI assistant returned no guidance.");
+    } catch (error) {
+      setAiReply(error instanceof Error ? error.message : "AI lookup guidance is unavailable.");
+    } finally {
+      setAiBusy(false);
+    }
   };
 
   // ── Keyboard navigation (scoped to the dialog) ─────────────────────────────
@@ -391,6 +536,46 @@ export const UniversalBrowseEngine: React.FC = () => {
         setPage(totalPages);
         setSelectedRowIndex(0);
         break;
+      case "Insert":
+        if (e.ctrlKey) {
+          e.preventDefault();
+          try {
+            const storedRows = sessionStorage.getItem(`smriti_f2_previous_results_${activeTab}`);
+            const previousRows = storedRows ? JSON.parse(storedRows) as Record<string, unknown>[] : [];
+            if (previousRows.length) {
+              setEntityData(previous => ({ ...previous, [activeTab]: previousRows }));
+              setPage(1);
+              setSelectedRowIndex(0);
+            }
+          } catch {
+            // Ignore malformed session cache and continue with the current result set.
+          }
+        }
+        break;
+      case "F4":
+      case "s":
+        if (e.key === "F4" || e.altKey) {
+          e.preventDefault();
+          anyColumnFilterRef.current?.focus();
+          anyColumnFilterRef.current?.select();
+        }
+        break;
+      case "F3":
+      case "r":
+        if (e.key === "F3" || e.altKey) {
+          e.preventDefault();
+          const filterKey = activeFilterKey || currentColumns[0]?.key;
+          if (filterKey) {
+            setActiveFilterKey(filterKey);
+            setColumnFilters(previous => {
+              const current = previous[filterKey] ?? { condition: "Contains" as FilterCondition, value: "" };
+              const currentIndex = FILTER_CONDITIONS.indexOf(current.condition);
+              const nextCondition = FILTER_CONDITIONS[(currentIndex + 1) % FILTER_CONDITIONS.length];
+              return { ...previous, [filterKey]: { ...current, condition: nextCondition } };
+            });
+          }
+        }
+        break;
       case "Enter":
         e.preventDefault();
         handleCommitSelection();
@@ -418,7 +603,10 @@ export const UniversalBrowseEngine: React.FC = () => {
   if (!isOpen || !token) return null;
 
   // ── Filter tabs to only those that have a registry entry ───────────────────
-  const availableTabs = ENTITY_TAB_DEFS.filter(t => LOOKUP_REGISTRY[t.id]);
+  const availableTabs = ENTITY_TAB_DEFS.filter((tab) => {
+    if (!LOOKUP_REGISTRY[tab.id]) return false;
+    return !userRole || hasLookupPermission(tab.id, userRole);
+  });
 
   return (
     <div
@@ -485,15 +673,39 @@ export const UniversalBrowseEngine: React.FC = () => {
             })}
           </div>
 
-          <button
-            type="button"
-            onClick={closeLookup}
-            className="text-[#565e74] hover:bg-[#f3f4f5] p-1.5 rounded-lg transition cursor-pointer"
-            title="Close [Esc]"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => void askAiAboutLookup()}
+              disabled={aiBusy}
+              className="px-2 py-1.5 rounded-lg border border-[#a8b8ff] text-[#00288e] dark:text-[#c8d2ff] hover:bg-[#dfe5ff] dark:hover:bg-[#26345d] disabled:opacity-50 text-[10px] font-bold flex items-center gap-1.5 transition cursor-pointer"
+              title="Ask AI about this F2 lookup"
+            >
+              <Sparkles size={13} />
+              <span>{aiBusy ? "Thinking..." : "Ask AI"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={closeLookup}
+              className="text-[#565e74] hover:bg-[#f3f4f5] p-1.5 rounded-lg transition cursor-pointer"
+              title="Close [Esc]"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </header>
+
+        {aiReply && (
+          <div className="px-4 py-2 bg-[#eef2ff] dark:bg-[#1d2a4a] border-b border-[#c4c5d5] dark:border-[#444653] text-[11px] text-[#26345d] dark:text-[#dbe3ff]">
+            <div className="flex items-start gap-2">
+              <Sparkles size={14} className="mt-0.5 shrink-0" />
+              <p className="whitespace-pre-wrap">{aiReply}</p>
+              <button type="button" onClick={() => setAiReply(null)} className="ml-auto text-xs opacity-70 hover:opacity-100" aria-label="Dismiss AI guidance">
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ====================================================================
             2. SPLIT WORKSPACE
@@ -523,6 +735,7 @@ export const UniversalBrowseEngine: React.FC = () => {
                   <span>[Any Column] Filter</span>
                 </label>
                 <input
+                  ref={anyColumnFilterRef}
                   type="text"
                   value={anyColumnFilter}
                   onChange={e => { setAnyColumnFilter(e.target.value); setBottomSearchVal(""); setPage(1); }}
@@ -571,7 +784,7 @@ export const UniversalBrowseEngine: React.FC = () => {
                       <div className="flex gap-1 items-center pt-0.5">
                         <select
                           value={filter.condition}
-                          onChange={e => { setColumnFilters(p => ({ ...p, [col.key]: { ...filter, condition: e.target.value as FilterCondition } })); setPage(1); }}
+                          onChange={e => { setActiveFilterKey(col.key); setColumnFilters(p => ({ ...p, [col.key]: { ...filter, condition: e.target.value as FilterCondition } })); setPage(1); }}
                           className="h-6 px-1 text-[10px] font-semibold border border-[#c4c5d5] dark:border-[#444653] rounded bg-[#f8f9fa] dark:bg-[#131b2e] outline-none"
                         >
                           <option value="Contains">Contains</option>
@@ -583,7 +796,8 @@ export const UniversalBrowseEngine: React.FC = () => {
                         <input
                           type="text"
                           value={filter.value}
-                          onChange={e => { setColumnFilters(p => ({ ...p, [col.key]: { ...filter, value: e.target.value } })); setPage(1); }}
+                          onFocus={() => setActiveFilterKey(col.key)}
+                          onChange={e => { setActiveFilterKey(col.key); setColumnFilters(p => ({ ...p, [col.key]: { ...filter, value: e.target.value } })); setPage(1); }}
                           placeholder="Value..."
                           className="flex-1 h-6 px-1.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#131b2e] outline-none focus:border-[#00288e]"
                         />
@@ -787,9 +1001,9 @@ export const UniversalBrowseEngine: React.FC = () => {
                   className="h-7 px-2.5 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] dark:border-[#444653] rounded hover:bg-[#f3f4f5] disabled:opacity-30 font-bold flex items-center gap-1 cursor-pointer">
                   <ChevronLeft size={13} /><span>Prev</span>
                 </button>
-                <button type="button" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                <button type="button" disabled={page >= totalPages && !hasRemoteNext} onClick={() => void handleNextPage()}
                   className="h-7 px-2.5 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] dark:border-[#444653] rounded hover:bg-[#f3f4f5] disabled:opacity-30 font-bold flex items-center gap-1 cursor-pointer">
-                  <span>Next</span><ChevronRight size={13} />
+                  <span>{page >= totalPages && hasRemoteNext ? "Load next" : "Next"}</span><ChevronRight size={13} />
                 </button>
               </div>
             </div>

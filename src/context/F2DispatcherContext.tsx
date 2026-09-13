@@ -85,6 +85,9 @@ export type LookupEntity =
  * "general" from heuristics is treated as non-inferable.
  */
 export const LEGACY_CATEGORY_TO_ENTITY: Record<string, LookupEntity> = {
+  variant:        "variant",
+  item:           "item",
+  item_barcode:   "item_barcode",
   product:        "variant",    // legacy "product" → canonical physical SKU
   article:        "article",
   color:          "color",
@@ -108,6 +111,11 @@ export const LEGACY_CATEGORY_TO_ENTITY: Record<string, LookupEntity> = {
   terms:          "terms",
   general:        "general",    // non-inferable
 };
+
+export function resolveExplicitLookupEntity(value: string): LookupEntity | null {
+  const normalizedValue = value.trim().toLowerCase();
+  return LEGACY_CATEGORY_TO_ENTITY[normalizedValue] || null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. LOOKUP RESULT CONTRACT
@@ -352,9 +360,10 @@ export const F2DispatcherProvider: React.FC<{ children: ReactNode }> = ({ childr
       // Tier 1: Explicit data-f2-entity attribute on the focused element
       if (isInput && activeEl) {
         const explicit = activeEl.getAttribute("data-f2-entity");
-        if (explicit && explicit in LEGACY_CATEGORY_TO_ENTITY) {
-          resolved = explicit as LookupEntity;
-        } else if (explicit) {
+        if (explicit) {
+          resolved = resolveExplicitLookupEntity(explicit);
+        }
+        if (explicit && !resolved) {
           // Attribute exists but is not a recognised entity — do not guess
           return;
         }
