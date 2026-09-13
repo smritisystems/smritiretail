@@ -1,6 +1,6 @@
 # Database Entities Registry
 
-*Generated: 2026-09-13T22:21:35.472185+00:00*
+*Generated: 2026-09-13T22:38:18.398259+00:00*
 
 | Module | Database Setup | Checked Status |
 | :--- | :---: | :--- |
@@ -13,7 +13,6 @@
 | Loyalty Studio | ✅ | Schema tables fully validated |
 | POS Terminals | ❌ | Missing or incomplete DB tables mapping |
 | Purchase Studio | ✅ | Schema tables fully validated |
-| Vendor 360 Workspace | ❌ | Missing or incomplete DB tables mapping |
 | Vendor 360 Workspace | ❌ | Missing or incomplete DB tables mapping |
 | Business Ledger | ❌ | Missing or incomplete DB tables mapping |
 | Accounting Sync | ❌ | Missing or incomplete DB tables mapping |

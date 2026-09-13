@@ -1,6 +1,6 @@
 # API Endpoints Audit
 
-*Generated: 2026-09-13T22:21:35.472185+00:00*
+*Generated: 2026-09-13T22:38:18.398259+00:00*
 
 | Module | API Routes Integrated | Status |
 | :--- | :---: | :--- |
@@ -13,7 +13,6 @@
 | Loyalty Studio | ✅ | Endpoints active and exposed |
 | POS Terminals | ✅ | Endpoints active and exposed |
 | Purchase Studio | ✅ | Endpoints active and exposed |
-| Vendor 360 Workspace | ✅ | Endpoints active and exposed |
 | Vendor 360 Workspace | ✅ | Endpoints active and exposed |
 | Business Ledger | ✅ | Endpoints active and exposed |
 | Accounting Sync | ✅ | Endpoints active and exposed |

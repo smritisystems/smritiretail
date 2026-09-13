@@ -1,6 +1,6 @@
 # Documentation Status Sheet
 
-*Generated: 2026-09-13T22:21:35.472185+00:00*
+*Generated: 2026-09-13T22:38:18.398259+00:00*
 
 | Module | Docs Present | Recommendation |
 | :--- | :---: | :--- |
@@ -13,7 +13,6 @@
 | Loyalty Studio | ✅ | Documentation is up to date |
 | POS Terminals | ✅ | Documentation is up to date |
 | Purchase Studio | ✅ | Documentation is up to date |
-| Vendor 360 Workspace | ✅ | Documentation is up to date |
 | Vendor 360 Workspace | ✅ | Documentation is up to date |
 | Business Ledger | ✅ | Write automated unit tests. |
 | Accounting Sync | ✅ | Documentation is up to date |
