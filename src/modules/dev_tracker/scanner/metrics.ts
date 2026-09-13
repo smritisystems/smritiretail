@@ -37,7 +37,7 @@ export function discoverModules(parsed: ParsedCodebase): { id: string; label: st
   
   let match;
   while ((match = workspaceBlockRegex.exec(layoutStoreContent)) !== null) {
-    if (!modules.some(m => m.id === match![1])) {
+    if (!modules.some(m => m.id === match![1] || m.label === match![2])) {
       modules.push({
         id: match[1],
         label: match[2],
@@ -143,6 +143,181 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       tableKeywords: ["sales_invoices", "pos_transactions", "shift_cash_transactions", "payment_transactions", "shifts"],
       testKeywords: ["canonical_sales_writer", "pos", "payments", "billing", "invoice"],
       docKeywords: ["billing", "pos", "sales", "walkthrough"]
+    },
+    "vendor-360": {
+      frontendKeyword: "VendorMasterWs.tsx",
+      routeKeywords: ["vendors", "purchase/vendors", "parties", "suppliers"],
+      tableKeywords: ["parties", "supplier_profiles", "party_roles", "party_addresses", "party_contacts", "supplier_bank_accounts"],
+      testKeywords: ["vendor", "party", "supplier"],
+      docKeywords: ["vendor", "procurement", "purchase", "supplier"]
+    },
+    "supplier-mgmt": {
+      frontendKeyword: "VendorMasterWs.tsx",
+      routeKeywords: ["vendors", "purchase/vendors", "parties", "suppliers"],
+      tableKeywords: ["parties", "supplier_profiles", "party_roles", "party_addresses", "party_contacts", "supplier_bank_accounts"],
+      testKeywords: ["vendor", "party", "supplier"],
+      docKeywords: ["vendor", "procurement", "purchase", "supplier"]
+    },
+    "wiki": {
+      frontendKeyword: "WikiTab.tsx",
+      routeKeywords: ["wiki", "metadata"],
+      tableKeywords: [],
+      testKeywords: ["wiki", "readme"],
+      docKeywords: ["wiki", "architecture", "readme"]
+    },
+    "profiles": {
+      frontendKeyword: "PosProfilesTab.tsx",
+      routeKeywords: ["profiles", "pos", "terminals"],
+      tableKeywords: ["pos_profiles", "pos_terminals", "shifts"],
+      testKeywords: ["profiles", "pos", "storeTerminalBroadcast"],
+      docKeywords: ["pos", "profiles"]
+    },
+    "business-ledger": {
+      frontendKeyword: "BusinessLedgerTab.tsx",
+      routeKeywords: ["ledger", "accounting", "reports/ledger"],
+      tableKeywords: ["journal_entries", "accounts", "general_ledger"],
+      testKeywords: ["ledger", "consolidatedBalanceSheet", "plDashboardEngine"],
+      docKeywords: ["ledger", "accounting"]
+    },
+    "accounting-sync": {
+      frontendKeyword: "AccountingSyncTab.tsx",
+      routeKeywords: ["accounting", "sync", "tally"],
+      tableKeywords: ["accounting_sync_logs", "accounts"],
+      testKeywords: ["accounting", "sync"],
+      docKeywords: ["accounting", "sync"]
+    },
+    "report-designer": {
+      frontendKeyword: "ReportDesignerTab.tsx",
+      routeKeywords: ["reports", "designer"],
+      tableKeywords: ["report_templates", "custom_reports"],
+      testKeywords: ["report", "scheduleReportModal"],
+      docKeywords: ["report"]
+    },
+    "barcode": {
+      frontendKeyword: "BarcodeStudioTab.tsx",
+      routeKeywords: ["barcode", "barcodes", "labels"],
+      tableKeywords: ["items", "products", "item_barcodes"],
+      testKeywords: ["barcode", "tagPrinting", "labelPrintEngine"],
+      docKeywords: ["barcode", "inventory"]
+    },
+    "wms-dashboard": {
+      frontendKeyword: "WmsStudioTab.tsx",
+      routeKeywords: ["wms", "inventory", "stock", "batches"],
+      tableKeywords: ["stock_batches", "stock_movements", "warehouses"],
+      testKeywords: ["wms", "batch", "warehouseWavePicking"],
+      docKeywords: ["wms", "inventory"]
+    },
+    "stock-transfers": {
+      frontendKeyword: "WmsStudioTab.tsx",
+      routeKeywords: ["stock-transfers", "transfers", "stock/transfers"],
+      tableKeywords: ["stock_transfers", "stock_transfer_items", "stock_movements"],
+      testKeywords: ["stockTransferEngine", "interBranchTransferEngine"],
+      docKeywords: ["stock", "transfers"]
+    },
+    "masters": {
+      frontendKeyword: "MasterMgmtTab.tsx",
+      routeKeywords: ["masters", "metadata", "master-types", "master-values"],
+      tableKeywords: ["master_types", "master_values", "system_parameters"],
+      testKeywords: ["master", "metaRegistry", "globalFieldRegistry"],
+      docKeywords: ["master", "architecture"]
+    },
+    "ufe": {
+      frontendKeyword: "FieldExplorerTab.tsx",
+      routeKeywords: ["ufe", "fields", "universal-fields"],
+      tableKeywords: ["user_field_definitions", "custom_fields", "fields"],
+      testKeywords: ["fieldSearch", "globalFieldRegistry"],
+      docKeywords: ["ufe", "field"]
+    },
+    "formulas": {
+      frontendKeyword: "FormulaRegistryTab.tsx",
+      routeKeywords: ["formulas", "kpi", "formula"],
+      tableKeywords: ["kpi_definitions", "formulas"],
+      testKeywords: ["formula", "kpi", "commissionEngine"],
+      docKeywords: ["kpi", "formula"]
+    },
+    "psv": {
+      frontendKeyword: "PsvTab.tsx",
+      routeKeywords: ["psv", "visibility"],
+      tableKeywords: ["psv_parties", "vendor_shares"],
+      testKeywords: ["psvEngine", "psv"],
+      docKeywords: ["psv"]
+    },
+    "document-series": {
+      frontendKeyword: "DocumentSeriesTab.tsx",
+      routeKeywords: ["document-series", "series", "sequences"],
+      tableKeywords: ["document_series", "document_sequences"],
+      testKeywords: ["numberWords", "series"],
+      docKeywords: ["document", "series"]
+    },
+    "approval-matrix": {
+      frontendKeyword: "ApprovalMatrixTab.tsx",
+      routeKeywords: ["approval-matrix", "approvals"],
+      tableKeywords: ["approval_matrices", "approval_tiers"],
+      testKeywords: ["approval", "matrix"],
+      docKeywords: ["approval"]
+    },
+    "staff-management": {
+      frontendKeyword: "StaffManagementTab.tsx",
+      routeKeywords: ["staff", "employees", "users"],
+      tableKeywords: ["users", "staff", "employees"],
+      testKeywords: ["staff", "employeeAttendanceEngine", "staffPlacementHelpers"],
+      docKeywords: ["staff", "employee"]
+    },
+    "user-profile": {
+      frontendKeyword: "UserProfileTab.tsx",
+      routeKeywords: ["profile", "user", "me"],
+      tableKeywords: ["users"],
+      testKeywords: ["user", "profile"],
+      docKeywords: ["profile", "user"]
+    },
+    "print-studio": {
+      frontendKeyword: "PrintStudioTab.tsx",
+      routeKeywords: ["print", "templates", "print/templates"],
+      tableKeywords: ["print_templates"],
+      testKeywords: ["print", "tagPrinting", "labelPrintEngine"],
+      docKeywords: ["print"]
+    },
+    "print-history": {
+      frontendKeyword: "PrintHistoryTab.tsx",
+      routeKeywords: ["print-history", "print/logs", "print-logs"],
+      tableKeywords: ["print_logs"],
+      testKeywords: ["print", "tagPrinting"],
+      docKeywords: ["print"]
+    },
+    "terms-engine": {
+      frontendKeyword: "TermsEngineTab.tsx",
+      routeKeywords: ["terms", "store-policies", "policies"],
+      tableKeywords: ["terms_conditions", "store_policies"],
+      testKeywords: ["billingTerm", "custPolicy"],
+      docKeywords: ["terms", "policy"]
+    },
+    "data-exchange": {
+      frontendKeyword: "DataExchangeTab.tsx",
+      routeKeywords: ["data-exchange", "exchange", "import", "export"],
+      tableKeywords: ["data_exchange_jobs"],
+      testKeywords: ["universalImportEngine", "globalExport"],
+      docKeywords: ["exchange", "import", "export"]
+    },
+    "company-setup": {
+      frontendKeyword: "SetupWizardTab.tsx",
+      routeKeywords: ["company", "setup", "companies"],
+      tableKeywords: ["companies"],
+      testKeywords: ["companySelect", "company"],
+      docKeywords: ["company", "setup"]
+    },
+    "dev-tracker": {
+      frontendKeyword: "DevTrackerTab.tsx",
+      routeKeywords: ["dev-tracker", "scanner"],
+      tableKeywords: [],
+      testKeywords: ["devTracker"],
+      docKeywords: ["dev_tracker", "architecture"]
+    },
+    "audit-logs": {
+      frontendKeyword: "AuditLogsTab.tsx",
+      routeKeywords: ["audit", "audit-logs", "logs"],
+      tableKeywords: ["audit_logs", "system_events"],
+      testKeywords: ["audit"],
+      docKeywords: ["audit"]
     }
   };
 

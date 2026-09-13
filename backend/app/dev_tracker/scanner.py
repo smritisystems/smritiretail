@@ -139,6 +139,231 @@ MODULES_MAP = {
         "tables": ["sales_invoices", "pos_transactions", "shift_cash_transactions", "payment_transactions", "shifts"],
         "tests": ["canonical_sales_writer", "pos", "payments", "billing", "invoice"],
         "docs": ["billing", "pos", "sales", "walkthrough"]
+    },
+    "vendor-360": {
+        "name": "Vendor 360 Workspace",
+        "category": "Inventory & Sourcing",
+        "frontend": "VendorMasterWs.tsx",
+        "routes": ["vendors", "purchase/vendors", "parties", "suppliers"],
+        "tables": ["parties", "supplier_profiles", "party_roles", "party_addresses", "party_contacts", "supplier_bank_accounts"],
+        "tests": ["vendor", "party", "supplier"],
+        "docs": ["vendor", "procurement", "purchase", "supplier"]
+    },
+    "supplier-mgmt": {
+        "name": "Vendor 360 Workspace",
+        "category": "Inventory & Sourcing",
+        "frontend": "VendorMasterWs.tsx",
+        "routes": ["vendors", "purchase/vendors", "parties", "suppliers"],
+        "tables": ["parties", "supplier_profiles", "party_roles", "party_addresses", "party_contacts", "supplier_bank_accounts"],
+        "tests": ["vendor", "party", "supplier"],
+        "docs": ["vendor", "procurement", "purchase", "supplier"]
+    },
+    "wiki": {
+        "name": "SMRITI Gyan Kendra",
+        "category": "Operations",
+        "frontend": "WikiTab.tsx",
+        "routes": ["wiki", "metadata"],
+        "tables": [],
+        "tests": ["wiki", "readme"],
+        "docs": ["wiki", "architecture", "readme"]
+    },
+    "profiles": {
+        "name": "POS Terminals",
+        "category": "Sales & POS",
+        "frontend": "PosProfilesTab.tsx",
+        "routes": ["profiles", "pos", "terminals"],
+        "tables": ["pos_profiles", "pos_terminals", "shifts"],
+        "tests": ["profiles", "pos", "storeTerminalBroadcast"],
+        "docs": ["pos", "profiles"]
+    },
+    "business-ledger": {
+        "name": "Business Ledger",
+        "category": "Accounts Sync",
+        "frontend": "BusinessLedgerTab.tsx",
+        "routes": ["ledger", "accounting", "reports/ledger"],
+        "tables": ["journal_entries", "accounts", "general_ledger"],
+        "tests": ["ledger", "consolidatedBalanceSheet", "plDashboardEngine"],
+        "docs": ["ledger", "accounting"]
+    },
+    "accounting-sync": {
+        "name": "Accounting Sync",
+        "category": "Accounts Sync",
+        "frontend": "AccountingSyncTab.tsx",
+        "routes": ["accounting", "sync", "tally"],
+        "tables": ["accounting_sync_logs", "accounts"],
+        "tests": ["accounting", "sync"],
+        "docs": ["accounting", "sync"]
+    },
+    "report-designer": {
+        "name": "Report Designer",
+        "category": "Data & Config",
+        "frontend": "ReportDesignerTab.tsx",
+        "routes": ["reports", "designer"],
+        "tables": ["report_templates", "custom_reports"],
+        "tests": ["report", "scheduleReportModal"],
+        "docs": ["report"]
+    },
+    "barcode": {
+        "name": "Barcode Studio",
+        "category": "Inventory & Sourcing",
+        "frontend": "BarcodeStudioTab.tsx",
+        "routes": ["barcode", "barcodes", "labels"],
+        "tables": ["items", "products", "item_barcodes"],
+        "tests": ["barcode", "tagPrinting", "labelPrintEngine"],
+        "docs": ["barcode", "inventory"]
+    },
+    "wms-dashboard": {
+        "name": "Warehouse & Batch Hub",
+        "category": "Inventory & Sourcing",
+        "frontend": "WmsStudioTab.tsx",
+        "routes": ["wms", "inventory", "stock", "batches"],
+        "tables": ["stock_batches", "stock_movements", "warehouses"],
+        "tests": ["wms", "batch", "warehouseWavePicking"],
+        "docs": ["wms", "inventory"]
+    },
+    "stock-transfers": {
+        "name": "Inter-Godown Transfers",
+        "category": "Inventory & Sourcing",
+        "frontend": "WmsStudioTab.tsx",
+        "routes": ["stock-transfers", "transfers", "stock/transfers"],
+        "tables": ["stock_transfers", "stock_transfer_items", "stock_movements"],
+        "tests": ["stockTransferEngine", "interBranchTransferEngine"],
+        "docs": ["stock", "transfers"]
+    },
+    "masters": {
+        "name": "Master Framework",
+        "category": "Data & Config",
+        "frontend": "MasterMgmtTab.tsx",
+        "routes": ["masters", "metadata", "master-types", "master-values"],
+        "tables": ["master_types", "master_values", "system_parameters"],
+        "tests": ["master", "metaRegistry", "globalFieldRegistry"],
+        "docs": ["master", "architecture"]
+    },
+    "ufe": {
+        "name": "Field Explorer (UFE)",
+        "category": "Data & Config",
+        "frontend": "FieldExplorerTab.tsx",
+        "routes": ["ufe", "fields", "universal-fields"],
+        "tables": ["user_field_definitions", "custom_fields", "fields"],
+        "tests": ["fieldSearch", "globalFieldRegistry"],
+        "docs": ["ufe", "field"]
+    },
+    "formulas": {
+        "name": "KPI Registry",
+        "category": "Data & Config",
+        "frontend": "FormulaRegistryTab.tsx",
+        "routes": ["formulas", "kpi", "formula"],
+        "tables": ["kpi_definitions", "formulas"],
+        "tests": ["formula", "kpi", "commissionEngine"],
+        "docs": ["kpi", "formula"]
+    },
+    "psv": {
+        "name": "Channel Visibility",
+        "category": "Data & Config",
+        "frontend": "PsvTab.tsx",
+        "routes": ["psv", "visibility"],
+        "tables": ["psv_parties", "vendor_shares"],
+        "tests": ["psvEngine", "psv"],
+        "docs": ["psv"]
+    },
+    "document-series": {
+        "name": "Numbering Engine",
+        "category": "Data & Config",
+        "frontend": "DocumentSeriesTab.tsx",
+        "routes": ["document-series", "series", "sequences"],
+        "tables": ["document_series", "document_sequences"],
+        "tests": ["numberWords", "series"],
+        "docs": ["document", "series"]
+    },
+    "approval-matrix": {
+        "name": "Approval Matrix",
+        "category": "Data & Config",
+        "frontend": "ApprovalMatrixTab.tsx",
+        "routes": ["approval-matrix", "approvals"],
+        "tables": ["approval_matrices", "approval_tiers"],
+        "tests": ["approval", "matrix"],
+        "docs": ["approval"]
+    },
+    "staff-management": {
+        "name": "Staff Management",
+        "category": "Operations",
+        "frontend": "StaffManagementTab.tsx",
+        "routes": ["staff", "employees", "users"],
+        "tables": ["users", "staff", "employees"],
+        "tests": ["staff", "employeeAttendanceEngine", "staffPlacementHelpers"],
+        "docs": ["staff", "employee"]
+    },
+    "user-profile": {
+        "name": "My Profile Dashboard",
+        "category": "Operations",
+        "frontend": "UserProfileTab.tsx",
+        "routes": ["profile", "user", "me"],
+        "tables": ["users"],
+        "tests": ["user", "profile"],
+        "docs": ["profile", "user"]
+    },
+    "print-studio": {
+        "name": "Print Studio",
+        "category": "Documents & Print",
+        "frontend": "PrintStudioTab.tsx",
+        "routes": ["print", "templates", "print/templates"],
+        "tables": ["print_templates"],
+        "tests": ["print", "tagPrinting", "labelPrintEngine"],
+        "docs": ["print"]
+    },
+    "print-history": {
+        "name": "Print History Logs",
+        "category": "Documents & Print",
+        "frontend": "PrintHistoryTab.tsx",
+        "routes": ["print-history", "print/logs", "print-logs"],
+        "tables": ["print_logs"],
+        "tests": ["print", "tagPrinting"],
+        "docs": ["print"]
+    },
+    "terms-engine": {
+        "name": "Terms & Conditions",
+        "category": "Data & Config",
+        "frontend": "TermsEngineTab.tsx",
+        "routes": ["terms", "store-policies", "policies"],
+        "tables": ["terms_conditions", "store_policies"],
+        "tests": ["billingTerm", "custPolicy"],
+        "docs": ["terms", "policy"]
+    },
+    "data-exchange": {
+        "name": "Data Exchange Hub",
+        "category": "Data & Config",
+        "frontend": "DataExchangeTab.tsx",
+        "routes": ["data-exchange", "exchange", "import", "export"],
+        "tables": ["data_exchange_jobs"],
+        "tests": ["universalImportEngine", "globalExport"],
+        "docs": ["exchange", "import", "export"]
+    },
+    "company-setup": {
+        "name": "Company Setup Wizard",
+        "category": "Operations",
+        "frontend": "SetupWizardTab.tsx",
+        "routes": ["company", "setup", "companies"],
+        "tables": ["companies"],
+        "tests": ["companySelect", "company"],
+        "docs": ["company", "setup"]
+    },
+    "dev-tracker": {
+        "name": "Dev Intelligence Center",
+        "category": "System",
+        "frontend": "DevTrackerTab.tsx",
+        "routes": ["dev-tracker", "scanner"],
+        "tables": [],
+        "tests": ["devTracker"],
+        "docs": ["dev_tracker", "architecture"]
+    },
+    "audit-logs": {
+        "name": "Audit Logs",
+        "category": "System",
+        "frontend": "AuditLogsTab.tsx",
+        "routes": ["audit", "audit-logs", "logs"],
+        "tables": ["audit_logs", "system_events"],
+        "tests": ["audit"],
+        "docs": ["audit"]
     }
 }
 
@@ -169,19 +394,23 @@ def discover_modules(file_contents: dict[str, str]) -> list[dict[str, str]]:
         m_id = m.group(1)
         m_label = m.group(2)
         m_cat = m.group(4)
-        if not any(x["id"] == m_id for x in modules):
+        if not any(x["id"] == m_id or x["name"] == m_label for x in modules):
             modules.append({"id": m_id, "name": m_label, "category": m_cat})
 
     return modules if modules else default_modules
 
-def get_module_resource_mapping(module_id: str, module_name: str) -> dict[str, Any]:
+def get_module_resource_mapping(module_id: str, module_name: str, module_category: str = "Workspace") -> dict[str, Any]:
     if module_id in MODULES_MAP:
-        return MODULES_MAP[module_id]
+        mapping = dict(MODULES_MAP[module_id])
+        if "category" not in mapping or not mapping["category"] or mapping["category"] == "Workspace":
+            if module_category and module_category != "Workspace":
+                mapping["category"] = module_category
+        return mapping
 
     first_word = module_name.split()[0].lower() if module_name else module_id
     return {
         "name": module_name or module_id,
-        "category": "Workspace",
+        "category": module_category or "Workspace",
         "frontend": f"{module_id.replace('-', ' ').title().replace(' ', '')}Tab.tsx",
         "routes": [normalize_api_route(module_id)],
         "tables": [module_id.replace("-", "_")],
@@ -315,7 +544,7 @@ def scan_codebase() -> dict[str, Any]:
 
     for m_item in discovered_modules:
         m_id = m_item["id"]
-        m_cfg = get_module_resource_mapping(m_id, m_item["name"])
+        m_cfg = get_module_resource_mapping(m_id, m_item["name"], m_item.get("category", "Workspace"))
         frontend_file = next((f for f in files_list if m_cfg["frontend"] in f), None)
         ui_designed = bool(frontend_file)
         frontend_started = ui_designed

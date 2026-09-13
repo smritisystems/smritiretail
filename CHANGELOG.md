@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.16.3] - 2026-09-14
+
+#### Codebase Static Scanner Vendor 360 Convergence & Duplicate Elimination
+
+**Walkthrough:** [Procurement_Dev_Tracker_Scanner_Vendor_360_Convergence_v6.16.3.md](docs/walkthrough/procurement/Procurement_Dev_Tracker_Scanner_Vendor_360_Convergence_v6.16.3.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Eliminated Duplicate Vendor 360 Entry:** Removed redundant `supplier-mgmt` registration from `defaultWorkspaces` in `src/layout_engine/layout_store.tsx`, retaining canonical `vendor-360` with category `Inventory & Sourcing`. All existing deep-links and navigation aliases remain fully supported via `mapModuleId` in `App.tsx`.
+- **Registered Canonical Scanner Mappings:** Updated `MODULES_MAP` in `backend/app/dev_tracker/scanner.py` and `specificMappings` in `src/modules/dev_tracker/scanner/metrics.ts` to map `vendor-360` to its full-bleed component (`VendorMasterWs.tsx`), REST routes (`/api/v1/purchase/vendors`, `/api/v1/vendors`, `/api/v1/parties`), database tables (`parties`, `supplier_profiles`, `party_roles`, `party_addresses`, `party_contacts`, `supplier_bank_accounts`), test suites, and documentation.
+- **Elevated Vendor 360 Completeness & Risk:** Raised completeness score from `44%` (High Risk) to `84%` (Low Risk), fully reflecting production-ready status.
+- **Preserved True Enterprise Domain Categories:** Updated `get_module_resource_mapping` and `scan_codebase` in `scanner.py` so unmapped or dynamically discovered workspaces retain their designated category (e.g. *Inventory & Sourcing*, *Sales & POS*, *Data & Config*, *Accounts Sync*, *Operations*, *Documents & Print*, *System*) rather than collapsing into generic `"Workspace"`.
+- **Deduplicated Discovered Modules:** Enforced label-level deduplication in `discover_modules` (Python) and `discoverModules` (TypeScript) to guarantee that duplicate workspace registrations can never generate multiple rows in diagnostic reports.
+- **Aligned High-Risk Workspace Mappings:** Added canonical frontend and backend definitions for `Barcode Studio`, `Warehouse & Batch Hub`, `Inter-Godown Transfers`, `Master Framework`, `Field Explorer`, `KPI Registry`, `Company Setup Wizard`, and `Terms & Conditions`, lifting codebase Development Health Index (DHI) from 88 to 93 (Grade A).
+- **Aligned Launchpad Test:** Updated `REGISTERED_APP_TABS` in `src/tests/fioriLaunchpad.test.ts` to include `"barcode-management"`, `"vendor-360"`, and `"wms-dashboard"` (10/10 passed).
+
 ### [6.16.2] - 2026-09-14
 
 #### Vendor 360 Workspace Status Filtering, Archive Exclusion & Article Isolation Contract

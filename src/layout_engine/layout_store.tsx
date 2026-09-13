@@ -159,12 +159,6 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Inventory & Sourcing",
     },
     {
-      id: "supplier-mgmt",
-      label: "Vendor 360 Workspace",
-      icon: "local_shipping",
-      category: "Inventory & Sourcing",
-    },
-    {
       id: "vendor-360",
       label: "Vendor 360 Workspace",
       icon: "local_shipping",
