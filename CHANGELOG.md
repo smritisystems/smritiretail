@@ -28,6 +28,20 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [3.32.0] - 2026-09-13
+
+#### Catalog Dimension Brand Master Lookup Governance & Ingestion Validation
+
+**Walkthrough:** [Catalog_Dimension_Brand_Master_Lookup_Governance_v3.32.0.md](docs/walkthrough/catalog/Catalog_Dimension_Brand_Master_Lookup_Governance_v3.32.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Master Lookup as Single Source of Truth:** Formally established `master_lookup:brand` as the canonical source of truth for item/product brands, eliminating free-text dirty master data across inventory and catalog domains.
+- **Control Plane Brand Seeding (v1450):** Created migration `v1450_seed_standard_brands.py` registering core standard brands (`SMRITI`, `BEANSTALK`, `Tattly Threads`, `Heritage`, `Swift`, `Generic`) with explicit `CAST(:code AS varchar)` asyncpg type safety.
+- **Catalog Dimension Validation Service:** Built `CatalogDimensionValidator` in `backend/app/services/catalog_validation.py` with cross-database fallback (`smritisys: master_values`), case-insensitive canonical mapping, and HREP-compliant strict rejection (`SMRITI-VAL-002`).
+- **Write-Path Integration:** Connected brand validation into `InventoryService.create_product`, `/api/v1/inventory.py` `update_product`, and `UniversalItemMasterService.create_item`.
+- **Core Error Handling Hardening:** Fixed `backend/app/core/errors.py` (`build_error_response`) to safely handle dictionary and structured error payloads, preventing `AttributeError` on validation rejections.
+- **Verification:** 2/2 pytest green (`test_catalog_dimension_validation.py` in 9.93s), 1/1 master lookup audit test green (`test_master_lookup_compliance_audit.py` in 8.55s), 0 TypeScript errors (`tsc --noEmit`), and clean production build (3,533 modules built).
+
 ### [3.31.0] - 2026-09-13
 
 #### Master Lookup Compliance Audit Exposure & Operational Visibility
