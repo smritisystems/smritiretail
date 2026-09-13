@@ -258,11 +258,18 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
         } else {
           failureCount++;
           const errData = typeof res.json === "function" ? await res.json().catch(() => ({})) : res;
-          errors.push(errData.detail || `Save failure on Row #${rowNum}`);
+          let failMsg = errData.detail || `Save failure on Row #${rowNum}`;
+          if (typeof failMsg === "object" && failMsg?.message) failMsg = failMsg.message;
+          errors.push(`Row #${rowNum}: ${failMsg}`);
         }
       } catch (err: any) {
         failureCount++;
-        errors.push(err.message || `Network error on Row #${rowNum}`);
+        let errMsg = err?.message || `Network error on Row #${rowNum}`;
+        try {
+          const parsed = JSON.parse(errMsg);
+          if (parsed?.message) errMsg = parsed.message;
+        } catch {}
+        errors.push(`Row #${rowNum}: ${errMsg}`);
       }
     }
 
