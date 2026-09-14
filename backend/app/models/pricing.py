@@ -86,3 +86,39 @@ class CustomerPriceAssignment(BaseEntity):
     valid_to = Column(DateTime(timezone=True), nullable=True)
     status = Column(String(30), nullable=False, default="ACTIVE")
     notes = Column(Text, nullable=True)
+
+
+class SalesFactor(BaseEntity):
+    """
+    Authoritative Sales Factor Master governing Add-ons, Deductions,
+    Retail Price Factors, and Bill Round-Off rules.
+    Enforces statutory Above vs Below Sales Tax timing (CGST Section 15).
+    """
+    __tablename__ = "sales_factors"
+
+    code = Column(String(50), nullable=False, index=True)
+    description = Column(String(200), nullable=False)
+    factor_type = Column(String(30), nullable=False, default="ADD_ON")  # RETAIL_PRICE_FACTOR, PRICE_ROUND_OFF, ADD_ON, DEDUCTION, BILL_ROUND_OFF
+    factor_category = Column(String(30), nullable=False, default="ALL_CUSTOMERS")  # CUSTOMER_SPECIFIC, PRICE_GROUP_SPECIFIC, ALL_CUSTOMERS
+    
+    # Target Scope
+    customer_id = Column(String(50), nullable=True, index=True)
+    price_group_code = Column(String(50), nullable=True, index=True)
+    applicable_categories = Column(JSONB, server_default=text("'[]'"), default=list)
+    applicable_brands = Column(JSONB, server_default=text("'[]'"), default=list)
+    
+    # Computation Mechanics
+    computation_timing = Column(String(20), nullable=False, default="ABOVE_TAX")  # ABOVE_TAX (Consider for Tax), BELOW_TAX (Ignore for Tax)
+    computed_on = Column(String(30), nullable=False, default="DISCOUNTED_VALUE")  # SALE_VALUE_BEFORE_DISCOUNT, DISCOUNTED_VALUE, VALUE_INCLUSIVE_OF_TAX
+    rate_or_amount = Column(String(10), nullable=False, default="RATE")  # RATE (%), AMOUNT (₹)
+    value = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    is_variable = Column(Boolean, nullable=False, default=False)  # Cashier override allowed
+    
+    # Thresholds & Validity
+    min_bill_value = Column(Numeric(15, 2), nullable=True)
+    max_bill_value = Column(Numeric(15, 2), nullable=True)
+    valid_from = Column(String(20), nullable=True)
+    valid_to = Column(String(20), nullable=True)
+    applicable_days = Column(JSONB, server_default=text("'[]'"), default=list)
+    is_active = Column(Boolean, nullable=False, default=True)
+

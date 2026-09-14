@@ -28,9 +28,92 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.19.0] - 2026-09-14
+
+#### SMRITI System Parameters Subsystem & 5-Tier Governance Engine
+
+**Walkthrough:** [Setup_Smriti_System_Parameters_And_Governance_Engine_v6.19.0.md](docs/walkthrough/setup/Setup_Smriti_System_Parameters_And_Governance_Engine_v6.19.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **100% Tally Shoper 9 Parity & Blueprint Integration:**
+  - Migrated and populated `system_parameters` table across `smritisys` and tenant databases (`smriti001`) with multi-tenant and terminal scoping.
+  - Ingested 828 legacy system parameters across 20 functional domains from canonical blueprint `docs/legacy_blueprints/shoper9/parameters.json`.
+  - Implemented 26 profile variances between Retail POS (`RETAIL`) and Wholesale Distribution (`DISTRIBUTOR`), including `SHOPEREnv` ("R" vs "D"), `InBillingCustSelectionCompulsary` (0 vs 1), `AllowCreditBilling` (0 vs 1), `ClubDupInBill` (-1 vs 1), and `CustClass1Cap`–`4` (demographics vs geography).
+- **5-Tier Mutability & Governance Engine:**
+  - Enforced strict immutability checks on `Fixed` parameters (`CompanyCode`, `CompanyName`, `CustomerCdGenerationFormat`, `SHOPERSysStat`, etc.) returning HTTP 400 `SMRITI-PARAM-001`.
+  - Enforced one-time initialization locks on `Installation` (`SMRITI-PARAM-002`) and `One Time` (`SMRITI-PARAM-003`) parameters.
+  - Enabled dynamic modification on `Variable` parameters with versioning and audit trails.
+- **Hierarchical 4-Tier Scoping Precedence:**
+  - Implemented resolution priority: `Terminal-Specific Override` → `Branch-Specific Override` → `Company Setting` → `Global System Template`.
+- **0ms Synchronous Access & Billing Terminal Protection:**
+  - Developed `smritiSystemParameterService.ts` frontend service with high-speed in-memory cache and synchronous accessors (`getBoolean`, `getNumber`, `getString`, `getValue`).
+  - Integrated dynamic parameter guards in `BillingTerm.tsx` and `ProPosBillingTerm.tsx` enforcing `AllowCreditBilling` and `InBillingCustSelectionCompulsary`.
+- **Interactive System Parameters Studio:**
+  - Built `SmritiSystemParametersStudio.tsx` (`Setup > General > System Parameters`) featuring 20 category tabs, instant search, mutability badges, profile variance toggles, and atomic batch save.
+- **Comprehensive Quality Assurance:**
+  - Pytest backend test suite (`backend/tests/test_system_parameters.py`): 6/6 passed in 5.59s.
+  - Vitest frontend test suite (`src/tests/smritiSystemParameters.test.ts`): 5/5 passed in 371ms.
+  - TypeScript compiler (`tsc --noEmit`): 0 errors.
+  - Vite production build (`npm run build`): 3543 modules compiled in 30.16s.
+
+### [6.18.0] - 2026-09-14
+
+#### SMRITI Bill Prefix Architecture, Multi-Terminal Scoping & Statutory GST Rule 46(b) Serialization
+
+**Walkthrough:** [Billing_Smriti_Bill_Prefix_And_Statutory_Serialization_v6.18.0.md](docs/walkthrough/billing/Billing_Smriti_Bill_Prefix_And_Statutory_Serialization_v6.18.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Elimination of Legacy Hardcoded Defaults:**
+  - Excised all `"D1DS13"` hardcoded invoice prefix residue from POS billing terminals (`BillingTerm.tsx` and `ProPosBillingTerm.tsx`).
+  - Switched POS billing terminals to dynamic resolution via authoritative backend `/api/v1/numbering/bill-prefixes/resolve` with zero-checkout-downtime offline fallback.
+- **Statutory GST Rule 46(b) Hard Guard:**
+  - Enforced strict 16-character ceiling on serial numbers (`prefix + padded_doc_no + suffix <= 16`).
+  - Restricted characters strictly to `[A-Za-z0-9/-]`, rejecting spaces, underscores, and special characters at both frontend and backend validation layers.
+- **Enterprise Multi-Terminal Numbering Scoping:**
+  - Extended PostgreSQL `document_series` across `smritisys` and `smriti001` with `terminal_id`, `is_common_across_terminals`, `transaction_group`, `start_number`, and `is_void_unified`.
+  - Implemented 3-tier hierarchical resolution in `NumberingService`: Terminal-Specific override -> Store-level Common default -> Auto-instantiated statutory fallback.
+  - Added full transaction group support across `SALES` (Cash, Credit, Return, Void), `CASH` (Receipt, Payout), and `SLIPS` (Hold, Orders, Advice Slips, Delivery Challans).
+- **Define Bill Prefix Management Studio Modal:**
+  - Built `SmritiDefineBillPrefixModal.tsx` supporting group-wise and transaction-wise configurations, terminal assignment, optional company code prefix prepending, and live GST Rule 46(b) visual character gauge.
+  - Added supervisory Year-End Rollover dialog incrementing financial year, updating suffix, resetting counter to start number, and writing immutable audit records to `NumberingAuditLog`.
+- **Automated Test Verification:**
+  - Authored Pytest suite (`test_bill_prefix.py`, 3/3 passed) and Vitest suite (`smritiBillPrefix.test.ts`, 7/7 passed).
+  - Validated 0 TypeScript compiler errors (`tsc --noEmit`) and clean Vite production build.
+
+### [6.17.1] - 2026-09-14
+
+#### Statutory GST Sales Factors, Customer Price Groups & POS Add-ons/Deductions Engine
+
+**Walkthrough:** [Billing_Statutory_Sales_Factors_And_Customer_Price_Groups_v6.17.1.md](docs/walkthrough/billing/Billing_Statutory_Sales_Factors_And_Customer_Price_Groups_v6.17.1.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Statutory GST Section 15 Compliance:**
+  - Built `SalesFactor` data entity and statutory evaluation engine strictly distinguishing between `ABOVE_TAX` (adjusting taxable base before GST calculation per Section 15 of CGST Act) and `BELOW_TAX` (pure post-tax financial adjustments including delivery surcharges and nearest-rupee bill round-offs).
+  - Supported multiple computation bases: `SALE_VALUE_BEFORE_DISCOUNT`, `DISCOUNTED_VALUE`, and `VALUE_INCLUSIVE_OF_TAX`.
+  - Supported both rate percentages (`RATE`) and fixed rupee amounts (`AMOUNT`) with min/max bill value qualification thresholds.
+- **Customer Price Group Dynamic Inheritance:**
+  - Enhanced `Customer` and `ProPosCustomer` domain models with `priceGroupCode` and `itemClassificationPriceFactorApplicable`.
+  - Dynamically resolved factors on customer selection: walk-ins inherit universal retail factors (`ALL_CUSTOMERS`), while corporate privilege (`CPP`) and staff employees (`EMP`) automatically inherit group-specific concessions and rebates.
+- **Customer Credit Ceiling Protection:**
+  - Integrated credit limit verification into POS settlement: blocks credit invoices when `customer.outstanding + currentBill > customer.creditLimit`.
+- **Define Sales Factors & Customer Price Groups Studio (`Alt+S`):**
+  - Created `SmritiDefineSalesFactorsModal.tsx` for real-time factor configuration, rate/amount setup, timing definition, active status toggling, and factory resets.
+  - Features real-time live synchronization status badge (`🟢 PostgreSQL Synced`, `⏳ Syncing...`, `⚪ Offline Cache`).
+  - Added `Alt+S` hotkey and dedicated buttons in `BillingTerm.tsx` and `ProPosBillingTerm.tsx`.
+- **Pro POS Addon-Gen & Dedns-Gen Integration:**
+  - Replaced hardcoded `₹0.00` in Pro POS totals summary with dynamic statutory `Addon-Gen` and `Dedns-Gen` values and shortcut triggers.
+- **Two-Way PostgreSQL Synchronization with 0ms Offline Cache:**
+  - Created `/api/v1/pricing/sales-factors` REST endpoints backed by PostgreSQL `sales_factors` table with asyncpg dialect parity.
+  - Implemented 0ms local cache writes with background asynchronous push to PostgreSQL backend.
+- **Automated Verification:**
+  - Pytest backend test suite (`t_sales_factors.py`): 1/1 passed in 11.55s.
+  - Vitest frontend test suite (`smritiSalesFactorEngine.test.ts`): 16/16 passed in 378ms.
+  - Vitest promotions test suite (`smritiSalesPromotionEngine.test.ts`): 15/15 passed in 386ms.
+  - TypeScript compiler (`tsc --noEmit`): 0 errors.
+
 ### [6.17.0] - 2026-09-14
 
-#### SMRITI F2 Advanced Item Search, Dual-Grid Row Editing & Enterprise POS Invoicing Architecture
+#### SMRITI F2 Advanced Item Search, Dual-Grid Row Editing, F6 Promotions & Two-Way PostgreSQL Synchronization
 
 **Walkthrough:** [Billing_Smriti_F2_And_Advanced_Retail_POS_v6.17.0.md](docs/walkthrough/billing/Billing_Smriti_F2_And_Advanced_Retail_POS_v6.17.0.md)  
 **Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
@@ -47,7 +130,11 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Built `SmritiDefineSalesPromotionsModal.tsx` (`Alt+P` or Catalogue > Define Sales Promotions) allowing store managers to define schemes with Code, Description, Priority No., Validity Dates, Discount % or Flat ₹, Min Bill Value, Max Allowed Cap, and Active toggle.
   - Built `SmritiF6PromotionalDiscountsModal.tsx` (`F6` in POS & ProPOS) dynamically calling the defined schemes from the "Define Sales Promotions" catalog; features Tab 1 (`Item Level Promotional Details`), Tab 2 (`Bill Level Promotional Details`), bidirectional discount % / amount calculations against `Calculated On`, statutory reason enforcement, and `Apply Bill Level Discount First` preference.
   - Integrated `F6` discount schemes and `Alt+P` catalogue triggers in `BillingTerm.tsx` and `ProPosBillingTerm.tsx`, updating cart summaries and bill footer totals in real time.
-- **Automated Verification:** 32/32 billing tests green (`smritiF2BillingSearch.test.ts` & `smritiSalesPromotionEngine.test.ts`), 126/126 Vitest suites green (816 tests), 0 TypeScript compiler errors, and clean production build.
+- **Two-Way PostgreSQL Database Synchronization:**
+  - Added REST API endpoints `GET /api/v1/promotions/schemes`, `POST /api/v1/promotions/schemes`, and `DELETE /api/v1/promotions/schemes/{id}` in `backend/app/api/v1/promotions.py` paired with `PromotionSchemeDTO` in `backend/app/schemas/promotions.py`.
+  - Integrated bidirectional DTO transformation in `SmritiSalesPromotionService.ts` linking the offline-first local POS cache directly to PostgreSQL tables `promotion_campaigns` and `promotion_rules`.
+  - Added live synchronization status pill in "Define Sales Promotions" header (`🟢 PostgreSQL Synced`, `⏳ Syncing...`, `⚪ Offline Local Cache`) with manual `Sync DB` refresh trigger.
+- **Automated Verification:** 37/37 billing tests green (`smritiF2BillingSearch.test.ts` & `smritiSalesPromotionEngine.test.ts`), 126/126 Vitest suites green (821 tests), 0 TypeScript compiler errors, and clean production build (3,538 modules in 28.69s).
 
 ### [6.16.5] - 2026-09-14
 

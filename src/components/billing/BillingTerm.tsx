@@ -48,6 +48,14 @@ import {
   SmritiBillLevelPromoState
 } from "./SmritiF6PromotionalDiscountsModal.tsx";
 import { SmritiDefineSalesPromotionsModal } from "./SmritiDefineSalesPromotionsModal.tsx";
+import { SmritiDefineSalesFactorsModal } from "../pricing/SmritiDefineSalesFactorsModal.tsx";
+import { SmritiSalesFactorService } from "../../services/smritiSalesFactorService.ts";
+import { SmritiDefineBillPrefixModal } from "./SmritiDefineBillPrefixModal.tsx";
+import { smritiSystemParameterService } from "../../services/smritiSystemParameterService.ts";
+import {
+  SmritiBillPrefixService,
+  BillPrefixResolveResult
+} from "../../services/smritiBillPrefixService.ts";
 import { PdtImportModal } from "./PdtImportModal.tsx";
 import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
@@ -115,8 +123,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [headerState, setHeaderState] = useState<BillingHeaderState>({
     billType: "Product",
     transaction: "Credit",
-    docPrefix: "D1DS13",
-    docNo: "1",
+    docPrefix: "",
+    docNo: "",
     billDate: new Date().toLocaleDateString("en-GB"),
     customer: null,
     salesStaff: currentUser?.name || "EMP001 - John Doe",
@@ -189,6 +197,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   useEffect(() => {
     if (headerState.customer?.id) void loadCustomerPOs(headerState.customer.id);
   }, [headerState.customer?.id]);
+
+  useEffect(() => {
+    void smritiSystemParameterService.load();
+  }, []);
 
   // Corporate B2B Multi-State GST, Billing & Delivery Location State
   const [customerGstRegistrations, setCustomerGstRegistrations] = useState<CustomerGSTRegistrationDTO[]>([]);
@@ -467,6 +479,38 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [showSmritiItemSearchModal, setShowSmritiItemSearchModal] = useState<boolean>(false);
   const [showF6PromoModal, setShowF6PromoModal] = useState<boolean>(false);
   const [showDefinePromosModal, setShowDefinePromosModal] = useState<boolean>(false);
+  const [showDefineFactorsModal, setShowDefineFactorsModal] = useState<boolean>(false);
+
+  // Synchronize applicable sales factors (universal + customer price group specific)
+  const refreshSalesFactors = () => {
+    const customer = headerState.customer;
+    const applicable = SmritiSalesFactorService.getFactorsForCustomerAndPriceGroup(
+      customer?.priceGroupCode,
+      customer?.id
+    );
+    if (applicable.length > 0) {
+      const mappedRows: AddonDeductionRow[] = applicable
+        .filter(f => f.factorType === "ADD_ON" || f.factorType === "DEDUCTION")
+        .map((f, idx) => ({
+          sNo: idx + 1,
+          type: f.factorType === "ADD_ON" ? "Addon" : "Deduction",
+          code: f.code,
+          description: f.description,
+          rateType: f.rateOrAmount === "RATE" ? "Percentage" : "Fixed",
+          rate: f.rateOrAmount === "RATE" ? f.value : 0,
+          amount: f.rateOrAmount === "AMOUNT" ? f.value : 0,
+          timing: f.computationTiming,
+          priceGroupCode: f.priceGroupCode,
+          isVariable: f.isVariable
+        }));
+      setAddonRows(mappedRows);
+    }
+  };
+
+  useEffect(() => {
+    refreshSalesFactors();
+  }, [headerState.customer?.priceGroupCode, headerState.customer?.id]);
+
   const [billLevelPromo, setBillLevelPromo] = useState<SmritiBillLevelPromoState>({
     code: "NONE",
     description: "No bill discount applied",
@@ -499,6 +543,33 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [suspendedBills, setSuspendedBills] = useState<{ id: string; header: BillingHeaderState; items: BillingLineItem[]; date: string; netAmount: number }[]>([]);
   const [lastCompletedInvoice, setLastCompletedInvoice] = useState<any>(null);
 
+  const [showDefinePrefixModal, setShowDefinePrefixModal] = useState<boolean>(false);
+  const [resolvedPrefixInfo, setResolvedPrefixInfo] = useState<BillPrefixResolveResult | null>(null);
+
+  // Dynamic Bill Prefix Resolution (Shoper 9 Parity & GST Rule 46b)
+  useEffect(() => {
+    let txType = headerState.transaction === "Cash" ? "SALES_CASH" : "SALES_CREDIT";
+    if (items.length > 0 && items.every(i => (i.qty || 0) < 0)) {
+      txType = "SALES_RETURN";
+    }
+    void SmritiBillPrefixService.resolveActivePrefix({
+      transactionType: txType,
+      terminalId: (currentUser as any)?.terminalId || "COMMON",
+      branchId: headerState.deliveryLocationId || undefined,
+      billType: headerState.billType
+    }).then(res => {
+      setResolvedPrefixInfo(res);
+      setHeaderState(prev => {
+        if (isReadOnlyView || loadedDocMetadata) return prev;
+        return {
+          ...prev,
+          docPrefix: res.prefix,
+          docNo: res.formattedDocNo
+        };
+      });
+    });
+  }, [headerState.transaction, headerState.billType, isReadOnlyView, loadedDocMetadata, items.length]);
+
   const hasGstProfile = Boolean(headerState.customer?.gstNumber || headerState.billedGstin);
 
   const openSettlement = () => {
@@ -509,6 +580,20 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     if (!hasGstProfile) {
       onNotification?.("GST profile pending", "Add a customer GSTIN before opening settlement.", "error");
       return;
+    }
+    // Credit ceiling check when billing on credit
+    if (headerState.customer && headerState.transaction === "Credit") {
+      const limit = headerState.customer.creditLimit;
+      const currentOutstanding = headerState.customer.outstanding || 0;
+      const billTotal = summaryTotals.netAmount;
+      if (limit !== undefined && limit > 0 && (currentOutstanding + billTotal > limit)) {
+        onNotification?.(
+          "Credit Ceiling Exceeded",
+          `Customer credit ceiling ₹${limit.toFixed(2)} exceeded! Current Outstanding: ₹${currentOutstanding.toFixed(2)}, Current Bill: ₹${billTotal.toFixed(2)} (Total: ₹${(currentOutstanding + billTotal).toFixed(2)}).`,
+          "error"
+        );
+        return;
+      }
     }
     setShowSettlementModal(true);
   };
@@ -675,6 +760,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           mobile: (result.record?.mobile as string) || (result.record?.phone as string) || "",
           gstNumber: (result.record?.gst_number as string) || (result.record?.gstNumber as string) || "",
           customerGroupId: (result.record?.customer_group_id as string) || (result.record?.customerGroupId as string) || "CG-Retail",
+          priceGroupCode: (result.record?.price_group_code as string) || (result.record?.priceGroupCode as string) || undefined,
+          itemClassificationPriceFactorApplicable: Boolean(result.record?.item_classification_price_factor_applicable ?? result.record?.itemClassificationPriceFactorApplicable),
           creditLimit: Number(result.record?.credit_limit ?? result.record?.creditLimit ?? 0) || undefined,
           creditDays: Number(result.record?.credit_days ?? result.record?.creditDays ?? 0) || undefined,
           status: (result.record?.status as string) || "Active",
@@ -856,6 +943,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       } else if (e.altKey && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
         setShowDefinePromosModal(true);
+      } else if (e.altKey && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        setShowDefineFactorsModal(true);
       } else if (e.key === "F4" || (e.altKey && e.key === "6")) {
         e.preventDefault();
         setShowTransactionBrowserModal(true);
@@ -964,6 +1054,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       mobile: (r as any).mobile || (r as any).phone || "",
       gstNumber: (r as any).gstNumber || (r as any).gst_number,
       customerGroupId: (r as any).customerGroupId || (r as any).customer_group_id || "CG-Retail",
+      priceGroupCode: (r as any).priceGroupCode || (r as any).price_group_code || undefined,
+      itemClassificationPriceFactorApplicable: Boolean((r as any).itemClassificationPriceFactorApplicable ?? (r as any).item_classification_price_factor_applicable),
+      creditLimit: Number((r as any).creditLimit ?? (r as any).credit_limit ?? 0) || undefined,
       status: (r as any).status || "Active",
       outstanding: (r as any).outstanding || (r as any).outstanding_balance || 0,
       createdDate: (r as any).createdDate || (r as any).created_at || new Date().toISOString().split("T")[0]
@@ -1066,7 +1159,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const summaryTotals: BillingSummaryTotals = useMemo(() => {
     const transaction: SalesTransaction = {
       docType: "billing",
-      docPrefix: headerState.docPrefix || "D1DS13",
+      docPrefix: headerState.docPrefix || "INV",
       docNumber: headerState.docNo || "1",
       docDate: headerState.billDate || new Date().toISOString().split("T")[0],
       docTime: liveTime || new Date().toTimeString().slice(0, 5),
@@ -1103,9 +1196,48 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const itemCount = items.length;
     const totalQty = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
     const billDiscount = billLevelPromo.discountAmt || ((recomputed.subtotal * billLevelPromo.discountPct) / 100);
-    const totalAddons = transporterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0) + addonRows.filter(a => a.type === "Addon").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-    const totalDeductions = addonRows.filter(a => a.type === "Deduction").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-    const unroundedNet = Math.max(0, recomputed.netAmount - billDiscount + totalAddons - totalDeductions);
+    // Statutory GST Section 15 Addon/Deduction Calculation
+    let aboveTaxAddons = 0;
+    let aboveTaxDeductions = 0;
+    let belowTaxAddons = transporterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    let belowTaxDeductions = 0;
+
+    const baseForPerc = Math.max(0, recomputed.subtotal - recomputed.discountTotal);
+
+    addonRows.forEach(a => {
+      let val = Number(a.amount) || 0;
+      if (a.rateType === "Percentage" && a.rate > 0) {
+        val = Math.round((baseForPerc * (a.rate / 100)) * 100) / 100;
+      }
+      if (a.type === "Addon") {
+        if (a.timing === "ABOVE_TAX") {
+          aboveTaxAddons += val;
+        } else {
+          belowTaxAddons += val;
+        }
+      } else {
+        if (a.timing === "ABOVE_TAX") {
+          aboveTaxDeductions += val;
+        } else {
+          belowTaxDeductions += val;
+        }
+      }
+    });
+
+    const rawTaxable = Math.max(0, baseForPerc - billDiscount + aboveTaxAddons - aboveTaxDeductions);
+    const adjustedTaxableValue = Math.round(rawTaxable * 100) / 100;
+
+    // Statutorily recalculate GST tax if above-tax adjustments are present
+    let effectiveTax = recomputed.taxTotal;
+    if (aboveTaxAddons > 0 || aboveTaxDeductions > 0) {
+      const baseTaxable = Math.max(0.01, baseForPerc - billDiscount);
+      const taxRatio = effectiveTax / baseTaxable;
+      effectiveTax = Math.round(adjustedTaxableValue * taxRatio * 100) / 100;
+    }
+
+    const totalAddons = Math.round((aboveTaxAddons + belowTaxAddons) * 100) / 100;
+    const totalDeductions = Math.round((aboveTaxDeductions + belowTaxDeductions) * 100) / 100;
+    const unroundedNet = Math.max(0, adjustedTaxableValue + effectiveTax + belowTaxAddons - belowTaxDeductions);
     const roundedNet = Math.round(unroundedNet);
     const roundOff = Math.round((roundedNet - unroundedNet) * 100) / 100;
     const netAmount = roundedNet;
@@ -1116,9 +1248,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       salesValue: recomputed.subtotal,
       itemDiscount: recomputed.discountTotal,
       billDiscount,
-      totalTax: recomputed.taxTotal,
+      totalTax: effectiveTax,
       totalAddons,
       totalDeductions,
+      aboveTaxAddons: Math.round(aboveTaxAddons * 100) / 100,
+      aboveTaxDeductions: Math.round(aboveTaxDeductions * 100) / 100,
+      belowTaxAddons: Math.round(belowTaxAddons * 100) / 100,
+      belowTaxDeductions: Math.round(belowTaxDeductions * 100) / 100,
+      adjustedTaxableValue,
       roundOff,
       netAmount
     };
@@ -1735,10 +1872,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     denominations?: any
   ) => {
     const isCreditTx = headerState.transaction === "Credit" || payments.some(p => (p.mode || "").toUpperCase() === "CREDIT");
-    // If docPrefix and docNo are the static default "D1DS13-1", omit invoice_no so backend allocates canonical sequence
-    const invNo = (headerState.docPrefix === "D1DS13" && headerState.docNo === "1")
-      ? undefined
-      : `${headerState.docPrefix}-${headerState.docNo}`;
+
+    // Governed System Parameter Checks
+    if (isCreditTx && !smritiSystemParameterService.getBoolean("AllowCreditBilling", true)) {
+      onNotification?.("Credit Billing Disabled", "Credit billing is prohibited by System Parameter [AllowCreditBilling].", "error");
+      return;
+    }
+
+    if (!headerState.customer && smritiSystemParameterService.getBoolean("InBillingCustSelectionCompulsary", false)) {
+      onNotification?.("Customer Required", "Customer selection is mandatory for billing per System Parameter [InBillingCustSelectionCompulsary].", "error");
+      return;
+    }
+
+    // Format invoice number from resolved prefix and sequence; omit if empty so backend allocates sequence atomically
+    const invNo = (headerState.docPrefix && headerState.docNo)
+      ? `${headerState.docPrefix}${headerState.docNo}`
+      : undefined;
 
     const invoicePayload = {
       invoice_no: invNo,
@@ -2287,22 +2436,48 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               </select>
             </div>
 
-            <div className="flex flex-col gap-unit w-32">
-              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Doc Prefix</label>
-              <input
-                type="text"
-                value={headerState.docPrefix}
-                readOnly
-                className="bg-surface-container-low border-outline-variant text-body-md font-code-md text-on-surface-variant rounded h-9 cursor-not-allowed px-2.5 border"
-              />
+            <div className="flex flex-col gap-unit w-36">
+              <div className="flex items-center justify-between">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Doc Prefix</label>
+                <button
+                  type="button"
+                  onClick={() => setShowDefinePrefixModal(true)}
+                  className="text-[10px] text-primary hover:underline font-bold"
+                  title="Define Bill Prefix (Setup > General > Bill Prefix)"
+                >
+                  Define ⚙️
+                </button>
+              </div>
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={headerState.docPrefix}
+                  readOnly
+                  placeholder="INV/"
+                  className="bg-surface-container-low border-outline-variant text-body-md font-code-md text-on-surface-variant rounded h-9 cursor-not-allowed px-2.5 border flex-1"
+                />
+                {resolvedPrefixInfo && (
+                  <span
+                    className={`text-[9px] font-bold px-1.5 py-1 rounded ${
+                      resolvedPrefixInfo.gstRule46bValid
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-rose-100 text-rose-800"
+                    }`}
+                    title={resolvedPrefixInfo.validationMessage || "Statutory GST Rule 46(b) compliant"}
+                  >
+                    {resolvedPrefixInfo.gstRule46bLength}/16
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-unit w-32">
+            <div className="flex flex-col gap-unit w-28">
               <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Doc No.</label>
               <input
                 type="text"
                 value={headerState.docNo}
                 readOnly
+                placeholder="0001"
                 className="bg-surface-container-low border-outline-variant text-body-md font-code-md text-on-surface-variant rounded h-9 cursor-not-allowed px-2.5 border"
               />
             </div>
@@ -3107,7 +3282,24 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
               {/* Tab 3: Addons & Deductions */}
               {activeFooterTab === "addons" && (
-                <div className="p-2 overflow-x-auto flex-1 max-h-36">
+                <div className="p-2 overflow-x-auto flex-1 max-h-40 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between pb-1 shrink-0">
+                    <div className="flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
+                      <span>Statutory Section 15 GST Factors</span>
+                      {headerState.customer?.priceGroupCode && (
+                        <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.2 rounded font-bold">
+                          Group: {headerState.customer.priceGroupCode}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDefineFactorsModal(true)}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <span>Define Factors (Alt+S)</span>
+                    </button>
+                  </div>
                   <table className="w-full text-left border border-outline-variant text-xs">
                     <thead className="bg-surface-container-high border-b border-outline-variant font-label-caps text-label-caps text-on-surface-variant font-bold">
                       <tr>
@@ -3115,6 +3307,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         <th className="px-2 py-1 w-24 border-r border-outline-variant">Type</th>
                         <th className="px-2 py-1 w-20 border-r border-outline-variant">Code</th>
                         <th className="px-2 py-1 border-r border-outline-variant">Description</th>
+                        <th className="px-2 py-1 w-28 border-r border-outline-variant text-center">Timing (GST)</th>
                         <th className="px-2 py-1 w-24 text-right">Amount</th>
                       </tr>
                     </thead>
@@ -3123,20 +3316,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         <tr key={idx} className="border-b border-outline-variant">
                           <td className="px-2 py-1 border-r border-outline-variant text-center bg-surface-container-low">{a.sNo}</td>
                           <td className="px-2 py-1 border-r border-outline-variant">
-                            <select
-                              value={a.type}
-                              onChange={e => {
-                                const val = e.target.value as "Addon" | "Deduction";
-                                setAddonRows(prev => prev.map((r, i) => i === idx ? { ...r, type: val } : r));
-                              }}
-                              className="bg-transparent border-none text-xs p-0 outline-none"
-                            >
-                              <option value="Addon">Addon (+)</option>
-                              <option value="Deduction">Deduction (-)</option>
-                            </select>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              a.type === "Addon" ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
+                            }`}>
+                              {a.type === "Addon" ? "Addon (+)" : "Deduction (-)"}
+                            </span>
                           </td>
-                          <td className="px-2 py-1 border-r border-outline-variant">{a.code}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant font-mono font-bold">{a.code}</td>
                           <td className="px-2 py-1 border-r border-outline-variant">{a.description}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant text-center">
+                            <span className={`text-[9px] font-bold font-mono px-1 py-0.2 rounded ${
+                              a.timing === "ABOVE_TAX" ? "bg-indigo-500/10 text-indigo-600" : "bg-teal-500/10 text-teal-600"
+                            }`}>
+                              {a.timing === "ABOVE_TAX" ? "Above Tax" : "Below Tax"}
+                            </span>
+                          </td>
                           <td className="px-2 py-1 text-right font-bold text-primary">
                             <input
                               type="number"
@@ -3329,7 +3523,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       {/* Persistent Bottom Shortcut Footer */}
       <footer className="bg-surface-container-highest border-t border-outline-variant mt-auto w-full flex justify-between items-center px-margin-page py-2 shrink-0 z-30 font-label-caps text-label-caps">
         <span className="text-on-surface-variant font-medium">
-          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">Alt+P:</strong> Define Promos | <strong className="text-primary">F7:</strong> Exact Cash | <strong className="text-primary">F8:</strong> Settle | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
+          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">Alt+P:</strong> Define Promos | <strong className="text-primary">Alt+S:</strong> Define Factors | <strong className="text-primary">F7:</strong> Exact Cash | <strong className="text-primary">F8:</strong> Settle | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
         </span>
         <span className="text-primary font-bold">© 2026 smritisys.com</span>
       </footer>
@@ -3395,6 +3589,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       <SmritiDefineSalesPromotionsModal
         isOpen={showDefinePromosModal}
         onClose={() => setShowDefinePromosModal(false)}
+        onNotification={onNotification}
+      />
+
+      {/* 3d. SMRITI Define Sales Factors & Customer Price Groups Modal */}
+      <SmritiDefineSalesFactorsModal
+        isOpen={showDefineFactorsModal}
+        onClose={() => setShowDefineFactorsModal(false)}
+        onFactorsUpdated={refreshSalesFactors}
         onNotification={onNotification}
       />
 
@@ -3609,7 +3811,29 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         onNotification={(title, msg, type) => onNotification?.(title, msg, type === "error" ? "error" : "success")}
       />
 
-
+      {/* 8. Shoper 9 Parity: Define Bill Prefix Management Studio Modal */}
+      <SmritiDefineBillPrefixModal
+        isOpen={showDefinePrefixModal}
+        onClose={() => setShowDefinePrefixModal(false)}
+        onSaved={() => {
+          const txType = headerState.transaction === "Cash" ? "SALES_CASH" : "SALES_CREDIT";
+          void SmritiBillPrefixService.resolveActivePrefix({
+            transactionType: txType,
+            terminalId: (currentUser as any)?.terminalId || "COMMON",
+            branchId: headerState.deliveryLocationId || undefined,
+            billType: headerState.billType
+          }).then(res => {
+            setResolvedPrefixInfo(res);
+            setHeaderState(prev => ({
+              ...prev,
+              docPrefix: res.prefix,
+              docNo: res.formattedDocNo
+            }));
+          });
+        }}
+        terminalId={(currentUser as any)?.terminalId || "COMMON"}
+        companyCode={(currentUser as any)?.companyCode || currentUser?.companyId || "SMRITI"}
+      />
     </div>
   );
 };

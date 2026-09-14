@@ -19,7 +19,9 @@ from ...api.deps import get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...schemas.numbering import (
     DocumentSeriesCreate, DocumentSeriesUpdate, DocumentSeriesResponse,
-    NumberingAuditLogResponse, AllocationRequest
+    NumberingAuditLogResponse, AllocationRequest,
+    BillPrefixResolveRequest, BillPrefixResolveResponse,
+    BillPrefixBatchSaveRequest, YearEndRolloverRequest, YearEndRolloverResponse
 )
 from ...services.numbering import NumberingService
 
@@ -153,3 +155,149 @@ async def allocate_number(
         username=username
     )
     return {"success": True, "documentNo": doc_no}
+
+
+# =========================================================================
+# Shoper 9 Bill Prefix Endpoints
+# =========================================================================
+
+@router.get(
+    "/bill-prefixes",
+    response_model=List[DocumentSeriesResponse],
+)
+async def list_bill_prefixes(
+    transaction_group: Optional[str] = None,
+    terminal_id: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List bill prefixes with optional group, terminal, and branch filters.
+    """
+    service = NumberingService(db)
+    return await service.list_bill_prefixes(
+        company_id=getattr(current_user, "company_id", None),
+        branch_id=branch_id,
+        transaction_group=transaction_group,
+        terminal_id=terminal_id
+    )
+
+
+@router.post(
+    "/bill-prefixes/resolve",
+    response_model=BillPrefixResolveResponse,
+)
+async def resolve_bill_prefix(
+    req: BillPrefixResolveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Resolves the active Bill Prefix, sequence preview, and statutory GST Rule 46(b) validation
+    for a POS terminal counter before transaction creation.
+    """
+    service = NumberingService(db)
+    return await service.resolve_bill_prefix(
+        company_id=getattr(current_user, "company_id", None),
+        branch_id=req.branchId,
+        terminal_id=req.terminalId or "COMMON",
+        transaction_type=req.transactionType,
+        bill_type=req.billType or "Product"
+    )
+
+
+@router.post(
+    "/bill-prefixes/save-batch",
+    response_model=List[DocumentSeriesResponse],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def save_bill_prefixes_batch(
+    req: BillPrefixBatchSaveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Batch save or update document prefix schemes from the Prefix Management window.
+    Enforces GST Rule 46(b) validation on each prefix scheme.
+    """
+    service = NumberingService(db)
+    return await service.save_bill_prefixes_batch(
+        company_id=getattr(current_user, "company_id", None),
+        branch_id=req.branchId,
+        req=req,
+        operator=current_user.username
+    )
+
+
+@router.post(
+    "/year-end-rollover",
+    response_model=YearEndRolloverResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def execute_year_end_rollover(
+    req: YearEndRolloverRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Supervisory Year End Process:
+    Increments financial year suffix across all active document series,
+    resets starting document numbers, and logs immutable audit trail.
+    """
+    service = NumberingService(db)
+    return await service.execute_year_end_rollover(
+        company_id=getattr(current_user, "company_id", None),
+        req=req,
+        operator=current_user.username
+    )
+
+
+@router.get(
+    "/terminal-prefixes-report",
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def get_terminal_prefixes_report(
+    terminal_id: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Terminal Prefix Listing report: detailed breakdown of bill prefixes defined per terminal node.
+    """
+    service = NumberingService(db)
+    series_list = await service.list_bill_prefixes(
+        company_id=getattr(current_user, "company_id", None),
+        branch_id=branch_id,
+        terminal_id=terminal_id
+    )
+    rows = []
+    for s in series_list:
+        pfx = s.prefix or ""
+        sfx = s.suffix or ""
+        next_n = (s.current_number or (s.start_number - 1)) + 1
+        fmt = str(next_n).zfill(s.running_length or 4)
+        preview = f"{pfx}{fmt}{sfx}"
+        gst_eval = service.validate_gst_rule_46b(pfx, fmt, sfx)
+        rows.append({
+            "seriesId": s.id,
+            "name": s.name,
+            "terminalId": s.terminal_id or "COMMON",
+            "isCommonAcrossTerminals": s.is_common_across_terminals if s.is_common_across_terminals is not None else True,
+            "documentType": s.document_type,
+            "transactionGroup": s.transaction_group or "SALES",
+            "prefix": pfx,
+            "suffix": sfx,
+            "startNumber": s.start_number or 1,
+            "currentNumber": s.current_number or 0,
+            "nextDocumentNo": next_n,
+            "preview": preview,
+            "runningLength": s.running_length or 4,
+            "financialYear": s.financial_year or "2026-2027",
+            "isActive": s.is_active,
+            "gstRule46bValid": gst_eval["isValid"],
+            "gstRule46bLength": gst_eval["length"]
+        })
+    return {"success": True, "count": len(rows), "items": rows}
+

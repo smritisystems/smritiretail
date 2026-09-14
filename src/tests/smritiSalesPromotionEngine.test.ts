@@ -35,11 +35,19 @@
  *   7. Brand governance: Zero references to prohibited legacy platform branding.
  */
 
+vi.mock("../lib/apiFetchV1", () => ({
+  apiFetchV1: vi.fn()
+}));
+
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { apiFetchV1 } from "../lib/apiFetchV1";
 import {
   SmritiSalesPromotionService,
   SmritiDefinedSalesPromotion,
-  DEFAULT_DEFINED_SALES_PROMOTIONS
+  DEFAULT_DEFINED_SALES_PROMOTIONS,
+  mapBackendSchemeToLocal,
+  mapLocalSchemeToBackend,
+  BackendPromotionSchemeDTO
 } from "../services/smritiSalesPromotionService";
 
 const mockStorage: Record<string, string> = {};
@@ -185,5 +193,171 @@ describe("SMRITI Sales Promotion & F6 Calling Engine", () => {
     const serviceString = SmritiSalesPromotionService.toString();
     expect(serviceString.toLowerCase()).not.toContain("shoper");
     expect(serviceString.toLowerCase()).not.toContain("shoper9");
+  });
+
+  it("11. Two-Way Sync: Converts between frontend and backend scheme DTOs with full field parity", () => {
+    const localScheme: SmritiDefinedSalesPromotion = {
+      id: "sp-summer-25",
+      code: "SUMMER25",
+      name: "Summer Carnival 25% Off",
+      description: "25% discount on all summer collections",
+      level: "ITEM_LEVEL",
+      category: "ITEM_DISCOUNT_PERCENT",
+      priority: 2,
+      discountValue: 25,
+      minBillValue: 1000,
+      minQty: 1,
+      maxDiscount: 2500,
+      applicableCategories: ["Apparel", "Swimwear"],
+      applicableBrands: ["SmritiWear"],
+      applicableCustomerGroups: ["ALL", "VIP"],
+      validFrom: "2026-04-01",
+      validTo: "2026-06-30",
+      isHappyHours: true,
+      happyHoursStart: "12:00",
+      happyHoursEnd: "16:00",
+      isActive: true,
+      createdAt: "2026-04-01T00:00:00.000Z",
+      updatedAt: "2026-04-01T00:00:00.000Z"
+    };
+
+    const backendDTO = mapLocalSchemeToBackend(localScheme);
+    expect(backendDTO.code).toBe("SUMMER25");
+    expect(backendDTO.discount_value).toBe(25);
+    expect(backendDTO.min_bill_value).toBe(1000);
+    expect(backendDTO.is_happy_hours).toBe(true);
+
+    const convertedBack = mapBackendSchemeToLocal(backendDTO);
+    expect(convertedBack.code).toBe(localScheme.code);
+    expect(convertedBack.discountValue).toBe(localScheme.discountValue);
+    expect(convertedBack.minBillValue).toBe(localScheme.minBillValue);
+    expect(convertedBack.applicableCategories).toEqual(localScheme.applicableCategories);
+    expect(convertedBack.isHappyHours).toBe(true);
+  });
+
+  it("12. Two-Way Sync: syncFromBackend updates local cache with remote PostgreSQL schemes", async () => {
+    const mockRemoteDTOs: BackendPromotionSchemeDTO[] = [
+      {
+        id: "pc_remote_001",
+        code: "REMOTE20",
+        name: "Remote Postgres Scheme",
+        description: "Directly from database",
+        level: "BILL_LEVEL",
+        category: "BILL_DISCOUNT_PERCENT",
+        priority: 1,
+        discount_value: 20,
+        min_bill_value: 1500,
+        valid_from: "2026-01-01",
+        valid_to: "2026-12-31",
+        is_active: true
+      }
+    ];
+
+    vi.mocked(apiFetchV1).mockResolvedValueOnce(mockRemoteDTOs);
+
+    const result = await SmritiSalesPromotionService.syncFromBackend();
+    expect(result.source).toBe("DATABASE");
+    expect(result.schemes.some(s => s.code === "REMOTE20")).toBe(true);
+
+    const activeBillPromos = SmritiSalesPromotionService.getActivePromotionsByLevel("BILL_LEVEL");
+    expect(activeBillPromos.some(p => p.code === "REMOTE20")).toBe(true);
+  });
+
+  it("13. Two-Way Sync: Gracefully falls back to local storage cache when backend is offline or errors", async () => {
+    // Seed local storage first
+    SmritiSalesPromotionService.savePromotion({
+      id: "sp-offline-01",
+      code: "OFFLINE10",
+      name: "Offline Fallback Scheme",
+      description: "Scheme preserved during network downtime",
+      level: "ITEM_LEVEL",
+      category: "ITEM_DISCOUNT_PERCENT",
+      priority: 1,
+      discountValue: 10,
+      validFrom: "2026-01-01",
+      validTo: "2026-12-31",
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    // Simulate backend connection error
+    vi.mocked(apiFetchV1).mockRejectedValueOnce(new Error("Network Error: Connection refused"));
+
+    const result = await SmritiSalesPromotionService.syncFromBackend();
+    expect(result.source).toBe("LOCAL_CACHE");
+    expect(result.schemes.some(s => s.code === "OFFLINE10")).toBe(true);
+    expect(result.error).toContain("Network Error");
+  });
+
+  it("14. Two-Way Sync: saveScheme commits locally and triggers remote PostgreSQL push", async () => {
+    vi.mocked(apiFetchV1).mockResolvedValueOnce({ id: "pc_new_001", code: "SYNC_PUSH" });
+
+    const newScheme: SmritiDefinedSalesPromotion = {
+      id: "sp-push-01",
+      code: "SYNC_PUSH",
+      name: "Push Scheme to Postgres",
+      description: "Testing two-way save",
+      level: "ITEM_LEVEL",
+      category: "ITEM_DISCOUNT_FLAT",
+      priority: 3,
+      discountValue: 150,
+      validFrom: "2026-01-01",
+      validTo: "2026-12-31",
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const result = await SmritiSalesPromotionService.saveScheme(newScheme);
+    expect(result.success).toBe(true);
+    expect(result.syncedToBackend).toBe(true);
+
+    // Verify it's in local storage
+    const all = SmritiSalesPromotionService.getAllDefinedPromotions();
+    expect(all.some(s => s.code === "SYNC_PUSH")).toBe(true);
+
+    // Verify API called with POST /promotions/schemes
+    expect(apiFetchV1).toHaveBeenCalledWith(
+      "/promotions/schemes",
+      expect.objectContaining({
+        method: "POST"
+      })
+    );
+  });
+
+  it("15. Two-Way Sync: deleteScheme removes from local storage and triggers remote PostgreSQL delete", async () => {
+    vi.mocked(apiFetchV1).mockResolvedValueOnce({ status: "SUCCESS" });
+
+    // Seed scheme
+    SmritiSalesPromotionService.savePromotion({
+      id: "sp-to-delete",
+      code: "DELETE_ME",
+      name: "To Be Deleted",
+      description: "Will be deleted",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_PERCENT",
+      priority: 5,
+      discountValue: 5,
+      validFrom: "2026-01-01",
+      validTo: "2026-12-31",
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    const result = await SmritiSalesPromotionService.deleteScheme("sp-to-delete");
+    expect(result.success).toBe(true);
+    expect(result.syncedToBackend).toBe(true);
+
+    const all = SmritiSalesPromotionService.getAllDefinedPromotions();
+    expect(all.some(s => s.id === "sp-to-delete")).toBe(false);
+
+    expect(apiFetchV1).toHaveBeenCalledWith(
+      "/promotions/schemes/sp-to-delete",
+      expect.objectContaining({
+        method: "DELETE"
+      })
+    );
   });
 });

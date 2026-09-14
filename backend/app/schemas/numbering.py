@@ -28,6 +28,11 @@ class DocumentSeriesCreate(BaseModel):
     companyCode: Optional[str] = Field("SMRITI_IND", alias="companyCode")
     mode: Optional[str] = "Auto"
     description: Optional[str] = None
+    terminalId: Optional[str] = Field("COMMON", alias="terminalId")
+    isCommonAcrossTerminals: Optional[bool] = Field(True, alias="isCommonAcrossTerminals")
+    transactionGroup: Optional[str] = Field("SALES", alias="transactionGroup")
+    startNumber: Optional[int] = Field(1, alias="startNumber")
+    isVoidUnified: Optional[bool] = Field(False, alias="isVoidUnified")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -45,6 +50,11 @@ class DocumentSeriesUpdate(BaseModel):
     companyCode: Optional[str] = Field(None, alias="companyCode")
     mode: Optional[str] = None
     description: Optional[str] = None
+    terminalId: Optional[str] = Field(None, alias="terminalId")
+    isCommonAcrossTerminals: Optional[bool] = Field(None, alias="isCommonAcrossTerminals")
+    transactionGroup: Optional[str] = Field(None, alias="transactionGroup")
+    startNumber: Optional[int] = Field(None, alias="startNumber")
+    isVoidUnified: Optional[bool] = Field(None, alias="isVoidUnified")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -65,6 +75,11 @@ class DocumentSeriesResponse(BaseModel):
     mode: str
     description: Optional[str] = None
     isActive: bool = Field(..., serialization_alias="isActive")
+    terminalId: Optional[str] = Field("COMMON", serialization_alias="terminalId")
+    isCommonAcrossTerminals: bool = Field(True, serialization_alias="isCommonAcrossTerminals")
+    transactionGroup: Optional[str] = Field("SALES", serialization_alias="transactionGroup")
+    startNumber: int = Field(1, serialization_alias="startNumber")
+    isVoidUnified: bool = Field(False, serialization_alias="isVoidUnified")
 
     model_config = {
         "from_attributes": True,
@@ -93,3 +108,80 @@ class NumberingAuditLogResponse(BaseModel):
 class AllocationRequest(BaseModel):
     branch: Optional[str] = "HQ"
     fy: Optional[str] = "26-27"
+
+
+# =========================================================================
+# Shoper 9 Bill Prefix Resolution, Batch Definition, & Year-End Schemas
+# =========================================================================
+
+class BillPrefixResolveRequest(BaseModel):
+    transactionType: str = Field(..., alias="transactionType")  # e.g. SALES_CASH, SALES_CREDIT, SALES_RETURN, VOID_SALES, BILL_HOLD
+    terminalId: Optional[str] = Field("COMMON", alias="terminalId")
+    branchId: Optional[str] = Field(None, alias="branchId")
+    billType: Optional[str] = Field("Product", alias="billType")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class BillPrefixResolveResponse(BaseModel):
+    seriesId: str
+    prefix: str
+    suffix: str
+    nextDocNo: int
+    formattedDocNo: str
+    fullPreview: str
+    runningLength: int
+    terminalId: str
+    isCommonAcrossTerminals: bool
+    gstRule46bValid: bool
+    gstRule46bLength: int
+    validationMessage: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class BillPrefixBatchSaveItem(BaseModel):
+    id: Optional[str] = None
+    name: str
+    documentType: str = Field(..., alias="documentType")
+    transactionGroup: str = Field("SALES", alias="transactionGroup")
+    terminalId: Optional[str] = Field("COMMON", alias="terminalId")
+    isCommonAcrossTerminals: bool = Field(True, alias="isCommonAcrossTerminals")
+    prefix: str
+    suffix: Optional[str] = ""
+    startNumber: int = Field(1, alias="startNumber")
+    currentNumber: Optional[int] = Field(0, alias="currentNumber")
+    runningLength: int = Field(4, alias="runningLength")
+    isActive: bool = Field(True, alias="isActive")
+    isVoidUnified: bool = Field(False, alias="isVoidUnified")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class BillPrefixBatchSaveRequest(BaseModel):
+    terminalId: Optional[str] = Field("COMMON", alias="terminalId")
+    isCommonAcrossTerminals: bool = Field(True, alias="isCommonAcrossTerminals")
+    companyCodeAsPrefix: bool = Field(False, alias="companyCodeAsPrefix")
+    branchId: Optional[str] = Field(None, alias="branchId")
+    items: list[BillPrefixBatchSaveItem]
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class YearEndRolloverRequest(BaseModel):
+    newFinancialYear: str = Field(..., alias="newFinancialYear")  # e.g. "2026-2027"
+    newYearSuffix: str = Field(..., alias="newYearSuffix")  # e.g. "26-27" or "26"
+    resetToStartNumber: bool = Field(True, alias="resetToStartNumber")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class YearEndRolloverResponse(BaseModel):
+    success: bool
+    seriesUpdated: int
+    oldYear: Optional[str] = None
+    newYear: str
+    updatedSeries: list[dict]
+
+    model_config = ConfigDict(populate_by_name=True)
+

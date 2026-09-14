@@ -370,6 +370,28 @@ def seed_control_plane_test_assignments():
                 reference_id VARCHAR(100) NOT NULL, due_date DATE, notes TEXT,
                 UNIQUE (reference_type, reference_id)
             );
+            DROP TABLE IF EXISTS sales_factors CASCADE;
+            CREATE TABLE IF NOT EXISTS sales_factors (
+                id VARCHAR(50) PRIMARY KEY, uuid VARCHAR(36), company_id VARCHAR(50), branch_id VARCHAR(50),
+                created_at TIMESTAMPTZ, modified_at TIMESTAMPTZ, created_by VARCHAR(50), updated_by VARCHAR(50),
+                is_active BOOLEAN DEFAULT TRUE, is_deleted BOOLEAN DEFAULT FALSE, deleted_at TIMESTAMPTZ,
+                deleted_by VARCHAR(50), version INTEGER DEFAULT 1,
+                code VARCHAR(50) NOT NULL, description VARCHAR(200) NOT NULL,
+                factor_type VARCHAR(30) NOT NULL, factor_category VARCHAR(30) NOT NULL,
+                customer_id VARCHAR(50), price_group_code VARCHAR(50),
+                applicable_categories JSONB DEFAULT '[]'::jsonb,
+                applicable_brands JSONB DEFAULT '[]'::jsonb,
+                computation_timing VARCHAR(20) NOT NULL DEFAULT 'ABOVE_TAX',
+                computed_on VARCHAR(30) NOT NULL DEFAULT 'DISCOUNTED_VALUE',
+                rate_or_amount VARCHAR(10) NOT NULL DEFAULT 'RATE',
+                value NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
+                is_variable BOOLEAN DEFAULT FALSE,
+                min_bill_value NUMERIC(15, 2), max_bill_value NUMERIC(15, 2),
+                valid_from VARCHAR(20), valid_to VARCHAR(20),
+                applicable_days JSONB DEFAULT '[]'::jsonb
+            );
+            CREATE INDEX IF NOT EXISTS ix_sales_factors_code ON sales_factors (code);
+            CREATE INDEX IF NOT EXISTS ix_sales_factors_price_group_code ON sales_factors (price_group_code);
         """)
 
         # Seed sample products for integration tests in Company DB

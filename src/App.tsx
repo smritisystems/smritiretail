@@ -124,6 +124,7 @@ const DatabaseManagerTab = lazy(() => import("./components/DatabaseManagerTab.ts
 const LegacyMigDashTab = lazy(() => import("./components/LegacyMigDashTab.tsx").then(m => ({ default: m.LegacyMigDashTab })));
 const PhysicalStockTab = lazy(() => import("./components/PhysicalStockTab.tsx").then(m => ({ default: m.PhysicalStockTab })));
 const StorePolicyStudio = lazy(() => import("./components/StorePolicyStudio.tsx").then(m => ({ default: m.StorePolicyStudio })));
+const SmritiSystemParametersStudio = lazy(() => import("./components/setup/SmritiSystemParametersStudio.tsx").then(m => ({ default: m.SmritiSystemParametersStudio })));
 const WmsStudioTab = lazy(() => import("./components/wms/WmsStudioTab.tsx").then(m => ({ default: m.WmsStudioTab })));
 const SetupWizardTab = lazy(() => import("./components/SetupWizard/SetupWizardTab.tsx").then(m => ({ default: m.SetupWizardTab })));
 const PrintPreviewModal = lazy(() => import("./components/PrintPreviewModal.tsx").then(m => ({ default: m.PrintPreviewModal })));
@@ -2038,6 +2039,11 @@ const AppContent: React.FC = () => {
       case "governed-policies":
       case "policy-studio":
         return <StorePolicyStudio />;
+
+      case "system-parameters":
+      case "parameters-studio":
+      case "sys-params":
+        return <SmritiSystemParametersStudio onClose={() => setActiveTab("dashboard")} />;
 
 
       case "wms":
