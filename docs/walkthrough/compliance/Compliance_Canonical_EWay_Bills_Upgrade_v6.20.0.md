@@ -48,7 +48,11 @@ This implementation eliminates schema drift and statutory obsolescence in SMRITI
 1. `backend/app/models/distribution.py` — Updated `EWayBill` SQLAlchemy model with all 73 canonical columns.
 2. `backend/app/compliance/schemas/compliance.py` — Added 2026 statutory compliance fields to `EWayBillGenerationRequest`.
 3. `backend/app/compliance/services/ewaybill_service.py` — Wired ORM persistence in `generate_ewaybill()` and database status updating in `cancel_ewaybill()`.
-4. `docs/walkthrough/README.md` — Updated master index with v6.20.0 entry.
+4. `backend/app/compliance/api/router.py` — Added `GET /api/v1/compliance/ewaybill/{document_no_or_id}` endpoint.
+5. `src/components/sales/components/ComplianceDispatchModal.tsx` — Integrated canonical E-Way Bill fetch and 4-party logistics display.
+6. `src/tests/complianceDispatchModal.test.ts` — Added test STEP 5 verifying GET retrieval and 4-party payload unpacking.
+7. `docs/walkthrough/README.md` — Updated master index with v6.20.0 entry.
+8. `CHANGELOG.md` — Documented v6.20.0 release notes.
 
 ---
 
@@ -86,26 +90,33 @@ Previously, E-Way Bill generation generated JSON files and logged into `complian
 
 ## 9. Verification Results
 ```text
-============================= test session starts =============================
-platform win32 -- Python 3.13.11, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\netma\AppData\Local\Programs\Python\Python313\python.exe
-rootdir: F:\SMRITRretailNX\backend
-plugins: anyio-4.14.2, asyncio-1.4.0
-asyncio: mode=Mode.AUTO, debug=False
+=== Pytest Suite Output (11/11 Green) ===
+collected 11 items
 
-collected 10 items
-
-backend\app\compliance\tests\test_canonical_ewaybill_lifecycle.py::test_ewaybill_statutory_threshold PASSED [ 10%]
-backend\app\compliance\tests\test_canonical_ewaybill_lifecycle.py::test_canonical_ewaybill_generation_and_persistence PASSED [ 20%]
-backend\app\compliance\tests\test_compliance_fou.py::test_vault_key_sourcing_validation PASSED [ 30%]
-backend\app\compliance\tests\test_compliance_fou.py::test_vault_deterministic_mode_gating PASSED [ 40%]
-backend\app\compliance\tests\test_compliance_fou.py::test_connector_registry_discovery PASSED [ 50%]
-backend\app\compliance\tests\test_compliance_fou.py::test_connector_registry_invalid_manifests PASSED [ 60%]
-backend\app\compliance\tests\test_compliance_fou.py::test_compliance_repositories_crud PASSED [ 70%]
-backend\app\compliance\tests\test_compliance_fou.py::test_services_coordination PASSED [ 80%]
+backend\app\compliance\tests\test_canonical_ewaybill_lifecycle.py::test_ewaybill_statutory_threshold PASSED [  9%]
+backend\app\compliance\tests\test_canonical_ewaybill_lifecycle.py::test_canonical_ewaybill_generation_and_persistence PASSED [ 18%]
+backend\app\compliance\tests\test_canonical_ewaybill_lifecycle.py::test_get_ewaybill_api_endpoint PASSED [ 27%]
+backend\app\compliance\tests\test_compliance_fou.py::test_vault_key_sourcing_validation PASSED [ 36%]
+backend\app\compliance\tests\test_compliance_fou.py::test_vault_deterministic_mode_gating PASSED [ 45%]
+backend\app\compliance\tests\test_compliance_fou.py::test_connector_registry_discovery PASSED [ 54%]
+backend\app\compliance\tests\test_compliance_fou.py::test_connector_registry_invalid_manifests PASSED [ 63%]
+backend\app\compliance\tests\test_compliance_fou.py::test_compliance_repositories_crud PASSED [ 72%]
+backend\app\compliance\tests\test_compliance_fou.py::test_services_coordination PASSED [ 81%]
 backend\app\compliance\tests\test_compliance_fou.py::test_health_check_endpoint PASSED [ 90%]
 backend\app\compliance\tests\test_compliance_fou.py::test_debug_outbox_gating PASSED [100%]
 
-================= 10 passed, 27 warnings in 60.89s (0:01:00) ==================
+====================== 11 passed, 31 warnings in 55.97s =======================
+
+=== Vitest Suite Output (5/5 Green) ===
+ RUN  v4.1.10 F:/SMRITRretailNX
+
+ ✓ src/tests/complianceDispatchModal.test.ts (5 tests) 9ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+
+=== TypeScript Check ===
+npx tsc --noEmit -> Exit code 0 (0 errors)
 ```
 
 ---
