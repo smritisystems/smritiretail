@@ -40,6 +40,7 @@ CANONICAL_36_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
     "menu-crm": {"resource": "crm_studio", "view_perm": "CRM.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-loyalty": {"resource": "loyalty_rewards", "view_perm": "LOYALTY.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-profiles": {"resource": "terminal_profiles", "view_perm": "TERMINALS.MANAGE", "parent_id": "menu-pos"},
+    "menu-sales-promotions": {"resource": "promotions_studio", "view_perm": "PROMOTIONS.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
 
     # 4. Inventory & Purchase (Parent: menu-inventory)
     "menu-inventory": {"resource": "inventory_workspace", "view_perm": "INVENTORY.WORKSPACE.ACCESS", "parent_id": None},
@@ -83,7 +84,7 @@ CANONICAL_34_MENU_MATRIX = CANONICAL_36_MENU_MATRIX
 # Standard operational modules allowed by default for Cashier / Store User
 CASHIER_DEFAULT_VIEW_ALLOWLIST: Set[str] = {
     "dashboard", "pos_workspace", "sales_billing", "customer_master", "item_master",
-    "user_profile", "wiki_docs", "about_smriti"
+    "user_profile", "wiki_docs", "about_smriti", "promotions_studio"
 }
 
 

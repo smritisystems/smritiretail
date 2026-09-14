@@ -25,7 +25,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Tag, Percent, Sparkles, X, Check, RotateCcw, AlertCircle, FileText, CheckCircle2, Layers } from "lucide-react";
+import { Tag, Percent, Sparkles, X, Check, RotateCcw, AlertCircle, FileText, CheckCircle2, Layers, ExternalLink } from "lucide-react";
 import {
   SmritiSalesPromotionService,
   SmritiDefinedSalesPromotion
@@ -412,6 +412,18 @@ export const SmritiF6PromotionalDiscountsModal: React.FC<SmritiF6PromotionalDisc
               <Layers size={13} />
               <span>Define Sales Promotions</span>
               <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-primary/10 text-primary">Alt+P</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent("smriti_navigate_module", { detail: { moduleId: "sales-promotions" } }));
+              }}
+              className="h-7 px-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[11px] font-bold rounded flex items-center gap-1.5 transition cursor-pointer"
+              title="Open full Sales Promotions Studio workspace"
+            >
+              <ExternalLink size={13} />
+              <span>Studio Workspace</span>
             </button>
             <button
               type="button"
