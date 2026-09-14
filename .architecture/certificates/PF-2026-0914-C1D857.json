@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0914-C1D857",
+  "entity": "sales_promotion",
+  "capability": "sales_promotion.studio",
+  "asset_type": "component",
+  "proposed_name": "SmritiSalesPromotionsStudio.tsx",
+  "target_file_path": "src/components/promotions/SmritiSalesPromotionsStudio.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "SmritiSalesPromotionsStudio.tsx",
+  "content_hash": "a482d71179ae47c2ef33f4d8649ee4b13b7872e0bce30951fa38e5b2c23ca91c",
+  "git_commit": "9a223a7b2fac7edac92ef3545d5428a45862ac49",
+  "issued_at": "2026-09-14T13:00:41.730888+00:00",
+  "expires_at": "2026-09-21T13:00:41.730888+00:00",
+  "status": "ISSUED"
+}

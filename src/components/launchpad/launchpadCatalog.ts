@@ -187,6 +187,19 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
   },
+  {
+    id: "sales-promotions",
+    title: "Sales Promotions Studio",
+    subtitle: "Define retail schemes, BOGO, combo offers, happy hours & customer group targeting",
+    icon: "campaign",
+    tag: "Promotions",
+    badgeType: "success",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "Alt+P",
+    accentColor: "rose",
+  },
 
   // 3. Finance & Ledgers
   {

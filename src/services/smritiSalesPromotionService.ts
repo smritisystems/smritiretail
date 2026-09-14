@@ -101,6 +101,12 @@ export function mapBackendSchemeToLocal(dto: BackendPromotionSchemeDTO): SmritiD
     isHappyHours: Boolean(dto.is_happy_hours),
     happyHoursStart: dto.happy_hours_start,
     happyHoursEnd: dto.happy_hours_end,
+    recipeId: dto.recipe_id,
+    appliedOn: dto.applied_on || "LOWEST_PRICE",
+    daysOfWeek: dto.days_of_week || ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+    customerClassifications: dto.customer_classifications || {},
+    comboSets: dto.combo_sets || [],
+    fixedComboPrice: dto.fixed_combo_price,
     isActive: dto.is_active !== false,
     createdAt: dto.created_at || new Date().toISOString(),
     updatedAt: dto.updated_at || new Date().toISOString(),
@@ -130,6 +136,12 @@ export function mapLocalSchemeToBackend(promo: SmritiDefinedSalesPromotion): Bac
     is_happy_hours: promo.isHappyHours,
     happy_hours_start: promo.happyHoursStart,
     happy_hours_end: promo.happyHoursEnd,
+    recipe_id: promo.recipeId,
+    applied_on: promo.appliedOn,
+    days_of_week: promo.daysOfWeek,
+    customer_classifications: promo.customerClassifications,
+    combo_sets: promo.comboSets,
+    fixed_combo_price: promo.fixedComboPrice,
     is_active: promo.isActive,
     created_at: promo.createdAt,
     updated_at: promo.updatedAt,
@@ -158,6 +170,18 @@ export interface SmritiDefinedSalesPromotion {
   isHappyHours?: boolean;
   happyHoursStart?: string; // HH:mm
   happyHoursEnd?: string; // HH:mm
+  recipeId?: string;
+  appliedOn?: "LOWEST_PRICE" | "HIGHEST_PRICE";
+  daysOfWeek?: string[]; // ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+  customerClassifications?: Record<string, string[]>;
+  comboSets?: {
+    setNo: number;
+    condition: "AND" | "OR" | "END";
+    categories?: string[];
+    brands?: string[];
+    minQty: number;
+  }[];
+  fixedComboPrice?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -551,6 +575,690 @@ export class SmritiSalesPromotionService {
     this.notifyChange();
     return { success: true, syncedToBackend: synced };
   }
+
+  /**
+   * Return 8 standard 1-click retail promotion recipes
+   */
+  public static getRecipes(): RetailPromotionRecipe[] {
+    return SMRITI_PROMOTION_RECIPES;
+  }
+
+  /**
+   * Generates an intuitive, non-technical plain English summary of the promotion rule
+   */
+  public static formatPromotionAsSentence(promo: Partial<SmritiDefinedSalesPromotion>): string {
+    const parts: string[] = [];
+
+    // Schedule prefix
+    if (promo.isHappyHours && promo.happyHoursStart && promo.happyHoursEnd) {
+      parts.push(`During Happy Hours (${promo.happyHoursStart} - ${promo.happyHoursEnd})`);
+    }
+
+    if (promo.daysOfWeek && promo.daysOfWeek.length > 0 && promo.daysOfWeek.length < 7) {
+      parts.push(`on ${promo.daysOfWeek.join(", ")}`);
+    }
+
+    // Customer target
+    if (promo.applicableCustomerGroups && promo.applicableCustomerGroups.length > 0 && !promo.applicableCustomerGroups.includes("ALL")) {
+      parts.push(`for ${promo.applicableCustomerGroups.join(", ")} customers`);
+    } else {
+      parts.push(`for all customers`);
+    }
+
+    // Main condition & reward
+    const targetCats = promo.applicableCategories && promo.applicableCategories.length > 0 
+      ? promo.applicableCategories.join(" or ") 
+      : "any item";
+    const targetBrands = promo.applicableBrands && promo.applicableBrands.length > 0 
+      ? ` (Brands: ${promo.applicableBrands.join(", ")})` 
+      : "";
+
+    switch (promo.category) {
+      case "ITEM_OFFER_B2G1": {
+        const buy = promo.buyQty || 2;
+        const free = promo.freeQty || 1;
+        const applied = promo.appliedOn === "HIGHEST_PRICE" ? "highest-priced" : "cheapest";
+        parts.push(`buying ${buy} of ${targetCats}${targetBrands} gives ${free} FREE on the ${applied} piece`);
+        break;
+      }
+      case "ITEM_DISCOUNT_PERCENT": {
+        const pct = promo.discountValue || 10;
+        const minQ = promo.minQty ? ` (min qty: ${promo.minQty})` : "";
+        parts.push(`gives ${pct}% OFF on ${targetCats}${targetBrands}${minQ}`);
+        break;
+      }
+      case "ITEM_DISCOUNT_FLAT": {
+        const amt = promo.discountValue || 100;
+        parts.push(`gives flat ₹${amt} OFF per piece on ${targetCats}${targetBrands}`);
+        break;
+      }
+      case "ITEM_BUNDLE_COMBO": {
+        const price = promo.fixedComboPrice || 1999;
+        const minQ = promo.minQty || 3;
+        parts.push(`any ${minQ} pieces of ${targetCats}${targetBrands} sold for a fixed bundle price of ₹${price.toLocaleString("en-IN")}`);
+        break;
+      }
+      case "ITEM_LAST_PIECE": {
+        const pct = promo.discountValue || 25;
+        parts.push(`gives ${pct}% clearance markdown when purchasing the last remaining unit in stock`);
+        break;
+      }
+      case "BILL_DISCOUNT_FLAT": {
+        const amt = promo.discountValue || 500;
+        const threshold = promo.minBillValue ? ` on bills of ₹${promo.minBillValue.toLocaleString("en-IN")} or more` : "";
+        parts.push(`gives flat ₹${amt} OFF${threshold}`);
+        break;
+      }
+      case "BILL_DISCOUNT_PERCENT": {
+        const pct = promo.discountValue || 10;
+        const threshold = promo.minBillValue ? ` on bills of ₹${promo.minBillValue.toLocaleString("en-IN")} or more` : "";
+        parts.push(`gives ${pct}% OFF the entire bill${threshold}`);
+        break;
+      }
+      case "BILL_VALUE_SLAB": {
+        const pct = promo.discountValue || 10;
+        const threshold = promo.minBillValue ? ` above ₹${promo.minBillValue.toLocaleString("en-IN")}` : "";
+        parts.push(`gives ${pct}% slab savings${threshold}`);
+        break;
+      }
+      case "BILL_FREE_GIFT": {
+        const threshold = promo.minBillValue ? ` on bills above ₹${promo.minBillValue.toLocaleString("en-IN")}` : "";
+        parts.push(`awards a free gift item${threshold}`);
+        break;
+      }
+      default:
+        parts.push(`applies promotional scheme ${promo.name || promo.code || ""}`);
+    }
+
+    if (promo.maxDiscount) {
+      parts.push(`(max discount capped at ₹${promo.maxDiscount.toLocaleString("en-IN")})`);
+    }
+
+    return parts.join(", ").replace(/, for/, " for");
+  }
+
+  /**
+   * Embedded Simulation Engine: Tests cart items against a promotion rule
+   */
+  public static simulateCart(
+    cartLines: SimulatedCartLine[],
+    promo: SmritiDefinedSalesPromotion,
+    options: {
+      applyBillLevelFirst?: boolean;
+      customerGroup?: string;
+      simulatedTime?: string; // HH:mm
+      simulatedDay?: string; // e.g. "SAT"
+    } = {}
+  ): SimulationResult {
+    const originalTotal = cartLines.reduce((acc, l) => acc + l.qty * l.unitPrice, 0);
+
+    // 1. Day of week check
+    if (promo.daysOfWeek && promo.daysOfWeek.length > 0 && options.simulatedDay) {
+      if (!promo.daysOfWeek.includes(options.simulatedDay)) {
+        return {
+          isEligible: false,
+          reason: `Not active on ${options.simulatedDay} (Applicable only on ${promo.daysOfWeek.join(", ")})`,
+          originalTotal,
+          discountTotal: 0,
+          finalTotal: originalTotal,
+          lines: cartLines.map(l => ({
+            sku: l.sku,
+            name: l.name,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            originalLineTotal: l.qty * l.unitPrice,
+            discountAmount: 0,
+            finalLineTotal: l.qty * l.unitPrice,
+            appliedRule: "None (Inactive on this day)"
+          }))
+        };
+      }
+    }
+
+    // 2. Happy hours check
+    if (promo.isHappyHours && promo.happyHoursStart && promo.happyHoursEnd && options.simulatedTime) {
+      if (options.simulatedTime < promo.happyHoursStart || options.simulatedTime > promo.happyHoursEnd) {
+        return {
+          isEligible: false,
+          reason: `Happy hours active only between ${promo.happyHoursStart} and ${promo.happyHoursEnd}`,
+          originalTotal,
+          discountTotal: 0,
+          finalTotal: originalTotal,
+          lines: cartLines.map(l => ({
+            sku: l.sku,
+            name: l.name,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            originalLineTotal: l.qty * l.unitPrice,
+            discountAmount: 0,
+            finalLineTotal: l.qty * l.unitPrice,
+            appliedRule: "None (Outside happy hours)"
+          }))
+        };
+      }
+    }
+
+    // 3. Customer group check
+    if (
+      promo.applicableCustomerGroups &&
+      promo.applicableCustomerGroups.length > 0 &&
+      !promo.applicableCustomerGroups.includes("ALL")
+    ) {
+      const custGroup = options.customerGroup || "ALL";
+      if (!promo.applicableCustomerGroups.includes(custGroup)) {
+        return {
+          isEligible: false,
+          reason: `Restricted to ${promo.applicableCustomerGroups.join(", ")} customers (Current: ${custGroup})`,
+          originalTotal,
+          discountTotal: 0,
+          finalTotal: originalTotal,
+          lines: cartLines.map(l => ({
+            sku: l.sku,
+            name: l.name,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            originalLineTotal: l.qty * l.unitPrice,
+            discountAmount: 0,
+            finalLineTotal: l.qty * l.unitPrice,
+            appliedRule: "None (Customer tier mismatch)"
+          }))
+        };
+      }
+    }
+
+    // 4. Evaluate Item Level vs Bill Level
+    if (promo.level === "BILL_LEVEL") {
+      const minVal = promo.minBillValue || 0;
+      if (originalTotal < minVal) {
+        return {
+          isEligible: false,
+          reason: `Minimum cart value ₹${minVal.toLocaleString("en-IN")} required (Current: ₹${originalTotal.toLocaleString("en-IN")})`,
+          originalTotal,
+          discountTotal: 0,
+          finalTotal: originalTotal,
+          lines: cartLines.map(l => ({
+            sku: l.sku,
+            name: l.name,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            originalLineTotal: l.qty * l.unitPrice,
+            discountAmount: 0,
+            finalLineTotal: l.qty * l.unitPrice,
+            appliedRule: "None (Threshold not met)"
+          }))
+        };
+      }
+
+      let billDiscount = 0;
+      if (promo.category === "BILL_DISCOUNT_FLAT") {
+        billDiscount = Math.min(promo.discountValue, originalTotal);
+      } else if (promo.category === "BILL_DISCOUNT_PERCENT" || promo.category === "BILL_VALUE_SLAB") {
+        billDiscount = (originalTotal * promo.discountValue) / 100;
+      }
+
+      if (promo.maxDiscount && billDiscount > promo.maxDiscount) {
+        billDiscount = promo.maxDiscount;
+      }
+
+      // Prorate bill discount across lines
+      const simulatedLines = cartLines.map(l => {
+        const lineVal = l.qty * l.unitPrice;
+        const lineDisc = originalTotal > 0 ? (lineVal / originalTotal) * billDiscount : 0;
+        return {
+          sku: l.sku,
+          name: l.name,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+          originalLineTotal: lineVal,
+          discountAmount: Math.round(lineDisc * 100) / 100,
+          finalLineTotal: Math.round((lineVal - lineDisc) * 100) / 100,
+          appliedRule: `${promo.name} (Prorated Bill Discount)`
+        };
+      });
+
+      return {
+        isEligible: true,
+        reason: `✅ Applied bill-level discount: ₹${billDiscount.toLocaleString("en-IN")} saved!`,
+        originalTotal,
+        discountTotal: billDiscount,
+        finalTotal: originalTotal - billDiscount,
+        lines: simulatedLines
+      };
+    }
+
+    // 5. Item Level Evaluations
+    const matchesItem = (l: SimulatedCartLine): boolean => {
+      if (promo.applicableCategories && promo.applicableCategories.length > 0) {
+        if (!promo.applicableCategories.some(c => c.toLowerCase() === l.category.toLowerCase())) {
+          return false;
+        }
+      }
+      if (promo.applicableBrands && promo.applicableBrands.length > 0) {
+        if (!promo.applicableBrands.some(b => b.toLowerCase() === l.brand.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    const qualifyingLines = cartLines.filter(matchesItem);
+    const qualifyingQty = qualifyingLines.reduce((acc, l) => acc + l.qty, 0);
+
+    if (promo.category === "ITEM_OFFER_B2G1") {
+      const buyQty = promo.buyQty || 2;
+      const freeQty = promo.freeQty || 1;
+      const bundleSize = buyQty + freeQty;
+
+      if (qualifyingQty < bundleSize) {
+        return {
+          isEligible: false,
+          reason: `Need at least ${bundleSize} qualifying items (Current: ${qualifyingQty})`,
+          originalTotal,
+          discountTotal: 0,
+          finalTotal: originalTotal,
+          lines: cartLines.map(l => ({
+            sku: l.sku,
+            name: l.name,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            originalLineTotal: l.qty * l.unitPrice,
+            discountAmount: 0,
+            finalLineTotal: l.qty * l.unitPrice,
+            appliedRule: "None (Need more items)"
+          }))
+        };
+      }
+
+      const bundlesAwarded = Math.floor(qualifyingQty / bundleSize);
+      const totalFreeUnits = bundlesAwarded * freeQty;
+
+      // Expand qualifying units into single tokens
+      interface Token {
+        lineIndex: number;
+        sku: string;
+        name: string;
+        unitPrice: number;
+      }
+      const tokens: Token[] = [];
+      cartLines.forEach((l, idx) => {
+        if (matchesItem(l)) {
+          for (let q = 0; q < l.qty; q++) {
+            tokens.push({ lineIndex: idx, sku: l.sku, name: l.name, unitPrice: l.unitPrice });
+          }
+        }
+      });
+
+      // Sort tokens: lowest first (default) or highest first
+      if (promo.appliedOn === "HIGHEST_PRICE") {
+        tokens.sort((a, b) => b.unitPrice - a.unitPrice);
+      } else {
+        tokens.sort((a, b) => a.unitPrice - b.unitPrice);
+      }
+
+      // Mark free tokens
+      const freeTokens = tokens.slice(0, totalFreeUnits);
+      const discountPerLine: Record<number, number> = {};
+      freeTokens.forEach(t => {
+        discountPerLine[t.lineIndex] = (discountPerLine[t.lineIndex] || 0) + t.unitPrice;
+      });
+
+      let totalDiscount = freeTokens.reduce((acc, t) => acc + t.unitPrice, 0);
+      if (promo.maxDiscount && totalDiscount > promo.maxDiscount) {
+        totalDiscount = promo.maxDiscount;
+      }
+
+      const resultLines = cartLines.map((l, idx) => {
+        const disc = discountPerLine[idx] || 0;
+        const orig = l.qty * l.unitPrice;
+        return {
+          sku: l.sku,
+          name: l.name,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+          originalLineTotal: orig,
+          discountAmount: disc,
+          finalLineTotal: orig - disc,
+          appliedRule: disc > 0 ? `${promo.name} (Free Item Awarded)` : matchesItem(l) ? `${promo.name} (Qualifying Buy Line)` : "None",
+          isFreeItem: disc > 0
+        };
+      });
+
+      return {
+        isEligible: true,
+        reason: `✅ Applied BOGO offer: ${bundlesAwarded} bundle(s) qualified, saving ₹${totalDiscount.toLocaleString("en-IN")} on free item(s)!`,
+        originalTotal,
+        discountTotal: totalDiscount,
+        finalTotal: originalTotal - totalDiscount,
+        lines: resultLines
+      };
+    }
+
+    // Standard item percentage or flat discount
+    if (promo.category === "ITEM_DISCOUNT_PERCENT") {
+      let totalDiscount = 0;
+      const resultLines = cartLines.map(l => {
+        const orig = l.qty * l.unitPrice;
+        if (matchesItem(l)) {
+          const disc = (orig * promo.discountValue) / 100;
+          totalDiscount += disc;
+          return {
+            sku: l.sku,
+            name: l.name,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            originalLineTotal: orig,
+            discountAmount: disc,
+            finalLineTotal: orig - disc,
+            appliedRule: `${promo.name} (${promo.discountValue}% Off)`
+          };
+        }
+        return {
+          sku: l.sku,
+          name: l.name,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+          originalLineTotal: orig,
+          discountAmount: 0,
+          finalLineTotal: orig,
+          appliedRule: "None"
+        };
+      });
+
+      if (promo.maxDiscount && totalDiscount > promo.maxDiscount) {
+        totalDiscount = promo.maxDiscount;
+      }
+
+      return {
+        isEligible: totalDiscount > 0,
+        reason: totalDiscount > 0 ? `✅ Saved ₹${totalDiscount.toLocaleString("en-IN")} (${promo.discountValue}% Off qualifying lines)!` : "No qualifying items in cart",
+        originalTotal,
+        discountTotal: totalDiscount,
+        finalTotal: originalTotal - totalDiscount,
+        lines: resultLines
+      };
+    }
+
+    // Bundle / Combo Fixed Value
+    if (promo.category === "ITEM_BUNDLE_COMBO") {
+      const minQty = promo.minQty || 3;
+      const comboPrice = promo.fixedComboPrice || 1999;
+      if (qualifyingQty < minQty) {
+        return {
+          isEligible: false,
+          reason: `Need at least ${minQty} items for bundle offer (Current: ${qualifyingQty})`,
+          originalTotal,
+          discountTotal: 0,
+          finalTotal: originalTotal,
+          lines: cartLines.map(l => ({
+            sku: l.sku,
+            name: l.name,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            originalLineTotal: l.qty * l.unitPrice,
+            discountAmount: 0,
+            finalLineTotal: l.qty * l.unitPrice,
+            appliedRule: "None"
+          }))
+        };
+      }
+
+      const qualifyingTotal = qualifyingLines.reduce((acc, l) => acc + l.qty * l.unitPrice, 0);
+      const discountAmount = Math.max(0, qualifyingTotal - comboPrice);
+
+      return {
+        isEligible: true,
+        reason: `✅ Combo Bundle activated: ${minQty} items bundled for ₹${comboPrice.toLocaleString("en-IN")} (Saved ₹${discountAmount.toLocaleString("en-IN")})`,
+        originalTotal,
+        discountTotal: discountAmount,
+        finalTotal: originalTotal - discountAmount,
+        lines: cartLines.map(l => {
+          const orig = l.qty * l.unitPrice;
+          const disc = matchesItem(l) && qualifyingTotal > 0 ? (orig / qualifyingTotal) * discountAmount : 0;
+          return {
+            sku: l.sku,
+            name: l.name,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            originalLineTotal: orig,
+            discountAmount: Math.round(disc * 100) / 100,
+            finalLineTotal: Math.round((orig - disc) * 100) / 100,
+            appliedRule: matchesItem(l) ? `${promo.name} (Fixed Bundle ₹${comboPrice})` : "None"
+          };
+        })
+      };
+    }
+
+    // Default fallback
+    return {
+      isEligible: false,
+      reason: "No rules matched the cart",
+      originalTotal,
+      discountTotal: 0,
+      finalTotal: originalTotal,
+      lines: cartLines.map(l => ({
+        sku: l.sku,
+        name: l.name,
+        qty: l.qty,
+        unitPrice: l.unitPrice,
+        originalLineTotal: l.qty * l.unitPrice,
+        discountAmount: 0,
+        finalLineTotal: l.qty * l.unitPrice,
+        appliedRule: "None"
+      }))
+    };
+  }
 }
+
+export interface RetailPromotionRecipe {
+  id: string;
+  name: string;
+  tagline: string;
+  icon: string;
+  badge: string;
+  defaultScheme: Partial<SmritiDefinedSalesPromotion>;
+  madLibsTemplate: string;
+}
+
+export interface SimulatedCartLine {
+  id: string;
+  sku: string;
+  name: string;
+  category: string;
+  brand: string;
+  qty: number;
+  unitPrice: number;
+}
+
+export interface SimulationResult {
+  isEligible: boolean;
+  reason: string;
+  originalTotal: number;
+  discountTotal: number;
+  finalTotal: number;
+  lines: {
+    sku: string;
+    name: string;
+    qty: number;
+    unitPrice: number;
+    originalLineTotal: number;
+    discountAmount: number;
+    finalLineTotal: number;
+    appliedRule: string;
+    isFreeItem?: boolean;
+  }[];
+}
+
+export const SMRITI_PROMOTION_RECIPES: RetailPromotionRecipe[] = [
+  {
+    id: "recipe-bogo",
+    name: "Buy 2 Get 1 Free (BOGO)",
+    tagline: "Customer buys 2 items, gets the 3rd cheapest item free",
+    icon: "gift",
+    badge: "Popular Deal",
+    defaultScheme: {
+      code: "B2G1_PROMO",
+      name: "Buy 2 Get 1 Free",
+      description: "Buy any 2 items and get the 3rd item free (cheapest unit discounted)",
+      level: "ITEM_LEVEL",
+      category: "ITEM_OFFER_B2G1",
+      priority: 1,
+      discountValue: 100,
+      buyQty: 2,
+      freeQty: 1,
+      minQty: 3,
+      appliedOn: "LOWEST_PRICE",
+      applicableCategories: ["Apparel", "Footwear"],
+      applicableCustomerGroups: ["ALL"],
+      isActive: true
+    },
+    madLibsTemplate: "When customer buys 2 items, give 1 item FREE on the cheapest piece."
+  },
+  {
+    id: "recipe-flat-pct",
+    name: "Flat % Discount on Items",
+    tagline: "Instant percentage off across selected brands or categories",
+    icon: "percent",
+    badge: "Seasonal",
+    defaultScheme: {
+      code: "FLAT20",
+      name: "Flat 20% Off",
+      description: "Flat 20% discount on fresh arrivals",
+      level: "ITEM_LEVEL",
+      category: "ITEM_DISCOUNT_PERCENT",
+      priority: 2,
+      discountValue: 20,
+      applicableCategories: ["Apparel"],
+      applicableCustomerGroups: ["ALL"],
+      isActive: true
+    },
+    madLibsTemplate: "Give 20% OFF on all selected categories."
+  },
+  {
+    id: "recipe-flat-inr",
+    name: "Flat ₹100 Off per Piece",
+    tagline: "Fixed rupee concession deducted from each qualifying unit",
+    icon: "tag",
+    badge: "Markdown",
+    defaultScheme: {
+      code: "FLAT100",
+      name: "Flat ₹100 Off",
+      description: "Flat ₹100 instant markdown per unit",
+      level: "ITEM_LEVEL",
+      category: "ITEM_DISCOUNT_FLAT",
+      priority: 3,
+      discountValue: 100,
+      applicableCategories: ["Footwear"],
+      applicableCustomerGroups: ["ALL"],
+      isActive: true
+    },
+    madLibsTemplate: "Give flat ₹100 OFF per item on all selected categories."
+  },
+  {
+    id: "recipe-combo-fixed",
+    name: "Any 3 for ₹1,999",
+    tagline: "Fixed total combo price for picking any 3 bundle items",
+    icon: "package",
+    badge: "Bundle Combo",
+    defaultScheme: {
+      code: "3_FOR_1999",
+      name: "Pick Any 3 for ₹1,999",
+      description: "Customer picks any 3 shirts or tees for a fixed price of ₹1,999",
+      level: "ITEM_LEVEL",
+      category: "ITEM_BUNDLE_COMBO",
+      priority: 2,
+      discountValue: 0,
+      minQty: 3,
+      fixedComboPrice: 1999,
+      applicableCategories: ["Apparel"],
+      applicableCustomerGroups: ["ALL"],
+      isActive: true
+    },
+    madLibsTemplate: "Customer buys any 3 items for a fixed bundle price of ₹1,999."
+  },
+  {
+    id: "recipe-spend-save",
+    name: "Spend ₹3,000, Get ₹500 Off",
+    tagline: "Cart threshold discount encouraging higher basket size",
+    icon: "shopping-cart",
+    badge: "Bill Slab",
+    defaultScheme: {
+      code: "SPEND3K_SAVE500",
+      name: "Spend ₹3,000 Save ₹500",
+      description: "Flat ₹500 discount when total cart value reaches or exceeds ₹3,000",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_FLAT",
+      priority: 1,
+      discountValue: 500,
+      minBillValue: 3000,
+      maxDiscount: 500,
+      applicableCustomerGroups: ["ALL"],
+      isActive: true
+    },
+    madLibsTemplate: "When total bill reaches ₹3,000, give flat ₹500 OFF the invoice."
+  },
+  {
+    id: "recipe-happy-hours",
+    name: "Happy Hours 15% Off",
+    tagline: "Time-window gated discount to boost slow afternoon store traffic",
+    icon: "clock",
+    badge: "Time Gated",
+    defaultScheme: {
+      code: "HAPPY_HOURS_15",
+      name: "Afternoon Happy Hours 15% Off",
+      description: "Special 15% storewide discount between 2:00 PM and 5:00 PM on weekdays",
+      level: "ITEM_LEVEL",
+      category: "ITEM_DISCOUNT_PERCENT",
+      priority: 1,
+      discountValue: 15,
+      isHappyHours: true,
+      happyHoursStart: "14:00",
+      happyHoursEnd: "17:00",
+      daysOfWeek: ["MON", "TUE", "WED", "THU", "FRI"],
+      applicableCustomerGroups: ["ALL"],
+      isActive: true
+    },
+    madLibsTemplate: "Give 15% OFF weekdays between 2:00 PM and 5:00 PM."
+  },
+  {
+    id: "recipe-clearance",
+    name: "Last Piece Stock Clearance (40% Off)",
+    tagline: "Clear out dead stock by discounting the single last piece",
+    icon: "sparkles",
+    badge: "Clearance",
+    defaultScheme: {
+      code: "LAST_PC_40",
+      name: "Last Piece 40% Clearance",
+      description: "Automatic 40% markdown when cashier bills the final remaining inventory unit",
+      level: "ITEM_LEVEL",
+      category: "ITEM_LAST_PIECE",
+      priority: 5,
+      discountValue: 40,
+      applicableCustomerGroups: ["ALL"],
+      isActive: true
+    },
+    madLibsTemplate: "Give 40% OFF when selling the last physical piece in stock."
+  },
+  {
+    id: "recipe-vip",
+    name: "VIP Club 10% Member Exclusive",
+    tagline: "Privilege loyalty concession for registered VIP customers",
+    icon: "crown",
+    badge: "VIP Exclusive",
+    defaultScheme: {
+      code: "VIP_PRIVILEGE",
+      name: "VIP Club 10% Concession",
+      description: "Exclusive 10% bill discount for registered VIP and Corporate customers",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_PERCENT",
+      priority: 1,
+      discountValue: 10,
+      maxDiscount: 2000,
+      applicableCustomerGroups: ["VIP", "CORPORATE"],
+      isActive: true
+    },
+    madLibsTemplate: "Give 10% OFF for VIP and Corporate club members."
+  }
+];
+
 
 
