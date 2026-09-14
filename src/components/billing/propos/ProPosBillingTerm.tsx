@@ -27,6 +27,11 @@ import { SmritiProPosReprintDlg } from "./ProPosReprintDlg.tsx";
 import { SmritiProPosCashMovementsModal } from "./ProPosCashMovesDlg.tsx";
 import { SmritiProPosShiftCloseModal } from "./ProPosShiftCloseDl.tsx";
 import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "../SmritiF2AdvancedItemSearch.tsx";
+import {
+  SmritiF6PromotionalDiscountsModal,
+  SmritiBillLevelPromoState
+} from "../SmritiF6PromotionalDiscountsModal.tsx";
+import { SmritiDefineSalesPromotionsModal } from "../SmritiDefineSalesPromotionsModal.tsx";
 import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../../utils/gstEngine.ts";
 import { searchBackendProducts, AutoPopulateProductResult } from "../../../services/autoPopulateService.ts";
 import { SmritiItemTypeaheadDropdown } from "../../common/ItemTypeaheadDrop.tsx";
@@ -362,6 +367,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
   const [salesStaff, setSalesStaff] = useState<string>("SM1");
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
+  const [editingCartItemId, setEditingCartItemId] = useState<string | null>(null);
   const [showTotalsPanel, setShowTotalsPanel] = useState<boolean>(true);
 
   // --- Detail Group: Accepted Item Details Grid State ---
@@ -562,6 +568,20 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showCustomerBrowseModal, setShowCustomerBrowseModal] = useState<boolean>(false);
   const [showSmritiItemSearchModal, setShowSmritiItemSearchModal] = useState<boolean>(false);
+  const [showF6PromoModal, setShowF6PromoModal] = useState<boolean>(false);
+  const [showDefinePromosModal, setShowDefinePromosModal] = useState<boolean>(false);
+  const [billLevelPromo, setBillLevelPromo] = useState<SmritiBillLevelPromoState>({
+    code: "NONE",
+    description: "No bill discount applied",
+    discountPct: 0,
+    discountAmt: 0,
+    calculatedOn: 0,
+    priceOffs: 0,
+    maxAllowed: undefined,
+    applyBillLevelFirst: false,
+    reason: "Generally Allowed Discount",
+    remarks: ""
+  });
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [showReprintModal, setShowReprintModal] = useState<boolean>(false);
   const [showCashMovementsModal, setShowCashMovementsModal] = useState<boolean>(false);
@@ -669,8 +689,9 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       });
       return acc + gst.totalAmount;
     }, 0);
-    return Math.round(raw * 100) / 100;
-  }, [cartItems, isB2B, isInterstate]);
+    const unrounded = Math.max(0, raw - (billLevelPromo.discountAmt || 0));
+    return Math.round(unrounded * 100) / 100;
+  }, [cartItems, isB2B, isInterstate, billLevelPromo]);
 
   // Create New Bill (Alt+1)
   const handleNewBill = () => {
@@ -695,6 +716,18 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     setDirectDiscQty("1.00");
     setDirectDiscPct("10.00");
     setDirectDiscAmtInput("99.90");
+    setBillLevelPromo({
+      code: "NONE",
+      description: "No bill discount applied",
+      discountPct: 0,
+      discountAmt: 0,
+      calculatedOn: 0,
+      priceOffs: 0,
+      maxAllowed: undefined,
+      applyBillLevelFirst: false,
+      reason: "Generally Allowed Discount",
+      remarks: ""
+    });
     setActiveActivity("BILLING");
     directStockNoRef.current?.focus();
     onNotification?.("New Bill Created", "Terminal reset for new billing transaction [Alt+1].", "info");
@@ -794,6 +827,51 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       isTaxInclusive: !isB2B,
       isInterstate: isInterstate,
     });
+
+    // If currently editing an existing line item (Shoper 9 double-click edit contract)
+    if (editingCartItemId) {
+      const existingIndex = cartItems.findIndex(it => it.id === editingCartItemId);
+      if (existingIndex >= 0) {
+        setCartItems(prev => {
+          const next = [...prev];
+          const cur = next[existingIndex];
+          next[existingIndex] = {
+            ...cur,
+            sku: stockCode,
+            barcode: barcodeCode,
+            name: desc,
+            salesStaff: staff,
+            qty: qty,
+            unitPrice: rate,
+            discCode: directDiscCode || "ILD",
+            discQty: effDiscQ,
+            discountPct: discPct,
+            discountAmt: discAmt,
+            taxPct: gstRate,
+            taxAmt: gstCalc.taxAmount,
+            taxableValue: gstCalc.taxableValue,
+            cgstAmount: gstCalc.cgstAmount,
+            sgstAmount: gstCalc.sgstAmount,
+            igstAmount: gstCalc.igstAmount,
+            lineTotal: gstCalc.totalAmount
+          };
+          return next;
+        });
+        setEditingCartItemId(null);
+        onNotification?.("Item Updated", `Line item #${cartItems[existingIndex].itemNo} (${stockCode}) updated successfully.`, "success");
+        setDirectStockNo("");
+        setDirectBarcode("");
+        setDirectDescription("");
+        setDirectQty("1.00");
+        setDirectDiscQty("1.00");
+        setDirectDiscPct("0.00");
+        setDirectDiscAmtInput("0.00");
+        setSelectedProductMeta(null);
+        setIsProductSearchOpen(false);
+        directBarcodeRef.current?.focus();
+        return;
+      }
+    }
 
     const existingIndex = cartItems.findIndex(
       it => (it.sku === stockCode || it.barcode === barcodeCode) &&
@@ -916,6 +994,27 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   // Remove Item from Grid
   const handleRemoveItem = (id: string) => {
     setCartItems(prev => prev.filter(it => it.id !== id).map((it, idx) => ({ ...it, itemNo: idx + 1 })));
+    if (editingCartItemId === id) {
+      setEditingCartItemId(null);
+    }
+  };
+
+  // Enterprise Retail: Double-click row to edit in Direct Entry Grid (Shoper 9 contract)
+  const handleRowDoubleClick = (item: ProPosCartItem, idx: number) => {
+    setSelectedRowIndex(idx);
+    setEditingCartItemId(item.id);
+    setDirectStockNo(item.sku);
+    setDirectBarcode(item.barcode || item.sku);
+    setDirectDescription(item.name);
+    setDirectRate(item.unitPrice.toFixed(2));
+    setDirectQty(item.qty.toFixed(2));
+    setDirectDiscCode(item.discCode || "ILD");
+    setDirectDiscQty((item.discQty ?? item.qty).toFixed(2));
+    setDirectDiscPct(item.discountPct.toFixed(2));
+    setDirectDiscAmtInput(item.discountAmt.toFixed(2));
+    setDirectStaff(item.salesStaff || "");
+    onNotification?.("Editing Line Item", `Item #${item.itemNo} (${item.sku}) loaded into Direct Entry. Modify and press Enter to save.`, "info");
+    directQtyRef.current?.focus();
   };
 
   // Hold / Suspend Current Bill
@@ -1104,6 +1203,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       } else if (e.altKey && (e.key === "i" || e.key === "I")) {
         e.preventDefault();
         setShowPdtImportModal(true);
+      } else if (e.key === "F6") {
+        e.preventDefault();
+        setShowF6PromoModal(true);
+      } else if (e.altKey && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        setShowDefinePromosModal(true);
       // F2 handled by F2DispatcherProvider (F2 Universal Lookup Architecture v2).
       // This screen registers via useF2Screen() above. No screen-level F2 handler.
       } else if (e.key === "F7") {
@@ -1143,12 +1248,50 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       } else if (e.key === "F11" || e.key === "F1") {
         e.preventDefault();
         directBarcodeRef.current?.focus();
+      } else if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        if (selectedRowIndex >= 0 && selectedRowIndex < cartItems.length) {
+          const toRemove = cartItems[selectedRowIndex];
+          handleRemoveItem(toRemove.id);
+          setSelectedRowIndex(-1);
+          if (editingCartItemId === toRemove.id) {
+            setEditingCartItemId(null);
+          }
+          onNotification?.("Item Deleted", `Removed line item #${toRemove.itemNo} (${toRemove.sku}) [Ctrl+D].`, "success");
+        } else {
+          onNotification?.("Delete Item", "Select an item from the table before pressing Ctrl+D.", "error");
+        }
+      } else if (e.key === "Escape") {
+        if (editingCartItemId) {
+          e.preventDefault();
+          setEditingCartItemId(null);
+          setDirectStockNo("");
+          setDirectBarcode("");
+          setDirectDescription("");
+          setDirectQty("1.00");
+          setDirectDiscQty("1.00");
+          setDirectDiscPct("0.00");
+          setDirectDiscAmtInput("0.00");
+          onNotification?.("Edit Cancelled", "Direct entry reset to scan mode.", "info");
+        }
+      } else if (e.key === "ArrowUp") {
+        const activeTag = (document.activeElement?.tagName || "").toLowerCase();
+        if (activeTag !== "input" && activeTag !== "select" && activeTag !== "textarea") {
+          e.preventDefault();
+          setSelectedRowIndex(prev => Math.max(0, prev - 1));
+        }
+      } else if (e.key === "ArrowDown") {
+        const activeTag = (document.activeElement?.tagName || "").toLowerCase();
+        if (activeTag !== "input" && activeTag !== "select" && activeTag !== "textarea") {
+          e.preventDefault();
+          setSelectedRowIndex(prev => Math.min(cartItems.length - 1, prev + 1));
+        }
       }
     };
 
     window.addEventListener("keydown", handleGlobalShortcuts);
     return () => window.removeEventListener("keydown", handleGlobalShortcuts);
-  }, [cartItems, netPayableAmount, customer, salesStaff, billDocPrefix, billDocNumber]);
+  }, [cartItems, netPayableAmount, customer, salesStaff, billDocPrefix, billDocNumber, selectedRowIndex, editingCartItemId]);
 
   const emptyRowsCount = Math.max(0, 10 - cartItems.length);
 
@@ -1678,15 +1821,20 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133] font-mono text-[11px]">
                 {cartItems.map((item, idx) => {
                   const isSelected = selectedRowIndex === idx;
+                  const isEditing = editingCartItemId === item.id;
                   return (
                     <tr
                       key={item.id}
                       onClick={() => setSelectedRowIndex(idx)}
+                      onDoubleClick={() => handleRowDoubleClick(item, idx)}
                       className={`h-7 cursor-pointer transition ${
-                        isSelected
+                        isEditing
+                          ? "bg-blue-100 dark:bg-blue-950/80 font-bold ring-2 ring-blue-500"
+                          : isSelected
                           ? "bg-[#ffffcc] dark:bg-[#3a3a1a] text-black dark:text-yellow-200 font-semibold"
                           : "hover:bg-[#f8f9fa] dark:hover:bg-[#1d222e]"
                       }`}
+                      title="Double-click to edit line in Direct Entry (Ctrl+D to delete)"
                     >
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] font-bold">
                         {item.sku}
@@ -1758,6 +1906,59 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               </tbody>
             </table>
           </div>
+
+          {/* Active Line Inspector Ribbon when row is selected */}
+          {selectedRowIndex >= 0 && selectedRowIndex < cartItems.length && (() => {
+            const sel = cartItems[selectedRowIndex];
+            return (
+              <div className="bg-[#edeae1] dark:bg-[#252836] border-t border-[#c4c5d5] dark:border-[#444653] px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-3 font-mono text-[11px] overflow-x-auto">
+                  <span className="font-bold text-[#00288e] dark:text-[#a8b8ff]">Line #{sel.itemNo}: {sel.sku}</span>
+                  <span className="font-sans font-medium text-[#191c1d] dark:text-white">{sel.name}</span>
+                  {sel.brand && <span className="bg-white dark:bg-[#131b2e] px-1.5 py-0.5 rounded text-[10px] border border-gray-300 dark:border-gray-700">Brand: {sel.brand}</span>}
+                  {sel.size && <span className="bg-white dark:bg-[#131b2e] px-1.5 py-0.5 rounded text-[10px] border border-gray-300 dark:border-gray-700">Size: {sel.size}</span>}
+                  <span className="text-gray-600 dark:text-gray-300 text-[10px]">GST: {sel.taxPct}% (₹{sel.taxAmt.toFixed(2)})</span>
+                  {sel.discountAmt > 0 && <span className="text-red-600 font-semibold text-[10px]">Disc: {sel.discCode || "ILD"} -₹{sel.discountAmt.toFixed(2)} ({sel.discountPct}%)</span>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-gray-500 text-[10px] hidden md:inline">Double-click to edit | Ctrl+D to delete</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRowDoubleClick(sel, selectedRowIndex)}
+                    className="px-2 py-0.5 bg-[#00288e] text-white rounded text-[10px] font-bold cursor-pointer"
+                  >
+                    Edit Line
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Active In-Place Editing Banner */}
+          {editingCartItemId && (
+            <div className="bg-blue-50 dark:bg-blue-950/50 border-t border-b border-blue-300 dark:border-blue-700 px-3 py-1.5 text-xs text-blue-800 dark:text-blue-200 flex items-center justify-between font-medium shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">Editing Line #{cartItems.find(it => it.id === editingCartItemId)?.itemNo} ({cartItems.find(it => it.id === editingCartItemId)?.sku})</span>
+                <span className="text-gray-600 dark:text-gray-400 text-[11px]">— Modify Rate, Qty, or Discount in Direct Entry and press Enter to save.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingCartItemId(null);
+                  setDirectStockNo("");
+                  setDirectBarcode("");
+                  setDirectDescription("");
+                  setDirectQty("1.00");
+                  setDirectDiscQty("1.00");
+                  setDirectDiscPct("0.00");
+                  setDirectDiscAmtInput("0.00");
+                }}
+                className="text-xs text-red-600 hover:underline font-bold cursor-pointer"
+              >
+                Cancel Edit (Esc)
+              </button>
+            </div>
+          )}
 
           {/* Bottom: Direct Entry Grid Header & Input Strip */}
           <div className="border-t-2 border-[#a4a5b5] dark:border-[#5c5d6c] bg-[#edeae1] dark:bg-[#252836] shrink-0 shadow-sm relative">
@@ -2127,9 +2328,16 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             <span className="text-lg font-mono font-bold text-[#191c1d] dark:text-white">₹{grossSalesValue.toFixed(2)}</span>
           </div>
 
-          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#ba1a1a]">Item Disc</span>
-            <span className="text-sm font-mono font-bold text-[#ba1a1a]">-₹{itemDiscountsTotal.toFixed(2)}</span>
+          <div
+            onClick={() => setShowF6PromoModal(true)}
+            className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center cursor-pointer hover:bg-[#e4e7eb] dark:hover:bg-[#282d3b] transition-colors"
+            title="Open Sales Promo & Discounts [F6]"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#ba1a1a] flex items-center justify-end gap-1">
+              <span>Discounts</span>
+              <span className="font-mono text-[8px] px-1 py-0.2 rounded bg-[#ba1a1a]/20 text-[#ba1a1a] font-bold">F6</span>
+            </span>
+            <span className="text-sm font-mono font-bold text-[#ba1a1a]">-₹{(itemDiscountsTotal + billLevelPromo.discountAmt).toFixed(2)}</span>
           </div>
 
           <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
@@ -2152,7 +2360,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         {/* Shortcuts & Action Triggers */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-3">
           <span className="text-[11px] font-bold text-[#565e74] dark:text-[#bec6e0]">
-            ProPOS Activities: [Alt+1: New Bill, Alt+2: Void, Alt+3: Return, Alt+5: Return w/o Ref, Alt+6: Reprint, Alt+H: Hotkeys, F7: Cash, F8: Settle].
+            ProPOS Activities: [Alt+1: New Bill, Alt+2: Void, Alt+3: Return, Alt+5: Return w/o Ref, Alt+6: Reprint, Alt+H: Hotkeys, F6: Promos, Alt+P: Define Promos, F7: Cash, F8: Settle].
           </span>
 
           <div className="flex items-center gap-2">
@@ -2361,6 +2569,28 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           directQtyRef.current?.focus();
         }}
         onClose={() => setShowSmritiItemSearchModal(false)}
+      />
+
+      {/* SMRITI F6 Promotional Discounts Modal */}
+      <SmritiF6PromotionalDiscountsModal
+        isOpen={showF6PromoModal}
+        onClose={() => setShowF6PromoModal(false)}
+        items={cartItems}
+        subtotal={grossSalesValue}
+        billLevelPromo={billLevelPromo}
+        onApplyPromos={(updatedItems, updatedBillPromo) => {
+          setCartItems(updatedItems);
+          setBillLevelPromo(updatedBillPromo);
+          onNotification?.("Promotions Applied", `Applied ${updatedBillPromo.code} bill discount and updated line item promos.`, "success");
+        }}
+        onNotification={onNotification}
+      />
+
+      {/* SMRITI Define Sales Promotions Catalogue Modal */}
+      <SmritiDefineSalesPromotionsModal
+        isOpen={showDefinePromosModal}
+        onClose={() => setShowDefinePromosModal(false)}
+        onNotification={onNotification}
       />
 
     </div>
