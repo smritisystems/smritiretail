@@ -107,12 +107,12 @@ def test_my_workspace_profile_persona_resolution(client):
 
 
 def test_resolved_menus_sysadmin_full_access(client):
-    """Verify SYSADMIN receives full 36 canonical menus in navigation tree."""
+    """Verify SYSADMIN receives full 37 canonical menus in navigation tree."""
     sys_hdr = get_auth_headers("SYSADMIN")
     res = client.get("/api/v1/menus/resolved", headers=sys_hdr)
     assert res.status_code == 200
     menus = res.json()
-    assert len(menus) == 36
+    assert len(menus) == 37
 
     menu_ids = {m["id"] for m in menus}
     assert "menu-pos" in menu_ids
@@ -122,6 +122,7 @@ def test_resolved_menus_sysadmin_full_access(client):
     assert "menu-company-setup" in menu_ids
     assert "menu-manager" in menu_ids
     assert "menu-security" in menu_ids
+    assert "menu-sales-promotions" in menu_ids
 
 
 def test_resolved_menus_cashier_pruning_and_security(client):
