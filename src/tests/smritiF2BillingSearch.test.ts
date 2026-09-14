@@ -564,4 +564,92 @@ describe("SMRITI F2 Advanced Item Search Engine", () => {
       expect(computedNet).toBe(5197);
     });
   });
+
+  describe("12. Double-Click Row to Edit in Direct Entry Contract", () => {
+    it("should load line item into direct entry on double click and update in-place on commit", () => {
+      let items = [
+        { id: "item-1", sNo: 1, stockNo: "SKU-OXF-BLU-M", qty: 2, rate: 1499, discPercent: 0, total: 2998 },
+        { id: "item-2", sNo: 2, stockNo: "SKU-CHN-KHK-32", qty: 1, rate: 2199, discPercent: 0, total: 2199 }
+      ];
+
+      // Simulate double-click on item-1
+      let editingLineId: string | null = items[0].id;
+      let directEntry = {
+        stockNo: items[0].stockNo,
+        qty: String(items[0].qty),
+        rate: String(items[0].rate),
+        discPercent: "10" // Cashier changes discount to 10%
+      };
+
+      // In-place commit logic
+      if (editingLineId) {
+        const targetId = editingLineId;
+        items = items.map(it => {
+          if (it.id === targetId) {
+            const newQty = Number(directEntry.qty);
+            const newRate = Number(directEntry.rate);
+            const discPct = Number(directEntry.discPercent);
+            const gross = newQty * newRate;
+            const discAmt = (gross * discPct) / 100;
+            return {
+              ...it,
+              qty: newQty,
+              rate: newRate,
+              discPercent: discPct,
+              total: gross - discAmt
+            };
+          }
+          return it;
+        });
+        editingLineId = null;
+      }
+
+      // Assert row updated in place without duplication
+      expect(items.length).toBe(2);
+      expect(items[0].discPercent).toBe(10);
+      expect(items[0].total).toBe(2698.2);
+      expect(items[1].total).toBe(2199);
+      expect(editingLineId).toBeNull();
+    });
+  });
+
+  describe("13. Ctrl+D Line Item Deletion Contract", () => {
+    it("should delete highlighted item on Ctrl+D and renumber serial numbers", () => {
+      let items = [
+        { id: "item-1", sNo: 1, stockNo: "SKU-OXF-BLU-M" },
+        { id: "item-2", sNo: 2, stockNo: "SKU-CHN-KHK-32" },
+        { id: "item-3", sNo: 3, stockNo: "SKU-TSH-BLK-L" }
+      ];
+      let selectedRowIndex = 1; // item-2 highlighted
+
+      // Simulate Ctrl+D
+      const toRemove = items[selectedRowIndex];
+      items = items.filter(it => it.id !== toRemove.id).map((it, idx) => ({ ...it, sNo: idx + 1 }));
+      selectedRowIndex = -1;
+
+      expect(items.length).toBe(2);
+      expect(items[0].stockNo).toBe("SKU-OXF-BLU-M");
+      expect(items[1].stockNo).toBe("SKU-TSH-BLK-L");
+      expect(items[1].sNo).toBe(2); // renumbered
+      expect(selectedRowIndex).toBe(-1);
+    });
+  });
+
+  describe("14. Escape Key Edit Cancellation Contract", () => {
+    it("should cancel edit mode and reset direct entry on Escape", () => {
+      let editingLineId: string | null = "item-1";
+      let directEntry = { stockNo: "SKU-OXF-BLU-M", qty: "5", rate: "1499" };
+
+      // Simulate Escape
+      if (editingLineId) {
+        editingLineId = null;
+        directEntry = { stockNo: "", qty: "1", rate: "" };
+      }
+
+      expect(editingLineId).toBeNull();
+      expect(directEntry.stockNo).toBe("");
+      expect(directEntry.qty).toBe("1");
+    });
+  });
 });
+

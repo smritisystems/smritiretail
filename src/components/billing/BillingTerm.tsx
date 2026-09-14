@@ -43,6 +43,11 @@ import {
   CustomerBillingLocationDTO
 } from "./types.ts";
 import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "./SmritiF2AdvancedItemSearch.tsx";
+import {
+  SmritiF6PromotionalDiscountsModal,
+  SmritiBillLevelPromoState
+} from "./SmritiF6PromotionalDiscountsModal.tsx";
+import { SmritiDefineSalesPromotionsModal } from "./SmritiDefineSalesPromotionsModal.tsx";
 import { PdtImportModal } from "./PdtImportModal.tsx";
 import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
@@ -84,7 +89,7 @@ interface SmritiBillingTerminalProps {
   shifts?: Shift[];
   currentUser?: { role: string; name: string; companyId?: string; branchId?: string } | null;
   onRefreshData?: () => void;
-  onNotification?: (title: string, message: string, type: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
   isStandaloneTab?: boolean;
 }
 
@@ -101,6 +106,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   // Main Line Items Table State
   const [items, setItems] = useState<BillingLineItem[]>([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [customerPOs, setCustomerPOs] = useState<any[]>([]);
   const [selectedCustomerPO, setSelectedCustomerPO] = useState<any | null>(null);
   const [isLoadingCustomerPOs, setIsLoadingCustomerPOs] = useState(false);
@@ -459,6 +465,20 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Modals State
   const [showSmritiItemSearchModal, setShowSmritiItemSearchModal] = useState<boolean>(false);
+  const [showF6PromoModal, setShowF6PromoModal] = useState<boolean>(false);
+  const [showDefinePromosModal, setShowDefinePromosModal] = useState<boolean>(false);
+  const [billLevelPromo, setBillLevelPromo] = useState<SmritiBillLevelPromoState>({
+    code: "NONE",
+    description: "No bill discount applied",
+    discountPct: 0,
+    discountAmt: 0,
+    calculatedOn: 0,
+    priceOffs: 0,
+    maxAllowed: undefined,
+    applyBillLevelFirst: false,
+    reason: "Generally Allowed Discount",
+    remarks: ""
+  });
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
@@ -493,21 +513,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setShowSettlementModal(true);
   };
 
-  // Enterprise Retail: F7 Exact Cash Instant Checkout
-  const handleExactCashSettlement = () => {
-    if (items.length === 0) {
-      onNotification?.("Settlement", "Add items to invoice before exact cash settlement [F7].", "error");
-      return;
-    }
-    if (!hasGstProfile) {
-      onNotification?.("GST profile pending", "Add a customer GSTIN before exact cash settlement [F7].", "error");
-      return;
-    }
-    const exactPayment: SettlementPaymentRow[] = [
-      { mode: "Cash", amount: summaryTotals.netAmount, reference: "Exact Cash [F7]" }
-    ];
-    handleSaveSettlement(exactPayment, [], [], []);
-  };
+  // Enterprise Retail: F7 Exact Cash Instant Checkout Ref
+  const handleExactCashSettlementRef = useRef<() => void>();
 
   // Fullscreen State & Terminal Ref
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -585,6 +592,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     });
     setCustomerSearchInput("");
     setSelectedItemProductMeta(null);
+    setBillLevelPromo({
+      code: "NONE",
+      description: "No bill discount applied",
+      discountPct: 0,
+      discountAmt: 0,
+      calculatedOn: 0,
+      priceOffs: 0,
+      maxAllowed: undefined,
+      applyBillLevelFirst: false,
+      reason: "Generally Allowed Discount",
+      remarks: ""
+    });
     onNotification?.("New Invoice", "Fresh billing canvas initialized.", "success");
     directStockNoRef.current?.focus();
   };
@@ -831,18 +850,66 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         } else {
           directStockNoRef.current?.focus();
         }
+      } else if (e.key === "F6") {
+        e.preventDefault();
+        setShowF6PromoModal(true);
+      } else if (e.altKey && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        setShowDefinePromosModal(true);
       } else if (e.key === "F4" || (e.altKey && e.key === "6")) {
         e.preventDefault();
         setShowTransactionBrowserModal(true);
       } else if (e.key === "F7") {
         e.preventDefault();
-        handleExactCashSettlement();
+        handleExactCashSettlementRef.current?.();
       } else if (e.key === "F8") {
         e.preventDefault();
         openSettlement();
       } else if (e.key === "F12") {
         e.preventDefault();
         handleSuspendInvoice();
+      } else if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        if (selectedRowIndex >= 0 && selectedRowIndex < items.length) {
+          const toRemove = items[selectedRowIndex];
+          handleRemoveItem(toRemove.id);
+          setSelectedRowIndex(-1);
+          if (editingLineId === toRemove.id) {
+            setEditingLineId(null);
+          }
+          onNotification?.("Item Deleted", `Removed line item #${toRemove.sNo} (${toRemove.stockNo}) [Ctrl+D].`, "success");
+        } else {
+          onNotification?.("Delete Item", "Select an item from the table before pressing Ctrl+D.", "error");
+        }
+      } else if (e.key === "Escape") {
+        if (editingLineId) {
+          e.preventDefault();
+          setEditingLineId(null);
+          setDirectEntry({
+            barcode: "",
+            stockNo: "",
+            itemDescription: "",
+            rate: "",
+            qty: "1",
+            discCode: "",
+            discQty: "",
+            discPercent: "",
+            staff: directEntry.staff
+          });
+          onNotification?.("Edit Cancelled", "Direct entry reset to scan mode.", "info");
+        }
+      } else if (e.key === "ArrowUp") {
+        const activeTag = (document.activeElement?.tagName || "").toLowerCase();
+        if (activeTag !== "input" && activeTag !== "select" && activeTag !== "textarea") {
+          e.preventDefault();
+          setSelectedRowIndex(prev => Math.max(0, prev - 1));
+        }
+      } else if (e.key === "ArrowDown") {
+        const activeTag = (document.activeElement?.tagName || "").toLowerCase();
+        if (activeTag !== "input" && activeTag !== "select" && activeTag !== "textarea") {
+          e.preventDefault();
+          setSelectedRowIndex(prev => Math.min(items.length - 1, prev + 1));
+        }
       } else if (e.ctrlKey && (e.key === "n" || e.key === "N")) {
         e.preventDefault();
         handleNewInvoice();
@@ -863,7 +930,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [items, headerState, lastCompletedInvoice, activeItemSearchField, summaryTotals, hasGstProfile]);
+  }, [items, headerState, lastCompletedInvoice, activeItemSearchField, hasGstProfile, selectedRowIndex, editingLineId]);
 
   const handleSelectCustomer = (c: Customer | null) => {
     setHeaderState(prev => ({
@@ -1035,10 +1102,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const recomputed = recomputeTransaction(transaction);
     const itemCount = items.length;
     const totalQty = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
-    const billDiscount = 0;
+    const billDiscount = billLevelPromo.discountAmt || ((recomputed.subtotal * billLevelPromo.discountPct) / 100);
     const totalAddons = transporterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0) + addonRows.filter(a => a.type === "Addon").reduce((s, a) => s + (Number(a.amount) || 0), 0);
     const totalDeductions = addonRows.filter(a => a.type === "Deduction").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-    const unroundedNet = Math.max(0, recomputed.netAmount + totalAddons - totalDeductions);
+    const unroundedNet = Math.max(0, recomputed.netAmount - billDiscount + totalAddons - totalDeductions);
     const roundedNet = Math.round(unroundedNet);
     const roundOff = Math.round((roundedNet - unroundedNet) * 100) / 100;
     const netAmount = roundedNet;
@@ -1055,7 +1122,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       roundOff,
       netAmount
     };
-  }, [items, transporterRows, addonRows, headerState, liveTime]);
+  }, [items, transporterRows, addonRows, headerState, liveTime, billLevelPromo]);
 
   const applyProductAutoPopulate = (p: AutoPopulateProductResult | Product) => {
     const rateVal = String((p as any).sellingPrice || (p as any).mrp || (p as any).price || 0);
@@ -1249,6 +1316,57 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     const computedLine = calculateLineTotal(lineItem);
 
+    // If currently editing an existing line item (Shoper 9 double-click edit contract)
+    if (editingLineId) {
+      const existingIndex = items.findIndex(it => it.id === editingLineId);
+      if (existingIndex !== -1) {
+        const existing = items[existingIndex];
+        setItems(prev => prev.map((it, idx) => {
+          if (idx === existingIndex) {
+            return {
+              ...it,
+              stockNo: directEntry.stockNo || it.stockNo,
+              barcode: directEntry.barcode || it.barcode,
+              itemDescription: directEntry.itemDescription || it.itemDescription,
+              rate: computedLine.rate,
+              qty: computedLine.qty,
+              value: computedLine.value,
+              discCode: directEntry.discCode,
+              discQty: parseFloat(directEntry.discQty) || 0,
+              discPercent: Number(computedLine.discPercent ?? 0),
+              discAmt: Number(computedLine.discAmt ?? 0),
+              total: computedLine.total,
+              taxAmount: Number(computedLine.taxAmount ?? 0),
+              salesStaff: directEntry.staff
+            };
+          }
+          return it;
+        }));
+
+        onNotification?.("Item Updated", `Line #${existing.sNo} (${existing.stockNo}) updated successfully.`, "success");
+        setEditingLineId(null);
+        setDirectEntry({
+          barcode: "",
+          stockNo: "",
+          itemDescription: "",
+          rate: "",
+          qty: "1",
+          discCode: "",
+          discQty: "",
+          discPercent: "",
+          staff: directEntry.staff
+        });
+        setSelectedItemProductMeta(null);
+        setShowProductDropdown(false);
+        if (activeItemSearchField === "barcode") {
+          directBarcodeRef.current?.focus();
+        } else {
+          directStockNoRef.current?.focus();
+        }
+        return;
+      }
+    }
+
     // Duplicate scan aggregation: if identical item exists at same rate/discount, increment its quantity
     const existingIndex = items.findIndex(it =>
       ((it.barcode && computedLine.barcode && it.barcode === computedLine.barcode) ||
@@ -1336,6 +1454,29 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   // Remove Item
   const handleRemoveItem = (id: string) => {
     setItems(prev => prev.filter(it => it.id !== id).map((it, idx) => ({ ...it, sNo: idx + 1 })));
+    if (editingLineId === id) {
+      setEditingLineId(null);
+    }
+  };
+
+  // Enterprise Retail: Double-click row to edit in Direct Entry Grid (Shoper 9 contract)
+  const handleRowDoubleClick = (item: BillingLineItem, idx: number) => {
+    if (isReadOnlyView) return;
+    setSelectedRowIndex(idx);
+    setEditingLineId(item.id);
+    setDirectEntry({
+      barcode: item.barcode || "",
+      stockNo: item.stockNo || "",
+      itemDescription: item.itemDescription || "",
+      rate: String(item.rate),
+      qty: String(item.qty),
+      discCode: item.discCode || "",
+      discQty: String(item.discQty || ""),
+      discPercent: item.discPercent ? String(item.discPercent) : "",
+      staff: item.salesStaff || directEntry.staff
+    });
+    onNotification?.("Editing Line Item", `Item #${item.sNo} (${item.stockNo}) loaded into Direct Entry. Modify and press Enter to save.`, "info");
+    directStockNoRef.current?.focus();
   };
 
   const handleReturnInvoice = () => {
@@ -1735,6 +1876,30 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       );
     }
   };
+
+  // Enterprise Retail: F7 Exact Cash Instant Checkout
+  const handleExactCashSettlement = async () => {
+    if (items.length === 0) {
+      onNotification?.("Settlement", "Add items to invoice before exact cash settlement [F7].", "error");
+      return;
+    }
+    if (!hasGstProfile) {
+      onNotification?.("GST profile pending", "Add a customer GSTIN before exact cash settlement [F7].", "error");
+      return;
+    }
+    const exactPayment: SettlementPaymentRow[] = [
+      {
+        id: "pay-exact-cash-f7",
+        mode: "Cash",
+        refNo: "F7",
+        amount: summaryTotals.netAmount,
+        bankDetails: ""
+      }
+    ];
+    await handleCompleteSettlement(exactPayment, summaryTotals.netAmount, 0);
+  };
+
+  handleExactCashSettlementRef.current = handleExactCashSettlement;
 
   // Add Quick Customer
   const handleCreateCustomer = async () => {
@@ -2513,11 +2678,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <tr
                     key={item.id}
                     onClick={() => setSelectedRowIndex(idx)}
-                    className={`transition-colors ${
-                      selectedRowIndex === idx
+                    onDoubleClick={() => handleRowDoubleClick(item, idx)}
+                    className={`transition-colors cursor-pointer ${
+                      editingLineId === item.id
+                        ? "bg-primary/20 ring-2 ring-primary font-bold"
+                        : selectedRowIndex === idx
                         ? "bg-secondary-fixed/40 font-semibold"
                         : "hover:bg-surface-container-low"
                     }`}
+                    title="Double-click to edit line in Direct Entry (Ctrl+D to delete)"
                   >
                     <td className="px-3 py-2 text-center border-r border-outline-variant bg-surface-container-low">
                       {item.sNo}
@@ -2585,6 +2754,66 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               </tbody>
             </table>
           </div>
+
+          {/* Active Line Inspector Ribbon when row is selected */}
+          {selectedRowIndex >= 0 && selectedRowIndex < items.length && (() => {
+            const sel = items[selectedRowIndex];
+            return (
+              <div className="bg-surface-container border-t border-outline-variant/60 px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-3 font-code-md text-[11px] overflow-x-auto">
+                  <span className="font-bold text-primary">Line #{sel.sNo}: {sel.stockNo}</span>
+                  <span className="text-on-surface font-sans font-medium">{sel.itemDescription}</span>
+                  {sel.brand && <span className="text-on-surface-variant bg-surface-variant px-1.5 py-0.5 rounded text-[10px]">Brand: {sel.brand}</span>}
+                  {sel.size && <span className="text-on-surface-variant bg-surface-variant px-1.5 py-0.5 rounded text-[10px]">Size: {sel.size}</span>}
+                  {sel.hsnCode && <span className="text-on-surface-variant text-[10px]">HSN: {sel.hsnCode}</span>}
+                  <span className="text-on-surface-variant text-[10px]">GST: {sel.gstPercentage}% (₹{(sel.taxAmount || 0).toFixed(2)})</span>
+                  {(sel.discAmt || 0) > 0 && <span className="text-secondary font-semibold text-[10px]">Disc: {sel.discCode || "ILD"} -₹{(sel.discAmt || 0).toFixed(2)} ({sel.discPercent || 0}%)</span>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-on-surface-variant text-[10px] hidden md:inline">Double-click to edit | Ctrl+D to delete</span>
+                  {!isReadOnlyView && (
+                    <button
+                      type="button"
+                      onClick={() => handleRowDoubleClick(sel, selectedRowIndex)}
+                      className="px-2 py-0.5 bg-secondary hover:bg-secondary-container text-on-secondary rounded text-[10px] font-bold cursor-pointer"
+                    >
+                      Edit Line
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Active In-Place Editing Banner */}
+          {editingLineId && (
+            <div className="bg-primary/10 border-t border-b border-primary/30 px-3 py-1.5 text-xs text-primary flex items-center justify-between font-medium shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">Editing Line #{items.find(it => it.id === editingLineId)?.sNo} ({items.find(it => it.id === editingLineId)?.stockNo})</span>
+                <span className="text-on-surface-variant text-[11px]">— Modify Rate, Qty, or Discount in Direct Entry and press Enter to save.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingLineId(null);
+                  setDirectEntry({
+                    barcode: "",
+                    stockNo: "",
+                    itemDescription: "",
+                    rate: "",
+                    qty: "1",
+                    discCode: "",
+                    discQty: "",
+                    discPercent: "",
+                    staff: directEntry.staff
+                  });
+                }}
+                className="text-xs text-error hover:underline font-bold cursor-pointer"
+              >
+                Cancel Edit (Esc)
+              </button>
+            </div>
+          )}
 
           {/* Direct Entry Row (F11 / F1) at Bottom of Detail Card */}
           <div className="bg-surface-container-low border-t border-outline-variant p-2 flex gap-2 items-center shrink-0">
@@ -2964,13 +3193,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     </td>
                   </tr>
                   <tr>
-                    <td className="py-1.5 text-on-surface-variant font-medium">Discounts</td>
+                    <td
+                      onClick={() => setShowF6PromoModal(true)}
+                      className="py-1.5 text-on-surface-variant font-medium cursor-pointer hover:text-primary transition-colors flex items-center gap-1.5"
+                      title="Open Sales Promo & Discounts [F6]"
+                    >
+                      <span>Discounts</span>
+                      <span className="font-mono text-[9px] px-1 py-0.5 rounded bg-surface-variant text-on-surface-variant font-bold">F6</span>
+                    </td>
                     <td className="py-1.5">
                       <input
                         type="text"
-                        value={summaryTotals.itemDiscount.toFixed(2)}
+                        value={(summaryTotals.itemDiscount + summaryTotals.billDiscount).toFixed(2)}
                         readOnly
-                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
+                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface cursor-pointer"
+                        onClick={() => setShowF6PromoModal(true)}
+                        title="Click to manage promotional discounts [F6]"
                       />
                     </td>
                   </tr>
@@ -3035,8 +3273,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.itemDiscount.toFixed(2)}</span>
             </div>
 
-            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
-              <span className="opacity-70 uppercase tracking-wider">Bill Discount</span>
+            <div
+              onClick={() => setShowF6PromoModal(true)}
+              className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30 cursor-pointer hover:bg-white/10 transition-colors"
+              title="Open Sales Promo & Discounts [F6]"
+            >
+              <span className="opacity-70 uppercase tracking-wider flex items-center gap-1">
+                <span>Bill Discount</span>
+                <span className="font-mono text-[8px] px-0.5 rounded bg-white/20 text-white font-bold">F6</span>
+              </span>
               <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.billDiscount.toFixed(2)}</span>
             </div>
 
@@ -3084,7 +3329,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       {/* Persistent Bottom Shortcut Footer */}
       <footer className="bg-surface-container-highest border-t border-outline-variant mt-auto w-full flex justify-between items-center px-margin-page py-2 shrink-0 z-30 font-label-caps text-label-caps">
         <span className="text-on-surface-variant font-medium">
-          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">F7:</strong> Exact Cash | <strong className="text-primary">F8:</strong> Settle | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
+          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">Alt+P:</strong> Define Promos | <strong className="text-primary">F7:</strong> Exact Cash | <strong className="text-primary">F8:</strong> Settle | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
         </span>
         <span className="text-primary font-bold">© 2026 smritisys.com</span>
       </footer>
@@ -3129,6 +3374,28 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           directStockNoRef.current?.focus();
         }}
         onClose={() => setShowSmritiItemSearchModal(false)}
+      />
+
+      {/* 3b. SMRITI F6 Promotional Discounts & Sales Schemes Modal */}
+      <SmritiF6PromotionalDiscountsModal
+        isOpen={showF6PromoModal}
+        onClose={() => setShowF6PromoModal(false)}
+        items={items}
+        subtotal={summaryTotals.salesValue}
+        billLevelPromo={billLevelPromo}
+        onApplyPromos={(updatedItems, updatedBillPromo) => {
+          setItems(updatedItems);
+          setBillLevelPromo(updatedBillPromo);
+          onNotification?.("Discounts Applied", `Applied ${updatedBillPromo.code} bill discount and updated line item promos.`, "success");
+        }}
+        onNotification={onNotification}
+      />
+
+      {/* 3c. SMRITI Define Sales Promotions Master Modal */}
+      <SmritiDefineSalesPromotionsModal
+        isOpen={showDefinePromosModal}
+        onClose={() => setShowDefinePromosModal(false)}
+        onNotification={onNotification}
       />
 
       {/* 4. Recall Suspended Invoices Modal */}

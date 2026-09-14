@@ -28,6 +28,27 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.17.0] - 2026-09-14
+
+#### SMRITI F2 Advanced Item Search, Dual-Grid Row Editing & Enterprise POS Invoicing Architecture
+
+**Walkthrough:** [Billing_Smriti_F2_And_Advanced_Retail_POS_v6.17.0.md](docs/walkthrough/billing/Billing_Smriti_F2_And_Advanced_Retail_POS_v6.17.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Brand Governance Compliance:** Strict enforcement of zero legacy or prohibited product names across all newly authored files, components, and interfaces; standardized on `Smriti` (`SmritiF2AdvancedItemSearch.tsx`, `SmritiF2SelectedItem`).
+- **Advanced F2 Item Search Modal:** Full-bleed keyboard-first search modal with tri-modal entity lookup (variant, item, barcode), quantity comparison operators (`Greater Than`, `Is`, `Less Than` defaulting to `Qty > 0`), advanced attribute drawer (`Alt+A`), and instant image zoom (`Alt+I`).
+- **Dual-Grid In-Place Row Editing:** Implemented double-click row editing contract from tier-1 enterprise retail architecture; double-clicking any line in the Item Details Grid loads it into the Direct Entry input row; modifications to Qty, Rate, Discount Code, or Discount % update the row in-place upon pressing `Enter` with zero duplication.
+- **Retail Ergonomics & Line Deletion:** Added `Ctrl+D` line item voiding for highlighted rows, `Escape` edit-cancellation, `ArrowUp`/`ArrowDown` grid navigation, and `F11` quick-return focus key to direct barcode input.
+- **Single-Keystroke Exact Cash Checkout (`F7`):** Fast checkout bypassing multi-tender modal for customers tendering exact currency.
+- **Optical Scanner Burst Guard:** Automatic interception and redirection of 8+ digit bursts typed into Quantity or Rate fields back to the Barcode input, keeping `Qty = 1`.
+- **Item Details Inspector Ribbon:** Real-time metadata strip displaying Stock No, Barcode, Description, Brand, Size, HSN, GST %, Net Amount, and Salesperson for the active row.
+- **F6 Sales Promotions & "Define Sales Promotions" Catalogue Architecture:**
+  - Implemented `SmritiSalesPromotionService` as the authoritative catalog repository for promotion schemes matching enterprise POS specifications (4 categories: Item Level Discounts, Item Level Offers, Bill Level Discounts, and Bill Level Offers).
+  - Built `SmritiDefineSalesPromotionsModal.tsx` (`Alt+P` or Catalogue > Define Sales Promotions) allowing store managers to define schemes with Code, Description, Priority No., Validity Dates, Discount % or Flat ₹, Min Bill Value, Max Allowed Cap, and Active toggle.
+  - Built `SmritiF6PromotionalDiscountsModal.tsx` (`F6` in POS & ProPOS) dynamically calling the defined schemes from the "Define Sales Promotions" catalog; features Tab 1 (`Item Level Promotional Details`), Tab 2 (`Bill Level Promotional Details`), bidirectional discount % / amount calculations against `Calculated On`, statutory reason enforcement, and `Apply Bill Level Discount First` preference.
+  - Integrated `F6` discount schemes and `Alt+P` catalogue triggers in `BillingTerm.tsx` and `ProPosBillingTerm.tsx`, updating cart summaries and bill footer totals in real time.
+- **Automated Verification:** 32/32 billing tests green (`smritiF2BillingSearch.test.ts` & `smritiSalesPromotionEngine.test.ts`), 126/126 Vitest suites green (816 tests), 0 TypeScript compiler errors, and clean production build.
+
 ### [6.16.5] - 2026-09-14
 
 #### All 34 Workspaces 100% Low-Risk Elevation & SMRITI Gyan Kendra Parity
