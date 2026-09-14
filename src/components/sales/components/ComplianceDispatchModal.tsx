@@ -12,7 +12,7 @@
  * Classification: Internal
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
 
 export interface InvoiceComplianceData {
@@ -84,6 +84,50 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
   const [transporterId, setTransporterId] = useState<string>(invoice.transporter_id || "");
   const [ewayBillNo, setEwayBillNo] = useState<string | undefined>(invoice.eway_bill_no);
   const [ewayValidUntil, setEwayValidUntil] = useState<string | undefined>(invoice.eway_bill_valid_until);
+  const [canonicalEwb, setCanonicalEwb] = useState<{
+    trans_type?: number;
+    dispatch_from?: {
+      trade_name?: string;
+      place?: string;
+      pincode?: string;
+      state_code?: number;
+    };
+    ship_to?: {
+      trade_name?: string;
+      place?: string;
+      pincode?: string;
+      state_code?: number;
+    };
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const docQuery = invoice.eway_bill_no || invoice.doc_no || invoice.invoice_id;
+    if (!docQuery) return;
+
+    let mounted = true;
+    apiFetchV1(`/compliance/ewaybill/${encodeURIComponent(docQuery)}`)
+      .then((data: any) => {
+        if (!mounted || !data) return;
+        if (data.eway_bill_no) setEwayBillNo(data.eway_bill_no);
+        if (data.valid_until) setEwayValidUntil(data.valid_until);
+        if (data.vehicle_no) setVehicleNo(data.vehicle_no);
+        if (data.distance_km) setDistanceKm(data.distance_km);
+        if (data.transporter_id) setTransporterId(data.transporter_id);
+        setCanonicalEwb({
+          trans_type: data.trans_type,
+          dispatch_from: data.dispatch_from,
+          ship_to: data.ship_to,
+        });
+      })
+      .catch(() => {
+        // Fall back gracefully to initial props if not yet generated or found
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, invoice.eway_bill_no, invoice.doc_no, invoice.invoice_id]);
 
   const handleGenerateEInvoice = async () => {
     setLoadingEinv(true);
@@ -438,6 +482,37 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
                       </span>
                     </div>
                   </div>
+
+                  {canonicalEwb && (canonicalEwb.dispatch_from?.pincode || canonicalEwb.ship_to?.pincode) && (
+                    <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-[11px] space-y-2">
+                      <div className="flex items-center justify-between text-slate-400 font-semibold border-b border-slate-800 pb-1.5">
+                        <span>4-Party Movement Logistics</span>
+                        <span className="text-cyan-400 font-mono">
+                          {canonicalEwb.trans_type === 4 ? "Combination (Bill To/Ship To + Bill From/Dispatch From)" : `Trans Type ${canonicalEwb.trans_type || 1}`}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <span className="text-slate-500 block">Dispatch Origin (Physical)</span>
+                          <span className="text-slate-300 font-medium block">
+                            {canonicalEwb.dispatch_from?.trade_name || "Nagpur Depot"}
+                          </span>
+                          <span className="text-slate-400 font-mono text-[10px]">
+                            PIN: {canonicalEwb.dispatch_from?.pincode || "440029"} (State: {canonicalEwb.dispatch_from?.state_code || 27})
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Ship To Delivery Site (Physical)</span>
+                          <span className="text-slate-300 font-medium block truncate" title={canonicalEwb.ship_to?.trade_name}>
+                            {canonicalEwb.ship_to?.trade_name || "RRL DC"}
+                          </span>
+                          <span className="text-slate-400 font-mono text-[10px]">
+                            PIN: {canonicalEwb.ship_to?.pincode || "711310"} (State: {canonicalEwb.ship_to?.state_code || 19})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex justify-end pt-2">
                     <button
