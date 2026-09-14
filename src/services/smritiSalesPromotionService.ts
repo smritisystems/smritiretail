@@ -171,7 +171,7 @@ export interface SmritiDefinedSalesPromotion {
   happyHoursStart?: string; // HH:mm
   happyHoursEnd?: string; // HH:mm
   recipeId?: string;
-  appliedOn?: "LOWEST_PRICE" | "HIGHEST_PRICE";
+  appliedOn?: "LOWEST_PRICE" | "HIGHEST_PRICE" | "MRP" | "SELLING_PRICE";
   daysOfWeek?: string[]; // ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
   customerClassifications?: Record<string, string[]>;
   comboSets?: {
@@ -192,13 +192,30 @@ const STORAGE_KEY = "smriti_sales_promotions_catalog";
 export const DEFAULT_DEFINED_SALES_PROMOTIONS: SmritiDefinedSalesPromotion[] = [
   // ─── 1. ITEM LEVEL PROMOTIONS ───────────────────────────────────────────
   {
+    id: "sp-reliance-4376",
+    code: "REL_RET_4376",
+    name: "Reliance Retail Store 43.76% on MRP",
+    description: "Institutional trade concession: flat 43.76% markdown on MRP for Reliance Retail billing",
+    level: "ITEM_LEVEL",
+    category: "ITEM_DISCOUNT_PERCENT",
+    priority: 1,
+    discountValue: 43.76,
+    appliedOn: "MRP",
+    applicableCustomerGroups: ["RELIANCE", "RELIANCE_RETAIL", "ALL"],
+    validFrom: "2026-01-01",
+    validTo: "2026-12-31",
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-09-14T00:00:00.000Z"
+  },
+  {
     id: "sp-item-ild",
     code: "ILD",
     name: "Standard Item Line Discount",
     description: "Standard 10% promotional line discount on catalog apparel",
     level: "ITEM_LEVEL",
     category: "ITEM_DISCOUNT_PERCENT",
-    priority: 1,
+    priority: 2,
     discountValue: 10,
     applicableCustomerGroups: ["ALL"],
     validFrom: "2026-01-01",
@@ -1257,6 +1274,26 @@ export const SMRITI_PROMOTION_RECIPES: RetailPromotionRecipe[] = [
       isActive: true
     },
     madLibsTemplate: "Give 10% OFF for VIP and Corporate club members."
+  },
+  {
+    id: "recipe-reliance-trade",
+    name: "Reliance Retail Trade Concession (43.76% on MRP)",
+    tagline: "Standard institutional trade concession for Reliance Retail stores",
+    icon: "building-2",
+    badge: "Key Account",
+    defaultScheme: {
+      code: "REL_RET_4376",
+      name: "Reliance Retail Store 43.76% on MRP",
+      description: "Institutional trade discount: 43.76% markdown on MRP for Reliance Retail billing",
+      level: "ITEM_LEVEL",
+      category: "ITEM_DISCOUNT_PERCENT",
+      priority: 1,
+      discountValue: 43.76,
+      appliedOn: "MRP",
+      applicableCustomerGroups: ["RELIANCE", "RELIANCE_RETAIL", "ALL"],
+      isActive: true
+    },
+    madLibsTemplate: "Give 43.76% trade concession on MRP for Reliance Retail Store."
   }
 ];
 
