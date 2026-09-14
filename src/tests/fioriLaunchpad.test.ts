@@ -27,6 +27,7 @@ const REGISTERED_APP_TABS = [
   "crm",
   "loyalty",
   "profiles",
+  "sales-promotions",
   "purchase",
   "supplier-mgmt",
   "vendor-360",
