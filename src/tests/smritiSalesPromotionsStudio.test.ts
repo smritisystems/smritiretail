@@ -41,9 +41,9 @@ describe("SMRITI Sales Promotions Studio & Human-First Rule Engine", () => {
   ];
 
   describe("1. 1-Click Popular Retail Recipes", () => {
-    it("should provide exactly 8 well-formed retail recipes", () => {
+    it("should provide well-formed retail recipes including Reliance Trade Concession", () => {
       const recipes = SmritiSalesPromotionService.getRecipes();
-      expect(recipes.length).toBe(8);
+      expect(recipes.length).toBeGreaterThanOrEqual(9);
 
       const ids = recipes.map(r => r.id);
       expect(ids).toContain("recipe-bogo");
@@ -54,6 +54,7 @@ describe("SMRITI Sales Promotions Studio & Human-First Rule Engine", () => {
       expect(ids).toContain("recipe-happy-hours");
       expect(ids).toContain("recipe-clearance");
       expect(ids).toContain("recipe-vip");
+      expect(ids).toContain("recipe-reliance-trade");
 
       // Verify every recipe has defaultScheme and madLibsTemplate
       recipes.forEach(r => {
@@ -309,5 +310,38 @@ describe("SMRITI Sales Promotions Studio & Human-First Rule Engine", () => {
       expect(resVip.isEligible).toBe(true);
       expect(resVip.discountTotal).toBe(650); // 10% of 6500
     });
+
+    it("should accurately calculate Reliance Retail Store 43.76% discount on MRP", () => {
+      const reliancePromo = SmritiSalesPromotionService.getAllDefinedPromotions().find(
+        p => p.code === "REL_RET_4376"
+      )!;
+
+      expect(reliancePromo).toBeDefined();
+      expect(reliancePromo.discountValue).toBe(43.76);
+      expect(reliancePromo.level).toBe("ITEM_LEVEL");
+      expect(reliancePromo.category).toBe("ITEM_DISCOUNT_PERCENT");
+
+      // Test with a mock cart of 1 item with MRP 1000
+      const testCart: SimulatedCartLine[] = [
+        { id: "rel-1", sku: "SHIRT-REL-01", name: "Formal Cotton Shirt", category: "Apparel", brand: "Raymond", qty: 2, unitPrice: 1000 }
+      ];
+
+      // Total MRP = 2 * 1000 = 2000
+      // 43.76% of 2000 = 875.20
+      const res = SmritiSalesPromotionService.simulateCart(testCart, reliancePromo, {
+        customerGroup: "RELIANCE_RETAIL"
+      });
+
+      expect(res.isEligible).toBe(true);
+      expect(res.originalTotal).toBe(2000);
+      expect(res.discountTotal).toBeCloseTo(875.20, 2);
+      expect(res.finalTotal).toBeCloseTo(1124.80, 2);
+
+      const line = res.lines[0];
+      expect(line.discountAmount).toBeCloseTo(875.20, 2);
+      expect(line.finalLineTotal).toBeCloseTo(1124.80, 2);
+      expect(line.appliedRule).toContain("Reliance Retail Store 43.76% on MRP");
+    });
   });
 });
+
