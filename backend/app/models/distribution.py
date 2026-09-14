@@ -214,17 +214,85 @@ class DistributionSettlement(BaseEntity):
 
 class EWayBill(BaseEntity):
     """
-    E-Way Bill tracking entity for GST compliance and goods transit governance.
+    Canonical E-Way Bill entity for GST compliance and goods transit governance (2026 NIC Schema).
     """
     __tablename__ = "eway_bills"
 
-    eway_bill_no = Column(String(50), nullable=False, unique=True, index=True)
-    document_type = Column(String(50), nullable=False)  # INVOICE, DELIVERY_CHALLAN, CREDIT_NOTE
-    document_id = Column(String(50), nullable=False, index=True)
-    gstin_from = Column(String(15), nullable=False)
-    gstin_to = Column(String(15), nullable=False)
+    # Core Identifiers & Document Linkage
+    eway_bill_no = Column(String(50), nullable=True, unique=True, index=True)
+    document_type = Column(String(50), nullable=True, default="INVOICE")  # INVOICE, DELIVERY_CHALLAN, CREDIT_NOTE
+    document_id = Column(String(50), nullable=True, index=True)
+    document_no = Column(String(50), nullable=True)
+    document_date = Column(Date, nullable=True)
+    invoice_id = Column(String(50), nullable=True, index=True)
+
+    # Statutory Transaction & Supply Classification
+    supply_type = Column(String(10), nullable=True, default="O")  # O = Outward, I = Inward
+    sub_supply_type = Column(Integer, nullable=True, default=1)  # 1 = Supply, 3 = Export, 4 = Job Work, etc.
+    sub_supply_desc = Column(String(100), nullable=True)
+    trans_type = Column(Integer, nullable=True, default=1)  # 1 = Regular, 2 = Bill To-Ship To, 3 = Bill From-Dispatch From, 4 = Combination
+
+    # Bill From / Consignor
+    gstin_from = Column(String(15), nullable=True)
+    trade_name_from = Column(String(200), nullable=True)
+    state_code_from = Column(Integer, nullable=True)
+
+    # Bill To / Consignee
+    gstin_to = Column(String(15), nullable=True)
+    trade_name_to = Column(String(200), nullable=True)
+    state_code_to = Column(Integer, nullable=True)
+
+    # Dispatch From / Physical Origin Snapshot
+    dispatch_from_gstin = Column(String(15), nullable=True)
+    dispatch_from_trade_name = Column(String(200), nullable=True)
+    dispatch_from_place = Column(String(100), nullable=True)
+    dispatch_from_pincode = Column(String(10), nullable=True)
+    dispatch_from_state_code = Column(Integer, nullable=True)
+    dispatch_from_addr1 = Column(Text, nullable=True)
+    dispatch_from_addr2 = Column(Text, nullable=True)
+
+    # Ship To / Physical Delivery Site Snapshot
+    ship_to_gstin = Column(String(15), nullable=True)
+    ship_to_trade_name = Column(String(200), nullable=True)
+    ship_to_place = Column(String(100), nullable=True)
+    ship_to_pincode = Column(String(10), nullable=True)
+    ship_to_state_code = Column(Integer, nullable=True)
+    ship_to_addr1 = Column(Text, nullable=True)
+    ship_to_addr2 = Column(Text, nullable=True)
+
+    # Consignment Commercials & Tax Breakdown
+    total_taxable_amount = Column(Numeric(15, 2), nullable=True, default=0.00)
+    cgst_amount = Column(Numeric(15, 2), nullable=True, default=0.00)
+    sgst_amount = Column(Numeric(15, 2), nullable=True, default=0.00)
+    igst_amount = Column(Numeric(15, 2), nullable=True, default=0.00)
+    cess_amount = Column(Numeric(15, 2), nullable=True, default=0.00)
+    other_amount = Column(Numeric(15, 2), nullable=True, default=0.00)
+    consignment_value = Column(Numeric(15, 2), nullable=True, default=0.00)
+    document_value = Column(Numeric(15, 2), nullable=True, default=0.00)
+    main_hsn_code = Column(String(20), nullable=True)
+
+    # Transport Logistics (Part-B)
     transporter_id = Column(String(50), nullable=True)
+    transporter_name = Column(String(200), nullable=True)
+    transport_mode = Column(String(10), nullable=True, default="1")  # 1 = Road, 2 = Rail, 3 = Air, 4 = Ship
+    trans_doc_no = Column(String(50), nullable=True)
+    trans_doc_date = Column(Date, nullable=True)
+    vehicle_no = Column(String(30), nullable=True)
     vehicle_number = Column(String(30), nullable=True)
-    document_value = Column(Numeric(15, 2), nullable=False, default=0.00)
-    status = Column(String(30), nullable=False, default="GENERATED")  # GENERATED, CANCELLED, REJECTED, EXPIRED
+    vehicle_type = Column(String(10), nullable=True, default="R")  # R = Regular, O = Over Dimensional
+    distance_km = Column(Numeric(10, 2), nullable=True, default=0.00)
+    part_b_status = Column(String(20), nullable=True, default="PENDING")  # PENDING, UPDATED, EXEMPT_50KM
+
+    # Statutory Lifecycle, Validity & Verification
+    irn = Column(String(64), nullable=True, index=True)
+    ewb_date = Column(DateTime(timezone=True), nullable=True)
+    valid_from = Column(DateTime(timezone=True), nullable=True)
+    valid_until = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(30), nullable=True, default="GENERATED")  # GENERATED, CANCELLED, REJECTED, EXPIRED
+    signed_qr_code = Column(Text, nullable=True)
+    cancel_date = Column(DateTime(timezone=True), nullable=True)
+    cancel_reason_code = Column(String(20), nullable=True)
+    cancel_remarks = Column(Text, nullable=True)
+    nic_payload_snapshot = Column(JSONB, nullable=True)
+    nic_response_snapshot = Column(JSONB, nullable=True)
 

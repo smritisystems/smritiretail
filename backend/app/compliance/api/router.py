@@ -212,3 +212,72 @@ async def cancel_ewaybill_endpoint(
     except PolicyViolationException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
+
+@router.get(
+    "/ewaybill/{document_no_or_id}",
+    summary="Get E-Way Bill Details",
+    description="Retrieves canonical E-Way Bill details by E-Way Bill number, document number, or invoice ID."
+)
+async def get_ewaybill_endpoint(
+    document_no_or_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext | None = Depends(get_tenant_context),
+) -> dict[str, Any]:
+    from sqlalchemy import select
+    from app.models.distribution import EWayBill
+    stmt = select(EWayBill).where(
+        (EWayBill.eway_bill_no == document_no_or_id) |
+        (EWayBill.document_no == document_no_or_id) |
+        (EWayBill.invoice_id == document_no_or_id)
+    )
+    res = await db.execute(stmt)
+    ewb = res.scalars().first()
+    if not ewb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-Way Bill not found.")
+    return {
+        "id": ewb.id,
+        "eway_bill_no": ewb.eway_bill_no,
+        "document_no": ewb.document_no,
+        "document_type": ewb.document_type,
+        "invoice_id": ewb.invoice_id,
+        "supply_type": ewb.supply_type,
+        "trans_type": ewb.trans_type,
+        "gstin_from": ewb.gstin_from,
+        "trade_name_from": ewb.trade_name_from,
+        "gstin_to": ewb.gstin_to,
+        "trade_name_to": ewb.trade_name_to,
+        "dispatch_from": {
+            "gstin": ewb.dispatch_from_gstin,
+            "trade_name": ewb.dispatch_from_trade_name,
+            "place": ewb.dispatch_from_place,
+            "pincode": ewb.dispatch_from_pincode,
+            "state_code": ewb.dispatch_from_state_code,
+            "addr1": ewb.dispatch_from_addr1,
+            "addr2": ewb.dispatch_from_addr2,
+        },
+        "ship_to": {
+            "gstin": ewb.ship_to_gstin,
+            "trade_name": ewb.ship_to_trade_name,
+            "place": ewb.ship_to_place,
+            "pincode": ewb.ship_to_pincode,
+            "state_code": ewb.ship_to_state_code,
+            "addr1": ewb.ship_to_addr1,
+            "addr2": ewb.ship_to_addr2,
+        },
+        "total_taxable_amount": float(ewb.total_taxable_amount or 0),
+        "igst_amount": float(ewb.igst_amount or 0),
+        "consignment_value": float(ewb.consignment_value or 0),
+        "main_hsn_code": ewb.main_hsn_code,
+        "distance_km": float(ewb.distance_km or 0),
+        "vehicle_no": ewb.vehicle_no,
+        "transporter_id": ewb.transporter_id,
+        "transporter_name": ewb.transporter_name,
+        "part_b_status": ewb.part_b_status,
+        "status": ewb.status,
+        "ewb_date": ewb.ewb_date.isoformat() if ewb.ewb_date else None,
+        "valid_from": ewb.valid_from.isoformat() if ewb.valid_from else None,
+        "valid_until": ewb.valid_until.isoformat() if ewb.valid_until else None,
+        "nic_payload_snapshot": ewb.nic_payload_snapshot,
+    }
+
+

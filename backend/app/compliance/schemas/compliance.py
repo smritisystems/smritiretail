@@ -188,6 +188,27 @@ class EWayBillGenerationRequest(BaseModel):
     transporter_name: str | None = None
     vehicle_no: str | None = None
     total_invoice_value: float
+    total_taxable_amount: float | None = None
+    cgst_amount: float | None = 0.0
+    sgst_amount: float | None = 0.0
+    igst_amount: float | None = 0.0
+    main_hsn_code: str | None = None
+    trans_type: int = 1  # 1 = Regular, 2 = Bill To-Ship To, 3 = Bill From-Dispatch From, 4 = Combination
+    dispatch_from_gstin: str | None = None
+    dispatch_from_trade_name: str | None = None
+    dispatch_from_place: str | None = None
+    dispatch_from_pincode: str | None = None
+    dispatch_from_state_code: int | None = None
+    dispatch_from_addr1: str | None = None
+    dispatch_from_addr2: str | None = None
+    ship_to_gstin: str | None = None
+    ship_to_trade_name: str | None = None
+    ship_to_place: str | None = None
+    ship_to_pincode: str | None = None
+    ship_to_state_code: int | None = None
+    ship_to_addr1: str | None = None
+    ship_to_addr2: str | None = None
+    irn: str | None = None
     items_count: int = 1
     environment: str = "sandbox"
 

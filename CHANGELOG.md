@@ -28,6 +28,28 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.20.0] - 2026-09-14
+
+#### Canonical Statutory E-Way Bill 2026 Upgrade & PostgreSQL Database Parity
+
+**Walkthrough:** [Compliance_Canonical_EWay_Bills_Upgrade_v6.20.0.md](docs/walkthrough/compliance/Compliance_Canonical_EWay_Bills_Upgrade_v6.20.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Rule 12 Database Schema & Nullability Parity:**
+  - Resolved schema drift between control plane (`smritisys`) and tenant databases (`smriti001`) via canonical Alembic migration `v1452_canonical_eway_bills_2026.py`.
+  - Achieved exact 100% column parity (73 columns each) and 100% nullability parity (`id` and `uuid` strictly enforced, legacy columns relaxed to prevent insertion crashes).
+- **2026 Statutory Compliance Mandates:**
+  - Enforced `trans_type = 4` (combination of Bill From-Dispatch From and Bill To-Ship To) decoupling physical logistics (Nagpur Depot `440029` to Sankrail DC `711310`) from billing entities.
+  - Implemented CBIC Rule 138(10) statutory validity computation: 1 day per 200 km (1020 km = 6 days validity).
+  - Maintained 6-to-8 digit HSN code governance (`64041990`).
+- **ORM & Service Lifecycle Orchestration:**
+  - Updated `EWayBill` model in `backend/app/models/distribution.py` and `EWayBillGenerationRequest` schema.
+  - Wired `EWayBillService.generate_ewaybill()` to persist generated E-Way Bills to PostgreSQL and `cancel_ewaybill()` to handle 24-hour statutory cancellation transitions.
+  - Populated canonical 12-digit E-Way Bills (`260951827195`, `260951827196`, `260951827197`) for Reliance Retail West Bengal DC dispatch invoices (`TT2026-2027/195`, `196`, `197`) and linked `sales_invoices.eway_bill_no`.
+- **Verification & Testing:**
+  - Pytest compliance suite: 10/10 tests passed green in 60.89s (`backend/app/compliance/tests/`).
+  - Legacy E2E script `scripts/test_eway_bill_e2e.py` passed with 0 errors.
+
 ### [6.19.0] - 2026-09-14
 
 #### SMRITI Sales Promotions & Schemes Studio (Human-First Visual Rule Builder & Cart Simulator)
