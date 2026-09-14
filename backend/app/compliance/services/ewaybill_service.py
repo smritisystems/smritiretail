@@ -19,7 +19,9 @@ distance calculation, vehicle updates, and audit logging.
 import json
 import time
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
@@ -31,11 +33,14 @@ from app.compliance.schemas.compliance import (
     EWayBillResponse,
     CancelComplianceDocRequest,
 )
+from app.models.distribution import EWayBill
 
 
 class EWayBillService:
     """
     High-level business service for NIC E-Way Bill operations.
+    Orchestrates statutory 2026 E-Way Bill lifecycle, entity persistence,
+    and audit tracking.
     """
 
     STATUTORY_THRESHOLD_INR = 50000.00
@@ -60,7 +65,7 @@ class EWayBillService:
 
     async def generate_ewaybill(self, request: EWayBillGenerationRequest) -> EWayBillResponse:
         """
-        Generates statutory E-Way Bill via NIC connector with audit logging.
+        Generates statutory E-Way Bill via NIC connector with database entity persistence and audit logging.
         """
         start_time = time.time()
         
@@ -84,6 +89,80 @@ class EWayBillService:
         token = self.connector.authenticate({"username": "TEST_EWB_USER", "password": "TEST_EWB_PASSWORD"})
         result = self.connector.submit(payload, token=token)
         duration_ms = int((time.time() - start_time) * 1000)
+
+        # Parse statutory timestamps
+        ewb_date_dt = datetime.strptime(result["eway_bill_date"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        valid_upto_dt = datetime.strptime(result["valid_upto"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+
+        # Record or update canonical EWayBill database entity
+        stmt = select(EWayBill).where(
+            (EWayBill.invoice_id == request.invoice_id) | (EWayBill.document_no == request.doc_no)
+        )
+        existing_res = await self.db.execute(stmt)
+        ewb_record = existing_res.scalars().first()
+
+        if not ewb_record:
+            ewb_record = EWayBill(
+                id=f"EWB-{uuid.uuid4().hex[:12].upper()}",
+                eway_bill_no=result["eway_bill_no"],
+                document_type=request.doc_type or "INVOICE",
+                document_id=request.invoice_id,
+                document_no=request.doc_no,
+                invoice_id=request.invoice_id,
+                supply_type=payload.get("supplyType", "O"),
+                sub_supply_type=int(payload.get("subSupplyType", 1)),
+                trans_type=request.trans_type or 1,
+                gstin_from=request.from_gstin,
+                gstin_to=request.to_gstin,
+                dispatch_from_gstin=request.dispatch_from_gstin or request.from_gstin,
+                dispatch_from_trade_name=request.dispatch_from_trade_name,
+                dispatch_from_place=request.dispatch_from_place,
+                dispatch_from_pincode=request.dispatch_from_pincode or request.from_pincode,
+                dispatch_from_state_code=request.dispatch_from_state_code,
+                dispatch_from_addr1=request.dispatch_from_addr1,
+                dispatch_from_addr2=request.dispatch_from_addr2,
+                ship_to_gstin=request.ship_to_gstin or request.to_gstin,
+                ship_to_trade_name=request.ship_to_trade_name,
+                ship_to_place=request.ship_to_place,
+                ship_to_pincode=request.ship_to_pincode or request.to_pincode,
+                ship_to_state_code=request.ship_to_state_code,
+                ship_to_addr1=request.ship_to_addr1,
+                ship_to_addr2=request.ship_to_addr2,
+                total_taxable_amount=request.total_taxable_amount or request.total_invoice_value,
+                cgst_amount=request.cgst_amount or 0.0,
+                sgst_amount=request.sgst_amount or 0.0,
+                igst_amount=request.igst_amount or 0.0,
+                consignment_value=request.total_invoice_value,
+                document_value=request.total_invoice_value,
+                main_hsn_code=request.main_hsn_code,
+                distance_km=result["trans_distance_km"],
+                transporter_id=result.get("transporter_id"),
+                transporter_name=payload.get("transporterName"),
+                vehicle_no=result.get("vehicle_no"),
+                vehicle_number=result.get("vehicle_no"),
+                part_b_status="UPDATED" if result.get("vehicle_no") else "PENDING",
+                irn=request.irn,
+                ewb_date=ewb_date_dt,
+                valid_from=ewb_date_dt,
+                valid_until=valid_upto_dt,
+                status="GENERATED",
+                company_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
+                branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else None,
+            )
+            self.db.add(ewb_record)
+        else:
+            ewb_record.eway_bill_no = result["eway_bill_no"]
+            ewb_record.status = "GENERATED"
+            ewb_record.ewb_date = ewb_date_dt
+            ewb_record.valid_from = ewb_date_dt
+            ewb_record.valid_until = valid_upto_dt
+            ewb_record.distance_km = result["trans_distance_km"]
+            ewb_record.vehicle_no = result.get("vehicle_no")
+            ewb_record.vehicle_number = result.get("vehicle_no")
+            ewb_record.transporter_id = result.get("transporter_id")
+            ewb_record.part_b_status = "UPDATED" if result.get("vehicle_no") else "PENDING"
+            if request.irn:
+                ewb_record.irn = request.irn
 
         # Record Audit Log
         audit_log = ComplianceAuditLog(
@@ -115,10 +194,19 @@ class EWayBillService:
 
     async def cancel_ewaybill(self, req: CancelComplianceDocRequest) -> Dict[str, Any]:
         """
-        Cancels an active E-Way Bill within 24 hours.
+        Cancels an active E-Way Bill within 24 hours and synchronizes database status.
         """
         token = self.connector.authenticate({"username": "TEST_EWB_USER", "password": "TEST_EWB_PASSWORD"})
         result = self.connector.cancel(document_no=req.document_no, reason=req.reason, token=token)
+
+        # Update canonical EWayBill record if present
+        stmt = select(EWayBill).where(EWayBill.eway_bill_no == req.document_no)
+        existing_res = await self.db.execute(stmt)
+        ewb = existing_res.scalar_one_or_none()
+        if ewb:
+            ewb.status = "CANCELLED"
+            ewb.cancel_date = datetime.now(timezone.utc)
+            ewb.cancel_remarks = req.reason
 
         audit_log = ComplianceAuditLog(
             id=f"AUD-{uuid.uuid4().hex[:12].upper()}",
@@ -134,3 +222,4 @@ class EWayBillService:
         self.db.add(audit_log)
         await self.db.commit()
         return result
+

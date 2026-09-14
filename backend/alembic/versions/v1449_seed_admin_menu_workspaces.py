@@ -1,6 +1,7 @@
 """Register admin menu and security management workspaces in the canonical menu registry."""
 
 from alembic import op
+import sqlalchemy as sa
 
 
 revision = "v1449_seed_admin_menu_workspaces"
@@ -10,6 +11,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "smriti_menus" not in inspector.get_table_names():
+        return
     op.execute(
         """
         INSERT INTO smriti_menus
