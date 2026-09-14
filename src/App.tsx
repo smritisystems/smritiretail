@@ -125,6 +125,7 @@ const LegacyMigDashTab = lazy(() => import("./components/LegacyMigDashTab.tsx").
 const PhysicalStockTab = lazy(() => import("./components/PhysicalStockTab.tsx").then(m => ({ default: m.PhysicalStockTab })));
 const StorePolicyStudio = lazy(() => import("./components/StorePolicyStudio.tsx").then(m => ({ default: m.StorePolicyStudio })));
 const SmritiSystemParametersStudio = lazy(() => import("./components/setup/SmritiSystemParametersStudio.tsx").then(m => ({ default: m.SmritiSystemParametersStudio })));
+const SmritiSalesPromotionsStudio = lazy(() => import("./components/promotions/SmritiSalesPromotionsStudio.tsx").then(m => ({ default: m.SmritiSalesPromotionsStudio })));
 const WmsStudioTab = lazy(() => import("./components/wms/WmsStudioTab.tsx").then(m => ({ default: m.WmsStudioTab })));
 const SetupWizardTab = lazy(() => import("./components/SetupWizard/SetupWizardTab.tsx").then(m => ({ default: m.SetupWizardTab })));
 const PrintPreviewModal = lazy(() => import("./components/PrintPreviewModal.tsx").then(m => ({ default: m.PrintPreviewModal })));
@@ -1440,6 +1441,10 @@ const mapModuleId = (id: string): string => {
     "eod-report": "day-close",
     security: "security-management",
     security_management: "security-management",
+    "sales-promotions": "sales-promotions",
+    "promotions-studio": "sales-promotions",
+    promotions: "sales-promotions",
+    sales_promotions: "sales-promotions",
     menu_access: "security-management",
     "menu-dashboard": "dashboard",
     "menu-user-profile": "user-profile",
@@ -2044,6 +2049,11 @@ const AppContent: React.FC = () => {
       case "parameters-studio":
       case "sys-params":
         return <SmritiSystemParametersStudio onClose={() => setActiveTab("dashboard")} />;
+
+      case "sales-promotions":
+      case "promotions-studio":
+      case "promotions":
+        return <SmritiSalesPromotionsStudio onClose={() => setActiveTab("dashboard")} onNotification={addNotification} />;
 
 
       case "wms":

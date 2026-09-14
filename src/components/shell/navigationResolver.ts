@@ -106,6 +106,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         items: [
           LAUNCHPAD_ITEM,
           { id: 'sales', title: 'Sales Billing', icon: 'point_of_sale', isNextBestAction: true },
+          { id: 'sales-promotions', title: 'Promotions Studio', icon: 'campaign' },
           { id: 'crm', title: 'Customer 360', icon: 'badge' },
           { id: 'tax-invoice-print', title: 'Statutory A4 Print', icon: 'print' },
           { id: 'reports', title: 'Sales Analytics', icon: 'analytics' },
@@ -167,6 +168,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           LAUNCHPAD_ITEM,
           { id: 'item-master', title: 'Item Master (Browse)', icon: 'inventory_2' },
           { id: 'item-create-grid', title: 'Create Items (Excel Grid)', icon: 'grid_on', isNextBestAction: true },
+          { id: 'sales-promotions', title: 'Promotions Studio', icon: 'campaign' },
           { id: 'customer-master', title: 'Customer Master', icon: 'person_search' },
           { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
           { id: 'masters', title: 'Master Registry', icon: 'tune' },

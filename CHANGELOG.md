@@ -30,6 +30,30 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### [6.19.0] - 2026-09-14
 
+#### SMRITI Sales Promotions & Schemes Studio (Human-First Visual Rule Builder & Cart Simulator)
+
+**Walkthrough:** [Sales_Promotions_Studio_v6.19.0.md](docs/walkthrough/sales/Sales_Promotions_Studio_v6.19.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Human-First Visual Rule Builder & 1-Click Retail Recipes:**
+  - Empowered non-technical store managers, boutique owners, and merchandisers to define complex promotions without writing code or learning SQL.
+  - Provided 8 out-of-the-box retail recipes: Buy 2 Get 1 Free (BOGO), Flat % Discount on Items, Flat ₹100 Off per Piece, Any 3 for ₹1,999 Combo, Spend ₹3,000 Get ₹500 Off, Afternoon Happy Hours 15% Off, Last Piece Stock Clearance 40% Off, and VIP Club 10% Member Exclusive.
+  - Built real-time Natural Language "Mad-Libs" rule generator translating live form inputs into plain English sentences.
+  - Implemented 4-step guided visual wizard: Basics & Type → Who & When (customer group whitelist & Happy Hours) → What & How Much (item targets & BOGO criteria) → Review & Activate.
+- **Interactive Cart Sandbox Simulator:**
+  - Embedded real-time cart simulation engine with step-by-step calculation trace, line-by-line discounts, free items deduction, and savings verification before deploying promotions to live POS lanes.
+- **100% Tally Shoper 9 Parity & Enterprise Promotion Hierarchy:**
+  - Implemented all 13 canonical Shoper 9 promotion types across 4 categories: Item Concessions, Volume & Bundles, Bill Slabs & Thresholds, and Customer/Time targeting.
+  - Supported Auto Select and Manual Selection (`F6` hotkey in POS billing).
+  - Maintained strict item-level vs. bill-level calculation hierarchy and statutory GST Section 15 proration.
+- **Launchpad & Shell Navigation Integration:**
+  - Registered `sales-promotions` tile in `launchpadCatalog.ts` under "Master Data & Stock" with role access (`roles: ["MANAGER", "SYSADMIN"]`) and shortcut `Alt+P`.
+  - Added direct quick action in sales and master data navigation trees.
+- **Verification & Testing:**
+  - Vitest test suite (`src/tests/smritiSalesPromotionsStudio.test.ts`): 10/10 passed in 33ms.
+  - Launchpad registry validator (`scripts/validate-launchpad-registry.mjs`): 42/42 catalog tiles and 75 App render routes passed.
+  - TypeScript compiler (`tsc --noEmit`): 0 errors.
+
 #### SMRITI System Parameters Subsystem & 5-Tier Governance Engine
 
 **Walkthrough:** [Setup_Smriti_System_Parameters_And_Governance_Engine_v6.19.0.md](docs/walkthrough/setup/Setup_Smriti_System_Parameters_And_Governance_Engine_v6.19.0.md)  
