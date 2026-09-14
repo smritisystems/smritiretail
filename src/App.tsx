@@ -1445,6 +1445,7 @@ const mapModuleId = (id: string): string => {
     "promotions-studio": "sales-promotions",
     promotions: "sales-promotions",
     sales_promotions: "sales-promotions",
+    "menu-sales-promotions": "sales-promotions",
     menu_access: "security-management",
     "menu-dashboard": "dashboard",
     "menu-user-profile": "user-profile",

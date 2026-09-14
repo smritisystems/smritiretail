@@ -51,7 +51,8 @@ import {
   Layers,
   ArrowUpDown,
   Database,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from "lucide-react";
 import {
   SmritiSalesPromotionService,
@@ -266,6 +267,18 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
             >
               <RefreshCw size={12} className={syncStatus === "SYNCING" ? "animate-spin" : ""} />
               <span>Sync DB</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent("smriti_navigate_module", { detail: { moduleId: "sales-promotions" } }));
+              }}
+              className="p-1 px-2.5 text-xs rounded border border-primary/30 bg-primary/10 hover:bg-primary/20 flex items-center gap-1.5 font-bold text-primary cursor-pointer transition-colors shadow-xs"
+              title="Open full Sales Promotions Studio workspace"
+            >
+              <ExternalLink size={12} />
+              <span>Full Studio Workspace</span>
             </button>
             <button
               type="button"

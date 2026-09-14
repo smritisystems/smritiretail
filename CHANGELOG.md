@@ -28,6 +28,28 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.21.0] - 2026-09-14
+
+#### Sales Promotions Studio Route Wiring & PostgreSQL Synchronisation
+
+**Walkthrough:** [Sales_Promotions_Studio_Route_Wiring_v6.21.0.md](docs/walkthrough/sales/Sales_Promotions_Studio_Route_Wiring_v6.21.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Control-Plane Menu Security Matrix Expansion:**
+  - Expanded `CANONICAL_36_MENU_MATRIX` to include `menu-sales-promotions` (`resource: "promotions_studio"`, `view_perm: "PROMOTIONS.WORKSPACE.ACCESS"`, `parent_id: "menu-pos"`).
+  - Added `"promotions_studio"` to `CASHIER_DEFAULT_VIEW_ALLOWLIST` in `security_matrix.py`.
+  - Applied Alembic migration `v1453_seed_sales_promotions_menu.py` seeding `menu-sales-promotions` into `smritisys.smriti_menus` and mapping Shoper 9 option `600/608` in `smriti_legacy_menu_map`.
+- **FastAPI Backend Schemes Synchronization Endpoints:**
+  - Implemented `GET /api/v1/promotions/schemes`, `POST /api/v1/promotions/schemes`, and `DELETE /api/v1/promotions/schemes/{scheme_id}` in `backend/app/api/v1/promotions.py`.
+  - Translated statutory `PromotionSchemeDTO` and `PromotionSchemeUpsertRequest` models directly into PostgreSQL `promotion_campaigns` and `promotion_rules`.
+- **Frontend App & Layout Engine Wiring:**
+  - Added `"menu-sales-promotions": "sales-promotions"` alias to `mapModuleId` in `src/App.tsx`.
+  - Registered `sales-promotions` in initial `registeredWorkspaces` in `src/layout_engine/layout_store.tsx` under category `"Sales & POS"`.
+- **POS Billing & F6 Modal Bridging:**
+  - Added "Full Studio Workspace" navigation button in `SmritiDefineSalesPromotionsModal.tsx` (`Alt+P`).
+  - Added "Studio Workspace" quick launch button in `SmritiF6PromotionalDiscountsModal.tsx` (`F6`).
+  - Integrated `smriti_navigate_module` event dispatch for 1-click transition from checkout terminals directly into the standalone visual rule builder and cart simulator.
+
 ### [6.20.0] - 2026-09-14
 
 #### Canonical Statutory E-Way Bill 2026 Upgrade & PostgreSQL Database Parity
