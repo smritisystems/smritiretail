@@ -111,6 +111,7 @@ from .pricing import (
     PriceBookEntry,
     CustomerPriceTier,
     CustomerPriceAssignment,
+    SalesFactor,
 )
 from .payment_ledger import (
     PaymentTransaction,
@@ -219,4 +220,7 @@ from .audit import (
 
 # Legacy Migration Registry (Sprint 2)
 from .legacy_menu_map import LegacyMenuMap
+
+# SMRITI System Parameters Subsystem & Governance Engine
+from .system_parameter import SystemParameter
 

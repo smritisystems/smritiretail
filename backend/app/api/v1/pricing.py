@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ...api.deps import get_company_db, get_current_user
-from ...models.pricing import PriceBook, CustomerPriceTier, PriceBookEntry, CustomerPriceAssignment
+from ...models.pricing import PriceBook, CustomerPriceTier, PriceBookEntry, CustomerPriceAssignment, SalesFactor
 from ...models.crm import Customer
 from ...services.pricing_engine import PricingEngine
 from ...schemas.pricing import (
@@ -39,6 +39,13 @@ from ...schemas.pricing import (
     BulkPricingRequest,
     BulkPricingResponse,
     PricingSnapshot,
+)
+from ...schemas.sales_factor import (
+    SalesFactorDTO,
+    SalesFactorUpsertRequest,
+    SalesFactorEvaluationRequest,
+    SalesFactorEvaluationResponse,
+    EvaluatedFactorItem,
 )
 
 router = APIRouter()
@@ -318,3 +325,185 @@ async def generate_pricing_snapshot(
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# SALES FACTOR MASTER ENDPOINTS (Add-ons, Deductions, Price Factors, Round-Off)
+# ============================================================================
+
+@router.get("/sales-factors", response_model=List[SalesFactorDTO], summary="List Sales Factors")
+async def list_sales_factors(
+    is_active: Optional[bool] = Query(True),
+    price_group_code: Optional[str] = Query(None),
+    factor_type: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Lists catalogued sales factors with optional price group and factor type filters."""
+    stmt = select(SalesFactor)
+    if is_active is not None:
+        stmt = stmt.where(SalesFactor.is_active == is_active)
+    if factor_type:
+        stmt = stmt.where(SalesFactor.factor_type == factor_type)
+    if price_group_code:
+        stmt = stmt.where(
+            (SalesFactor.price_group_code == price_group_code)
+            | (SalesFactor.factor_category == "ALL_CUSTOMERS")
+        )
+    factors = (await db.execute(stmt)).scalars().all()
+    return [
+        SalesFactorDTO(
+            id=f.id,
+            code=f.code,
+            description=f.description,
+            factor_type=f.factor_type,
+            factor_category=f.factor_category,
+            customer_id=f.customer_id,
+            price_group_code=f.price_group_code,
+            applicable_categories=f.applicable_categories or [],
+            applicable_brands=f.applicable_brands or [],
+            computation_timing=f.computation_timing,
+            computed_on=f.computed_on,
+            rate_or_amount=f.rate_or_amount,
+            value=float(f.value or 0.0),
+            is_variable=bool(f.is_variable),
+            min_bill_value=float(f.min_bill_value) if f.min_bill_value else None,
+            max_bill_value=float(f.max_bill_value) if f.max_bill_value else None,
+            valid_from=f.valid_from,
+            valid_to=f.valid_to,
+            applicable_days=f.applicable_days or [],
+            is_active=bool(f.is_active),
+            created_at=f.created_at.isoformat() if hasattr(f, "created_at") and f.created_at else None,
+            updated_at=f.updated_at.isoformat() if hasattr(f, "updated_at") and f.updated_at else None,
+        )
+        for f in factors
+    ]
+
+
+@router.post("/sales-factors", response_model=SalesFactorDTO, status_code=status.HTTP_201_CREATED, summary="Upsert Sales Factor")
+async def upsert_sales_factor(
+    req: SalesFactorUpsertRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Creates or updates a sales factor in PostgreSQL."""
+    try:
+        company_id, user_id = _extract_user_info(current_user)
+        factor = None
+        if req.id:
+            stmt = select(SalesFactor).where(SalesFactor.id == req.id)
+            factor = (await db.execute(stmt)).scalars().first()
+        if not factor:
+            stmt = select(SalesFactor).where(SalesFactor.code == req.code)
+            factor = (await db.execute(stmt)).scalars().first()
+
+        val_dec = Decimal(str(req.value or 0.0))
+        min_b = Decimal(str(req.min_bill_value)) if req.min_bill_value is not None else None
+        max_b = Decimal(str(req.max_bill_value)) if req.max_bill_value is not None else None
+
+        if not factor:
+            factor_id = req.id or f"sf_{uuid.uuid4().hex[:12]}"
+            factor = SalesFactor(
+                id=factor_id,
+                company_id=company_id,
+                code=req.code,
+                description=req.description,
+                factor_type=req.factor_type,
+                factor_category=req.factor_category,
+                customer_id=req.customer_id,
+                price_group_code=req.price_group_code,
+                applicable_categories=req.applicable_categories,
+                applicable_brands=req.applicable_brands,
+                computation_timing=req.computation_timing,
+                computed_on=req.computed_on,
+                rate_or_amount=req.rate_or_amount,
+                value=val_dec,
+                is_variable=req.is_variable,
+                min_bill_value=min_b,
+                max_bill_value=max_b,
+                valid_from=req.valid_from,
+                valid_to=req.valid_to,
+                applicable_days=req.applicable_days,
+                is_active=req.is_active,
+                created_by=user_id,
+            )
+            db.add(factor)
+        else:
+            factor.description = req.description
+            factor.factor_type = req.factor_type
+            factor.factor_category = req.factor_category
+            factor.customer_id = req.customer_id
+            factor.price_group_code = req.price_group_code
+            factor.applicable_categories = req.applicable_categories
+            factor.applicable_brands = req.applicable_brands
+            factor.computation_timing = req.computation_timing
+            factor.computed_on = req.computed_on
+            factor.rate_or_amount = req.rate_or_amount
+            factor.value = val_dec
+            factor.is_variable = req.is_variable
+            factor.min_bill_value = min_b
+            factor.max_bill_value = max_b
+            factor.valid_from = req.valid_from
+            factor.valid_to = req.valid_to
+            factor.applicable_days = req.applicable_days
+            factor.is_active = req.is_active
+
+        await db.commit()
+        await db.refresh(factor)
+
+        return SalesFactorDTO(
+            id=factor.id,
+            code=factor.code,
+            description=factor.description,
+            factor_type=factor.factor_type,
+            factor_category=factor.factor_category,
+            customer_id=factor.customer_id,
+            price_group_code=factor.price_group_code,
+            applicable_categories=factor.applicable_categories or [],
+            applicable_brands=factor.applicable_brands or [],
+            computation_timing=factor.computation_timing,
+            computed_on=factor.computed_on,
+            rate_or_amount=factor.rate_or_amount,
+            value=float(factor.value or 0.0),
+            is_variable=bool(factor.is_variable),
+            min_bill_value=float(factor.min_bill_value) if factor.min_bill_value else None,
+            max_bill_value=float(factor.max_bill_value) if factor.max_bill_value else None,
+            valid_from=factor.valid_from,
+            valid_to=factor.valid_to,
+            applicable_days=factor.applicable_days or [],
+            is_active=bool(factor.is_active),
+            created_at=factor.created_at.isoformat() if hasattr(factor, "created_at") and factor.created_at else None,
+            updated_at=factor.updated_at.isoformat() if hasattr(factor, "updated_at") and factor.updated_at else None,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/sales-factors/{factor_id}", status_code=status.HTTP_200_OK, summary="Delete Sales Factor")
+async def delete_sales_factor(
+    factor_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Deactivates a sales factor in PostgreSQL."""
+    try:
+        stmt = select(SalesFactor).where(SalesFactor.id == factor_id)
+        factor = (await db.execute(stmt)).scalars().first()
+        if not factor:
+            stmt = select(SalesFactor).where(SalesFactor.code == factor_id)
+            factor = (await db.execute(stmt)).scalars().first()
+        if not factor:
+            raise HTTPException(status_code=404, detail="Sales factor not found.")
+
+        factor.is_active = False
+        await db.commit()
+        return {"status": "SUCCESS", "success": True, "message": f"Sales factor {factor_id} deactivated."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+

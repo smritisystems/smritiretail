@@ -49,7 +49,9 @@ import {
   Sparkles,
   Search,
   Layers,
-  ArrowUpDown
+  ArrowUpDown,
+  Database,
+  RefreshCw
 } from "lucide-react";
 import {
   SmritiSalesPromotionService,
@@ -76,19 +78,47 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [editingPromo, setEditingPromo] = useState<SmritiDefinedSalesPromotion | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<"IDLE" | "SYNCING" | "SYNCHRONIZED" | "OFFLINE_CACHE">("IDLE");
 
-  // Load promotions on open
+  // Load promotions on open and sync from backend
   useEffect(() => {
     if (isOpen) {
       loadPromotions();
+      void syncWithBackend();
     }
   }, [isOpen]);
+
+  // Reactive listener for updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      setPromotions(SmritiSalesPromotionService.getAllDefinedPromotions());
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("smriti_promotions_updated", handleUpdate);
+      return () => window.removeEventListener("smriti_promotions_updated", handleUpdate);
+    }
+  }, []);
 
   const loadPromotions = () => {
     const list = SmritiSalesPromotionService.getAllDefinedPromotions();
     setPromotions(list);
     setIsCreatingNew(false);
     setEditingPromo(null);
+  };
+
+  const syncWithBackend = async () => {
+    setSyncStatus("SYNCING");
+    try {
+      const res = await SmritiSalesPromotionService.syncFromBackend();
+      setPromotions(res.schemes);
+      if (res.source === "DATABASE") {
+        setSyncStatus("SYNCHRONIZED");
+      } else {
+        setSyncStatus("OFFLINE_CACHE");
+      }
+    } catch {
+      setSyncStatus("OFFLINE_CACHE");
+    }
   };
 
   // Filtered promotions
@@ -135,7 +165,7 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
     setIsCreatingNew(false);
   };
 
-  const handleSavePromo = (e: React.FormEvent) => {
+  const handleSavePromo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPromo) return;
 
@@ -148,24 +178,34 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
       return;
     }
 
-    SmritiSalesPromotionService.savePromotion({
+    const payload: SmritiDefinedSalesPromotion = {
       ...editingPromo,
       code: editingPromo.code.toUpperCase().trim()
-    });
+    };
+
+    const res = await SmritiSalesPromotionService.saveScheme(payload);
 
     onNotification?.(
       "Promotion Saved",
-      `Scheme ${editingPromo.code} successfully saved to Define Sales Promotions catalogue.`,
+      res.syncedToBackend
+        ? `Scheme ${payload.code} successfully saved to local store & synchronized with PostgreSQL database.`
+        : `Scheme ${payload.code} saved to local store catalogue (offline cache).`,
       "success"
     );
     loadPromotions();
     onCatalogUpdated?.();
   };
 
-  const handleDeletePromo = (id: string, code: string) => {
+  const handleDeletePromo = async (id: string, code: string) => {
     if (!window.confirm(`Are you sure you want to delete promotion scheme [${code}]?`)) return;
-    SmritiSalesPromotionService.deletePromotion(id);
-    onNotification?.("Promotion Deleted", `Scheme ${code} removed from catalogue.`, "info");
+    const res = await SmritiSalesPromotionService.deleteScheme(id);
+    onNotification?.(
+      "Promotion Deleted",
+      res.syncedToBackend
+        ? `Scheme ${code} removed from catalogue and PostgreSQL database.`
+        : `Scheme ${code} removed from local catalogue.`,
+      "info"
+    );
     loadPromotions();
     onCatalogUpdated?.();
   };
@@ -196,20 +236,46 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
                 <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface-variant font-bold text-on-surface-variant">
                   Catalogue Master
                 </span>
+                {syncStatus === "SYNCHRONIZED" && (
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 border border-emerald-500/20">
+                    <Database size={10} /> PostgreSQL Synced
+                  </span>
+                )}
+                {syncStatus === "SYNCING" && (
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 border border-blue-500/20 animate-pulse">
+                    <RefreshCw size={10} className="animate-spin" /> Syncing...
+                  </span>
+                )}
+                {syncStatus === "OFFLINE_CACHE" && (
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 border border-amber-500/20">
+                    <Database size={10} /> Offline Local Cache
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-on-surface-variant">
                 Configure promotional discount schemes and rules called by <strong className="text-primary font-mono">F6</strong> in POS Billing.
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
-            title="Close (Esc)"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void syncWithBackend()}
+              className="p-1 px-2 text-xs rounded border border-outline-variant hover:bg-surface-container flex items-center gap-1 font-medium text-on-surface-variant cursor-pointer transition-colors"
+              title="Sync with PostgreSQL Backend"
+            >
+              <RefreshCw size={12} className={syncStatus === "SYNCING" ? "animate-spin" : ""} />
+              <span>Sync DB</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+              title="Close (Esc)"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Content Body: Split Layout (Left: Table/Filters, Right: Editor) */}

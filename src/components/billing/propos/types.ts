@@ -55,6 +55,8 @@ export interface ProPosCustomer {
   gstin?: string;
   state?: string;
   stateCode?: string;
+  priceGroupCode?: string;
+  itemClassificationPriceFactorApplicable?: boolean;
   registrationType?: "REGISTERED" | "UNREGISTERED";
 }
 

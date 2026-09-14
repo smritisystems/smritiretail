@@ -653,6 +653,8 @@ export interface Customer {
 
   // Pricing overrides
   priceListId?: string;
+  priceGroupCode?: string;
+  itemClassificationPriceFactorApplicable?: boolean;
   discountPercent?: number;
 
   // Payment overrides

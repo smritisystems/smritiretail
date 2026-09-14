@@ -35,6 +35,13 @@ class DocumentSeries(BaseEntity):
     mode           = Column(String(20), default="Auto")
     description    = Column(Text, nullable=True)
 
+    # Shoper 9 Parity & Multi-Terminal Scoping
+    terminal_id                = Column(String(50), default="COMMON", nullable=True)
+    is_common_across_terminals = Column(Boolean, default=True)
+    transaction_group          = Column(String(50), default="SALES")  # SALES, CASH, SLIPS
+    start_number               = Column(Integer, default=1)
+    is_void_unified            = Column(Boolean, default=False)
+
 
 class NumberingAuditLog(BaseEntity):
     """

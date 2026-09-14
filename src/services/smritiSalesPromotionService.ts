@@ -35,6 +35,8 @@
  *   Provides dynamic resolution for F6 Promotional Scheme selection during POS billing.
  */
 
+import { apiFetchV1 } from "../lib/apiFetchV1";
+
 export type SmritiPromoLevel = "ITEM_LEVEL" | "BILL_LEVEL";
 
 export type SmritiPromoCategory =
@@ -47,6 +49,92 @@ export type SmritiPromoCategory =
   | "BILL_DISCOUNT_PERCENT"
   | "BILL_VALUE_SLAB"
   | "BILL_FREE_GIFT";
+
+export interface BackendPromotionSchemeDTO {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  level: SmritiPromoLevel;
+  category: SmritiPromoCategory;
+  priority: number;
+  discount_value: number;
+  min_bill_value?: number;
+  min_qty?: number;
+  buy_qty?: number;
+  free_qty?: number;
+  max_discount?: number;
+  applicable_categories?: string[];
+  applicable_brands?: string[];
+  applicable_customer_groups?: string[];
+  valid_from: string;
+  valid_to: string;
+  is_happy_hours?: boolean;
+  happy_hours_start?: string;
+  happy_hours_end?: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+}
+
+export function mapBackendSchemeToLocal(dto: BackendPromotionSchemeDTO): SmritiDefinedSalesPromotion {
+  return {
+    id: dto.id,
+    code: dto.code,
+    name: dto.name,
+    description: dto.description || "",
+    level: dto.level,
+    category: dto.category,
+    priority: dto.priority || 1,
+    discountValue: dto.discount_value || 0,
+    minBillValue: dto.min_bill_value ?? undefined,
+    minQty: dto.min_qty ?? undefined,
+    buyQty: dto.buy_qty ?? undefined,
+    freeQty: dto.free_qty ?? undefined,
+    maxDiscount: dto.max_discount ?? undefined,
+    applicableCategories: dto.applicable_categories || [],
+    applicableBrands: dto.applicable_brands || [],
+    applicableCustomerGroups: dto.applicable_customer_groups || ["ALL"],
+    validFrom: dto.valid_from,
+    validTo: dto.valid_to,
+    isHappyHours: Boolean(dto.is_happy_hours),
+    happyHoursStart: dto.happy_hours_start,
+    happyHoursEnd: dto.happy_hours_end,
+    isActive: dto.is_active !== false,
+    createdAt: dto.created_at || new Date().toISOString(),
+    updatedAt: dto.updated_at || new Date().toISOString(),
+  };
+}
+
+export function mapLocalSchemeToBackend(promo: SmritiDefinedSalesPromotion): BackendPromotionSchemeDTO {
+  return {
+    id: promo.id,
+    code: promo.code,
+    name: promo.name,
+    description: promo.description || "",
+    level: promo.level,
+    category: promo.category,
+    priority: promo.priority,
+    discount_value: promo.discountValue,
+    min_bill_value: promo.minBillValue,
+    min_qty: promo.minQty,
+    buy_qty: promo.buyQty,
+    free_qty: promo.freeQty,
+    max_discount: promo.maxDiscount,
+    applicable_categories: promo.applicableCategories || [],
+    applicable_brands: promo.applicableBrands || [],
+    applicable_customer_groups: promo.applicableCustomerGroups || ["ALL"],
+    valid_from: promo.validFrom,
+    valid_to: promo.validTo,
+    is_happy_hours: promo.isHappyHours,
+    happy_hours_start: promo.happyHoursStart,
+    happy_hours_end: promo.happyHoursEnd,
+    is_active: promo.isActive,
+    created_at: promo.createdAt,
+    updated_at: promo.updatedAt,
+  };
+}
 
 export interface SmritiDefinedSalesPromotion {
   id: string;
@@ -330,6 +418,7 @@ export class SmritiSalesPromotionService {
     try {
       const storage = this.getStorage();
       storage?.setItem(STORAGE_KEY, JSON.stringify(all));
+      this.notifyChange();
     } catch (e) {
       console.error("[SmritiSalesPromotionService] Failed to save promotion to localStorage", e);
     }
@@ -343,6 +432,7 @@ export class SmritiSalesPromotionService {
     try {
       const storage = this.getStorage();
       storage?.setItem(STORAGE_KEY, JSON.stringify(all));
+      this.notifyChange();
     } catch (e) {
       console.error("[SmritiSalesPromotionService] Failed to delete promotion from localStorage", e);
     }
@@ -355,10 +445,112 @@ export class SmritiSalesPromotionService {
     try {
       const storage = this.getStorage();
       storage?.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_DEFINED_SALES_PROMOTIONS));
+      this.notifyChange();
     } catch (e) {
       console.error("[SmritiSalesPromotionService] Failed to reset promotions", e);
     }
     return DEFAULT_DEFINED_SALES_PROMOTIONS;
   }
+
+  /**
+   * Dispatch reactive update event to notify open components
+   */
+  private static notifyChange(): void {
+    try {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("smriti_promotions_updated"));
+      }
+    } catch {
+      // ignore in non-browser environments
+    }
+  }
+
+  /**
+   * Two-Way Sync from PostgreSQL Database to Local Storage Cache
+   */
+  public static async syncFromBackend(): Promise<{
+    schemes: SmritiDefinedSalesPromotion[];
+    source: "DATABASE" | "LOCAL_CACHE";
+    error?: string;
+  }> {
+    try {
+      const remoteDTOs = await apiFetchV1<BackendPromotionSchemeDTO[]>("/promotions/schemes");
+      if (Array.isArray(remoteDTOs) && remoteDTOs.length > 0) {
+        const mapped = remoteDTOs.map(mapBackendSchemeToLocal);
+        const storage = this.getStorage();
+        if (storage) {
+          storage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+        }
+        this.notifyChange();
+        return { schemes: mapped, source: "DATABASE" };
+      }
+    } catch (err: any) {
+      console.warn("[SmritiSalesPromotionService] Backend sync failed, falling back to local storage cache:", err?.message || err);
+      return {
+        schemes: this.getAllDefinedPromotions(),
+        source: "LOCAL_CACHE",
+        error: err?.message || "Offline or backend unavailable"
+      };
+    }
+
+    return { schemes: this.getAllDefinedPromotions(), source: "LOCAL_CACHE" };
+  }
+
+  /**
+   * Save (insert or update) a promotional scheme definition, saving to local storage
+   * and synchronizing asynchronously to PostgreSQL.
+   */
+  public static async saveScheme(promo: SmritiDefinedSalesPromotion): Promise<{
+    success: boolean;
+    syncedToBackend: boolean;
+    scheme: SmritiDefinedSalesPromotion;
+  }> {
+    // 1. Immediately commit locally for instant POS latency
+    this.savePromotion(promo);
+
+    // 2. Push to PostgreSQL database
+    let synced = false;
+    try {
+      const payload = mapLocalSchemeToBackend(promo);
+      const res = await apiFetchV1<BackendPromotionSchemeDTO>("/promotions/schemes", {
+        method: "POST",
+        body: payload
+      });
+      if (res && res.id) {
+        synced = true;
+      }
+    } catch (err: any) {
+      console.warn("[SmritiSalesPromotionService] Failed to push scheme to PostgreSQL backend:", err?.message || err);
+    }
+
+    this.notifyChange();
+    return { success: true, syncedToBackend: synced, scheme: promo };
+  }
+
+  /**
+   * Delete a promotion definition by ID from local storage and PostgreSQL
+   */
+  public static async deleteScheme(id: string): Promise<{
+    success: boolean;
+    syncedToBackend: boolean;
+  }> {
+    // 1. Remove from local storage
+    this.deletePromotion(id);
+
+    // 2. Remove from PostgreSQL
+    let synced = false;
+    try {
+      await apiFetchV1(`/promotions/schemes/${encodeURIComponent(id)}`, {
+        method: "DELETE"
+      });
+      synced = true;
+    } catch (err: any) {
+      console.warn("[SmritiSalesPromotionService] Failed to delete scheme from PostgreSQL backend:", err?.message || err);
+    }
+
+    this.notifyChange();
+    return { success: true, syncedToBackend: synced };
+  }
 }
+
 

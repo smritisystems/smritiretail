@@ -112,6 +112,7 @@ from .api.v1 import (
     workflow,
     workspace_ui,
     cge_unified,
+    system_parameters,
 )
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
@@ -251,6 +252,7 @@ app.include_router(analytics.router, prefix=settings.API_V1_STR + "/analytics", 
 app.include_router(integration.router, prefix=settings.API_V1_STR + "/integration", tags=["Integration Hub & Audit"])
 app.include_router(legacy_menu_map.router, prefix=settings.API_V1_STR + "/legacy-menu-map", tags=["Legacy Migration Registry"])  # Sprint 2/3: read-only Shoper9->SMRITI lineage
 app.include_router(scheduled_reports.router, prefix=settings.API_V1_STR)
+app.include_router(system_parameters.router, prefix=settings.API_V1_STR, tags=["System Parameters"])
 
 
 

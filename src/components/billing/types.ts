@@ -147,6 +147,9 @@ export interface AddonDeductionRow {
   rateType: "Fixed" | "Percentage";
   rate: number;
   amount: number;
+  timing?: "ABOVE_TAX" | "BELOW_TAX";
+  priceGroupCode?: string;
+  isVariable?: boolean;
 }
 
 export interface BillingSummaryTotals {
@@ -158,6 +161,11 @@ export interface BillingSummaryTotals {
   totalTax: number;
   totalAddons: number;
   totalDeductions: number;
+  aboveTaxAddons?: number;
+  aboveTaxDeductions?: number;
+  belowTaxAddons?: number;
+  belowTaxDeductions?: number;
+  adjustedTaxableValue?: number;
   roundOff: number;
   netAmount: number;
 }
