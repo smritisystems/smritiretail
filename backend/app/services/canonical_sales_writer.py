@@ -407,10 +407,28 @@ class CanonicalSalesPostingWriter:
             # Determine tax inclusive/exclusive mode
             if item.is_tax_inclusive is not None:
                 tax_inc = item.is_tax_inclusive
-            elif req.context.source_channel == "POS_RETAIL":
-                tax_inc = True  # Retail MRP inclusive by default
             else:
-                tax_inc = False  # Wholesale base exclusive by default
+                # Query item master / product catalog tax inclusivity
+                catalog_tax_inc = None
+                if identity.legacy_product_id:
+                    prod_tax = await session.scalar(
+                        select(Product.is_tax_inclusive).where(Product.id == identity.legacy_product_id)
+                    )
+                    if prod_tax is not None:
+                        catalog_tax_inc = prod_tax
+                if catalog_tax_inc is None and identity.canonical_item_id:
+                    item_tax = await session.scalar(
+                        select(Item.is_tax_inclusive).where(Item.id == identity.canonical_item_id)
+                    )
+                    if item_tax is not None:
+                        catalog_tax_inc = item_tax
+
+                if catalog_tax_inc is not None:
+                    tax_inc = catalog_tax_inc
+                elif req.context.source_channel == "POS_RETAIL":
+                    tax_inc = True  # Retail MRP inclusive by default
+                else:
+                    tax_inc = False  # Wholesale base exclusive by default
 
             # Resolve GST rate
             gst_rate = item.gst_rate

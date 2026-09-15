@@ -271,6 +271,7 @@ class POSCheckoutItem(BaseModel):
     mrp:        Optional[Decimal] = Field(None, ge=Decimal("0.00"))
     category:   Optional[str] = None
     brand:      Optional[str] = None
+    is_tax_inclusive: Optional[bool] = None
 
 
 class POSCheckoutRequest(BaseModel):

@@ -244,6 +244,9 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
           style_code: item.style || null,
           hsn_code: hsnCode,
           gst_percentage: gstRate,
+          is_tax_inclusive: item.isTaxInclusive !== undefined 
+            ? Boolean(item.isTaxInclusive) 
+            : (item.taxCalculationMode === "EXCLUSIVE" || (commonFieldValues as any).taxCalculationMode === "EXCLUSIVE" ? false : true),
           is_active: commonFieldValues.status === "active",
           attributes: attributesPayload
         };

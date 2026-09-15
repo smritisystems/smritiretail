@@ -33,6 +33,7 @@ class ProductBase(BaseModel):
     size: Optional[str] = Field(None, max_length=50)
     mrp: Decimal = Field(..., ge=0, description="MRP")
     gst_percentage: Decimal = Field(..., ge=0, description="GST Tax Rate (%)")
+    is_tax_inclusive: Optional[bool] = Field(default=True, description="Statutory MRP Tax Inclusive Flag")
     style_code: Optional[str] = Field(None, max_length=100)
     buying_price: Optional[Decimal] = None
     cost_price: Optional[Decimal] = None
@@ -177,6 +178,7 @@ class ProductUpdate(BaseModel):
     size: Optional[str] = None
     mrp: Optional[Decimal] = None
     gst_percentage: Optional[Decimal] = None
+    is_tax_inclusive: Optional[bool] = None
     style_code: Optional[str] = None
     buying_price: Optional[Decimal] = None
     cost_price: Optional[Decimal] = None

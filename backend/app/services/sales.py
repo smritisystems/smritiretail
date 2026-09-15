@@ -560,9 +560,11 @@ class SalesService:
                             "quantity": quantity
                         })
 
-            # Determine whether line is tax-inclusive (default: True for B2C consumer MRP, False for B2B wholesale)
+            # Determine whether line is tax-inclusive (Hierarchy: Line Item Override -> Product Master -> B2C consumer MRP / B2B wholesale)
             if item.is_tax_inclusive is not None:
                 is_inclusive = item.is_tax_inclusive
+            elif product and getattr(product, "is_tax_inclusive", None) is not None:
+                is_inclusive = product.is_tax_inclusive
             else:
                 is_inclusive = not is_registered_b2b
 
